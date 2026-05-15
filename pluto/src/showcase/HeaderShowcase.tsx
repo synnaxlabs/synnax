@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 

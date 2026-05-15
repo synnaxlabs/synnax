@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { destructor } from "@synnaxlabs/x/destructor";
-import { useAsyncEffect, useDestructors } from "@synnaxlabs/charon/hooks";
-import { Key } from "@synnaxlabs/charon/key";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
-import { state } from "@synnaxlabs/charon/state";
-import { Status } from "@synnaxlabs/charon/status";
+import { useAsyncEffect, useDestructors } from "@synnaxlabs/lyra/hooks";
+import { Key } from "@synnaxlabs/lyra/key";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { state } from "@synnaxlabs/lyra/state";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { useCallback, useState } from "react";
 import { type z } from "zod";
@@ -32,7 +32,7 @@ import {
   type RetrieveParams,
 } from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<

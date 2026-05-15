@@ -12,7 +12,7 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import { record } from "@synnaxlabs/x/record";
 import { uuid } from "@synnaxlabs/x/uuid";
 import { status } from "@synnaxlabs/x/status";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { device, ontology } from "@synnaxlabs/client";
 
 import { useEffect } from "react";

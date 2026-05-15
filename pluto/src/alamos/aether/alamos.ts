@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { z } from "zod";
 
 export const providerStateZ = z.object({

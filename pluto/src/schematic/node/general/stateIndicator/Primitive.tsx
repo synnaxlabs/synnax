@@ -10,9 +10,9 @@
 import { color } from "@synnaxlabs/x/color";
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type ReactElement } from "react";
 

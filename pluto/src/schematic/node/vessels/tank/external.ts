@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Component } from "@synnaxlabs/charon/component";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import { Component } from "@synnaxlabs/lyra/component";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";

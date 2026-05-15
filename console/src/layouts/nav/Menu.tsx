@@ -11,10 +11,10 @@ import { xy } from "@synnaxlabs/x/xy";
 import "@/layouts/nav/Nav.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { CSS as PCSS } from "@synnaxlabs/charon/css";
-import { useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Menu as PMenu } from "@synnaxlabs/charon/menu";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useStore } from "react-redux";

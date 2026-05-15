@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import { mockBoundingClientRect } from "@synnaxlabs/charon/testutil";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { useCallback } from "react";
 
 import { useSelectActiveKey } from "@/cluster/selectors";

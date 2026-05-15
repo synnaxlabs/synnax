@@ -9,8 +9,8 @@
 
 import { uuid } from "@synnaxlabs/x/uuid";
 import { group, ontology } from "@synnaxlabs/client";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tree } from "@synnaxlabs/charon/tree";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { type Flux, Group } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

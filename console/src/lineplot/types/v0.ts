@@ -12,7 +12,7 @@ import { box } from "@synnaxlabs/x/box";
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
-import { Text } from "@synnaxlabs/charon/text";
+import { Text } from "@synnaxlabs/lyra/text";
 import { telem, Viewport } from "@synnaxlabs/pluto";
 
 import { z } from "zod";

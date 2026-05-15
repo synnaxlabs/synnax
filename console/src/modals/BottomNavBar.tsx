@@ -9,7 +9,7 @@
 
 import "@/modals/BottomNavBar.css";
 
-import { Nav } from "@synnaxlabs/charon/nav";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

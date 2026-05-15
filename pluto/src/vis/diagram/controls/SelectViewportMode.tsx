@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
-import type { Triggers } from "@synnaxlabs/charon/triggers";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { memo, type ReactElement } from "react";
 

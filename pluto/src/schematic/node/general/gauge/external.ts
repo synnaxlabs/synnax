@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/gauge/config";

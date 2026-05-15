@@ -19,9 +19,17 @@ import {
   table,
   workspace,
 } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Access, LinePlot as PLinePlot, Log as PLog, Schematic as PSchematic, Synnax, Table as PTable, Workspace as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import {
+  Access,
+  LinePlot as PLinePlot,
+  Log as PLog,
+  Schematic as PSchematic,
+  Synnax,
+  Table as PTable,
+  Workspace as Base,
+} from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";

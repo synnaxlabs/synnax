@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { direction } from "@synnaxlabs/x/direction";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 
 import { z } from "zod";
 /**

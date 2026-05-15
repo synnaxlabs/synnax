@@ -12,9 +12,9 @@ import { direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { useCursorDrag } from "@synnaxlabs/charon/hooks";
-import type { Triggers } from "@synnaxlabs/charon/triggers";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useCursorDrag } from "@synnaxlabs/lyra/hooks";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { useReactFlow } from "@xyflow/react";
 import {

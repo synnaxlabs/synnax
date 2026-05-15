@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";

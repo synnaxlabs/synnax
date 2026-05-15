@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { optional } from "@synnaxlabs/x/optional";
-import { Aether } from "@synnaxlabs/charon/aether";
+import { Aether } from "@synnaxlabs/lyra/aether";
 
 import { memo, type ReactElement } from "react";
 

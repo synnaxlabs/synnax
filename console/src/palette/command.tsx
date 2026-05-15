@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { compare } from "@synnaxlabs/x/compare";
-import { context } from "@synnaxlabs/charon/context";
+import { context } from "@synnaxlabs/lyra/context";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import type { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Flux, type Pluto, Synnax } from "@synnaxlabs/pluto";
 
 import {

@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { record } from "@synnaxlabs/x/record";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { ontology, workspace } from "@synnaxlabs/client";
 
 import type z from "zod";

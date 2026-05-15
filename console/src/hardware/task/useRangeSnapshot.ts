@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x/array";
 import { strings } from "@synnaxlabs/x/strings";
 import { ranger } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type Flux, Task } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

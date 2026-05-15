@@ -11,17 +11,17 @@ import { color } from "@synnaxlabs/x/color";
 import "@/label/Edit.css";
 
 import { type label } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS as PCSS } from "@synnaxlabs/charon/css";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { useClickOutside } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { useClickOutside } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Color, type Flux, Label } from "@synnaxlabs/pluto";
 
 import { useCallback, useEffect, useRef, useState } from "react";

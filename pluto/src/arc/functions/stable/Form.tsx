@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { Input } from "@synnaxlabs/charon/input";
+import { Input } from "@synnaxlabs/lyra/input";
 
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const Form = () => (
   <Base.Field<number> path="duration">

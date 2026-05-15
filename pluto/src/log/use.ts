@@ -9,8 +9,8 @@
 
 import { box } from "@synnaxlabs/x/box";
 import { optional } from "@synnaxlabs/x/optional";
-import { Aether } from "@synnaxlabs/charon/aether";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 
 import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
 import { type z } from "zod";

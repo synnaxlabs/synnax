@@ -10,10 +10,10 @@
 import { array } from "@synnaxlabs/x/array";
 import { strings } from "@synnaxlabs/x/strings";
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

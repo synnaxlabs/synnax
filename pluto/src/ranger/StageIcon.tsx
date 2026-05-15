@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import type { Icon } from "@synnaxlabs/charon/icon";
+import type { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type ReactElement } from "react";
 

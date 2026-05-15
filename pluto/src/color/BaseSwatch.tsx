@@ -10,10 +10,10 @@
 import { color } from "@synnaxlabs/x/color";
 import "@/color/Swatch.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type ReactElement, useCallback } from "react";
 

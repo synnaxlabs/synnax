@@ -15,9 +15,9 @@ import { runtime } from "@synnaxlabs/x/runtime";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import type { aether } from "@synnaxlabs/charon/aether/runtime";
-import { CSS } from "@synnaxlabs/charon/css";
-import { status } from "@synnaxlabs/charon/status/aether";
+import type { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { status } from "@synnaxlabs/lyra/status/aether";
 
 import { alamos } from "@/alamos/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";

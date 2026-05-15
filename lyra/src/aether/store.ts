@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, errors, TimeSpan, zod } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x/errors";
+import { telem } from "@synnaxlabs/x/telem";
+import { zod } from "@synnaxlabs/x/zod";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { state } from "@/state";
 
-const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
+const DEFAULT_INVOKE_TIMEOUT = telem.TimeSpan.seconds(5);
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -56,7 +57,7 @@ class InvokeTracker {
     if (error != null)
       pending.reject(
         errors.decode(error) ??
-          new UnexpectedError(
+          new errors.UnexpectedError(
             "[aether.store] worker reported an invoke error but the payload decoded to null",
           ),
       );
@@ -144,7 +145,7 @@ export interface StoreConfig {
   workerURL?: string | URL;
   workerEnabled?: boolean;
   /** Default timeout for async method invocations. Defaults to 5s. */
-  invokeTimeout?: CrudeTimeSpan;
+  invokeTimeout?: telem.CrudeTimeSpan;
 }
 
 /**
@@ -185,7 +186,7 @@ export class Store {
   constructor(config: StoreConfig = {}) {
     const { worker, workerURL, workerEnabled = true } = config;
     if (workerEnabled && worker == null && workerURL == null)
-      throw new ValidationError(
+      throw new errors.ValidationError(
         "[aether.store] worker is enabled but neither `worker` nor `workerURL` was provided. Pass `workerEnabled: false` to opt out explicitly.",
       );
     this.config = config;
@@ -287,7 +288,7 @@ export class Store {
     if (entry != null) return entry.state;
     const cached = this.snapshotsByKey.get(key);
     if (cached != null) return cached as z.infer<StateSchema>;
-    throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
+    throw new errors.UnexpectedError(`[aether.store] missing entry for key ${key}`);
   }
 
   /** Single seam where the schema-specific types of `state` and `onReceiveRef` are
@@ -324,7 +325,7 @@ export class Store {
       methodsSchema,
     } = params;
     if (key.length === 0)
-      throw new ValidationError(
+      throw new errors.ValidationError(
         `[aether.store] received zero length key when registering component of type ${type}`,
       );
     if (type.length === 0)
@@ -380,7 +381,7 @@ export class Store {
     if (variant === "error") {
       this.setError(
         errors.decode(msg.error) ??
-          new UnexpectedError(
+          new errors.UnexpectedError(
             "[aether.store] worker error message decoded to null; the error payload contract requires a non-nil payload",
           ),
       );
@@ -408,7 +409,7 @@ export class Store {
   >(key: string, methodsSchema?: Methods): Handle<StateSchema, Methods> {
     const entry = this.getEntry<StateSchema>(key);
     if (entry == null)
-      throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
+      throw new errors.UnexpectedError(`[aether.store] missing entry for key ${key}`);
 
     const setState = (
       next: RawSetArg<StateSchema>,
@@ -442,7 +443,7 @@ export class Store {
       method: string,
       args: unknown[],
       signal: AbortSignal = AbortSignal.timeout(
-        new TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+        new telem.TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {

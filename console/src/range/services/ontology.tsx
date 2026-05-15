@@ -9,13 +9,13 @@
 
 import { strings } from "@synnaxlabs/x/strings";
 import { telem } from "@synnaxlabs/x/telem";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { type ontology, type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { Ontology } from "@/ontology";

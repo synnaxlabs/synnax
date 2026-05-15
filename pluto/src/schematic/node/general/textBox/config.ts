@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { text } from "@synnaxlabs/charon/text/base";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { text } from "@synnaxlabs/lyra/text/base";
 
 import { z } from "zod";
 

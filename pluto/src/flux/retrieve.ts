@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { destructor } from "@synnaxlabs/x/destructor";
-import { useAsyncEffect, useDestructors } from "@synnaxlabs/charon/hooks";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
-import { state } from "@synnaxlabs/charon/state";
-import { Status } from "@synnaxlabs/charon/status";
+import { useAsyncEffect, useDestructors } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { state } from "@synnaxlabs/lyra/state";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
 
 import { useCallback, useRef, useState } from "react";

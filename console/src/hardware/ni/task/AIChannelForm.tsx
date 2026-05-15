@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type FC } from "react";
 

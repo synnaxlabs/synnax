@@ -13,9 +13,9 @@ import { throttle } from "@synnaxlabs/x/debounce";
 import { direction } from "@synnaxlabs/x/direction";
 import { scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { Theming } from "@synnaxlabs/charon/theming";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 

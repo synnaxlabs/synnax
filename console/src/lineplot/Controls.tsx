@@ -10,11 +10,11 @@
 import { location } from "@synnaxlabs/x/location";
 import "@/lineplot/Controls.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Viewport } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useMemo } from "react";

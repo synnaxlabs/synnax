@@ -9,8 +9,8 @@
 
 import { errors } from "@synnaxlabs/x/errors";
 import { device } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Device } from "@synnaxlabs/pluto";
 
 import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";

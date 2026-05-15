@@ -11,8 +11,8 @@ import { color } from "@synnaxlabs/x/color";
 import { direction } from "@synnaxlabs/x/direction";
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Text } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type CSSProperties, type ReactElement } from "react";
 

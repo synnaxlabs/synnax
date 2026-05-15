@@ -9,7 +9,7 @@
 
 import { status } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { control } from "@synnaxlabs/client";
 
 import { describe, expect, it } from "vitest";

@@ -9,14 +9,14 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { optional } from "@synnaxlabs/x/optional";
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { state } from "@synnaxlabs/charon/state";
-import { Text } from "@synnaxlabs/charon/text";
-import type { Theming } from "@synnaxlabs/charon/theming";
-import { stopPropagation } from "@synnaxlabs/charon/util";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
+import type { Theming } from "@synnaxlabs/lyra/theming";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 
 import { memo, type ReactElement } from "react";
 

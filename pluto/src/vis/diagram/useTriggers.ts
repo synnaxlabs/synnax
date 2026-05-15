@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x/xy";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { useCallback } from "react";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";

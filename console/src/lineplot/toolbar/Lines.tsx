@@ -10,11 +10,11 @@
 import { bounds } from "@synnaxlabs/x/bounds";
 import { color } from "@synnaxlabs/x/color";
 import { xy } from "@synnaxlabs/x/xy";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Channel, Color, type telem } from "@synnaxlabs/pluto";
 
 import { type ReactElement } from "react";

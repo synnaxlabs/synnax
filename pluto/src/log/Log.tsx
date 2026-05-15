@@ -12,14 +12,14 @@ import { location } from "@synnaxlabs/x/location";
 import { strings } from "@synnaxlabs/x/strings";
 import "@/log/Log.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import type { Flex } from "@synnaxlabs/charon/flex";
-import { useCombinedRefs } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import type { Flex } from "@synnaxlabs/lyra/flex";
+import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 

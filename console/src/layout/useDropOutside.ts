@@ -10,10 +10,10 @@
 import { box } from "@synnaxlabs/x/box";
 import { runtime } from "@synnaxlabs/x/runtime";
 import { xy } from "@synnaxlabs/x/xy";
-import { Haul } from "@synnaxlabs/charon/haul";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Drift } from "@synnaxlabs/drift";
-import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Status } from "@synnaxlabs/charon/status";
+import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Mosaic } from "@synnaxlabs/pluto";
 
 import { listen } from "@tauri-apps/api/event";

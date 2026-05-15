@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/controls/Controls.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";

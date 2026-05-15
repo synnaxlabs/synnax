@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import type { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type CSSProperties, type FC } from "react";
 

@@ -14,12 +14,12 @@ import { sticky } from "@synnaxlabs/x/sticky";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/legend/Container.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import type { Input } from "@synnaxlabs/charon/input";
-import { state } from "@synnaxlabs/charon/state";
-import { preventDefault } from "@synnaxlabs/charon/util";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCursorDrag, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { state } from "@synnaxlabs/lyra/state";
+import { preventDefault } from "@synnaxlabs/lyra/util";
 
 import { memo, type ReactElement, useCallback, useRef } from "react";
 export interface ContainerProps

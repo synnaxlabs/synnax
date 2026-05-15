@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { DISPLAY } from "./constants";
 

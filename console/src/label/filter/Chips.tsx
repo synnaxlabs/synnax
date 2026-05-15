@@ -10,11 +10,11 @@
 import "@/label/filter/Chips.css";
 
 import { type label } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 

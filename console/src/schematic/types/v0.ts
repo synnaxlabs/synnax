@@ -12,8 +12,8 @@ import { dimensions } from "@synnaxlabs/x/dimensions";
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 import { control, Schematic, Value, Viewport } from "@synnaxlabs/pluto";
 
 import { z } from "zod";

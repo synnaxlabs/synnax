@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 const TABS = [

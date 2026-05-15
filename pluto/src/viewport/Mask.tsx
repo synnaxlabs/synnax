@@ -10,7 +10,7 @@
 import { box } from "@synnaxlabs/x/box";
 import "@/viewport/Mask.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 
 import { type CSSProperties, type ReactElement } from "react";
 

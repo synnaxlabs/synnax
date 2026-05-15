@@ -10,11 +10,11 @@
 import { binary } from "@synnaxlabs/x/binary";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { task } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { useCallback } from "react";
 

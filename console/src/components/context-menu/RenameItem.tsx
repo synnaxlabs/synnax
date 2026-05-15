@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement } from "react";
 
 export interface RenameItemProps extends Omit<Menu.ItemProps, "itemKey"> {}

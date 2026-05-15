@@ -10,8 +10,8 @@
 import { array } from "@synnaxlabs/x/array";
 import { strings } from "@synnaxlabs/x/strings";
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";

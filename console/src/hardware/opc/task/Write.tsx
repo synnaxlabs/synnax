@@ -10,10 +10,10 @@
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type FC } from "react";
 

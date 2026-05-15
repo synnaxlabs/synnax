@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { destructor } from "@synnaxlabs/x/destructor";
-import type { status } from "@synnaxlabs/charon/status/aether";
+import type { status } from "@synnaxlabs/lyra/status/aether";
 import { type framer, type Synnax } from "@synnaxlabs/client";
 
 import {

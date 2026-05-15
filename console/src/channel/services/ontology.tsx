@@ -9,15 +9,21 @@
 
 import { primitive } from "@synnaxlabs/x/primitive";
 import { status } from "@synnaxlabs/x/status";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
-import { Tree } from "@synnaxlabs/charon/tree";
-import { Access, Channel as PChannel, type Flux, type Schematic as PSchematic, telem } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Tree } from "@synnaxlabs/lyra/tree";
+import {
+  Access,
+  Channel as PChannel,
+  type Flux,
+  type Schematic as PSchematic,
+  telem,
+} from "@synnaxlabs/pluto";
 
 import { useCallback, useMemo } from "react";
 

@@ -9,9 +9,9 @@
 
 import { record } from "@synnaxlabs/x/record";
 import { type view } from "@synnaxlabs/client";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
 
 import {

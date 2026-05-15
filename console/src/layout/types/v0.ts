@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { Haul } from "@synnaxlabs/charon/haul";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Drift } from "@synnaxlabs/drift";
-import { Tabs } from "@synnaxlabs/charon/tabs";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Mosaic } from "@synnaxlabs/pluto";
 
 import { z } from "zod";

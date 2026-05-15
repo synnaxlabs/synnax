@@ -9,7 +9,7 @@
 
 import { status } from "@synnaxlabs/x/status";
 import { type arc, type task, UnexpectedError } from "@synnaxlabs/client";
-import type { List } from "@synnaxlabs/charon/list";
+import type { List } from "@synnaxlabs/lyra/list";
 import { Arc, type Flux, Task } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { group, type ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 

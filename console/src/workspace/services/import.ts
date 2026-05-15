@@ -10,7 +10,7 @@
 import { uuid } from "@synnaxlabs/x/uuid";
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax, workspace } from "@synnaxlabs/client";
-import type { Status } from "@synnaxlabs/charon/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Access, type Pluto } from "@synnaxlabs/pluto";
 
 import { join, sep } from "@tauri-apps/api/path";

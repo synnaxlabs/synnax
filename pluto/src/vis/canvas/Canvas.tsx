@@ -13,14 +13,14 @@ import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/canvas/Canvas.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { CSS } from "@synnaxlabs/charon/css";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { CSS } from "@synnaxlabs/lyra/css";
 import {
   useCombinedRefs,
   useResize,
   type UseResizeHandler,
   type UseResizeOpts,
-} from "@synnaxlabs/charon/hooks";
+} from "@synnaxlabs/lyra/hooks";
 
 import {
   type CanvasHTMLAttributes,

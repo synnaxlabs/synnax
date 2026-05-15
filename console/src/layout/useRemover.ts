@@ -9,8 +9,8 @@
 
 import { compare } from "@synnaxlabs/x/compare";
 import { unique } from "@synnaxlabs/x/unique";
-import { useMemoCompare } from "@synnaxlabs/charon/memo";
-import { Status } from "@synnaxlabs/charon/status";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";

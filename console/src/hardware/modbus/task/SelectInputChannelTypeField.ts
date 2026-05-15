@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 
 import { type InputChannelType } from "@/hardware/modbus/task/types";
 

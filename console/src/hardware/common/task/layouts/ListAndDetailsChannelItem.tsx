@@ -10,11 +10,11 @@
 import { direction } from "@synnaxlabs/x/direction";
 import { record } from "@synnaxlabs/x/record";
 import { type channel } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import type { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import type { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 
 import { cloneElement, type JSX } from "react";
 

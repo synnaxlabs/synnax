@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { newBEM } from "@synnaxlabs/charon/css";
+import { newBEM } from "@synnaxlabs/lyra/css";
 
 export const CSS = newBEM("console");

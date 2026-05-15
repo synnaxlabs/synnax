@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, deep, type destructor } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type telem } from "@synnaxlabs/x/telem";
 import {
   memo,
   type PropsWithChildren,
@@ -29,7 +31,7 @@ import { type MainComms } from "@/aether/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Key } from "@/key";
 import { useMemoArray } from "@/memo";
 import { type state } from "@/state";
 
@@ -59,7 +61,7 @@ export interface ProviderProps extends PropsWithChildren {
    * precedence over {@link workerURL} and {@link workerEnabled}. */
   worker?: MainComms;
   /** Default timeout for async method invocations. Defaults to 5s. */
-  invokeTimeout?: CrudeTimeSpan;
+  invokeTimeout?: telem.CrudeTimeSpan;
 }
 
 const ROOT_PATH = ["root"] as const;
@@ -145,7 +147,7 @@ export const useLifecycle = <
   StateSchema,
   Methods
 > => {
-  const key = useUniqueKey(aetherKey);
+  const key = Key.useUnique(aetherKey);
   const ctx = useContext();
   const path = useMemoArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);

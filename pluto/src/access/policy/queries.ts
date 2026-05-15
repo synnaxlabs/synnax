@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { type List } from "@synnaxlabs/charon/list";
+import { type List } from "@synnaxlabs/lyra/list";
 import { access, ontology } from "@synnaxlabs/client";
 
 import { z } from "zod";

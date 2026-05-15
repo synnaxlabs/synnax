@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";

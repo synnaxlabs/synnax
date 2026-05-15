@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { render, waitFor } from "@testing-library/react";
 import {
   Component,
@@ -377,7 +377,7 @@ describe("Aether Main", () => {
         return null;
       };
       render(
-        <Provider invokeTimeout={TimeSpan.milliseconds(50)}>
+        <Provider invokeTimeout={telem.TimeSpan.milliseconds(50)}>
           <InvokeLeafC />
         </Provider>,
       );

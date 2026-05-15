@@ -10,7 +10,7 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Nav } from "@synnaxlabs/charon/nav";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 

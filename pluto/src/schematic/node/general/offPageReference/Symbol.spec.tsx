@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";

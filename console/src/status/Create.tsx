@@ -9,11 +9,11 @@
 
 import { status } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Status } from "@synnaxlabs/charon/status";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { type ReactElement } from "react";
 import { type z } from "zod";

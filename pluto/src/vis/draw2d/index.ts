@@ -15,9 +15,9 @@ import { dimensions } from "@synnaxlabs/x/dimensions";
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
-import { text as textBase } from "@synnaxlabs/charon/text/base";
-import { Theming } from "@synnaxlabs/charon/theming";
-import type { theming } from "@synnaxlabs/charon/theming/aether";
+import { text as textBase } from "@synnaxlabs/lyra/text/base";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import type { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import {
   type FillTextOptions,

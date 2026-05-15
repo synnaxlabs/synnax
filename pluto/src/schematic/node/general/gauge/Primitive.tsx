@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Text } from "@synnaxlabs/charon/text";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type CSSProperties, type ReactElement } from "react";
 

@@ -12,10 +12,10 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import { strings } from "@synnaxlabs/x/strings";
 import { unique } from "@synnaxlabs/x/unique";
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type FC, useCallback } from "react";
 

@@ -9,13 +9,13 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { record } from "@synnaxlabs/x/record";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Select } from "@synnaxlabs/charon/select";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 const SELECT_DATA: record.KeyedNamed<string>[] = [
   { key: "pipe", name: "Pipe" },

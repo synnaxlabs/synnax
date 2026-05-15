@@ -12,7 +12,7 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import { uuid } from "@synnaxlabs/x/uuid";
 import { type label as _xlabel } from "@synnaxlabs/x/label";
 import { type telem as _xtelem } from "@synnaxlabs/x/telem";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { label, ontology, status, TimeStamp } from "@synnaxlabs/client";
 
 import { useEffect } from "react";

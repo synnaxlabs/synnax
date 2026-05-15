@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type FC } from "react";
 import { z } from "zod";

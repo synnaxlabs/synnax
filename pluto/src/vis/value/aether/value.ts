@@ -13,9 +13,9 @@ import { location } from "@synnaxlabs/x/location";
 import { notation } from "@synnaxlabs/x/notation";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { text } from "@synnaxlabs/charon/text/base";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { text } from "@synnaxlabs/lyra/text/base";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 

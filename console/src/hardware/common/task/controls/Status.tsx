@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement, useCallback } from "react";
 

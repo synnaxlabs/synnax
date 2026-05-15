@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { arc, rack } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tree } from "@synnaxlabs/charon/tree";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access, Rack } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 

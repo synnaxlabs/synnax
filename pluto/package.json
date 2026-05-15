@@ -21,7 +21,7 @@
     "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
-    "@synnaxlabs/charon": "workspace:^",
+    "@synnaxlabs/lyra": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",

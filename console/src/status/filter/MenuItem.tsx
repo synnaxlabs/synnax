@@ -9,11 +9,11 @@
 
 import { location } from "@synnaxlabs/x/location";
 import { status } from "@synnaxlabs/x/status";
-import { Component } from "@synnaxlabs/charon/component";
-import type { Dialog } from "@synnaxlabs/charon/dialog";
-import { Form } from "@synnaxlabs/charon/form";
-import type { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
+import { Component } from "@synnaxlabs/lyra/component";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Form } from "@synnaxlabs/lyra/form";
+import type { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { type ReactElement } from "react";
 

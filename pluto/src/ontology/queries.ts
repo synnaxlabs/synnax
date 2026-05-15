@@ -9,7 +9,7 @@
 
 import { destructor } from "@synnaxlabs/x/destructor";
 import { record } from "@synnaxlabs/x/record";
-import { type List } from "@synnaxlabs/charon/list";
+import { type List } from "@synnaxlabs/lyra/list";
 import { ontology } from "@synnaxlabs/client";
 import { useEffect } from "react";
 

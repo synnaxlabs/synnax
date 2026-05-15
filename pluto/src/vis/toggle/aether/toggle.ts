@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { destructor } from "@synnaxlabs/x/destructor";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
 
 import { z } from "zod";
 

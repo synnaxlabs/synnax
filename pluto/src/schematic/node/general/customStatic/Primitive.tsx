@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type schematic } from "@synnaxlabs/client";
 
 import { type ReactElement, useRef, useState } from "react";

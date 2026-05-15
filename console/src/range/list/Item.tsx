@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { stopPropagation } from "@synnaxlabs/charon/util";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type ranger } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Telem } from "@synnaxlabs/charon/telem";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { memo, useMemo } from "react";

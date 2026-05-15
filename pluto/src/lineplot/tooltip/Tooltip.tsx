@@ -9,8 +9,8 @@
 
 import { box } from "@synnaxlabs/x/box";
 import { xy } from "@synnaxlabs/x/xy";
-import { Aether } from "@synnaxlabs/charon/aether";
-import { Key } from "@synnaxlabs/charon/key";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { Key } from "@synnaxlabs/lyra/key";
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";

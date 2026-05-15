@@ -9,8 +9,8 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { dimensions } from "@synnaxlabs/x/dimensions";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type ReactElement, useMemo } from "react";
 

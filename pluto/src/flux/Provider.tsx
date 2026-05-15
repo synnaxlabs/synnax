@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { context } from "@synnaxlabs/charon/context";
-import { useInitializerRef } from "@synnaxlabs/charon/hooks";
-import { Key } from "@synnaxlabs/charon/key";
-import { Status } from "@synnaxlabs/charon/status";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { context } from "@synnaxlabs/lyra/context";
+import { useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import { Key } from "@synnaxlabs/lyra/key";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
 

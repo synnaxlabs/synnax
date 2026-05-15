@@ -9,7 +9,7 @@
 
 import { binary } from "@synnaxlabs/x/binary";
 import { control } from "@synnaxlabs/x/control";
-import { observe } from "@synnaxlabs/x/observe";
+import { type observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
 import { type channel } from "@/channel";

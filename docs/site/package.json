@@ -23,7 +23,7 @@
     "@astrojs/vercel": "^10.0.4",
     "@fontsource/geist-mono": "catalog:",
     "@synnaxlabs/arc": "workspace:^",
-    "@synnaxlabs/charon": "workspace:^",
+    "@synnaxlabs/lyra": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/media": "workspace:^",
     "@synnaxlabs/x": "workspace:^",

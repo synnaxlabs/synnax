@@ -11,12 +11,12 @@ import { record } from "@synnaxlabs/x/record";
 import "@/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS as PCSS } from "@synnaxlabs/charon/css";
-import { Errors } from "@synnaxlabs/charon/errors";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Errors } from "@synnaxlabs/lyra/errors";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { OS, Synnax } from "@synnaxlabs/pluto";
 
 import { getVersion } from "@tauri-apps/api/app";

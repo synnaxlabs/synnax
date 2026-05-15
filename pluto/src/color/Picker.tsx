@@ -10,13 +10,13 @@
 import { color } from "@synnaxlabs/x/color";
 import "@/color/Picker.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";

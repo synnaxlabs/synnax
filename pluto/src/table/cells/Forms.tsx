@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Select } from "@synnaxlabs/charon/select";
-import { Tabs } from "@synnaxlabs/charon/tabs";
-import type { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import type { Text } from "@synnaxlabs/lyra/text";
 
 import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type Variant } from "@/table/cells/registry";
 import { Value } from "@/vis/value";
 

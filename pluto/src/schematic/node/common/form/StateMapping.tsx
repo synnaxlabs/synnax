@@ -9,17 +9,17 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { id } from "@synnaxlabs/x/id";
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
 interface StateMappingFormProps {
   path: string;

@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 
 import {
   type ComponentPropsWithRef,

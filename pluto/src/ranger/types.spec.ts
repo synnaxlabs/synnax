@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { type ranger } from "@synnaxlabs/client";
 
 import { describe, expect, it } from "vitest";

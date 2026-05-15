@@ -9,9 +9,9 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
-import { context } from "@synnaxlabs/charon/context";
-import { useSyncedRef } from "@synnaxlabs/charon/hooks";
-import type { state } from "@synnaxlabs/charon/state";
+import { context } from "@synnaxlabs/lyra/context";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import type { state } from "@synnaxlabs/lyra/state";
 
 import React, {
   type PropsWithChildren,

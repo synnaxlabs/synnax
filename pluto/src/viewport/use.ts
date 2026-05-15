@@ -12,10 +12,10 @@ import { dimensions } from "@synnaxlabs/x/dimensions";
 import { location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/charon/hooks";
-import { useMemoCompare } from "@synnaxlabs/charon/memo";
-import { Triggers } from "@synnaxlabs/charon/triggers";
-import { findParent } from "@synnaxlabs/charon/util";
+import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { findParent } from "@synnaxlabs/lyra/util";
 
 import {
   type ForwardedRef,

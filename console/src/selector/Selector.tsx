@@ -9,9 +9,9 @@
 
 import "@/selector/Selector.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Eraser } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 

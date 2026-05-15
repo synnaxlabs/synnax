@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { List } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { plural } from "pluralize";
 import { type ReactElement } from "react";

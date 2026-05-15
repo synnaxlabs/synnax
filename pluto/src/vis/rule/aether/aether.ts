@@ -11,8 +11,8 @@ import { box } from "@synnaxlabs/x/box";
 import { color } from "@synnaxlabs/x/color";
 import { location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 

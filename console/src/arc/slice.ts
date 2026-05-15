@@ -13,7 +13,7 @@ import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type arc } from "@synnaxlabs/client";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import type { Diagram, Viewport } from "@synnaxlabs/pluto";
 
 import * as latest from "@/arc/types";

@@ -9,16 +9,16 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { type schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Color } from "@synnaxlabs/pluto";
 
 export interface RegionListProps extends Input.Control<string | undefined> {

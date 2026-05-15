@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Rack as PRack } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 

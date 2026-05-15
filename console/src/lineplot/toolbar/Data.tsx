@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

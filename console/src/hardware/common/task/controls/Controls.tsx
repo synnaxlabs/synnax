@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import type { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Status as BaseStatus } from "@synnaxlabs/charon/status";
+import type { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Status as BaseStatus } from "@synnaxlabs/lyra/status";
 import { type Flux, Synnax } from "@synnaxlabs/pluto";
 
 import { useCallback, useState } from "react";

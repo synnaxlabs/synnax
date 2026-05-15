@@ -12,7 +12,7 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { text as textBase } from "@synnaxlabs/charon/text/base";
+import { text as textBase } from "@synnaxlabs/lyra/text/base";
 
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";

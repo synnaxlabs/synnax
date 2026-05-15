@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import type { state } from "@synnaxlabs/charon/state";
-import type { Component } from "@synnaxlabs/charon/component";
-import type { List } from "@synnaxlabs/charon/list";
+import type { state } from "@synnaxlabs/lyra/state";
+import type { Component } from "@synnaxlabs/lyra/component";
+import type { List } from "@synnaxlabs/lyra/list";
 
 export interface RetrieveParams extends List.PagerParams {
   term?: string;

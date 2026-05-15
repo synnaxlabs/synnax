@@ -14,13 +14,13 @@ import { strings } from "@synnaxlabs/x/strings";
 import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Device as Base, Device } from "@synnaxlabs/pluto";
 
 import { useCallback, useRef, useState } from "react";

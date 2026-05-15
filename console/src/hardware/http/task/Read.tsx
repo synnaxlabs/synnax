@@ -13,19 +13,19 @@ import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/http/task/Form.css";
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Select } from "@synnaxlabs/charon/select";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type FC, useCallback, useState } from "react";
 

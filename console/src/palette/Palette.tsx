@@ -10,16 +10,16 @@
 import "@/palette/Palette.css";
 
 import { type ontology } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
 import { CSS } from "@/css";

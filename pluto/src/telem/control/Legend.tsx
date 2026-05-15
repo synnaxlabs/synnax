@@ -9,12 +9,12 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { unique } from "@synnaxlabs/x/unique";
-import { Aether } from "@synnaxlabs/charon/aether";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { state } from "@synnaxlabs/charon/state";
-import { Text } from "@synnaxlabs/charon/text";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
 import { UnexpectedError } from "@synnaxlabs/client";
 
 import { type ReactElement, useCallback, useEffect, useState } from "react";

@@ -9,9 +9,9 @@
 
 import { primitive } from "@synnaxlabs/x/primitive";
 import { type device } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/charon/form";
-import type { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
+import { Form } from "@synnaxlabs/lyra/form";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Device, Synnax } from "@synnaxlabs/pluto";
 
 import { type JSX, useCallback, useMemo } from "react";

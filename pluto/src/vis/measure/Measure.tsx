@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x/xy";
-import { Aether } from "@synnaxlabs/charon/aether";
-import { useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Key } from "@synnaxlabs/charon/key";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Key } from "@synnaxlabs/lyra/key";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 

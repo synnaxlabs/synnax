@@ -9,9 +9,9 @@
 
 import { migrate } from "@synnaxlabs/x/migrate";
 import { type PayloadAction } from "@reduxjs/toolkit";
-import type { state } from "@synnaxlabs/charon/state";
+import type { state } from "@synnaxlabs/lyra/state";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import type { Flux } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

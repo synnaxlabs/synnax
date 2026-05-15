@@ -9,7 +9,7 @@
 
 import { deep } from "@synnaxlabs/x/deep";
 import { telem } from "@synnaxlabs/x/telem";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
 
 import { z } from "zod";

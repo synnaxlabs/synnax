@@ -9,7 +9,7 @@
 
 import { record } from "@synnaxlabs/x/record";
 import { ontology } from "@synnaxlabs/client";
-import { Text } from "@synnaxlabs/charon/text";
+import { Text } from "@synnaxlabs/lyra/text";
 import type { Flux } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

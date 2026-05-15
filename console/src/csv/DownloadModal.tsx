@@ -10,14 +10,14 @@
 import { runtime } from "@synnaxlabs/x/runtime";
 import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import type { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import type { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Channel } from "@synnaxlabs/pluto";
 
 import { z } from "zod";

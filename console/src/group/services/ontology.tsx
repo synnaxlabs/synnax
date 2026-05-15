@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Tree } from "@synnaxlabs/charon/tree";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access, Flux, Group } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";

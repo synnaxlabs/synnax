@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
 import { type task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 
 import { type z } from "zod";
 

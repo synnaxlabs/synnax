@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { Button } from "@synnaxlabs/charon/button";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";

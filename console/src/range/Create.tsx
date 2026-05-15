@@ -12,13 +12,13 @@ import { uuid } from "@synnaxlabs/x/uuid";
 import "@/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger, Synnax } from "@synnaxlabs/pluto";
 
 import { useCallback, useRef } from "react";

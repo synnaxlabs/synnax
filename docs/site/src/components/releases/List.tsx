@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { type ReactElement, useEffect, useRef, useState } from "react";

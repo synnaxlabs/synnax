@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { Status as StatusBase } from "@synnaxlabs/charon/status";
-import { Theming } from "@synnaxlabs/charon/theming";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
-import { Triggers } from "@synnaxlabs/charon/triggers";
-import { canDisable, type CanDisabledProps } from "@synnaxlabs/charon/util";
-import { Worker } from "@synnaxlabs/charon/worker";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Status as StatusBase } from "@synnaxlabs/lyra/status";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
+import { Worker } from "@synnaxlabs/lyra/worker";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";

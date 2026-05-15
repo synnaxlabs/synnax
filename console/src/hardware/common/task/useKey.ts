@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type z } from "zod";
 
 export const useKey = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>

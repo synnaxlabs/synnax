@@ -12,9 +12,9 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { observe } from "@synnaxlabs/x/observe";
 import { unique } from "@synnaxlabs/x/unique";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 import {
   type channel,
   control,

@@ -10,13 +10,13 @@
 import { location } from "@synnaxlabs/x/location";
 import "@/schematic/node/common/grid/grid.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { triggerReflow } from "@synnaxlabs/charon/util";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { triggerReflow } from "@synnaxlabs/lyra/util";
 
 import {
   Children,

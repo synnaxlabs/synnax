@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ranger } from "@synnaxlabs/client";
 
 export const STAGES = ["to_do", "in_progress", "completed"] as const;

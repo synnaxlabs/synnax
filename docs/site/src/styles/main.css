@@ -19,8 +19,8 @@
 /* Declare layer order - later layers win */
 @layer pluto, base, overrides;
 
-@import "@synnaxlabs/charon/dist/charon.css" layer(pluto);
-@import "@synnaxlabs/charon/dist/theme.css" layer(pluto);
+@import "@synnaxlabs/lyra/dist/lyra.css" layer(pluto);
+@import "@synnaxlabs/lyra/dist/theme.css" layer(pluto);
 @import "@synnaxlabs/media/dist/media.css" layer(pluto);
 
 /* Import our CSS into higher priority layers */

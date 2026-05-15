@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x/id";
 import { record } from "@synnaxlabs/x/record";
 import { xy } from "@synnaxlabs/x/xy";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { TableCells } from "@synnaxlabs/pluto";
 
 import { z } from "zod";

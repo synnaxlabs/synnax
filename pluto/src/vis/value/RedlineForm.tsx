@@ -11,12 +11,12 @@ import { bounds } from "@synnaxlabs/x/bounds";
 import { color } from "@synnaxlabs/x/color";
 import { deep } from "@synnaxlabs/x/deep";
 import { scale } from "@synnaxlabs/x/scale";
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex } from "@synnaxlabs/lyra/flex";
 
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;

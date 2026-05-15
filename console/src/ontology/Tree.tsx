@@ -9,22 +9,27 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { observe } from "@synnaxlabs/x/observe";
-import { context } from "@synnaxlabs/charon/context";
-import { Haul } from "@synnaxlabs/charon/haul";
+import { context } from "@synnaxlabs/lyra/context";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import {
   DisconnectedError,
   NotFoundError,
   ontology,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { useAsyncEffect, useCombinedStateAndRef, useInitializerRef, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tree as Base } from "@synnaxlabs/charon/tree";
+import { Component } from "@synnaxlabs/lyra/component";
+import {
+  useAsyncEffect,
+  useCombinedStateAndRef,
+  useInitializerRef,
+  useSyncedRef,
+} from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Flux, Ontology, Synnax } from "@synnaxlabs/pluto";
 
 import {

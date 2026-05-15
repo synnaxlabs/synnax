@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component } from "@synnaxlabs/charon/component";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tree } from "@synnaxlabs/charon/tree";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Logo } from "@synnaxlabs/media";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 

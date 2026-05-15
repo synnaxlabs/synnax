@@ -9,7 +9,7 @@
 
 import { destructor } from "@synnaxlabs/x/destructor";
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
-import { context } from "@synnaxlabs/charon/context";
+import { context } from "@synnaxlabs/lyra/context";
 
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 

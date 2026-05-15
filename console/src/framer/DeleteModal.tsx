@@ -11,16 +11,16 @@ import { telem } from "@synnaxlabs/x/telem";
 import "@/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import type { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import type { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Synnax } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback, useState } from "react";
@@ -116,7 +116,9 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 onChange={(v) =>
                   set(
                     "timeRange.start",
-                    v ? telem.TimeRange.MAX.numeric.start : telem.TimeStamp.now().nanoseconds,
+                    v
+                      ? telem.TimeRange.MAX.numeric.start
+                      : telem.TimeStamp.now().nanoseconds,
                   )
                 }
               />
@@ -140,7 +142,9 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 onChange={(v) =>
                   set(
                     "timeRange.end",
-                    v ? telem.TimeRange.MAX.numeric.end : telem.TimeStamp.now().nanoseconds,
+                    v
+                      ? telem.TimeRange.MAX.numeric.end
+                      : telem.TimeStamp.now().nanoseconds,
                   )
                 }
               />

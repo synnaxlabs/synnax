@@ -10,12 +10,12 @@
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import "@/cluster/list/List.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { List as BaseList } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { List as BaseList } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Cluster as PCluster, Synnax } from "@synnaxlabs/pluto";
 
 import { memo, type ReactElement } from "react";

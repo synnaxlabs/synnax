@@ -15,10 +15,10 @@ import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/channel/LinePlot.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { usePrevious } from "@synnaxlabs/charon/hooks";
-import type { Text } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { usePrevious } from "@synnaxlabs/lyra/hooks";
+import type { Text } from "@synnaxlabs/lyra/text";
 import { type channel } from "@synnaxlabs/client";
 
 import {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { getVersion } from "@tauri-apps/api/app";
 import { useDispatch } from "react-redux";
 

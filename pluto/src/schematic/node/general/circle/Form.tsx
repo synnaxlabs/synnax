@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import type { Input } from "@synnaxlabs/charon/input";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import type { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {

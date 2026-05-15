@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import { Select } from "@synnaxlabs/charon/select";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement } from "react";
 

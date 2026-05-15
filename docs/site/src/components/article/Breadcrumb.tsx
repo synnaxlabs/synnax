@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
-import { Breadcrumb as Base } from "@synnaxlabs/charon/breadcrumb";
+import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
 
 export interface BreadcrumbProps {
   url: string;

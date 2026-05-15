@@ -18,8 +18,8 @@ import { scale } from "@synnaxlabs/x/scale";
 import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
 import { UnexpectedError } from "@synnaxlabs/client";
 
 import { z } from "zod";

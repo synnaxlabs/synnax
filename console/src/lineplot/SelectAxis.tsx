@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Input } from "@synnaxlabs/charon/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Channel } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 

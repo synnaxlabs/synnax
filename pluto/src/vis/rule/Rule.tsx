@@ -11,13 +11,13 @@ import { box } from "@synnaxlabs/x/box";
 import { color } from "@synnaxlabs/x/color";
 import "@/vis/rule/Rule.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { state } from "@synnaxlabs/charon/state";
-import { Text } from "@synnaxlabs/charon/text";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { useCursorDrag, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";

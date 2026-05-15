@@ -12,7 +12,7 @@ import { direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/layouts/nav/Nav.css";
 
-import { Nav } from "@synnaxlabs/charon/nav";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Eraser } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback } from "react";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";

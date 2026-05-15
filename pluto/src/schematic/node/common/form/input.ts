@@ -9,8 +9,8 @@
 
 import { bounds } from "@synnaxlabs/x/bounds";
 import { xy } from "@synnaxlabs/x/xy";
-import type { Input } from "@synnaxlabs/charon/input";
-import type { Tabs } from "@synnaxlabs/charon/tabs";
+import type { Input } from "@synnaxlabs/lyra/input";
+import type { Tabs } from "@synnaxlabs/lyra/tabs";
 
 export const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "ms",

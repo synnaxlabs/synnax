@@ -14,9 +14,9 @@ import { math } from "@synnaxlabs/x/math";
 import { scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import type { Theming } from "@synnaxlabs/charon/theming";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import type { Theming } from "@synnaxlabs/lyra/theming";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 

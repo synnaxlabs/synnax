@@ -11,8 +11,8 @@ import { box } from "@synnaxlabs/x/box";
 import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
-import { mockRenderContext } from "@synnaxlabs/charon/testutil";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { mockRenderContext } from "@synnaxlabs/lyra/testutil";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

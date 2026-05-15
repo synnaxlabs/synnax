@@ -10,7 +10,7 @@
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
 import { spatial } from "@synnaxlabs/x/spatial";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 
 import { type Node } from "@/mosaic/types";
 /**

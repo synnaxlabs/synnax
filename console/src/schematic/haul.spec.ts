@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x/id";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 
 import { describe, expect, it } from "vitest";
 

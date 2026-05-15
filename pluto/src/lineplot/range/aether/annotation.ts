@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { theming } from "@synnaxlabs/charon/theming/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 

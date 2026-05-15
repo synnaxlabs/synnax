@@ -11,7 +11,7 @@ import { box } from "@synnaxlabs/x/box";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/lineplot/Viewport.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 
 import {
   type PropsWithChildren,

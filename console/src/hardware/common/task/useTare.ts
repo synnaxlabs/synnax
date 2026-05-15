@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, DisconnectedError } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 

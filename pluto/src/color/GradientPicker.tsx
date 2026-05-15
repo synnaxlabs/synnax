@@ -14,17 +14,17 @@ import { id } from "@synnaxlabs/x/id";
 import { scale } from "@synnaxlabs/x/scale";
 import "@/color/GradientPicker.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import {
   useCombinedStateAndRef,
   useCursorDrag,
   useSyncedRef,
-} from "@synnaxlabs/charon/hooks";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
-import { stopPropagation } from "@synnaxlabs/charon/util";
+} from "@synnaxlabs/lyra/hooks";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 
 import { type ReactElement, useRef } from "react";
 

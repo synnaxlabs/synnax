@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { aether } from "@synnaxlabs/charon/aether/runtime";
+import type { aether } from "@synnaxlabs/lyra/aether/runtime";
 
 import { Chip } from "@/telem/control/aether/chip";
 import { Controller } from "@/telem/control/aether/controller";

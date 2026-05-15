@@ -9,7 +9,7 @@
 
 import { box } from "@synnaxlabs/x/box";
 import { runtime } from "@synnaxlabs/x/runtime";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { UnexpectedError } from "@synnaxlabs/client";
 
 import { z } from "zod";

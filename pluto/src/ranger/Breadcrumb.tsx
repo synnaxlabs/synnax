@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { Breadcrumb as Base } from "@synnaxlabs/charon/breadcrumb";
+import { Breadcrumb as Base } from "@synnaxlabs/lyra/breadcrumb";
 import { type ranger } from "@synnaxlabs/client";
 
 import { StageIcon } from "@/ranger/StageIcon";

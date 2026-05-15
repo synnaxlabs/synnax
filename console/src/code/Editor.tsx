@@ -9,12 +9,12 @@
 
 import "@/code/Editor.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Theming } from "@synnaxlabs/charon/theming";
-import type { Triggers } from "@synnaxlabs/charon/triggers";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";

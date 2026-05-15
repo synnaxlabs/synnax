@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/x/color";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const ColorField: Base.FieldT<color.Crude> = (props): ReactElement => (
   <Base.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>

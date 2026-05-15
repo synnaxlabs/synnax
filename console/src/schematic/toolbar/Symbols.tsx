@@ -9,20 +9,20 @@
 
 import { id } from "@synnaxlabs/x/id";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { Key } from "@synnaxlabs/charon/key";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Key } from "@synnaxlabs/lyra/key";
 import { group, type ontology, schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access, Group, Schematic } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";

@@ -10,7 +10,7 @@
 import { telem } from "@synnaxlabs/x/telem";
 import { unique } from "@synnaxlabs/x/unique";
 import { type channel } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import type { Channel } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

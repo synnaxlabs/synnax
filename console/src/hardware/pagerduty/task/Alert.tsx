@@ -9,18 +9,18 @@
 
 import { id } from "@synnaxlabs/x/id";
 import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Menu as PMenu } from "@synnaxlabs/charon/menu";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Rack } from "@synnaxlabs/pluto";
 
 import { type FC, useCallback, useState } from "react";

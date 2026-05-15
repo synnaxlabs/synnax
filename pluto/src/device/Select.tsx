@@ -9,12 +9,12 @@
 
 import "@/device/Select.css";
 
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 

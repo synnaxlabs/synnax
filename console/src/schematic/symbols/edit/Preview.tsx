@@ -11,12 +11,12 @@ import { box } from "@synnaxlabs/x/box";
 import { id } from "@synnaxlabs/x/id";
 import { xy } from "@synnaxlabs/x/xy";
 import { type schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useEffect, useRef, useState } from "react";

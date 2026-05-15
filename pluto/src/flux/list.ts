@@ -18,8 +18,8 @@ import {
   useDestructors,
   useInitializerRef,
   useSyncedRef,
-} from "@synnaxlabs/charon/hooks";
-import { state } from "@synnaxlabs/charon/state";
+} from "@synnaxlabs/lyra/hooks";
+import { state } from "@synnaxlabs/lyra/state";
 
 import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 

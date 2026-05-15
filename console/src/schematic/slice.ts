@@ -14,7 +14,7 @@ import { require } from "@synnaxlabs/x/require";
 import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 import type { Control, Diagram, Viewport } from "@synnaxlabs/pluto";
 
 import * as latest from "@/schematic/types";

@@ -9,8 +9,8 @@
 
 import { telem } from "@synnaxlabs/x/telem";
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";

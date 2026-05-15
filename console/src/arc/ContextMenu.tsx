@@ -9,11 +9,11 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { arc } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { List } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { List } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Arc, type Flux } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

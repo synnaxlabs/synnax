@@ -10,7 +10,7 @@
 import { location } from "@synnaxlabs/x/location";
 import { type ReactElement } from "react";
 
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type Label } from "@/schematic/node/common/label";
 import { Select } from "@/schematic/node/common/orientation/select";
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 import { type schematic } from "@synnaxlabs/client";
 
 import { type MouseEventHandler, type ReactElement, useRef, useState } from "react";

@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { checkConnection } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 

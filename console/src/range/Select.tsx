@@ -9,14 +9,14 @@
 
 import { telem } from "@synnaxlabs/x/telem";
 import { ranger } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger } from "@synnaxlabs/pluto";
 
 import { type ReactElement } from "react";

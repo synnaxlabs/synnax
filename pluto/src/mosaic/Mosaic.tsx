@@ -12,11 +12,11 @@ import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/mosaic/Mosaic.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import type { Flex } from "@synnaxlabs/charon/flex";
-import { Haul } from "@synnaxlabs/charon/haul";
-import { Portal } from "@synnaxlabs/charon/portal";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { CSS } from "@synnaxlabs/lyra/css";
+import type { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Portal } from "@synnaxlabs/lyra/portal";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 
 import {
   type DragEvent,
@@ -28,10 +28,10 @@ import {
   useState,
 } from "react";
 
-import { Errors } from "@synnaxlabs/charon/errors";
+import { Errors } from "@synnaxlabs/lyra/errors";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
-import { Resize } from "@synnaxlabs/charon/resize";
+import { Resize } from "@synnaxlabs/lyra/resize";
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
   extends

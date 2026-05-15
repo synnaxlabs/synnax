@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import {
   access,
   ontology,

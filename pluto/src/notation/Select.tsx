@@ -10,9 +10,9 @@
 import { notation } from "@synnaxlabs/x/notation";
 import "@/notation/Select.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select as BaseSelect } from "@synnaxlabs/charon/select";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement } from "react";
 

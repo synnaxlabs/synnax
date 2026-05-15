@@ -10,9 +10,9 @@
 import { direction } from "@synnaxlabs/x/direction";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Mosaic } from "@synnaxlabs/pluto";
 
 import { type FC, type ReactElement } from "react";

@@ -9,11 +9,11 @@
 
 import "@/hardware/http/task/EndpointListItem.css";
 
-import { Component } from "@synnaxlabs/charon/component";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import type { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import type { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactNode } from "react";
 
 import { CSS } from "@/css";

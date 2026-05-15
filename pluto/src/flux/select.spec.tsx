@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { aetherTest } from "@synnaxlabs/charon/aether/test";
-import { Status } from "@synnaxlabs/charon/status";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aetherTest } from "@synnaxlabs/lyra/aether/test";
+import { Status } from "@synnaxlabs/lyra/status";
+import { status } from "@synnaxlabs/lyra/status/aether";
 
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";

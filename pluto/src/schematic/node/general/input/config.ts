@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { dimensions } from "@synnaxlabs/x/dimensions";
-import { Component } from "@synnaxlabs/charon/component";
+import { Component } from "@synnaxlabs/lyra/component";
 
 import { z } from "zod";
 

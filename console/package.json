@@ -30,7 +30,7 @@
     "@fontsource/inter": "catalog:",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/arc": "workspace:^",
-    "@synnaxlabs/charon": "workspace:^",
+    "@synnaxlabs/lyra": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/drift": "workspace:^",
     "@synnaxlabs/freighter": "workspace:^",

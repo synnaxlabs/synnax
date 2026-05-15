@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/x/color";
 import { location } from "@synnaxlabs/x/location";
 import { notation } from "@synnaxlabs/x/notation";
 import { xy } from "@synnaxlabs/x/xy";
-import { text } from "@synnaxlabs/charon/text/base";
+import { text } from "@synnaxlabs/lyra/text/base";
 
 import { z } from "zod";
 

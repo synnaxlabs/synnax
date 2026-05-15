@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { type ranger } from "@synnaxlabs/client";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Text } from "@synnaxlabs/charon/text";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Label as PLabel } from "@synnaxlabs/pluto";
 
 import { Label } from "@/label";

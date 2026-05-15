@@ -10,11 +10,11 @@
 import { deep } from "@synnaxlabs/x/deep";
 import { optional } from "@synnaxlabs/x/optional";
 import { record } from "@synnaxlabs/x/record";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type FC, useMemo } from "react";
 

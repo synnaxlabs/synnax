@@ -10,18 +10,18 @@
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { color } from "@synnaxlabs/x/color";
 import { deep } from "@synnaxlabs/x/deep";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type schematic } from "@synnaxlabs/client";
 
 import { type CSSProperties, type ReactElement, useCallback, useState } from "react";
 
 import { Color } from "@/color";
 import { type Flux } from "@/flux";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
 const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 

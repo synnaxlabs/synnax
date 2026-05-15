@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 

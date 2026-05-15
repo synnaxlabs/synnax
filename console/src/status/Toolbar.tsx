@@ -10,16 +10,16 @@
 import "@/status/Toolbar.css";
 
 import { status } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List as BaseList } from "@synnaxlabs/charon/list";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Select } from "@synnaxlabs/charon/select";
-import { Status } from "@synnaxlabs/charon/status";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List as BaseList } from "@synnaxlabs/lyra/list";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";

@@ -9,7 +9,7 @@
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { telem } from "@synnaxlabs/x/telem";
-import { Select } from "@synnaxlabs/charon/select";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement, useMemo } from "react";
 

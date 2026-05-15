@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { optional } from "@synnaxlabs/x/optional";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Key } from "@synnaxlabs/charon/key";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Key } from "@synnaxlabs/lyra/key";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { memo, type ReactElement, useMemo } from "react";
 

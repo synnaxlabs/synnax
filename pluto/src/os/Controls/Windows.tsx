@@ -9,10 +9,10 @@
 
 import "@/os/Controls/Windows.css";
 
-import { Button as BaseButton } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
 import { type InternalControlsProps } from "@/os/Controls/types";

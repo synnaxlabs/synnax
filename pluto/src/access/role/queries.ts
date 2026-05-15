@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { type List } from "@synnaxlabs/charon/list";
+import { type List } from "@synnaxlabs/lyra/list";
 import { access, ontology, user } from "@synnaxlabs/client";
 
 import { z } from "zod";

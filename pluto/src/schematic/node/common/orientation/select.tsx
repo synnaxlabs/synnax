@@ -10,10 +10,10 @@
 import { location } from "@synnaxlabs/x/location";
 import "@/schematic/node/common/orientation/select.css";
 
-import { Button as BaseButton } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import type { Input } from "@synnaxlabs/charon/input";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import type { Input } from "@synnaxlabs/lyra/input";
 
 import { type CSSProperties, type ReactElement } from "react";
 

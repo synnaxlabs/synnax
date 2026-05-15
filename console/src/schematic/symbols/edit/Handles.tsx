@@ -12,8 +12,8 @@ import { location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import { type schematic } from "@synnaxlabs/client";
-import { useCursorDrag } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { useCursorDrag } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { useRef } from "react";
 

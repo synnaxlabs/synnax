@@ -10,8 +10,8 @@
 import { box } from "@synnaxlabs/x/box";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type ReactElement, useMemo } from "react";
 

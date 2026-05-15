@@ -11,10 +11,10 @@ import { breaker } from "@synnaxlabs/x/breaker";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { migrate } from "@synnaxlabs/x/migrate";
 import { status } from "@synnaxlabs/x/status";
-import { Aether } from "@synnaxlabs/charon/aether";
-import { context } from "@synnaxlabs/charon/context";
-import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
-import { Status } from "@synnaxlabs/charon/status";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { context } from "@synnaxlabs/lyra/context";
+import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 import {
   type connection,
   Synnax,

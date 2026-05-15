@@ -11,10 +11,10 @@ import { caseconv } from "@synnaxlabs/x/caseconv";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { telem } from "@synnaxlabs/x/telem";
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type FC, type ReactElement } from "react";
 

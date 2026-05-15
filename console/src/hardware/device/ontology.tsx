@@ -11,10 +11,10 @@ import { status } from "@synnaxlabs/x/status";
 import "@/hardware/device/ontology.css";
 
 import { device, type ontology } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tree } from "@synnaxlabs/charon/tree";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
 import { useMemo } from "react";

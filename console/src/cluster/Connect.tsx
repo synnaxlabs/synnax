@@ -12,12 +12,12 @@ import { uuid } from "@synnaxlabs/x/uuid";
 import "@/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Status } from "@synnaxlabs/charon/status";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
 import { useState } from "react";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { state } from "@synnaxlabs/charon/state";
+import type { state } from "@synnaxlabs/lyra/state";
 
 /** Options to control async operations. */
 export interface FetchOptions {

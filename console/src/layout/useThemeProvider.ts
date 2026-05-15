@@ -9,8 +9,8 @@
 
 import { destructor } from "@synnaxlabs/x/destructor";
 import { type UnknownAction } from "@reduxjs/toolkit";
-import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";

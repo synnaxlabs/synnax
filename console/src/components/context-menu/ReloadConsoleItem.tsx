@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { reloadWindow } from "@synnaxlabs/drift";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

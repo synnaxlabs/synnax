@@ -9,11 +9,11 @@
 
 import "@/layout/Window.css";
 
-import { Haul } from "@synnaxlabs/charon/haul";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";

@@ -9,10 +9,10 @@
 
 import { deep } from "@synnaxlabs/x/deep";
 import { type schematic } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import type { Input } from "@synnaxlabs/charon/input";
-import { Select } from "@synnaxlabs/charon/select";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 

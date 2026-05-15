@@ -14,8 +14,8 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { status as xstatus } from "@synnaxlabs/x/status";
 import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
 import {
   channel,
   control,

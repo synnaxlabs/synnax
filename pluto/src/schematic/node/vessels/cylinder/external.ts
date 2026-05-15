@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";

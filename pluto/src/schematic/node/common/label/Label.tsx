@@ -9,10 +9,10 @@
 
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Text } from "@synnaxlabs/charon/text";
-import { text } from "@synnaxlabs/charon/text/base";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
+import { text } from "@synnaxlabs/lyra/text/base";
 
 import {
   type CSSProperties,

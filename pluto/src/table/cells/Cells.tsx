@@ -14,9 +14,9 @@ import { record } from "@synnaxlabs/x/record";
 import { scale } from "@synnaxlabs/x/scale";
 import "@/table/cells/Cells.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text as BaseText } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text as BaseText } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement } from "react";
 import { z } from "zod";

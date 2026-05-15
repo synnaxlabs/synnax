@@ -9,11 +9,11 @@
 
 import { telem } from "@synnaxlabs/x/telem";
 import { Logo } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Progress } from "@synnaxlabs/charon/progress";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Progress } from "@synnaxlabs/lyra/progress";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto";
 
 import { relaunch } from "@tauri-apps/plugin-process";

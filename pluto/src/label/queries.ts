@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { primitive } from "@synnaxlabs/x/primitive";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { label, ontology } from "@synnaxlabs/client";
 
 import type z from "zod";

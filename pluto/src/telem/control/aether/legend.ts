@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x/color";
 import { control } from "@synnaxlabs/x/control";
 import { destructor } from "@synnaxlabs/x/destructor";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { channel } from "@synnaxlabs/client";
 
 import { z } from "zod";

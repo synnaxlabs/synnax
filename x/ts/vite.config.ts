@@ -75,7 +75,6 @@ export default defineConfig({
         unique: r("src/unique/index.ts"),
         url: r("src/url/index.ts"),
         uuid: r("src/uuid/index.ts"),
-        worker: r("src/worker/index.ts"),
         xy: r("src/spatial/xy/index.ts"),
         zod: r("src/zod/index.ts"),
       },

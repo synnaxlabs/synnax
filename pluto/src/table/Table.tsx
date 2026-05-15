@@ -11,12 +11,12 @@ import { box } from "@synnaxlabs/x/box";
 import { direction } from "@synnaxlabs/x/direction";
 import "@/table/Table.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { CSS } from "@synnaxlabs/charon/css";
-import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Text } from "@synnaxlabs/charon/text";
-import { stopPropagation } from "@synnaxlabs/charon/util";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useCursorDrag, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 
 import {
   type ComponentPropsWithoutRef,

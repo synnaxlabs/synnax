@@ -9,9 +9,9 @@
 
 import "@/schematic/node/general/setpoint/setpoint.css";
 
-import { Button as BaseButton } from "@synnaxlabs/charon/button";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Input as BaseInput } from "@synnaxlabs/charon/input";
+import { Button as BaseButton } from "@synnaxlabs/lyra/button";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { type CSSProperties, type ReactElement, useState } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";

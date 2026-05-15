@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
-import { stopPropagation } from "@synnaxlabs/charon/util";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 
 import {
   Handle as RFHandle,

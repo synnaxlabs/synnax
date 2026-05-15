@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Select } from "@synnaxlabs/charon/select";
-import type { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Select } from "@synnaxlabs/lyra/select";
+import type { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { schematic } from "@synnaxlabs/client";
 
 import { type ReactElement, useCallback } from "react";
 
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";

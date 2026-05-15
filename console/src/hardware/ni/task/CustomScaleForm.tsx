@@ -10,12 +10,12 @@
 import { binary } from "@synnaxlabs/x/binary";
 import { deep } from "@synnaxlabs/x/deep";
 import { record } from "@synnaxlabs/x/record";
-import { state } from "@synnaxlabs/charon/state";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Select } from "@synnaxlabs/charon/select";
+import { state } from "@synnaxlabs/lyra/state";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";

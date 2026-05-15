@@ -9,15 +9,15 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { Haul } from "@synnaxlabs/charon/haul";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { type channel } from "@synnaxlabs/client";
-import type { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Header as PHeader } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import type { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";

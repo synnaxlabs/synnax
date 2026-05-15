@@ -9,9 +9,9 @@
 
 import "@/vis/legend/Grouped.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Text } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment, type ReactElement, useState } from "react";
 
 import { Container, type ContainerProps } from "@/vis/legend/Container";

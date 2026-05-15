@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import type { Icon } from "@synnaxlabs/charon/icon";
-import type { List } from "@synnaxlabs/charon/list";
-import type { Status } from "@synnaxlabs/charon/status";
-import type { Tree } from "@synnaxlabs/charon/tree";
+import type { Icon } from "@synnaxlabs/lyra/icon";
+import type { List } from "@synnaxlabs/lyra/list";
+import type { Status } from "@synnaxlabs/lyra/status";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 
 import { type FC } from "react";
 

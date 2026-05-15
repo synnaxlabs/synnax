@@ -9,16 +9,16 @@
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { deep } from "@synnaxlabs/x/deep";
-import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
-import { Component } from "@synnaxlabs/charon/component";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";

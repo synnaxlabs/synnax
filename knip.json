@@ -13,7 +13,7 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "charon": {
+    "lyra": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.{ts,tsx}"]
     },

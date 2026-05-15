@@ -12,9 +12,9 @@ import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Input } from "@synnaxlabs/charon/input";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Device, type Flux, Task } from "@synnaxlabs/pluto";
 
 import { type FC, useCallback } from "react";

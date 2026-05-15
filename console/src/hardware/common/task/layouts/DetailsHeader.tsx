@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { binary } from "@synnaxlabs/x/binary";
-import { Button } from "@synnaxlabs/charon/button";
-import { Form } from "@synnaxlabs/charon/form";
-import { Header } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { useCallback } from "react";
 

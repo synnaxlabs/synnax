@@ -11,11 +11,11 @@ import { caseconv } from "@synnaxlabs/x/caseconv";
 import { status } from "@synnaxlabs/x/status";
 import "@/status/filter/Chips.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Status } from "@synnaxlabs/charon/status";
-import { Tag } from "@synnaxlabs/charon/tag";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Tag } from "@synnaxlabs/lyra/tag";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement } from "react";
 

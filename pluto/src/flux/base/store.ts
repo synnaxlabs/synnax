@@ -12,8 +12,8 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { narrow } from "@synnaxlabs/x/narrow";
 import { observe } from "@synnaxlabs/x/observe";
 import { record } from "@synnaxlabs/x/record";
-import { state } from "@synnaxlabs/charon/state";
-import type { status } from "@synnaxlabs/charon/status/aether";
+import { state } from "@synnaxlabs/lyra/state";
+import type { status } from "@synnaxlabs/lyra/status/aether";
 import { type Synnax } from "@synnaxlabs/client";
 
 import type z from "zod";

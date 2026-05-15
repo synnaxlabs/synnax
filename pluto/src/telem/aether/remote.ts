@@ -12,7 +12,7 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { status as xstatus } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
-import type { status } from "@synnaxlabs/charon/status/aether";
+import type { status } from "@synnaxlabs/lyra/status/aether";
 import { channel, NotFoundError } from "@synnaxlabs/client";
 
 import { z } from "zod";

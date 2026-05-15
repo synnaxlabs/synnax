@@ -16,11 +16,11 @@ import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
 import "@/lineplot/LinePlot.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { context } from "@synnaxlabs/charon/context";
-import { CSS } from "@synnaxlabs/charon/css";
-import { useEffectCompare } from "@synnaxlabs/charon/hooks";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { context } from "@synnaxlabs/lyra/context";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 
 import {
   type CSSProperties,

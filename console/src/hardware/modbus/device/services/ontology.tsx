@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Menu } from "@synnaxlabs/lyra/menu";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/modbus/device";

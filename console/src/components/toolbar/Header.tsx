@@ -9,9 +9,9 @@
 
 import "@/components/toolbar/Header.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Header as PHeader } from "@synnaxlabs/charon/header";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

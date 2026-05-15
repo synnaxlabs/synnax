@@ -16,11 +16,11 @@ import path from "path";
 import { defineConfig, esmExternalRequirePlugin } from "vite";
 
 export default defineConfig({
-  base: "/charon/",
+  base: "/lyra/",
   plugins: [
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
-    lib({ name: "charon" }),
+    lib({ name: "lyra" }),
     {
       name: "copy-theme-css",
       closeBundle() {
@@ -87,7 +87,6 @@ export default defineConfig({
         triggers: path.resolve(".", "src/triggers/index.ts"),
         util: path.resolve(".", "src/util/index.ts"),
         video: path.resolve(".", "src/video/index.ts"),
-        worker: path.resolve(".", "src/worker/index.ts"),
       },
     },
     rolldownOptions: {

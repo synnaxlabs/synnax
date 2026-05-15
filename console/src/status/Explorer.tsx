@@ -9,10 +9,10 @@
 
 import { location } from "@synnaxlabs/x/location";
 import { status } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

@@ -9,8 +9,8 @@
 
 import { strings } from "@synnaxlabs/x/strings";
 import { Drift } from "@synnaxlabs/drift";
-import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
-import { Status } from "@synnaxlabs/charon/status";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch, useStore } from "react-redux";

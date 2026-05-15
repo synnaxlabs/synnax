@@ -12,16 +12,16 @@ import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import type { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import type { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
 import {
   useCombinedRefs,
   useDebouncedCallback,
   useSyncedRef,
-} from "@synnaxlabs/charon/hooks";
-import { useMemoCompare } from "@synnaxlabs/charon/memo";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+} from "@synnaxlabs/lyra/hooks";
+import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import {
   type Connection as RFConnection,

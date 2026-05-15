@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { direction } from "@synnaxlabs/x/direction";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select as BaseSelect } from "@synnaxlabs/charon/select";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement } from "react";
 

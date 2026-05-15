@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { status } from "@synnaxlabs/x/status";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 
 import { z } from "zod";
 

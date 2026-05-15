@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Device } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 

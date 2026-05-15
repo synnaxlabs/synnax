@@ -14,12 +14,12 @@ import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
-import { Telem } from "@synnaxlabs/charon/telem";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/lyra/telem";
 
 import { type FC } from "react";
 

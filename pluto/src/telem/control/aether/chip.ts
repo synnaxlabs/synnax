@@ -11,7 +11,7 @@ import { control } from "@synnaxlabs/x/control";
 import { deep } from "@synnaxlabs/x/deep";
 import { destructor } from "@synnaxlabs/x/destructor";
 import { status } from "@synnaxlabs/x/status";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 
 import { z } from "zod";
 

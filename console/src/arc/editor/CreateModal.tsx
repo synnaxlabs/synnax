@@ -10,13 +10,13 @@
 import "@/arc/editor/CreateModal.css";
 
 import { type arc } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { CSS as PCSS } from "@synnaxlabs/charon/css";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { CSS as PCSS } from "@synnaxlabs/lyra/css";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
 
 import { CSS } from "@/css";

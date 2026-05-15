@@ -10,12 +10,12 @@
 import { deep } from "@synnaxlabs/x/deep";
 import { record } from "@synnaxlabs/x/record";
 import { table } from "@synnaxlabs/client";
-import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Table, TableCells } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback } from "react";

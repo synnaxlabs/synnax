@@ -9,10 +9,10 @@
 
 import { location } from "@synnaxlabs/x/location";
 import { type connection } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
-import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useEffect } from "react";

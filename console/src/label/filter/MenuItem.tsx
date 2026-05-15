@@ -9,9 +9,9 @@
 
 import { location } from "@synnaxlabs/x/location";
 import { type label } from "@synnaxlabs/client";
-import type { Dialog } from "@synnaxlabs/charon/dialog";
-import { Form } from "@synnaxlabs/charon/form";
-import type { Select } from "@synnaxlabs/charon/select";
+import type { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Form } from "@synnaxlabs/lyra/form";
+import type { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement } from "react";
 

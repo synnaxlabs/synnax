@@ -9,9 +9,9 @@
 
 import "@/user/Badge.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";

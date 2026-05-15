@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { EtherCAT } from "@/hardware/ethercat";
 import { HTTP } from "@/hardware/http";

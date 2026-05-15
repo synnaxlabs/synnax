@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const Form = (): ReactElement => (
   <Base.Field<channel.Key> path="channel">

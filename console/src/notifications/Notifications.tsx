@@ -9,9 +9,9 @@
 
 import "@/notifications/Notifications.css";
 
-import type { Button } from "@synnaxlabs/charon/button";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Status } from "@synnaxlabs/charon/status";
+import type { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import type z from "zod";

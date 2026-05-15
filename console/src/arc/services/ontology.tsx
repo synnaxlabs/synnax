@@ -9,7 +9,7 @@
 
 import { strings } from "@synnaxlabs/x/strings";
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Arc } from "@/arc";
 import { translateGraphToConsole } from "@/arc/types/translate";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

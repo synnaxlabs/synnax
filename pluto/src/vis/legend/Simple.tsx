@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { optional } from "@synnaxlabs/x/optional";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type ReactElement, useState } from "react";
 

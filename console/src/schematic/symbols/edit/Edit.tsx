@@ -14,15 +14,15 @@ import { xy } from "@synnaxlabs/x/xy";
 import "@/schematic/symbols/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Header } from "@synnaxlabs/charon/header";
-import { useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
-import { Input } from "@synnaxlabs/charon/input";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback, useState } from "react";

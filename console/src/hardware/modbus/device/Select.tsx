@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 
 import { EmptyAction } from "@/components";
 import { Common } from "@/hardware/common";

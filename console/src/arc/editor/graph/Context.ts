@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { context } from "@synnaxlabs/charon/context";
+import { context } from "@synnaxlabs/lyra/context";
 
 export interface ArcEditorContext {
   layoutKey: string;

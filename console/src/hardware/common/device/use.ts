@@ -10,7 +10,7 @@
 import { primitive } from "@synnaxlabs/x/primitive";
 import { record } from "@synnaxlabs/x/record";
 import { type device } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Device } from "@synnaxlabs/pluto";
 
 import { useEffect, useMemo } from "react";

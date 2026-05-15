@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import { Select } from "@synnaxlabs/charon/select";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type OutputChannelType } from "@/hardware/labjack/task/types";
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";

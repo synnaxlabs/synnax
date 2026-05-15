@@ -10,8 +10,8 @@
 import { box } from "@synnaxlabs/x/box";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
 
 import { z } from "zod";
 

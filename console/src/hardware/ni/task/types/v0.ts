@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";

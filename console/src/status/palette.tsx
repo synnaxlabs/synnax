@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Access } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";

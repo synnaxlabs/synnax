@@ -1,5 +1,5 @@
 {
-  "name": "@synnaxlabs/charon",
+  "name": "@synnaxlabs/lyra",
   "version": "0.55.0",
   "type": "module",
   "scripts": {
@@ -314,17 +314,12 @@
       "import": "./dist/video.js",
       "require": "./dist/video.cjs"
     },
-    "./worker": {
-      "types": "./dist/src/worker/index.d.ts",
-      "import": "./dist/worker.js",
-      "require": "./dist/worker.cjs"
-    },
     "./dist/*": "./dist/*"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/synnaxlabs/synnax.git",
-    "directory": "charon"
+    "directory": "lyra"
   },
   "license": "MIT",
   "bugs": {

@@ -9,7 +9,7 @@
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
+import { CSS } from "@synnaxlabs/lyra/css";
 
 import {
   Handle,

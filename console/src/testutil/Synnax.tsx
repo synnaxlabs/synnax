@@ -11,7 +11,7 @@ import { errors } from "@synnaxlabs/x/errors";
 import { narrow } from "@synnaxlabs/x/narrow";
 import { status } from "@synnaxlabs/x/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Flux, Pluto, Synnax } from "@synnaxlabs/pluto";
 
 import { type FC, type PropsWithChildren, type ReactElement } from "react";

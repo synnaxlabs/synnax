@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement } from "react";
 
 export const SAVE: Triggers.Trigger = ["Control", "Enter"];

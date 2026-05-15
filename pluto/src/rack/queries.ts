@@ -9,7 +9,7 @@
 
 import { array } from "@synnaxlabs/x/array";
 import { primitive } from "@synnaxlabs/x/primitive";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { ontology, rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";

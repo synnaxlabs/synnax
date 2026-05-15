@@ -9,7 +9,7 @@
 
 import { record } from "@synnaxlabs/x/record";
 import { xy } from "@synnaxlabs/x/xy";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type FC } from "react";
 

@@ -9,10 +9,10 @@
 
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
-import { Button } from "@synnaxlabs/charon/button";
-import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
+import { Button } from "@synnaxlabs/lyra/button";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";

@@ -9,9 +9,9 @@
 
 import { status as xstatus } from "@synnaxlabs/x/status";
 import { status } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Access, type Flux } from "@synnaxlabs/pluto";
 
 import { useCallback, useMemo } from "react";

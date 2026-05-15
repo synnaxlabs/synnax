@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 export const resolveDataTypeIcon = (d: telem.DataType): Icon.FC | undefined => {
   if (d.equals(telem.DataType.JSON)) return Icon.JSON;

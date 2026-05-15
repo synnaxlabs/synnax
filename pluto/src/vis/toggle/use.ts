@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { useCallback, useEffect } from "react";
 import { type z } from "zod";
 

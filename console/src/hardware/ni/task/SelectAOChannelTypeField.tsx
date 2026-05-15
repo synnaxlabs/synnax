@@ -9,7 +9,7 @@
 
 import { deep } from "@synnaxlabs/x/deep";
 import { record } from "@synnaxlabs/x/record";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 
 import {
   AO_CHANNEL_SCHEMAS,

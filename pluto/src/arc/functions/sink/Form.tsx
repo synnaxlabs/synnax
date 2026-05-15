@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const Form = (): ReactElement => (
   <Flex.Box x>

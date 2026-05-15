@@ -9,8 +9,8 @@
 
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
 
 import { z } from "zod";
 

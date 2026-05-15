@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Select } from "@synnaxlabs/charon/select";
-import { Text } from "@synnaxlabs/charon/text";
-import type { Tooltip } from "@synnaxlabs/charon/tooltip";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
+import type { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { type ReactElement, useMemo } from "react";
 

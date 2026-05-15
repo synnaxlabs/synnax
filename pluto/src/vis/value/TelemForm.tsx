@@ -10,8 +10,8 @@
 import { color } from "@synnaxlabs/x/color";
 import { notation } from "@synnaxlabs/x/notation";
 import { primitive } from "@synnaxlabs/x/primitive";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Input } from "@synnaxlabs/charon/input";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type channel } from "@synnaxlabs/client";
 
 import { type ReactElement, useCallback } from "react";
@@ -19,7 +19,7 @@ import { type ReactElement, useCallback } from "react";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { telem } from "@/ether";
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Notation } from "@/notation";
 
 interface ValueTelemFormT {

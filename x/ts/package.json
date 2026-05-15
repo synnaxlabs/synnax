@@ -298,11 +298,6 @@
       "import": "./dist/uuid.js",
       "require": "./dist/uuid.cjs"
     },
-    "./worker": {
-      "types": "./dist/src/worker/index.d.ts",
-      "import": "./dist/worker.js",
-      "require": "./dist/worker.cjs"
-    },
     "./xy": {
       "types": "./dist/src/spatial/xy/index.d.ts",
       "import": "./dist/xy.js",

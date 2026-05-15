@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/charon/flex";
-import { state } from "@synnaxlabs/charon/state";
-import { Text } from "@synnaxlabs/charon/text";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { state } from "@synnaxlabs/lyra/state";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { BreadcrumbShowcase } from "./BreadcrumbShowcase";
 import { ButtonShowcase } from "./ButtonShowcase";

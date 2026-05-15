@@ -10,9 +10,9 @@
 import { optional } from "@synnaxlabs/x/optional";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { type FC } from "react";
 

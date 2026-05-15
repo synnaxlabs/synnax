@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { destructor } from "@synnaxlabs/x/destructor";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 
 import { useCallback, useRef } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";

@@ -12,7 +12,7 @@ import { deep } from "@synnaxlabs/x/deep";
 import { destructor } from "@synnaxlabs/x/destructor";
 import { id } from "@synnaxlabs/x/id";
 import { observe } from "@synnaxlabs/x/observe";
-import type { aether } from "@synnaxlabs/charon/aether/runtime";
+import type { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { UnexpectedError } from "@synnaxlabs/client";
 
 import {

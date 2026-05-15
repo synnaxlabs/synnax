@@ -9,11 +9,11 @@
 
 import { bounds } from "@synnaxlabs/x/bounds";
 import { xy } from "@synnaxlabs/x/xy";
-import { Input } from "@synnaxlabs/charon/input";
+import { Input } from "@synnaxlabs/lyra/input";
 
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@synnaxlabs/charon/form";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const SCALE_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };

@@ -9,9 +9,9 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { status } from "@synnaxlabs/x/status";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import z from "zod/v4";
 

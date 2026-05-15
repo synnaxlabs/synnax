@@ -10,9 +10,9 @@
 import { telem } from "@synnaxlabs/x/telem";
 import "@/schematic/Schematic.css";
 
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Key } from "@synnaxlabs/charon/key";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Key } from "@synnaxlabs/lyra/key";
 
 import { type FC, type ReactElement } from "react";
 import { z } from "zod";

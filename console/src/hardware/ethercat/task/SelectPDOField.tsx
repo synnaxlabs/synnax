@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { primitive } from "@synnaxlabs/x/primitive";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Select } from "@synnaxlabs/charon/select";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Select } from "@synnaxlabs/lyra/select";
 
 import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 

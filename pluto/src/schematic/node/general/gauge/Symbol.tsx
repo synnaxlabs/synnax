@@ -10,8 +10,8 @@
 import { box } from "@synnaxlabs/x/box";
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { xy } from "@synnaxlabs/x/xy";
-import { CSS } from "@synnaxlabs/charon/css";
-import type { Text } from "@synnaxlabs/charon/text";
+import { CSS } from "@synnaxlabs/lyra/css";
+import type { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement, useMemo } from "react";
 

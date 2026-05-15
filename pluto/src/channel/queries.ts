@@ -14,7 +14,7 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import { telem } from "@synnaxlabs/x/telem";
 import { control } from "@synnaxlabs/x/control";
 import { status } from "@synnaxlabs/x/status";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import {
   channel,
   DataType,

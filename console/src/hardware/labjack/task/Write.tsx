@@ -11,11 +11,11 @@ import { deep } from "@synnaxlabs/x/deep";
 import { id } from "@synnaxlabs/x/id";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/charon/component";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form as PForm } from "@synnaxlabs/charon/form";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { List } from "@synnaxlabs/charon/list";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { List } from "@synnaxlabs/lyra/list";
 
 import { type FC, useCallback } from "react";
 

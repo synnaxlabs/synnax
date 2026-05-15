@@ -11,11 +11,11 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
-import type { Haul } from "@synnaxlabs/charon/haul";
-import type { state } from "@synnaxlabs/charon/state";
-import { preventDefault } from "@synnaxlabs/charon/util";
+import type { Haul } from "@synnaxlabs/lyra/haul";
+import type { state } from "@synnaxlabs/lyra/state";
+import { preventDefault } from "@synnaxlabs/lyra/util";
 import { Provider } from "@synnaxlabs/drift/react";
-import type { Triggers } from "@synnaxlabs/charon/triggers";
+import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type Alamos, type Color, Pluto } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";

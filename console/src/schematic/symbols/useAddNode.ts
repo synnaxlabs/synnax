@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch } from "@reduxjs/toolkit";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Flux, Schematic } from "@synnaxlabs/pluto";
 import { type xy } from "@synnaxlabs/x/xy";
 import { useCallback } from "react";

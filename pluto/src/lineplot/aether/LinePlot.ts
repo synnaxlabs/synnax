@@ -11,8 +11,8 @@ import { bounds } from "@synnaxlabs/x/bounds";
 import { box } from "@synnaxlabs/x/box";
 import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
 
 import { z } from "zod";
 

@@ -11,24 +11,24 @@ import { record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
 import "@/input/DateTime.css";
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { List } from "@synnaxlabs/charon/list";
-import { Select } from "@synnaxlabs/charon/select";
-import { Telem } from "@synnaxlabs/charon/telem";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Telem } from "@synnaxlabs/lyra/telem";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
-import { Nav } from "@synnaxlabs/charon/nav";
+import { Nav } from "@synnaxlabs/lyra/nav";
 export interface DateTimeProps
   extends Omit<Input.TextProps, "type" | "value" | "onChange">, Input.Control<number> {}
 

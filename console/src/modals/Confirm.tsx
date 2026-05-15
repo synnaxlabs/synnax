@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import { Button } from "@synnaxlabs/charon/button";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Text } from "@synnaxlabs/charon/text";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";

@@ -9,7 +9,7 @@
 
 import "@/version/Badge.css";
 
-import { Button } from "@synnaxlabs/charon/button";
+import { Button } from "@synnaxlabs/lyra/button";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";

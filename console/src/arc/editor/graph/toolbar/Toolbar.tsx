@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Tabs } from "@synnaxlabs/charon/tabs";
-import { Text } from "@synnaxlabs/charon/text";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";

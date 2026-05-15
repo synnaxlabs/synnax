@@ -9,9 +9,9 @@
 
 import { destructor } from "@synnaxlabs/x/destructor";
 import { status } from "@synnaxlabs/x/status";
-import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
-import { state } from "@synnaxlabs/charon/state";
-import { Status } from "@synnaxlabs/charon/status";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { state } from "@synnaxlabs/lyra/state";
+import { Status } from "@synnaxlabs/lyra/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
 
 import { useCallback, useState } from "react";

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { runtime } from "@synnaxlabs/x/runtime";
-import type { Flex } from "@synnaxlabs/charon/flex";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Flex } from "@synnaxlabs/lyra/flex";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 

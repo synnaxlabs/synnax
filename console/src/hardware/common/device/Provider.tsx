@@ -9,7 +9,7 @@
 
 import { record } from "@synnaxlabs/x/record";
 import { type device } from "@synnaxlabs/client";
-import { Text } from "@synnaxlabs/charon/text";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import { type ReactElement } from "react";
 import { type z } from "zod";

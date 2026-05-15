@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x/location";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
 
 import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
 

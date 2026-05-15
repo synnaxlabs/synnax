@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x/array";
 import { optional } from "@synnaxlabs/x/optional";
 import { record } from "@synnaxlabs/x/record";
-import { state } from "@synnaxlabs/charon/state";
+import { state } from "@synnaxlabs/lyra/state";
 import { view } from "@synnaxlabs/client";
 
 import { useEffect } from "react";

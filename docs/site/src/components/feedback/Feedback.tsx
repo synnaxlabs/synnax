@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
-import { Button } from "@synnaxlabs/charon/button";
-import { Dialog } from "@synnaxlabs/charon/dialog";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Input } from "@synnaxlabs/charon/input";
-import { Text } from "@synnaxlabs/charon/text";
-import { Form } from "@synnaxlabs/charon/form";
-import { Nav } from "@synnaxlabs/charon/nav";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 

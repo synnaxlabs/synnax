@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form } from "@synnaxlabs/charon/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 

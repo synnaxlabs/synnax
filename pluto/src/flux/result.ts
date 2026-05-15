@@ -9,7 +9,7 @@
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { status } from "@synnaxlabs/x/status";
-import type { state } from "@synnaxlabs/charon/state";
+import type { state } from "@synnaxlabs/lyra/state";
 
 import type z from "zod";
 

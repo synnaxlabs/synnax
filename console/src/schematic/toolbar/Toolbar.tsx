@@ -9,11 +9,11 @@
 
 import "@/schematic/toolbar/Toolbar.css";
 
-import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Key } from "@synnaxlabs/charon/key";
-import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Key } from "@synnaxlabs/lyra/key";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";

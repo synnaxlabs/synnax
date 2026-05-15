@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/charon/button";
-import { Form } from "@synnaxlabs/charon/form";
-import { Header as PHeader } from "@synnaxlabs/charon/header";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { useCallback, useEffect } from "react";
 
 import { EmptyAction } from "@/components";

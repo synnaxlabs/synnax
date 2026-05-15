@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x/xy";
-import type { Tabs } from "@synnaxlabs/charon/tabs";
-import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Tabs } from "@synnaxlabs/lyra/tabs";
+import type { Theming } from "@synnaxlabs/lyra/theming";
 
 import { type FC } from "react";
 

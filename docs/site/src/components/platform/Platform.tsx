@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { runtime } from "@synnaxlabs/x/runtime";
-import { Icon } from "@synnaxlabs/charon/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 
 export type Platform = runtime.OS | "Docker";
 

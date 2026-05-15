@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x/migrate";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import { z } from "zod";
 

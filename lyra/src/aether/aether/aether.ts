@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, type record, shallow, zod } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep"
+import  {errors} from "@synnaxlabs/x/errors";
+import {type record } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
 import {
@@ -30,6 +31,9 @@ export {
   wrapWorker,
   wrapWorkerScope,
 } from "@/aether/aether/message";
+import { shallow } from "@synnaxlabs/x/shallow";
+import { zod } from "@synnaxlabs/x/zod";
+
 import { state } from "@/state";
 
 const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
@@ -246,8 +250,8 @@ export abstract class Leaf<
 
   private get _schema(): StateSchema {
     if (this.schema == null)
-      throw new ValidationError(
-        `[AetherLeaf] - expected subclass to define component schema, but none was found.
+      throw new errors.ValidationError(
+        `[aether.leaf] - expected subclass to define component schema, but none was found.
         Make sure to define a property 'schema' on the class.`,
       );
     return this.schema;
@@ -267,7 +271,7 @@ export abstract class Leaf<
    * been applied. */
   get state(): z.infer<StateSchema> {
     if (this._state == null)
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `[aether.leaf] state not defined in ${this.toString()}`,
       );
     return this._state;
@@ -297,7 +301,7 @@ export abstract class Leaf<
       get: (key: string) => {
         const res = this.parentCtxValues.get(key);
         if (res === undefined)
-          throw new NotFoundError(
+          throw new errors.NotFoundError(
             `Context value for ${key} not found on ${this.toString()}`,
           );
         return res;
@@ -376,18 +380,18 @@ export abstract class Leaf<
 
   private validatePath(path: readonly string[]): void {
     if (path.length === 0)
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `[aether.leaf.setState] ${this.toString()} received an empty path`,
       );
     const key = path[path.length - 1];
     if (path.length > 1)
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `[aether.leaf.setState] - ${this.toString()} received a subPath ${path.join(
           ".",
         )} but is a leaf`,
       );
     if (key !== this.key)
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `[aether.leaf.setState] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
   }
@@ -499,7 +503,7 @@ export abstract class Composite<
     if (subPath.length > 1) {
       const childPath = path.slice(0, path.indexOf(childKey) + 1).join(".");
       const fullPath = path.join(".");
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `Child of ${this.toString()} at path ${childPath} does not exist,
         but an extended path ${fullPath} was provided. This means that the aether
         tree is attempting to create a new child  of type ${type} (or nested children)
@@ -578,7 +582,7 @@ export abstract class Composite<
         }`,
       );
     if (key !== this.key)
-      throw new UnexpectedError(
+      throw new errors.UnexpectedError(
         `[Composite.getRequiredKey] - ${this.toString()} received a key ${key} but expected ${this.key}`,
       );
     return subPath;
@@ -702,7 +706,7 @@ export class Root extends Composite<typeof aetherRootState> {
     if (component == null) {
       this.handleInvokeError(
         params,
-        new NotFoundError(`Component at path ${path.join(".")} not found`),
+        new errors.NotFoundError(`Component at path ${path.join(".")} not found`),
       );
       return;
     }
@@ -717,7 +721,7 @@ export class Root extends Composite<typeof aetherRootState> {
   }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
     const Constructor = this.registry[type];
     if (Constructor == null)
-      throw new UnexpectedError(`[Root.create] - ${type} not found in registry`);
+      throw new errors.UnexpectedError(`[Root.create] - ${type} not found in registry`);
     return new Constructor({
       key,
       type,

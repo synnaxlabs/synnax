@@ -11,13 +11,13 @@ import { bounds } from "@synnaxlabs/x/bounds";
 import { direction } from "@synnaxlabs/x/direction";
 import "@/lineplot/Axis.css";
 
-import { Aether } from "@synnaxlabs/charon/aether";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Key } from "@synnaxlabs/charon/key";
-import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
-import { Text } from "@synnaxlabs/charon/text";
-import { Theming } from "@synnaxlabs/charon/theming";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { CSS } from "@synnaxlabs/lyra/css";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Key } from "@synnaxlabs/lyra/key";
+import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Theming } from "@synnaxlabs/lyra/theming";
 
 import {
   type FC,

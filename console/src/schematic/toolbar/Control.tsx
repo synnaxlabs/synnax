@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { control } from "@synnaxlabs/x/control";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Input } from "@synnaxlabs/charon/input";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/lyra/input";
 
 import { useDispatch } from "react-redux";
 

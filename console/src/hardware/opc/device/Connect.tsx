@@ -11,13 +11,13 @@ import { status } from "@synnaxlabs/x/status";
 import "@/hardware/opc/device/Connect.css";
 
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/charon/button";
-import { Component } from "@synnaxlabs/charon/component";
-import { Divider } from "@synnaxlabs/charon/divider";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Form } from "@synnaxlabs/charon/form";
-import { Nav } from "@synnaxlabs/charon/nav";
-import { Status } from "@synnaxlabs/charon/status";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
+import { Nav } from "@synnaxlabs/lyra/nav";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Device as PDevice, type Flux, Rack } from "@synnaxlabs/pluto";
 
 import { useCallback } from "react";

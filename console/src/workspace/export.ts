@@ -9,7 +9,7 @@
 
 import { strings } from "@synnaxlabs/x/strings";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
-import { Status } from "@synnaxlabs/charon/status";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
 import { join, sep } from "@tauri-apps/api/path";

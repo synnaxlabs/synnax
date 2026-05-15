@@ -11,10 +11,10 @@ import { URL, buildQueryString } from "@synnaxlabs/x/url";
 import "@/docs/Docs.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button } from "@synnaxlabs/charon/button";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Theming } from "@synnaxlabs/charon/theming";
-import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
 
 import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";

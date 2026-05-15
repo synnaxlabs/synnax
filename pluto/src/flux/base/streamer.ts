@@ -11,7 +11,7 @@ import { destructor } from "@synnaxlabs/x/destructor";
 import { strings } from "@synnaxlabs/x/strings";
 import { telem } from "@synnaxlabs/x/telem";
 import { unique } from "@synnaxlabs/x/unique";
-import type { Status } from "@synnaxlabs/charon/status";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
 
 import type z from "zod";

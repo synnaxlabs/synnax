@@ -9,8 +9,8 @@
 
 import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 
 import z from "zod/v4";
 
