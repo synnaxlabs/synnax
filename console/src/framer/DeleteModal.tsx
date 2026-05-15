@@ -7,29 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import "@/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Component,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  type Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
-import {
-  type NumericTimeRange,
-  numericTimeRangeZ,
-  TimeRange,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import type { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Channel, Synnax } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -48,7 +41,7 @@ export const DELETE_LAYOUT: Layout.BaseState = {
 
 const formSchema = z.object({
   channels: channel.keyZ.array().min(1, "Select at least one channel"),
-  timeRange: numericTimeRangeZ.refine(({ start, end }) => start < end, {
+  timeRange: telem.numericTimeRangeZ.refine(({ start, end }) => start < end, {
     error: "Start time must be before end time",
     path: ["start"],
   }),
@@ -62,7 +55,7 @@ export const DeleteModal: Layout.Renderer = ({ onClose }) => {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const methods = Form.use({
     schema: formSchema,
-    values: { channels: [], timeRange: TimeRange.MAX.numeric },
+    values: { channels: [], timeRange: telem.TimeRange.MAX.numeric },
   });
   return (
     <Form.Form<typeof formSchema> {...methods}>
@@ -86,8 +79,8 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   const channelKeys = Form.useFieldValue<channel.Key[]>("channels");
   const start = Form.useFieldValue<number>("timeRange.start");
   const end = Form.useFieldValue<number>("timeRange.end");
-  const isFromBeginning = start === TimeRange.MAX.numeric.start;
-  const isToEnd = end === TimeRange.MAX.numeric.end;
+  const isFromBeginning = start === telem.TimeRange.MAX.numeric.start;
+  const isToEnd = end === telem.TimeRange.MAX.numeric.end;
   const handleNext = useCallback(() => {
     if (validate()) onNext();
   }, [validate, onNext]);
@@ -123,7 +116,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 onChange={(v) =>
                   set(
                     "timeRange.start",
-                    v ? TimeRange.MAX.numeric.start : TimeStamp.now().nanoseconds,
+                    v ? telem.TimeRange.MAX.numeric.start : telem.TimeStamp.now().nanoseconds,
                   )
                 }
               />
@@ -147,7 +140,7 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
                 onChange={(v) =>
                   set(
                     "timeRange.end",
-                    v ? TimeRange.MAX.numeric.end : TimeStamp.now().nanoseconds,
+                    v ? telem.TimeRange.MAX.numeric.end : telem.TimeStamp.now().nanoseconds,
                   )
                 }
               />
@@ -181,13 +174,13 @@ const inputDateTimeRenderProp = Component.renderProp((p: Input.DateTimeProps) =>
 
 const formatTimeRange = (start: number, end: number): string => {
   const startStr =
-    start === TimeRange.MAX.start.nanoseconds
+    start === telem.TimeRange.MAX.start.nanoseconds
       ? "beginning of time"
-      : new TimeStamp(start).toString("dateTime", "local");
+      : new telem.TimeStamp(start).toString("dateTime", "local");
   const endStr =
-    end === TimeRange.MAX.end.nanoseconds
+    end === telem.TimeRange.MAX.end.nanoseconds
       ? "end of time"
-      : new TimeStamp(end).toString("dateTime", "local");
+      : new telem.TimeStamp(end).toString("dateTime", "local");
   return `${startStr} to ${endStr}`;
 };
 
@@ -209,7 +202,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const handleDelete = useCallback(() => {
     const keys = get<channel.Key[]>("channels").value;
-    const tr = get<NumericTimeRange>("timeRange").value;
+    const tr = get<telem.NumericTimeRange>("timeRange").value;
     onClose();
     handleError(async () => {
       if (client == null) throw new DisconnectedError();

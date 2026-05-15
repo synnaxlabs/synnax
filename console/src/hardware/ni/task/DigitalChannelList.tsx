@@ -9,7 +9,11 @@
 
 import "@/hardware/ni/task/DigitalChannelList.css";
 
-import { type Component, Flex, Form, Select, Text } from "@synnaxlabs/pluto";
+import type { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";

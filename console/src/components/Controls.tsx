@@ -9,7 +9,7 @@
 
 import "@/components/Controls.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

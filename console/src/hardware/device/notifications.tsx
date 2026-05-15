@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Icon, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
 
 import { CONFIGURE_LAYOUTS, getIcon, getMake, type Make } from "@/hardware/device/make";
 import { getKeyFromStatus } from "@/hardware/device/useListenForChanges";

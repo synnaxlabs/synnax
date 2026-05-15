@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Input } from "@synnaxlabs/charon/input";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

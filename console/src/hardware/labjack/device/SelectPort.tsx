@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
 import { type ReactNode } from "react";
 
 import {

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { spatial } from "@synnaxlabs/x/spatial";
 import { Tabs } from "@synnaxlabs/charon/tabs";
-import { type direction, type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node } from "@/mosaic/types";
 /**

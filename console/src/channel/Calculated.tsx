@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
 import "@/channel/Calculated.css";
 
 import { channel, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Flex,
-  Form,
-  Input,
-  Nav,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Channel } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useRef, useState } from "react";
 
 import { Arc } from "@/arc";

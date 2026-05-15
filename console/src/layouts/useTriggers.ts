@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Drift, selectWindowKey } from "@synnaxlabs/drift";
-import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/charon/text";
+import { Triggers } from "@synnaxlabs/charon/triggers";
+
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
@@ -25,7 +28,7 @@ import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
-const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
+const CLOSE_WINDOW_TIMEOUT = telem.TimeSpan.milliseconds(350);
 
 export const useTriggers = (): void => {
   const store = useStore<RootState>();

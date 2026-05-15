@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -48,13 +50,13 @@ export { useContext };
 interface RefState {
   next: Trigger;
   prev: Trigger;
-  last: TimeStamp;
+  last: telem.TimeStamp;
 }
 
 const ZERO_REF_STATE: RefState = {
   next: [],
   prev: [],
-  last: new TimeStamp(0),
+  last: new telem.TimeStamp(0),
 };
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
@@ -125,13 +127,13 @@ export const Provider = ({
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        TimeStamp.since(prev.last).valueOf() < TimeSpan.milliseconds(300).valueOf()
+        telem.TimeStamp.since(prev.last).valueOf() < telem.TimeSpan.milliseconds(300).valueOf()
       )
         next.push(key);
       const nextState: RefState = {
         next,
         prev: prev.next,
-        last: new TimeStamp(),
+        last: new telem.TimeStamp(),
       };
       if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))
         e.preventDefault();

@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeStamp,
-  TimeStamp as XTimeStamp,
-  type TimeStampStringFormat,
-  type TZInfo,
-} from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { type ReactElement } from "react";
 
 import { type Generic } from "@/generic";
@@ -21,10 +16,10 @@ export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<
   Text.TextProps<E>,
   "children"
 > & {
-  children: CrudeTimeStamp;
-  format?: TimeStampStringFormat;
-  suppliedTZ?: TZInfo;
-  displayTZ?: TZInfo;
+  children: telem.CrudeTimeStamp;
+  format?: telem.TimeStampStringFormat;
+  suppliedTZ?: telem.TZInfo;
+  displayTZ?: telem.TZInfo;
 };
 
 export const TimeStamp = <E extends Generic.ElementType = "p">({
@@ -35,6 +30,6 @@ export const TimeStamp = <E extends Generic.ElementType = "p">({
   ...rest
 }: TimeStampProps<E>): ReactElement => (
   <Text.Text<E> {...(rest as Text.TextProps<E>)}>
-    {new XTimeStamp(children, suppliedTZ).toString(format, displayTZ)}
+    {new telem.TimeStamp(children, suppliedTZ).toString(format, displayTZ)}
   </Text.Text>
 );

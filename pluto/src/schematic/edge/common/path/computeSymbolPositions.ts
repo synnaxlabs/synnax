@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, xy } from "@synnaxlabs/x";
-
+import { direction } from "@synnaxlabs/x/direction";
+import { xy } from "@synnaxlabs/x/xy";
 export interface SymbolPosition {
   position: xy.XY;
   direction: direction.Direction;

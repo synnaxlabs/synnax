@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
-
+import { migrate } from "@synnaxlabs/x/migrate";
 import * as v0 from "@/cluster/types/v0";
 import * as v1 from "@/cluster/types/v1";
 import * as v2 from "@/cluster/types/v2";

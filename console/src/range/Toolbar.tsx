@@ -9,9 +9,19 @@
 
 import "@/range/Toolbar.css";
 
-import { Haul } from "@synnaxlabs/charon";
+import { Haul } from "@synnaxlabs/charon/haul";
 import { ranger } from "@synnaxlabs/client";
-import { Access, Component, Flex, type Flux, Icon, List as BaseList, Menu, Ranger, Select, Tag, Telem, Text, Tooltip } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List as BaseList } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Access, type Flux, Ranger } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 

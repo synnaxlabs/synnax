@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { deep } from "@synnaxlabs/x/deep";
+import { optional } from "@synnaxlabs/x/optional";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
+import { control } from "@synnaxlabs/x/control";
+import { status } from "@synnaxlabs/x/status";
 import { state } from "@synnaxlabs/charon/state";
 import {
   channel,
@@ -17,7 +24,7 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -119,7 +126,7 @@ export const ZERO_FORM_VALUES: z.infer<
     {
       type: "none",
       resetChannel: 0,
-      duration: TimeSpan.ZERO,
+      duration: telem.TimeSpan.ZERO,
     },
   ],
 };

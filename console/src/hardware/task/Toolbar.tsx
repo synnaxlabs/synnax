@@ -7,25 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { strings } from "@synnaxlabs/x/strings";
 import "@/hardware/task/Toolbar.css";
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { stopPropagation } from "@synnaxlabs/charon/util";
 import { task, UnexpectedError } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  type Flux,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Status,
-  Synnax,
-  Task,
-  Text,
-} from "@synnaxlabs/pluto";
-import { array, strings } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+
 import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

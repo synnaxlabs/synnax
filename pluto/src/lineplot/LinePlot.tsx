@@ -7,6 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/lineplot/LinePlot.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -14,15 +21,7 @@ import { context } from "@synnaxlabs/charon/context";
 import { CSS } from "@synnaxlabs/charon/css";
 import { useEffectCompare } from "@synnaxlabs/charon/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
-import {
-  box,
-  type color,
-  deep,
-  type destructor,
-  direction,
-  location,
-  xy,
-} from "@synnaxlabs/x";
+
 import {
   type CSSProperties,
   type DetailedHTMLProps,

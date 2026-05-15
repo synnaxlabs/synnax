@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { optional } from "@synnaxlabs/x/optional";
 import type { Theming } from "@synnaxlabs/charon/theming";
-import { type optional } from "@synnaxlabs/x";
+
 import { type ReactElement, useState } from "react";
 
 import { Container, type ContainerProps } from "@/vis/legend/Container";

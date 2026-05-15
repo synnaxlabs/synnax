@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, debounce as debounceF, type direction } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { debounce as debounceF } from "@synnaxlabs/x/debounce";
+import { direction } from "@synnaxlabs/x/direction";
 import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";

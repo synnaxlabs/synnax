@@ -9,20 +9,17 @@
 
 import "@/range/list/List.css";
 
-import { type state } from "@synnaxlabs/charon";
+import type { state } from "@synnaxlabs/charon/state";
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Flex,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List as PList } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Access, type Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";

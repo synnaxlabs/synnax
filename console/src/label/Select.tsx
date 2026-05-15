@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";

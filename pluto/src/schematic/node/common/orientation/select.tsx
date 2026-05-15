@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import "@/schematic/node/common/orientation/select.css";
 
 import { Button as BaseButton } from "@synnaxlabs/charon/button";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Flex } from "@synnaxlabs/charon/flex";
 import type { Input } from "@synnaxlabs/charon/input";
-import { type location } from "@synnaxlabs/x";
+
 import { type CSSProperties, type ReactElement } from "react";
 
 export interface Value {

@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
 import "@/cluster/list/List.css";
 
-import {
-  Cluster as PCluster,
-  Flex,
-  List as BaseList,
-  Select,
-  Status,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { List as BaseList } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Cluster as PCluster, Synnax } from "@synnaxlabs/pluto";
+
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

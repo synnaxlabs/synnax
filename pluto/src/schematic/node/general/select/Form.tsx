@@ -16,7 +16,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";

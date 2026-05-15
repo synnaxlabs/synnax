@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { compare } from "@synnaxlabs/x/compare";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -15,14 +20,7 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/charon/hooks";
 import { state } from "@synnaxlabs/charon/state";
-import {
-  compare,
-  type CrudeTimeSpan,
-  type destructor,
-  primitive,
-  type record,
-  TimeSpan,
-} from "@synnaxlabs/x";
+
 import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
@@ -108,7 +106,7 @@ export interface UseListParams<
   initialQuery?: Query;
   filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
-  retrieveDebounce?: CrudeTimeSpan;
+  retrieveDebounce?: telem.CrudeTimeSpan;
   useCachedList?: boolean;
 }
 
@@ -156,7 +154,7 @@ export interface ListMountListenersParams<
 }
 
 const defaultFilter = () => true;
-const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
+const DEFAULT_RETRIEVE_DEBOUNCE = telem.TimeSpan.milliseconds(100);
 
 interface GetInitialDataParams<
   Query extends base.Shape,
@@ -434,7 +432,7 @@ export const createList =
     const retrieveSync = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
-      new TimeSpan(retrieveDebounce).milliseconds,
+      new telem.TimeSpan(retrieveDebounce).milliseconds,
       [retrieveAsync],
     );
 

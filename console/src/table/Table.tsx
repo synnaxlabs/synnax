@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
+import { record } from "@synnaxlabs/x/record";
+import { uuid } from "@synnaxlabs/x/uuid";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import {
-  Access,
-  Button,
-  Icon,
-  Menu,
-  Table as Base,
-  TableCells,
-  Triggers,
-  usePrevious,
-} from "@synnaxlabs/pluto";
-import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { usePrevious } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Access, Table as Base, TableCells } from "@synnaxlabs/pluto";
+
 import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 

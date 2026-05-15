@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import {
-  Flex,
-  type Flux,
-  Icon,
-  Input,
-  List as PList,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List as PList } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import type { Flux } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { ContextMenu } from "@/arc/ContextMenu";

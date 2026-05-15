@@ -641,9 +641,6 @@ importers:
       '@synnaxlabs/media':
         specifier: workspace:^
         version: link:../../x/media
-      '@synnaxlabs/pluto':
-        specifier: workspace:^
-        version: link:../../pluto
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../../x/ts

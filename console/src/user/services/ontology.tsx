@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type user } from "@synnaxlabs/client";
-import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access, type Flux, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/components";

@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { optional } from "@synnaxlabs/x/optional";
+import { record } from "@synnaxlabs/x/record";
 import { state } from "@synnaxlabs/charon/state";
 import { view } from "@synnaxlabs/client";
-import { array, type optional } from "@synnaxlabs/x";
+
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";

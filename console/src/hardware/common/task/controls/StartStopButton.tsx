@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Icon } from "@synnaxlabs/pluto";
-import { type status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x/status";
+import { Button } from "@synnaxlabs/charon/button";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { type ReactElement } from "react";
 
 export interface StartStopButtonProps extends Omit<Button.ButtonProps, "onClick"> {

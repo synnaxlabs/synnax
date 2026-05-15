@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, record } from "@synnaxlabs/x";
-
+import { binary } from "@synnaxlabs/x/binary";
+import { record } from "@synnaxlabs/x/record";
 export const decodeJSONString = (s: string): record.Unknown =>
   s ? binary.JSON_CODEC.decodeString(s, record.unknownZ()) : {};

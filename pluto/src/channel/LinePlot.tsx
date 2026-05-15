@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { direction } from "@synnaxlabs/x/direction";
+import { location as loc } from "@synnaxlabs/x/location";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/channel/LinePlot.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
@@ -14,15 +20,7 @@ import { Haul } from "@synnaxlabs/charon/haul";
 import { usePrevious } from "@synnaxlabs/charon/hooks";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type channel } from "@synnaxlabs/client";
-import {
-  box,
-  type color,
-  type direction,
-  location as loc,
-  type TimeRange,
-  type TimeSpan,
-  type xy,
-} from "@synnaxlabs/x";
+
 import {
   type ReactElement,
   type Ref,
@@ -61,12 +59,12 @@ export interface BaseLineProps {
 
 export interface StaticLineProps extends BaseLineProps {
   variant: "static";
-  timeRange: TimeRange;
+  timeRange: xtelem.TimeRange;
 }
 
 export interface DynamicLineProps extends BaseLineProps {
   variant: "dynamic";
-  timeSpan: TimeSpan;
+  timeSpan: xtelem.TimeSpan;
 }
 
 export type LineProps = StaticLineProps | DynamicLineProps;

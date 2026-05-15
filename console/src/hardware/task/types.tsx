@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { Icon } from "@synnaxlabs/charon/icon";
 
 import { EtherCAT } from "@/hardware/ethercat";
 import { HTTP } from "@/hardware/http";

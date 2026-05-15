@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type UnaryClient, type WebSocketClient } from "@synnaxlabs/freighter";
-import {
-  type CrudeSeries,
-  type CrudeTimeRange,
-  type CrudeTimeStamp,
-  type MultiSeries,
-  TimeRange,
-  TimeSpan,
-} from "@synnaxlabs/x";
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
@@ -55,7 +48,7 @@ export class Client {
    * @returns a new {@link Iterator}.
    */
   async openIterator(
-    tr: CrudeTimeRange,
+    tr: telem.CrudeTimeRange,
     channels: channel.Params,
     opts?: IteratorConfig,
   ): Promise<Iterator> {
@@ -89,20 +82,20 @@ export class Client {
   }
 
   async write(
-    start: CrudeTimeStamp,
+    start: telem.CrudeTimeStamp,
     channel: channel.Key | channel.Name,
-    data: CrudeSeries,
+    data: telem.CrudeSeries,
   ): Promise<void>;
 
   async write(
-    start: CrudeTimeStamp,
+    start: telem.CrudeTimeStamp,
     channels: channel.Key[] | channel.Name[],
-    data: CrudeSeries[],
+    data: telem.CrudeSeries[],
   ): Promise<void>;
 
   async write(
-    start: CrudeTimeStamp,
-    data: Record<channel.Key | channel.Name, CrudeSeries>,
+    start: telem.CrudeTimeStamp,
+    data: Record<channel.Key | channel.Name, telem.CrudeSeries>,
   ): Promise<void>;
 
   /**
@@ -115,18 +108,18 @@ export class Client {
    * @throws if the channel does not exist.
    */
   async write(
-    start: CrudeTimeStamp,
-    channels: channel.Params | Record<channel.Key | channel.Name, CrudeSeries>,
-    data?: CrudeSeries | CrudeSeries[],
+    start: telem.CrudeTimeStamp,
+    channels: channel.Params | Record<channel.Key | channel.Name, telem.CrudeSeries>,
+    data?: telem.CrudeSeries | telem.CrudeSeries[],
   ): Promise<void> {
     if (data == null) {
-      const data_ = channels as Record<channel.Key | channel.Name, CrudeSeries>;
+      const data_ = channels as Record<channel.Key | channel.Name, telem.CrudeSeries>;
       const w = await this.openWriter({
         start,
         channels: Object.keys(data_),
         mode: WriterMode.Persist,
         errOnUnauthorized: true,
-        autoIndexPersistInterval: TimeSpan.MAX,
+        autoIndexPersistInterval: telem.TimeSpan.MAX,
       });
       await w.write(data_);
       return await w.close();
@@ -136,22 +129,22 @@ export class Client {
       channels: channels as channel.Params,
       mode: WriterMode.Persist,
       errOnUnauthorized: true,
-      autoIndexPersistInterval: TimeSpan.MAX,
+      autoIndexPersistInterval: telem.TimeSpan.MAX,
     });
     await w.write(channels as channel.Params, data);
     await w.close();
   }
 
   async read(
-    tr: CrudeTimeRange,
+    tr: telem.CrudeTimeRange,
     channel: channel.Key | channel.Name,
-  ): Promise<MultiSeries>;
-  async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
+  ): Promise<telem.MultiSeries>;
+  async read(tr: telem.CrudeTimeRange, channels: channel.Params): Promise<Frame>;
   async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
-    tr: CrudeTimeRange | ReadRequest,
+    tr: telem.CrudeTimeRange | ReadRequest,
     channels?: channel.Params,
-  ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
+  ): Promise<telem.MultiSeries | Frame | ReadableStream<Uint8Array>> {
     if (!("start" in tr)) return this.reader.read(tr);
     const { single } = channel.analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
@@ -160,7 +153,7 @@ export class Client {
   }
 
   private async readFrame(
-    tr: CrudeTimeRange,
+    tr: telem.CrudeTimeRange,
     channels: channel.Params,
   ): Promise<Frame> {
     const i = await this.openIterator(tr, channels);
@@ -176,7 +169,7 @@ export class Client {
   async readLatest(
     channel: channel.Key | channel.Name,
     n: number,
-  ): Promise<MultiSeries>;
+  ): Promise<telem.MultiSeries>;
 
   async readLatest(channels: channel.Params, n: number): Promise<Frame>;
 
@@ -195,7 +188,7 @@ export class Client {
   async readLatest(
     channels: channel.Params,
     n: number = 1,
-  ): Promise<MultiSeries | Frame> {
+  ): Promise<telem.MultiSeries | Frame> {
     const { single } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
@@ -203,7 +196,7 @@ export class Client {
   }
 
   private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
-    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+    const i = await this.openIterator(telem.TimeRange.MAX, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {
@@ -216,9 +209,9 @@ export class Client {
     return frame;
   }
 
-  async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
+  async delete(channels: channel.Params, timeRange: telem.CrudeTimeRange): Promise<void> {
     const { normalized, variant } = channel.analyzeParams(channels);
-    const bounds = new TimeRange(timeRange);
+    const bounds = new telem.TimeRange(timeRange);
     if (variant === "keys")
       return await this.deleter.delete({ keys: normalized as channel.Key[], bounds });
     return await this.deleter.delete({ names: normalized as string[], bounds });

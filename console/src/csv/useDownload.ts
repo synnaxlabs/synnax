@@ -12,7 +12,8 @@ import {
   type framer,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/charon/status";
+import { Synnax } from "@synnaxlabs/pluto";
 
 import { Runtime } from "@/runtime";
 

@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { direction } from "@synnaxlabs/x/direction";
+import { record } from "@synnaxlabs/x/record";
 import { type channel } from "@synnaxlabs/client";
-import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
-import { type direction, type record } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import type { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
+
 import { cloneElement, type JSX } from "react";
 
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";

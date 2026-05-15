@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors, URL } from "@synnaxlabs/x";
-
 /**
  * Base class for all freighter-specific errors
  */
+import { errors } from "@synnaxlabs/x/errors";
+import { URL } from "@synnaxlabs/x/url";
 export class FreighterError extends errors.createTyped("freighter") {}
 
 /**
@@ -45,9 +45,9 @@ export class Unreachable extends FreighterError.sub("unreachable") {
   url: URL;
 
   constructor(args: UnreachableArgs = {}) {
-    const { message = "Unreachable", url = URL.UNKNOWN } = args;
+    const { message = "Unreachable", url: url_ = URL.UNKNOWN } = args;
     super(message);
-    this.url = url;
+    this.url = url_;
   }
 }
 
@@ -75,7 +75,7 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
   }
 };
 
-errors.register({
-  encode: freighterErrorEncoder,
-  decode: freighterErrorDecoder,
+errors.register({  
+  encode: freighterErrorEncoder,  
+  decode: freighterErrorDecoder
 });

@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  type CrudeTimeRange,
-  DataType,
-  MultiSeries,
-  Series,
-  TimeRange,
-  TimeSpan,
-} from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";
@@ -23,7 +16,7 @@ import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line"
 describe("line", () => {
   describe("buildDrawOperations", () => {
     interface SpecEntry {
-      timeRange: CrudeTimeRange;
+      timeRange: telem.CrudeTimeRange;
       alignmentBounds: bounds.Bounds<bigint>;
       alignmentMultiple: bigint;
     }
@@ -43,14 +36,14 @@ describe("line", () => {
       expected: SpecExpected[];
     }
 
-    const buildSeriesFromEntries = (entries: SpecEntry[]): MultiSeries =>
-      new MultiSeries(
+    const buildSeriesFromEntries = (entries: SpecEntry[]): telem.MultiSeries =>
+      new telem.MultiSeries(
         entries.map(
           ({ alignmentBounds, timeRange, alignmentMultiple }) =>
-            new Series({
+            new telem.Series({
               data: new Float32Array(Number(bounds.span(alignmentBounds))),
-              dataType: DataType.FLOAT32,
-              timeRange: new TimeRange(timeRange.start, timeRange.end),
+              dataType: telem.DataType.FLOAT32,
+              timeRange: new telem.TimeRange(timeRange.start, timeRange.end),
               alignment: alignmentBounds.lower,
               alignmentMultiple,
             }),
@@ -351,7 +344,7 @@ describe("line", () => {
           1,
           0,
           "decimate",
-          TimeSpan.ZERO,
+          telem.TimeSpan.ZERO,
         );
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {

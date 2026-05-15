@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form as PForm, Icon, Select } from "@synnaxlabs/pluto";
-import { deep, type optional, type record } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
+import { optional } from "@synnaxlabs/x/optional";
+import { record } from "@synnaxlabs/x/record";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
+
 import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";

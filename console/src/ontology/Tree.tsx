@@ -7,15 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context, Haul } from "@synnaxlabs/charon";
+import { array } from "@synnaxlabs/x/array";
+import { observe } from "@synnaxlabs/x/observe";
+import { context } from "@synnaxlabs/charon/context";
+import { Haul } from "@synnaxlabs/charon/haul";
 import {
   DisconnectedError,
   NotFoundError,
   ontology,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Component, Flux, Icon, List, Menu, Ontology, Status, Synnax, Text, Tree as Base, useAsyncEffect, useCombinedStateAndRef, useInitializerRef, useSyncedRef } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { useAsyncEffect, useCombinedStateAndRef, useInitializerRef, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tree as Base } from "@synnaxlabs/charon/tree";
+import { Flux, Ontology, Synnax } from "@synnaxlabs/pluto";
+
 import {
   type DragEvent,
   type ReactElement,

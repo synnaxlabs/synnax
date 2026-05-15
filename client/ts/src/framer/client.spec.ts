@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
@@ -27,9 +28,9 @@ describe("Client", () => {
         dataType: "float32",
         index: time.key,
       });
-      const start = TimeStamp.now();
+      const start = telem.TimeStamp.now();
       await client.write(start, { [time.key]: [start], [data.key]: [1] });
-      const frame = await client.read({ start, end: start.add(TimeSpan.seconds(1)) }, [
+      const frame = await client.read({ start, end: start.add(telem.TimeSpan.seconds(1)) }, [
         time.key,
         data.key,
       ]);
@@ -47,8 +48,8 @@ describe("Client", () => {
         dataType: "float32",
         index: time.key,
       });
-      const start = TimeStamp.now();
-      await client.write(start, time.key, TimeStamp.now());
+      const start = telem.TimeStamp.now();
+      await client.write(start, time.key, telem.TimeStamp.now());
       await client.write(start, data.key, 1);
     });
   });
@@ -70,18 +71,18 @@ describe("Client", () => {
         dataType: "float32",
         index: time.key,
       });
-      const start = TimeStamp.now();
+      const start = telem.TimeStamp.now();
       const timeData = [
         start,
-        start.add(TimeSpan.seconds(1)),
-        start.add(TimeSpan.seconds(2)),
-        start.add(TimeSpan.seconds(3)),
-        start.add(TimeSpan.seconds(4)),
-        start.add(TimeSpan.seconds(5)),
-        start.add(TimeSpan.seconds(6)),
-        start.add(TimeSpan.seconds(7)),
-        start.add(TimeSpan.seconds(8)),
-        start.add(TimeSpan.seconds(9)),
+        start.add(telem.TimeSpan.seconds(1)),
+        start.add(telem.TimeSpan.seconds(2)),
+        start.add(telem.TimeSpan.seconds(3)),
+        start.add(telem.TimeSpan.seconds(4)),
+        start.add(telem.TimeSpan.seconds(5)),
+        start.add(telem.TimeSpan.seconds(6)),
+        start.add(telem.TimeSpan.seconds(7)),
+        start.add(telem.TimeSpan.seconds(8)),
+        start.add(telem.TimeSpan.seconds(9)),
       ];
       const dataValues = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       await client.write(start, { [time.key]: timeData, [data.key]: dataValues });
@@ -106,18 +107,18 @@ describe("Client", () => {
         dataType: "float32",
         index: time.key,
       });
-      const start = TimeStamp.now();
+      const start = telem.TimeStamp.now();
       const timeData = [
         start,
-        start.add(TimeSpan.seconds(1)),
-        start.add(TimeSpan.seconds(2)),
-        start.add(TimeSpan.seconds(3)),
-        start.add(TimeSpan.seconds(4)),
-        start.add(TimeSpan.seconds(5)),
-        start.add(TimeSpan.seconds(6)),
-        start.add(TimeSpan.seconds(7)),
-        start.add(TimeSpan.seconds(8)),
-        start.add(TimeSpan.seconds(9)),
+        start.add(telem.TimeSpan.seconds(1)),
+        start.add(telem.TimeSpan.seconds(2)),
+        start.add(telem.TimeSpan.seconds(3)),
+        start.add(telem.TimeSpan.seconds(4)),
+        start.add(telem.TimeSpan.seconds(5)),
+        start.add(telem.TimeSpan.seconds(6)),
+        start.add(telem.TimeSpan.seconds(7)),
+        start.add(telem.TimeSpan.seconds(8)),
+        start.add(telem.TimeSpan.seconds(9)),
       ];
       const data1Values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       const data2Values = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -164,11 +165,11 @@ describe("Client", () => {
         dataType: "float32",
         index: time.key,
       });
-      const start = TimeStamp.now();
+      const start = telem.TimeStamp.now();
       const timeData = [
         start,
-        start.add(TimeSpan.seconds(1)),
-        start.add(TimeSpan.seconds(2)),
+        start.add(telem.TimeSpan.seconds(1)),
+        start.add(telem.TimeSpan.seconds(2)),
       ];
       const dataValues = [1, 2, 3];
       await client.write(start, { [time.key]: timeData, [data.key]: dataValues });

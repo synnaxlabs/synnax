@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { channel, group } from "@synnaxlabs/client";
-import { Access, Channel, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access, Channel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";

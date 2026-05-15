@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { caseconv, DataType, primitive } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { type FC, type ReactElement } from "react";
 
 import { Common } from "@/hardware/common";
@@ -58,7 +64,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
     showHelpText={false}
     required={false}
     visible={(_, ctx) =>
-      DataType.TIMESTAMP.equals(
+      telem.DataType.TIMESTAMP.equals(
         ctx.get<string>(`${path}.dataType`, { optional: true })?.value ?? "",
       )
     }

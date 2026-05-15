@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
-import { id, status, TimeStamp } from "@synnaxlabs/x";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -1469,7 +1472,7 @@ describe("queries", () => {
           name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
           details: { task: t.key, running: true, data: {} },
         };
         await client.statuses.set(stat);

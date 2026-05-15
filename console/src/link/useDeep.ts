@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { strings } from "@synnaxlabs/x/strings";
 import { Drift } from "@synnaxlabs/drift";
-import { Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
+import { Status } from "@synnaxlabs/charon/status";
+
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { useDispatch, useStore } from "react-redux";
 

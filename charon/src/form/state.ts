@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
+import { map } from "@synnaxlabs/x/map";
+import { observe } from "@synnaxlabs/x/observe";
+import { status } from "@synnaxlabs/x/status";
+import { zod } from "@synnaxlabs/x/zod";
 import { type z } from "zod";
 
 export interface FieldState<V = unknown> {

@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors } from "@synnaxlabs/x";
-
+import { errors } from "@synnaxlabs/x/errors";
 import { type state } from "@/state";
 
 /** A message from the main thread to update or create an aether component. */

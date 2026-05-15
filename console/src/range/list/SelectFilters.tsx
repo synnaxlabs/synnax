@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/charon";
+import { location } from "@synnaxlabs/x/location";
+import { state } from "@synnaxlabs/charon/state";
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Dialog,
-  Flex,
-  Icon,
-  Label as PLabel,
-  Menu,
-  Tag,
-  Text,
-} from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Text } from "@synnaxlabs/charon/text";
+import { Label as PLabel } from "@synnaxlabs/pluto";
 
 import { Label } from "@/label";
 

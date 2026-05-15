@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import { color } from "@synnaxlabs/x/color";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { record } from "@synnaxlabs/x/record";
+import { unique } from "@synnaxlabs/x/unique";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { Button } from "@/button";

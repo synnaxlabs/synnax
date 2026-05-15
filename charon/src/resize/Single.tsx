@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { useCursorDrag } from "@synnaxlabs/charon/hooks";
-import { box, clamp, location } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { location } from "@synnaxlabs/x/location";
+import { CSS } from "@/css";
+import { useCursorDrag } from "@/hooks";
+
 import { clsx } from "clsx";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 

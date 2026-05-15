@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
 import { Button } from "@synnaxlabs/charon/button";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
-import { caseconv } from "@synnaxlabs/x";
 
 import { DISPLAY } from "./constants";
 

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -89,7 +91,7 @@ describe("connectivity", () => {
     });
   });
   describe("clock skew", () => {
-    const createMockClient = (nodeTime: TimeStamp): UnaryClient => ({
+    const createMockClient = (nodeTime: telem.TimeStamp): UnaryClient => ({
       send: vi.fn().mockResolvedValue([
         {
           clusterKey: "test-cluster",
@@ -102,13 +104,13 @@ describe("connectivity", () => {
     });
 
     it("should detect clock skew exceeding threshold", async () => {
-      const farFuture = TimeStamp.now().add(TimeSpan.hours(1));
+      const farFuture = telem.TimeStamp.now().add(telem.TimeSpan.hours(1));
       const checker = new connection.Checker(
         createMockClient(farFuture),
-        TimeSpan.seconds(30),
+        telem.TimeSpan.seconds(30),
         __VERSION__,
         undefined,
-        TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(1),
       );
       const state = await checker.check();
       expect(state.clockSkewExceeded).toBe(true);
@@ -117,13 +119,13 @@ describe("connectivity", () => {
     });
 
     it("should not flag skew within threshold", async () => {
-      const now = TimeStamp.now();
+      const now = telem.TimeStamp.now();
       const checker = new connection.Checker(
         createMockClient(now),
-        TimeSpan.seconds(30),
+        telem.TimeSpan.seconds(30),
         __VERSION__,
         undefined,
-        TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(1),
       );
       const state = await checker.check();
       expect(state.clockSkewExceeded).toBe(false);
@@ -132,13 +134,13 @@ describe("connectivity", () => {
 
     it("should fire onChange when clockSkewExceeded changes", async () => {
       let callCount = 0;
-      const farFuture = TimeStamp.now().add(TimeSpan.hours(1));
+      const farFuture = telem.TimeStamp.now().add(telem.TimeSpan.hours(1));
       const checker = new connection.Checker(
         createMockClient(farFuture),
-        TimeSpan.seconds(30),
+        telem.TimeSpan.seconds(30),
         __VERSION__,
         undefined,
-        TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(1),
       );
       // Wait for the constructor's initial check to complete
       await checker.check();

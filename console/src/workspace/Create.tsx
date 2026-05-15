@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Synnax, Workspace } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Synnax, Workspace } from "@synnaxlabs/pluto";
+
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

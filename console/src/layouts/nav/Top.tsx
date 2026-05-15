@@ -10,7 +10,8 @@
 import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Nav, OS } from "@synnaxlabs/pluto";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";

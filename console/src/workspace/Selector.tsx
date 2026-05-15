@@ -10,20 +10,16 @@
 import "@/workspace/Selector.css";
 
 import { UnexpectedError, workspace } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Component,
-  Dialog,
-  Flex,
-  Icon,
-  Input,
-  List,
-  Select,
-  Synnax,
-  Text,
-  Workspace,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access, Synnax, Workspace } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

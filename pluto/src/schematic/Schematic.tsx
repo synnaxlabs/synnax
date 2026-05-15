@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import "@/schematic/Schematic.css";
 
 import { Component } from "@synnaxlabs/charon/component";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Key } from "@synnaxlabs/charon/key";
-import { TimeSpan } from "@synnaxlabs/x";
+
 import { type FC, type ReactElement } from "react";
 import { z } from "zod";
 
@@ -47,7 +48,7 @@ export interface CreateSchematicParams {
   useConfig: UseConfig;
 }
 
-const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
+const AUTO_RENDER_INTERVAL = telem.TimeSpan.seconds(1).milliseconds;
 
 export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
   const NodeRenderer = ({

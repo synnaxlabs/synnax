@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/charon/icon";
 import { Text } from "@synnaxlabs/charon/text";
 import { useState } from "react";
 
-import { Nav } from "@/nav";
+import { Nav } from "@synnaxlabs/charon/nav";
 
 import { SubcategorySection } from "./SubcategorySection";
 

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
@@ -20,7 +22,7 @@ import {
 } from "@synnaxlabs/charon/hooks";
 import { useMemoCompare } from "@synnaxlabs/charon/memo";
 import { Triggers } from "@synnaxlabs/charon/triggers";
-import { box, type xy } from "@synnaxlabs/x";
+
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,

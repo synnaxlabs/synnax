@@ -10,7 +10,9 @@
 import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tabs } from "@synnaxlabs/charon/tabs";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

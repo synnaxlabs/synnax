@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import { type schematic } from "@synnaxlabs/client";
-import { Icon, useCursorDrag } from "@synnaxlabs/pluto";
-import { box, location, scale, xy } from "@synnaxlabs/x";
+import { useCursorDrag } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { useRef } from "react";
 
 import { CSS } from "@/css";

@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { createTestClient, DataType } from "@synnaxlabs/client";
-import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -120,13 +122,13 @@ describe("DeleteModal", () => {
         index: indexCh.key,
       });
 
-      const timestamps = Array.from({ length: 10 }, (_, i) => TimeStamp.seconds(i + 1));
-      await client.write(TimeStamp.seconds(1), {
+      const timestamps = Array.from({ length: 10 }, (_, i) => telem.TimeStamp.seconds(i + 1));
+      await client.write(telem.TimeStamp.seconds(1), {
         [indexCh.key]: timestamps,
         [dataCh.key]: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
       });
 
-      const before = await client.read(TimeRange.MAX, dataCh.key);
+      const before = await client.read(telem.TimeRange.MAX, dataCh.key);
       expect(before.data.length).toEqual(10);
 
       const { result: c, onClose } = renderModal(wrapper);
@@ -165,7 +167,7 @@ describe("DeleteModal", () => {
 
       // Verify data was actually deleted on the server
       await waitFor(async () => {
-        const after = await client.read(TimeRange.MAX, dataCh.key);
+        const after = await client.read(telem.TimeRange.MAX, dataCh.key);
         expect(after.length).toEqual(0);
       });
     });

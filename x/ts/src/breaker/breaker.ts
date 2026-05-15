@@ -10,24 +10,24 @@
 import { z } from "zod";
 
 import { sleep } from "@/sleep";
-import { type CrudeTimeSpan, TimeSpan } from "@/telem";
+import { telem } from "@/telem";
 
 export class Breaker {
   private readonly config: Omit<Required<Config>, "baseInterval"> & {
-    baseInterval: TimeSpan;
+    baseInterval: telem.TimeSpan;
   };
   private retries: number;
-  private interval: TimeSpan;
+  private interval: telem.TimeSpan;
 
   constructor(cfg?: Config) {
     this.config = {
-      baseInterval: new TimeSpan(cfg?.baseInterval ?? TimeSpan.seconds(1)),
+      baseInterval: new telem.TimeSpan(cfg?.baseInterval ?? telem.TimeSpan.seconds(1)),
       maxRetries: cfg?.maxRetries ?? 5,
       scale: cfg?.scale ?? 1,
       sleepFn: cfg?.sleepFn ?? sleep.sleep,
     };
     this.retries = 0;
-    this.interval = new TimeSpan(this.config.baseInterval);
+    this.interval = new telem.TimeSpan(this.config.baseInterval);
   }
 
   async wait(): Promise<boolean> {
@@ -50,14 +50,14 @@ export class Breaker {
 }
 
 export const breakerConfigZ = z.object({
-  baseInterval: TimeSpan.z.optional(),
+  baseInterval: telem.TimeSpan.z.optional(),
   maxRetries: z.number().optional(),
   scale: z.number().optional(),
 });
 
 export interface Config extends Omit<z.infer<typeof breakerConfigZ>, "baseInterval"> {
-  baseInterval?: CrudeTimeSpan;
+  baseInterval?: telem.CrudeTimeSpan;
   maxRetries?: number;
   scale?: number;
-  sleepFn?: (duration: TimeSpan) => Promise<void>;
+  sleepFn?: (duration: telem.TimeSpan) => Promise<void>;
 }

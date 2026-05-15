@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { stopPropagation } from "@synnaxlabs/charon/util";
 import { type arc } from "@synnaxlabs/client";
-import {
-  Arc,
-  Flex,
-  Form,
-  Input,
-  List,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Arc } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {

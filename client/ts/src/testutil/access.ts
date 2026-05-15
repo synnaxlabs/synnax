@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
-
+import { id } from "@synnaxlabs/x/id";
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
 import type Synnax from "@/client";

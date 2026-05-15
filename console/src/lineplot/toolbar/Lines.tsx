@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Channel,
-  Color,
-  Icon,
-  Input,
-  List,
-  Select,
-  Tabs,
-  type telem,
-} from "@synnaxlabs/pluto";
-import { type bounds, color, type xy } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { xy } from "@synnaxlabs/x/xy";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Channel, Color, type telem } from "@synnaxlabs/pluto";
+
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

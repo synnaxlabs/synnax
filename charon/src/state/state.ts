@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive, type record } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { record } from "@synnaxlabs/x/record";
 import { useCallback, useState } from "react";
 
 export type State = Exclude<primitive.Value, undefined> | record.Unknown | void;

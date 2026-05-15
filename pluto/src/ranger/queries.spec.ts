@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { createTestClient, ranger } from "@synnaxlabs/client";
-import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,11 +38,11 @@ describe("queries", () => {
     it("should return a list of range keys", async () => {
       const range1 = await client.ranges.create({
         name: "range1",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       const range2 = await client.ranges.create({
         name: "range2",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -60,7 +62,7 @@ describe("queries", () => {
     it("should get individual ranges using getItem", async () => {
       const testRange = await client.ranges.create({
         name: "testRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         color: "#FF5733",
       });
 
@@ -86,11 +88,11 @@ describe("queries", () => {
     it("should filter ranges by search term", async () => {
       await client.ranges.create({
         name: "ordinary_range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.ranges.create({
         name: "special_range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -116,7 +118,7 @@ describe("queries", () => {
     it("should handle includeLabels parameter", async () => {
       const testRange = await client.ranges.create({
         name: "labeledRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -134,12 +136,12 @@ describe("queries", () => {
     it("should handle includeParent parameter", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
       });
       const childRange = await client.ranges.create(
         {
           name: "childRange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -166,7 +168,7 @@ describe("queries", () => {
       for (let i = 0; i < 5; i++) {
         const range = await client.ranges.create({
           name: `paginationRange${i}`,
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         });
         keys.push(range.key);
       }
@@ -198,7 +200,7 @@ describe("queries", () => {
 
       const newRange = await client.ranges.create({
         name: "newRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
 
       await waitFor(() => {
@@ -210,7 +212,7 @@ describe("queries", () => {
     it("should update the list when a range is updated", async () => {
       const testRange = await client.ranges.create({
         name: "original",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -234,7 +236,7 @@ describe("queries", () => {
     it("should remove range from list when deleted", async () => {
       const testRange = await client.ranges.create({
         name: "toDelete",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -262,7 +264,7 @@ describe("queries", () => {
       });
       const r = await client.ranges.create({
         name: "Filter Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.labels.label(ranger.ontologyID(r.key), [label.key]);
       const { result } = renderHook(
@@ -281,7 +283,7 @@ describe("queries", () => {
       // add a new range without the label
       const r2 = await client.ranges.create({
         name: "Unlabeled Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       act(() => {
         result.current.retrieve(
@@ -294,7 +296,7 @@ describe("queries", () => {
       // add a new range with the label
       const r3 = await client.ranges.create({
         name: "Labeled Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
       act(() => {
@@ -310,7 +312,7 @@ describe("queries", () => {
     it("should handle ranges with custom colors", async () => {
       const coloredRange = await client.ranges.create({
         name: "coloredRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         color: "#E774D0",
       });
 
@@ -337,7 +339,7 @@ describe("queries", () => {
       });
       const testRange = await client.ranges.create({
         name: "rangeWithLabels",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.labels.label(ranger.ontologyID(testRange.key), [
         label1.key,
@@ -368,11 +370,11 @@ describe("queries", () => {
     it("should handle ranges with different time spans", async () => {
       const shortRange = await client.ranges.create({
         name: "shortRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.milliseconds(500)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.milliseconds(500)),
       });
       const longRange = await client.ranges.create({
         name: "longRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(5)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(5)),
       });
 
       const { result } = renderHook(() => Ranger.useList(), {
@@ -398,19 +400,19 @@ describe("queries", () => {
     it("should return a list of child range keys", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
       });
       const child1 = await client.ranges.create(
         {
           name: "child1",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
         },
         { parent: parentRange.ontologyID },
       );
       const child2 = await client.ranges.create(
         {
           name: "child2",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(3)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -433,12 +435,12 @@ describe("queries", () => {
     it("should get individual child ranges using getItem", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
       });
       const childRange = await client.ranges.create(
         {
           name: "testChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
           color: "#00FF00",
         },
         { parent: parentRange.ontologyID },
@@ -464,7 +466,7 @@ describe("queries", () => {
     it("should return empty list for range with no children", async () => {
       const parentRange = await client.ranges.create({
         name: "lonelyParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(5)),
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -483,7 +485,7 @@ describe("queries", () => {
     it("should update the list when a child range is created", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
       });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
@@ -504,7 +506,7 @@ describe("queries", () => {
       const newChild = await client.ranges.create(
         {
           name: "newChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -518,12 +520,12 @@ describe("queries", () => {
     it("should update the list when a child range is updated", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
       });
       const childRange = await client.ranges.create(
         {
           name: "originalChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -552,12 +554,12 @@ describe("queries", () => {
     it("should remove child from list when deleted", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
       });
       const childRange = await client.ranges.create(
         {
           name: "childToDelete",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -586,19 +588,19 @@ describe("queries", () => {
     it("should handle nested parent-child relationships", async () => {
       const grandparentRange = await client.ranges.create({
         name: "grandparent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(20)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(20)),
       });
       const parentRange = await client.ranges.create(
         {
           name: "parent",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(10)),
         },
         { parent: grandparentRange.ontologyID },
       );
       const childRange = await client.ranges.create(
         {
           name: "child",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(5)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -635,7 +637,7 @@ describe("queries", () => {
     it("should handle multiple levels of hierarchy correctly", async () => {
       const rootRange = await client.ranges.create({
         name: "root",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(1)),
       });
 
       // Create multiple children at the same level
@@ -644,7 +646,7 @@ describe("queries", () => {
         const child = await client.ranges.create(
           {
             name: `level1_child_${i}`,
-            timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
+            timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(10)),
           },
           { parent: rootRange.ontologyID },
         );
@@ -668,7 +670,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(5));
 
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
@@ -691,7 +693,7 @@ describe("queries", () => {
     });
 
     it("should create a new range with labels", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(3));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(3));
       const label1 = await client.labels.create({
         name: "testLabel1",
         color: "#00FF00",
@@ -722,9 +724,9 @@ describe("queries", () => {
     it("should create a new range with a parent", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(1)),
       });
-      const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
+      const childTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(30));
 
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
@@ -745,7 +747,7 @@ describe("queries", () => {
     });
 
     it("should retrieve and edit existing range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(10));
       const existingRange = await client.ranges.create({
         name: "existingRange",
         timeRange,
@@ -784,7 +786,7 @@ describe("queries", () => {
         color: color.construct("#FFFF00"),
       });
 
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(8));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(8));
       const existingRange = await client.ranges.create({
         name: "rangeWithLabels",
         timeRange,
@@ -809,12 +811,12 @@ describe("queries", () => {
     it("should retrieve range with parent relationship", async () => {
       const parentRange = await client.ranges.create({
         name: "parentForRetrieval",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(2)),
       });
       const childRange = await client.ranges.create(
         {
           name: "childForRetrieval",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(15)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -830,7 +832,7 @@ describe("queries", () => {
     });
 
     it("should update form when range is updated externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(7));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(7));
       const testRange = await client.ranges.create({
         name: "externalUpdate",
         timeRange,
@@ -853,7 +855,7 @@ describe("queries", () => {
     });
 
     it("should update form when labels are added externally", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(4));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(4));
       const testRange = await client.ranges.create({
         name: "labelUpdateTest",
         timeRange,
@@ -896,7 +898,7 @@ describe("queries", () => {
         color: "#00AA00",
       });
 
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(6));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(6));
       const testRange = await client.ranges.create({
         name: "labelRemovalTest",
         timeRange,
@@ -927,16 +929,16 @@ describe("queries", () => {
     it("should update form when parent is changed externally", async () => {
       const originalParent = await client.ranges.create({
         name: "originalParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(1)),
       });
       const newParent = await client.ranges.create({
         name: "newParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(2)),
       });
       const childRange = await client.ranges.create(
         {
           name: "childForParentChange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(30)),
         },
         { parent: originalParent.ontologyID },
       );
@@ -976,7 +978,7 @@ describe("queries", () => {
     it("should handle complex range operations", async () => {
       const parentRange = await client.ranges.create({
         name: "complexParent",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(3)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(3)),
       });
 
       const label = await client.labels.create({
@@ -988,7 +990,7 @@ describe("queries", () => {
         wrapper,
       });
 
-      const complexTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(45));
+      const complexTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(45));
 
       act(() => {
         result.current.form.set("name", "complexRange");
@@ -1010,7 +1012,7 @@ describe("queries", () => {
     });
 
     it("should handle time range modifications", async () => {
-      const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
+      const initialTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(10));
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
@@ -1025,7 +1027,7 @@ describe("queries", () => {
         expect(result.current.form.value().timeRange).toEqual(initialTimeRange.numeric);
       });
 
-      const modifiedTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(20));
+      const modifiedTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(20));
       act(() => {
         result.current.form.set("timeRange", modifiedTimeRange.numeric);
         result.current.save({ signal: controller.signal });
@@ -1041,18 +1043,18 @@ describe("queries", () => {
     it("should handle parent relationship changes", async () => {
       const parent1 = await client.ranges.create({
         name: "parent1",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(1)),
       });
       const parent2 = await client.ranges.create({
         name: "parent2",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(2)),
       });
 
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
 
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(30));
 
       act(() => {
         result.current.form.set("name", "parentChangeTest");

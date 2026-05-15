@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Menu, Text } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Text } from "@synnaxlabs/charon/text";
 
 import { ContextMenu } from "@/components";
 import { type ContextMenuItemProps } from "@/hardware/common/task/ChannelList";

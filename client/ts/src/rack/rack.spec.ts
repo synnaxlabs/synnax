@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp, zod } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
+import { zod } from "@synnaxlabs/x/zod";
 import { describe, expect, it } from "vitest";
 
 import { type rack } from "@/rack";
@@ -32,7 +34,7 @@ describe("Rack", () => {
         variant: "success",
         message: "Custom rack status",
         description: "Rack is running",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: { rack: 0 },
       };
       const r = await client.racks.create({
@@ -71,7 +73,7 @@ describe("Rack", () => {
       expect(retrieved.name).toBe("test");
     });
     it("should retrieve a rack by its name", async () => {
-      const name = `${TimeStamp.now().toString()}-${Math.random()}`;
+      const name = `${telem.TimeStamp.now().toString()}-${Math.random()}`;
       const r = await client.racks.create({ name });
       const retrieved = await client.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);

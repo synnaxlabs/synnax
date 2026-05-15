@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeRange,
-  TimeRange as XTimeRange,
-  TimeSpan,
-  TimeStamp,
-  type TZInfo,
-} from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
@@ -23,25 +17,25 @@ export interface TimeRangeProps
   extends
     Omit<Flex.BoxProps<"div">, "children">,
     Pick<Text.TextProps, "level" | "color" | "weight"> {
-  children: CrudeTimeRange;
-  displayTZ?: TZInfo;
+  children: telem.CrudeTimeRange;
+  displayTZ?: telem.TZInfo;
 }
 
 const formatTime = (
-  timeRange: CrudeTimeRange,
-  displayTZ: TZInfo,
+  timeRange: telem.CrudeTimeRange,
+  displayTZ: telem.TZInfo,
 ): null | string | [string, string] => {
-  const tr = new XTimeRange(timeRange).makeValid();
-  if (tr.start.equals(TimeStamp.MAX)) return null;
+  const tr = new telem.TimeRange(timeRange).makeValid();
+  if (tr.start.equals(telem.TimeStamp.MAX)) return null;
   const startFormat = tr.start.isToday ? "time" : "dateTime";
-  let startTime = new TimeStamp(tr.start).toString(startFormat, displayTZ);
+  let startTime = new telem.TimeStamp(tr.start).toString(startFormat, displayTZ);
   if (tr.start.isToday) startTime = `Today ${startTime}`;
-  if (tr.end.equals(TimeStamp.MAX)) {
-    if (tr.start.before(TimeStamp.now())) return `Started ${startTime}`;
+  if (tr.end.equals(telem.TimeStamp.MAX)) {
+    if (tr.start.before(telem.TimeStamp.now())) return `Started ${startTime}`;
     return `Starts ${startTime}`;
   }
-  const endFormat = tr.end.span(tr.start) < TimeSpan.DAY ? "time" : "dateTime";
-  const endTime = new TimeStamp(tr.end).toString(endFormat, displayTZ);
+  const endFormat = tr.end.span(tr.start) < telem.TimeSpan.DAY ? "time" : "dateTime";
+  const endTime = new telem.TimeStamp(tr.end).toString(endFormat, displayTZ);
   return [startTime, endTime];
 };
 

@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component } from "@synnaxlabs/charon/component";
-import { CSS } from "@synnaxlabs/charon/css";
-import { Input } from "@synnaxlabs/charon/input";
-import { Select } from "@synnaxlabs/charon/select";
-import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { deep } from "@synnaxlabs/x/deep";
+import { optional } from "@synnaxlabs/x/optional";
+import { record } from "@synnaxlabs/x/record";
+import { Component } from "@/component";
+import { CSS } from "@/css";
+import { Input } from "@/input";
+import { Select } from "@/select";
+
 import { type FC, type ReactElement } from "react";
 
 import { type ContextValue, useContext } from "@/form/Context";

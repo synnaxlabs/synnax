@@ -14,7 +14,7 @@ import { z } from "zod";
 import { id } from "@/id";
 import { label } from "@/label";
 import { type optional } from "@/optional";
-import { telem, TimeStamp } from "@/telem";
+import { telem } from "@/telem";
 import { zod } from "@/zod";
 
 export const VARIANTS = [
@@ -82,7 +82,7 @@ export const statusZ: StatusZFunction = <
     variant: v ?? variantZ,
     message: z.string(),
     description: z.string().optional(),
-    time: telem.timeStampZ.default(() => TimeStamp.now()),
+    time: telem.timeStampZ.default(() => telem.TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
   });

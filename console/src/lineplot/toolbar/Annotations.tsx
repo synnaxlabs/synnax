@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Button,
-  Color,
-  Divider,
-  Flex,
-  Icon,
-  Input,
-  List as PList,
-  Menu,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
-import { bounds, color, id } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
+import { Button } from "@synnaxlabs/charon/button";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List as PList } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Color } from "@synnaxlabs/pluto";
+
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
 import { type schematic } from "@synnaxlabs/client";
-import { Form, Icon, type Input, Select } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 

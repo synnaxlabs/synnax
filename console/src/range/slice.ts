@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type ranger } from "@synnaxlabs/client";
-import { type NumericTimeRange } from "@synnaxlabs/x";
 
 import * as latest from "@/range/types";
 
@@ -41,7 +41,7 @@ interface RenamePayload {
 }
 
 interface UpdateIfExistsPayload extends Omit<ranger.Payload, "timeRange"> {
-  timeRange: NumericTimeRange;
+  timeRange: telem.NumericTimeRange;
 }
 
 type SetActivePayload = string | null;

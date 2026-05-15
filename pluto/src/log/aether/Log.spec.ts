@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { mockRenderContext } from "@synnaxlabs/charon/testutil";
 import { Theming } from "@synnaxlabs/charon/theming";
-import { box, color, TimeStamp } from "@synnaxlabs/x";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channelConfigZ, Log, logState } from "@/log/aether/Log";
@@ -90,7 +93,7 @@ const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
 const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   channelKey,
-  timestamp: TimeStamp.milliseconds(i * 1000),
+  timestamp: telem.TimeStamp.milliseconds(i * 1000),
   value: String(i),
 });
 
@@ -688,7 +691,7 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "3.14159265",
         },
       ];
@@ -705,7 +708,7 @@ describe("log/aether/Log", () => {
       const entries: LogEntry[] = [
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "12345",
         },
       ];

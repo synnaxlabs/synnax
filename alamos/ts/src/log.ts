@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
-
+import { record } from "@synnaxlabs/x/record";
 import { Meta } from "@/meta";
 
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;

@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
+import { errors } from "@synnaxlabs/x/errors";
+import { record } from "@synnaxlabs/x/record";
+import { shallow } from "@synnaxlabs/x/shallow";
+import { Sender, SenderHandler } from "@synnaxlabs/x/worker";
+import { zod } from "@synnaxlabs/x/zod";
 import { alamos } from "@synnaxlabs/alamos";
-import {
-  deep,
-  errors,
-  type record,
-  type Sender,
-  type SenderHandler,
-  shallow,
-  zod,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import {

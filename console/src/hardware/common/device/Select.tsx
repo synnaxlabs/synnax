@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { primitive } from "@synnaxlabs/x/primitive";
 import { type device } from "@synnaxlabs/client";
-import { Device, Form, type Icon, Status, Synnax } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/charon/form";
+import type { Icon } from "@synnaxlabs/charon/icon";
+import { Status } from "@synnaxlabs/charon/status";
+import { Device, Synnax } from "@synnaxlabs/pluto";
+
 import { type JSX, useCallback, useMemo } from "react";
 
 import { Layout } from "@/layout";

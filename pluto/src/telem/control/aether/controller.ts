@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { compare } from "@synnaxlabs/x/compare";
+import { control as xcontrol } from "@synnaxlabs/x/control";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { status as xstatus } from "@synnaxlabs/x/status";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { status } from "@synnaxlabs/charon/status/aether";
@@ -20,15 +26,7 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
-import {
-  color,
-  compare,
-  control as xcontrol,
-  type CrudeSeries,
-  type destructor,
-  type status as xstatus,
-  TimeSpan,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";
@@ -166,7 +164,7 @@ export class Controller
       // setting the start timestamp over the writer earlier than the first
       // sample we write, preventing a validation error when releasing control. We
       // choose 1 ms because it is the resolution of a JS timestamp.
-      const start = TimeStamp.now().sub(TimeSpan.milliseconds(1));
+      const start = TimeStamp.now().sub(xtelem.TimeSpan.milliseconds(1));
       this.writer = await client.openWriter({
         start,
         channels: needsControlOf,
@@ -232,13 +230,13 @@ export class Controller
   // would be stale relative to the new writer's start after a reconnection.
   async set(
     buildFrame: () => Promise<
-      framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>
+      framer.CrudeFrame | Record<channel.Key | channel.Name, xtelem.CrudeSeries>
     >,
   ): Promise<void> {
     await this.withRetry(async () => this.writer?.write(await buildFrame()));
   }
 
-  async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
+  async setAuthority(channels: channel.Key[], value: xcontrol.Authority): Promise<void> {
     await this.withRetry(async () =>
       this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );
@@ -330,14 +328,14 @@ export class SetChannelValue
         throw new ValidationError("No command channel specified for actuator");
       await this.controller.set(async () => {
         const ch = await client.channels.retrieve(this.props.channel);
-        const fr: Record<channel.Key | channel.Name, CrudeSeries> = {
+        const fr: Record<channel.Key | channel.Name, xtelem.CrudeSeries> = {
           [ch.key]: values,
         };
         if (ch.index !== 0) {
           const index = await client.channels.retrieve(ch.index);
           const now = TimeStamp.now();
           fr[index.key] = Array.from({ length: values.length }, (_, i) =>
-            now.add(TimeSpan.nanoseconds(i)),
+            now.add(xtelem.TimeSpan.nanoseconds(i)),
           );
         }
         return fr;
@@ -354,7 +352,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(control.ABSOLUTE_AUTHORITY),
+  authority: z.number().default(xcontrol.ABSOLUTE_AUTHORITY),
   channel: z.number(),
 });
 

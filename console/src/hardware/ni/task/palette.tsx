@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";

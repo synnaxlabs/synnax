@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeStamp } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -21,7 +22,7 @@ const clusterInfoZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
   nodeKey: z.number().optional(),
-  nodeTime: TimeStamp.z,
+  nodeTime: telem.TimeStamp.z,
 });
 
 const tokenResponseZ = z.object({

@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { deep } from "@synnaxlabs/x/deep";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
-import { box, deep, type dimensions, id, TimeSpan, xy } from "@synnaxlabs/x";
 
 import { group, groupEnd, log } from "@/debug";
 import {
@@ -126,7 +131,7 @@ export type Payload =
 export type Action = PayloadAction<Payload>;
 
 // For some reason, delaying the reload causes Tauri to crash less
-const RELOAD_DELAY = TimeSpan.milliseconds(50);
+const RELOAD_DELAY = telem.TimeSpan.milliseconds(50);
 const delayedReload = () =>
   setTimeout(() => window.location.reload(), RELOAD_DELAY.milliseconds);
 

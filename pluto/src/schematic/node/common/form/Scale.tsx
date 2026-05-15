@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { xy } from "@synnaxlabs/x/xy";
 import { Input } from "@synnaxlabs/charon/input";
-import { type bounds, type xy } from "@synnaxlabs/x";
+
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const SCALE_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };

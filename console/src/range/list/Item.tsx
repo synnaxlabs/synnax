@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { telem } from "@synnaxlabs/x/telem";
+import { stopPropagation } from "@synnaxlabs/charon/util";
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Flex,
-  Form,
-  Input,
-  List,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-} from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Ranger } from "@synnaxlabs/pluto";
+
 import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -87,7 +86,7 @@ const Base = ({
             ghost={!selected}
           />
           <Flex.Box x align="center" gap="tiny">
-            <Form.Field<NumericTimeRange>
+            <Form.Field<telem.NumericTimeRange>
               path="timeRange"
               showHelpText
               showLabel={false}

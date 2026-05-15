@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { context } from "@synnaxlabs/charon/context";
 import { useSyncedRef } from "@synnaxlabs/charon/hooks";
 import type { state } from "@synnaxlabs/charon/state";
-import { color, TimeStamp } from "@synnaxlabs/x";
+
 import React, {
   type PropsWithChildren,
   type ReactElement,
@@ -54,7 +56,7 @@ const RECENCY_WEIGHT = 0.6;
 const FREQUENCY_WEIGHT = 0.4;
 
 export const recalculate = (limit: number, frequent: Frequent): Frequent => {
-  const now = Number(TimeStamp.now().valueOf());
+  const now = Number(telem.TimeStamp.now().valueOf());
   const maxFrequency = Object.values(frequent).reduce(
     (acc, { count }) => Math.max(acc, count),
     0,
@@ -96,7 +98,7 @@ export const Provider = ({
       const next: Frequent = {
         ...prev.frequent,
         [hex]: {
-          lastUsed: Number(TimeStamp.now().valueOf()),
+          lastUsed: Number(telem.TimeStamp.now().valueOf()),
           count: count + 1,
           relevance: 0,
         },

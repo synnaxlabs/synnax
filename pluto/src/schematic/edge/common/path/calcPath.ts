@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type xy } from "@synnaxlabs/x";
-
+import { xy } from "@synnaxlabs/x/xy";
 export const calcPath = (coords: xy.XY[]): string => {
   let path = "";
   const close = false;

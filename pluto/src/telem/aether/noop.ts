@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  color,
-  MultiSeries,
-  observe,
-  type status,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { observe } from "@synnaxlabs/x/observe";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { type z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -136,7 +133,7 @@ class StatusSource extends Noop implements StatusSource {
       name: "noop",
       variant: "disabled",
       message: "unknown",
-      time: TimeStamp.now(),
+      time: telem.TimeStamp.now(),
     };
   }
 }
@@ -166,8 +163,8 @@ export const noopColorSourceSpec: ColorSourceSpec = {
 class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
-  value(): [bounds.Bounds, MultiSeries] {
-    return [bounds.ZERO, new MultiSeries([])];
+  value(): [bounds.Bounds, telem.MultiSeries] {
+    return [bounds.ZERO, new telem.MultiSeries([])];
   }
 }
 

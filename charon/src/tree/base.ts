@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, type record, unique } from "@synnaxlabs/x";
-
+import { array } from "@synnaxlabs/x/array";
+import { compare } from "@synnaxlabs/x/compare";
+import { record } from "@synnaxlabs/x/record";
+import { unique } from "@synnaxlabs/x/unique";
 export interface Node<K extends record.Key = string> {
   key: K;
   children?: Node<K>[];

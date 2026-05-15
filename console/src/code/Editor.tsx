@@ -9,14 +9,12 @@
 
 import "@/code/Editor.css";
 
-import {
-  Flex,
-  Icon,
-  type Input,
-  Menu,
-  Theming,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Input } from "@synnaxlabs/charon/input";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Theming } from "@synnaxlabs/charon/theming";
+import type { Triggers } from "@synnaxlabs/charon/triggers";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dimensions as base, runtime } from "@synnaxlabs/x";
-
+import { type dimensions as base } from "@synnaxlabs/x/dimensions";
+import { runtime } from "@synnaxlabs/x/runtime";
 let canvas: HTMLCanvasElement | null = null;
 
 /**

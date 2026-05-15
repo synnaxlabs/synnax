@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Form, Header, Icon } from "@synnaxlabs/pluto";
-import { binary } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { Button } from "@synnaxlabs/charon/button";
+import { Form } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { useCallback } from "react";
 
 export interface DetailsHeaderProps {

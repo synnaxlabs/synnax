@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, group, type ontology } from "@synnaxlabs/client";
-import { Status, Synnax } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/charon/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useConfirmDelete } from "@/ontology/hooks";

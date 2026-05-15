@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
-import { Access, Device, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access, Device } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/charon/status";
+import { Device } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 export const useListenForChanges = () => {

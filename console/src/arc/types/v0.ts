@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { migrate } from "@synnaxlabs/x/migrate";
+import { xy } from "@synnaxlabs/x/xy";
 import { arc } from "@synnaxlabs/client";
 import { Viewport } from "@synnaxlabs/pluto";
-import { dimensions, type migrate, xy } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 export const VERSION = "0.0.0";

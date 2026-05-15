@@ -10,7 +10,11 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

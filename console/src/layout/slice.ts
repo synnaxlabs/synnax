@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
+import { direction } from "@synnaxlabs/x/direction";
+import { id } from "@synnaxlabs/x/id";
+import { location } from "@synnaxlabs/x/location";
 import {
   createSlice,
   type Dispatch,
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { type Haul } from "@synnaxlabs/charon";
+import type { Haul } from "@synnaxlabs/charon/haul";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import type { Tabs } from "@synnaxlabs/charon/tabs";
+import { type Color, Mosaic } from "@synnaxlabs/pluto";
+
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";

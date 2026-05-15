@@ -7,20 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x/record";
 import "@/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
-import {
-  Button,
-  CSS as PCSS,
-  Errors,
-  Flex,
-  Nav,
-  OS,
-  Synnax,
-  Theming,
-} from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS as PCSS } from "@synnaxlabs/charon/css";
+import { Errors } from "@synnaxlabs/charon/errors";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { OS, Synnax } from "@synnaxlabs/pluto";
+
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {

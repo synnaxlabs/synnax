@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { scale } from "@synnaxlabs/x/scale";
+import { sticky } from "@synnaxlabs/x/sticky";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/legend/Container.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
@@ -15,7 +20,7 @@ import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
 import type { Input } from "@synnaxlabs/charon/input";
 import { state } from "@synnaxlabs/charon/state";
 import { preventDefault } from "@synnaxlabs/charon/util";
-import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
+
 import { memo, type ReactElement, useCallback, useRef } from "react";
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
 import "@/vis/rule/Rule.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -16,7 +18,7 @@ import { Flex } from "@synnaxlabs/charon/flex";
 import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
 import { state } from "@synnaxlabs/charon/state";
 import { Text } from "@synnaxlabs/charon/text";
-import { box, color } from "@synnaxlabs/x";
+
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";

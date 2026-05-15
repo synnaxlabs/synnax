@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Icon, Telem, Text } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x/status";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";

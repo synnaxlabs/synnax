@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -24,7 +24,7 @@ describe("HTTP Task Types", () => {
     channel: 1,
     enabled: true,
     key: "f1",
-    dataType: DataType.FLOAT64.toString(),
+    dataType: telem.DataType.FLOAT64.toString(),
   };
 
   describe("READ_SCHEMAS", () => {
@@ -143,7 +143,7 @@ describe("HTTP Task Types", () => {
                 channel: 1,
                 enabled: true,
                 key: "f1",
-                dataType: DataType.FLOAT64.toString(),
+                dataType: telem.DataType.FLOAT64.toString(),
               },
             ],
           },

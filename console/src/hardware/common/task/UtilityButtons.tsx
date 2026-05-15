@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { binary } from "@synnaxlabs/x/binary";
+import { primitive } from "@synnaxlabs/x/primitive";
 import { task } from "@synnaxlabs/client";
-import { Button, Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
-import { binary, primitive } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";

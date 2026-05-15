@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sleep } from "@synnaxlabs/x/sleep";
+import { telem } from "@synnaxlabs/x/telem";
 import { type channel, Frame, type framer } from "@synnaxlabs/client";
-import { type MultiSeries, Series, sleep, TimeSpan } from "@synnaxlabs/x";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
@@ -97,12 +99,12 @@ describe("Streamer", () => {
         cache: new Cache({ channelRetriever: retriever }),
         openStreamer: createStreamOpener([
           new MockStreamer([1], async () => {
-            await sleep.sleep(TimeSpan.milliseconds(5));
+            await sleep.sleep(telem.TimeSpan.milliseconds(5));
             i++;
             return {
               done: false,
               value: new Frame({
-                1: new Series({
+                1: new telem.Series({
                   data: new Float32Array([1]),
                   alignment: BigInt(i),
                 }),
@@ -112,7 +114,7 @@ describe("Streamer", () => {
         ]),
       });
 
-      const responses: Map<channel.Key, MultiSeries>[] = [];
+      const responses: Map<channel.Key, telem.MultiSeries>[] = [];
       const disconnect = await streamer.stream((d) => responses.push(d), [1]);
       await expect.poll(() => responses.length > 5).toBe(true);
       disconnect();

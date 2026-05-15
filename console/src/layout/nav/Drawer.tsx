@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/layouts/nav/Nav.css";
 
-import { Nav } from "@synnaxlabs/pluto";
-import { box, direction, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Eraser } from "@synnaxlabs/pluto";
+
+import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { type NavDrawerLocation } from "@/layout/types";
@@ -50,18 +54,25 @@ const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 export const Drawer = ({ location: loc, menuItems }: DrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect, hover, onStopHover, onCollapse } =
     useNavDrawer(loc, menuItems);
+  const { erase } = Eraser.use({ enabled: activeItem != null && !hover });
+  const handleResize = useCallback(
+    (size: number, b: box.Box) => {
+      onResize?.(size);
+      erase(b);
+    },
+    [onResize, erase],
+  );
   return (
     <Nav.Drawer
       location={loc}
       className={CSS(CSS.BE("nav", "drawer"), hover && CSS.M("hover"))}
       activeItem={activeItem}
-      onResize={onResize}
+      onResize={handleResize}
       onSelect={onSelect}
       onMouseLeave={mouseLeaveBy(
         direction.construct(loc) === "y" ? xy.swap(X_THRESHOLD) : X_THRESHOLD,
         onStopHover,
       )}
-      eraseEnabled={activeItem != null && !hover}
       onCollapse={onCollapse}
       background={0}
       rounded={1}

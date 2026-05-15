@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { debounce } from "@synnaxlabs/x/debounce";
+import { deep } from "@synnaxlabs/x/deep";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import { type Action, type Middleware } from "@reduxjs/toolkit";
-import { debounce, deep, type record, TimeSpan } from "@synnaxlabs/x";
 
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { Runtime } from "@/runtime";
@@ -168,7 +171,7 @@ export const open = async <S extends RequiredState>(
   return { revert, clear, persist, initialState: state };
 };
 
-const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
+const PERSIST_DEBOUNCE = telem.TimeSpan.milliseconds(250);
 
 /**
  * Creates a middleware that persists the redux store state to the provided persistence
@@ -180,7 +183,7 @@ const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
  */
 export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
-  debounceInterval: TimeSpan = PERSIST_DEBOUNCE,
+  debounceInterval: telem.TimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
   const debouncedPersist = debounce(
     engine.persist.bind(engine),

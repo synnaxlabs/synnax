@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x/errors";
 import { describe, expect, test } from "vitest";
 
 import { EOF, FreighterError, StreamClosed, Unreachable } from "@/errors";

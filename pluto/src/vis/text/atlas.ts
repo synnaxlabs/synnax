@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { unique } from "@synnaxlabs/x/unique";
 import { text } from "@synnaxlabs/charon/text/base";
-import { color, type dimensions, unique } from "@synnaxlabs/x";
+
 export interface AtlasProps {
   font: string;
   textColor: color.Crude;

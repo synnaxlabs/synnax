@@ -9,20 +9,18 @@
 
 import "@/status/list/Item.css";
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { stopPropagation } from "@synnaxlabs/charon/util";
 import { type status } from "@synnaxlabs/client";
-import {
-  Flex,
-  Form,
-  Icon,
-  Input,
-  List,
-  Select,
-  Status,
-  Tag,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

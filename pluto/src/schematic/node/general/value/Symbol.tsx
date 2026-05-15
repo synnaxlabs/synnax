@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import { Text } from "@synnaxlabs/charon/text";
 import { Theming } from "@synnaxlabs/charon/theming";
-import { box, scale, xy } from "@synnaxlabs/x";
+
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";

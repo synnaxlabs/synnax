@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN } from "@/framer/iterator";
@@ -22,7 +22,7 @@ describe("Iterator", () => {
   test("happy path", async () => {
     const channels = await newIndexedPair(client);
     const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
+      start: telem.TimeStamp.SECOND,
       channels,
     });
     const [idx_ch, data_ch] = channels;
@@ -45,14 +45,14 @@ describe("Iterator", () => {
     }
 
     const iter = await client.openIterator(
-      new TimeRange(TimeStamp.SECOND, TimeSpan.seconds(30)),
+      new telem.TimeRange(telem.TimeStamp.SECOND, telem.TimeSpan.seconds(30)),
       channels,
     );
 
     try {
       expect(await iter.seekFirst()).toBe(true);
       let c = 0;
-      while (await iter.next(TimeSpan.seconds(1))) {
+      while (await iter.next(telem.TimeSpan.seconds(1))) {
         c++;
         expect(iter.value.get(idx_ch.key)).toHaveLength(1);
         expect(iter.value.get(data_ch.key)).toHaveLength(1);
@@ -66,7 +66,7 @@ describe("Iterator", () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
     const writer = await client.openWriter({
-      start: TimeStamp.SECOND,
+      start: telem.TimeStamp.SECOND,
       channels,
     });
     await writer.write({
@@ -74,7 +74,7 @@ describe("Iterator", () => {
       [data_ch.key]: randomSeries(10, data_ch.dataType),
     });
     await writer.close();
-    const iter = await client.openIterator(TimeRange.MAX, channels, { chunkSize: 4 });
+    const iter = await client.openIterator(telem.TimeRange.MAX, channels, { chunkSize: 4 });
 
     try {
       expect(await iter.seekFirst()).toBe(true);
@@ -102,13 +102,13 @@ describe("Iterator", () => {
   test("downsample factor 2", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    const writer = await client.openWriter({ start: telem.TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 8),
       [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]),
     });
     await writer.close();
-    const iter = await client.openIterator(TimeRange.MAX, channels, {
+    const iter = await client.openIterator(telem.TimeRange.MAX, channels, {
       downsampleFactor: 2,
     });
 
@@ -125,13 +125,13 @@ describe("Iterator", () => {
   test("downsample factor 3", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    const writer = await client.openWriter({ start: telem.TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 9),
       [data_ch.key]: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
     });
     await writer.close();
-    const iter = await client.openIterator(TimeRange.MAX, channels, {
+    const iter = await client.openIterator(telem.TimeRange.MAX, channels, {
       downsampleFactor: 3,
     });
 
@@ -148,13 +148,13 @@ describe("Iterator", () => {
   test("no downsample when factor is 1", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;
-    const writer = await client.openWriter({ start: TimeStamp.SECOND, channels });
+    const writer = await client.openWriter({ start: telem.TimeStamp.SECOND, channels });
     await writer.write({
       [idx_ch.key]: secondsLinspace(1, 4),
       [data_ch.key]: new Float64Array([1, 2, 3, 4]),
     });
     await writer.close();
-    const iter = await client.openIterator(TimeRange.MAX, channels, {
+    const iter = await client.openIterator(telem.TimeRange.MAX, channels, {
       downsampleFactor: 1,
     });
     try {

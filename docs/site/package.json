@@ -26,7 +26,6 @@
     "@synnaxlabs/charon": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/media": "workspace:^",
-    "@synnaxlabs/pluto": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "astro": "^6.1.8",
     "astro-seo": "^1.1.0",

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Device as PlutoDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { type Device as PlutoDevice, Flux } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Common } from "@/hardware/common";

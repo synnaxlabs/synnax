@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeRange } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { channel } from "@/channel";
 
 const reqZ = z.object({
   keys: channel.keyZ.array().optional(),
-  bounds: TimeRange.z,
+  bounds: telem.TimeRange.z,
   names: channel.nameZ.array().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}

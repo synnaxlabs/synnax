@@ -15,7 +15,7 @@ import { Select } from "@synnaxlabs/charon/select";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {

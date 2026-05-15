@@ -9,7 +9,9 @@
 
 import "@/components/toolbar/Header.css";
 
-import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Header as PHeader } from "@synnaxlabs/charon/header";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

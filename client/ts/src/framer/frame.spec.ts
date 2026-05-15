@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeRange } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";
@@ -19,9 +19,9 @@ describe("framer.Frame", () => {
         const f = new framer.Frame(
           ["a", "b", "c"],
           [
-            new Series({ data: new Float32Array([1, 2, 3]) }),
-            new Series({ data: new Float32Array([1, 2, 3]) }),
-            new Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
           ],
         );
         expect(f.length).toEqual(9);
@@ -32,9 +32,9 @@ describe("framer.Frame", () => {
         const f = new framer.Frame(
           [12, 13, 14],
           [
-            new Series({ data: new Float32Array([1, 2, 3]) }),
-            new Series({ data: new Float32Array([1, 2, 3]) }),
-            new Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+            new telem.Series({ data: new Float32Array([1, 2, 3]) }),
           ],
         );
         expect(f.length).toEqual(9);
@@ -43,7 +43,7 @@ describe("framer.Frame", () => {
 
       test("from a single name and an array of arrays", () => {
         const f = new framer.Frame("a", [
-          new Series({ data: new Float32Array([1, 2, 3]) }),
+          new telem.Series({ data: new Float32Array([1, 2, 3]) }),
         ]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
@@ -51,7 +51,7 @@ describe("framer.Frame", () => {
 
       test("from a single key and an array of arrays", () => {
         const f = new framer.Frame(12, [
-          new Series({ data: new Float32Array([1, 2, 3]) }),
+          new telem.Series({ data: new Float32Array([1, 2, 3]) }),
         ]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
@@ -60,7 +60,7 @@ describe("framer.Frame", () => {
       test("from a single key and a single array", () => {
         const f = new framer.Frame(
           12,
-          new Series({ data: new Float32Array([1, 2, 3]) }),
+          new telem.Series({ data: new Float32Array([1, 2, 3]) }),
         );
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
@@ -69,7 +69,7 @@ describe("framer.Frame", () => {
       test("from a single name and a single array", () => {
         const f = new framer.Frame(
           "a",
-          new Series({ data: new Float32Array([1, 2, 3]) }),
+          new telem.Series({ data: new Float32Array([1, 2, 3]) }),
         );
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
@@ -79,7 +79,7 @@ describe("framer.Frame", () => {
         it("should correctly parse a series payload", () => {
           const f = new framer.Frame({
             keys: [12],
-            series: [{ dataType: new DataType("float32"), data: new ArrayBuffer(12) }],
+            series: [{ dataType: new telem.DataType("float32"), data: new ArrayBuffer(12) }],
           });
           expect(f.length.valueOf()).toEqual(3);
           expect(f.columns.length).toEqual(1);
@@ -99,7 +99,7 @@ describe("framer.Frame", () => {
 
       test("from record", () => {
         const f = new framer.Frame({
-          a: new Series({ data: new Float32Array([1, 2, 3]) }),
+          a: new telem.Series({ data: new Float32Array([1, 2, 3]) }),
         });
         expect(f.length.valueOf()).toEqual(3);
         expect(f.columns.length).toEqual(1);
@@ -108,7 +108,7 @@ describe("framer.Frame", () => {
 
       test("from map", () => {
         const f = new framer.Frame(
-          new Map([[12, new Series({ data: new Float32Array([1, 2, 3]) })]]),
+          new Map([[12, new telem.Series({ data: new Float32Array([1, 2, 3]) })]]),
         );
         expect(f.length).toEqual(3);
         expect(f.columns.length).toEqual(1);
@@ -123,8 +123,8 @@ describe("framer.Frame", () => {
             new framer.Frame(
               ["a", "b", "c"],
               [
-                new Series({ data: new Float32Array([1, 2, 3]) }),
-                new Series({ data: new Float32Array([1, 2, 3]) }),
+                new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+                new telem.Series({ data: new Float32Array([1, 2, 3]) }),
               ],
             ),
         ).toThrow();
@@ -136,12 +136,12 @@ describe("framer.Frame", () => {
     it("should return false if a key has more than one array", () => {
       const f = new framer.Frame(
         new Map([
-          [12, [new Series({ data: new Float32Array([1, 2, 3]) })]],
+          [12, [new telem.Series({ data: new Float32Array([1, 2, 3]) })]],
           [
             13,
             [
-              new Series({ data: new Float32Array([1, 2, 3]) }),
-              new Series({ data: new Float32Array([1, 2, 3]) }),
+              new telem.Series({ data: new Float32Array([1, 2, 3]) }),
+              new telem.Series({ data: new Float32Array([1, 2, 3]) }),
             ],
           ],
         ]),
@@ -154,8 +154,8 @@ describe("framer.Frame", () => {
     it("should return false if there is more than one key", () => {
       const f = new framer.Frame(
         new Map([
-          [12, [new Series({ data: new Float32Array([1, 2, 3]) })]],
-          [13, [new Series({ data: new Float32Array([1, 2, 3]) })]],
+          [12, [new telem.Series({ data: new Float32Array([1, 2, 3]) })]],
+          [13, [new telem.Series({ data: new Float32Array([1, 2, 3]) })]],
         ]),
       );
       expect(f.isHorizontal).toEqual(false);
@@ -169,18 +169,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50000),
+                timeRange: new telem.TimeRange(500, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50000),
+                timeRange: new telem.TimeRange(500, 50000),
               }),
             ],
           ],
@@ -195,18 +195,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50000),
+                timeRange: new telem.TimeRange(500, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -224,40 +224,40 @@ describe("framer.Frame", () => {
             [
               12,
               [
-                new Series({
+                new telem.Series({
                   data: new Float32Array([1, 2, 3]),
-                  timeRange: new TimeRange(40, 50000),
+                  timeRange: new telem.TimeRange(40, 50000),
                 }),
               ],
             ],
             [
               13,
               [
-                new Series({
+                new telem.Series({
                   data: new Float32Array([1, 2, 3]),
-                  timeRange: new TimeRange(500, 50001),
+                  timeRange: new telem.TimeRange(500, 50001),
                 }),
               ],
             ],
           ]),
         );
-        expect(f.timeRange()).toEqual(new TimeRange(40, 50001));
+        expect(f.timeRange()).toEqual(new telem.TimeRange(40, 50001));
       });
     });
 
     describe("key provided", () => {
       it("should return the time range of the key", () => {
         const f = new framer.Frame({
-          a: new Series({
+          a: new telem.Series({
             data: new Float32Array([1, 2, 3]),
-            timeRange: new TimeRange(40, 50000),
+            timeRange: new telem.TimeRange(40, 50000),
           }),
-          b: new Series({
+          b: new telem.Series({
             data: new Float32Array([1, 2, 3]),
-            timeRange: new TimeRange(500, 50001),
+            timeRange: new telem.TimeRange(500, 50001),
           }),
         });
-        expect(f.timeRange("a")).toEqual(new TimeRange(40, 50000));
+        expect(f.timeRange("a")).toEqual(new telem.TimeRange(40, 50000));
       });
     });
 
@@ -268,18 +268,18 @@ describe("framer.Frame", () => {
             [
               12,
               [
-                new Series({
+                new telem.Series({
                   data: new Float32Array([1, 2, 3]),
-                  timeRange: new TimeRange(40, 50000),
+                  timeRange: new telem.TimeRange(40, 50000),
                 }),
               ],
             ],
             [
               13,
               [
-                new Series({
+                new telem.Series({
                   data: new Float32Array([1, 2, 3]),
-                  timeRange: new TimeRange(500, 50001),
+                  timeRange: new telem.TimeRange(500, 50001),
                 }),
               ],
             ],
@@ -297,18 +297,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -327,18 +327,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -352,26 +352,26 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 7]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -386,18 +386,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -415,18 +415,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -443,18 +443,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -468,18 +468,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -493,18 +493,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -516,17 +516,17 @@ describe("framer.Frame", () => {
 
   describe("digest", () => {
     it("should return digest information about the frame", () => {
-      const s1 = new Series({
+      const s1 = new telem.Series({
         data: new Float32Array([1, 2, 3]),
-        timeRange: new TimeRange(40, 50000),
+        timeRange: new telem.TimeRange(40, 50000),
       });
-      const s2 = new Series({
+      const s2 = new telem.Series({
         data: new Float32Array([4, 5, 6]),
-        timeRange: new TimeRange(50001, 60000),
+        timeRange: new telem.TimeRange(50001, 60000),
       });
-      const s3 = new Series({
+      const s3 = new telem.Series({
         data: new Float32Array([7, 8, 9]),
-        timeRange: new TimeRange(500, 50001),
+        timeRange: new telem.TimeRange(500, 50001),
       });
       const f = new framer.Frame(
         new Map([
@@ -551,27 +551,27 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(1, 2),
+                timeRange: new telem.TimeRange(1, 2),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(4, 6),
+                timeRange: new telem.TimeRange(4, 6),
               }),
             ],
           ],
           [
             14,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(7, 9),
+                timeRange: new telem.TimeRange(7, 9),
               }),
             ],
           ],
@@ -579,23 +579,23 @@ describe("framer.Frame", () => {
       );
       f.push(
         12,
-        new Series({
+        new telem.Series({
           data: new Float32Array([10, 11, 12]),
-          timeRange: new TimeRange(10, 12),
+          timeRange: new telem.TimeRange(10, 12),
         }),
       );
       f.push(
         13,
-        new Series({
+        new telem.Series({
           data: new Float32Array([13, 14, 15]),
-          timeRange: new TimeRange(13, 15),
+          timeRange: new telem.TimeRange(13, 15),
         }),
       );
       f.push(
         14,
-        new Series({
+        new telem.Series({
           data: new Float32Array([7, 8, 9]),
-          timeRange: new TimeRange(7, 9),
+          timeRange: new telem.TimeRange(7, 9),
         }),
       );
       const firstValues = new Set<number>();
@@ -610,9 +610,9 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(1, 2),
+                timeRange: new telem.TimeRange(1, 2),
               }),
             ],
           ],
@@ -620,16 +620,16 @@ describe("framer.Frame", () => {
       );
       f.push(
         12,
-        new Series({
+        new telem.Series({
           data: new Float32Array([10, 11, 12]),
-          timeRange: new TimeRange(10, 12),
+          timeRange: new telem.TimeRange(10, 12),
         }),
       );
       f.push(
         13,
-        new Series({
+        new telem.Series({
           data: new Float32Array([13, 14, 15]),
-          timeRange: new TimeRange(13, 15),
+          timeRange: new telem.TimeRange(13, 15),
         }),
       );
       const data: number[] = [];
@@ -645,9 +645,9 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(1, 2),
+                timeRange: new telem.TimeRange(1, 2),
               }),
             ],
           ],
@@ -655,16 +655,16 @@ describe("framer.Frame", () => {
       );
       f.push(
         12,
-        new Series({
+        new telem.Series({
           data: new Float32Array([10, 11, 12]),
-          timeRange: new TimeRange(10, 12),
+          timeRange: new telem.TimeRange(10, 12),
         }),
       );
       f.push(
         13,
-        new Series({
+        new telem.Series({
           data: new Float32Array([13, 14, 15]),
-          timeRange: new TimeRange(13, 15),
+          timeRange: new telem.TimeRange(13, 15),
         }),
       );
       let currentIndex = 0;
@@ -682,27 +682,27 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
           [
             14,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(600, 60000),
+                timeRange: new telem.TimeRange(600, 60000),
               }),
             ],
           ],
@@ -719,18 +719,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -750,9 +750,9 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
@@ -761,7 +761,7 @@ describe("framer.Frame", () => {
       const mapped = f.mapFilter((k, arr) => {
         const newData = new Float32Array(arr.length);
         for (let j = 0; j < arr.length; j++) newData[j] = (arr.at(j) as number) * 2;
-        const newArr = new Series({
+        const newArr = new telem.Series({
           data: newData,
           timeRange: arr.timeRange,
         });
@@ -778,27 +778,27 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
           [
             14,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(600, 60000),
+                timeRange: new telem.TimeRange(600, 60000),
               }),
             ],
           ],
@@ -826,18 +826,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -854,18 +854,18 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
@@ -882,27 +882,27 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],
           [
             14,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(600, 60000),
+                timeRange: new telem.TimeRange(600, 60000),
               }),
             ],
           ],
@@ -916,17 +916,17 @@ describe("framer.Frame", () => {
 
     it("should work with string keys", () => {
       const f = new framer.Frame({
-        a: new Series({
+        a: new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          timeRange: new TimeRange(40, 50000),
+          timeRange: new telem.TimeRange(40, 50000),
         }),
-        b: new Series({
+        b: new telem.Series({
           data: new Float32Array([4, 5, 6]),
-          timeRange: new TimeRange(500, 50001),
+          timeRange: new telem.TimeRange(500, 50001),
         }),
-        c: new Series({
+        c: new telem.Series({
           data: new Float32Array([7, 8, 9]),
-          timeRange: new TimeRange(600, 60000),
+          timeRange: new telem.TimeRange(600, 60000),
         }),
       });
       const result = f.mapFilter((k, arr) => {
@@ -944,22 +944,22 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([1, 2, 3]),
-                timeRange: new TimeRange(40, 50000),
+                timeRange: new telem.TimeRange(40, 50000),
               }),
-              new Series({
+              new telem.Series({
                 data: new Float32Array([4, 5, 6]),
-                timeRange: new TimeRange(50001, 60000),
+                timeRange: new telem.TimeRange(50001, 60000),
               }),
             ],
           ],
           [
             13,
             [
-              new Series({
+              new telem.Series({
                 data: new Float32Array([7, 8, 9]),
-                timeRange: new TimeRange(500, 50001),
+                timeRange: new telem.TimeRange(500, 50001),
               }),
             ],
           ],

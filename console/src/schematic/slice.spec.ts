@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { type Diagram } from "@synnaxlabs/pluto";
+import type { Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {

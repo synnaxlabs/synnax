@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Flux, Progress, Status, Text } from "@synnaxlabs/pluto";
-import { Size } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Progress } from "@synnaxlabs/charon/progress";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Flux } from "@synnaxlabs/pluto";
+
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { z } from "zod";
@@ -46,8 +52,8 @@ const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
 });
 
 export const statusDetailsSchema = z.object({
-  total: Size.z,
-  progress: Size.z,
+  total: telem.Size.z,
+  progress: telem.Size.z,
 });
 
 interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
@@ -63,8 +69,8 @@ const { useUpdate } = Flux.createUpdate<
   verbs: Flux.UPDATE_VERBS,
   allowDisconnected: true,
   initialStatusDetails: {
-    total: Size.bytes(0),
-    progress: Size.bytes(0),
+    total: telem.Size.bytes(0),
+    progress: telem.Size.bytes(0),
   },
   update: async ({ data: update, setStatus }) => {
     await update.downloadAndInstall((prog) => {
@@ -81,13 +87,13 @@ const { useUpdate } = Flux.createUpdate<
         case "Started":
           updateStatus((p) => ({
             ...p,
-            total: Size.bytes(prog.data.contentLength ?? 0),
+            total: telem.Size.bytes(prog.data.contentLength ?? 0),
           }));
           break;
         case "Progress":
           updateStatus((p) => ({
             ...p,
-            progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+            progress: p.progress.add(telem.Size.bytes(prog.data.chunkLength)),
           }));
           break;
         case "Finished":
@@ -108,8 +114,8 @@ export const Info: Layout.Renderer = () => {
   const version = useSelectVersion();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
-  let totalSize: Size = Size.bytes(0);
-  let amountDownloaded: Size = Size.bytes(0);
+  let totalSize: telem.Size = telem.Size.bytes(0);
+  let amountDownloaded: telem.Size = telem.Size.bytes(0);
   if (updateQuery.status.variant !== "error") {
     totalSize = updateQuery.status.details.total;
     amountDownloaded = updateQuery.status.details.progress;

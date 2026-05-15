@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type direction, xy } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x/color";
+import { direction } from "@synnaxlabs/x/direction";
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/input/DateTime.css";
 
 import { Button } from "@synnaxlabs/charon/button";
@@ -21,12 +23,12 @@ import { Select } from "@synnaxlabs/charon/select";
 import { Telem } from "@synnaxlabs/charon/telem";
 import { Text } from "@synnaxlabs/charon/text";
 import { Triggers } from "@synnaxlabs/charon/triggers";
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
-import { Nav } from "@/nav";
+import { Nav } from "@synnaxlabs/charon/nav";
 export interface DateTimeProps
   extends Omit<Input.TextProps, "type" | "value" | "onChange">, Input.Control<number> {}
 
@@ -51,7 +53,7 @@ export const DateTime = ({
       return;
     }
 
-    const nextTS = new TimeStamp(nextStr, "local");
+    const nextTS = new telem.TimeStamp(nextStr, "local");
 
     if (!onlyChangeOnBlur || override) {
       onChange(Number(nextTS.valueOf()));
@@ -65,7 +67,7 @@ export const DateTime = ({
     onBlur?.(e);
   };
 
-  const tsValue = new TimeStamp(value, "UTC");
+  const tsValue = new telem.TimeStamp(value, "UTC");
   const parsedValue = tsValue.toString("ISO", "local").slice(0, -1);
 
   const [visible, setVisible] = useState(false);
@@ -103,8 +105,8 @@ export const DateTime = ({
 const nlp = compromise.extend(compromiseDates);
 
 interface DateTimeModalProps {
-  value: TimeStamp;
-  onChange: (next: TimeStamp) => void;
+  value: telem.TimeStamp;
+  onChange: (next: telem.TimeStamp) => void;
 }
 
 const SAVE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
@@ -162,9 +164,9 @@ const AIListItem = (props: List.ItemRenderProps<string>): ReactElement => {
 const aiListItem = Component.renderProp(AIListItem);
 
 interface AISelectorProps {
-  value: TimeStamp;
+  value: telem.TimeStamp;
   close: () => void;
-  onChange: (next: TimeStamp) => void;
+  onChange: (next: telem.TimeStamp) => void;
 }
 
 const AISelector = ({
@@ -182,7 +184,7 @@ const AISelector = ({
     const entries: AISuggestion[] = [];
     entries.push(
       ...dates.map((d) => {
-        const nextTS = new TimeStamp(d.start);
+        const nextTS = new telem.TimeStamp(d.start);
         return {
           key: d.start,
           name: nextTS.toString("preciseDate", "local"),
@@ -197,12 +199,12 @@ const AISelector = ({
     const durations = (processed.durations() as any).get() as DurationInfo[];
     entries.push(
       ...durations.map((d) => {
-        let span = new TimeSpan(0);
-        if (d.hour != null) span = span.add(TimeSpan.hours(d.hour));
-        if (d.minute != null) span = span.add(TimeSpan.minutes(d.minute));
-        if (d.second != null) span = span.add(TimeSpan.seconds(d.second));
+        let span = new telem.TimeSpan(0);
+        if (d.hour != null) span = span.add(telem.TimeSpan.hours(d.hour));
+        if (d.minute != null) span = span.add(telem.TimeSpan.minutes(d.minute));
+        if (d.second != null) span = span.add(telem.TimeSpan.seconds(d.second));
         if (d.millisecond != null)
-          span = span.add(TimeSpan.milliseconds(d.millisecond));
+          span = span.add(telem.TimeSpan.milliseconds(d.millisecond));
         const next = pValue.add(span);
         return {
           key: next.valueOf().toString(),
@@ -290,8 +292,8 @@ interface DurationInfo {
 }
 
 interface CalendarProps {
-  value: TimeStamp;
-  onChange: (next: TimeStamp) => void;
+  value: telem.TimeStamp;
+  onChange: (next: telem.TimeStamp) => void;
 }
 
 const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
@@ -403,8 +405,8 @@ const MinutesList = createTimeList(60);
 const SecondsList = createTimeList(60);
 
 interface TimeSelectorProps {
-  value: TimeStamp;
-  onChange: (next: TimeStamp) => void;
+  value: telem.TimeStamp;
+  onChange: (next: telem.TimeStamp) => void;
 }
 
 const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (

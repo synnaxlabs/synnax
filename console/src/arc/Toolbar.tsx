@@ -10,18 +10,15 @@
 import "@/arc/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Access,
-  Arc,
-  Button,
-  Flex,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access, Arc } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/arc/ContextMenu";

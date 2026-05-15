@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 import { type alamos } from "@synnaxlabs/alamos";
 import {
   type channel,
@@ -15,7 +17,6 @@ import {
   QueryError,
   type Synnax,
 } from "@synnaxlabs/client";
-import { type destructor, MultiSeries, type TimeRange } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";
@@ -49,7 +50,7 @@ export interface ReadClient {
    * number of Series with different lengths. It's up to the caller to use the
    * 'alignment' field of the Series to normalize the data shape if necessary.
    */
-  read: (tr: TimeRange, keys: channel.Key) => Promise<MultiSeries>;
+  read: (tr: telem.TimeRange, keys: channel.Key) => Promise<telem.MultiSeries>;
 }
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
@@ -81,8 +82,8 @@ export class NoopClient implements Client {
   }
 
   /** Implements ReadClient. */
-  async read(): Promise<MultiSeries> {
-    return new MultiSeries([]);
+  async read(): Promise<telem.MultiSeries> {
+    return new telem.MultiSeries([]);
   }
 
   /** Stream implements StreamClient. */
@@ -138,7 +139,7 @@ export class Core implements Client {
   }
 
   /** Implements ChannelClient */
-  async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+  async read(tr: telem.TimeRange, key: channel.Key): Promise<telem.MultiSeries> {
     return await this.reader.read(tr, key);
   }
 

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions, xy } from "@synnaxlabs/x";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 /** Represents the state of a window in it's lifecycle  */

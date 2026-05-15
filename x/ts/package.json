@@ -21,6 +21,299 @@
     "fix": "eslint --fix",
     "madge": "madge --circular src"
   },
+  "sideEffects": [
+    "./dist/errors.js",
+    "./dist/errors.cjs",
+    "./dist/zod.js",
+    "./dist/zod.cjs"
+  ],
+  "exports": {
+    "./array": {
+      "types": "./dist/src/array/index.d.ts",
+      "import": "./dist/array.js",
+      "require": "./dist/array.cjs"
+    },
+    "./binary": {
+      "types": "./dist/src/binary/index.d.ts",
+      "import": "./dist/binary.js",
+      "require": "./dist/binary.cjs"
+    },
+    "./bounds": {
+      "types": "./dist/src/spatial/bounds/index.d.ts",
+      "import": "./dist/bounds.js",
+      "require": "./dist/bounds.cjs"
+    },
+    "./box": {
+      "types": "./dist/src/spatial/box/index.d.ts",
+      "import": "./dist/box.js",
+      "require": "./dist/box.cjs"
+    },
+    "./breaker": {
+      "types": "./dist/src/breaker/index.d.ts",
+      "import": "./dist/breaker.js",
+      "require": "./dist/breaker.cjs"
+    },
+    "./caseconv": {
+      "types": "./dist/src/caseconv/index.d.ts",
+      "import": "./dist/caseconv.js",
+      "require": "./dist/caseconv.cjs"
+    },
+    "./change": {
+      "types": "./dist/src/change/index.d.ts",
+      "import": "./dist/change.js",
+      "require": "./dist/change.cjs"
+    },
+    "./clamp": {
+      "types": "./dist/src/clamp/index.d.ts",
+      "import": "./dist/clamp.js",
+      "require": "./dist/clamp.cjs"
+    },
+    "./color": {
+      "types": "./dist/src/color/index.d.ts",
+      "import": "./dist/color.js",
+      "require": "./dist/color.cjs"
+    },
+    "./compare": {
+      "types": "./dist/src/compare/index.d.ts",
+      "import": "./dist/compare.js",
+      "require": "./dist/compare.cjs"
+    },
+    "./control": {
+      "types": "./dist/src/control/index.d.ts",
+      "import": "./dist/control.js",
+      "require": "./dist/control.cjs"
+    },
+    "./csv": {
+      "types": "./dist/src/csv/index.d.ts",
+      "import": "./dist/csv.js",
+      "require": "./dist/csv.cjs"
+    },
+    "./debounce": {
+      "types": "./dist/src/debounce/index.d.ts",
+      "import": "./dist/debounce.js",
+      "require": "./dist/debounce.cjs"
+    },
+    "./deep": {
+      "types": "./dist/src/deep/index.d.ts",
+      "import": "./dist/deep.js",
+      "require": "./dist/deep.cjs"
+    },
+    "./destructor": {
+      "types": "./dist/src/destructor/index.d.ts",
+      "import": "./dist/destructor.js",
+      "require": "./dist/destructor.cjs"
+    },
+    "./dimensions": {
+      "types": "./dist/src/spatial/dimensions/index.d.ts",
+      "import": "./dist/dimensions.js",
+      "require": "./dist/dimensions.cjs"
+    },
+    "./direction": {
+      "types": "./dist/src/spatial/direction/index.d.ts",
+      "import": "./dist/direction.js",
+      "require": "./dist/direction.cjs"
+    },
+    "./errors": {
+      "types": "./dist/src/errors/index.d.ts",
+      "import": "./dist/errors.js",
+      "require": "./dist/errors.cjs"
+    },
+    "./fmt": {
+      "types": "./dist/src/fmt/index.d.ts",
+      "import": "./dist/fmt.js",
+      "require": "./dist/fmt.cjs"
+    },
+    "./id": {
+      "types": "./dist/src/id/index.d.ts",
+      "import": "./dist/id.js",
+      "require": "./dist/id.cjs"
+    },
+    "./instance": {
+      "types": "./dist/src/instance/index.d.ts",
+      "import": "./dist/instance.js",
+      "require": "./dist/instance.cjs"
+    },
+    "./json": {
+      "types": "./dist/src/json/index.d.ts",
+      "import": "./dist/json.js",
+      "require": "./dist/json.cjs"
+    },
+    "./kv": {
+      "types": "./dist/src/kv/index.d.ts",
+      "import": "./dist/kv.js",
+      "require": "./dist/kv.cjs"
+    },
+    "./label": {
+      "types": "./dist/src/label/index.d.ts",
+      "import": "./dist/label.js",
+      "require": "./dist/label.cjs"
+    },
+    "./link": {
+      "types": "./dist/src/link/index.d.ts",
+      "import": "./dist/link.js",
+      "require": "./dist/link.cjs"
+    },
+    "./location": {
+      "types": "./dist/src/spatial/location/index.d.ts",
+      "import": "./dist/location.js",
+      "require": "./dist/location.cjs"
+    },
+    "./map": {
+      "types": "./dist/src/map/index.d.ts",
+      "import": "./dist/map.js",
+      "require": "./dist/map.cjs"
+    },
+    "./math": {
+      "types": "./dist/src/math/index.d.ts",
+      "import": "./dist/math.js",
+      "require": "./dist/math.cjs"
+    },
+    "./migrate": {
+      "types": "./dist/src/migrate/index.d.ts",
+      "import": "./dist/migrate.js",
+      "require": "./dist/migrate.cjs"
+    },
+    "./narrow": {
+      "types": "./dist/src/narrow/index.d.ts",
+      "import": "./dist/narrow.js",
+      "require": "./dist/narrow.cjs"
+    },
+    "./notation": {
+      "types": "./dist/src/notation/index.d.ts",
+      "import": "./dist/notation.js",
+      "require": "./dist/notation.cjs"
+    },
+    "./numeric": {
+      "types": "./dist/src/numeric/index.d.ts",
+      "import": "./dist/numeric.js",
+      "require": "./dist/numeric.cjs"
+    },
+    "./observe": {
+      "types": "./dist/src/observe/index.d.ts",
+      "import": "./dist/observe.js",
+      "require": "./dist/observe.cjs"
+    },
+    "./optional": {
+      "types": "./dist/src/optional/index.d.ts",
+      "import": "./dist/optional.js",
+      "require": "./dist/optional.cjs"
+    },
+    "./primitive": {
+      "types": "./dist/src/primitive/index.d.ts",
+      "import": "./dist/primitive.js",
+      "require": "./dist/primitive.cjs"
+    },
+    "./record": {
+      "types": "./dist/src/record/index.d.ts",
+      "import": "./dist/record.js",
+      "require": "./dist/record.cjs"
+    },
+    "./require": {
+      "types": "./dist/src/require/index.d.ts",
+      "import": "./dist/require.js",
+      "require": "./dist/require.cjs"
+    },
+    "./runtime": {
+      "types": "./dist/src/runtime/index.d.ts",
+      "import": "./dist/runtime.js",
+      "require": "./dist/runtime.cjs"
+    },
+    "./scale": {
+      "types": "./dist/src/spatial/scale/index.d.ts",
+      "import": "./dist/scale.js",
+      "require": "./dist/scale.cjs"
+    },
+    "./scheduler": {
+      "types": "./dist/src/scheduler/index.d.ts",
+      "import": "./dist/scheduler.js",
+      "require": "./dist/scheduler.cjs"
+    },
+    "./shallow": {
+      "types": "./dist/src/shallow/index.d.ts",
+      "import": "./dist/shallow.js",
+      "require": "./dist/shallow.cjs"
+    },
+    "./singleton": {
+      "types": "./dist/src/singleton/index.d.ts",
+      "import": "./dist/singleton.js",
+      "require": "./dist/singleton.cjs"
+    },
+    "./sleep": {
+      "types": "./dist/src/sleep/index.d.ts",
+      "import": "./dist/sleep.js",
+      "require": "./dist/sleep.cjs"
+    },
+    "./spatial": {
+      "types": "./dist/src/spatial/spatial.d.ts",
+      "import": "./dist/spatial.js",
+      "require": "./dist/spatial.cjs"
+    },
+    "./status": {
+      "types": "./dist/src/status/index.d.ts",
+      "import": "./dist/status.js",
+      "require": "./dist/status.cjs"
+    },
+    "./sticky": {
+      "types": "./dist/src/spatial/sticky/index.d.ts",
+      "import": "./dist/sticky.js",
+      "require": "./dist/sticky.cjs"
+    },
+    "./strings": {
+      "types": "./dist/src/strings/index.d.ts",
+      "import": "./dist/strings.js",
+      "require": "./dist/strings.cjs"
+    },
+    "./sync": {
+      "types": "./dist/src/sync/index.d.ts",
+      "import": "./dist/sync.js",
+      "require": "./dist/sync.cjs"
+    },
+    "./telem": {
+      "types": "./dist/src/telem/index.d.ts",
+      "import": "./dist/telem.js",
+      "require": "./dist/telem.cjs"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
+    },
+    "./types": {
+      "types": "./dist/src/types/index.d.ts",
+      "import": "./dist/types.js",
+      "require": "./dist/types.cjs"
+    },
+    "./unique": {
+      "types": "./dist/src/unique/index.d.ts",
+      "import": "./dist/unique.js",
+      "require": "./dist/unique.cjs"
+    },
+    "./url": {
+      "types": "./dist/src/url/index.d.ts",
+      "import": "./dist/url.js",
+      "require": "./dist/url.cjs"
+    },
+    "./uuid": {
+      "types": "./dist/src/uuid/index.d.ts",
+      "import": "./dist/uuid.js",
+      "require": "./dist/uuid.cjs"
+    },
+    "./worker": {
+      "types": "./dist/src/worker/index.d.ts",
+      "import": "./dist/worker.js",
+      "require": "./dist/worker.cjs"
+    },
+    "./xy": {
+      "types": "./dist/src/spatial/xy/index.d.ts",
+      "import": "./dist/xy.js",
+      "require": "./dist/xy.cjs"
+    },
+    "./zod": {
+      "types": "./dist/src/zod/index.d.ts",
+      "import": "./dist/zod.js",
+      "require": "./dist/zod.cjs"
+    }
+  },
   "dependencies": {
     "async-mutex": "catalog:",
     "nanoid": "^5.1.9",
@@ -38,8 +331,5 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
-  },
-  "main": "dist/x.cjs",
-  "module": "dist/x.js",
-  "types": "dist/src/index.d.ts"
+  }
 }

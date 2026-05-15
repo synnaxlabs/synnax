@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type TimeRange } from "@synnaxlabs/client";
-import { MultiSeries, type Series, Size } from "@synnaxlabs/x";
 
 import { Dynamic, type DynamicProps } from "@/telem/client/cache/dynamic";
 import {
@@ -40,12 +40,12 @@ export class Unary {
     });
   }
 
-  writeDynamic(series: MultiSeries): MultiSeries {
+  writeDynamic(series: telem.MultiSeries): telem.MultiSeries {
     if (this.closed) {
       this.ins.L.warn(
         `Ignoring attempted dynamic write to a closed cache for channel ${this.channel.name}`,
       );
-      return new MultiSeries([]);
+      return new telem.MultiSeries([]);
     }
     const { flushed, allocated } = this.dynamic.write(series);
     // Buffers that have been flushed out of the dynamic cache are written to the
@@ -54,11 +54,11 @@ export class Unary {
     return allocated;
   }
 
-  get leadingBuffer(): Series | null {
+  get leadingBuffer(): telem.Series | null {
     return this.dynamic.leadingBuffer;
   }
 
-  writeStatic(series: MultiSeries): void {
+  writeStatic(series: telem.MultiSeries): void {
     if (this.closed)
       return this.ins.L.warn(
         `Ignoring attempted static write to a closed cache for channel ${this.channel.name}`,
@@ -71,7 +71,7 @@ export class Unary {
       this.ins.L.warn(
         `Ignoring attempted dirty read from a closed cache for channel ${this.channel.name}`,
       );
-      return { series: new MultiSeries([]), gaps: [tr] };
+      return { series: new telem.MultiSeries([]), gaps: [tr] };
     }
     return this.static.dirtyRead(tr);
   }
@@ -81,7 +81,7 @@ export class Unary {
       this.ins.L.warn(
         `Ignoring attempted garbage collection on a closed cache for channel ${this.channel.name}`,
       );
-      return { purgedSeries: 0, purgedBytes: Size.bytes(0) };
+      return { purgedSeries: 0, purgedBytes: telem.Size.bytes(0) };
     }
     return this.static.gc();
   }

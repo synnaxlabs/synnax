@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, box, direction, location, xy } from "@synnaxlabs/x";
-
+import { array } from "@synnaxlabs/x/array";
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 export type Location = location.Outer | Partial<location.XY> | location.XY;
 
 export interface Preference {

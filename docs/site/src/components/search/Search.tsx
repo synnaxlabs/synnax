@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { deep } from "@synnaxlabs/x/deep";
 import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
 import { Component } from "@synnaxlabs/charon/component";
 import { Dialog } from "@synnaxlabs/charon/dialog";
@@ -17,7 +19,7 @@ import { List } from "@synnaxlabs/charon/list";
 import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { Triggers } from "@synnaxlabs/charon/triggers";
-import { caseconv, deep } from "@synnaxlabs/x";
+
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";
 

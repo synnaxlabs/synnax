@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x/color";
+import { status as xstatus } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -26,7 +29,7 @@ describe("Status", () => {
         key: "test-status-1",
         variant: "info",
         message: "This is a test status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       expect(s.key).toBe("test-status-1");
       expect(s.name).toBe("Test Status");
@@ -41,7 +44,7 @@ describe("Status", () => {
         key,
         variant: "info",
         message: "Original message",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const updated = await client.statuses.set({
@@ -49,7 +52,7 @@ describe("Status", () => {
         key,
         variant: "warning",
         message: "Updated message",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       expect(updated.key).toBe(key);
@@ -65,14 +68,14 @@ describe("Status", () => {
           key: "batch-1",
           variant: "success",
           message: "First batch status",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Status 2",
           key: "batch-2",
           variant: "error",
           message: "Second batch status",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -93,7 +96,7 @@ describe("Status", () => {
           key: "child-status",
           variant: "info",
           message: "Status with parent",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         { parent: parentOntologyID },
       );
@@ -114,7 +117,7 @@ describe("Status", () => {
         key: "retrieve-test",
         variant: "loading",
         message: "Test retrieve",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const retrieved = await client.statuses.retrieve({ key: "retrieve-test" });
@@ -130,14 +133,14 @@ describe("Status", () => {
           key: "multi-1",
           variant: "info",
           message: "First",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Multi 2",
           key: "multi-2",
           variant: "warning",
           message: "Second",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -158,7 +161,7 @@ describe("Status", () => {
         key: `searchable-${Date.now()}`,
         variant: "info",
         message: "Searchable status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       await expect
@@ -181,7 +184,7 @@ describe("Status", () => {
           key,
           variant: "info",
           message: `Message ${i}`,
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         });
       }
 
@@ -217,7 +220,7 @@ describe("Status", () => {
         key: "details-schema",
         variant: "info",
         message: "Test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: {
           name: "Details Schema",
           key: "details-schema",
@@ -242,7 +245,7 @@ describe("Status", () => {
         key: "delete-me",
         variant: "error",
         message: "Will be deleted",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       await client.statuses.delete(s.key);
@@ -256,12 +259,12 @@ describe("Status", () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
         keys.map((key) =>
-          xStatus.create({
+          xstatus.create({
             name: `Delete ${key}`,
             key,
             variant: "info",
             message: "To be deleted",
-            time: TimeStamp.now(),
+            time: telem.TimeStamp.now(),
           }),
         ),
       );
@@ -285,7 +288,7 @@ describe("Status", () => {
         key,
         variant: "info",
         message: "Test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       await client.statuses.delete(key);
@@ -310,7 +313,7 @@ describe("Status", () => {
         key: uuid.create(),
         variant: "info",
         message: "Test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await client.labels.label(status.ontologyID(stat.key), [label1.key, label2.key], {
         replace: true,
@@ -334,21 +337,21 @@ describe("Status", () => {
           key: `${prefix}-success`,
           variant: "success",
           message: "ok",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Error",
           key: `${prefix}-error`,
           variant: "error",
           message: "fail",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Warning",
           key: `${prefix}-warning`,
           variant: "warning",
           message: "warn",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -369,21 +372,21 @@ describe("Status", () => {
           key: `${prefix}-info`,
           variant: "info",
           message: "info",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Error",
           key: `${prefix}-error`,
           variant: "error",
           message: "error",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Success",
           key: `${prefix}-success`,
           variant: "success",
           message: "success",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -406,7 +409,7 @@ describe("Status", () => {
         key: `${prefix}-info`,
         variant: "info",
         message: "info",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const results = await client.statuses.retrieve({
@@ -420,7 +423,7 @@ describe("Status", () => {
 
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: xStatus.Variant[] = [
+      const variants: xstatus.Variant[] = [
         "success",
         "info",
         "warning",
@@ -435,7 +438,7 @@ describe("Status", () => {
           key: `variant-${variant}-${Date.now()}`,
           variant,
           message: `Testing ${variant} variant`,
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         })),
       );
 

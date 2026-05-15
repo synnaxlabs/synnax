@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { id } from "@synnaxlabs/x/id";
 import { channel, type task, UnexpectedError } from "@synnaxlabs/client";
-import { caseconv, id } from "@synnaxlabs/x";
+
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";

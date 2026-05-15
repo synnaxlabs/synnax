@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, color, dimensions, type location, xy, zod } from "@synnaxlabs/x";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
+import { zod } from "@synnaxlabs/x/zod";
 import {
   type Axis,
   type AxisProps,

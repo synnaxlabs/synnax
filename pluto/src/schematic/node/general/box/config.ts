@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions, location } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x/color";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";

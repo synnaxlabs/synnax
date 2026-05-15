@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type math, type Series } from "@synnaxlabs/x";
-
 /**
  * Converts the given series to a supported data type for pluto WebGL rendered components
  * (such as lines). If the series is a uint8 or has a variable data type, it is returned
@@ -23,15 +21,18 @@ import { DataType, type math, type Series } from "@synnaxlabs/x";
  * ULP at that magnitude.
  * @returns The converted series.
  */
+
+import { math } from "@synnaxlabs/x/math";
+import { telem } from "@synnaxlabs/x/telem";
 export const convertSeriesToSupportedGL = (
-  series: Series,
+  series: telem.Series,
   offset?: math.Numeric,
-): Series => {
-  if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
+): telem.Series => {
+  if (series.dataType.isVariable || series.dataType.equals(telem.DataType.UINT8))
     return series;
   if (offset == null && series.dataType.usesBigInt && series.length > 0)
     offset = BigInt(series.data[0]);
-  return series.convert(DataType.FLOAT32, offset);
+  return series.convert(telem.DataType.FLOAT32, offset);
 };
 
 /**
@@ -42,7 +43,7 @@ export const convertSeriesToSupportedGL = (
  * @param dt - The data type to resolve.
  * @returns The resolved data type.
  */
-export const resolveGLDataType = (dt: DataType): DataType => {
-  if (dt.isVariable || dt.equals(DataType.UINT8)) return dt;
-  return DataType.FLOAT32;
+export const resolveGLDataType = (dt: telem.DataType): telem.DataType => {
+  if (dt.isVariable || dt.equals(telem.DataType.UINT8)) return dt;
+  return telem.DataType.FLOAT32;
 };

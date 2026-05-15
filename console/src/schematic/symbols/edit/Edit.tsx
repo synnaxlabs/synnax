@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/schematic/symbols/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Header,
-  Input,
-  Nav,
-  Schematic,
-  Theming,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
-import { type bounds, color, id, type xy } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Schematic } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

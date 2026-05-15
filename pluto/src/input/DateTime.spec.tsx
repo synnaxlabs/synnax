@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -67,7 +67,7 @@ describe("Input.DateTime", () => {
   testCases.forEach(({ name, initialValue, changeValue }) => {
     it(`should handle ${name}`, () => {
       const handleChange = vi.fn();
-      const ts = new TimeStamp(initialValue, "local");
+      const ts = new telem.TimeStamp(initialValue, "local");
 
       render(<Input.DateTime value={Number(ts.valueOf())} onChange={handleChange} />);
 
@@ -78,7 +78,7 @@ describe("Input.DateTime", () => {
       expect(handleChange).toHaveBeenCalledOnce();
 
       const receivedValue = handleChange.mock.calls[0][0];
-      const expectedTS = new TimeStamp(changeValue, "local");
+      const expectedTS = new telem.TimeStamp(changeValue, "local");
       const expectedValue = Number(expectedTS.valueOf());
 
       expect(receivedValue).toEqual(expectedValue);

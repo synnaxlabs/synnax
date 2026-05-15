@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import { text as textBase } from "@synnaxlabs/charon/text/base";
 import { Theming } from "@synnaxlabs/charon/theming";
 import type { theming } from "@synnaxlabs/charon/theming/aether";
-import {
-  array,
-  box,
-  color,
-  type destructor,
-  type dimensions,
-  direction,
-  location,
-  xy,
-} from "@synnaxlabs/x";
 
 import {
   type FillTextOptions,

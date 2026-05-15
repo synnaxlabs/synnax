@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
 import { Aether } from "@synnaxlabs/charon/aether";
 import { CSS } from "@synnaxlabs/charon/css";
 import { useResize, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { box } from "@synnaxlabs/x";
+
 import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { eraser } from "@/vis/eraser/aether";

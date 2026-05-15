@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { math } from "@synnaxlabs/x/math";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import type { Theming } from "@synnaxlabs/charon/theming";
 import { theming } from "@synnaxlabs/charon/theming/aether";
-import {
-  bounds,
-  box,
-  color,
-  math,
-  scale,
-  TimeSpan,
-  TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { Draw2D } from "@/vis/draw2d";
@@ -69,7 +67,7 @@ interface PointLabelParams {
   bounds: bounds.Bounds;
   toTop: boolean;
   viewRegion: box.Box;
-  xDist: TimeSpan;
+  xDist: telem.TimeSpan;
 }
 
 interface PointLabelRowParams {
@@ -390,7 +388,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const { pointNumber, position, value, units, bounds, toTop, viewRegion, xDist } =
       params;
     const { draw, theme } = this.internal;
-    const ts = new TimeStamp(value.x);
+    const ts = new telem.TimeStamp(value.x);
     const xValue = ts.toString(ts.formatBySpan(xDist), "local");
     const yValue = `${math.smartRound(value.y, bounds)} ${units ?? ""}`;
 
@@ -574,7 +572,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     const yDist = Math.abs(yDistRaw);
     if (!Number.isFinite(xDistRaw) || !Number.isFinite(yDist)) return;
 
-    const xDist = new TimeSpan(xDistRaw);
+    const xDist = new telem.TimeSpan(xDistRaw);
     const slope = yDistRaw / xDist.seconds;
 
     const xPixelDist = Math.abs(onePos.x - twoPos.x);
@@ -614,9 +612,9 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
 
     // Now draw all labels on top
     const yValue = `${math.smartRound(yDist, bounds.construct(yDist))} ${oneValue.units ?? ""}`;
-    const trunc = xDist.lessThan(TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
-      ? TimeSpan.MICROSECOND
-      : TimeSpan.MILLISECOND;
+    const trunc = xDist.lessThan(telem.TimeSpan.milliseconds(TIME_FORMAT_THRESHOLD_MS))
+      ? telem.TimeSpan.MICROSECOND
+      : telem.TimeSpan.MILLISECOND;
     const xValue = xDist.truncate(trunc).toString();
     let slopeValue = math
       .smartRound(slope, bounds.construct(Math.abs(slope)))

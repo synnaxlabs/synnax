@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { type task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { Form } from "@synnaxlabs/charon/form";
+
 import { type z } from "zod";
 
 const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
@@ -19,7 +21,7 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
-  time: TimeStamp.now(),
+  time: telem.TimeStamp.now(),
   details: { task: "", running: false, data: {} as any },
 });
 

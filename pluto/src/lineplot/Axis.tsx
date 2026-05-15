@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { direction } from "@synnaxlabs/x/direction";
 import "@/lineplot/Axis.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -16,7 +18,7 @@ import { Key } from "@synnaxlabs/charon/key";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
 import { Text } from "@synnaxlabs/charon/text";
 import { Theming } from "@synnaxlabs/charon/theming";
-import { type bounds, direction } from "@synnaxlabs/x";
+
 import {
   type FC,
   type PropsWithChildren,

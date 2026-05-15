@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
+import { record } from "@synnaxlabs/x/record";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { type FC } from "react";
 
 import { Device } from "@/hardware/ni/device";

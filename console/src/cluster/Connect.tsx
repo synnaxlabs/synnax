@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { uuid } from "@synnaxlabs/x/uuid";
 import "@/cluster/Connect.css";
 
 import { checkConnection, type connection } from "@synnaxlabs/client";
-import { Button, Flex, Form, type Input, Nav, Status, Synnax } from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import type { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Status } from "@synnaxlabs/charon/status";
+import { Synnax } from "@synnaxlabs/pluto";
+
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";

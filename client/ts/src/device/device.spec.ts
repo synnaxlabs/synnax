@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, record, TimeStamp, unique } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
+import { unique } from "@synnaxlabs/x/unique";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -42,7 +45,7 @@ describe("Device", async () => {
         variant: "success",
         message: "Custom device status",
         description: "Device is connected",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: { rack: 0, device: "" },
       };
       const d = await client.devices.create({

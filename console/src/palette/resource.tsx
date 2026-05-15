@@ -8,15 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import {
-  Component,
-  List,
-  Ontology as POntology,
-  Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ontology as POntology, Synnax } from "@synnaxlabs/pluto";
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 

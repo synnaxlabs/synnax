@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x/destructor";
+import { record } from "@synnaxlabs/x/record";
 import { type List } from "@synnaxlabs/charon/list";
 import { ontology } from "@synnaxlabs/client";
 import { useEffect } from "react";

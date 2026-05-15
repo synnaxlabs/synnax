@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
@@ -30,7 +31,7 @@ describe("status", () => {
         key: uuid.create(),
         variant: "info",
         message: "test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await expect(
         userClient.statuses.retrieve({ key: randomStatus.key }),
@@ -48,7 +49,7 @@ describe("status", () => {
         key: uuid.create(),
         variant: "info",
         message: "test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const retrieved = await userClient.statuses.retrieve({
         key: randomStatus.key,
@@ -68,7 +69,7 @@ describe("status", () => {
         key: uuid.create(),
         variant: "info",
         message: "test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
     });
 
@@ -84,7 +85,7 @@ describe("status", () => {
           key: uuid.create(),
           variant: "info",
           message: "test",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -100,7 +101,7 @@ describe("status", () => {
         key: uuid.create(),
         variant: "info",
         message: "test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await userClient.statuses.delete(randomStatus.key);
       await expect(
@@ -119,7 +120,7 @@ describe("status", () => {
         key: uuid.create(),
         variant: "info",
         message: "test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await expect(userClient.statuses.delete(randomStatus.key)).rejects.toThrow(
         AuthError,

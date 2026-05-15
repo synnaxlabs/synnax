@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
-
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { type channel } from "@/channel";
 import type Synnax from "@/client";
 
@@ -18,13 +18,13 @@ export const newIndexedPair = async (
   const index = await client.channels.create({
     leaseholder: 1,
     name: id.create(),
-    dataType: DataType.TIMESTAMP,
+    dataType: telem.DataType.TIMESTAMP,
     isIndex: true,
   });
   const data = await client.channels.create({
     leaseholder: 1,
     name: id.create(),
-    dataType: DataType.FLOAT64,
+    dataType: telem.DataType.FLOAT64,
     index: index.key,
   });
   return [index, data];
@@ -33,7 +33,7 @@ export const newIndexedPair = async (
 export const newVirtualChannel = async (client: Synnax): Promise<channel.Channel> => {
   const ch = await client.channels.create({
     name: id.create(),
-    dataType: DataType.FLOAT64,
+    dataType: telem.DataType.FLOAT64,
     virtual: true,
   });
   return ch;

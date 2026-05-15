@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
 import {
   sendRequired,
   type Stream,
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+
 import { z } from "zod/v4";
 
 import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -53,7 +54,7 @@ describe("Task", async () => {
         variant: "success" as const,
         message: "Custom task status",
         description: "Task is running",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: { running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
@@ -141,7 +142,7 @@ describe("Task", async () => {
           variant: "success",
           details: { task: t.key, running: false, data: undefined },
           message: "test",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         };
         await client.statuses.set(communicatedStatus);
         await expect

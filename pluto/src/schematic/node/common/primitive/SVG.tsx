@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { direction } from "@synnaxlabs/x/direction";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Theming } from "@synnaxlabs/charon/theming";
-import { color, dimensions, direction } from "@synnaxlabs/x";
+
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";

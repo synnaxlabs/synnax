@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { TestSource } from "@/telem/aether/test/source";
@@ -26,11 +26,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 5,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 10n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 10n),
           alignment: 0n,
         }),
       ]);
@@ -45,11 +45,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 3,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4, 5, 6]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 6n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 6n),
           alignment: 0n,
           sampleOffset: 1,
         }),
@@ -67,11 +67,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 3,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 9n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 9n),
           alignment: 0n,
         }),
       ]);
@@ -89,11 +89,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 4,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4, 5, 6, 7]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 7n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 7n),
           alignment: 0n,
         }),
       ]);
@@ -109,17 +109,17 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
-        new Series({
+        new telem.Series({
           data: new Float32Array([10, 20, 30, 40]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
@@ -141,11 +141,11 @@ describe("SeriesDownsampler", () => {
       });
 
       const data = new Float32Array([1, NaN, 3, 4, 5, 6]);
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data,
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 6n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 6n),
           alignment: 0n,
         }),
       ]);
@@ -162,12 +162,12 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source1 = new MultiSeries([
-        new Series({
+      const source1 = new telem.MultiSeries([
+        new telem.Series({
           key: "series1",
           data: new Float32Array([1, 2, 3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
@@ -175,12 +175,12 @@ describe("SeriesDownsampler", () => {
       const result1 = downsampler.transform(source1);
       expect(result1.series[0].length).toBe(2);
 
-      const source2 = new MultiSeries([
-        new Series({
+      const source2 = new telem.MultiSeries([
+        new telem.Series({
           key: "series1",
           data: new Float32Array([1, 2, 3, 4, 5, 6]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 6n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 6n),
           alignment: 0n,
         }),
       ]);
@@ -196,24 +196,24 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source1 = new MultiSeries([
-        new Series({
+      const source1 = new telem.MultiSeries([
+        new telem.Series({
           key: "series1",
           data: new Float32Array([1, 2, 3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
 
       downsampler.transform(source1);
 
-      const source2 = new MultiSeries([
-        new Series({
+      const source2 = new telem.MultiSeries([
+        new telem.Series({
           key: "series2",
           data: new Float32Array([10, 20, 30, 40]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
@@ -231,11 +231,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 1,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3, 4, 5]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 5n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 5n),
           alignment: 0n,
         }),
       ]);
@@ -250,11 +250,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 0,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 3n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 3n),
           alignment: 0n,
         }),
       ]);
@@ -269,7 +269,7 @@ describe("SeriesDownsampler", () => {
         windowSize: 3,
       });
 
-      const source = new MultiSeries([]);
+      const source = new telem.MultiSeries([]);
       const result = downsampler.transform(source);
       expect(result.series.length).toBe(0);
     });
@@ -280,11 +280,11 @@ describe("SeriesDownsampler", () => {
         windowSize: 3,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float32Array([1, 2]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 2n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 2n),
           alignment: 0n,
         }),
       ]);
@@ -299,18 +299,18 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           key: "test-series",
           data: new Float32Array([1, 2, 3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(100n, 200n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(100n, 200n),
           alignment: 10n,
         }),
       ]);
 
       const result = downsampler.transform(source);
-      expect(result.series[0].dataType).toEqual(DataType.FLOAT32);
+      expect(result.series[0].dataType).toEqual(telem.DataType.FLOAT32);
       expect(result.series[0].timeRange.start.valueOf()).toBe(100n);
       expect(result.series[0].timeRange.end.valueOf()).toBe(200n);
       expect(result.series[0].alignment).toBe(10n);
@@ -323,17 +323,17 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: new Float64Array([1.5, 2.5, 3.5, 4.5]),
-          dataType: DataType.FLOAT64,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT64,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
 
       const result = downsampler.transform(source);
-      expect(result.series[0].dataType).toEqual(DataType.FLOAT64);
+      expect(result.series[0].dataType).toEqual(telem.DataType.FLOAT64);
       expect(result.series[0].at(0)).toBe(2);
       expect(result.series[0].at(1)).toBe(4);
     });
@@ -344,38 +344,38 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source1 = new MultiSeries([
-        new Series({
+      const source1 = new telem.MultiSeries([
+        new telem.Series({
           key: "series1",
           data: new Float32Array([1, 2]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 2n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 2n),
           alignment: 0n,
         }),
-        new Series({
+        new telem.Series({
           key: "series2",
           data: new Float32Array([3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 2n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 2n),
           alignment: 0n,
         }),
       ]);
 
       downsampler.transform(source1);
 
-      const source2 = new MultiSeries([
-        new Series({
+      const source2 = new telem.MultiSeries([
+        new telem.Series({
           key: "series1",
           data: new Float32Array([1, 2, 3, 4]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
-        new Series({
+        new telem.Series({
           key: "series3",
           data: new Float32Array([5, 6, 7, 8]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
@@ -396,11 +396,11 @@ describe("SeriesDownsampler", () => {
       const largeData = new Float32Array(10000);
       for (let i = 0; i < largeData.length; i++) largeData[i] = i;
 
-      const source = new MultiSeries([
-        new Series({
+      const source = new telem.MultiSeries([
+        new telem.Series({
           data: largeData,
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 10000n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 10000n),
           alignment: 0n,
         }),
       ]);
@@ -417,12 +417,12 @@ describe("SeriesDownsampler", () => {
         windowSize: 2,
       });
 
-      const source1 = new MultiSeries([
-        new Series({
+      const source1 = new telem.MultiSeries([
+        new telem.Series({
           key: "stream",
           data: new Float32Array([0, 1, 2, 3]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 4n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 4n),
           alignment: 0n,
         }),
       ]);
@@ -432,12 +432,12 @@ describe("SeriesDownsampler", () => {
       expect(result1.series[0].at(0)).toBe(0.5);
       expect(result1.series[0].at(1)).toBe(2.5);
 
-      const source2 = new MultiSeries([
-        new Series({
+      const source2 = new telem.MultiSeries([
+        new telem.Series({
           key: "stream",
           data: new Float32Array([0, 1, 2, 3, 4, 5, 6, 7]),
-          dataType: DataType.FLOAT32,
-          timeRange: new TimeRange(0n, 8n),
+          dataType: telem.DataType.FLOAT32,
+          timeRange: new telem.TimeRange(0n, 8n),
           alignment: 0n,
         }),
       ]);

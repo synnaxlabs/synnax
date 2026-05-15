@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   Children,
   isValidElement,
@@ -21,7 +21,7 @@ import { Button, type ButtonProps } from "@/button/Button";
 import { Icon } from "@/icon";
 import { useAdder, useErrorHandler } from "@/status/base/Aggregator";
 
-const COPIED_DURATION_MS = TimeSpan.seconds(2).milliseconds;
+const COPIED_DURATION_MS = telem.TimeSpan.seconds(2).milliseconds;
 
 export interface CopyProps extends ButtonProps {
   /** The text to copy to the clipboard, or a function that returns it (sync or async). */
@@ -29,7 +29,7 @@ export interface CopyProps extends ButtonProps {
   /** Optional callback invoked after successfully copying to clipboard. */
   onCopy?: () => void;
   /** Duration in ms to show the checkmark after copying. Defaults to 2000. */
-  copiedDuration?: CrudeTimeSpan;
+  copiedDuration?: telem.CrudeTimeSpan;
   /** Status notification message shown on successful copy. Can be a string or a function that returns one. */
   successMessage?: string | (() => string);
 }
@@ -76,7 +76,7 @@ export const Copy = ({
         setCopied(true);
         setTimeout(
           () => setCopied(false),
-          TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
+          telem.TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
         );
       });
     },

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog, Icon, Menu } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x/location";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+
 import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
 
 import { useContext } from "@/view/context";

@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
-import { Access, Icon, Menu } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";

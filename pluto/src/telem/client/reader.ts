@@ -7,27 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { debounce } from "@synnaxlabs/x/debounce";
+import { sync } from "@synnaxlabs/x/sync";
+import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
-import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { type Cache } from "@/telem/client/cache/cache";
 import { type ReadClient } from "@/telem/client/client";
 
 /** A function that reads a telemetry frame from the Synnax cluster. */
 export interface ReadRemoteFunc {
-  (tr: TimeRange, keys: channel.Key[]): Promise<framer.Frame>;
+  (tr: telem.TimeRange, keys: channel.Key[]): Promise<framer.Frame>;
 }
 
 interface ReadRequest {
   channel: channel.Key;
-  gaps: TimeRange[];
+  gaps: telem.TimeRange[];
   resolve: () => void;
   reject: (reason?: unknown) => void;
 }
 
 interface BatchFetch {
-  gap: TimeRange;
+  gap: telem.TimeRange;
   channels: Set<channel.Key>;
 }
 
@@ -45,7 +47,7 @@ export interface ReaderArgs {
    * response times but more traffic.
    * @default TimeSpan.milliseconds(50)
    */
-  batchDebounce?: TimeSpan;
+  batchDebounce?: telem.TimeSpan;
   /**
    * A threshold for overlap between time ranges in order for them to be batched into
    * a single request to the server. For example, a read on channel one for time range
@@ -54,7 +56,7 @@ export interface ReaderArgs {
    * for the channels [one, two].
    * @default TimeSpan.milliseconds(5)
    */
-  overlapThreshold?: TimeSpan;
+  overlapThreshold?: telem.TimeSpan;
   /** Used for logging, tracing, etc. */
   instrumentation?: alamos.Instrumentation;
 }
@@ -81,15 +83,15 @@ export class Reader implements ReadClient {
     this.args = {
       ...args,
       instrumentation: args.instrumentation ?? alamos.NOOP,
-      batchDebounce: args.batchDebounce ?? TimeSpan.milliseconds(50),
-      overlapThreshold: args.overlapThreshold ?? TimeSpan.milliseconds(5),
+      batchDebounce: args.batchDebounce ?? telem.TimeSpan.milliseconds(50),
+      overlapThreshold: args.overlapThreshold ?? telem.TimeSpan.milliseconds(5),
     };
     const deb = this.args.batchDebounce.milliseconds;
     this.debouncedRead = debounce(() => void this.batchRead(), deb);
   }
 
   /** Implements ReadClient. */
-  async read(tr: TimeRange, channel: channel.Key): Promise<MultiSeries> {
+  async read(tr: telem.TimeRange, channel: channel.Key): Promise<telem.MultiSeries> {
     const { cache } = this.args;
     await cache.populateMissing([channel]);
     const unary = cache.get(channel);
@@ -123,7 +125,7 @@ export class Reader implements ReadClient {
             if (g == null) batched.push({ gap, channels: new Set([channel]) });
             else {
               g.channels.add(channel);
-              g.gap = TimeRange.max(g.gap, gap);
+              g.gap = telem.TimeRange.max(g.gap, gap);
             }
           }),
         );

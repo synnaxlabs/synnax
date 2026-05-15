@@ -11,6 +11,7 @@
 
 import { lib } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
+import { copyFileSync, mkdirSync } from "fs";
 import path from "path";
 import { defineConfig, esmExternalRequirePlugin } from "vite";
 
@@ -20,6 +21,18 @@ export default defineConfig({
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
     lib({ name: "charon" }),
+    {
+      name: "copy-theme-css",
+      closeBundle() {
+        mkdirSync("dist", { recursive: true });
+        for (const file of ["theme.css", "theme-dark.css", "theme-light.css"]) {
+          copyFileSync(
+            path.resolve(`src/theming/static/${file}`),
+            path.resolve(`dist/${file}`),
+          );
+        }
+      },
+    },
   ],
   build: {
     lib: {
@@ -36,7 +49,9 @@ export default defineConfig({
         cursor: path.resolve(".", "src/cursor/index.ts"),
         dialog: path.resolve(".", "src/dialog/index.ts"),
         divider: path.resolve(".", "src/divider/index.ts"),
+        errors: path.resolve(".", "src/errors/index.ts"),
         flex: path.resolve(".", "src/flex/index.ts"),
+        form: path.resolve(".", "src/form/index.ts"),
         generic: path.resolve(".", "src/generic/index.ts"),
         haul: path.resolve(".", "src/haul/index.ts"),
         header: path.resolve(".", "src/header/index.ts"),
@@ -47,9 +62,11 @@ export default defineConfig({
         list: path.resolve(".", "src/list/index.ts"),
         memo: path.resolve(".", "src/memo/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),
+        nav: path.resolve(".", "src/nav/index.ts"),
         note: path.resolve(".", "src/note/index.ts"),
         portal: path.resolve(".", "src/portal/index.ts"),
         progress: path.resolve(".", "src/progress/index.ts"),
+        resize: path.resolve(".", "src/resize/index.ts"),
         select: path.resolve(".", "src/select/index.ts"),
         state: path.resolve(".", "src/state/index.ts"),
         status: path.resolve(".", "src/status/index.ts"),
@@ -74,7 +91,28 @@ export default defineConfig({
       },
     },
     rolldownOptions: {
-      external: ["@synnaxlabs/alamos", "@synnaxlabs/media", "@synnaxlabs/x"],
+      external: [
+        "@synnaxlabs/alamos",
+        "@synnaxlabs/media",
+        "@synnaxlabs/x",
+        /^@synnaxlabs\/x\/.*/,
+        "@fontsource-variable/inter",
+        "@fontsource/inter",
+        "@fontsource/geist-mono",
+        /^@fontsource(-variable)?\/.*\/.*/,
+        "async-mutex",
+        "clsx",
+        "compromise",
+        "compromise-dates",
+        "fuse.js",
+        "mathjs",
+        "mathjs/number",
+        "pluralize",
+        "@tanstack/react-virtual",
+        "use-sync-external-store",
+        "use-sync-external-store/shim",
+        "zod",
+      ],
       output: {
         globals: {
           react: "React",

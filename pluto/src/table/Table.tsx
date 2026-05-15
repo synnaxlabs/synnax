@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
 import "@/table/Table.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -15,7 +17,7 @@ import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
 import { Menu } from "@synnaxlabs/charon/menu";
 import { Text } from "@synnaxlabs/charon/text";
 import { stopPropagation } from "@synnaxlabs/charon/util";
-import { box, direction } from "@synnaxlabs/x";
+
 import {
   type ComponentPropsWithoutRef,
   type ComponentPropsWithRef,

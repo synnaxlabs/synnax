@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { notation } from "@synnaxlabs/x/notation";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { type channel, log } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Channel,
-  Color,
-  Flex,
-  Icon,
-  Input,
-  List,
-  type Log as PLog,
-  Notation,
-  Select,
-  Theming,
-} from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Access, Channel, Color, type Log as PLog, Notation } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -38,11 +36,11 @@ import {
 
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
-const showsNumericFields = (dt: DataType | undefined): boolean =>
-  dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
+const showsNumericFields = (dt: telem.DataType | undefined): boolean =>
+  dt != null && dt.isNumeric && !dt.equals(telem.DataType.TIMESTAMP);
 
-const isTimestamp = (dt: DataType | undefined): boolean =>
-  dt != null && dt.equals(DataType.TIMESTAMP);
+const isTimestamp = (dt: telem.DataType | undefined): boolean =>
+  dt != null && dt.equals(telem.DataType.TIMESTAMP);
 
 const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
 const TIMESTAMP_TZS = ["UTC", "local"] as const;

@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
+import { telem } from "@synnaxlabs/x/telem";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 const stateZ = z.object({

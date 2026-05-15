@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { status } from "@synnaxlabs/charon/status/aether";
 import { theming } from "@synnaxlabs/charon/theming/aether";
 import { ranger, type Synnax } from "@synnaxlabs/client";
-import {
-  bounds,
-  box,
-  clamp,
-  color,
-  type destructor,
-  type scale,
-  TimeRange,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { flux } from "@/flux/aether";
@@ -58,7 +56,7 @@ interface ProviderProps {
   dataToDecimalScale: scale.Scale;
   viewport: box.Box;
   region: box.Box;
-  timeRange: TimeRange;
+  timeRange: telem.TimeRange;
 }
 
 interface Store extends flux.Store {
@@ -68,7 +66,7 @@ interface Store extends flux.Store {
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   schema = providerStateZ;
-  fetchedInitial: TimeRange = TimeRange.ZERO;
+  fetchedInitial: telem.TimeRange = telem.TimeRange.ZERO;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -99,10 +97,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     };
   }
 
-  private fetchInitial(timeRange: TimeRange): void {
+  private fetchInitial(timeRange: telem.TimeRange): void {
     const { internal: i } = this;
     const { client, runAsync } = i;
-    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
+    if (client == null || this.fetchedInitial.equals(timeRange, telem.TimeSpan.minutes(1)))
       return;
 
     this.fetchedInitial = timeRange;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -19,7 +19,7 @@ describe("SelectDataType", () => {
 
   const SelectWrapper = (props: {
     hideVariableDensity?: boolean;
-    hideDataTypes?: DataType[];
+    hideDataTypes?: telem.DataType[];
   }) => {
     const [value, setValue] = useState("");
     const handleChange = (key: string) => {
@@ -73,7 +73,7 @@ describe("SelectDataType", () => {
 
   it("should hide specific data types when hideDataTypes is provided", () => {
     const c = render(
-      <SelectWrapper hideDataTypes={[DataType.FLOAT32, DataType.INT64]} />,
+      <SelectWrapper hideDataTypes={[telem.DataType.FLOAT32, telem.DataType.INT64]} />,
     );
     fireEvent.click(c.getByText("Select a data type"));
     expect(c.queryByText("float32")).toBeNull();

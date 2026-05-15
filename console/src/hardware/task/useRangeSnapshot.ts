@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { strings } from "@synnaxlabs/x/strings";
 import { ranger } from "@synnaxlabs/client";
-import { type Flux, Status, Task } from "@synnaxlabs/pluto";
-import { array, strings } from "@synnaxlabs/x";
+import { Status } from "@synnaxlabs/charon/status";
+import { type Flux, Task } from "@synnaxlabs/pluto";
+
 import { useCallback } from "react";
 
 import { Range } from "@/range";

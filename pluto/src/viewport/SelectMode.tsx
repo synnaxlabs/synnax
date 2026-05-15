@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import type { Tooltip } from "@synnaxlabs/charon/tooltip";
 import { Triggers } from "@synnaxlabs/charon/triggers";
-import { caseconv } from "@synnaxlabs/x";
+
 import { type ReactElement, useMemo } from "react";
 
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";

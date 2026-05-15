@@ -7,22 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
 import "@/hardware/modbus/device/Connect.css";
 
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Device as PDevice,
-  Flex,
-  type Flux,
-  Form,
-  Nav,
-  Rack,
-  Status,
-  Task,
-} from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Status } from "@synnaxlabs/charon/status";
+import { Device as PDevice, type Flux, Rack, Task } from "@synnaxlabs/pluto";
+
 import { useCallback } from "react";
 
 import { CSS } from "@/css";

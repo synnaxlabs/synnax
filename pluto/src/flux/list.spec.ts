@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
+import { testutil } from "@synnaxlabs/x/testutil";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { createTestClient, type ranger } from "@synnaxlabs/client";
-import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
+
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -997,9 +1001,9 @@ describe("list", () => {
     it("should correctly update a list item when the listener changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(12),
+          end: telem.TimeSpan.seconds(13),
         }),
       });
 
@@ -1045,9 +1049,9 @@ describe("list", () => {
     it("should accept a keyed record as the argument to onChange", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(12),
+          end: telem.TimeSpan.seconds(13),
         }),
       });
 
@@ -1092,9 +1096,9 @@ describe("list", () => {
     it("should correctly remove a list item when it gets deleted", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(12),
+          end: telem.TimeSpan.seconds(13),
         }),
       });
       const { result } = renderHook(
@@ -1129,17 +1133,17 @@ describe("list", () => {
     it("should maintain sort order when items are updated through listeners", async () => {
       const rng1 = await client.ranges.create({
         name: "B Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(10),
-          end: TimeSpan.seconds(11),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(10),
+          end: telem.TimeSpan.seconds(11),
         }),
       });
 
       const rng2 = await client.ranges.create({
         name: "A Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(12),
+          end: telem.TimeSpan.seconds(13),
         }),
       });
 
@@ -1180,17 +1184,17 @@ describe("list", () => {
     it("should insert new items in correct sorted position through listeners", async () => {
       const rng1 = await client.ranges.create({
         name: "A Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(10),
-          end: TimeSpan.seconds(11),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(10),
+          end: telem.TimeSpan.seconds(11),
         }),
       });
 
       const rng2 = await client.ranges.create({
         name: "C Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(12),
-          end: TimeSpan.seconds(13),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(12),
+          end: telem.TimeSpan.seconds(13),
         }),
       });
       const rng3Key = uuid.create();
@@ -1224,9 +1228,9 @@ describe("list", () => {
       const rng3 = await client.ranges.create({
         key: rng3Key,
         name: "B Range",
-        timeRange: new TimeRange({
-          start: TimeSpan.seconds(14),
-          end: TimeSpan.seconds(15),
+        timeRange: new telem.TimeRange({
+          start: telem.TimeSpan.seconds(14),
+          end: telem.TimeSpan.seconds(15),
         }),
       });
 

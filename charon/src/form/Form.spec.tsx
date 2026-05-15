@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Input } from "@synnaxlabs/charon/input";
-import { deep, type record } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
+import { record } from "@synnaxlabs/x/record";
+import { Input } from "@/input";
+
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";

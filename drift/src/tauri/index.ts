@@ -8,15 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
-import {
-  box,
-  debounce as debounceF,
-  deep,
-  dimensions,
-  runtime,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { debounce } from "@synnaxlabs/x/debounce";
+import { deep } from "@synnaxlabs/x/deep";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { runtime } from "@synnaxlabs/x/runtime";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import {
   emit,
   type Event as TauriEvent,
@@ -56,12 +54,12 @@ const MIN_DIM = 250;
 
 // On macOS, we need to poll for fullscreen changes, as tauri doesn't provide an event
 // for it. This is the interval at which we poll.
-const MACOS_FULLSCREEN_POLL_INTERVAL = TimeSpan.seconds(1);
+const MACOS_FULLSCREEN_POLL_INTERVAL = telem.TimeSpan.seconds(1);
 
 // On Windows and Linux, the OS does not automatically reposition windows when a monitor
 // is disconnected. We poll for monitor changes and move off-screen windows back onto a
 // visible display.
-const MONITOR_CHANGE_POLL_INTERVAL = TimeSpan.seconds(1);
+const MONITOR_CHANGE_POLL_INTERVAL = telem.TimeSpan.seconds(1);
 
 const clampDims = (dims?: dimensions.Dimensions): dimensions.Dimensions | undefined => {
   if (dims == null) return undefined;
@@ -205,10 +203,10 @@ export class TauriRuntime<
       (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
     const propsHandlers = newWindowPropsHandlers();
-    for (const { key, handler, debounce } of propsHandlers)
+    for (const { key, handler, debounce: deb } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
-        debounceF(() => {
+        debounce(() => {
           handler(this.win)
             .then((action) => {
               if (action != null)
@@ -217,7 +215,7 @@ export class TauriRuntime<
                 );
             })
             .catch(console.error);
-        }, debounce),
+        }, deb),
       );
   }
 

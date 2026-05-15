@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
-import { type Pluto } from "@synnaxlabs/pluto";
+import type { Pluto } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
 

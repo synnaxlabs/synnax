@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { direction } from "@synnaxlabs/x/direction";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Menu, Mosaic, Text } from "@synnaxlabs/pluto";
-import { type direction } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Text } from "@synnaxlabs/charon/text";
+import { Mosaic } from "@synnaxlabs/pluto";
+
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
 

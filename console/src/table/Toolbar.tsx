@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
+import { record } from "@synnaxlabs/x/record";
 import { table } from "@synnaxlabs/client";
-import {
-  Breadcrumb,
-  Flex,
-  Form,
-  Icon,
-  Table,
-  TableCells,
-  Text,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
-import { deep, record } from "@synnaxlabs/x";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
+import { Table, TableCells } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 

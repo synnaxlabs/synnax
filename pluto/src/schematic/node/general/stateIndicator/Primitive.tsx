@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
 import { Text } from "@synnaxlabs/charon/text";
 import { Theming } from "@synnaxlabs/charon/theming";
-import { color } from "@synnaxlabs/x";
+
 import { type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x/record";
+import { status } from "@synnaxlabs/x/status";
 import "@/select/Dialog.css";
 
-import { type record, type status } from "@synnaxlabs/x";
-import { plural } from "pluralize";
+import pluralize from "pluralize";
+
+const { plural } = pluralize;
 import { memo, type ReactElement, useMemo } from "react";
 import { type z } from "zod";
 

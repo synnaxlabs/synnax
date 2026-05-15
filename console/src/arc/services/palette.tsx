@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Arc } from "@/arc";

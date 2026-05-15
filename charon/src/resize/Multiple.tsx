@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { box, direction, math, type xy } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
+import { math } from "@synnaxlabs/x/math";
+import { xy } from "@synnaxlabs/x/xy";
+import { CSS } from "@/css";
+import { Flex } from "@/flex";
+
 import {
   Children,
   type RefObject,

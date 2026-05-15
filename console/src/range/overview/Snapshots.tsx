@@ -13,18 +13,15 @@ import {
   ranger,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Flex,
-  Header,
-  Icon,
-  List,
-  Ontology,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ontology, Synnax } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
 import { CSS } from "@/css";

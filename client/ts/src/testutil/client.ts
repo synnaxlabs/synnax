@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
-
+import { telem } from "@synnaxlabs/x/telem";
 import Synnax, { type SynnaxParams } from "@/client";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
@@ -18,7 +17,7 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
   password: "seldon",
   retry: {
     maxRetries: 4,
-    baseInterval: TimeSpan.seconds(1),
+    baseInterval: telem.TimeSpan.seconds(1),
     scale: 1.5,
   },
 };

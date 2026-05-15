@@ -9,7 +9,11 @@
 
 import "@/layout/Modals.css";
 
-import { Breadcrumb, Button, Dialog, Icon, Nav } from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Button } from "@synnaxlabs/charon/button";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Nav } from "@synnaxlabs/charon/nav";
 import { type CSSProperties, useCallback } from "react";
 
 import { Content } from "@/layout/Content";

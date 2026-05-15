@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { act, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
@@ -74,8 +74,8 @@ describe("Aggregator", () => {
         () => ({
           add: Status.useAdder(),
           statuses: Status.useNotifications({
-            expiration: TimeSpan.milliseconds(1),
-            poll: TimeSpan.milliseconds(1),
+            expiration: telem.TimeSpan.milliseconds(1),
+            poll: telem.TimeSpan.milliseconds(1),
           }),
         }),
         { wrapper },

@@ -7,31 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import { schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Diagram,
-  Direction,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Schematic,
-  Select,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
-import {
-  box,
-  color,
-  deep,
-  type dimensions,
-  type direction,
-  location,
-  xy,
-} from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Color, Diagram, Direction, Schematic } from "@synnaxlabs/pluto";
+
 import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 

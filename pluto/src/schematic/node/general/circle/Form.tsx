@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/charon/flex";
 import type { Input } from "@synnaxlabs/charon/input";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {

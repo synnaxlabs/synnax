@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import "@/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  Ranger,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeRange, uuid } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ranger, Synnax } from "@synnaxlabs/pluto";
+
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -97,7 +96,7 @@ export const Create: Layout.Renderer = (props) => {
             ...value,
             key: value.key ?? "",
             variant: "static",
-            timeRange: new TimeRange(value.timeRange.start, value.timeRange.end)
+            timeRange: new telem.TimeRange(value.timeRange.start, value.timeRange.end)
               .numeric,
           },
         ],
@@ -134,7 +133,7 @@ export const Create: Layout.Renderer = (props) => {
               />
             )}
           </Form.Field>
-          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
+          <Form.Field<telem.NumericTimeRange> path="timeRange" label="Stage">
             {(p) => (
               <Ranger.SelectStage
                 {...Ranger.wrapNumericTimeRangeToStage(p)}

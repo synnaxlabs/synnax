@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { json } from "@synnaxlabs/x/json";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel, type device } from "@synnaxlabs/client";
-import { json, TimeSpan } from "@synnaxlabs/x";
+
 import { z } from "zod/v4";
 
 export const MAKE = "http";
@@ -204,7 +206,7 @@ export const ZERO_HEALTH_CHECK = {
 
 export type HealthCheckMethod = HealthCheck["method"];
 
-const defaultTimeoutMs = TimeSpan.milliseconds(100).milliseconds;
+const defaultTimeoutMs = telem.TimeSpan.milliseconds(100).milliseconds;
 
 const v0PropertiesZ = z.object({
   secure: z.boolean().default(true),

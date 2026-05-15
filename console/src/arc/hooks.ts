@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
 import { type arc, type task, UnexpectedError } from "@synnaxlabs/client";
-import { Arc, type Flux, type List, Task } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import type { List } from "@synnaxlabs/charon/list";
+import { Arc, type Flux, Task } from "@synnaxlabs/pluto";
+
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

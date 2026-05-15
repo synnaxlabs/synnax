@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { device } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { CONNECT_LAYOUT } from "@/hardware/http/device/Connect";
 import { Palette } from "@/palette";

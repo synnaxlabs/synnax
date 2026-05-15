@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location, testutil } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { testutil } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Dialog } from "@/dialog";

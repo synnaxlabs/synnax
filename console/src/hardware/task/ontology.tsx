@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";

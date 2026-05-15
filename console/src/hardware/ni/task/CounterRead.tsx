@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { unique } from "@synnaxlabs/x/unique";
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, primitive, unique } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";

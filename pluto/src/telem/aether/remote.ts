@@ -7,20 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { status as xstatus } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import type { status } from "@synnaxlabs/charon/status/aether";
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import {
-  bounds,
-  DataType,
-  type destructor,
-  MultiSeries,
-  primitive,
-  type Series,
-  status as xstatus,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type CreateOptions } from "@/telem/aether/factory";
@@ -52,7 +46,7 @@ export class StreamChannelValue
 
   private readonly client: client.Client;
   private removeStreamHandler: destructor.Destructor | null = null;
-  private leadingBuffer: Series | null = null;
+  private leadingBuffer: telem.Series | null = null;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
   constructor(client: client.Client, props: unknown, options?: CreateOptions) {
@@ -62,7 +56,7 @@ export class StreamChannelValue
   }
 
   /** @returns the leading series buffer for testing purposes. */
-  get testingOnlyLeadingBuffer(): Series | null {
+  get testingOnlyLeadingBuffer(): telem.Series | null {
     return this.leadingBuffer;
   }
 
@@ -136,11 +130,11 @@ const fetchChannelProperties = async (
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
   if (c.virtual && !isCalculated)
     throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  return { key: c.index, dataType: telem.DataType.TIMESTAMP, virtual: false, isCalculated };
 };
 
 const channelDataSourcePropsZ = z.object({
-  timeRange: TimeRange.z,
+  timeRange: telem.TimeRange.z,
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
 });
@@ -156,7 +150,7 @@ export class ChannelData
   private readonly client: client.ReadClient & client.ChannelClient;
   schema = channelDataSourcePropsZ;
 
-  private data: MultiSeries = new MultiSeries();
+  private data: telem.MultiSeries = new telem.MultiSeries();
   private valid: boolean = false;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
@@ -177,7 +171,7 @@ export class ChannelData
     this.channel = null;
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
+  value(): [bounds.Bounds, telem.MultiSeries] {
     const { channel, timeRange } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
@@ -186,7 +180,7 @@ export class ChannelData
     const { channel: ch, data } = this;
     if (ch == null) return [bounds.ZERO, this.data];
     let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP))
+    if (ch.dataType.equals(telem.DataType.TIMESTAMP))
       b = bounds.min([b, timeRange.numericBounds]);
     return [b, data];
   }
@@ -214,8 +208,8 @@ export class ChannelData
 const streamChannelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
-  timeSpan: TimeSpan.z,
-  keepFor: TimeSpan.z.optional(),
+  timeSpan: telem.TimeSpan.z,
+  keepFor: telem.TimeSpan.z.optional(),
 });
 
 export type StreamChannelDataProps = z.input<typeof streamChannelDataPropsZ>;
@@ -226,8 +220,8 @@ export class StreamChannelData
 {
   static readonly TYPE = "dynamic-series-source";
   private readonly client: client.Client;
-  private readonly data: MultiSeries = new MultiSeries([]);
-  private readonly now: () => TimeStamp;
+  private readonly data: telem.MultiSeries = new telem.MultiSeries([]);
+  private readonly now: () => telem.TimeStamp;
   private readonly onStatusChange?: status.Adder;
 
   private channel: SelectedChannelProperties | null = null;
@@ -239,7 +233,7 @@ export class StreamChannelData
     client: client.Client,
     props: unknown,
     options?: CreateOptions,
-    now: () => TimeStamp = () => TimeStamp.now(),
+    now: () => telem.TimeStamp = () => telem.TimeStamp.now(),
   ) {
     super(props);
     this.client = client;
@@ -247,7 +241,7 @@ export class StreamChannelData
     this.onStatusChange = options?.onStatusChange;
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
+  value(): [bounds.Bounds, telem.MultiSeries] {
     const { channel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, this.data];
     if (!this.valid) void this.read();
@@ -258,7 +252,7 @@ export class StreamChannelData
       .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
       .map((d) => d.bounds);
     const b = bounds.max(filtered);
-    if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
+    if (ch != null && ch.dataType.equals(telem.DataType.TIMESTAMP))
       b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
     return [b, this.data];
   }

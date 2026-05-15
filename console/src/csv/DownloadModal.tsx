@@ -7,24 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { runtime } from "@synnaxlabs/x/runtime";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@synnaxlabs/client";
-import {
-  Button,
-  Channel,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Nav,
-  type Select,
-  Text,
-} from "@synnaxlabs/pluto";
-import {
-  type CrudeTimeRange,
-  numericTimeRangeZ,
-  runtime,
-  TimeRange,
-} from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Nav } from "@synnaxlabs/charon/nav";
+import type { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Channel } from "@synnaxlabs/pluto";
+
 import { z } from "zod";
 
 import { useDownload } from "@/csv/useDownload";
@@ -33,7 +28,7 @@ import { Triggers } from "@/triggers";
 
 export interface DownloadModalArgs extends Modals.BaseArgs<void> {
   channelNames?: Record<channel.Key, string>;
-  timeRange: CrudeTimeRange;
+  timeRange: telem.CrudeTimeRange;
   channels: channel.Key[];
   name: string;
 }
@@ -59,7 +54,7 @@ export const [useDownloadModal, DownloadModal] = Modals.createBase<
       schema: formSchema,
       values: {
         channels,
-        timeRange: new TimeRange(timeRange).numeric,
+        timeRange: new telem.TimeRange(timeRange).numeric,
         downsampleFactor: 1,
         name,
         channelNames,
@@ -136,7 +131,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
   const downloadCSV = useDownload();
   const { get } = Form.useContext();
   const handleClick = () => {
-    const timeRange = get<TimeRange>("timeRange").value;
+    const timeRange = get<telem.TimeRange>("timeRange").value;
     const channels = get<channel.Key[]>("channels").value;
     const downsampleFactor = get<number>("downsampleFactor").value;
     const channelNames = get<Record<channel.Key, string>>("channelNames", {
@@ -171,7 +166,7 @@ const formSchema = z.object({
   name: z.string(),
   channelNames: z.record(channel.keyZ, z.string()).optional(),
   channels: channel.keyZ.array(),
-  timeRange: numericTimeRangeZ.refine(({ start, end }) => end >= start, {
+  timeRange: telem.numericTimeRangeZ.refine(({ start, end }) => end >= start, {
     error: "End time must be after start time",
     path: ["end"],
   }),

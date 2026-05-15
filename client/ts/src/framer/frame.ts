@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  array,
-  MultiSeries,
-  Series,
-  type SeriesDigest,
-  type SeriesPayload,
-  Size,
-  type TelemValue,
-  TimeRange,
-  TimeStamp,
-  unique,
-} from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import { telem } from "@synnaxlabs/x/telem";
+import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -26,7 +17,7 @@ import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
 
-export interface Digest extends Record<channel.Key | channel.Name, SeriesDigest[]> {}
+export interface Digest extends Record<channel.Key | channel.Name, telem.SeriesDigest[]> {}
 
 const columnType = (columns: channel.PrimitiveParams): ColumnType => {
   const arrKeys = array.toArray(columns);
@@ -38,7 +29,7 @@ const columnType = (columns: channel.PrimitiveParams): ColumnType => {
 
 const validateMatchedColsAndSeries = (
   columns: channel.PrimitiveParams,
-  series: Series[],
+  series: telem.Series[],
 ): void => {
   const colsArr = array.toArray(columns);
   if (colsArr.length === series.length) return;
@@ -56,8 +47,8 @@ const validateMatchedColsAndSeries = (
 export type CrudeFrame =
   | Frame
   | CrudePayload
-  | Map<channel.Key | channel.Name, Series[] | Series>
-  | Record<channel.Key | channel.Name, Series[] | Series>;
+  | Map<channel.Key | channel.Name, telem.Series[] | telem.Series>
+  | Record<channel.Key | channel.Name, telem.Series[] | telem.Series>;
 
 /**
  * A frame is a collection of series mapped to a particular channel. Frames
@@ -96,11 +87,11 @@ export type CrudeFrame =
  */
 export class Frame {
   readonly columns: channel.Key[] | channel.Name[] = [];
-  readonly series: Series[] = [];
+  readonly series: telem.Series[] = [];
 
   constructor(
     columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
-    series: Series | Series[] = [],
+    series: telem.Series | telem.Series[] = [],
   ) {
     if (columnsOrData instanceof Frame) {
       this.columns = columnsOrData.columns;
@@ -250,23 +241,23 @@ export class Frame {
     return ranges.every((tr) => tr.equals(ranges[0]));
   }
 
-  timeRange(col?: channel.Key | channel.Name): TimeRange {
+  timeRange(col?: channel.Key | channel.Name): telem.TimeRange {
     if (col == null) {
-      if (this.columns.length === 0) return TimeRange.ZERO;
-      const start = TimeStamp.min(...this.series.map((a) => a.timeRange.start));
-      const end = TimeStamp.max(...this.series.map((a) => a.timeRange.end));
-      return new TimeRange(start, end);
+      if (this.columns.length === 0) return telem.TimeRange.ZERO;
+      const start = telem.TimeStamp.min(...this.series.map((a) => a.timeRange.start));
+      const end = telem.TimeStamp.max(...this.series.map((a) => a.timeRange.end));
+      return new telem.TimeRange(start, end);
     }
     const group = this.get(col);
-    if (group == null) return TimeRange.ZERO;
+    if (group == null) return telem.TimeRange.ZERO;
     return group.timeRange;
   }
 
-  latest(): Record<string, TelemValue | undefined> {
+  latest(): Record<string, telem.TelemValue | undefined> {
     return this.at(-1);
   }
 
-  get timeRanges(): TimeRange[] {
+  get timeRanges(): telem.TimeRange[] {
     return this.uniqueColumns.map((col) => this.timeRange(col));
   }
 
@@ -274,7 +265,7 @@ export class Frame {
    * @returns lazy series matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: channel.Key | channel.Name): MultiSeries;
+  get(key: channel.Key | channel.Name): telem.MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
@@ -282,10 +273,10 @@ export class Frame {
    */
   get(keys: channel.Key[] | channel.Name[]): Frame;
 
-  get(key: channel.PrimitiveParams): MultiSeries | Frame {
+  get(key: channel.PrimitiveParams): telem.MultiSeries | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as channel.Key[]).includes(k as channel.Key));
-    return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
+    return new telem.MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
   /**
@@ -294,7 +285,7 @@ export class Frame {
    * @param key the channel key or name;
    * @param v the series to push.
    */
-  push(key: channel.Key | channel.Name, ...v: Series[]): void;
+  push(key: channel.Key | channel.Name, ...v: telem.Series[]): void;
 
   /**
    * Pushes the frame onto the current frame.
@@ -303,7 +294,7 @@ export class Frame {
    */
   push(frame: Frame): void;
 
-  push(keyOrFrame: channel.Key | channel.Name | Frame, ...v: Series[]): void {
+  push(keyOrFrame: channel.Key | channel.Name | Frame, ...v: telem.Series[]): void {
     if (keyOrFrame instanceof Frame) {
       if (
         keyOrFrame.colType != null &&
@@ -354,9 +345,9 @@ export class Frame {
   map(
     fn: (
       k: channel.Key | channel.Name,
-      arr: Series,
+      arr: telem.Series,
       i: number,
-    ) => [channel.Key | channel.Name, Series],
+    ) => [channel.Key | channel.Name, telem.Series],
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
@@ -366,9 +357,9 @@ export class Frame {
   mapFilter(
     fn: (
       k: channel.Key | channel.Name,
-      arr: Series,
+      arr: telem.Series,
       i: number,
-    ) => [channel.Key | channel.Name, Series, boolean],
+    ) => [channel.Key | channel.Name, telem.Series, boolean],
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => {
@@ -383,7 +374,7 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and series.
    */
-  forEach(fn: (k: channel.Key | channel.Name, arr: Series, i: number) => void): void {
+  forEach(fn: (k: channel.Key | channel.Name, arr: telem.Series, i: number) => void): void {
     this.columns.forEach((k, i) => {
       const a = this.series[i];
       fn(k, a, i);
@@ -395,23 +386,23 @@ export class Frame {
    * @param fn a function that takes a channel key, multi-series, and index.
    */
   forEachUnique(
-    fn: (k: channel.Key | channel.Name, ms: MultiSeries, i: number) => void,
+    fn: (k: channel.Key | channel.Name, ms: telem.MultiSeries, i: number) => void,
   ): void {
     this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
   }
 
-  at(index: number, required: true): Record<channel.Key | channel.Name, TelemValue>;
+  at(index: number, required: true): Record<channel.Key | channel.Name, telem.TelemValue>;
 
   at(
     index: number,
     required?: false,
-  ): Record<channel.Key | channel.Name, TelemValue | undefined>;
+  ): Record<channel.Key | channel.Name, telem.TelemValue | undefined>;
 
   at(
     index: number,
     required = false,
-  ): Record<channel.Key | channel.Name, TelemValue | undefined> {
-    const res: Record<channel.Key | channel.Name, TelemValue> = {};
+  ): Record<channel.Key | channel.Name, telem.TelemValue | undefined> {
+    const res: Record<channel.Key | channel.Name, telem.TelemValue> = {};
     this.uniqueColumns.forEach((k) => {
       res[k] = this.get(k).at(index, required as true);
     });
@@ -424,7 +415,7 @@ export class Frame {
    * @param fn a function that takes a channel key and series and returns a boolean.
    */
   filter(
-    fn: (k: channel.Key | channel.Name, arr: Series, i: number) => boolean,
+    fn: (k: channel.Key | channel.Name, arr: telem.Series, i: number) => boolean,
   ): Frame {
     const frame = new Frame();
     this.columns.forEach((k, i) => {
@@ -435,8 +426,8 @@ export class Frame {
   }
 
   /** @returns the total number of bytes in the frame. */
-  get byteLength(): Size {
-    return new Size(this.series.reduce((acc, v) => acc.add(v.byteLength), Size.ZERO));
+  get byteLength(): telem.Size {
+    return new telem.Size(this.series.reduce((acc, v) => acc.add(v.byteLength), telem.Size.ZERO));
   }
 
   /**
@@ -476,8 +467,8 @@ export const frameZ = z.object({
     z.number().array().default([]),
   ]),
   series: z.union([
-    z.null().transform<z.infer<typeof Series.crudeZ>[]>(() => []),
-    Series.crudeZ.array().default([]),
+    z.null().transform<z.infer<typeof telem.Series.crudeZ>[]>(() => []),
+    telem.Series.crudeZ.array().default([]),
   ]),
 });
 
@@ -485,12 +476,12 @@ export interface Payload extends z.infer<typeof frameZ> {}
 
 export interface CrudePayload extends z.input<typeof frameZ> {}
 
-export const seriesFromPayload = (series: SeriesPayload): Series => {
+export const seriesFromPayload = (series: telem.SeriesPayload): telem.Series => {
   const { dataType, data, timeRange, alignment } = series;
-  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
+  return new telem.Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
-export const seriesToPayload = (series: Series): SeriesPayload => ({
+export const seriesToPayload = (series: telem.Series): telem.SeriesPayload => ({
   timeRange: series.timeRange,
   dataType: series.dataType,
   data: new Uint8Array(series.data.buffer),

@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TableCells, Theming } from "@synnaxlabs/pluto";
-import { id, type record, xy } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { record } from "@synnaxlabs/x/record";
+import { xy } from "@synnaxlabs/x/xy";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { TableCells } from "@synnaxlabs/pluto";
+
 import { z } from "zod";
 
 const VERSION = "0.0.0";

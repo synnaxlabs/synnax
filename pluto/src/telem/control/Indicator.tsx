@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/telem/control/Indicator.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -14,7 +16,7 @@ import { CSS } from "@synnaxlabs/charon/css";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
 import { Text } from "@synnaxlabs/charon/text";
 import { Tooltip } from "@synnaxlabs/charon/tooltip";
-import { color, TimeStamp } from "@synnaxlabs/x";
+
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
@@ -42,7 +44,7 @@ export const Indicator = ({
         key: "no_chip",
         variant: "warning",
         message: "No chip connected.",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: { color: undefined },
       },
     },

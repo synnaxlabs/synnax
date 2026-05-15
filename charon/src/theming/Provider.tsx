@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { deep } from "@synnaxlabs/x/deep";
 import "@/theming/theme.css";
 
 import geistMono from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2";
@@ -18,7 +20,7 @@ import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
 import inter700 from "@fontsource/inter/files/inter-latin-700-normal.woff2";
 import inter800 from "@fontsource/inter/files/inter-latin-800-normal.woff2";
 import inter900 from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
-import { caseconv, deep } from "@synnaxlabs/x";
+
 import {
   type PropsWithChildren,
   type ReactElement,

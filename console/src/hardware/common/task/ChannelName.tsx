@@ -7,9 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
+import { optional } from "@synnaxlabs/x/optional";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { status } from "@synnaxlabs/x/status";
 import { type channel, NotFoundError } from "@synnaxlabs/client";
-import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive, status } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Channel } from "@synnaxlabs/pluto";
+
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";

@@ -51,23 +51,31 @@ export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
 export { workspace } from "@/workspace";
-export {
-  type CrudeDataType,
-  type CrudeDensity,
-  type CrudeRate,
-  type CrudeSize,
-  type CrudeTimeSpan,
-  type CrudeTimeStamp,
-  DataType,
-  Density,
-  MultiSeries,
-  Rate,
-  Series,
-  type TelemValue,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  type TimeStampStringFormat,
-  type TypedArray,
-  type TZInfo,
-} from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
+
+export const DataType = telem.DataType;
+export type DataType = telem.DataType;
+export const Density = telem.Density;
+export type Density = telem.Density;
+export const MultiSeries = telem.MultiSeries;
+export type MultiSeries = telem.MultiSeries;
+export const Rate = telem.Rate;
+export type Rate = telem.Rate;
+export const Series = telem.Series;
+export type Series = telem.Series;
+export const TimeRange = telem.TimeRange;
+export type TimeRange = telem.TimeRange;
+export const TimeSpan = telem.TimeSpan;
+export type TimeSpan = telem.TimeSpan;
+export const TimeStamp = telem.TimeStamp;
+export type TimeStamp = telem.TimeStamp;
+export type CrudeDataType = telem.CrudeDataType;
+export type CrudeDensity = telem.CrudeDensity;
+export type CrudeRate = telem.CrudeRate;
+export type CrudeSize = telem.CrudeSize;
+export type CrudeTimeSpan = telem.CrudeTimeSpan;
+export type CrudeTimeStamp = telem.CrudeTimeStamp;
+export type TelemValue = telem.TelemValue;
+export type TimeStampStringFormat = telem.TimeStampStringFormat;
+export type TypedArray = telem.TypedArray;
+export type TZInfo = telem.TZInfo;

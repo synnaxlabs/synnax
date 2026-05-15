@@ -7,21 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
+import { compare } from "@synnaxlabs/x/compare";
+import { context } from "@synnaxlabs/charon/context";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Component,
-  Flex,
-  Flux,
-  type Icon,
-  List,
-  type Pluto,
-  Select,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
-import { type compare } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import type { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Flux, type Pluto, Synnax } from "@synnaxlabs/pluto";
+
 import {
   type FC,
   type PropsWithChildren,

@@ -7,13 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { location } from "@synnaxlabs/x/location";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/layouts/Mosaic.css";
 
-import { Portal } from "@synnaxlabs/charon";
+import { Portal } from "@synnaxlabs/charon/portal";
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Breadcrumb, Button, Component, Dialog, Eraser, Flex, Flux, Icon, type Menu, Mosaic as Base, Nav as PNav, OS, type Pluto, Status, Synnax, type Tabs, Text, Triggers, useDebouncedCallback } from "@synnaxlabs/pluto";
-import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Menu } from "@synnaxlabs/charon/menu";
+import { Nav as PNav } from "@synnaxlabs/charon/nav";
+import { Status } from "@synnaxlabs/charon/status";
+import type { Tabs } from "@synnaxlabs/charon/tabs";
+import { Text } from "@synnaxlabs/charon/text";
+import { Triggers } from "@synnaxlabs/charon/triggers";
+import { Eraser, Flux, Mosaic as Base, OS, type Pluto, Synnax } from "@synnaxlabs/pluto";
+
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -156,7 +172,7 @@ interface MosaicProps {
   mosaic: Base.Node;
 }
 
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+const RESIZE_DEBOUNCE = telem.TimeSpan.milliseconds(100).milliseconds;
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();

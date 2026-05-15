@@ -13,7 +13,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { Form } from "@/schematic/node/common/form";
 import { telem } from "@/telem/aether";
 import { type Toggle } from "@/vis/toggle";

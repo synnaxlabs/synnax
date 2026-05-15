@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { migrate } from "@synnaxlabs/x/migrate";
+import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  ClockSkewCalculator,
-  type CrudeTimeSpan,
-  migrate,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
@@ -28,7 +24,7 @@ export const stateZ = z.object({
   clientVersion: z.string(),
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
-  clockSkew: TimeSpan.z.default(TimeSpan.ZERO),
+  clockSkew: telem.TimeSpan.z.default(telem.TimeSpan.ZERO),
   clockSkewExceeded: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
@@ -36,7 +32,7 @@ export interface State extends z.infer<typeof stateZ> {}
 const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
-  nodeTime: TimeStamp.z,
+  nodeTime: telem.TimeStamp.z,
 });
 const requestZ = z.void();
 
@@ -47,7 +43,7 @@ const DEFAULT: State = {
   message: "Disconnected",
   clientServerCompatible: false,
   clientVersion: __VERSION__,
-  clockSkew: TimeSpan.ZERO,
+  clockSkew: telem.TimeSpan.ZERO,
   clockSkewExceeded: false,
 };
 
@@ -66,7 +62,7 @@ const createWarning = (
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
-  private readonly pollFrequency: TimeSpan;
+  private readonly pollFrequency: telem.TimeSpan;
   private readonly client: UnaryClient;
   private readonly name?: string;
   private interval?: NodeJS.Timeout;
@@ -74,8 +70,8 @@ export class Checker {
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = stateZ;
   private versionWarned = false;
-  private readonly skewCalc: ClockSkewCalculator;
-  private readonly clockSkewThreshold: TimeSpan;
+  private readonly skewCalc: telem.ClockSkewCalculator;
+  private readonly clockSkewThreshold: telem.TimeSpan;
   private checking = false;
 
   /**
@@ -85,18 +81,18 @@ export class Checker {
    */
   constructor(
     client: UnaryClient,
-    pollFreq: TimeSpan = TimeSpan.seconds(30),
+    pollFreq: telem.TimeSpan = telem.TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
-    clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
+    clockSkewThreshold: telem.CrudeTimeSpan = telem.TimeSpan.seconds(1),
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
     this.clientVersion = clientVersion;
     this.name = name;
-    this.skewCalc = new ClockSkewCalculator();
-    this.clockSkewThreshold = new TimeSpan(clockSkewThreshold).abs();
+    this.skewCalc = new telem.ClockSkewCalculator();
+    this.clockSkewThreshold = new telem.TimeSpan(clockSkewThreshold).abs();
     void this.check();
     this.start();
   }

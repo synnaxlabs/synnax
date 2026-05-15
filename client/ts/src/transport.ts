@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { binary } from "@synnaxlabs/x/binary";
+import { breaker } from "@synnaxlabs/x/breaker";
+import { URL } from "@synnaxlabs/x/url";
 import {
   HTTPClient,
   type Middleware,
@@ -14,7 +17,6 @@ import {
   unaryWithBreaker,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { binary, type breaker, type URL } from "@synnaxlabs/x";
 
 export class Transport {
   readonly url: URL;

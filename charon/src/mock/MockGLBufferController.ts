@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type GLBufferController } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { type Mock, vi } from "vitest";
 
-export class MockGLBufferController implements GLBufferController {
+export class MockGLBufferController implements telem.GLBufferController {
   ARRAY_BUFFER: number = 1;
   STATIC_DRAW: number = 2;
   DYNAMIC_DRAW: number = 3;

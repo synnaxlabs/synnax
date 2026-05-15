@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { location } from "@synnaxlabs/x/location";
+import { record } from "@synnaxlabs/x/record";
+import { scale } from "@synnaxlabs/x/scale";
 import "@/table/cells/Cells.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
 import { Menu } from "@synnaxlabs/charon/menu";
 import { Text as BaseText } from "@synnaxlabs/charon/text";
-import { type box, color, location, type record, scale } from "@synnaxlabs/x";
+
 import { type ReactElement } from "react";
 import { z } from "zod";
 

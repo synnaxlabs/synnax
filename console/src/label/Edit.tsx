@@ -7,26 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
 import "@/label/Edit.css";
 
 import { type label } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Component,
-  CSS as PCSS,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Icon,
-  Input,
-  Label,
-  List,
-  Text,
-  useClickOutside,
-} from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS as PCSS } from "@synnaxlabs/charon/css";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { useClickOutside } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Text } from "@synnaxlabs/charon/text";
+import { Color, type Flux, Label } from "@synnaxlabs/pluto";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";

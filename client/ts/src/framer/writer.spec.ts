@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -23,7 +24,7 @@ describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
       const channels = await newIndexedPair(client);
-      const start = TimeStamp.seconds(1);
+      const start = telem.TimeStamp.seconds(1);
       const writer = await client.openWriter({ start, channels });
       const [index, data] = channels;
       try {
@@ -40,9 +41,9 @@ describe("Writer", () => {
 
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
-      const writer = await client.openWriter({ start: TimeStamp.now(), channels });
+      const writer = await client.openWriter({ start: telem.TimeStamp.now(), channels });
       await expect(
-        writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
+        writer.write("nonexistent_channel", randomSeries(10, telem.DataType.FLOAT64)),
       ).rejects.toThrow('Channel "nonexistent_channel" not found');
       await writer.close();
     });
@@ -51,7 +52,7 @@ describe("Writer", () => {
       const channels = await newIndexedPair(client);
       const stream = await client.openStreamer(channels);
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels,
         mode: WriterMode.Persist,
       });
@@ -75,7 +76,7 @@ describe("Writer", () => {
     test("write with auto commit on", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels,
       });
       const [index, data] = channels;
@@ -90,7 +91,7 @@ describe("Writer", () => {
       expect(true).toBe(true);
 
       const f = await client.read(
-        new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(11)),
+        new telem.TimeRange(telem.TimeStamp.seconds(1), telem.TimeStamp.seconds(11)),
         index.key,
       );
       expect(f.length).toEqual(10);
@@ -99,7 +100,7 @@ describe("Writer", () => {
     test("write with auto commit and alwaysPersist", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels,
         autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
@@ -118,9 +119,9 @@ describe("Writer", () => {
     test("write with auto commit and a set interval", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels,
-        autoIndexPersistInterval: TimeSpan.milliseconds(100),
+        autoIndexPersistInterval: telem.TimeSpan.milliseconds(100),
       });
       const [index, data] = channels;
       try {
@@ -137,7 +138,7 @@ describe("Writer", () => {
     test("write with auto-commit off and incorrect data length validation error", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels,
       });
       await expect(async () => {
@@ -153,18 +154,18 @@ describe("Writer", () => {
     test("write with out of order timestamp", async () => {
       const indexCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.TIMESTAMP,
+        dataType: telem.DataType.TIMESTAMP,
         isIndex: true,
       });
 
       const dataCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT64,
+        dataType: telem.DataType.FLOAT64,
         index: indexCh.key,
       });
 
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start: telem.TimeStamp.now(),
         channels: [indexCh.key, dataCh.key],
       });
 
@@ -172,7 +173,7 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: new TimeStamp(i),
+            [indexCh.key]: new telem.TimeStamp(i),
             [dataCh.key]: i,
           });
         }
@@ -185,13 +186,13 @@ describe("Writer", () => {
     test("write with errOnUnauthorized", async () => {
       const channels = await newIndexedPair(client);
       const w1 = await client.openWriter({
-        start: new TimeStamp(TimeSpan.milliseconds(500)),
+        start: new telem.TimeStamp(telem.TimeSpan.milliseconds(500)),
         channels,
       });
 
       await expect(
         client.openWriter({
-          start: TimeStamp.now(),
+          start: telem.TimeStamp.now(),
           channels,
           errOnUnauthorized: true,
         }),
@@ -201,7 +202,7 @@ describe("Writer", () => {
 
     test("setAuthority", async () => {
       const channels = await newIndexedPair(client);
-      const start = TimeStamp.seconds(5);
+      const start = telem.TimeStamp.seconds(5);
       const w1 = await client.openWriter({
         start,
         channels,
@@ -217,7 +218,7 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(5, 10),
         [data.key]: randomSeries(10, data.dataType),
       });
-      let f = await index.read(TimeRange.MAX);
+      let f = await index.read(telem.TimeRange.MAX);
       expect(f.length).toEqual(0);
 
       await w1.setAuthority(100);
@@ -227,13 +228,13 @@ describe("Writer", () => {
       });
       await w1.close();
       await w2.close();
-      f = await index.read(TimeRange.MAX);
+      f = await index.read(telem.TimeRange.MAX);
       expect(f.length).toEqual(10);
     });
 
     test("setAuthority with name keys", async () => {
       const channels = await newIndexedPair(client);
-      const start = TimeStamp.seconds(5);
+      const start = telem.TimeStamp.seconds(5);
       const w1 = await client.openWriter({
         start,
         channels,
@@ -249,7 +250,7 @@ describe("Writer", () => {
         [index.key]: secondsLinspace(5, 10),
         [data.key]: randomSeries(10, data.dataType),
       });
-      let f = await index.read(TimeRange.MAX);
+      let f = await index.read(telem.TimeRange.MAX);
       expect(f.length).toEqual(0);
 
       await w1.setAuthority({ [index.name]: 100, [data.name]: 100 });
@@ -259,7 +260,7 @@ describe("Writer", () => {
       });
       await w1.close();
       await w2.close();
-      f = await index.read(TimeRange.MAX);
+      f = await index.read(telem.TimeRange.MAX);
       expect(f.length).toEqual(10);
     });
   });
@@ -269,32 +270,32 @@ describe("Writer", () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
-        dataType: DataType.TIMESTAMP,
+        dataType: telem.DataType.TIMESTAMP,
         leaseholder: 1,
       });
       const data = await client.channels.create({
         name: id.create(),
         index: index.key,
-        dataType: DataType.STRING,
+        dataType: telem.DataType.STRING,
         leaseholder: 1,
       });
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels: [index, data],
       });
       try {
         await writer.write({
           [index.key]: secondsLinspace(1, 3),
-          [data.key]: new Series({
+          [data.key]: new telem.Series({
             data: ["hello", "world", "foo"],
-            dataType: DataType.STRING,
+            dataType: telem.DataType.STRING,
           }),
         });
         await writer.commit();
       } finally {
         await writer.close();
       }
-      const f = await data.read(TimeRange.MAX);
+      const f = await data.read(telem.TimeRange.MAX);
       expect(f.toStrings()).toEqual(["hello", "world", "foo"]);
     });
 
@@ -302,32 +303,32 @@ describe("Writer", () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
-        dataType: DataType.TIMESTAMP,
+        dataType: telem.DataType.TIMESTAMP,
         leaseholder: 1,
       });
       const data = await client.channels.create({
         name: id.create(),
         index: index.key,
-        dataType: DataType.JSON,
+        dataType: telem.DataType.JSON,
         leaseholder: 1,
       });
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels: [index, data],
       });
       try {
         await writer.write({
           [index.key]: secondsLinspace(1, 2),
-          [data.key]: new Series({
+          [data.key]: new telem.Series({
             data: [{ key: "value" }, { num: 42 }],
-            dataType: DataType.JSON,
+            dataType: telem.DataType.JSON,
           }),
         });
         await writer.commit();
       } finally {
         await writer.close();
       }
-      const f = await data.read(TimeRange.MAX);
+      const f = await data.read(telem.TimeRange.MAX);
       expect(f.length).toEqual(2);
     });
 
@@ -335,41 +336,41 @@ describe("Writer", () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
-        dataType: DataType.TIMESTAMP,
+        dataType: telem.DataType.TIMESTAMP,
         leaseholder: 1,
       });
       const floatCh = await client.channels.create({
         name: id.create(),
         index: index.key,
-        dataType: DataType.FLOAT64,
+        dataType: telem.DataType.FLOAT64,
         leaseholder: 1,
       });
       const strCh = await client.channels.create({
         name: id.create(),
         index: index.key,
-        dataType: DataType.STRING,
+        dataType: telem.DataType.STRING,
         leaseholder: 1,
       });
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels: [index, floatCh, strCh],
       });
       try {
         await writer.write({
           [index.key]: secondsLinspace(1, 3),
           [floatCh.key]: new Float64Array([1.1, 2.2, 3.3]),
-          [strCh.key]: new Series({
+          [strCh.key]: new telem.Series({
             data: ["a", "b", "c"],
-            dataType: DataType.STRING,
+            dataType: telem.DataType.STRING,
           }),
         });
         await writer.commit();
       } finally {
         await writer.close();
       }
-      const floatData = await floatCh.read(TimeRange.MAX);
+      const floatData = await floatCh.read(telem.TimeRange.MAX);
       expect(floatData.length).toEqual(3);
-      const strData = await strCh.read(TimeRange.MAX);
+      const strData = await strCh.read(telem.TimeRange.MAX);
       expect(strData.toStrings()).toEqual(["a", "b", "c"]);
     });
 
@@ -377,32 +378,32 @@ describe("Writer", () => {
       const index = await client.channels.create({
         name: id.create(),
         isIndex: true,
-        dataType: DataType.TIMESTAMP,
+        dataType: telem.DataType.TIMESTAMP,
         leaseholder: 1,
       });
       const data = await client.channels.create({
         name: id.create(),
         index: index.key,
-        dataType: DataType.STRING,
+        dataType: telem.DataType.STRING,
         leaseholder: 1,
       });
       const writer = await client.openWriter({
-        start: TimeStamp.seconds(1),
+        start: telem.TimeStamp.seconds(1),
         channels: [index, data],
       });
       try {
         await writer.write({
           [index.key]: secondsLinspace(1, 2),
-          [data.key]: new Series({
+          [data.key]: new telem.Series({
             data: ["line1\nline2", "no newline"],
-            dataType: DataType.STRING,
+            dataType: telem.DataType.STRING,
           }),
         });
         await writer.commit();
       } finally {
         await writer.close();
       }
-      const f = await data.read(TimeRange.MAX);
+      const f = await data.read(telem.TimeRange.MAX);
       expect(f.toStrings()).toEqual(["line1\nline2", "no newline"]);
     });
   });

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, scheduler } from "@synnaxlabs/x";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { scheduler } from "@synnaxlabs/x/scheduler";
 import { type DependencyList, useEffect } from "react";
 
 export type AsyncEffectCallback = (

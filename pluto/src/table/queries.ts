@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
 import { table, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";

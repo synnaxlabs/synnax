@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { id } from "@synnaxlabs/x/id";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type arc } from "@synnaxlabs/client";
-import { type Diagram, type Theming, type Viewport } from "@synnaxlabs/pluto";
-import { box, id, scale, xy } from "@synnaxlabs/x";
+import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Diagram, Viewport } from "@synnaxlabs/pluto";
 
 import * as latest from "@/arc/types";
 

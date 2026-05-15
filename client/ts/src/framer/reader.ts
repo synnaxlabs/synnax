@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { csv } from "@synnaxlabs/x/csv";
+import { runtime } from "@synnaxlabs/x/runtime";
+import { telem } from "@synnaxlabs/x/telem";
 import { type WebSocketClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -17,7 +19,7 @@ import { Iterator, type IteratorConfig } from "@/framer/iterator";
 
 export interface ReadRequest {
   channels: channel.Params;
-  timeRange: CrudeTimeRange;
+  timeRange: telem.CrudeTimeRange;
   channelNames?: Record<channel.Key | channel.Name, string>;
   responseType: "csv";
   iteratorConfig?: IteratorConfig;

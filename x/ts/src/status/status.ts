@@ -15,7 +15,7 @@ import { type optional } from "@/optional";
 import { primitive } from "@/primitive";
 import { record } from "@/record";
 import { type Status, type Variant } from "@/status/types.gen";
-import { TimeStamp } from "@/telem";
+import { telem } from "@/telem";
 
 // Input type for creating statuses - uses conditional typing for optional details
 type Base<V extends Variant> = {
@@ -24,7 +24,7 @@ type Base<V extends Variant> = {
   variant: V;
   message: string;
   description?: string;
-  time: TimeStamp;
+  time: telem.TimeStamp;
 };
 
 export type Crude<
@@ -105,7 +105,7 @@ export const create = <
 ): Status<DetailsSchema, z.ZodType<V>> =>
   ({
     key: id.create(),
-    time: TimeStamp.now(),
+    time: telem.TimeStamp.now(),
     name: "",
     ...spec,
   }) as Status<DetailsSchema, z.ZodType<V>>;

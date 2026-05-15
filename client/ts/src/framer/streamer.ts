@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { breaker } from "@synnaxlabs/x/breaker";
+import { observe } from "@synnaxlabs/x/observe";
+import { telem } from "@synnaxlabs/x/telem";
+import { control } from "@synnaxlabs/x/control";
+import { status } from "@synnaxlabs/x/status";
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker, observe, Rate, TimeSpan } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -21,7 +26,7 @@ import { StreamProxy } from "@/framer/streamProxy";
 const reqZ = z.object({
   keys: z.number().array(),
   downsampleFactor: z.int(),
-  throttleRate: Rate.z.optional(),
+  throttleRate: telem.Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
 });
 
@@ -45,7 +50,7 @@ const intermediateStreamerConfigZ = z.object({
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.int().default(1),
   /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
-  throttleRate: Rate.z.default(new Rate(0)),
+  throttleRate: telem.Rate.z.default(new telem.Rate(0)),
   /** useHighPerformanceCodec sets whether the writer will use the Synnax frame encoder
    as opposed to the standard JSON encoding mechanisms for frames. */
   useHighPerformanceCodec: z.boolean().default(true),
@@ -150,14 +155,14 @@ class BaseStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;
-  private readonly throttleRate: Rate;
+  private readonly throttleRate: telem.Rate;
   private readonly excludeGroups: number[];
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
     adapter: ReadAdapter,
     downsampleFactor: number = 1,
-    throttleRate: Rate = new Rate(0),
+    throttleRate: telem.Rate = new telem.Rate(0),
     excludeGroups: number[] = [],
   ) {
     this.stream = new StreamProxy("Streamer", stream);
@@ -225,7 +230,7 @@ export class HardenedStreamer implements Streamer {
     this.config = streamerConfigZ.parse(config);
     const {
       maxRetries = 5000,
-      baseInterval = TimeSpan.seconds(1),
+      baseInterval = telem.TimeSpan.seconds(1),
       scale = 1,
     } = breakerConfig ?? {};
     this.breaker = new breaker.Breaker({ maxRetries, baseInterval, scale });

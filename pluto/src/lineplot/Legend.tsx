@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { optional } from "@synnaxlabs/x/optional";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Key } from "@synnaxlabs/charon/key";
 import { Text } from "@synnaxlabs/charon/text";
-import { type optional } from "@synnaxlabs/x";
+
 import { memo, type ReactElement, useMemo } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";

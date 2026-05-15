@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type location, type record } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { location } from "@synnaxlabs/x/location";
+import { record } from "@synnaxlabs/x/record";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   memo,

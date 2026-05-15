@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { ranger } from "@synnaxlabs/client";
-import {
-  Button,
-  Divider,
-  Flex,
-  Form,
-  Icon,
-  Input,
-  Ranger,
-  Status,
-  Text,
-} from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ranger } from "@synnaxlabs/pluto";
+
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
@@ -70,7 +69,7 @@ export interface DetailsProps {
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const { data: range } = Ranger.useRetrieve({ key: rangeKey });
-  const now = TimeStamp.now().nanoseconds;
+  const now = telem.TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
     initialValues: {
@@ -177,7 +176,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
                 handleError(async () => {
                   await promptDownloadCSVModal(
                     {
-                      timeRange: form.get<NumericTimeRange>("timeRange").value,
+                      timeRange: form.get<telem.NumericTimeRange>("timeRange").value,
                       name,
                       channels: [],
                     },
@@ -215,7 +214,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           </Form.Field>
         </Flex.Box>
         <Flex.Box x>
-          <Form.Field<NumericTimeRange> path="timeRange" label="Stage">
+          <Form.Field<telem.NumericTimeRange> path="timeRange" label="Stage">
             {(props) => (
               <Ranger.SelectStage
                 {...Ranger.wrapNumericTimeRangeToStage(props)}

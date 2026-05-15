@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,7 +21,7 @@ describe("Input.Time", () => {
       target: { value: "15:00:00" },
     });
     expect(handleChange).toHaveBeenCalledWith(
-      Number(TimeStamp.hours(15).add(TimeStamp.utcOffset).valueOf()),
+      Number(telem.TimeStamp.hours(15).add(telem.TimeStamp.utcOffset).valueOf()),
     );
   });
 });

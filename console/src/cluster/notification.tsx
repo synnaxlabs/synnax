@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Synnax } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Synnax } from "@synnaxlabs/pluto";
 
 import { type Notifications } from "@/notifications";
 import { Version } from "@/version";

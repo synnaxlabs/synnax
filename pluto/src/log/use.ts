@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { optional } from "@synnaxlabs/x/optional";
 import { Aether } from "@synnaxlabs/charon/aether";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
-import { box, type optional } from "@synnaxlabs/x";
+
 import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
 import { type z } from "zod";
 

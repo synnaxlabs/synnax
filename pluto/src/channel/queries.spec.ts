@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel, createTestClient, DataType } from "@synnaxlabs/client";
-import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -263,7 +265,7 @@ describe("queries", () => {
     it("should update the channel alias when a range alias is set", async () => {
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 1000n }),
       });
       const channel = await client.channels.create({
         name: id.create(),
@@ -293,7 +295,7 @@ describe("queries", () => {
     it("should correctly retrieve the alias when an initial query is provided, and getItem is called but not retrieve", async () => {
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 1000n }),
       });
       const channel = await client.channels.create({
         name: id.create(),
@@ -819,7 +821,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: "alias_range",
-        timeRange: new TimeRange({ start: 1n, end: 1000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 1000n }),
       });
       await client.ranges.setAlias(range.key, ch.key, "custom_alias");
 
@@ -879,7 +881,7 @@ describe("queries", () => {
         name: calc.name,
         variant: "error",
         message: "invalid expression",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: { channel: calc.key },
       });
       const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
@@ -935,7 +937,7 @@ describe("queries", () => {
           name: calc.name,
           variant: "error",
           message: "broken expression",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
           details: { channel: calc.key },
         });
       });
@@ -986,7 +988,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: "many_alias_range",
-        timeRange: new TimeRange({ start: 1n, end: 2000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 2000n }),
       });
       await client.ranges.setAlias(range.key, ch1.key, "alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "alias_2");
@@ -1138,7 +1140,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 3000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 3000n }),
       });
 
       const { result } = renderHook(
@@ -1189,7 +1191,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 4000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 4000n }),
       });
       await client.ranges.setAlias(range.key, ch.key, "to_delete");
 
@@ -1233,7 +1235,7 @@ describe("queries", () => {
       });
       const range = await client.ranges.create({
         name: id.create(),
-        timeRange: new TimeRange({ start: 1n, end: 5000n }),
+        timeRange: new telem.TimeRange({ start: 1n, end: 5000n }),
       });
       await client.ranges.setAlias(range.key, ch1.key, "multi_alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "multi_alias_2");

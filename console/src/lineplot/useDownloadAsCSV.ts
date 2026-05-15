@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
+import { unique } from "@synnaxlabs/x/unique";
 import { type channel } from "@synnaxlabs/client";
-import { type Channel, Status } from "@synnaxlabs/pluto";
-import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { Status } from "@synnaxlabs/charon/status";
+import type { Channel } from "@synnaxlabs/pluto";
+
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
@@ -20,7 +23,7 @@ import { select, selectRanges } from "@/lineplot/selectors";
 import { type RootState } from "@/store";
 
 export interface DownloadAsCSVArgs {
-  timeRanges: TimeRange[];
+  timeRanges: telem.TimeRange[];
   lines: Channel.LineProps[];
   name: string;
 }
@@ -43,7 +46,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
         if (typeof l.channels.x === "number") acc[l.channels.x] = l.label;
         return acc;
       }, {});
-      const timeRange = TimeRange.merge(...timeRanges);
+      const timeRange = telem.TimeRange.merge(...timeRanges);
       handleError(
         async () =>
           openDownloadCSVModal(
@@ -66,7 +69,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const store = useStore<RootState>();
   return useCallback(() => {
-    const now = TimeStamp.now();
+    const now = telem.TimeStamp.now();
     const storeState = store.getState();
     const { name } = Layout.selectRequired(storeState, key);
     const state = select(storeState, key);
@@ -74,8 +77,8 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
     const lines = buildLines(state, ranges);
     const timeRanges = Object.values(ranges).flatMap((ranges) =>
       ranges.map((r) => {
-        if (r.variant === "static") return new TimeRange(r.timeRange);
-        return new TimeRange({ start: now.sub(r.span), end: now });
+        if (r.variant === "static") return new telem.TimeRange(r.timeRange);
+        return new telem.TimeRange({ start: now.sub(r.span), end: now });
       }),
     );
     downloadAsCSV({ timeRanges, lines, name });

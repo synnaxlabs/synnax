@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/button/Button.css";
 
-import { color, record, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -42,7 +44,7 @@ export interface ExtensionProps
   disabled?: boolean;
   preventClick?: boolean;
   propagateClick?: boolean;
-  onClickDelay?: number | TimeSpan;
+  onClickDelay?: number | telem.TimeSpan;
   ghost?: boolean;
 }
 
@@ -111,7 +113,7 @@ const Base = <E extends ElementType = "button">({
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+  const parsedDelay = telem.TimeSpan.fromMilliseconds(onClickDelay);
   const isDisabled = disabled === true || status === "loading" || status === "disabled";
   // The shadow variant appears as text but shows outline on hover.
   // We don't convert it here, let CSS handle the behavior.

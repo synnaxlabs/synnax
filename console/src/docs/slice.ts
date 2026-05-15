@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { migrate } from "@synnaxlabs/x/migrate";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { migrate } from "@synnaxlabs/x";
 
 /**
  * The name of the docs slice in a larger store.

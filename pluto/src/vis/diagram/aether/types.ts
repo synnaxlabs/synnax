@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions, id, type location, xy } from "@synnaxlabs/x";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { id } from "@synnaxlabs/x/id";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type React from "react";

@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { optional } from "@synnaxlabs/x/optional";
+import { telem } from "@synnaxlabs/x/telem";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Input } from "@synnaxlabs/charon/input";
 import { Text } from "@synnaxlabs/charon/text";
-import { type optional, TimeStamp } from "@synnaxlabs/x";
+
 import { useState } from "react";
 
 import { DateTime, type DateTimeProps } from "@/input/DateTime";
@@ -64,7 +66,7 @@ export interface InputShowcaseDateTimeProps extends optional.Optional<
 > {}
 
 export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
-  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
+  const [value, setValue] = useState(Number(telem.TimeStamp.now().valueOf()));
   return <DateTime {...props} value={value} onChange={setValue} />;
 };
 

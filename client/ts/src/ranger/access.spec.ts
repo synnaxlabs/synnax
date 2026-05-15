@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
@@ -27,7 +27,7 @@ describe("range", () => {
       });
       const randomRange = await client.ranges.create({
         name: "test",
-        timeRange: new TimeRange(1n, 1000n),
+        timeRange: new telem.TimeRange(1n, 1000n),
         color: "#E774D0",
       });
       await expect(userClient.ranges.retrieve(randomRange.key)).rejects.toThrow(
@@ -43,7 +43,7 @@ describe("range", () => {
       });
       const randomRange = await client.ranges.create({
         name: "test",
-        timeRange: new TimeRange(1n, 1000n),
+        timeRange: new telem.TimeRange(1n, 1000n),
         color: "#E774D0",
       });
       const retrieved = await userClient.ranges.retrieve(randomRange.key);
@@ -59,7 +59,7 @@ describe("range", () => {
       });
       await userClient.ranges.create({
         name: "test",
-        timeRange: new TimeRange(1n, 1000n),
+        timeRange: new telem.TimeRange(1n, 1000n),
         color: "#E774D0",
       });
     });
@@ -73,7 +73,7 @@ describe("range", () => {
       await expect(
         userClient.ranges.create({
           name: "test",
-          timeRange: new TimeRange(1n, 1000n),
+          timeRange: new telem.TimeRange(1n, 1000n),
           color: "#E774D0",
         }),
       ).rejects.toThrow(AuthError);
@@ -87,7 +87,7 @@ describe("range", () => {
       });
       const randomRange = await client.ranges.create({
         name: "test",
-        timeRange: new TimeRange(1n, 1000n),
+        timeRange: new telem.TimeRange(1n, 1000n),
         color: "#E774D0",
       });
       await userClient.ranges.delete(randomRange.key);
@@ -104,7 +104,7 @@ describe("range", () => {
       });
       const randomRange = await client.ranges.create({
         name: "test",
-        timeRange: new TimeRange(1n, 1000n),
+        timeRange: new telem.TimeRange(1n, 1000n),
         color: "#E774D0",
       });
       await expect(userClient.ranges.delete(randomRange.key)).rejects.toThrow(

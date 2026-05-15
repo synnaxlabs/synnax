@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, deep, errors, type SenderHandler, zod } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x/compare";
+import { deep } from "@synnaxlabs/x/deep";
+import { errors } from "@synnaxlabs/x/errors";
+import { SenderHandler } from "@synnaxlabs/x/worker";
+import { zod } from "@synnaxlabs/x/zod";
 import {
   memo,
   type PropsWithChildren,

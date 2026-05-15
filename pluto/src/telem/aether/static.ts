@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  bounds,
-  color,
-  DataType,
-  MultiSeries,
-  Rate,
-  Series,
-  TimeRange,
-  typedArrayZ,
-} from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -54,14 +47,14 @@ export class StaticFactory implements Factory {
 }
 
 export const fixedSeriesPropsZ = z.object({
-  data: z.array(typedArrayZ),
+  data: z.array(telem.typedArrayZ),
   offsets: z.array(z.number()).default([]),
 });
 
 export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
 
 class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
-  data: Series[];
+  data: telem.Series[];
   schema = fixedSeriesPropsZ;
 
   static readonly TYPE = "static-series";
@@ -70,23 +63,23 @@ class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
     super(props);
     this.data = this.props.data.map(
       (x, i) =>
-        new Series({
+        new telem.Series({
           data: x,
-          dataType: DataType.FLOAT32,
-          timeRange: TimeRange.ZERO,
+          dataType: telem.DataType.FLOAT32,
+          timeRange: telem.TimeRange.ZERO,
           sampleOffset: this.props.offsets[i] ?? 0,
         }),
     );
   }
 
-  value(): [bounds.Bounds, Series[]] {
+  value(): [bounds.Bounds, telem.Series[]] {
     const b = bounds.max(this.data.map((x) => x.bounds));
     return [b, this.data];
   }
 }
 
 export const iterativeSeriesPropsZ = fixedSeriesPropsZ.extend({
-  rate: Rate.z,
+  rate: telem.Rate.z,
   yOffset: z.number().default(0),
   scroll: z.number().default(0),
   startPosition: z.number().default(0),
@@ -104,7 +97,7 @@ export class IterativeSeries
 
   position: number;
   interval?: number;
-  data: Series[];
+  data: telem.Series[];
 
   constructor(props: unknown) {
     super(props);
@@ -112,16 +105,16 @@ export class IterativeSeries
     this.start(this.props.rate);
     this.data = this.props.data.map(
       (x, i) =>
-        new Series({
+        new telem.Series({
           data: x,
-          dataType: DataType.FLOAT32,
-          timeRange: TimeRange.ZERO,
+          dataType: telem.DataType.FLOAT32,
+          timeRange: telem.TimeRange.ZERO,
           sampleOffset: this.props.offsets[i] ?? 0,
         }),
     );
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
+  value(): [bounds.Bounds, telem.MultiSeries] {
     const d = this.data.map((x) => x.slice(0, this.position));
     if (this.props.scrollBounds) {
       const lower =
@@ -133,13 +126,13 @@ export class IterativeSeries
         lower: Number(lower),
         upper: Number(upper),
       };
-      return [b, new MultiSeries(d)];
+      return [b, new telem.MultiSeries(d)];
     }
     const b = bounds.max(d.map((x) => x.bounds));
-    return [b, new MultiSeries(d)];
+    return [b, new telem.MultiSeries(d)];
   }
 
-  start(rate: Rate): void {
+  start(rate: telem.Rate): void {
     if (this.interval != null) clearInterval(this.interval);
     this.interval = setInterval(() => {
       this.notify?.();

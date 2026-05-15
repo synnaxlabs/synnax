@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  DataType,
-  math,
-  MultiSeries,
-  Series,
-  type TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
-
+import { math } from "@synnaxlabs/x/math";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   convertSeriesToSupportedGL,
   resolveGLDataType,
@@ -26,9 +19,9 @@ export interface DynamicWriteResponse {
   /** A list of series that were flushed from the cache during the write i.e. the new
    * writes were not able to fit in the current buffer, so a new one was allocated
    * and the old one(s) were flushed. */
-  flushed: MultiSeries;
+  flushed: telem.MultiSeries;
   /** A list of series that were allocated during the write. */
-  allocated: MultiSeries;
+  allocated: telem.MultiSeries;
 }
 
 /** Props for the @link Dynamic cache. */
@@ -37,16 +30,16 @@ export interface DynamicProps {
    * Sets the maximum size of the buffer that the cache will maintain before flushing
    * data out to the caller.
    */
-  dynamicBufferSize: number | TimeSpan;
+  dynamicBufferSize: number | telem.TimeSpan;
   /**
    * Sets the data type for the series written to the cache. Used for buffer allocation
    * purposes.
    */
-  dataType: DataType;
+  dataType: telem.DataType;
   /**
    * Function that the cache will use to pull the current time.
    */
-  now?: () => TimeStamp;
+  now?: () => telem.TimeStamp;
 }
 
 // These are the smallest and largest sizes for a dynamically calculated buffer size.
@@ -71,11 +64,11 @@ export class Dynamic {
 
   private counter = 0;
   /** Current buffer */
-  private curr: Series | null;
+  private curr: telem.Series | null;
   private avgRate: number = 0;
-  private timeOfLastWrite: TimeStamp;
+  private timeOfLastWrite: telem.TimeStamp;
   private totalWrites: number = 0;
-  private now = () => TimeStamp.now();
+  private now = () => telem.TimeStamp.now();
 
   /**
    * @constructor
@@ -99,7 +92,7 @@ export class Dynamic {
    * @returns the current buffer being written to by the cache. Under no circumstances
    * should this be modified by the caller.
    */
-  get leadingBuffer(): Series | null {
+  get leadingBuffer(): telem.Series | null {
     return this.curr;
   }
 
@@ -109,20 +102,20 @@ export class Dynamic {
    * @returns a list of buffers that were filled by the cache during the write. If
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
-  write(series: MultiSeries): DynamicWriteResponse {
+  write(series: telem.MultiSeries): DynamicWriteResponse {
     const responses = series.series.flatMap((s) => this._write(s));
     return {
-      flushed: new MultiSeries(responses.flatMap((res) => res.flushed.series)),
-      allocated: new MultiSeries(responses.flatMap((res) => res.allocated.series)),
+      flushed: new telem.MultiSeries(responses.flatMap((res) => res.flushed.series)),
+      allocated: new telem.MultiSeries(responses.flatMap((res) => res.allocated.series)),
     };
   }
 
   private allocate(
     capacity: number,
     alignment: bigint,
-    start: TimeStamp,
+    start: telem.TimeStamp,
     sampleHint?: math.Numeric,
-  ): Series {
+  ): telem.Series {
     this.counter++;
     const dt = this.props.dataType;
     // Bigint channels render into float32 GL buffers, so each value is stored as a
@@ -130,15 +123,15 @@ export class Dynamic {
     // now() is close enough to the values being written. For int64 and uint64 the
     // values can be anything, so the first sample we see is used as the anchor.
     // Non-bigint channels do not have this problem and stay at zero.
-    const sampleOffset = dt.equals(DataType.TIMESTAMP)
+    const sampleOffset = dt.equals(telem.DataType.TIMESTAMP)
       ? start.valueOf()
       : dt.usesBigInt && sampleHint != null
         ? BigInt(sampleHint.valueOf())
         : 0;
-    return Series.alloc({
+    return telem.Series.alloc({
       capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: resolveGLDataType(dt),
-      timeRange: start.range(TimeStamp.MAX),
+      timeRange: start.range(telem.TimeStamp.MAX),
       sampleOffset,
       glBufferUsage: "dynamic",
       alignment,
@@ -146,11 +139,11 @@ export class Dynamic {
     });
   }
 
-  private _write(series: Series): DynamicWriteResponse {
+  private _write(series: telem.Series): DynamicWriteResponse {
     const cap = this.nextBufferSize();
     const res: DynamicWriteResponse = {
-      flushed: new MultiSeries([]),
-      allocated: new MultiSeries([]),
+      flushed: new telem.MultiSeries([]),
+      allocated: new telem.MultiSeries([]),
     };
     // This only happens on the first write to the cache
     if (this.curr == null) {
@@ -195,7 +188,7 @@ export class Dynamic {
     return res;
   }
 
-  private updateAvgRate(series: Series): void {
+  private updateAvgRate(series: telem.Series): void {
     if (typeof this.props.dynamicBufferSize === "number") return;
     // average rate is a weighted average of the rate of the last sample and the average
     // rate currently in the buffer.

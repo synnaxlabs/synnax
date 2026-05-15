@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { type List } from "@synnaxlabs/charon/list";
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type role } from "@/access/role/aether";

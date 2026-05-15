@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, task } from "@synnaxlabs/client";
-import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
+import { type Flux, Ranger } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { useKey } from "@/hardware/common/task/useKey";

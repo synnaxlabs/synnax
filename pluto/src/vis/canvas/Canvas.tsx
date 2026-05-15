@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { runtime } from "@synnaxlabs/x/runtime";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/vis/canvas/Canvas.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
@@ -17,7 +21,7 @@ import {
   type UseResizeHandler,
   type UseResizeOpts,
 } from "@synnaxlabs/charon/hooks";
-import { box, runtime, scale, xy } from "@synnaxlabs/x";
+
 import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,

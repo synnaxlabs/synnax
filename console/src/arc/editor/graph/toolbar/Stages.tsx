@@ -9,8 +9,17 @@
 
 import "@/arc/editor/graph/toolbar/Stages.css";
 
-import { Haul } from "@synnaxlabs/charon";
-import { Arc, Button, Component, Flex, type Input, List, Menu, Select, Text, Theming } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import type { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Arc } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 

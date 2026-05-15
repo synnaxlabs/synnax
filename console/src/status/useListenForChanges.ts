@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
+import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
+import { Status } from "@synnaxlabs/charon/status";
+import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useEffectEvent } from "react";
 import { useDispatch } from "react-redux";
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/charon/status";
 import { useCallback } from "react";
 
 export const useCopyToClipboard = (): ((text: string, name: string) => void) => {

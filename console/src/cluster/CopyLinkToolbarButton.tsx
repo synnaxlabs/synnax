@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Button, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Icon } from "@synnaxlabs/charon/icon";
 import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";

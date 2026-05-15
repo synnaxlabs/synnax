@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { deep } from "@synnaxlabs/x/deep";
+import { strings } from "@synnaxlabs/x/strings";
 import {
   DisconnectedError,
   lineplot,
@@ -16,18 +19,10 @@ import {
   table,
   workspace,
 } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  LinePlot as PLinePlot,
-  Log as PLog,
-  Menu,
-  Schematic as PSchematic,
-  Synnax,
-  Table as PTable,
-  Workspace as Base,
-} from "@synnaxlabs/pluto";
-import { array, deep, strings } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Access, LinePlot as PLinePlot, Log as PLog, Schematic as PSchematic, Synnax, Table as PTable, Workspace as Base } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

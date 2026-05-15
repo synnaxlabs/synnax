@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -29,7 +30,7 @@ describe("encoder", () => {
     interface Spec {
       name: string;
       channels: channel.Key[];
-      dataTypes: DataType[];
+      dataTypes: telem.DataType[];
       frame: framer.Frame;
     }
 
@@ -37,50 +38,50 @@ describe("encoder", () => {
       {
         name: "All Channels Present, In Order",
         channels: [1, 2, 3],
-        dataTypes: [DataType.INT64, DataType.FLOAT32, DataType.FLOAT64],
+        dataTypes: [telem.DataType.INT64, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
         frame: new framer.Frame(
           [1, 2, 3],
           [
-            new Series(new BigInt64Array([1n, 2n, 3n])),
-            new Series(new Float32Array([4, 5, 6])),
-            new Series(new Float64Array([7, 8, 9])),
+            new telem.Series(new BigInt64Array([1n, 2n, 3n])),
+            new telem.Series(new Float32Array([4, 5, 6])),
+            new telem.Series(new Float64Array([7, 8, 9])),
           ],
         ),
       },
       {
         name: "All Channels Present, Out of Order",
         channels: [3, 1, 2],
-        dataTypes: [DataType.FLOAT64, DataType.INT64, DataType.FLOAT32],
+        dataTypes: [telem.DataType.FLOAT64, telem.DataType.INT64, telem.DataType.FLOAT32],
         frame: new framer.Frame(
           [2, 3, 1],
           [
-            new Series(new Float32Array([4, 5, 6])),
-            new Series(new Float64Array([7, 8, 9])),
-            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new telem.Series(new Float32Array([4, 5, 6])),
+            new telem.Series(new Float64Array([7, 8, 9])),
+            new telem.Series(new BigInt64Array([1n, 2n, 3n])),
           ],
         ),
       },
       {
         name: "Some Channels Present, In Order",
         channels: [1, 2, 3],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
         frame: new framer.Frame(
           [1, 3],
           [
-            new Series(new Uint8Array([1, 2, 3])),
-            new Series(new Float64Array([7, 8, 9])),
+            new telem.Series(new Uint8Array([1, 2, 3])),
+            new telem.Series(new Float64Array([7, 8, 9])),
           ],
         ),
       },
       {
         name: "Some Channels Present, Out of Order",
         channels: [1, 2, 3],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
         frame: new framer.Frame(
           [3, 1],
           [
-            new Series(new Float64Array([7, 8, 9])),
-            new Series(new Uint8Array([1, 2, 3])),
+            new telem.Series(new Float64Array([7, 8, 9])),
+            new telem.Series(new Uint8Array([1, 2, 3])),
           ],
         ),
       },
@@ -88,30 +89,30 @@ describe("encoder", () => {
         name: "Only One Channel Present",
         channels: [1, 2, 3, 4, 5],
         dataTypes: [
-          DataType.UINT8,
-          DataType.UINT8,
-          DataType.UINT8,
-          DataType.UINT8,
-          DataType.UINT8,
+          telem.DataType.UINT8,
+          telem.DataType.UINT8,
+          telem.DataType.UINT8,
+          telem.DataType.UINT8,
+          telem.DataType.UINT8,
         ],
-        frame: new framer.Frame([3], [new Series(new Uint8Array([1, 2, 3, 4, 5]))]),
+        frame: new framer.Frame([3], [new telem.Series(new Uint8Array([1, 2, 3, 4, 5]))]),
       },
       {
         name: "All Same Time Range",
         channels: [1, 2],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32],
         frame: new framer.Frame(
           [1, 2],
           [
-            new Series({
-              dataType: DataType.UINT8,
+            new telem.Series({
+              dataType: telem.DataType.UINT8,
               data: new Uint8Array([1]),
-              timeRange: new TimeStamp(0).spanRange(5),
+              timeRange: new telem.TimeStamp(0).spanRange(5),
             }),
-            new Series({
-              dataType: DataType.FLOAT32,
+            new telem.Series({
+              dataType: telem.DataType.FLOAT32,
               data: new Float32Array([1, 2, 3, 4]),
-              timeRange: new TimeStamp(0).spanRange(5),
+              timeRange: new telem.TimeStamp(0).spanRange(5),
             }),
           ],
         ),
@@ -119,19 +120,19 @@ describe("encoder", () => {
       {
         name: "All Same Non-Zero Time Range",
         channels: [1, 2],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32],
         frame: new framer.Frame(
           [1, 2],
           [
-            new Series({
-              dataType: DataType.UINT8,
+            new telem.Series({
+              dataType: telem.DataType.UINT8,
               data: new Uint8Array([1]),
-              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+              timeRange: new telem.TimeStamp(1000000000).spanRange(5000000000),
             }),
-            new Series({
-              dataType: DataType.FLOAT32,
+            new telem.Series({
+              dataType: telem.DataType.FLOAT32,
               data: new Float32Array([1, 2, 3, 4]),
-              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+              timeRange: new telem.TimeStamp(1000000000).spanRange(5000000000),
             }),
           ],
         ),
@@ -139,19 +140,19 @@ describe("encoder", () => {
       {
         name: "Different Non-Zero Time Ranges",
         channels: [1, 2],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32],
         frame: new framer.Frame(
           [1, 2],
           [
-            new Series({
-              dataType: DataType.UINT8,
+            new telem.Series({
+              dataType: telem.DataType.UINT8,
               data: new Uint8Array([1]),
-              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+              timeRange: new telem.TimeStamp(1000000000).spanRange(5000000000),
             }),
-            new Series({
-              dataType: DataType.FLOAT32,
+            new telem.Series({
+              dataType: telem.DataType.FLOAT32,
               data: new Float32Array([1, 2, 3, 4]),
-              timeRange: new TimeStamp(2000000000).spanRange(3000000000),
+              timeRange: new telem.TimeStamp(2000000000).spanRange(3000000000),
             }),
           ],
         ),
@@ -159,26 +160,26 @@ describe("encoder", () => {
       {
         name: "Partial Present, Different Lengths",
         channels: [1, 2, 3],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32, DataType.FLOAT64],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
         frame: new framer.Frame(
           [1, 3],
-          [new Series(new Uint8Array([1])), new Series(new Float64Array([1, 2, 3, 4]))],
+          [new telem.Series(new Uint8Array([1])), new telem.Series(new Float64Array([1, 2, 3, 4]))],
         ),
       },
       {
         name: "Same Alignments",
         channels: [1, 2],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32],
         frame: new framer.Frame(
           [1, 2],
           [
-            new Series({
-              dataType: DataType.UINT8,
+            new telem.Series({
+              dataType: telem.DataType.UINT8,
               data: new Uint8Array([1]),
               alignment: 5n,
             }),
-            new Series({
-              dataType: DataType.FLOAT32,
+            new telem.Series({
+              dataType: telem.DataType.FLOAT32,
               data: new Uint8Array([1, 2, 3, 4]),
               alignment: 5n,
             }),
@@ -188,17 +189,17 @@ describe("encoder", () => {
       {
         name: "Different Alignments",
         channels: [1, 2],
-        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32],
         frame: new Frame(
           [1, 2],
           [
-            new Series({
-              dataType: DataType.UINT8,
+            new telem.Series({
+              dataType: telem.DataType.UINT8,
               data: new Uint8Array([1]),
               alignment: 5n,
             }),
-            new Series({
-              dataType: DataType.FLOAT32,
+            new telem.Series({
+              dataType: telem.DataType.FLOAT32,
               data: new Uint8Array([1, 2, 3, 4]),
               alignment: 10n,
             }),
@@ -208,18 +209,18 @@ describe("encoder", () => {
       {
         name: "Variable Data Types",
         channels: [1, 2, 3],
-        dataTypes: [DataType.UINT8, DataType.STRING, DataType.JSON],
+        dataTypes: [telem.DataType.UINT8, telem.DataType.STRING, telem.DataType.JSON],
         frame: new framer.Frame(
           [1, 2, 3],
           [
-            new Series(new Uint8Array([1])),
-            new Series({
+            new telem.Series(new Uint8Array([1])),
+            new telem.Series({
               data: ["one", "two", "three"],
-              dataType: DataType.STRING,
+              dataType: telem.DataType.STRING,
             }),
-            new Series({
+            new telem.Series({
               data: [{ a: 1 }, { b: 2 }, { c: 3 }],
-              dataType: DataType.JSON,
+              dataType: telem.DataType.JSON,
             }),
           ],
         ),
@@ -238,7 +239,7 @@ describe("encoder", () => {
           const os = ser.series[0];
           if (dcs.timeRange != null && !dcs.timeRange.span.isZero)
             expect(dcs.timeRange.toString()).toEqual(os.timeRange?.toString());
-          expect(new Series(dcs).toString()).toEqual(os.toString());
+          expect(new telem.Series(dcs).toString()).toEqual(os.toString());
         });
       });
     });
@@ -247,16 +248,16 @@ describe("encoder", () => {
   describe("dynamic codec", () => {
     it("should allow the caller to update the codec", () => {
       const codec = new Codec();
-      codec.update([1], [DataType.INT32]);
+      codec.update([1], [telem.DataType.INT32]);
       const encoded = codec.encode(
-        new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]),
+        new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))]),
       );
       const decoded1 = new Frame(codec.decode(encoded));
       expect(Array.from(decoded1.series[0])).toEqual([1, 2, 3]);
       expect(decoded1.keys[0]).toEqual(1);
-      codec.update([2], [DataType.INT64]);
+      codec.update([2], [telem.DataType.INT64]);
       const encoded2 = codec.encode(
-        new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]),
+        new framer.Frame([2], [new telem.Series(new BigInt64Array([1n, 2n, 3n]))]),
       );
       const decoded2 = new Frame(codec.decode(encoded2));
       expect(Array.from(decoded2.series[0])).toEqual([1n, 2n, 3n]);
@@ -266,31 +267,31 @@ describe("encoder", () => {
     it("should throw an error if the codec is not initialized", () => {
       const codec = new Codec();
       expect(() =>
-        codec.encode(new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))])),
+        codec.encode(new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))])),
       ).toThrow(ValidationError);
     });
 
     it("should use the correct encode/decode state even if the codecs are out of sync", () => {
       const encoder = new Codec();
       const decoder = new Codec();
-      encoder.update([1], [DataType.INT32]);
-      decoder.update([1], [DataType.INT32]);
+      encoder.update([1], [telem.DataType.INT32]);
+      decoder.update([1], [telem.DataType.INT32]);
 
-      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const fr = new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))]);
       let encoded = encoder.encode(fr);
       let decoded = new Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(1);
       expect(decoded.series[0].data).toEqual(fr.series[0].data);
 
-      decoder.update([2], [DataType.INT64]);
+      decoder.update([2], [telem.DataType.INT64]);
       encoded = encoder.encode(fr);
       decoded = new Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(1);
       expect(decoded.series[0].data).toEqual(fr.series[0].data);
 
-      encoder.update([2], [DataType.INT64]);
+      encoder.update([2], [telem.DataType.INT64]);
       expect(() => encoder.encode(fr)).toThrow(ValidationError);
-      const fr2 = new framer.Frame([2], [new Series(new BigInt64Array([1n, 2n, 3n]))]);
+      const fr2 = new framer.Frame([2], [new telem.Series(new BigInt64Array([1n, 2n, 3n]))]);
       encoded = encoder.encode(fr2);
       decoded = new Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(2);
@@ -300,8 +301,8 @@ describe("encoder", () => {
 
   describe("websocket writer codec", () => {
     it("should correctly encode and decode a websocket write request", () => {
-      const baseCodec = new Codec([1], [DataType.INT32]);
-      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const baseCodec = new Codec([1], [telem.DataType.INT32]);
+      const fr = new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))]);
       const writeReq: WriteRequest = {
         command: WriterCommand.Write,
         frame: fr.toPayload(),
@@ -317,7 +318,7 @@ describe("encoder", () => {
     });
 
     it("should correctly e +d a WS write set authority request", () => {
-      const baseCodec = new Codec([1], [DataType.INT32]);
+      const baseCodec = new Codec([1], [telem.DataType.INT32]);
       const writeReq: WriteRequest = {
         command: WriterCommand.SetAuthority,
         config: { authorities: [123] },

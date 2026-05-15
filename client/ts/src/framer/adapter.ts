@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type CrudeSeries, Series } from "@synnaxlabs/x";
-
+import { compare } from "@synnaxlabs/x/compare";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
@@ -155,9 +155,9 @@ export class WriteAdapter {
   async adapt(
     columnsOrData:
       | channel.Params
-      | Record<channel.Key | channel.Name, CrudeSeries>
+      | Record<channel.Key | channel.Name, telem.CrudeSeries>
       | CrudeFrame,
-    series?: CrudeSeries | CrudeSeries[],
+    series?: telem.CrudeSeries | telem.CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {
       if (series == null)
@@ -165,15 +165,15 @@ export class WriteAdapter {
         Received a single channel name or key but no series.
         `);
       if (Array.isArray(series)) {
-        if (series.some((s) => s instanceof Series || Array.isArray(s)))
+        if (series.some((s) => s instanceof telem.Series || Array.isArray(s)))
           throw new ValidationError(`
           Received a single channel name or key but multiple series.
           `);
 
-        series = series as CrudeSeries;
+        series = series as telem.CrudeSeries;
       }
       const pld = await this.fetchChannel(columnsOrData);
-      const s = new Series({ data: series as CrudeSeries, dataType: pld.dataType });
+      const s = new telem.Series({ data: series as telem.CrudeSeries, dataType: pld.dataType });
       return new Frame(pld.key, s);
     }
 
@@ -195,8 +195,8 @@ export class WriteAdapter {
           Received an array of channel names or keys but not enough series.
           `);
 
-        const s = new Series({
-          data: series[i] as CrudeSeries,
+        const s = new telem.Series({
+          data: series[i] as telem.CrudeSeries,
           dataType: pld.dataType,
         });
         cols.push(pld.key);
@@ -225,7 +225,7 @@ export class WriteAdapter {
     for (let i = 0; i < kvs.length; i++) {
       const [k, v] = kvs[i];
       const pld = await this.fetchChannel(k);
-      const s = new Series({ data: v, dataType: pld.dataType });
+      const s = new telem.Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
       data.push(s);
     }

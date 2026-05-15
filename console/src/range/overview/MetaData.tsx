@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { kv } from "@synnaxlabs/x/kv";
+import { link } from "@synnaxlabs/x/link";
 import { type ranger } from "@synnaxlabs/client";
-import {
-  Button,
-  CSS as PCSS,
-  Divider,
-  Flex,
-  type Flux,
-  Form,
-  Header,
-  Icon,
-  Input,
-  List,
-  Ranger,
-  Text,
-} from "@synnaxlabs/pluto";
-import { type kv, link } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS as PCSS } from "@synnaxlabs/charon/css";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Text } from "@synnaxlabs/charon/text";
+import { type Flux, Ranger } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";

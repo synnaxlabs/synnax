@@ -10,7 +10,12 @@
 import "@/label/filter/Chips.css";
 
 import { type label } from "@synnaxlabs/client";
-import { Flex, Form, Icon, Label, Tag, Text } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Text } from "@synnaxlabs/charon/text";
+import { Label } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

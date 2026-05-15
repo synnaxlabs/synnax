@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Haul } from "@synnaxlabs/charon";
+import { strings } from "@synnaxlabs/x/strings";
+import { telem } from "@synnaxlabs/x/telem";
+import type { Haul } from "@synnaxlabs/charon/haul";
 import { type ontology, type ranger } from "@synnaxlabs/client";
-import { Icon, List, Ranger, Select, Telem, Text } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange, strings } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ranger } from "@synnaxlabs/pluto";
 
 import { Ontology } from "@/ontology";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
@@ -51,7 +57,7 @@ const PaletteListItem: Ontology.PaletteListItem = (props) => {
         {resource?.name}
       </Text.Text>
       <Telem.Text.TimeRange level="small">
-        {resource?.data?.timeRange as CrudeTimeRange}
+        {resource?.data?.timeRange as telem.CrudeTimeRange}
       </Telem.Text.TimeRange>
     </Select.ListItem>
   );

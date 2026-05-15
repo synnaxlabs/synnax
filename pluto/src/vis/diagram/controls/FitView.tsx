@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import { Button } from "@synnaxlabs/charon/button";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Text } from "@synnaxlabs/charon/text";
-import { location } from "@synnaxlabs/x";
+
 import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";
 

@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { ranger } from "@synnaxlabs/client";
-import {
-  Component,
-  Icon,
-  Input,
-  List,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-  Text,
-  TimeSpan,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+import { Ranger } from "@synnaxlabs/pluto";
+
 import { type ReactElement } from "react";
 
 import { useSelect, useSelectMultiple } from "@/range/selectors";
@@ -42,7 +41,7 @@ const DynamicListItem = Component.renderProp(
       <Select.ListItem {...props} justify="between">
         <Text.Text style={{ width: 100 }}>{range.name}</Text.Text>
         <Text.Text>
-          {new TimeSpan(range.span).toString()}
+          {new telem.TimeSpan(range.span).toString()}
           {dynamicIcon}
         </Text.Text>
       </Select.ListItem>

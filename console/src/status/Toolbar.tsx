@@ -10,19 +10,17 @@
 import "@/status/Toolbar.css";
 
 import { status } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  Icon,
-  List as BaseList,
-  Menu,
-  Select,
-  Status,
-  Tag,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List as BaseList } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 

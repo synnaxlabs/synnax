@@ -11,7 +11,8 @@ import { z } from "zod";
 
 import { math } from "@/math";
 import { primitive } from "@/primitive";
-import { type bounds } from "@/spatial";
+import { spatial } from "@/spatial";
+import { bounds } from "@/spatial/bounds";
 
 /** Time zone specification when working with time stamps. */
 export type TZInfo = "UTC" | "local";

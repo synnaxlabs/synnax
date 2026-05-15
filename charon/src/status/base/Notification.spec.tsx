@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, TimeStamp } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -21,7 +22,7 @@ describe("Notification Component", () => {
     status: {
       key: "test-key",
       name: "test-name",
-      time: TimeStamp.now(),
+      time: telem.TimeStamp.now(),
       count: 1,
       message: "Test notification message",
       description: "Test notification description",

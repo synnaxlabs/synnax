@@ -7,19 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Access,
-  type Flux,
-  Icon,
-  Menu,
-  Ranger,
-  Status,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

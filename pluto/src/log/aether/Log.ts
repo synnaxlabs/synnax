@@ -7,10 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { notation } from "@synnaxlabs/x/notation";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { text } from "@synnaxlabs/charon/text/base";
 import { theming } from "@synnaxlabs/charon/theming/aether";
-import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import {
@@ -427,14 +433,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = showReceiptTimestamp
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
+      ? new xtelem.TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
       const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
       try {
-        value = new TimeStamp(BigInt(value)).toString(format, tz);
+        value = new xtelem.TimeStamp(BigInt(value)).toString(format, tz);
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }

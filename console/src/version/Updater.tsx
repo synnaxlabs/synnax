@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Icon, Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { id, TimeSpan } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
+import { Button } from "@synnaxlabs/charon/button";
+import { useAsyncEffect } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Status } from "@synnaxlabs/charon/status";
+
 import { check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
@@ -47,7 +52,7 @@ export const useCheckForUpdates = (): boolean => {
       if (signal.aborted) return;
       const i = setInterval(
         () => void checkForUpdates(!isSilenced),
-        TimeSpan.seconds(30).milliseconds,
+        telem.TimeSpan.seconds(30).milliseconds,
       );
       return () => clearInterval(i);
     },

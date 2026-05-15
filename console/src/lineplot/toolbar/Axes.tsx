@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compareArrayDeps, useMemoCompare } from "@synnaxlabs/charon";
-import {
-  Button,
-  Direction,
-  Flex,
-  Icon,
-  Input,
-  Select,
-  Tabs,
-  type Text,
-} from "@synnaxlabs/pluto";
+import { compareArrayDeps, useMemoCompare } from "@synnaxlabs/charon/memo";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
+import { Tabs } from "@synnaxlabs/charon/tabs";
+import type { Text } from "@synnaxlabs/charon/text";
+import { Direction } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

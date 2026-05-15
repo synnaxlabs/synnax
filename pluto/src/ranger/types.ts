@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Haul } from "@synnaxlabs/charon/haul";
 import { type ranger } from "@synnaxlabs/client";
-import { type NumericTimeRange } from "@synnaxlabs/x";
 
 export const HAUL_TYPE = "range";
 
 export interface HaulData {
   key: ranger.Key;
   name: string;
-  timeRange: NumericTimeRange;
+  timeRange: telem.NumericTimeRange;
 }
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, ranger.Key, HaulData>;

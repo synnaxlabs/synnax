@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { location } from "@synnaxlabs/x/location";
+import { math } from "@synnaxlabs/x/math";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { theming } from "@synnaxlabs/charon/theming/aether";
-import {
-  bounds,
-  box,
-  color,
-  location,
-  math,
-  scale,
-  TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { Draw2D } from "@/vis/draw2d";
@@ -87,7 +86,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     const avgXPosition =
       validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
-    const avgXValue = new TimeStamp(
+    const avgXValue = new telem.TimeStamp(
       validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
     );
 

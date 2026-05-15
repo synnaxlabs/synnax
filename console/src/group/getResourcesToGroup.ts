@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { Tree } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/charon/tree";
 
 export const getResourcesToGroup = (
   ids: ontology.ID[],

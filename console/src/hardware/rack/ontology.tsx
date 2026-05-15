@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc, rack } from "@synnaxlabs/client";
-import { Access, Icon, Menu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tree } from "@synnaxlabs/charon/tree";
+import { Access, Rack } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Arc } from "@/arc";

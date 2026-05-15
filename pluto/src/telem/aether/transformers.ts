@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
+import { math } from "@synnaxlabs/x/math";
+import { notation } from "@synnaxlabs/x/notation";
+import { scale } from "@synnaxlabs/x/scale";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  bounds,
-  color,
-  id,
-  type math,
-  MultiSeries,
-  notation,
-  scale,
-  Series,
-  status,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -315,7 +313,7 @@ export const downsampleMode = (props: DownsampleModeProps): NumberSourceSpec => 
 });
 
 interface DownsampleFunction {
-  (source: Series, downsampled: Series, windowSize: number): void;
+  (source: telem.Series, downsampled: telem.Series, windowSize: number): void;
 }
 
 const decimate: DownsampleFunction = (source, downsampled, windowSize) => {
@@ -346,7 +344,7 @@ const average: DownsampleFunction = (source, downsampled, windowSize) => {
 
     if (count > 0)
       downsampled.write(
-        new Series({
+        new telem.Series({
           data: [sum / count],
           dataType: source.dataType,
         }),
@@ -362,21 +360,21 @@ const DOWNSAMPLE_FUNCTIONS: Record<DownsampleMode, DownsampleFunction> = {
 export class SeriesDownsampler {
   static readonly TYPE = "series-downsampler";
   private _downsample: DownsampleFunction | null = null;
-  private readonly cache: MultiSeries = new MultiSeries();
+  private readonly cache: telem.MultiSeries = new telem.MultiSeries();
   readonly props: DownsampleModeProps;
 
   constructor(props: DownsampleModeProps) {
     this.props = props;
   }
 
-  private downsample(source: MultiSeries): DownsampleFunction {
+  private downsample(source: telem.MultiSeries): DownsampleFunction {
     if (this._downsample == null)
       if (source.series[0].sampleOffset !== 0) this._downsample = decimate;
       else this._downsample = DOWNSAMPLE_FUNCTIONS[this.props.mode];
     return this._downsample;
   }
 
-  transform(source: MultiSeries): MultiSeries {
+  transform(source: telem.MultiSeries): telem.MultiSeries {
     if (this.props.mode === "decimate" || this.props.windowSize <= 1) return source;
     if (source.series.length === 0) return this.cache;
 
@@ -395,7 +393,7 @@ export class SeriesDownsampler {
       // Step 2A: If the series is not in the cache, allocate a new series.
       if (downsampledSeries == null) {
         const capacity = Math.ceil(ser.capacity / this.props.windowSize);
-        downsampledSeries = Series.alloc({
+        downsampledSeries = telem.Series.alloc({
           key: ser.key + id.create(),
           dataType: ser.dataType,
           capacity,

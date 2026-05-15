@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { record } from "@synnaxlabs/x/record";
 import { memoize } from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";

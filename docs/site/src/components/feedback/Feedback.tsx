@@ -14,7 +14,8 @@ import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Input } from "@synnaxlabs/charon/input";
 import { Text } from "@synnaxlabs/charon/text";
-import { Form, Nav } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/charon/form";
+import { Nav } from "@synnaxlabs/charon/nav";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 

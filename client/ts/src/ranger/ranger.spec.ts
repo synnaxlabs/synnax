@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, math, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { math } from "@synnaxlabs/x/math";
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -82,7 +85,7 @@ describe("range", () => {
   });
   describe("create", () => {
     it("should create a single range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
@@ -96,11 +99,11 @@ describe("range", () => {
       const ranges: ranger.New[] = [
         {
           name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         },
         {
           name: "My New Two Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(2)),
         },
       ];
       const createdRanges = await client.ranges.create(ranges);
@@ -113,12 +116,12 @@ describe("range", () => {
     it("should create a range with a parent", async () => {
       const parentRange = await client.ranges.create({
         name: "My New Parent Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.ranges.create(
         {
           name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -129,7 +132,7 @@ describe("range", () => {
 
   describe("delete", () => {
     it("should delete a single range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
@@ -143,7 +146,7 @@ describe("range", () => {
 
   describe("rename", () => {
     it("should rename a single range", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
@@ -156,7 +159,7 @@ describe("range", () => {
 
   describe("retrieve", () => {
     it("should retrieve a range by key", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
@@ -166,7 +169,7 @@ describe("range", () => {
       expect(retrieved.timeRange).toEqual(range.timeRange);
     });
     it("should retrieve a range by name", async () => {
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New Three Second Range",
         timeRange,
@@ -176,7 +179,7 @@ describe("range", () => {
       expect(retrieved[0].name).toEqual(range.name);
     });
     it("should retrieve ranges that overlap with the given time range", async () => {
-      const timeRange = TimeStamp.hours(500).spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.hours(500).spanRange(telem.TimeSpan.seconds(1));
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
@@ -187,7 +190,7 @@ describe("range", () => {
     });
     it("should retrieve ranges by search term", async () => {
       const prefix = `searchable-range-${id.create()}`;
-      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      const timeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1));
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.ranges.create(names.map((name) => ({ name, timeRange })));
       await expect
@@ -203,12 +206,12 @@ describe("range", () => {
     it("should retrieve the parent of a range", async () => {
       const parentRange = await client.ranges.create({
         name: "My New Parent Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       const childRange = await client.ranges.create(
         {
           name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         },
         { parent: parentRange.ontologyID },
       );
@@ -221,7 +224,7 @@ describe("range", () => {
     it("should set, get, and delete a single key", async () => {
       const rng = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await rng.kv.set("foo", "bar");
       const val = await rng.kv.get("foo");
@@ -233,7 +236,7 @@ describe("range", () => {
     it("should set and get multiple keys", async () => {
       const rng = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await rng.kv.set({ foo: "bar", baz: "qux" });
       const res = await rng.kv.list();
@@ -243,7 +246,7 @@ describe("range", () => {
     it("should list all keys", async () => {
       const rng = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await rng.kv.set({ foo: "bar", baz: "qux" });
       const res = await rng.kv.list();
@@ -255,7 +258,7 @@ describe("range", () => {
     it("should set and get a label for the range", async () => {
       const rng = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       const label = await client.labels.create({
         name: "My New Label",
@@ -275,11 +278,11 @@ describe("range", () => {
     it("should set and get a parent for the range", async () => {
       const parent = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       const child = await client.ranges.create({
         name: "My New One Second Range",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
       });
       await client.ontology.addChildren(parent.ontologyID, child.ontologyID);
       const newParent = await client.ranges.retrieve({
@@ -295,12 +298,12 @@ describe("range", () => {
       it("should set and resolve an alias for the range", async () => {
         const ch = await client.channels.create({
           name: id.create(),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
           virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         });
         await rng.setAlias(ch.key, "myalias");
         const resolved = await rng.resolveAlias("myalias");
@@ -311,12 +314,12 @@ describe("range", () => {
       it("should remove an alias for the range", async () => {
         const ch = await client.channels.create({
           name: id.create(),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
           virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         });
         await rng.setAlias(ch.key, "myalias");
         await rng.deleteAlias(ch.key);
@@ -327,12 +330,12 @@ describe("range", () => {
       it("should list the aliases for the range", async () => {
         const ch = await client.channels.create({
           name: id.create(),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
           virtual: true,
         });
         const rng = await client.ranges.create({
           name: "My New One Second Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+          timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.seconds(1)),
         });
         await rng.setAlias(ch.key, "myalias");
         const aliases = await rng.listAliases();

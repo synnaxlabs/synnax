@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { id } from "@synnaxlabs/x/id";
+import { xy } from "@synnaxlabs/x/xy";
 import { type schematic } from "@synnaxlabs/client";
-import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
-import { box, id, type xy } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Schematic } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";

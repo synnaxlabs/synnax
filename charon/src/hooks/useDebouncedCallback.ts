@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce } from "@synnaxlabs/x";
+import { debounce } from "@synnaxlabs/x/debounce";
 import { type DependencyList, useCallback } from "react";
 
 export const useDebouncedCallback = <F extends (...args: any[]) => void>(

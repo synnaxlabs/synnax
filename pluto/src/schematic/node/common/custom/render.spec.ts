@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import { type schematic } from "@synnaxlabs/client";
-import { type location } from "@synnaxlabs/x";
+
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

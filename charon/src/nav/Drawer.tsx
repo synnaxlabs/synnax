@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import "@/nav/Drawer.css";
 
-import { CSS } from "@synnaxlabs/charon/css";
-import { type box, location } from "@synnaxlabs/x";
+import { CSS } from "@/css";
+
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Errors } from "@/errors";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
-import { Eraser } from "@/vis/eraser";
 
 export interface DrawerItem {
   key: string;
@@ -40,9 +40,8 @@ export interface DrawerProps
   extends
     Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
-    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">> {
-  eraseEnabled?: boolean;
-}
+    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">>
+{}
 
 export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerReturn => {
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);
@@ -61,23 +60,13 @@ export const Drawer = ({
   className,
   onResize,
   onCollapse,
-  eraseEnabled,
   ...rest
 }: DrawerProps): ReactElement | null => {
   const dir = location.direction(loc_);
-  eraseEnabled ??= activeItem != null;
   const handleCollapse = useCallback(() => {
     if (onCollapse) onCollapse();
     else if (activeItem != null) onSelect?.(activeItem.key);
   }, [onSelect, activeItem?.key, onCollapse]);
-  const { erase } = Eraser.use({ enabled: eraseEnabled });
-  const handleResize = useCallback(
-    (size: number, box: box.Box) => {
-      onResize?.(size, box);
-      erase(box);
-    },
-    [onResize, erase],
-  );
   const { content, minSize, maxSize, initialSize = 0 } = activeItem ?? {};
   return (
     <Resize.Single
@@ -90,7 +79,7 @@ export const Drawer = ({
       collapseThreshold={collapseThreshold}
       onCollapse={handleCollapse}
       location={loc_}
-      onResize={handleResize}
+      onResize={onResize}
       minSize={minSize}
       maxSize={maxSize}
       initialSize={initialSize}

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type channel, createTestClient, Frame, type framer } from "@synnaxlabs/client";
 import { EOF } from "@synnaxlabs/freighter";
-import { DataType, Series } from "@synnaxlabs/x";
+
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
@@ -133,7 +134,7 @@ describe("openStreamer", () => {
   it("should open a streamer on a set of channels", async () => {
     const onChange = vi.fn();
     const schema = z.object({ name: z.string() });
-    const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
+    const frames = [new Frame({ test: new telem.Series([{ name: "test" }]) })];
 
     const closeStreamer = await flux.openStreamer(
       createStreamerArgs({
@@ -154,7 +155,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const handleError = createMockErrorHandler();
       const schema = z.object({ name: z.string(), age: z.number() });
-      const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
+      const frames = [new Frame({ test: new telem.Series([{ name: "test" }]) })];
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
           handleError,
@@ -177,10 +178,10 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          test: new Series([{ value: 1 }]),
-          test2: new Series([{ value: 2 }]),
+          test: new telem.Series([{ value: 1 }]),
+          test2: new telem.Series([{ value: 2 }]),
         }),
-        new Frame({ test2: new Series([{ value: 3 }]) }),
+        new Frame({ test2: new telem.Series([{ value: 3 }]) }),
       ];
 
       const storeConfig: flux.StoreConfig<flux.Store> = {
@@ -222,7 +223,7 @@ describe("openStreamer", () => {
                 i++;
                 return {
                   done: false,
-                  value: new Frame({ test: new Series([{ value: 1 }]) }),
+                  value: new Frame({ test: new telem.Series([{ value: 1 }]) }),
                 };
               }
               if (i === 1) {
@@ -249,8 +250,8 @@ describe("openStreamer", () => {
       const listener2 = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
       ];
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
@@ -281,9 +282,9 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -321,8 +322,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -365,8 +366,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -419,9 +420,9 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -469,10 +470,10 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
-        new Frame({ test: new Series([{ value: 4 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 3 }]) }),
+        new Frame({ test: new telem.Series([{ value: 4 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -520,7 +521,7 @@ describe("openStreamer", () => {
       };
 
       // Data that satisfies schema1 but not schema2
-      const frames = [new Frame({ test: new Series([{ value: 123 }]) })];
+      const frames = [new Frame({ test: new telem.Series([{ value: 123 }]) })];
 
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
@@ -571,9 +572,9 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          user_create: new Series([{ id: 1 }]),
-          user_update: new Series([{ id: 2 }]),
-          user_delete: new Series([{ id: 3 }]),
+          user_create: new telem.Series([{ id: 1 }]),
+          user_update: new telem.Series([{ id: 2 }]),
+          user_delete: new telem.Series([{ id: 3 }]),
         }),
       ];
 
@@ -623,7 +624,7 @@ describe("openStreamer", () => {
       const frames = [
         new Frame(
           Object.fromEntries(
-            channels.map((channel, index) => [channel, new Series([{ id: index }])]),
+            channels.map((channel, index) => [channel, new telem.Series([{ id: index }])]),
           ),
         ),
       ];
@@ -687,10 +688,10 @@ describe("openStreamer", () => {
       // Simulate updating a relationship (delete old, create new)
       const frames = [
         new Frame({
-          relationship_create: new Series([
+          relationship_create: new telem.Series([
             { parentId: 1, childId: 2, type: "updated" },
           ]),
-          relationship_delete: new Series([
+          relationship_delete: new telem.Series([
             { parentId: 1, childId: 2, type: "original" },
           ]),
         }),
@@ -742,9 +743,9 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          user_delete: new Series([{ id: 1 }]),
-          role_delete: new Series([{ id: 2 }]),
-          permission_delete: new Series([{ id: 3 }]),
+          user_delete: new telem.Series([{ id: 1 }]),
+          role_delete: new telem.Series([{ id: 2 }]),
+          permission_delete: new telem.Series([{ id: 3 }]),
         }),
       ];
 
@@ -784,9 +785,9 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          user_create: new Series([{ id: 1 }]),
-          role_update: new Series([{ id: 2 }]),
-          permission_grant: new Series([{ id: 3 }]),
+          user_create: new telem.Series([{ id: 1 }]),
+          role_update: new telem.Series([{ id: 2 }]),
+          permission_grant: new telem.Series([{ id: 3 }]),
         }),
       ];
 
@@ -834,7 +835,7 @@ describe("openStreamer", () => {
       const frames = [
         new Frame(
           Object.fromEntries(
-            channels.map((channel, index) => [channel, new Series([{ id: index }])]),
+            channels.map((channel, index) => [channel, new telem.Series([{ id: index }])]),
           ),
         ),
       ];
@@ -876,7 +877,7 @@ describe("openStreamer", () => {
       ];
 
       const frames = [
-        new Frame({ test: new Series({ data: jsonData, dataType: DataType.JSON }) }),
+        new Frame({ test: new telem.Series({ data: jsonData, dataType: telem.DataType.JSON }) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -907,7 +908,7 @@ describe("openStreamer", () => {
       const schema = z.number();
 
       const frames = [
-        new Frame({ test: new Series({ data: [42, 84], dataType: DataType.FLOAT64 }) }),
+        new Frame({ test: new telem.Series({ data: [42, 84], dataType: telem.DataType.FLOAT64 }) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -931,9 +932,9 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          test: new Series({
+          test: new telem.Series({
             data: ["hello", "world"],
-            dataType: DataType.STRING,
+            dataType: telem.DataType.STRING,
           }),
         }),
       ];
@@ -956,7 +957,7 @@ describe("openStreamer", () => {
     it("should handle empty series gracefully", async () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
-      const frames = [new Frame({ other_channel: new Series([{ value: 42 }]) })];
+      const frames = [new Frame({ other_channel: new telem.Series([{ value: 42 }]) })];
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -972,7 +973,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
-      const frames = [new Frame({ test: new Series([{ invalid: "data" }]) })];
+      const frames = [new Frame({ test: new telem.Series([{ invalid: "data" }]) })];
       const closeStreamer = await flux.openStreamer(
         createStreamerArgs({
           handleError,
@@ -1008,13 +1009,13 @@ describe("openStreamer", () => {
 
       const frames = [
         new Frame({
-          json_channel: new Series({
+          json_channel: new telem.Series({
             data: [{ id: 1, name: "test" }],
-            dataType: DataType.JSON,
+            dataType: telem.DataType.JSON,
           }),
-          numeric_channel: new Series({
+          numeric_channel: new telem.Series({
             data: [42],
-            dataType: DataType.FLOAT64,
+            dataType: telem.DataType.FLOAT64,
           }),
         }),
       ];
@@ -1042,9 +1043,9 @@ describe("openStreamer", () => {
       const schema = z.number();
       const frames = [
         new Frame({
-          test: new Series({
+          test: new telem.Series({
             data: ["not_a_number"],
-            dataType: DataType.STRING,
+            dataType: telem.DataType.STRING,
           }),
         }),
       ];
@@ -1098,8 +1099,8 @@ describe("openStreamer", () => {
 
       // Simple test with fixed frames
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -1130,7 +1131,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       // First streamer
-      const frames1 = [new Frame({ test: new Series([{ value: 1 }]) })];
+      const frames1 = [new Frame({ test: new telem.Series([{ value: 1 }]) })];
       const closeStreamer1 = await flux.openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange1),
@@ -1145,7 +1146,7 @@ describe("openStreamer", () => {
       await closeStreamer1();
 
       // Second streamer with different data
-      const frames2 = [new Frame({ test: new Series([{ value: 2 }]) })];
+      const frames2 = [new Frame({ test: new telem.Series([{ value: 2 }]) })];
       const closeStreamer2 = await flux.openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange2),
@@ -1216,9 +1217,9 @@ describe("openStreamer", () => {
 
       // Use a simple frame sequence
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new Frame({ test: new telem.Series([{ value: 1 }]) }),
+        new Frame({ test: new telem.Series([{ value: 2 }]) }),
+        new Frame({ test: new telem.Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await flux.openStreamer(

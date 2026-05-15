@@ -7,32 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
-import {
-  bounds,
-  MultiSeries,
-  type Series,
-  Size,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
 
 import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
-  series: MultiSeries;
-  gaps: TimeRange[];
+  series: telem.MultiSeries;
+  gaps: telem.TimeRange[];
 }
 
 export interface CacheGCMetrics {
   purgedSeries: number;
-  purgedBytes: Size;
+  purgedBytes: telem.Size;
 }
 
 export const zeroCacheGCMetrics = (): CacheGCMetrics => ({
   purgedSeries: 0,
-  purgedBytes: Size.bytes(0),
+  purgedBytes: telem.Size.bytes(0),
 });
 
 /** Props for the @link Static cache. */
@@ -43,17 +36,17 @@ export interface StaticProps {
    * Sets the amount of time that a cache entry must be in the cache before it can
    * be marked as stale and subject to garbage collection.
    * @default TimeSpan.seconds(20) */
-  staleEntryThreshold?: TimeSpan;
+  staleEntryThreshold?: telem.TimeSpan;
 }
 
 export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
   instrumentation: alamos.NOOP,
-  staleEntryThreshold: TimeSpan.seconds(20),
+  staleEntryThreshold: telem.TimeSpan.seconds(20),
 };
 
 interface CacheEntry {
-  data: Series;
-  addedAt: TimeStamp;
+  data: telem.Series;
+  addedAt: telem.TimeStamp;
 }
 
 /**
@@ -71,7 +64,7 @@ export class Static {
    * Writes the given series to the cache, merging written series with any
    * existing series in the cache.
    */
-  write(series: MultiSeries): void {
+  write(series: telem.MultiSeries): void {
     if (series.length === 0) return;
     series.series.forEach((s) => this.writeOne(convertSeriesToSupportedGL(s)));
     this.checkIntegrity(series);
@@ -87,22 +80,22 @@ export class Static {
    * representing the missing regions of time between the series and before and after
    * the first and last series.
    */
-  dirtyRead(tr: TimeRange): DirtyReadResult {
+  dirtyRead(tr: telem.TimeRange): DirtyReadResult {
     const series = this.data
       .filter(({ data }) => data.timeRange.overlapsWith(tr))
       .map(({ data }) => data);
-    if (series.length === 0) return { series: new MultiSeries([]), gaps: [tr] };
+    if (series.length === 0) return { series: new telem.MultiSeries([]), gaps: [tr] };
     const gaps = series
       .map((s, i) => {
-        if (i === 0) return TimeRange.ZERO;
-        return new TimeRange(series[i - 1].timeRange.end, s.timeRange.start);
+        if (i === 0) return telem.TimeRange.ZERO;
+        return new telem.TimeRange(series[i - 1].timeRange.end, s.timeRange.start);
       })
       .filter((t) => !t.span.isZero && t.isValid);
-    const leadingGap = new TimeRange(tr.start, series[0].timeRange.start);
-    const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
+    const leadingGap = new telem.TimeRange(tr.start, series[0].timeRange.start);
+    const trailingGap = new telem.TimeRange(series[series.length - 1].timeRange.end, tr.end);
     if (leadingGap.isValid && !leadingGap.span.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.span.isZero) gaps.push(trailingGap);
-    return { series: new MultiSeries(series), gaps };
+    return { series: new telem.MultiSeries(series), gaps };
   }
 
   /**
@@ -116,7 +109,7 @@ export class Static {
     const newData = this.data.filter((s) => {
       // Keep entries that have a ref count that is greater than 0 or were just read.
       const shouldKeep =
-        s.data.refCount > 0 || TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
+        s.data.refCount > 0 || telem.TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
       return shouldKeep;
     });
@@ -132,7 +125,7 @@ export class Static {
     this.data = [];
   }
 
-  private writeOne(series: Series): void {
+  private writeOne(series: telem.Series): void {
     const {
       instrumentation: { L },
     } = this.props;
@@ -152,11 +145,11 @@ export class Static {
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {
       data: series,
-      addedAt: TimeStamp.now(),
+      addedAt: telem.TimeStamp.now(),
     });
   }
 
-  private checkIntegrity(write: MultiSeries): void {
+  private checkIntegrity(write: telem.MultiSeries): void {
     const {
       instrumentation: { L },
     } = this.props;

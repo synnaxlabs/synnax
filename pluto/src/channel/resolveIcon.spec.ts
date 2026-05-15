@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { type channel } from "@synnaxlabs/client";
-import { DataType } from "@synnaxlabs/x";
+
 import { describe, expect, it } from "vitest";
 
 import { resolveIcon } from "@/channel/resolveIcon";
@@ -26,7 +27,7 @@ describe("resolveIcon", () => {
     const ch: channel.Payload = {
       key: 1,
       name: "calc",
-      dataType: DataType.FLOAT32,
+      dataType: telem.DataType.FLOAT32,
       isIndex: false,
       index: 0,
       leaseholder: 0,
@@ -42,7 +43,7 @@ describe("resolveIcon", () => {
     const ch: channel.Payload = {
       key: 1,
       name: "temp",
-      dataType: DataType.FLOAT32,
+      dataType: telem.DataType.FLOAT32,
       isIndex: false,
       index: 0,
       leaseholder: 0,
@@ -58,7 +59,7 @@ describe("resolveIcon", () => {
     const ch: channel.Payload = {
       key: 1,
       name: "count",
-      dataType: DataType.INT32,
+      dataType: telem.DataType.INT32,
       isIndex: false,
       index: 0,
       leaseholder: 0,
@@ -74,7 +75,7 @@ describe("resolveIcon", () => {
     const ch: channel.Payload = {
       key: 1,
       name: "time",
-      dataType: DataType.TIMESTAMP,
+      dataType: telem.DataType.TIMESTAMP,
       isIndex: true,
       index: 0,
       leaseholder: 0,
@@ -90,7 +91,7 @@ describe("resolveIcon", () => {
     const ch: channel.Payload = {
       key: 1,
       name: "unknown",
-      dataType: DataType.UNKNOWN,
+      dataType: telem.DataType.UNKNOWN,
       isIndex: false,
       index: 0,
       leaseholder: 0,

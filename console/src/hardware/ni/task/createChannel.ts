@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, id } from "@synnaxlabs/x";
-
+import { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
 import { Common } from "@/hardware/common";
 import {
   type AIChannel,

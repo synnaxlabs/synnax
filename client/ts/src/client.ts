@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, URL, zod } from "@synnaxlabs/x";
+import { breaker } from "@synnaxlabs/x/breaker";
+import { telem } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
+import { zod } from "@synnaxlabs/x/zod";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -44,8 +47,8 @@ export const synnaxParamsZ = z.object({
     .or(z.string({ error: "Port is required" })),
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
-  connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
-  clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
+  connectivityPollFrequency: telem.TimeSpan.z.default(telem.TimeSpan.seconds(30)),
+  clockSkewThreshold: telem.TimeSpan.z.default(telem.TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
@@ -63,7 +66,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
-  readonly createdAt: TimeStamp;
+  readonly createdAt: telem.TimeStamp;
   readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
@@ -134,7 +137,7 @@ export default class Synnax extends framer.Client {
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
-    this.createdAt = TimeStamp.now();
+    this.createdAt = telem.TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
     this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
@@ -200,7 +203,7 @@ export const checkConnection = async (params: CheckConnectionParams) =>
 export const newConnectionChecker = (params: CheckConnectionParams) => {
   const { host, port, secure, name, retry } = params;
   const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
-  const url = new URL({ host, port: Number(port) });
-  const transport = new Transport(url, retryConfig, secure);
+  const url_ = new URL({ host, port: Number(port) });
+  const transport = new Transport(url_, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);
 };

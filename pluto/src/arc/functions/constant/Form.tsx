@@ -9,7 +9,7 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 
 export const Form = () => (
   <Flex.Box x grow>

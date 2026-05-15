@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Icon } from "@synnaxlabs/charon/icon";
-import { DataType } from "@synnaxlabs/x";
-export const resolveDataTypeIcon = (d: DataType): Icon.FC | undefined => {
-  if (d.equals(DataType.JSON)) return Icon.JSON;
-  if (d.equals(DataType.BYTES)) return Icon.Binary;
+
+export const resolveDataTypeIcon = (d: telem.DataType): Icon.FC | undefined => {
+  if (d.equals(telem.DataType.JSON)) return Icon.JSON;
+  if (d.equals(telem.DataType.BYTES)) return Icon.Binary;
   if (d.isInteger) return Icon.Binary;
   if (d.isFloat) return Icon.Decimal;
-  if (d.equals(DataType.STRING) || d.equals(DataType.UUID)) return Icon.String;
-  if (d.equals(DataType.TIMESTAMP)) return Icon.Time;
+  if (d.equals(telem.DataType.STRING) || d.equals(telem.DataType.UUID)) return Icon.String;
+  if (d.equals(telem.DataType.TIMESTAMP)) return Icon.Time;
   return undefined;
 };

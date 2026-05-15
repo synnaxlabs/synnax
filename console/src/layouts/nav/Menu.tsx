@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { xy } from "@synnaxlabs/x/xy";
 import "@/layouts/nav/Nav.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { CSS as PCSS, Menu as PMenu, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
-import { xy } from "@synnaxlabs/x";
+import { CSS as PCSS } from "@synnaxlabs/charon/css";
+import { useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Menu as PMenu } from "@synnaxlabs/charon/menu";
+import { Triggers } from "@synnaxlabs/charon/triggers";
+
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useStore } from "react-redux";
 

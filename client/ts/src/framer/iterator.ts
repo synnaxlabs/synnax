@@ -7,16 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x/errors";
+import { telem } from "@synnaxlabs/x/telem";
 import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
-import {
-  type CrudeTimeRange,
-  type CrudeTimeSpan,
-  type CrudeTimeStamp,
-  errors,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -24,7 +18,7 @@ import { ReadAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
-export const AUTO_SPAN = new TimeSpan(-1);
+export const AUTO_SPAN = new telem.TimeSpan(-1);
 
 enum Command {
   Open = 0,
@@ -46,9 +40,9 @@ enum ResponseVariant {
 
 const reqZ = z.object({
   command: z.enum(Command),
-  span: TimeSpan.z.optional(),
-  bounds: TimeRange.z.optional(),
-  stamp: TimeStamp.z.optional(),
+  span: telem.TimeSpan.z.optional(),
+  bounds: telem.TimeRange.z.optional(),
+  stamp: telem.TimeStamp.z.optional(),
   keys: channel.keyZ.array().optional(),
   chunkSize: z.number().optional(),
   downsampleFactor: z.int().optional(),
@@ -106,7 +100,7 @@ export class Iterator {
    * @param opts - See {@link IteratorConfig}.
    */
   static async _open(
-    tr: CrudeTimeRange,
+    tr: telem.CrudeTimeRange,
     channels: channel.Params,
     retriever: channel.Retriever,
     client: StreamClient,
@@ -118,7 +112,7 @@ export class Iterator {
     await iter.execute({
       command: Command.Open,
       keys: Array.from(adapter.keys),
-      bounds: new TimeRange(tr),
+      bounds: new telem.TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
       downsampleFactor: opts.downsampleFactor ?? 1,
     });
@@ -136,8 +130,8 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a
    * particular channel or the iterator has accumulated an error.
    */
-  async next(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
+  async next(span: telem.CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
+    return await this.execute({ command: Command.Next, span: new telem.TimeSpan(span) });
   }
 
   /**
@@ -151,8 +145,8 @@ export class Iterator {
    * @returns false if a segment satisfying the request can't be found for a particular
    * channel or the iterator has accumulated an error.
    */
-  async prev(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
+  async prev(span: telem.CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
+    return await this.execute({ command: Command.Prev, span: new telem.TimeSpan(span) });
   }
 
   /**
@@ -186,8 +180,8 @@ export class Iterator {
    * @returns false if the iterator is not pointing to a valid segment for a particular
    * channel or has accumulated an error.
    */
-  async seekLE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
+  async seekLE(stamp: telem.CrudeTimeStamp): Promise<boolean> {
+    return await this.execute({ command: Command.SeekLE, stamp: new telem.TimeStamp(stamp) });
   }
 
   /**
@@ -198,8 +192,8 @@ export class Iterator {
    * @returns false if the iterator is not pointing to a valid segment for a particular
    * channel or has accumulated an error.
    */
-  async seekGE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
+  async seekGE(stamp: telem.CrudeTimeStamp): Promise<boolean> {
+    return await this.execute({ command: Command.SeekGE, stamp: new telem.TimeStamp(stamp) });
   }
 
   /**

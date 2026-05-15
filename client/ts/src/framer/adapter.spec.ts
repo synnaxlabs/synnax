@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -25,12 +26,12 @@ describe("WriteFrameAdapter", () => {
   beforeAll(async () => {
     timeCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.TIMESTAMP,
+      dataType: telem.DataType.TIMESTAMP,
       isIndex: true,
     });
     dataCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.FLOAT32,
+      dataType: telem.DataType.FLOAT32,
       index: timeCh.key,
     });
 
@@ -41,7 +42,7 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt a record of keys to single values", async () => {
-    const ts = TimeStamp.now().valueOf();
+    const ts = telem.TimeStamp.now().valueOf();
     const res = await adapter.adapt({ [timeCh.key]: ts, [dataCh.key]: 1 });
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
@@ -52,7 +53,7 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt a record of names to single values", async () => {
-    const ts = TimeStamp.now().valueOf();
+    const ts = telem.TimeStamp.now().valueOf();
     const res2 = await adapter.adapt({ [timeCh.name]: ts, [dataCh.name]: 1 });
     expect(res2.columns).toHaveLength(2);
     expect(res2.series).toHaveLength(2);
@@ -63,7 +64,7 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt a single name to a single series", async () => {
-    const res3 = await adapter.adapt(dataCh.name, new Series(1));
+    const res3 = await adapter.adapt(dataCh.name, new telem.Series(1));
     expect(res3.columns).toHaveLength(1);
     expect(res3.series).toHaveLength(1);
     expect(res3.get(dataCh.key)).toHaveLength(1);
@@ -71,10 +72,10 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt multiple names to multiple series", async () => {
-    const ts = TimeStamp.now().valueOf();
+    const ts = telem.TimeStamp.now().valueOf();
     const res4 = await adapter.adapt(
       [timeCh.name, dataCh.name],
-      [new Series(ts), new Series(1)],
+      [new telem.Series(ts), new telem.Series(1)],
     );
     expect(res4.get(timeCh.key)).toHaveLength(1);
     expect(res4.get(dataCh.key)).toHaveLength(1);
@@ -83,10 +84,10 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt a frame keyed by name", async () => {
-    const ts = TimeStamp.now().valueOf();
+    const ts = telem.TimeStamp.now().valueOf();
     const fr = new Frame({
-      [timeCh.name]: new Series(ts),
-      [dataCh.name]: new Series(1),
+      [timeCh.name]: new telem.Series(ts),
+      [dataCh.name]: new telem.Series(1),
     });
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
@@ -96,8 +97,8 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should not modify a frame keyed by key", async () => {
-    const ts = TimeStamp.now().valueOf();
-    const fr = new Frame({ [timeCh.key]: new Series(ts), [dataCh.key]: new Series(1) });
+    const ts = telem.TimeStamp.now().valueOf();
+    const fr = new Frame({ [timeCh.key]: new telem.Series(ts), [dataCh.key]: new telem.Series(1) });
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
@@ -106,9 +107,9 @@ describe("WriteFrameAdapter", () => {
   });
 
   it("should correctly adapt a map of series", async () => {
-    const ts = TimeStamp.now().valueOf();
+    const ts = telem.TimeStamp.now().valueOf();
     const m = new Map();
-    m.set(timeCh.key, new Series(ts));
+    m.set(timeCh.key, new telem.Series(ts));
     const res = await adapter.adapt(m);
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
@@ -119,7 +120,7 @@ describe("WriteFrameAdapter", () => {
   it("should correctly adapt a name and JSON value", async () => {
     const jsonChannel = await client.channels.create({
       name: id.create(),
-      dataType: DataType.JSON,
+      dataType: telem.DataType.JSON,
       virtual: true,
     });
     const adapter = await WriteAdapter.open(client.channels.retriever, [
@@ -135,13 +136,13 @@ describe("WriteFrameAdapter", () => {
   it("should correctly adapt a name and a json typed series", async () => {
     const jsonChannel = await client.channels.create({
       name: id.create(),
-      dataType: DataType.JSON,
+      dataType: telem.DataType.JSON,
       virtual: true,
     });
     const adapter = await WriteAdapter.open(client.channels.retriever, [
       jsonChannel.key,
     ]);
-    const res = await adapter.adapt(jsonChannel.name, new Series([{ dog: "blue" }]));
+    const res = await adapter.adapt(jsonChannel.name, new telem.Series([{ dog: "blue" }]));
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
     expect(res.get(jsonChannel.key)).toHaveLength(1);
@@ -151,7 +152,7 @@ describe("WriteFrameAdapter", () => {
   it("should correctly adapt a numeric value to a BigInt keyed by key", async () => {
     const bigIntCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.INT64,
+      dataType: telem.DataType.INT64,
       virtual: true,
     });
     const res = await adapter.adapt({
@@ -177,7 +178,7 @@ describe("WriteFrameAdapter", () => {
     it("should return true when adding a new channel", async () => {
       const newCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         index: timeCh.key,
       });
       const hasChanged = await adapter.update([timeCh.key, dataCh.key, newCh.key]);
@@ -192,7 +193,7 @@ describe("WriteFrameAdapter", () => {
     it("should return true when replacing channels", async () => {
       const newCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         index: timeCh.key,
       });
       const hasChanged = await adapter.update([timeCh.key, newCh.key]);
@@ -222,17 +223,17 @@ describe("ReadFrameAdapter", () => {
   beforeAll(async () => {
     timeCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.TIMESTAMP,
+      dataType: telem.DataType.TIMESTAMP,
       isIndex: true,
     });
     dataCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.FLOAT32,
+      dataType: telem.DataType.FLOAT32,
       index: timeCh.key,
     });
     extraCh = await client.channels.create({
       name: id.create(),
-      dataType: DataType.FLOAT64,
+      dataType: telem.DataType.FLOAT64,
       index: timeCh.key,
     });
 
@@ -247,10 +248,10 @@ describe("ReadFrameAdapter", () => {
       describe("hot path - exact channel match", () => {
         it("should return frame unchanged when all channels match", () => {
           // HOT PATH: Frame has exactly the channels registered with adapter
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [dataCh.key]: new Series([1.5]),
+            [timeCh.key]: new telem.Series([ts]),
+            [dataCh.key]: new telem.Series([1.5]),
           });
 
           const result = adapter.adapt(inputFrame);
@@ -265,28 +266,28 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should preserve series data types in hot path", () => {
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series({ data: [ts], dataType: DataType.TIMESTAMP }),
-            [dataCh.key]: new Series({ data: [1.5], dataType: DataType.FLOAT32 }),
+            [timeCh.key]: new telem.Series({ data: [ts], dataType: telem.DataType.TIMESTAMP }),
+            [dataCh.key]: new telem.Series({ data: [1.5], dataType: telem.DataType.FLOAT32 }),
           });
 
           const result = adapter.adapt(inputFrame);
 
           // Data types should be preserved
-          expect(result.get(timeCh.key).dataType).toEqual(DataType.TIMESTAMP);
-          expect(result.get(dataCh.key).dataType).toEqual(DataType.FLOAT32);
+          expect(result.get(timeCh.key).dataType).toEqual(telem.DataType.TIMESTAMP);
+          expect(result.get(dataCh.key).dataType).toEqual(telem.DataType.FLOAT32);
         });
       });
 
       describe("cold path - filtering needed", () => {
         it("should filter out extra channels in key mode", () => {
           // COLD PATH: Frame has extra channels not in adapter
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [dataCh.key]: new Series([1.5]),
-            [extraCh.key]: new Series([999.0]), // Extra channel
+            [timeCh.key]: new telem.Series([ts]),
+            [dataCh.key]: new telem.Series([1.5]),
+            [extraCh.key]: new telem.Series([999.0]), // Extra channel
           });
 
           const result = adapter.adapt(inputFrame);
@@ -301,10 +302,10 @@ describe("ReadFrameAdapter", () => {
 
         it("should handle partial matches in key mode", () => {
           // Frame has some matching and some extra channels
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [extraCh.key]: new Series([999.0]),
+            [timeCh.key]: new telem.Series([ts]),
+            [extraCh.key]: new telem.Series([999.0]),
           });
 
           const result = adapter.adapt(inputFrame);
@@ -316,7 +317,7 @@ describe("ReadFrameAdapter", () => {
 
         it("should return empty frame when no channels match in key mode", () => {
           const inputFrame = new Frame({
-            [extraCh.key]: new Series([999.0]),
+            [extraCh.key]: new telem.Series([999.0]),
           });
 
           const result = adapter.adapt(inputFrame);
@@ -341,10 +342,10 @@ describe("ReadFrameAdapter", () => {
       describe("hot path - exact match, only convert", () => {
         it("should convert channel keys to names when all channels match", () => {
           // HOT PATH: Frame has exactly the channels in adapter
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [dataCh.key]: new Series([2.5]),
+            [timeCh.key]: new telem.Series([ts]),
+            [dataCh.key]: new telem.Series([2.5]),
           });
 
           const result = nameAdapter.adapt(inputFrame);
@@ -358,10 +359,10 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should handle multiple values in hot path", () => {
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts, ts + 1000n]),
-            [dataCh.key]: new Series([1.0, 2.0]),
+            [timeCh.key]: new telem.Series([ts, ts + 1000n]),
+            [dataCh.key]: new telem.Series([1.0, 2.0]),
           });
 
           const result = nameAdapter.adapt(inputFrame);
@@ -376,27 +377,27 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should preserve data types during name conversion", () => {
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series({ data: [ts], dataType: DataType.TIMESTAMP }),
-            [dataCh.key]: new Series({ data: [3.5], dataType: DataType.FLOAT32 }),
+            [timeCh.key]: new telem.Series({ data: [ts], dataType: telem.DataType.TIMESTAMP }),
+            [dataCh.key]: new telem.Series({ data: [3.5], dataType: telem.DataType.FLOAT32 }),
           });
 
           const result = nameAdapter.adapt(inputFrame);
 
-          expect(result.get(timeCh.name).dataType).toEqual(DataType.TIMESTAMP);
-          expect(result.get(dataCh.name).dataType).toEqual(DataType.FLOAT32);
+          expect(result.get(timeCh.name).dataType).toEqual(telem.DataType.TIMESTAMP);
+          expect(result.get(dataCh.name).dataType).toEqual(telem.DataType.FLOAT32);
         });
       });
 
       describe("cold path - filter and convert", () => {
         it("should filter out extra channels while converting", async () => {
           // COLD PATH: Frame has extra channels that need filtering
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [dataCh.key]: new Series([1.5]),
-            [extraCh.key]: new Series([999.0]), // Extra channel
+            [timeCh.key]: new telem.Series([ts]),
+            [dataCh.key]: new telem.Series([1.5]),
+            [extraCh.key]: new telem.Series([999.0]), // Extra channel
           });
 
           const result = nameAdapter.adapt(inputFrame);
@@ -413,10 +414,10 @@ describe("ReadFrameAdapter", () => {
             timeCh.name,
           ]);
 
-          const ts = TimeStamp.now().valueOf();
+          const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new Series([ts]),
-            [extraCh.key]: new Series([999.0]),
+            [timeCh.key]: new telem.Series([ts]),
+            [extraCh.key]: new telem.Series([999.0]),
           });
 
           const result = filterAdapter.adapt(inputFrame);
@@ -433,7 +434,7 @@ describe("ReadFrameAdapter", () => {
           ]);
 
           const inputFrame = new Frame({
-            [extraCh.key]: new Series([999.0]),
+            [extraCh.key]: new telem.Series([999.0]),
           });
 
           const result = filterAdapter.adapt(inputFrame);
@@ -456,8 +457,8 @@ describe("ReadFrameAdapter", () => {
 
       it("should handle frames with empty series", () => {
         const inputFrame = new Frame({
-          [timeCh.key]: new Series({ data: [], dataType: DataType.TIMESTAMP }),
-          [dataCh.key]: new Series({ data: [], dataType: DataType.FLOAT32 }),
+          [timeCh.key]: new telem.Series({ data: [], dataType: telem.DataType.TIMESTAMP }),
+          [dataCh.key]: new telem.Series({ data: [], dataType: telem.DataType.FLOAT32 }),
         });
 
         const result = adapter.adapt(inputFrame);
@@ -472,7 +473,7 @@ describe("ReadFrameAdapter", () => {
       it("should preserve series values across multiple data types", async () => {
         const int64Ch = await client.channels.create({
           name: id.create(),
-          dataType: DataType.INT64,
+          dataType: telem.DataType.INT64,
           index: timeCh.key,
         });
 
@@ -482,11 +483,11 @@ describe("ReadFrameAdapter", () => {
           int64Ch.key,
         ]);
 
-        const ts = TimeStamp.now().valueOf();
+        const ts = telem.TimeStamp.now().valueOf();
         const inputFrame = new Frame({
-          [timeCh.key]: new Series([ts, ts + 1000n]),
-          [dataCh.key]: new Series([1.5, 2.5]),
-          [int64Ch.key]: new Series([100n, 200n]),
+          [timeCh.key]: new telem.Series([ts, ts + 1000n]),
+          [dataCh.key]: new telem.Series([1.5, 2.5]),
+          [int64Ch.key]: new telem.Series([100n, 200n]),
         });
 
         const result = testAdapter.adapt(inputFrame);
@@ -501,11 +502,11 @@ describe("ReadFrameAdapter", () => {
       });
 
       it("should preserve series lengths after filtering", () => {
-        const ts = TimeStamp.now().valueOf();
+        const ts = telem.TimeStamp.now().valueOf();
         const inputFrame = new Frame({
-          [timeCh.key]: new Series([ts, ts + 1000n, ts + 2000n]),
-          [dataCh.key]: new Series([1.0, 2.0, 3.0]),
-          [extraCh.key]: new Series([999.0, 888.0, 777.0]),
+          [timeCh.key]: new telem.Series([ts, ts + 1000n, ts + 2000n]),
+          [dataCh.key]: new telem.Series([1.0, 2.0, 3.0]),
+          [extraCh.key]: new telem.Series([999.0, 888.0, 777.0]),
         });
 
         const result = adapter.adapt(inputFrame);
@@ -516,11 +517,11 @@ describe("ReadFrameAdapter", () => {
       });
 
       it("should preserve series order", () => {
-        const ts = TimeStamp.now().valueOf();
+        const ts = telem.TimeStamp.now().valueOf();
         // Create frame with explicit column order
         const inputFrame = new Frame(
           [dataCh.key, timeCh.key],
-          [new Series([1.0, 2.0, 3.0]), new Series([ts, ts + 1000n, ts + 2000n])],
+          [new telem.Series([1.0, 2.0, 3.0]), new telem.Series([ts, ts + 1000n, ts + 2000n])],
         );
 
         const result = adapter.adapt(inputFrame);
@@ -539,10 +540,10 @@ describe("ReadFrameAdapter", () => {
         ]);
 
         // Initial state: only timeCh registered
-        const ts = TimeStamp.now().valueOf();
+        const ts = telem.TimeStamp.now().valueOf();
         const inputFrame = new Frame({
-          [timeCh.key]: new Series([ts]),
-          [dataCh.key]: new Series([1.5]),
+          [timeCh.key]: new telem.Series([ts]),
+          [dataCh.key]: new telem.Series([1.5]),
         });
 
         // Should filter out dataCh and convert timeCh key to name
@@ -583,7 +584,7 @@ describe("ReadFrameAdapter", () => {
     it("should return true when adding a new channel", async () => {
       const newCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         index: timeCh.key,
       });
       const hasChanged = await adapter.update([timeCh.key, dataCh.key, newCh.key]);
@@ -598,7 +599,7 @@ describe("ReadFrameAdapter", () => {
     it("should return true when replacing channels", async () => {
       const newCh = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         index: timeCh.key,
       });
       const hasChanged = await adapter.update([timeCh.key, newCh.key]);

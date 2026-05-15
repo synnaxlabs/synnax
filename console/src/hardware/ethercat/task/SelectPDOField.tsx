@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form as PForm, Select } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Select } from "@synnaxlabs/charon/select";
+
 import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 
 import { useRetrieveSlaveStateful } from "@/hardware/ethercat/device/queries";

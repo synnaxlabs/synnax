@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x/destructor";
 import type { status } from "@synnaxlabs/charon/status/aether";
 import { type framer, type Synnax } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
 
 import {
   createStore,

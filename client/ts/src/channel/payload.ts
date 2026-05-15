@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { zod } from "@synnaxlabs/x";
+import { zod } from "@synnaxlabs/x/zod";
+import { control } from "@synnaxlabs/x/control";
+import { telem } from "@synnaxlabs/x/telem";
+import { status } from "@synnaxlabs/x/status";
 import { z } from "zod";
 
 import {

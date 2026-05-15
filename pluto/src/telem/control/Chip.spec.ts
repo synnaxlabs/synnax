@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { control } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -24,7 +26,7 @@ const makeStatus = (
   name: "test",
   variant,
   message: "",
-  time: TimeStamp.now(),
+  time: telem.TimeStamp.now(),
   details: { authority: undefined, valid: false, ...details },
 });
 

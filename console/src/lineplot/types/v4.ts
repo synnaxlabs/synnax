@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { migrate } from "@synnaxlabs/x/migrate";
 import { measure } from "@synnaxlabs/pluto/ether";
-import { migrate } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import * as v1 from "@/lineplot/types/v1";

@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Flex, Form as PForm, Telem } from "@synnaxlabs/pluto";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Telem } from "@synnaxlabs/charon/telem";
 import { type FC } from "react";
 
 import { type Common } from "@/hardware/common";

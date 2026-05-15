@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { Form } from "@/arc/functions/stable/Form";
 import { StableFor } from "@/arc/functions/stable/StableFor";
 import { type types } from "@/arc/functions/types";
@@ -22,7 +21,7 @@ export const SYMBOLS: Record<string, types.Spec<any>> = {
     Symbol: StableFor,
     Preview: StableFor,
     defaultProps: () => ({
-      duration: TimeSpan.milliseconds(250).nanoseconds,
+      duration: telem.TimeSpan.milliseconds(250).nanoseconds,
     }),
   },
 };

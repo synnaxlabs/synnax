@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Haul } from "@synnaxlabs/charon";
-import { id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import type { Haul } from "@synnaxlabs/charon/haul";
+
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/schematic";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
@@ -27,7 +28,7 @@ describe("channel", () => {
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         virtual: true,
       });
       await expect(userClient.channels.retrieve(randomChannel.key)).rejects.toThrow(
@@ -43,7 +44,7 @@ describe("channel", () => {
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         virtual: true,
       });
       const retrieved = await userClient.channels.retrieve(randomChannel.key);
@@ -60,7 +61,7 @@ describe("channel", () => {
       });
       await userClient.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         virtual: true,
       });
     });
@@ -74,7 +75,7 @@ describe("channel", () => {
       await expect(
         userClient.channels.create({
           name: id.create(),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
           virtual: true,
         }),
       ).rejects.toThrow(AuthError);
@@ -88,7 +89,7 @@ describe("channel", () => {
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         virtual: true,
       });
       await userClient.channels.delete(randomChannel.key);
@@ -105,7 +106,7 @@ describe("channel", () => {
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         virtual: true,
       });
       await expect(userClient.channels.delete(randomChannel.key)).rejects.toThrow(

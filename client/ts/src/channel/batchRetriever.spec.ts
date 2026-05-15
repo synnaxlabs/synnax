@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, errors, Rate } from "@synnaxlabs/x";
+import { errors } from "@synnaxlabs/x/errors";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
@@ -46,10 +47,10 @@ describe("channelchannel.Retriever", () => {
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         internal: false,
         isIndex: false,
-        rate: Rate.hz(1),
+        rate: telem.Rate.hz(1),
         leaseholder: 1,
         index: 0,
         virtual: false,
@@ -75,10 +76,10 @@ describe("channelchannel.Retriever", () => {
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,
-        dataType: DataType.FLOAT32,
+        dataType: telem.DataType.FLOAT32,
         internal: false,
         isIndex: false,
-        rate: Rate.hz(1),
+        rate: telem.Rate.hz(1),
         leaseholder: 1,
         index: 0,
         virtual: false,

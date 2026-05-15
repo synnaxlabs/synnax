@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { status } from "@/status";
-import { TimeStamp } from "@/telem";
+import { telem } from "@/telem";
 
 type CustomCrude = Partial<status.Crude<z.ZodRecord, "error">>;
 
@@ -21,8 +21,8 @@ describe("status", () => {
     it("should create a status", () => {
       const s = status.create({ variant: "success", message: "test" });
       expect(s.key).toHaveLength(id.LENGTH);
-      expect(s.time).toBeInstanceOf(TimeStamp);
-      expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
+      expect(s.time).toBeInstanceOf(telem.TimeStamp);
+      expect(s.time.beforeEq(telem.TimeStamp.now())).toBe(true);
     });
   });
 
@@ -120,8 +120,8 @@ describe("status", () => {
       const s = status.fromException(error);
 
       expect(s.key).toHaveLength(id.LENGTH);
-      expect(s.time).toBeInstanceOf(TimeStamp);
-      expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
+      expect(s.time).toBeInstanceOf(telem.TimeStamp);
+      expect(s.time.beforeEq(telem.TimeStamp.now())).toBe(true);
     });
 
     it("should conform to exceptionDetailsSchema", () => {

@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
-import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive, TimeStamp } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Input } from "@synnaxlabs/charon/input";
+import { Device, type Flux, Task } from "@synnaxlabs/pluto";
+
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";
@@ -158,7 +163,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         form.set("config", newConfig);
         const status: task.NewStatus = {
           name,
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
           details: { running: true, data: null },

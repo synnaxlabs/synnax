@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -20,19 +20,19 @@ import {
 import { context } from "@/context";
 
 export interface ContextValue {
-  delay: CrudeTimeSpan;
+  delay: telem.CrudeTimeSpan;
   startAccelerating: () => void;
 }
 
 export interface ConfigProps
   extends PropsWithChildren, Partial<Omit<ContextValue, "startAccelerating">> {
   accelerate?: boolean;
-  acceleratedDelay?: CrudeTimeSpan;
-  accelerationDelay?: CrudeTimeSpan;
+  acceleratedDelay?: telem.CrudeTimeSpan;
+  accelerationDelay?: telem.CrudeTimeSpan;
 }
 
 const [Context, useConfig] = context.create<ContextValue>({
-  defaultValue: { delay: TimeSpan.milliseconds(750), startAccelerating: () => {} },
+  defaultValue: { delay: telem.TimeSpan.milliseconds(750), startAccelerating: () => {} },
   displayName: "Tooltip.Context",
 });
 export { useConfig };
@@ -53,11 +53,11 @@ export { useConfig };
  * @default 10 seconds.
  */
 export const Config = ({
-  delay = TimeSpan.milliseconds(700),
+  delay = telem.TimeSpan.milliseconds(700),
   accelerate = true,
   // Disabling this for now because it's annoying.
-  acceleratedDelay = TimeSpan.minutes(60),
-  accelerationDelay = TimeSpan.seconds(0),
+  acceleratedDelay = telem.TimeSpan.minutes(60),
+  accelerationDelay = telem.TimeSpan.seconds(0),
   children,
 }: ConfigProps): ReactElement => {
   const [accelerating, setAccelerating] = useState(false);
@@ -67,7 +67,7 @@ export const Config = ({
     setAccelerating(true);
     timeoutRef.current = setTimeout(() => {
       setAccelerating(false);
-    }, new TimeSpan(accelerationDelay).milliseconds);
+    }, new telem.TimeSpan(accelerationDelay).milliseconds);
   }, [accelerating, accelerationDelay]);
   const parsedDelay = useMemo(
     () => (accelerating ? acceleratedDelay : delay),

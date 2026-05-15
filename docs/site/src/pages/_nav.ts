@@ -14,7 +14,6 @@ import { CONSOLE_NAV } from "@/pages/reference/console/_nav";
 import { CONTROL_NAV } from "@/pages/reference/control/_nav";
 import { CORE_NAV } from "@/pages/reference/core/_nav";
 import { DRIVER_NAV } from "@/pages/reference/driver/_nav";
-import { PLUTO_NAV } from "@/pages/reference/pluto/_nav";
 
 export const REFERENCE_PAGES: PageNavNode[] = [
   { name: "Get Started", key: "/reference/", href: "/reference/" },
@@ -29,5 +28,4 @@ export const REFERENCE_PAGES: PageNavNode[] = [
   DRIVER_NAV,
   CLIENT_NAV,
   CONTROL_NAV,
-  PLUTO_NAV,
 ];

@@ -10,7 +10,11 @@
 import "@/layouts/GetStarted.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Eraser, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
+import { Eraser } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/css";

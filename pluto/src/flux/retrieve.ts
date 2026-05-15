@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x/destructor";
 import { useAsyncEffect, useDestructors } from "@synnaxlabs/charon/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
 import { state } from "@synnaxlabs/charon/state";
 import { Status } from "@synnaxlabs/charon/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+
 import { useCallback, useRef, useState } from "react";
 
 import { type base } from "@/flux/base";

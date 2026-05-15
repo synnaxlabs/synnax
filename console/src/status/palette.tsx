@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { Access, Icon, Status } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Status } from "@synnaxlabs/charon/status";
+import { Access } from "@synnaxlabs/pluto";
 
 import { Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";

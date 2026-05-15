@@ -7,11 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
+import { Telem } from "@synnaxlabs/charon/telem";
+
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -221,7 +230,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
       const channels = await client.channels.create(
         toCreate.map((c) => ({
           name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
-          dataType: (c as TypedInput).dataType ?? DataType.UINT8.toString(),
+          dataType: (c as TypedInput).dataType ?? telem.DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),
       );

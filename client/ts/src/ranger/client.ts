@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  array,
-  color,
-  type CrudeTimeRange,
-  type Series,
-  TimeRange,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -53,7 +50,7 @@ export class Range {
   key: string;
   name: string;
   readonly kv: KVClient;
-  readonly timeRange: TimeRange;
+  readonly timeRange: telem.TimeRange;
   readonly color?: color.Color;
   readonly parent?: Payload;
   readonly labels?: label.Label[];
@@ -65,7 +62,7 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    { name, timeRange = TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
+    { name, timeRange = telem.TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
     {
       frameClient,
       kv,
@@ -141,9 +138,9 @@ export class Range {
     return await this.rangeClient.retrieve(res);
   }
 
-  async read(channel: Key | Name): Promise<Series>;
+  async read(channel: Key | Name): Promise<telem.Series>;
   async read(channels: Params): Promise<framer.Frame>;
-  async read(channels: Params): Promise<Series | framer.Frame> {
+  async read(channels: Params): Promise<telem.Series | framer.Frame> {
     return await this.frameClient.read(this.timeRange, channels);
   }
 
@@ -160,7 +157,7 @@ export class Range {
   }
 
   static sort(a: Range, b: Range): number {
-    return TimeRange.sort(a.timeRange, b.timeRange);
+    return telem.TimeRange.sort(a.timeRange, b.timeRange);
   }
 }
 
@@ -168,7 +165,7 @@ const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),
-  overlapsWith: TimeRange.z.optional(),
+  overlapsWith: telem.TimeRange.z.optional(),
   hasLabels: label.keyZ.array().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
@@ -188,7 +185,7 @@ const retrieveArgsZ = retrieveRequestZ
       .array()
       .transform((names) => ({ names })),
   )
-  .or(TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
+  .or(telem.TimeRange.z.transform((timeRange) => ({ overlapsWith: timeRange })));
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
@@ -245,7 +242,7 @@ export class Client {
 
   async retrieve(params: Key | Name): Promise<Range>;
   async retrieve(params: Key[] | Name[]): Promise<Range[]>;
-  async retrieve(params: CrudeTimeRange): Promise<Range[]>;
+  async retrieve(params: telem.CrudeTimeRange): Promise<Range[]>;
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
   async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";
@@ -332,7 +329,7 @@ export const convertOntologyResourceToPayload = ({
   id: { key },
   name,
 }: ontology.Resource): Payload => {
-  const timeRange = TimeRange.z.parse(data?.timeRange);
+  const timeRange = telem.TimeRange.z.parse(data?.timeRange);
   const c = color.colorZ.safeParse(data?.color);
   return {
     key,

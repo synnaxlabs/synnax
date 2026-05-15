@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { deep } from "@synnaxlabs/x/deep";
 import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
-import { useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
+
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 

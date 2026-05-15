@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
+import { scale } from "@synnaxlabs/x/scale";
 import "@/color/GradientPicker.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
@@ -20,7 +25,7 @@ import type { Input } from "@synnaxlabs/charon/input";
 import { Text } from "@synnaxlabs/charon/text";
 import { Triggers } from "@synnaxlabs/charon/triggers";
 import { stopPropagation } from "@synnaxlabs/charon/util";
-import { box, clamp, color, id, scale } from "@synnaxlabs/x";
+
 import { type ReactElement, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";

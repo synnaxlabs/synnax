@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/tooltip/Dialog.css";
 
-import {
-  box,
-  type CrudeTimeSpan,
-  type destructor,
-  type dimensions,
-  location,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
 import {
   cloneElement,
   type ComponentPropsWithoutRef,
@@ -45,7 +42,7 @@ interface ChildProps {
 }
 
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
-  delay?: CrudeTimeSpan;
+  delay?: telem.CrudeTimeSpan;
   location?: location.Outer | Partial<location.XY>;
   hide?: boolean;
   children: [ReactNode | RenderProp<ContentProps>, ReactElement<ChildProps>];
@@ -162,7 +159,7 @@ export const Dialog = ({
   hide = false,
 }: DialogProps): ReactElement => {
   const { startAccelerating, delay: configDelay } = useConfig();
-  const parsedDelay = new TimeSpan(delay ?? configDelay);
+  const parsedDelay = new telem.TimeSpan(delay ?? configDelay);
   const [state, setState, stateRef] = useCombinedStateAndRef<State | null>(null);
   const [loadCLS, setLoadCLS] = useState<string>("");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

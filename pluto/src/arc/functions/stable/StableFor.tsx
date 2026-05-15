@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Text } from "@synnaxlabs/charon/text";
-import { color, TimeSpan } from "@synnaxlabs/x";
+
 import z from "zod/v4";
 
 import { Base, type HandleSpec } from "@/arc/functions/Base";
@@ -38,7 +40,7 @@ export const StableFor = ({ duration }: SymbolProps) => (
     sources={SOURCES}
   >
     <Text.Text level="h4" weight={500} variant="code">
-      {new TimeSpan(duration).toString()}
+      {new telem.TimeSpan(duration).toString()}
     </Text.Text>
   </Base>
 );

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { strings } from "@synnaxlabs/x/strings";
 import "@/log/Log.css";
 
 import { Button } from "@synnaxlabs/charon/button";
@@ -17,7 +20,7 @@ import { Icon } from "@synnaxlabs/charon/icon";
 import { Menu } from "@synnaxlabs/charon/menu";
 import { Status } from "@synnaxlabs/charon/status";
 import { Triggers } from "@synnaxlabs/charon/triggers";
-import { box, location, strings } from "@synnaxlabs/x";
+
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { use, type UseProps } from "@/log/use";

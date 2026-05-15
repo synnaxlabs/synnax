@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { breaker } from "@/breaker";
-import { TimeSpan } from "@/telem";
+import { telem } from "@/telem";
 
 describe("breaker", () => {
   it("should allow first attempt without sleeping", async () => {
@@ -26,7 +26,7 @@ describe("breaker", () => {
     const mockSleep = vi.fn();
     const brk = new breaker.Breaker({
       maxRetries: 2,
-      baseInterval: TimeSpan.milliseconds(1),
+      baseInterval: telem.TimeSpan.milliseconds(1),
       sleepFn: mockSleep,
     });
 
@@ -43,7 +43,7 @@ describe("breaker", () => {
   it("should increase delay between retries according to scale", async () => {
     const mockSleep = vi.fn();
     const brk = new breaker.Breaker({
-      baseInterval: TimeSpan.seconds(1),
+      baseInterval: telem.TimeSpan.seconds(1),
       maxRetries: 3,
       scale: 2,
       sleepFn: mockSleep,
@@ -53,15 +53,15 @@ describe("breaker", () => {
     await brk.wait(); // Second attempt - 1s * 2 = 2s;
     await brk.wait(); // Third attempt - 2s *2 = 4s;
 
-    expect(mockSleep).toHaveBeenNthCalledWith(1, TimeSpan.seconds(1));
-    expect(mockSleep).toHaveBeenNthCalledWith(2, TimeSpan.seconds(2));
-    expect(mockSleep).toHaveBeenNthCalledWith(3, TimeSpan.seconds(4));
+    expect(mockSleep).toHaveBeenNthCalledWith(1, telem.TimeSpan.seconds(1));
+    expect(mockSleep).toHaveBeenNthCalledWith(2, telem.TimeSpan.seconds(2));
+    expect(mockSleep).toHaveBeenNthCalledWith(3, telem.TimeSpan.seconds(4));
   });
 
   it("should use custom sleep function when provided", async () => {
     const customSleep = vi.fn();
     const brk = new breaker.Breaker({
-      baseInterval: TimeSpan.milliseconds(100),
+      baseInterval: telem.TimeSpan.milliseconds(100),
       sleepFn: customSleep,
     });
 

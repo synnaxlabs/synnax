@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import {
-  type Icon,
-  type Nav,
-  type Triggers,
-  useDebouncedCallback,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
+import { useDebouncedCallback, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import type { Icon } from "@synnaxlabs/charon/icon";
+import type { Nav } from "@synnaxlabs/charon/nav";
+import type { Triggers } from "@synnaxlabs/charon/triggers";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

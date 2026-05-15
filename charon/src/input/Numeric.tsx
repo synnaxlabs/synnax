@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x";
-import { evaluate, Unit } from "mathjs";
+import { bounds } from "@synnaxlabs/x/bounds";
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -16,6 +15,25 @@ import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text, type TextProps } from "@/input/Text";
 import { type Control } from "@/input/types";
 import { Triggers } from "@/triggers";
+
+const PLAIN_NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+let mathjsLoader: Promise<typeof import("mathjs/number")> | null = null;
+
+const tryEvaluate = async (raw: string): Promise<number | null> => {
+  if (PLAIN_NUMBER.test(raw)) {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+  try {
+    mathjsLoader ??= import("mathjs/number");
+    const { evaluate } = await mathjsLoader;
+    const ev = evaluate(raw);
+    return typeof ev === "number" && !isNaN(ev) ? ev : null;
+  } catch {
+    return null;
+  }
+};
 export interface NumericProps
   extends
     Omit<TextProps, "type" | "onBlur" | "value" | "onChange">,
@@ -85,7 +103,7 @@ export const Numeric = ({
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
 
-  const updateActualValue = useCallback(() => {
+  const updateActualValue = useCallback(async () => {
     // This just means we never actually modified the input
     if (isValueValidRef.current) return;
     setIsValueValid(true);
@@ -94,15 +112,7 @@ export const Numeric = ({
       onChange?.(emptyValue);
       return;
     }
-    let v = null;
-    try {
-      const ev = evaluate(internalValueRef.current);
-      // Sometimes mathjs returns a Unit object, so we need to convert it to a number.
-      if (ev instanceof Unit) v = ev.toNumber();
-      else if (typeof ev === "number" && !isNaN(ev)) v = ev;
-    } catch {
-      v = null;
-    }
+    const v = await tryEvaluate(raw);
     if (v != null) onChange?.(bounds.clamp(propsBounds, v));
     else
       setInternalValue(
@@ -116,12 +126,17 @@ export const Numeric = ({
 
   const handleBlur = useCallback(() => {
     onBlur?.();
-    updateActualValue();
+    void updateActualValue();
   }, [onBlur, updateActualValue]);
 
   // Sometimes we don't blur the component before it unmounts, so this makes
   // sure we try to update the actual value on unmount.
-  useEffect(() => () => updateActualValueRef.current?.(), []);
+  useEffect(
+    () => () => {
+      void updateActualValueRef.current?.();
+    },
+    [],
+  );
 
   const handleChange = useCallback(
     (v: string) => {
@@ -167,7 +182,7 @@ export const Numeric = ({
       // actual value.
       onKeyDown={(e) => {
         if (Triggers.eventKey(e) !== "Enter") return;
-        updateActualValue();
+        void updateActualValue();
         onBlur?.();
       }}
       onBlur={handleBlur}

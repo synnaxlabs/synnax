@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import { scale } from "@synnaxlabs/x/scale";
 import { Flex } from "@synnaxlabs/charon/flex";
-import { type bounds, color, deep, scale } from "@synnaxlabs/x";
+
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form } from "@/form";
+import { Form } from "@synnaxlabs/charon/form";
 import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
 
 const boundsInputProps = { size: "small", showDragHandle: false } as const;

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { runtime } from "@synnaxlabs/x/runtime";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
 import { Mosaic } from "@synnaxlabs/pluto";
-import { runtime } from "@synnaxlabs/x";
 
 import { select, selectSliceState } from "@/layout/selectors";
 import {

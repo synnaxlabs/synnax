@@ -7,10 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Haul, Key } from "@synnaxlabs/charon";
+import { id } from "@synnaxlabs/x/id";
+import { uuid } from "@synnaxlabs/x/uuid";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { Key } from "@synnaxlabs/charon/key";
 import { group, type ontology, schematic } from "@synnaxlabs/client";
-import { Access, Button, Component, Flex, Group, Icon, Input, List, Menu, Schematic, Select, Status, Text, Theming } from "@synnaxlabs/pluto";
-import { id, uuid } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Access, Group, Schematic } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 

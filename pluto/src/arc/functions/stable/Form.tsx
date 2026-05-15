@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Input } from "@synnaxlabs/charon/input";
-import { TimeSpan } from "@synnaxlabs/x";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 
 export const Form = () => (
   <Base.Field<number> path="duration">
     {({ value, onChange }) => (
       <Input.Numeric
-        value={new TimeSpan(value).seconds}
-        onChange={(v) => onChange(TimeSpan.seconds(v).nanoseconds)}
+        value={new telem.TimeSpan(value).seconds}
+        onChange={(v) => onChange(telem.TimeSpan.seconds(v).nanoseconds)}
         endContent="s"
       />
     )}

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { RoutedWorker } from "@synnaxlabs/x/worker";
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { status } from "@synnaxlabs/charon/status/aether";
 import { theming } from "@synnaxlabs/charon/theming/aether";
-import { RoutedWorker } from "@synnaxlabs/x";
 
 import { access } from "@/access/aether";
 import { alamos } from "@/alamos/aether";

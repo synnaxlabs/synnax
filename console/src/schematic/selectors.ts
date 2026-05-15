@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, UnexpectedError } from "@synnaxlabs/client";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import type { Control, Diagram, Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {

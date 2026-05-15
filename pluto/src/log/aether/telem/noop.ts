@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type observe } from "@synnaxlabs/x";
-
+import { destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class NoopLogSource implements LogSource {

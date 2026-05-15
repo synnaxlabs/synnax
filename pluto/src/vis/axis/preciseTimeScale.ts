@@ -7,41 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeStamp, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-
 /**
  * Predefined time scale steps used for generating tick marks.
  * Ranges from 1 nanosecond to 1 second in standardized increments.
  */
-export const TIME_SCALE_STEPS: TimeSpan[] = [
-  TimeSpan.NANOSECOND, // 1ns
-  TimeSpan.nanoseconds(2), // 2ns
-  TimeSpan.nanoseconds(5), // 5ns
-  TimeSpan.nanoseconds(10), // 10ns
-  TimeSpan.nanoseconds(20), // 20ns
-  TimeSpan.nanoseconds(50), // 50ns
-  TimeSpan.nanoseconds(100), // 100ns
-  TimeSpan.nanoseconds(200), // 200ns
-  TimeSpan.nanoseconds(500), // 500ns
-  TimeSpan.MICROSECOND, // 1µs
-  TimeSpan.microseconds(2), // 2µs
-  TimeSpan.microseconds(5), // 5µs
-  TimeSpan.microseconds(10), // 10µs
-  TimeSpan.microseconds(20), // 20µs
-  TimeSpan.microseconds(50), // 50µs
-  TimeSpan.microseconds(100), // 100µs
-  TimeSpan.microseconds(200), // 200µs
-  TimeSpan.microseconds(500), // 500µs
-  TimeSpan.MILLISECOND, // 1ms
-  TimeSpan.milliseconds(2), // 2ms
-  TimeSpan.milliseconds(5), // 5ms
-  TimeSpan.milliseconds(10), // 10ms
-  TimeSpan.milliseconds(20), // 20ms
-  TimeSpan.milliseconds(50), // 50ms
-  TimeSpan.milliseconds(100), // 100ms
-  TimeSpan.milliseconds(200), // 200ms
-  TimeSpan.milliseconds(500), // 500ms
-  TimeSpan.SECOND, // 1s
+
+import { telem } from "@synnaxlabs/x/telem";
+export const TIME_SCALE_STEPS: telem.TimeSpan[] = [
+  telem.TimeSpan.NANOSECOND, // 1ns
+  telem.TimeSpan.nanoseconds(2), // 2ns
+  telem.TimeSpan.nanoseconds(5), // 5ns
+  telem.TimeSpan.nanoseconds(10), // 10ns
+  telem.TimeSpan.nanoseconds(20), // 20ns
+  telem.TimeSpan.nanoseconds(50), // 50ns
+  telem.TimeSpan.nanoseconds(100), // 100ns
+  telem.TimeSpan.nanoseconds(200), // 200ns
+  telem.TimeSpan.nanoseconds(500), // 500ns
+  telem.TimeSpan.MICROSECOND, // 1µs
+  telem.TimeSpan.microseconds(2), // 2µs
+  telem.TimeSpan.microseconds(5), // 5µs
+  telem.TimeSpan.microseconds(10), // 10µs
+  telem.TimeSpan.microseconds(20), // 20µs
+  telem.TimeSpan.microseconds(50), // 50µs
+  telem.TimeSpan.microseconds(100), // 100µs
+  telem.TimeSpan.microseconds(200), // 200µs
+  telem.TimeSpan.microseconds(500), // 500µs
+  telem.TimeSpan.MILLISECOND, // 1ms
+  telem.TimeSpan.milliseconds(2), // 2ms
+  telem.TimeSpan.milliseconds(5), // 5ms
+  telem.TimeSpan.milliseconds(10), // 10ms
+  telem.TimeSpan.milliseconds(20), // 20ms
+  telem.TimeSpan.milliseconds(50), // 50ms
+  telem.TimeSpan.milliseconds(100), // 100ms
+  telem.TimeSpan.milliseconds(200), // 200ms
+  telem.TimeSpan.milliseconds(500), // 500ms
+  telem.TimeSpan.SECOND, // 1s
 ];
 
 /**
@@ -49,7 +49,7 @@ export const TIME_SCALE_STEPS: TimeSpan[] = [
  */
 export interface PreciseTimeScaleProps {
   /** The domain of the time scale as [start, end] timestamps */
-  domain: [CrudeTimeStamp, CrudeTimeStamp];
+  domain: [telem.CrudeTimeStamp, telem.CrudeTimeStamp];
   /** The range of the scale as [start, end] numbers for visual representation */
   range: [number, number];
 }
@@ -76,16 +76,16 @@ export interface PreciseTimeScaleProps {
  * ```
  */
 export class PreciseTimeScale {
-  private _domain: [TimeStamp, TimeStamp];
+  private _domain: [telem.TimeStamp, telem.TimeStamp];
   private _range: [number, number];
-  private _span: TimeSpan;
+  private _span: telem.TimeSpan;
 
   /**
    * Creates a new PreciseTimeScale instance with default domain [0, 1] and range [0, 1].
    */
   constructor() {
     // Default initialization
-    this._domain = [new TimeStamp(0n), new TimeStamp(1n)];
+    this._domain = [new telem.TimeStamp(0n), new telem.TimeStamp(1n)];
     this._range = [0, 1];
     this._span = this._domain[1].span(this._domain[0]);
   }
@@ -96,11 +96,11 @@ export class PreciseTimeScale {
    * @param domain - Optional domain to set as [start, end] timestamps
    * @returns Current domain if no argument provided, or this instance for chaining
    */
-  domain(): [TimeStamp, TimeStamp];
-  domain(domain: [CrudeTimeStamp, CrudeTimeStamp]): this;
-  domain(domain?: [CrudeTimeStamp, CrudeTimeStamp]): [TimeStamp, TimeStamp] | this {
+  domain(): [telem.TimeStamp, telem.TimeStamp];
+  domain(domain: [telem.CrudeTimeStamp, telem.CrudeTimeStamp]): this;
+  domain(domain?: [telem.CrudeTimeStamp, telem.CrudeTimeStamp]): [telem.TimeStamp, telem.TimeStamp] | this {
     if (domain === undefined) return this._domain;
-    this._domain = [new TimeStamp(domain[0]), new TimeStamp(domain[1])];
+    this._domain = [new telem.TimeStamp(domain[0]), new telem.TimeStamp(domain[1])];
     this._span = this._domain[1].span(this._domain[0]);
     return this;
   }
@@ -125,8 +125,8 @@ export class PreciseTimeScale {
    * @param value - The timestamp to scale
    * @returns The scaled numeric value within the range
    */
-  scale(value: CrudeTimeStamp): number {
-    const ts = new TimeStamp(value);
+  scale(value: telem.CrudeTimeStamp): number {
+    const ts = new telem.TimeStamp(value);
     const v = ts.valueOf();
     const start = this._domain[0].valueOf();
     const span = this._domain[1].valueOf() - start;
@@ -141,7 +141,7 @@ export class PreciseTimeScale {
    * @param count - Desired number of ticks (actual count may differ to maintain nice intervals)
    * @returns Array of timestamps representing tick positions
    */
-  ticks(count: number): TimeStamp[] {
+  ticks(count: number): telem.TimeStamp[] {
     const step = this.calculateOptimalStep(count).valueOf();
     const start = this._domain[0].valueOf();
     const end = this._domain[1].valueOf();
@@ -149,7 +149,7 @@ export class PreciseTimeScale {
     const stops = Number((end - alignedStart) / step);
     return Array.from({ length: stops + 1 }, (_, i) => {
       const nanoValue = alignedStart + BigInt(i) * step;
-      return new TimeStamp(nanoValue);
+      return new telem.TimeStamp(nanoValue);
     }).filter((ts) => ts.afterEq(this._domain[0]) && ts.beforeEq(this._domain[1]));
   }
 
@@ -160,7 +160,7 @@ export class PreciseTimeScale {
    * @param targetCount - Desired number of ticks
    * @returns The optimal TimeSpan step size
    */
-  private calculateOptimalStep(targetCount: number): TimeSpan {
+  private calculateOptimalStep(targetCount: number): telem.TimeSpan {
     const rawStepNanoseconds = this._span.valueOf() / BigInt(Math.ceil(targetCount));
     let bestStep = TIME_SCALE_STEPS[0];
     for (const step of TIME_SCALE_STEPS) {
@@ -179,12 +179,12 @@ export class PreciseTimeScale {
    * @param value - The timestamp to format
    * @returns Formatted string representation of the timestamp
    */
-  formatTick(value: TimeStamp): string {
-    if (this._span.lessThan(TimeSpan.microseconds(50))) {
-      const remainder = value.remainder(TimeSpan.MILLISECOND);
+  formatTick(value: telem.TimeStamp): string {
+    if (this._span.lessThan(telem.TimeSpan.microseconds(50))) {
+      const remainder = value.remainder(telem.TimeSpan.MILLISECOND);
       return `${remainder.microseconds.toString()}µs`;
     }
-    const remainder = value.remainder(TimeSpan.SECOND);
+    const remainder = value.remainder(telem.TimeSpan.SECOND);
     return `${remainder.milliseconds.toString()}ms`;
   }
 }

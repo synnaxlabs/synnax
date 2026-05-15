@@ -7,26 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { direction } from "@synnaxlabs/x/direction";
+import { math } from "@synnaxlabs/x/math";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { status } from "@synnaxlabs/charon/status/aether";
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  bounds,
-  type box,
-  clamp,
-  color,
-  DataType,
-  type destructor,
-  type direction,
-  math,
-  type MultiSeries,
-  type scale,
-  type Series,
-  type SeriesDigest,
-  TimeSpan,
-  xy,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";
@@ -50,7 +45,7 @@ export const stateZ = z.object({
 const safelyGetDataValue = (
   series: number,
   index: number,
-  data: MultiSeries,
+  data: xtelem.MultiSeries,
 ): number => {
   if (series === -1 || index === -1 || series >= data.series.length) return NaN;
   return Number(data.series[series].at(index));
@@ -59,7 +54,7 @@ const safelyGetDataValue = (
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.infer<typeof stateZ>;
 
-const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
+const DEFAULT_OVERLAP_THRESHOLD = xtelem.TimeSpan.milliseconds(2);
 
 export interface FindResult {
   // The line key that the point belongs to.
@@ -105,9 +100,9 @@ interface TranslationBufferCacheEntry {
 
 const dataTypeToGLProgram = (
   gl: WebGL2RenderingContext,
-  dataType: DataType,
+  dataType: xtelem.DataType,
 ): number => {
-  if (dataType.equals(DataType.UINT8)) return gl.UNSIGNED_BYTE;
+  if (dataType.equals(xtelem.DataType.UINT8)) return gl.UNSIGNED_BYTE;
   return gl.FLOAT;
 };
 
@@ -143,8 +138,8 @@ export class GLProgram extends render.GLProgram {
   draw(
     { x, y, count, downsample, xOffset, yOffset }: DrawOperation,
     instances: number,
-    xDataType: DataType,
-    yDataType: DataType,
+    xDataType: xtelem.DataType,
+    yDataType: xtelem.DataType,
   ): void {
     const { gl } = this.renderCtx;
     this.bindAttrBuffer("x", x.glBuffer, downsample, xOffset, xDataType);
@@ -157,7 +152,7 @@ export class GLProgram extends render.GLProgram {
     buffer: WebGLBuffer,
     downsample: number,
     alignment: number = 0,
-    dataType: DataType,
+    dataType: xtelem.DataType,
   ): void {
     const { gl } = this.renderCtx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -165,7 +160,7 @@ export class GLProgram extends render.GLProgram {
     const glDataType = dataTypeToGLProgram(gl, dataType);
     const density = dataType.density.valueOf();
 
-    if (dataType.equals(DataType.UINT8))
+    if (dataType.equals(xtelem.DataType.UINT8))
       // Use gl.vertexAttribIPointer for integer attributes
       gl.vertexAttribIPointer(
         aLoc,
@@ -246,8 +241,8 @@ export class Context {
     return this.uint8HybridProgram.renderCtx.gl;
   }
 
-  getProgram(dataType: DataType): GLProgram {
-    if (dataType.equals(DataType.UINT8)) return this.uint8HybridProgram;
+  getProgram(dataType: xtelem.DataType): GLProgram {
+    if (dataType.equals(xtelem.DataType.UINT8)) return this.uint8HybridProgram;
     return this.float32Program;
   }
 
@@ -449,8 +444,8 @@ const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
 export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
 export interface DrawOperation {
-  x: Series;
-  y: Series;
+  x: xtelem.Series;
+  y: xtelem.Series;
   xOffset: number;
   yOffset: number;
   count: number;
@@ -458,17 +453,17 @@ export interface DrawOperation {
 }
 
 interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
-  x: SeriesDigest;
-  y: SeriesDigest;
+  x: xtelem.SeriesDigest;
+  y: xtelem.SeriesDigest;
 }
 
 export const buildDrawOperations = (
-  xSeries: MultiSeries,
-  ySeries: MultiSeries,
+  xSeries: xtelem.MultiSeries,
+  ySeries: xtelem.MultiSeries,
   exposure: number,
   userSpecifiedDownSampling: number,
   downsampleMode: telem.DownsampleMode,
-  overlapThreshold: TimeSpan,
+  overlapThreshold: xtelem.TimeSpan,
 ): DrawOperation[] => {
   if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
   const ops: DrawOperation[] = [];
@@ -505,7 +500,7 @@ export const buildDrawOperations = (
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
-const seriesOverlap = (x: Series, ys: Series, overlapThreshold: TimeSpan): boolean => {
+const seriesOverlap = (x: xtelem.Series, ys: xtelem.Series, overlapThreshold: xtelem.TimeSpan): boolean => {
   if (x.alignmentMultiple !== ys.alignmentMultiple) {
     console.warn(
       "encountered two series with different alignment multiples in draw operations",

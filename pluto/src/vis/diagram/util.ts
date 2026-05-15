@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x/box";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactFlowInstance } from "@xyflow/react";
 
 import { type Diagram } from ".";

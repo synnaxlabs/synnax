@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { type ranger } from "@synnaxlabs/client";
-import {
-  type CrudeTimeRange,
-  type NumericTimeRange,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 export const STAGES = ["to_do", "in_progress", "completed"] as const;
 
 export type Stage = (typeof STAGES)[number];
@@ -23,9 +18,9 @@ export type Stage = (typeof STAGES)[number];
 export const sortByStage = (a: ranger.Range, b: ranger.Range): number =>
   STAGES.indexOf(getStage(a.timeRange)) - STAGES.indexOf(getStage(b.timeRange));
 
-export const getStage = (timeRange: CrudeTimeRange): Stage => {
-  const tr = new TimeRange(timeRange).makeValid();
-  const now = TimeStamp.now();
+export const getStage = (timeRange: telem.CrudeTimeRange): Stage => {
+  const tr = new telem.TimeRange(timeRange).makeValid();
+  const now = telem.TimeStamp.now();
   if (now.before(tr.start)) return "to_do";
   if (now.after(tr.end)) return "completed";
   return "in_progress";
@@ -44,8 +39,8 @@ export const STAGE_NAMES: Record<Stage, string> = {
 };
 
 interface WrapNumericTimeRangeToStageArgs {
-  value: NumericTimeRange;
-  onChange: (value: NumericTimeRange) => void;
+  value: telem.NumericTimeRange;
+  onChange: (value: telem.NumericTimeRange) => void;
 }
 
 interface WrapNumericTimeRangeToStageReturn {
@@ -62,16 +57,16 @@ export const wrapNumericTimeRangeToStage = ({
     // We subtract a millisecond here to avoid weird issues where you select "completed"
     // but you actually get "in_progress" or "to_do" because of precision issues with
     // numeric time ranges.
-    const now = TimeStamp.now().sub(TimeSpan.MILLISECOND).nanoseconds;
-    const tr = new TimeRange(value).makeValid().numeric;
+    const now = telem.TimeStamp.now().sub(telem.TimeSpan.MILLISECOND).nanoseconds;
+    const tr = new telem.TimeRange(value).makeValid().numeric;
     switch (v) {
       case "to_do":
-        if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
+        if (tr.end < now) tr.end = telem.TimeStamp.MAX.nanoseconds;
         if (tr.start < now) tr.start = tr.end;
         break;
       case "in_progress":
         if (tr.start > now) tr.start = now;
-        if (tr.end < now) tr.end = TimeStamp.MAX.nanoseconds;
+        if (tr.end < now) tr.end = telem.TimeStamp.MAX.nanoseconds;
         break;
       case "completed":
         if (tr.end > now) tr.end = now;

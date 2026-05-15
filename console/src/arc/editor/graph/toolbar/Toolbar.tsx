@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tabs } from "@synnaxlabs/charon/tabs";
+import { Text } from "@synnaxlabs/charon/text";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { createTestClient, group, ontology, status } from "@synnaxlabs/client";
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -36,14 +39,14 @@ describe("Status queries", () => {
         key: "list-test-1",
         variant: "info",
         message: "First status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Status 2",
         key: "list-test-2",
         variant: "success",
         message: "Second status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useList(), { wrapper });
@@ -65,7 +68,7 @@ describe("Status queries", () => {
         variant: "warning",
         message: "Test message",
         description: "Test description",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useList(), { wrapper });
@@ -93,7 +96,7 @@ describe("Status queries", () => {
             key,
             variant: "info",
             message: `Message ${i}`,
-            time: TimeStamp.now(),
+            time: telem.TimeStamp.now(),
           }),
         ),
       );
@@ -121,7 +124,7 @@ describe("Status queries", () => {
         key: "filter-label-test",
         variant: "info",
         message: "Filter label test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await client.labels.label(status.ontologyID("filter-label-test"), [label.key]);
 
@@ -140,7 +143,7 @@ describe("Status queries", () => {
         key: "unlabeled-status-test",
         variant: "info",
         message: "Unlabeled status test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       act(() => {
         result.current.retrieve({ hasLabels: [label.key] });
@@ -152,7 +155,7 @@ describe("Status queries", () => {
         key: "labeled-status-test",
         variant: "info",
         message: "Labeled status test",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await client.labels.label(status.ontologyID("labeled-status-test"), [label.key]);
       act(() => {
@@ -170,21 +173,21 @@ describe("Status queries", () => {
           key: `${prefix}-success`,
           variant: "success",
           message: "ok",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Error Status",
           key: `${prefix}-error`,
           variant: "error",
           message: "fail",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Warning Status",
           key: `${prefix}-warning`,
           variant: "warning",
           message: "warn",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -219,21 +222,21 @@ describe("Status queries", () => {
           key: `${prefix}-info`,
           variant: "info",
           message: "info",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Error Status",
           key: `${prefix}-error`,
           variant: "error",
           message: "error",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Success Status",
           key: `${prefix}-success`,
           variant: "success",
           message: "success",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -268,14 +271,14 @@ describe("Status queries", () => {
           key: `${prefix}-error`,
           variant: "error",
           message: "fail",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Warning Status",
           key: `${prefix}-warning`,
           variant: "warning",
           message: "warn",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -304,7 +307,7 @@ describe("Status queries", () => {
         key: `${prefix}-warning`,
         variant: "error",
         message: "now an error",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       act(() => {
@@ -325,14 +328,14 @@ describe("Status queries", () => {
           key: `${prefix}-error-1`,
           variant: "error",
           message: "first error",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
         {
           name: "Error Two",
           key: `${prefix}-error-2`,
           variant: "error",
           message: "second error",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         },
       ]);
 
@@ -360,7 +363,7 @@ describe("Status queries", () => {
         key: `${prefix}-error-2`,
         variant: "warning",
         message: "now a warning",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       await waitFor(() => expect(result.current.data).toHaveLength(1));
@@ -376,7 +379,7 @@ describe("Status queries", () => {
             key: `page-${i}-${Date.now()}`,
             variant: "info",
             message: `Message ${i}`,
-            time: TimeStamp.now(),
+            time: telem.TimeStamp.now(),
           }),
         ),
       );
@@ -399,7 +402,7 @@ describe("Status queries", () => {
         key: "delete-hook-test",
         variant: "error",
         message: "Will be deleted",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useDelete(), { wrapper });
@@ -425,7 +428,7 @@ describe("Status queries", () => {
             key: "set-hook-test",
             variant: "loading",
             message: "Testing set hook",
-            time: TimeStamp.now(),
+            time: telem.TimeStamp.now(),
           },
         });
       });
@@ -446,14 +449,14 @@ describe("Status queries", () => {
               key: "batch-hook-1",
               variant: "info",
               message: "First",
-              time: TimeStamp.now(),
+              time: telem.TimeStamp.now(),
             },
             {
               name: "Batch 2",
               key: "batch-hook-2",
               variant: "success",
               message: "Second",
-              time: TimeStamp.now(),
+              time: telem.TimeStamp.now(),
             },
           ],
         });
@@ -481,7 +484,7 @@ describe("Status queries", () => {
             key: "child-hook-test",
             variant: "info",
             message: "Has parent",
-            time: TimeStamp.now(),
+            time: telem.TimeStamp.now(),
           },
           parent: parentOntologyID,
         });
@@ -501,7 +504,7 @@ describe("Status queries", () => {
         key: "single-retrieve-test",
         variant: "disabled",
         message: "Test single retrieve",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useRetrieve({ key: testStatus.key }), {
@@ -521,7 +524,7 @@ describe("Status queries", () => {
         key,
         variant: "info",
         message: "Original",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useRetrieve({ key }), { wrapper });
@@ -535,7 +538,7 @@ describe("Status queries", () => {
           key,
           variant: "warning",
           message: "Updated",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         });
       });
 
@@ -560,7 +563,7 @@ describe("Status queries", () => {
         key: `realtime-${Date.now()}`,
         variant: "success",
         message: "Created after hook",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       await waitFor(() => expect(result.current.data).toContain(newStatus.key));
@@ -573,7 +576,7 @@ describe("Status queries", () => {
         key: `delete-realtime-${Date.now()}`,
         variant: "error",
         message: "Delete me",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Status.useList(), { wrapper });
@@ -635,7 +638,7 @@ describe("Status queries", () => {
         variant: "warning",
         message: "Existing message",
         description: "Existing description",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(() => Status.useForm({ query: { key } }), {
         wrapper,
@@ -656,7 +659,7 @@ describe("Status queries", () => {
         key,
         variant: "error",
         message: "Original",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(
         () => ({
@@ -720,7 +723,7 @@ describe("Status queries", () => {
         key,
         variant: "info",
         message: "Initial",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(() => Status.useForm({ query: { key } }), {
         wrapper,
@@ -733,7 +736,7 @@ describe("Status queries", () => {
           key,
           variant: "warning",
           message: "Updated externally",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         });
       });
       await waitFor(() => {
@@ -827,7 +830,7 @@ describe("Status queries", () => {
         key,
         variant: "info",
         message: "Testing labels",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       await client.labels.label(status.ontologyID(key), [label1.key]);
       const { result } = renderHook(() => Status.useForm({ query: { key } }), {
@@ -869,7 +872,7 @@ describe("Status queries", () => {
         key,
         variant: "info",
         message: "Testing label sync",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(() => Status.useForm({ query: { key } }), {
         wrapper,
@@ -907,7 +910,7 @@ describe("Status queries", () => {
         key,
         variant: "info",
         message: "Original",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(
         () => ({
@@ -941,14 +944,14 @@ describe("Status queries", () => {
         key: `retrieve-multiple-${id.create()}`,
         variant: "info",
         message: "First status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Retrieve Multiple 2",
         key: `retrieve-multiple-${id.create()}`,
         variant: "success",
         message: "Second status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(
         () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
@@ -965,14 +968,14 @@ describe("Status queries", () => {
         key: `retrieve-multiple-${id.create()}`,
         variant: "info",
         message: "First status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Retrieve Multiple 2",
         key: `retrieve-multiple-${id.create()}`,
         variant: "success",
         message: "Second status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const { result } = renderHook(
         () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
@@ -988,7 +991,7 @@ describe("Status queries", () => {
           key: status1.key,
           variant: "success",
           message: "First status updated",
-          time: TimeStamp.now(),
+          time: telem.TimeStamp.now(),
         });
       });
       await waitFor(() => {
@@ -1005,14 +1008,14 @@ describe("Status queries", () => {
         key: `retrieve-multiple-direct-${id.create()}`,
         variant: "info",
         message: "First status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Retrieve Multiple Direct 2",
         key: `retrieve-multiple-direct-${id.create()}`,
         variant: "success",
         message: "Second status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
@@ -1036,14 +1039,14 @@ describe("Status queries", () => {
         key: `cached-status-${id.create()}`,
         variant: "info",
         message: "Cached",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "Uncached Status",
         key: `uncached-status-${id.create()}`,
         variant: "success",
         message: "Uncached",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
@@ -1071,14 +1074,14 @@ describe("Status queries", () => {
         key: `all-cached-${id.create()}`,
         variant: "info",
         message: "All cached 1",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
       const status2 = await client.statuses.set({
         name: "All Cached 2",
         key: `all-cached-${id.create()}`,
         variant: "success",
         message: "All cached 2",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
       });
 
       const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {

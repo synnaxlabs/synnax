@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { workspace } from "@synnaxlabs/client";
-import { Access, Icon, Workspace } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access, Workspace } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";

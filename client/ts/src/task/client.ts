@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { id } from "@synnaxlabs/x/id";
+import { record } from "@synnaxlabs/x/record";
+import { strings } from "@synnaxlabs/x/strings";
+import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  array,
-  caseconv,
-  type CrudeTimeSpan,
-  id,
-  type record,
-  strings,
-  TimeSpan,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type framer } from "@/framer";
@@ -69,7 +67,7 @@ export interface ExecuteCommandsParams {
 }
 
 export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
-  timeout?: CrudeTimeSpan;
+  timeout?: telem.CrudeTimeSpan;
 }
 
 export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
@@ -498,7 +496,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
 interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodNever> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
-  timeout?: CrudeTimeSpan;
+  timeout?: telem.CrudeTimeSpan;
   statusDataZ: StatusData;
   name: string | string[] | (() => Promise<string | string[]>);
 }
@@ -506,14 +504,14 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
 const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
-  timeout = TimeSpan.seconds(10),
+  timeout = telem.TimeSpan.seconds(10),
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
   if (frameClient == null) throw new Error("Task not created");
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
-  const parsedTimeout = new TimeSpan(timeout);
+  const parsedTimeout = new telem.TimeSpan(timeout);
   let states: Status<StatusData>[] = [];
   let timeoutID: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
@@ -545,7 +543,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
 const formatTimeoutError = async (
   type: string,
   name: string | string[] | (() => Promise<string | string[]>),
-  timeout: TimeSpan,
+  timeout: telem.TimeSpan,
   key: Key | Key[],
 ): Promise<Error> => {
   const formattedType = caseconv.capitalize(type);

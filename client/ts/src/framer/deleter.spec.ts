@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError, UnauthorizedError } from "@/errors";
@@ -22,46 +22,46 @@ describe("Deleter", () => {
   test("Client - basic delete", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    await client.write(TimeStamp.seconds(5), {
+    await client.write(telem.TimeStamp.seconds(5), {
       [indexCh.key]: secondsLinspace(5, 10),
       [dataCh.key]: data,
     });
-    const res = await client.read(TimeRange.MAX, dataCh.key);
+    const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data.length).toEqual(10);
-    await client.delete(dataCh.key, TimeStamp.seconds(5).range(TimeStamp.seconds(7)));
+    await client.delete(dataCh.key, telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)));
 
-    const deletedRes = await client.read(TimeRange.MAX, dataCh.key);
+    const deletedRes = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(deletedRes.data.length).toEqual(8);
     expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
   test("Client - basic delete by name", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    await client.write(TimeStamp.seconds(5), {
+    await client.write(telem.TimeStamp.seconds(5), {
       [indexCh.key]: secondsLinspace(5, 10),
       [dataCh.key]: data,
     });
-    const res = await client.read(TimeRange.MAX, dataCh.key);
+    const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data.length).toEqual(10);
-    await client.delete(dataCh.name, TimeStamp.seconds(5).range(TimeStamp.seconds(7)));
+    await client.delete(dataCh.name, telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)));
 
-    const deletedRes = await client.read(TimeRange.MAX, dataCh.key);
+    const deletedRes = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(deletedRes.data.length).toEqual(8);
     expect(Array.from(deletedRes)).toEqual([3, 4, 5, 6, 7, 8, 9, 10]);
   });
   test("Client - delete key not found", async () => {
     const [indexCh, dataCh] = await newIndexedPair(client);
     const data = randomSeries(10, dataCh.dataType);
-    await client.write(TimeStamp.seconds(0), {
+    await client.write(telem.TimeStamp.seconds(0), {
       [indexCh.key]: secondsLinspace(0, 10),
       [dataCh.key]: data,
     });
 
-    await expect(client.delete([indexCh.key, 1232], TimeRange.MAX)).rejects.toThrow(
+    await expect(client.delete([indexCh.key, 1232], telem.TimeRange.MAX)).rejects.toThrow(
       NotFoundError,
     );
 
-    const res = await client.read(TimeRange.MAX, dataCh.key);
+    const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data).toEqual(data);
   });
 
@@ -69,12 +69,12 @@ describe("Deleter", () => {
     const [indexCh] = await newIndexedPair(client);
 
     const writer = await client.openWriter({
-      start: TimeStamp.seconds(10),
+      start: telem.TimeStamp.seconds(10),
       channels: [indexCh.key],
     });
 
     await expect(
-      client.delete([indexCh.key], TimeStamp.seconds(12).range(TimeStamp.seconds(30))),
+      client.delete([indexCh.key], telem.TimeStamp.seconds(12).range(telem.TimeStamp.seconds(30))),
     ).rejects.toThrow(UnauthorizedError);
 
     await writer.close();
@@ -87,7 +87,7 @@ describe("Deleter", () => {
     const data = randomSeries(10, dat.dataType);
 
     const time = BigInt64Array.from({ length: 10 }, (_, i) =>
-      TimeStamp.milliseconds(i).valueOf(),
+      telem.TimeStamp.milliseconds(i).valueOf(),
     );
 
     await index.write(0, time);
@@ -96,7 +96,7 @@ describe("Deleter", () => {
     await expect(
       client.delete(
         [index.key],
-        TimeStamp.milliseconds(2).range(TimeStamp.milliseconds(5)),
+        telem.TimeStamp.milliseconds(2).range(telem.TimeStamp.milliseconds(5)),
       ),
     ).rejects.toThrow();
   });

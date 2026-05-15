@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type xy } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x/compare";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";

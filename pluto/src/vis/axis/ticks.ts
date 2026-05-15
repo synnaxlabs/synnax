@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { bounds } from "@synnaxlabs/x/bounds";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
 import { z } from "zod";
 
@@ -54,7 +56,7 @@ class TimeTickFactory implements TickFactory {
   private readonly props: ParsedTickFactoryProps;
 
   private prevScaleSize: number;
-  private prevDomain: TimeRange;
+  private prevDomain: telem.TimeRange;
   private currTicks: Tick[];
 
   private readonly normalScale: ScaleTime<number, number>;
@@ -65,14 +67,14 @@ class TimeTickFactory implements TickFactory {
     this.normalScale = scaleTime();
     this.preciseScale = preciseTimeScale();
     this.prevScaleSize = 0;
-    this.prevDomain = new TimeRange(new TimeStamp(0), new TimeStamp(0));
+    this.prevDomain = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(0));
     this.currTicks = [];
   }
 
   create({ decimalToDataScale: scale, size }: TickFactoryRenderArgs): Tick[] {
-    const domain = new TimeRange(
-      new TimeStamp(scale.pos(0)),
-      new TimeStamp(scale.pos(1)),
+    const domain = new telem.TimeRange(
+      new telem.TimeStamp(scale.pos(0)),
+      new telem.TimeStamp(scale.pos(1)),
     );
     if (this.prevDomain.equals(domain) && this.prevScaleSize === size)
       return this.currTicks;

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
+import { require } from "@synnaxlabs/x/require";
+import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
-import {
-  type Control,
-  type Diagram,
-  type Theming,
-  type Viewport,
-} from "@synnaxlabs/pluto";
-import { color, deep, id, type require, xy } from "@synnaxlabs/x";
+import type { Theming } from "@synnaxlabs/charon/theming";
+import type { Control, Diagram, Viewport } from "@synnaxlabs/pluto";
 
 import * as latest from "@/schematic/types";
 import { ZERO_COPY_BUFFER } from "@/schematic/types/v6";

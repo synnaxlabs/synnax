@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { control } from "@synnaxlabs/x/control";
+import { destructor } from "@synnaxlabs/x/destructor";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { channel } from "@synnaxlabs/client";
-import { color, control, type destructor } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";

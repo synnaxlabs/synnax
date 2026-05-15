@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Input } from "@synnaxlabs/charon/input";
 import { Select } from "@synnaxlabs/charon/select";
 import { Tabs } from "@synnaxlabs/charon/tabs";
 import type { Text } from "@synnaxlabs/charon/text";
-import { color } from "@synnaxlabs/x";
+
 import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
-import { Form } from "@/form";
+import { Form } from "@synnaxlabs/charon/form";
 import { type Variant } from "@/table/cells/registry";
 import { Value } from "@/vis/value";
 

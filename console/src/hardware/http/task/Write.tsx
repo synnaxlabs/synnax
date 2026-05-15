@@ -7,24 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { json } from "@synnaxlabs/x/json";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
-import { DataType, id, json, primitive } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+
 import { type FC, useCallback, useMemo, useState } from "react";
 
 import { EmptyAction } from "@/components";
@@ -213,10 +215,10 @@ const renderSelectDataType = Component.renderProp((p: Telem.SelectDataTypeProps)
 ));
 
 const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.JSON,
-  DataType.BYTES,
-  DataType.UUID,
+  telem.DataType.TIMESTAMP,
+  telem.DataType.JSON,
+  telem.DataType.BYTES,
+  telem.DataType.UUID,
 ];
 
 const generatorDisplayKey = (
@@ -675,7 +677,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       }
 
       // no channel in either device or config, create a new one
-      const dt = new DataType(ep.channel.dataType);
+      const dt = new telem.DataType(ep.channel.dataType);
       const cmdName = primitive.isNonZero(ep.channel.name)
         ? ep.channel.name
         : `${safeDevName}${escapedPath}_cmd`;

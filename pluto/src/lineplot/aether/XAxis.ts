@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
@@ -89,8 +90,8 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     xDataToDecimalScale: scale.Scale,
   ): void {
     const bound = this.bounds(props.hold);
-    const clampedBounds = bounds.min([bound, TimeRange.MAX.numericBounds]);
-    const timeRange = new TimeRange(clampedBounds.lower, clampedBounds.upper);
+    const clampedBounds = bounds.min([bound, telem.TimeRange.MAX.numericBounds]);
+    const timeRange = new telem.TimeRange(clampedBounds.lower, clampedBounds.upper);
     this.ranges.forEach((el) =>
       el.render({
         dataToDecimalScale: xDataToDecimalScale,

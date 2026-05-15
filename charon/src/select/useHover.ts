@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import { useCallback, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
@@ -26,8 +27,8 @@ const DOWN_TRIGGER: Triggers.Trigger = ["ArrowDown"];
 const SELECT_TRIGGER: Triggers.Trigger = ["Enter"];
 const TRIGGERS: Triggers.Trigger[] = [UP_TRIGGER, DOWN_TRIGGER, SELECT_TRIGGER];
 
-const INITIAL_HOVER_DELAY = TimeSpan.milliseconds(200).milliseconds;
-const HOVER_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
+const INITIAL_HOVER_DELAY = telem.TimeSpan.milliseconds(200).milliseconds;
+const HOVER_INTERVAL = telem.TimeSpan.milliseconds(100).milliseconds;
 
 export interface UseHoverReturn<K extends record.Key> {
   hover: K;

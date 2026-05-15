@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { CSS } from "@synnaxlabs/charon/css";
-import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+
 import {
   type ComponentPropsWithRef,
   type MouseEventHandler,
@@ -26,7 +28,7 @@ export interface ButtonBaseProps extends Omit<
   triggered?: boolean;
   enabled?: boolean;
   color?: color.Crude;
-  onClickDelay?: CrudeTimeSpan;
+  onClickDelay?: telem.CrudeTimeSpan;
 }
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
@@ -43,7 +45,7 @@ export const Button = ({
   style,
   ...rest
 }: ButtonProps): ReactElement => {
-  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+  const parsedDelay = telem.TimeSpan.fromMilliseconds(onClickDelay);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { Aether } from "@synnaxlabs/charon/aether";
 import { Button } from "@synnaxlabs/charon/button";
 import { CSS } from "@synnaxlabs/charon/css";
@@ -14,7 +16,7 @@ import { Icon } from "@synnaxlabs/charon/icon";
 import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
 import { Text } from "@synnaxlabs/charon/text";
 import { control as clientControl } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
@@ -92,7 +94,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
         key: "no_chip",
         variant: "disabled",
         message: "No chip connected.",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         details: {},
       },
     },

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Triggers } from "@synnaxlabs/pluto";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 

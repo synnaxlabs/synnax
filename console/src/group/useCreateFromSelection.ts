@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x/uuid";
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, Text, Tree } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tree } from "@synnaxlabs/charon/tree";
+import { Flux, Group } from "@synnaxlabs/pluto";
+
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/group/getResourcesToGroup";

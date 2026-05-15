@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Access, Ranger } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { status as xstatus } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   type PropsWithChildren,
   useCallback,
@@ -53,7 +55,7 @@ export const Aggregator = ({ children, maxHistory = 500 }: AggregatorProps) => {
   }
   const handleAdd: Adder = useCallback(
     (status) => {
-      const spec = { time: TimeStamp.now(), key: id.create(), ...status };
+      const spec = { time: telem.TimeStamp.now(), key: id.create(), ...status };
       setState((state) => ({
         ...state,
         statuses: [spec, ...state.statuses.filter((s) => s.key != spec.key)],
@@ -95,12 +97,12 @@ export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> 
   silence: (key: string) => void;
 }
 
-const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
-const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
+const DEFAULT_EXPIRATION = telem.TimeSpan.seconds(7);
+const DEFAULT_EXPIRATION_POLL = telem.TimeSpan.seconds(1);
 
 interface UseNotificationsProps {
-  expiration?: TimeSpan;
-  poll?: TimeSpan;
+  expiration?: telem.TimeSpan;
+  poll?: telem.TimeSpan;
 }
 
 export const useNotifications = ({
@@ -109,10 +111,10 @@ export const useNotifications = ({
 }: UseNotificationsProps = {}): UseNotificationsReturn => {
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
+  const [now, setNow] = useState(() => telem.TimeStamp.now());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), poll.milliseconds);
+    const interval = setInterval(() => setNow(telem.TimeStamp.now()), poll.milliseconds);
     return () => clearInterval(interval);
   }, [poll.milliseconds]);
 

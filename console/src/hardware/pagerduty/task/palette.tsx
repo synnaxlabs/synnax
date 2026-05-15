@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Access } from "@synnaxlabs/pluto";
 
 import { ALERT_LAYOUT } from "@/hardware/pagerduty/task/Alert";
 import { Palette } from "@/palette";

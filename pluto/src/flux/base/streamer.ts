@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { destructor } from "@synnaxlabs/x/destructor";
+import { strings } from "@synnaxlabs/x/strings";
+import { telem } from "@synnaxlabs/x/telem";
+import { unique } from "@synnaxlabs/x/unique";
 import type { Status } from "@synnaxlabs/charon/status";
 import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { DataType, type destructor, strings, unique } from "@synnaxlabs/x";
+
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/base/store";
@@ -92,7 +96,7 @@ export const openStreamer = async <ScopedStore extends Store>({
           for (const { onChange, schema } of listeners)
             await handleError(async () => {
               let parsed: z.output<typeof schema>[];
-              if (!series.dataType.equals(DataType.JSON))
+              if (!series.dataType.equals(telem.DataType.JSON))
                 parsed = Array.from(series).map((s) => schema.parse(s));
               else parsed = series.parseJSON(schema);
               for (const changed of parsed)

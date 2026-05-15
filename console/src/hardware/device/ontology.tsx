@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/x/status";
 import "@/hardware/device/ontology.css";
 
 import { device, type ontology } from "@synnaxlabs/client";
-import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tree } from "@synnaxlabs/charon/tree";
+import { Access, Device } from "@synnaxlabs/pluto";
+
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";

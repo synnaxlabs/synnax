@@ -7,11 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { optional } from "@synnaxlabs/x/optional";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/opc/device/Browser.css";
 
-import { Haul } from "@synnaxlabs/charon";
-import { Button, Component, type Device as PDevice, Flex, Flux, Header, Icon, List, Select, Status, Text, TimeSpan, Tree, useCombinedStateAndRef } from "@synnaxlabs/pluto";
-import { array, type optional, type status } from "@synnaxlabs/x";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Header } from "@synnaxlabs/charon/header";
+import { useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tree } from "@synnaxlabs/charon/tree";
+import { type Device as PDevice, Flux } from "@synnaxlabs/pluto";
+
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
@@ -108,7 +123,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
     const scanTask = await retrieveScanTask(client, store, rack);
     const { details, variant, message } = await scanTask.executeCommandSync({
       type: BROWSE_COMMAND_TYPE,
-      timeout: TimeSpan.seconds(10),
+      timeout: telem.TimeSpan.seconds(10),
       args: { connection, node_id: id },
     });
     if (variant !== "success") throw new Error(message);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime } from "@synnaxlabs/x";
+import { runtime } from "@synnaxlabs/x/runtime";
 import { type ReactElement } from "react";
 
 import { type Generic } from "@/generic";

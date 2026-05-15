@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x/id";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { describe, expect, test } from "vitest";
 
 import { createTestClient } from "@/testutil/client";

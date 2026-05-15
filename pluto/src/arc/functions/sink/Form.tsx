@@ -12,7 +12,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 
 export const Form = (): ReactElement => (
   <Flex.Box x>

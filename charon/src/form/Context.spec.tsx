@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ const mockOverride: Form.ContextValue = {
       variant: "success" as const,
       message: "",
       description: undefined,
-      time: TimeStamp.now(),
+      time: telem.TimeStamp.now(),
     },
     touched: false,
     required: false,

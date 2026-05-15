@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import { type label } from "@synnaxlabs/client";
-import { type Dialog, Form, type Select } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import type { Dialog } from "@synnaxlabs/charon/dialog";
+import { Form } from "@synnaxlabs/charon/form";
+import type { Select } from "@synnaxlabs/charon/select";
+
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/label/Select";

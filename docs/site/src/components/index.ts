@@ -20,7 +20,6 @@ export { Feedback } from "@/components/feedback";
 export { Media } from "@/components/media";
 export { Nav } from "@/components/nav";
 export { Platform } from "@/components/platform";
-export { Pluto } from "@/components/pluto";
 export { Releases } from "@/components/releases";
 export { Rule } from "@/components/rule";
 export { Search } from "@/components/search";

@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x/errors";
+import { narrow } from "@synnaxlabs/x/narrow";
+import { status } from "@synnaxlabs/x/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { type errors, narrow, status } from "@synnaxlabs/x";
+import { Status } from "@synnaxlabs/charon/status";
+import { Flux, Pluto, Synnax } from "@synnaxlabs/pluto";
+
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import type z from "zod";
 

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { breaker } from "@synnaxlabs/x/breaker";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   ExtensionHostKind,
   registerExtension,
@@ -15,7 +18,7 @@ import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
-import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
+
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {
@@ -405,7 +408,7 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
 };
 
 const LSP_BREAKER_CONFIG: breaker.Config = {
-  baseInterval: TimeSpan.seconds(1),
+  baseInterval: telem.TimeSpan.seconds(1),
   maxRetries: 50,
   scale: 1.5,
 };

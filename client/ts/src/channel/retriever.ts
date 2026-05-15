@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, DataType, debounce, zod } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import { debounce } from "@synnaxlabs/x/debounce";
+import { telem } from "@synnaxlabs/x/telem";
+import { zod } from "@synnaxlabs/x/zod";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -29,8 +32,8 @@ const reqZ = z.object({
   rangeKey: rangeKeyZ.optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),
-  dataTypes: DataType.z.array().optional(),
-  notDataTypes: DataType.z.array().optional(),
+  dataTypes: telem.DataType.z.array().optional(),
+  notDataTypes: telem.DataType.z.array().optional(),
   virtual: z.boolean().optional(),
   isIndex: z.boolean().optional(),
   internal: z.boolean().optional(),

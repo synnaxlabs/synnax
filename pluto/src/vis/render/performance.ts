@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeSpan } from "@synnaxlabs/x";
-
+import { destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 class TrackerEntry {
   level: number;
   private total: number;
   private overTarget: number;
-  private readonly target: TimeSpan;
+  private readonly target: telem.TimeSpan;
 
-  constructor(target: TimeSpan) {
+  constructor(target: telem.TimeSpan) {
     this.target = target;
     this.overTarget = 0;
     this.level = 0;
@@ -27,7 +27,7 @@ class TrackerEntry {
     return [
       this.level,
       () => {
-        const elapsed = TimeSpan.milliseconds(performance.now() - start);
+        const elapsed = telem.TimeSpan.milliseconds(performance.now() - start);
         if (elapsed.greaterThan(this.target)) this.overTarget++;
         this.total++;
       },
@@ -45,9 +45,9 @@ class TrackerEntry {
 
 export class Tracker {
   private readonly entries: Map<string, TrackerEntry>;
-  private readonly target: TimeSpan;
+  private readonly target: telem.TimeSpan;
 
-  constructor(target: TimeSpan) {
+  constructor(target: telem.TimeSpan) {
     this.entries = new Map();
     this.target = target;
   }

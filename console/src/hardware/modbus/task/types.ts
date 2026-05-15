@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import { type task } from "@synnaxlabs/client";
-import { DataType, id, record } from "@synnaxlabs/x";
+
 import { z } from "zod/v4";
 
 import { Common } from "@/hardware/common";
@@ -69,12 +72,12 @@ export const ZERO_INPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
-    dataType: DataType.UINT8.toString(),
+    dataType: telem.DataType.UINT8.toString(),
     name: "",
   },
   register_input: {
     type: "register_input",
-    dataType: DataType.UINT8.toString(),
+    dataType: telem.DataType.UINT8.toString(),
     address: 0,
     channel: 0,
     enabled: true,
@@ -142,7 +145,7 @@ export const ZERO_OUTPUT_CHANNELS = {
     channel: 0,
     enabled: true,
     key: id.create(),
-    dataType: DataType.UINT8.toString(),
+    dataType: telem.DataType.UINT8.toString(),
     name: "",
   },
 } as const satisfies Record<OutputChannelType, OutputChannel>;

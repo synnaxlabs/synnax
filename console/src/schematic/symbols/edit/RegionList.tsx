@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x/color";
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Color,
-  Flex,
-  Form,
-  Header,
-  Icon,
-  type Input,
-  List,
-  Select,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
+import { Color } from "@synnaxlabs/pluto";
 
 export interface RegionListProps extends Input.Control<string | undefined> {
   selectedState: string;

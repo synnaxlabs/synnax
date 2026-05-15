@@ -17,7 +17,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ scale: z.number() });

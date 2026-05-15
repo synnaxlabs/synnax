@@ -9,7 +9,7 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/charon/flex";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";

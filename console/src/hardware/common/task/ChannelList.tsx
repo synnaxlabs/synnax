@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Component,
-  Flex,
-  Form,
-  Icon,
-  List,
-  Menu,
-  Select,
-} from "@synnaxlabs/pluto";
-import { array } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import type { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { ContextMenu as CMenu } from "@/components";

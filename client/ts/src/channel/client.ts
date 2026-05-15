@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import {
-  array,
-  type CrudeDensity,
-  type CrudeTimeRange,
-  type CrudeTimeStamp,
-  DataType,
-  type MultiSeries,
-  status,
-  type TypedArray,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";
@@ -77,7 +71,7 @@ export class Channel {
   /**
    * The data type of the channel.
    */
-  readonly dataType: DataType;
+  readonly dataType: telem.DataType;
   /**
    * The key of the node in the Synnax cluster that holds the 'lease' over the channel
    * i.e. it's the only node in the cluster allowed to accept writes to the channel. This
@@ -135,13 +129,13 @@ export class Channel {
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
-    density?: CrudeDensity;
+    density?: telem.CrudeDensity;
     status?: status.New;
     operations?: Operation[];
   }) {
     this.key = keyZ.parse(key);
     this.name = name;
-    this.dataType = new DataType(dataType);
+    this.dataType = new telem.DataType(dataType);
     this.leaseholder = leaseholder;
     this.index = keyZ.parse(index);
     this.isIndex = isIndex;
@@ -199,7 +193,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: CrudeTimeRange): Promise<MultiSeries> {
+  async read(tr: telem.CrudeTimeRange): Promise<telem.MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 
@@ -209,7 +203,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
+  async write(start: telem.CrudeTimeStamp, data: telem.TypedArray): Promise<void> {
     return await this.framer.write(start, this.key, data);
   }
 }

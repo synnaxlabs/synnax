@@ -9,7 +9,8 @@
 
 import "@/components/FavoriteButton.css";
 
-import { Button, Icon } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Icon } from "@synnaxlabs/charon/icon";
 
 import { CSS } from "@/css";
 

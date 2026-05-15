@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { xy } from "@synnaxlabs/x/xy";
 import type { Input } from "@synnaxlabs/charon/input";
 import type { Tabs } from "@synnaxlabs/charon/tabs";
-import { type bounds, type xy } from "@synnaxlabs/x";
+
 export const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
   endContent: "ms",
   min: 0,

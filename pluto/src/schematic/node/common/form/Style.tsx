@@ -10,7 +10,7 @@
 import { Flex } from "@synnaxlabs/charon/flex";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form as Base } from "@synnaxlabs/charon/form";
 import { Custom } from "@/schematic/node/common/custom";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";

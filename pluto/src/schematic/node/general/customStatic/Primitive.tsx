@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { location } from "@synnaxlabs/x/location";
 import { CSS } from "@synnaxlabs/charon/css";
 import { type schematic } from "@synnaxlabs/client";
-import { type location } from "@synnaxlabs/x";
+
 import { type ReactElement, useRef, useState } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";

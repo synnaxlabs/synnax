@@ -9,9 +9,13 @@
 
 import "@/schematic/toolbar/Toolbar.css";
 
-import { Key } from "@synnaxlabs/charon";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Key } from "@synnaxlabs/charon/key";
+import { Tabs } from "@synnaxlabs/charon/tabs";
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

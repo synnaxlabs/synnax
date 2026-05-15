@@ -7,25 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/http/task/Form.css";
 
 import { channel, NotFoundError, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Divider,
-  Flex,
-  Form as PForm,
-  Header,
-  Icon,
-  Input,
-  List,
-  Menu,
-  Select,
-  Telem,
-  Text,
-} from "@synnaxlabs/pluto";
-import { DataType, id, primitive } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form as PForm } from "@synnaxlabs/charon/form";
+import { Header } from "@synnaxlabs/charon/header";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Select } from "@synnaxlabs/charon/select";
+import { Telem } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
@@ -165,10 +166,10 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
 const HIDDEN_DATA_TYPES = [
-  DataType.TIMESTAMP,
-  DataType.UUID,
-  DataType.JSON,
-  DataType.BYTES,
+  telem.DataType.TIMESTAMP,
+  telem.DataType.UUID,
+  telem.DataType.JSON,
+  telem.DataType.BYTES,
 ];
 
 const renderTelemSelectDataType = Component.renderProp(
@@ -629,7 +630,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
       const epProps = dev.properties.read[ep.path];
 
       const needsIndex = ep.fields.some(
-        (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
+        (f) => !isTimingField(f) && !new telem.DataType(f.dataType).isVariable,
       );
 
       if (needsIndex) {
@@ -684,7 +685,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
         }
 
         // create a new channel
-        const dt = new DataType(field.dataType);
+        const dt = new telem.DataType(field.dataType);
         const chName = primitive.isNonZero(field.name)
           ? field.name
           : `${safeDevName}${channel.escapeInvalidName(ep.path + field.pointer)}`;

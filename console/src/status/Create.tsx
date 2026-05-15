@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Nav, Status } from "@synnaxlabs/pluto";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Nav } from "@synnaxlabs/charon/nav";
+import { Status } from "@synnaxlabs/charon/status";
+
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -43,7 +49,7 @@ export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactEleme
       ...args,
       key: "",
       message: "",
-      time: TimeStamp.now(),
+      time: telem.TimeStamp.now(),
       name: "",
       description: "",
       variant: "success",

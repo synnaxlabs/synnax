@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RoutedWorker, type SenderHandler, type TypedWorker } from "@synnaxlabs/x";
+import { TypedWorker, RoutedWorker, SenderHandler } from "@synnaxlabs/x/worker";
 import { memo, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { context } from "@/context";

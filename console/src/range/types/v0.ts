@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { numericTimeRangeZ, TimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 export const baseRangeZ = z.object({
@@ -18,7 +18,7 @@ export const baseRangeZ = z.object({
 
 export const staticRangeZ = baseRangeZ.extend({
   variant: z.literal("static"),
-  timeRange: numericTimeRangeZ,
+  timeRange: telem.numericTimeRangeZ,
 });
 
 export type StaticRange = z.infer<typeof staticRangeZ>;
@@ -50,35 +50,35 @@ export const ZERO_SLICE_STATE: SliceState = {
       key: "recent",
       variant: "dynamic",
       name: "Rolling 30s",
-      span: Number(TimeSpan.seconds(30)),
+      span: Number(telem.TimeSpan.seconds(30)),
       persisted: false,
     },
     rolling1m: {
       key: "rolling1m",
       variant: "dynamic",
       name: "Rolling 1m",
-      span: Number(TimeSpan.minutes(1)),
+      span: Number(telem.TimeSpan.minutes(1)),
       persisted: false,
     },
     rolling5m: {
       key: "rolling5m",
       variant: "dynamic",
       name: "Rolling 5m",
-      span: Number(TimeSpan.minutes(5)),
+      span: Number(telem.TimeSpan.minutes(5)),
       persisted: false,
     },
     rolling15m: {
       key: "rolling15m",
       variant: "dynamic",
       name: "Rolling 15m",
-      span: Number(TimeSpan.minutes(15)),
+      span: Number(telem.TimeSpan.minutes(15)),
       persisted: false,
     },
     rolling30m: {
       key: "rolling30m",
       variant: "dynamic",
       name: "Rolling 30m",
-      span: Number(TimeSpan.minutes(30)),
+      span: Number(telem.TimeSpan.minutes(30)),
       persisted: false,
     },
   },

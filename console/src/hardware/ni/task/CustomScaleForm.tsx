@@ -7,9 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/charon";
-import { Flex, Form, Icon, Input, Select } from "@synnaxlabs/pluto";
-import { binary, deep, type record } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { deep } from "@synnaxlabs/x/deep";
+import { record } from "@synnaxlabs/x/record";
+import { state } from "@synnaxlabs/charon/state";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
+
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";

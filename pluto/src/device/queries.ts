@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { record } from "@synnaxlabs/x/record";
+import { uuid } from "@synnaxlabs/x/uuid";
+import { status } from "@synnaxlabs/x/status";
 import { state } from "@synnaxlabs/charon/state";
 import { device, ontology } from "@synnaxlabs/client";
-import { array, primitive, type record, uuid } from "@synnaxlabs/x";
+
 import { useEffect } from "react";
 import { type z } from "zod";
 

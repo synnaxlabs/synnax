@@ -7,39 +7,41 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { telem } from "@synnaxlabs/x/telem";
 import { Select } from "@synnaxlabs/charon/select";
-import { caseconv, DataType } from "@synnaxlabs/x";
+
 import { type ReactElement, useMemo } from "react";
 
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
-const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
+const ALL_CAPS = new Set([telem.DataType.UUID, telem.DataType.JSON]);
 
-const resolveIcon = (d: DataType) => {
+const resolveIcon = (d: telem.DataType) => {
   const Resolved = resolveDataTypeIcon(d);
   return Resolved != null ? <Resolved /> : undefined;
 };
 
-const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
-  (d) => d !== DataType.UNKNOWN,
+const DATA: Select.StaticEntry<string>[] = telem.DataType.ALL.filter(
+  (d) => d !== telem.DataType.UNKNOWN,
 ).map((d) => ({
   key: d.toString(),
   name: ALL_CAPS.has(d)
     ? d.toString().toUpperCase()
-    : d.isNumeric && d !== DataType.TIMESTAMP
+    : d.isNumeric && d !== telem.DataType.TIMESTAMP
       ? d.toString()
       : caseconv.capitalize(d.toString()),
   icon: resolveIcon(d),
 }));
 
-const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);
+const FIXED_DENSITY_DATA = DATA.filter((d) => !new telem.DataType(d.key).isVariable);
 
 export interface SelectDataTypeProps extends Omit<
   Select.StaticProps<string>,
   "data" | "resourceName"
 > {
   hideVariableDensity?: boolean;
-  hideDataTypes?: DataType[];
+  hideDataTypes?: telem.DataType[];
 }
 
 export const SelectDataType = ({
@@ -55,4 +57,4 @@ export const SelectDataType = ({
   return <Select.Static {...rest} data={filteredData} resourceName="data type" />;
 };
 
-const DEFAULT_HIDDEN_DATA_TYPES: DataType[] = [];
+const DEFAULT_HIDDEN_DATA_TYPES: telem.DataType[] = [];

@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { runtime } from "@synnaxlabs/x/runtime";
+import { scale } from "@synnaxlabs/x/scale";
+import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import type { aether } from "@synnaxlabs/charon/aether/runtime";
 import { CSS } from "@synnaxlabs/charon/css";
 import { status } from "@synnaxlabs/charon/status/aether";
-import {
-  box,
-  color,
-  type destructor,
-  dimensions,
-  type runtime,
-  scale,
-  xy,
-} from "@synnaxlabs/x";
 
 import { alamos } from "@/alamos/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";

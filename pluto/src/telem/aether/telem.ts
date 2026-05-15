@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
+import { status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { ValidationError } from "@synnaxlabs/client";
-import {
-  type bounds,
-  type color,
-  type destructor,
-  type MultiSeries,
-  observe,
-  type status,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 const transferrable = z.instanceof(ArrayBuffer);
@@ -81,7 +80,7 @@ export interface SinkTransformer<I, O> extends Telem, Sink<I> {
   setSinks: (sinks: Record<string, Sink<O>>) => void;
 }
 
-export type SeriesSource = Source<[bounds.Bounds, MultiSeries]>;
+export type SeriesSource = Source<[bounds.Bounds, telem.MultiSeries]>;
 export const seriesSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("series") });
 export type SeriesSourceSpec = z.infer<typeof seriesSourceSpecZ>;
 

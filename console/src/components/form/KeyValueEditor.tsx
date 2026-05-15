@@ -9,7 +9,12 @@
 
 import "@/components/form/KeyValueEditor.css";
 
-import { Button, Flex, Form, Icon, Input, Text } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Form } from "@synnaxlabs/charon/form";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { Text } from "@synnaxlabs/charon/text";
 import { useEffect } from "react";
 
 import { CSS } from "@/css";

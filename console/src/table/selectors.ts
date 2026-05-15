@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type TableCells } from "@synnaxlabs/pluto";
-import { type record, type xy } from "@synnaxlabs/x";
+import { record } from "@synnaxlabs/x/record";
+import { xy } from "@synnaxlabs/x/xy";
+import type { TableCells } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {

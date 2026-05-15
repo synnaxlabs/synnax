@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
@@ -18,55 +18,55 @@ describe("DynamicCache", () => {
       it("Should correctly allocate a buffer", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 100,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(3);
-        expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-          TimeSpan.milliseconds(1).valueOf(),
+        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
+          telem.TimeSpan.milliseconds(1).valueOf(),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
         expect(cache.length).toEqual(ser.length);
       });
       it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 100,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        cache.write(new MultiSeries([ser]));
-        const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(3n)]));
+        cache.write(new telem.MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser.reAlign(3n)]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(0);
         expect(cache.length).toEqual(ser.length * 2);
       });
       it("should correctly allocate a single new buffer when the current one is full", async () => {
-        const cache = new Dynamic({ dynamicBufferSize: 2, dataType: DataType.FLOAT32 });
-        const ser = new Series({
+        const cache = new Dynamic({ dynamicBufferSize: 2, dataType: telem.DataType.FLOAT32 });
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(flushed).toHaveLength(2);
         expect(allocated).toHaveLength(3);
         expect(flushed.series[0]).toBe(allocated.series[0]);
         expect(cache.length).toEqual(1);
       });
       it("should correctly allocate multiple new buffers when the current one is full", () => {
-        const cache = new Dynamic({ dynamicBufferSize: 1, dataType: DataType.FLOAT32 });
-        const ser = new Series({
+        const cache = new Dynamic({ dynamicBufferSize: 1, dataType: telem.DataType.FLOAT32 });
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(flushed).toHaveLength(2);
         expect(allocated).toHaveLength(3);
         expect(cache.length).toEqual(1);
@@ -74,36 +74,36 @@ describe("DynamicCache", () => {
       it("it should correctly set multiple writes", async () => {
         const cache = new Dynamic({
           dynamicBufferSize: 10,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const res1 = cache.write(new MultiSeries([ser]));
+        const res1 = cache.write(new telem.MultiSeries([ser]));
         expect(res1.allocated).toHaveLength(3);
         expect(res1.flushed).toHaveLength(0);
         expect(
-          res1.allocated.timeRange.start.sub(TimeStamp.now()).valueOf(),
-        ).toBeLessThan(TimeSpan.milliseconds(1).valueOf());
-        expect(res1.allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
-        const res2 = cache.write(new MultiSeries([ser.reAlign(3n)]));
+          res1.allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf(),
+        ).toBeLessThan(telem.TimeSpan.milliseconds(1).valueOf());
+        expect(res1.allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
+        const res2 = cache.write(new telem.MultiSeries([ser.reAlign(3n)]));
         expect(res2.allocated).toHaveLength(0);
         expect(res2.flushed).toHaveLength(0);
-        const res3 = cache.write(new MultiSeries([ser.reAlign(6n)]));
+        const res3 = cache.write(new telem.MultiSeries([ser.reAlign(6n)]));
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
-        const waitSpan = TimeSpan.milliseconds(10);
+        const waitSpan = telem.TimeSpan.milliseconds(10);
         await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
-        const { flushed, allocated } = cache.write(new MultiSeries([ser.reAlign(9n)]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser.reAlign(9n)]));
         expect(allocated).toHaveLength(2);
-        expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-          TimeSpan.milliseconds(3).valueOf(),
+        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
+          telem.TimeSpan.milliseconds(3).valueOf(),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
         expect(flushed).toHaveLength(10);
         expect(flushed.timeRange.span.sub(waitSpan).valueOf()).toBeLessThanOrEqual(
-          TimeSpan.milliseconds(20).valueOf(),
+          telem.TimeSpan.milliseconds(20).valueOf(),
         );
         expect(flushed.series[0].data.slice(0, 3)).toEqual(new Float32Array([1, 2, 3]));
         expect(flushed.series[0].data.slice(3, 6)).toEqual(new Float32Array([1, 2, 3]));
@@ -113,65 +113,65 @@ describe("DynamicCache", () => {
       it("should allocate a new buffer if the two series are out of alignment", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 10,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const s1 = new Series({
+        const s1 = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const { flushed, allocated } = cache.write(new MultiSeries([s1]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([s1]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(3);
         const s2 = s1.reAlign(5n);
-        const { flushed: f2, allocated: a2 } = cache.write(new MultiSeries([s2]));
+        const { flushed: f2, allocated: a2 } = cache.write(new telem.MultiSeries([s2]));
         expect(f2).toHaveLength(3);
         expect(a2).toHaveLength(3);
       });
       it("in the same write, it should allocate a new buffer if the two series are out of alignment", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 10,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const s1 = new Series({
+        const s1 = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
         const s2 = s1.reAlign(5n);
-        const { flushed, allocated } = cache.write(new MultiSeries([s1, s2]));
+        const { flushed, allocated } = cache.write(new telem.MultiSeries([s1, s2]));
         expect(flushed).toHaveLength(3);
-        expect(allocated.timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-          TimeSpan.milliseconds(10).valueOf(),
+        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
+          telem.TimeSpan.milliseconds(10).valueOf(),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
         expect(flushed.series[0]).toBe(allocated.series[0]);
         expect(allocated).toHaveLength(6);
       });
       it("should allocate the buffer with a bigint sampleOffset for bigint data types", () => {
-        const nowTs = TimeStamp.seconds(1);
+        const nowTs = telem.TimeStamp.seconds(1);
         const cache = new Dynamic({
           dynamicBufferSize: 100,
-          dataType: DataType.INT64,
+          dataType: telem.DataType.INT64,
           now: () => nowTs,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: [nowTs.valueOf(), nowTs.valueOf() + 1n, nowTs.valueOf() + 2n],
-          dataType: DataType.INT64,
+          dataType: telem.DataType.INT64,
         });
-        const { allocated } = cache.write(new MultiSeries([ser]));
+        const { allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(allocated.series).toHaveLength(1);
         expect(allocated.series[0].sampleOffset).toBe(nowTs.valueOf());
-        expect(allocated.series[0].dataType.equals(DataType.FLOAT32)).toBe(true);
+        expect(allocated.series[0].dataType.equals(telem.DataType.FLOAT32)).toBe(true);
       });
       it("should allocate the buffer with a numeric sampleOffset for non-bigint data types", () => {
         const cache = new Dynamic({
           dynamicBufferSize: 100,
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const { allocated } = cache.write(new MultiSeries([ser]));
+        const { allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(allocated.series).toHaveLength(1);
         expect(allocated.series[0].sampleOffset).toBe(0);
       });
@@ -192,46 +192,46 @@ describe("DynamicCache", () => {
       //     near 2^60 both round-trip cleanly.
       //   - Non-bigint: no precision concern, anchor stays at 0.
       describe("bigint channel precision", () => {
-        const WALL_CLOCK = TimeStamp.seconds(1778020940);
+        const WALL_CLOCK = telem.TimeStamp.seconds(1778020940);
         describe("offset anchor selection", () => {
           it("anchors the offset on now() for TIMESTAMP channels", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.TIMESTAMP,
+              dataType: telem.DataType.TIMESTAMP,
               now: () => WALL_CLOCK,
             });
             const firstSample = WALL_CLOCK.valueOf() + 5_000_000_000n;
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [firstSample, firstSample + 1n],
-              dataType: DataType.TIMESTAMP,
+              dataType: telem.DataType.TIMESTAMP,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             expect(allocated.series[0].sampleOffset).toBe(WALL_CLOCK.valueOf());
           });
           it("anchors the offset on the first observed sample for INT64 channels", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [42n, 43n, 44n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             expect(allocated.series[0].sampleOffset).toBe(42n);
           });
           it("anchors the offset on the first observed sample for UINT64 channels", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.UINT64,
+              dataType: telem.DataType.UINT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [42n, 43n, 44n],
-              dataType: DataType.UINT64,
+              dataType: telem.DataType.UINT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             expect(allocated.series[0].sampleOffset).toBe(42n);
           });
         });
@@ -242,14 +242,14 @@ describe("DynamicCache", () => {
             // ns of precision per sample.
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [0n, 1n, 2n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             const buf = allocated.series[0];
             expect(buf.at(0)).toBe(0n);
             expect(buf.at(1)).toBe(1n);
@@ -259,14 +259,14 @@ describe("DynamicCache", () => {
             const first = 1778020940471336960n;
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [first, first + 1n, first + 2n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             const buf = allocated.series[0];
             expect(buf.at(0)).toBe(first);
             expect(buf.at(1)).toBe(first + 1n);
@@ -275,14 +275,14 @@ describe("DynamicCache", () => {
           it("round-trips negative INT64 values", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [-100n, -99n, -98n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             const buf = allocated.series[0];
             expect(buf.at(0)).toBe(-100n);
             expect(buf.at(1)).toBe(-99n);
@@ -293,21 +293,21 @@ describe("DynamicCache", () => {
           it("preserves the buffer's offset across multiple writes", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
             const first = cache.write(
-              new MultiSeries([
-                new Series({ data: [1000n, 1001n], dataType: DataType.INT64 }),
+              new telem.MultiSeries([
+                new telem.Series({ data: [1000n, 1001n], dataType: telem.DataType.INT64 }),
               ]),
             );
             const offset = first.allocated.series[0].sampleOffset;
             expect(offset).toBe(1000n);
             cache.write(
-              new MultiSeries([
-                new Series({
+              new telem.MultiSeries([
+                new telem.Series({
                   data: [1002n, 1003n],
-                  dataType: DataType.INT64,
+                  dataType: telem.DataType.INT64,
                 }).reAlign(2n),
               ]),
             );
@@ -320,14 +320,14 @@ describe("DynamicCache", () => {
           it("anchors a fresh offset when the buffer rotates due to capacity", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 2,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [500n, 501n, 600n, 601n, 700n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { flushed, allocated } = cache.write(new MultiSeries([ser]));
+            const { flushed, allocated } = cache.write(new telem.MultiSeries([ser]));
             // Buffer A fills with [500, 501], anchored at 500.
             expect(flushed.series[0].sampleOffset).toBe(500n);
             expect(flushed.series[0].at(0)).toBe(500n);
@@ -345,19 +345,19 @@ describe("DynamicCache", () => {
           it("anchors a fresh offset when alignment mismatch forces rotation", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
             cache.write(
-              new MultiSeries([
-                new Series({ data: [10n, 11n], dataType: DataType.INT64 }),
+              new telem.MultiSeries([
+                new telem.Series({ data: [10n, 11n], dataType: telem.DataType.INT64 }),
               ]),
             );
-            const second = new Series({
+            const second = new telem.Series({
               data: [9999n, 10000n],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             }).reAlign(50n);
-            const { flushed, allocated } = cache.write(new MultiSeries([second]));
+            const { flushed, allocated } = cache.write(new telem.MultiSeries([second]));
             expect(flushed.series[0].sampleOffset).toBe(10n);
             expect(allocated.series[0].sampleOffset).toBe(9999n);
             expect(allocated.series[0].at(0)).toBe(9999n);
@@ -374,15 +374,15 @@ describe("DynamicCache", () => {
           it("loses precision on samples far from the buffer's anchor", () => {
             const cache = new Dynamic({
               dynamicBufferSize: 100,
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
               now: () => WALL_CLOCK,
             });
             const farAway = 1_000_000_000_000_000_000n;
-            const ser = new Series({
+            const ser = new telem.Series({
               data: [0n, 1n, 2n, farAway],
-              dataType: DataType.INT64,
+              dataType: telem.DataType.INT64,
             });
-            const { allocated } = cache.write(new MultiSeries([ser]));
+            const { allocated } = cache.write(new telem.MultiSeries([ser]));
             const buf = allocated.series[0];
             // Samples near the anchor round-trip exactly.
             expect(buf.at(0)).toBe(0n);
@@ -399,27 +399,27 @@ describe("DynamicCache", () => {
         });
       });
       it("should allocate a buffer properly using a TimeSpan", () => {
-        let nowF = () => TimeStamp.seconds(1);
+        let nowF = () => telem.TimeStamp.seconds(1);
         const now = () => nowF();
         const cache = new Dynamic({
-          dynamicBufferSize: TimeSpan.minutes(5),
-          dataType: DataType.FLOAT32,
+          dynamicBufferSize: telem.TimeSpan.minutes(5),
+          dataType: telem.DataType.FLOAT32,
           now,
         });
-        const ser = new Series({
+        const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
-          dataType: DataType.FLOAT32,
+          dataType: telem.DataType.FLOAT32,
         });
-        const res1 = cache.write(new MultiSeries([ser]));
+        const res1 = cache.write(new telem.MultiSeries([ser]));
         expect(res1.allocated).toHaveLength(3);
         expect(res1.flushed).toHaveLength(0);
-        nowF = () => TimeStamp.seconds(2);
-        const res2 = cache.write(new MultiSeries([ser.reAlign(3n)]));
+        nowF = () => telem.TimeStamp.seconds(2);
+        const res2 = cache.write(new telem.MultiSeries([ser.reAlign(3n)]));
         expect(res2.allocated).toHaveLength(0);
         expect(res2.flushed).toHaveLength(0);
 
-        nowF = () => TimeStamp.seconds(3);
-        const res3 = cache.write(new MultiSeries([ser.reAlign(6n)]));
+        nowF = () => telem.TimeStamp.seconds(3);
+        const res3 = cache.write(new telem.MultiSeries([ser.reAlign(6n)]));
         expect(res3.allocated).toHaveLength(0);
         expect(res3.flushed).toHaveLength(0);
         expect(cache.length).toBe(9);

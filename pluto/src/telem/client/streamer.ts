@@ -7,24 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { array } from "@synnaxlabs/x/array";
+import { compare } from "@synnaxlabs/x/compare";
+import { debounce } from "@synnaxlabs/x/debounce";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
-import {
-  array,
-  compare,
-  type CrudeTimeSpan,
-  debounce,
-  type destructor,
-  MultiSeries,
-  Rate,
-  type Series,
-  TimeSpan,
-} from "@synnaxlabs/x";
+
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
 
-export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
+export type StreamHandler = (data: Map<channel.Key, telem.MultiSeries>) => void;
 
 interface ListenerEntry {
   valid: boolean;
@@ -35,18 +30,18 @@ interface StreamerProps {
   cache: Cache;
   openStreamer: framer.StreamOpener;
   instrumentation?: alamos.Instrumentation;
-  streamUpdateDelay?: CrudeTimeSpan;
+  streamUpdateDelay?: telem.CrudeTimeSpan;
 }
 
 // Introduce a slight debounce into stream start requests so that rapid streaming
 // request don't slam the socket with lots of updates.
-const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+const STREAM_DEBOUNCE = telem.TimeSpan.milliseconds(100).milliseconds;
 
-const THROTTLE_RATE = Rate.hz(60).valueOf();
+const THROTTLE_RATE = telem.Rate.hz(60).valueOf();
 
 export class Streamer {
   private readonly props: Omit<Required<StreamerProps>, "streamUpdateDelay"> & {
-    streamUpdateDelay: TimeSpan;
+    streamUpdateDelay: telem.TimeSpan;
   };
 
   private readonly mu: Mutex = new Mutex();
@@ -60,7 +55,7 @@ export class Streamer {
     this.props = {
       instrumentation: alamos.NOOP,
       ...props,
-      streamUpdateDelay: new TimeSpan(props.streamUpdateDelay ?? TimeSpan.seconds(5)),
+      streamUpdateDelay: new telem.TimeSpan(props.streamUpdateDelay ?? telem.TimeSpan.seconds(5)),
     };
     this.debouncedUpdateStreamer = debounce(
       () => void this.updateStreamer(),
@@ -87,10 +82,10 @@ export class Streamer {
 
       // Pull any existing dynamic buffers from the cache so that the caller has
       // access to them as they get filled.
-      const dynamicBuffers: Map<channel.Key, MultiSeries> = new Map(
+      const dynamicBuffers: Map<channel.Key, telem.MultiSeries> = new Map(
         keys.map((key) => {
           const unary = cache.get(key);
-          return [key, new MultiSeries(array.toArray<Series>(unary.leadingBuffer))];
+          return [key, new telem.MultiSeries(array.toArray<telem.Series>(unary.leadingBuffer))];
         }),
       );
       handler(dynamicBuffers);
@@ -167,7 +162,7 @@ export class Streamer {
     const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
-        const changed: Map<channel.Key, MultiSeries> = new Map();
+        const changed: Map<channel.Key, telem.MultiSeries> = new Map();
         for (const k of frame.keys) {
           const series = frame.get(k);
           const unary = cache.get(k);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan as XTimeSpan } from "@synnaxlabs/x";
+import { telem } from "@synnaxlabs/x/telem";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -15,32 +15,32 @@ import { Telem } from "@/telem";
 
 describe("TimeSpan", () => {
   it("should render timespan with default format", () => {
-    const span = XTimeSpan.seconds(90);
+    const span = telem.TimeSpan.seconds(90);
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1m 30s")).toBeTruthy();
   });
   it("should render timespan with hours", () => {
-    const span = XTimeSpan.hours(2.5);
+    const span = telem.TimeSpan.hours(2.5);
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("2h 30m")).toBeTruthy();
   });
   it("should render timespan with days", () => {
-    const span = XTimeSpan.days(1.5);
+    const span = telem.TimeSpan.days(1.5);
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1d 12h")).toBeTruthy();
   });
   it("should render zero timespan", () => {
-    const span = XTimeSpan.ZERO;
+    const span = telem.TimeSpan.ZERO;
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.container.textContent).toBe("");
   });
   it("should accept number timespan in microseconds", () => {
-    const span = XTimeSpan.seconds(90).valueOf();
+    const span = telem.TimeSpan.seconds(90).valueOf();
     const c = render(<Telem.Text.TimeSpan>{span}</Telem.Text.TimeSpan>);
     expect(c.getByText("1m 30s")).toBeTruthy();
   });
   it("should pass through text props", () => {
-    const span = XTimeSpan.seconds(60);
+    const span = telem.TimeSpan.seconds(60);
     const c = render(
       <Telem.Text.TimeSpan level="h2" color={3}>
         {span}

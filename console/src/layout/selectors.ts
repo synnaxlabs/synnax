@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Haul } from "@synnaxlabs/charon";
+import type { Haul } from "@synnaxlabs/charon/haul";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { Color, type Mosaic, Theming } from "@synnaxlabs/pluto";
+import { Theming } from "@synnaxlabs/charon/theming";
+import { Color, type Mosaic } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {

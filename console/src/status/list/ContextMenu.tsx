@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status as xstatus } from "@synnaxlabs/x/status";
 import { status } from "@synnaxlabs/client";
-import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
+import { Component } from "@synnaxlabs/charon/component";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Access, type Flux } from "@synnaxlabs/pluto";
+
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

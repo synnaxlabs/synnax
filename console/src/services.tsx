@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/charon/icon";
 
 import { Access } from "@/access";
 import { ArcServices } from "@/arc/services";

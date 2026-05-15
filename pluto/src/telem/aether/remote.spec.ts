@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { destructor } from "@synnaxlabs/x/destructor";
+import { id } from "@synnaxlabs/x/id";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel, DataType, TimeRange } from "@synnaxlabs/client";
-import {
-  bounds,
-  type destructor,
-  id,
-  MultiSeries,
-  Series,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -58,13 +54,13 @@ describe("remote", () => {
       });
 
       // Data
-      response: MultiSeries = new MultiSeries([]);
+      response: telem.MultiSeries = new telem.MultiSeries([]);
 
       async retrieveChannel(): Promise<channel.Channel> {
         return this.channel;
       }
 
-      async read(): Promise<MultiSeries> {
+      async read(): Promise<telem.MultiSeries> {
         return this.response;
       }
 
@@ -136,11 +132,11 @@ describe("remote", () => {
       scv.onChange(handleChange);
       scv.value();
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
       });
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       expect(scv.testingOnlyLeadingBuffer).toBe(series);
       expect(scv.value()).toBe(3);
@@ -155,14 +151,14 @@ describe("remote", () => {
       scv.onChange(handleChange);
       expect(scv.value()).toBe(NaN);
       await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      const series = Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
+      const series = telem.Series.alloc({ dataType: DataType.FLOAT32, capacity: 3 });
 
       // Call onChange to set the leading buffer
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([series])]]));
       await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
       // Append to the leading buffer
-      series.write(new Series({ data: new Float32Array([1, 2, 5]) }));
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([])]]));
+      series.write(new telem.Series({ data: new Float32Array([1, 2, 5]) }));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([])]]));
       await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
       const v = scv.value();
       expect(v).toBe(5);
@@ -177,19 +173,19 @@ describe("remote", () => {
       scv.onChange(handleChange);
       scv.value();
       await expect.poll(() => handleChange).toHaveBeenCalledTimes(1);
-      const newSeriesOne = new Series({
+      const newSeriesOne = new telem.Series({
         data: new Float32Array([1, 2, 3]),
       });
-      const newSeriesTwo = new Series({
+      const newSeriesTwo = new telem.Series({
         data: new Float32Array([4, 5, 6]),
       });
       // Call onChange to set the leading buffer
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesOne])]]));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([newSeriesOne])]]));
       await expect.poll(() => handleChange).toHaveBeenCalledTimes(2);
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
       expect(scv.value()).toBe(3);
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([newSeriesTwo])]]));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([newSeriesTwo])]]));
       expect(newSeriesOne.refCount).toBe(0);
       await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
       expect(scv.value()).toBe(6);
@@ -220,9 +216,9 @@ describe("remote", () => {
       });
 
       // Data
-      response: Record<channel.Key, MultiSeries> = {
-        [this.channel.key]: new MultiSeries([]),
-        [this.channel.index]: new MultiSeries([]),
+      response: Record<channel.Key, telem.MultiSeries> = {
+        [this.channel.key]: new telem.MultiSeries([]),
+        [this.channel.index]: new telem.MultiSeries([]),
       };
 
       async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
@@ -232,7 +228,7 @@ describe("remote", () => {
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+      async read(tr: TimeRange, key: channel.Key): Promise<telem.MultiSeries> {
         this.readMock(tr, key);
         return this.response[key];
       }
@@ -277,11 +273,11 @@ describe("remote", () => {
     });
 
     it("should return data when both the channel and time range are set", async () => {
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
       });
       c.response = {
-        [c.channel.key]: new MultiSeries([series]),
+        [c.channel.key]: new telem.MultiSeries([series]),
       };
       const props = {
         timeRange: TimeRange.MAX,
@@ -295,11 +291,11 @@ describe("remote", () => {
     });
 
     it("should fetch data from the index channel when the channel is not an index and fetchIndex is true", async () => {
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([0, 2, 4]),
       });
       c.response = {
-        [c.channel.index]: new MultiSeries([series]),
+        [c.channel.index]: new telem.MultiSeries([series]),
       };
       const props: ChannelDataProps = {
         timeRange: TimeRange.MAX,
@@ -314,11 +310,11 @@ describe("remote", () => {
     });
 
     it("should fetch data from the same channel when the channel is an index and fetchIndex is true", async () => {
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([0, 2, 4]),
       });
       c.response = {
-        [c.channel.index]: new MultiSeries([series]),
+        [c.channel.index]: new telem.MultiSeries([series]),
       };
       const props: ChannelDataProps = {
         timeRange: TimeRange.MAX,
@@ -344,7 +340,7 @@ describe("remote", () => {
       streamDestructorF = vi.fn();
 
       // Read
-      response: MultiSeries = new MultiSeries([]);
+      response: telem.MultiSeries = new telem.MultiSeries([]);
       readMock = vi.fn();
 
       // Channel
@@ -369,7 +365,7 @@ describe("remote", () => {
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
+      async read(tr: TimeRange, key: channel.Key): Promise<telem.MultiSeries> {
         this.readMock(tr, key);
         return this.response;
       }
@@ -396,7 +392,7 @@ describe("remote", () => {
 
     it("should return a zero value when no channel has been set", async () => {
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: 0,
       };
       const cd = new StreamChannelData(c, props);
@@ -406,17 +402,17 @@ describe("remote", () => {
     });
 
     it("should return data when the channel is specified", async () => {
-      const now = TimeStamp.now();
-      const series = new Series({
+      const now = telem.TimeStamp.now();
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(
-          now.sub(TimeSpan.milliseconds(3)),
-          now.add(TimeSpan.milliseconds(1)),
+          now.sub(telem.TimeSpan.milliseconds(3)),
+          now.add(telem.TimeSpan.milliseconds(1)),
         ),
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props);
@@ -428,7 +424,7 @@ describe("remote", () => {
 
     it("should bind a stream handler", async () => {
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props);
@@ -439,18 +435,18 @@ describe("remote", () => {
     });
 
     it("should garbage collect data that goes out of range", async () => {
-      let now = TimeStamp.milliseconds(10);
+      let now = telem.TimeStamp.milliseconds(10);
       const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
+        now.sub(telem.TimeSpan.milliseconds(3)),
+        now.add(telem.TimeSpan.milliseconds(1)),
       );
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
+        timeSpan: telem.TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props, {}, () => now);
@@ -459,16 +455,16 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
       const tr2 = new TimeRange(
-        now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(20)),
+        now.add(telem.TimeSpan.milliseconds(1)),
+        now.add(telem.TimeSpan.milliseconds(20)),
       );
       // write the new series
-      const series2 = new Series({
+      const series2 = new telem.Series({
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
-      now = TimeStamp.milliseconds(30);
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
+      now = telem.TimeStamp.milliseconds(30);
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([series2])]]));
       expect(series.refCount).toBe(0);
       expect(series2.refCount).toBe(1);
       const [b2, data2] = cd.value();
@@ -478,18 +474,18 @@ describe("remote", () => {
     });
 
     it("should adjust the bounds of the data even if it was not garbage collected", async () => {
-      let now = TimeStamp.milliseconds(10);
+      let now = telem.TimeStamp.milliseconds(10);
       const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
+        now.sub(telem.TimeSpan.milliseconds(3)),
+        now.add(telem.TimeSpan.milliseconds(1)),
       );
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
+        timeSpan: telem.TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props, {}, () => now);
@@ -498,18 +494,18 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
       const tr2 = new TimeRange(
-        now.add(TimeSpan.milliseconds(1)),
-        now.add(TimeSpan.milliseconds(20)),
+        now.add(telem.TimeSpan.milliseconds(1)),
+        now.add(telem.TimeSpan.milliseconds(20)),
       );
       expect(series.refCount).toBe(1);
       // write the new series
-      const series2 = new Series({
+      const series2 = new telem.Series({
         data: new Float32Array([4, 5, 6]),
         timeRange: tr2,
       });
       // The old buffer won't be garbage collected yet
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series2])]]));
-      now = TimeStamp.milliseconds(20);
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([series2])]]));
+      now = telem.TimeStamp.milliseconds(20);
       const [b2, data2] = cd.value();
       expect(series2.refCount).toBe(1);
       expect(series.refCount).toBe(1);
@@ -520,9 +516,9 @@ describe("remote", () => {
     });
 
     it("should destroy the stream handler when cleanup is called", async () => {
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props, {}, () => now);
@@ -532,18 +528,18 @@ describe("remote", () => {
     });
 
     it("should drop the series refcounts to 0 when cleanup is called", async () => {
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
+        now.sub(telem.TimeSpan.milliseconds(3)),
+        now.add(telem.TimeSpan.milliseconds(1)),
       );
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.milliseconds(2),
+        timeSpan: telem.TimeSpan.milliseconds(2),
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props, {}, () => now);
@@ -554,18 +550,18 @@ describe("remote", () => {
     });
 
     it("should return the index channel data when the channel is not an index and fetchIndex is true", async () => {
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
+        now.sub(telem.TimeSpan.milliseconds(3)),
+        now.add(telem.TimeSpan.milliseconds(1)),
       );
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.key,
         useIndexOfChannel: true,
       };
@@ -577,18 +573,18 @@ describe("remote", () => {
     });
 
     it("should return the index channel data when the channel is an index and fetchIndex is true", async () => {
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const tr = new TimeRange(
-        now.sub(TimeSpan.milliseconds(3)),
-        now.add(TimeSpan.milliseconds(1)),
+        now.sub(telem.TimeSpan.milliseconds(3)),
+        now.add(telem.TimeSpan.milliseconds(1)),
       );
-      const series = new Series({
+      const series = new telem.Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: tr,
       });
-      c.response = new MultiSeries([series]);
+      c.response = new telem.MultiSeries([series]);
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.index,
         useIndexOfChannel: true,
       };
@@ -601,16 +597,16 @@ describe("remote", () => {
 
     it("should read data when the channel is not virtual", async () => {
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(20),
+        timeSpan: telem.TimeSpan.seconds(20),
         channel: c.channel.key,
       };
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const cd = new StreamChannelData(c, props, undefined, () => now);
       await waitForResolve(cd);
       expect(c.readMock).toHaveBeenCalled();
       const args = c.readMock.mock.calls[0];
       expect(args).toHaveLength(2);
-      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(20)));
+      const expectedTr = new TimeRange(now.spanRange(-telem.TimeSpan.seconds(20)));
       expect(args[0].equals(expectedTr)).toBe(true);
       expect(args[1]).toBe(c.channel.key);
     });
@@ -621,10 +617,10 @@ describe("remote", () => {
         virtual: true,
       });
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(20),
+        timeSpan: telem.TimeSpan.seconds(20),
         channel: c.channel.key,
       };
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const cd = new StreamChannelData(c, props, undefined, () => now);
       await waitForResolve(cd);
       expect(c.readMock).not.toHaveBeenCalled();
@@ -636,16 +632,16 @@ describe("remote", () => {
         expression: "1 + 2",
       });
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.seconds(1),
+        timeSpan: telem.TimeSpan.seconds(1),
         channel: c.channel.key,
       };
-      const now = TimeStamp.milliseconds(10);
+      const now = telem.TimeStamp.milliseconds(10);
       const cd = new StreamChannelData(c, props, undefined, () => now);
       await waitForResolve(cd);
       expect(c.readMock).toHaveBeenCalled();
       const args = c.readMock.mock.calls[0];
       expect(args).toHaveLength(2);
-      const expectedTr = new TimeRange(now.spanRange(-TimeSpan.seconds(1)));
+      const expectedTr = new TimeRange(now.spanRange(-telem.TimeSpan.seconds(1)));
       expect(args[0].equals(expectedTr)).toBe(true);
       expect(args[1]).toBe(c.channel.key);
     });
@@ -657,16 +653,16 @@ describe("remote", () => {
         dataType: DataType.STRING,
       });
       const props: StreamChannelDataProps = {
-        timeSpan: TimeSpan.MAX,
+        timeSpan: telem.TimeSpan.MAX,
         channel: c.channel.key,
       };
       const cd = new StreamChannelData(c, props);
       await waitForResolve(cd);
-      const d = new Series({
+      const d = new telem.Series({
         data: ["cat", "in", "the", "hat"],
         timeRange: TimeRange.MAX,
       });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([d])]]));
+      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([d])]]));
       const [b, data] = cd.value();
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data.series).toHaveLength(1);

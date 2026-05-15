@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { json } from "@synnaxlabs/x/json";
+import { record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import { channel, type task } from "@synnaxlabs/client";
-import { DataType, json, record } from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -52,7 +55,7 @@ export interface ReadField extends z.infer<typeof readFieldZ> {}
 export const ZERO_READ_FIELD = {
   ...Common.Task.ZERO_READ_CHANNEL,
   pointer: "",
-  dataType: DataType.FLOAT64.toString(),
+  dataType: telem.DataType.FLOAT64.toString(),
 } as const satisfies ReadField;
 
 const baseReadEndpointZ = z.object({
@@ -134,7 +137,7 @@ const channelFieldZ = z
     jsonType: jsonTypeZ,
     channel: channel.keyZ.default(0),
     name: z.string().default(""),
-    dataType: z.string().default(DataType.FLOAT64.toString()),
+    dataType: z.string().default(telem.DataType.FLOAT64.toString()),
     timeFormat: timeFormatZ.optional(),
     enumValues: z.array(writeEnumEntryZ).optional(),
   })
@@ -161,7 +164,7 @@ export const ZERO_CHANNEL_FIELD = {
   jsonType: "number",
   channel: 0,
   name: "",
-  dataType: DataType.UINT8.toString(),
+  dataType: telem.DataType.UINT8.toString(),
 } as const satisfies ChannelField;
 
 const generatorTypeZ = z.enum(["uuid", "timestamp"]);

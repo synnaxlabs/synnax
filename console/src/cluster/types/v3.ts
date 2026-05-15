@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate, primitive, uuid } from "@synnaxlabs/x";
-
+import { migrate } from "@synnaxlabs/x/migrate";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { uuid } from "@synnaxlabs/x/uuid";
 import * as v2 from "@/cluster/types/v2";
 
 export const VERSION = "3.0.0";

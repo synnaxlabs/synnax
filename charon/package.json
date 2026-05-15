@@ -124,10 +124,20 @@
       "import": "./dist/divider.js",
       "require": "./dist/divider.cjs"
     },
+    "./errors": {
+      "types": "./dist/src/errors/index.d.ts",
+      "import": "./dist/errors.js",
+      "require": "./dist/errors.cjs"
+    },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",
       "import": "./dist/flex.js",
       "require": "./dist/flex.cjs"
+    },
+    "./form": {
+      "types": "./dist/src/form/index.d.ts",
+      "import": "./dist/form.js",
+      "require": "./dist/form.cjs"
     },
     "./generic": {
       "types": "./dist/src/generic/index.d.ts",
@@ -179,6 +189,11 @@
       "import": "./dist/menu.js",
       "require": "./dist/menu.cjs"
     },
+    "./nav": {
+      "types": "./dist/src/nav/index.d.ts",
+      "import": "./dist/nav.js",
+      "require": "./dist/nav.cjs"
+    },
     "./note": {
       "types": "./dist/src/note/index.d.ts",
       "import": "./dist/note.js",
@@ -193,6 +208,11 @@
       "types": "./dist/src/progress/index.d.ts",
       "import": "./dist/progress.js",
       "require": "./dist/progress.cjs"
+    },
+    "./resize": {
+      "types": "./dist/src/resize/index.d.ts",
+      "import": "./dist/resize.js",
+      "require": "./dist/resize.cjs"
     },
     "./select": {
       "types": "./dist/src/select/index.d.ts",

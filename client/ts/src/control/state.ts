@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, control, type observe } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { control } from "@synnaxlabs/x/control";
+import { observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
 import { type channel } from "@/channel";

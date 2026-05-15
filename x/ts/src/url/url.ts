@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-interface URLProps {
+interface testURL {
   host: string;
   port: number;
   protocol?: string;
@@ -66,7 +66,7 @@ export class URL {
    * @param protocol - The protocol to use for all requests. Defaults to "".
    * @param pathPrefix - A path prefix to use for all requests. Defaults to "".
    */
-  constructor({ host, port, protocol = "", pathPrefix = "" }: URLProps) {
+  constructor({ host, port, protocol = "", pathPrefix = "" }: testURL) {
     this.protocol = protocol;
     this.host = host;
     this.port = port;
@@ -78,7 +78,7 @@ export class URL {
    * @param props - The properties to replace.
    * @returns a new URL.
    */
-  replace(props: Partial<URLProps>): URL {
+  replace(props: Partial<testURL>): URL {
     return new URL({
       host: props.host ?? this.host,
       port: props.port ?? this.port,

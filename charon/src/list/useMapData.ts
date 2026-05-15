@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import { record } from "@synnaxlabs/x/record";
 import { useCallback, useMemo } from "react";
 
 import { useInitializerRef } from "@/hooks";

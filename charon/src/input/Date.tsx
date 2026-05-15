@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import "@/input/Date.css";
 
-import { TimeStamp, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useLayoutEffect } from "react";
 
 import { CSS } from "@/css";
@@ -23,8 +24,8 @@ export interface DateProps
 }
 
 const DRAG_SCALE: xy.XY = {
-  x: Number(TimeStamp.HOUR.valueOf()),
-  y: Number(TimeStamp.days(0.75).valueOf()),
+  x: Number(telem.TimeStamp.HOUR.valueOf()),
+  y: Number(telem.TimeStamp.days(0.75).valueOf()),
 };
 
 export interface UseDateProps extends Pick<DateProps, "value" | "onChange"> {}
@@ -35,32 +36,32 @@ export interface UseDateReturn {
 }
 
 export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
-  const ts = new TimeStamp(value, "UTC");
+  const ts = new telem.TimeStamp(value, "UTC");
 
   useLayoutEffect(() => {
     // We want the date to be at midnight in local time.
-    const local = ts.sub(TimeStamp.utcOffset);
+    const local = ts.sub(telem.TimeStamp.utcOffset);
     // All good.
-    if (local.remainder(TimeStamp.DAY).isZero) return;
+    if (local.remainder(telem.TimeStamp.DAY).isZero) return;
     // If it isn't, take off the extra time.
-    const tsV = local.sub(local.remainder(TimeStamp.DAY));
+    const tsV = local.sub(local.remainder(telem.TimeStamp.DAY));
     // We have a correcly zeroed timestamp in local, now
     // add back the UTC offset to get the UTC timestamp.
-    onChange(Number(new TimeStamp(tsV, "local").valueOf()));
+    onChange(Number(new telem.TimeStamp(tsV, "local").valueOf()));
   }, [value]);
 
   const handleChange = (value: string | number): void => {
-    let ts: TimeStamp;
+    let ts: telem.TimeStamp;
     // This is coming from the drag button. We give the drag
     // button a value in UTC, and it adds or subtracts a fixed
     // amount of time, giving us a new UTC timestamp.
-    if (typeof value === "number") ts = new TimeStamp(value, "UTC");
+    if (typeof value === "number") ts = new telem.TimeStamp(value, "UTC");
     // This means the user hasn't finished inputting a date.
     else if (value.length === 0) return;
     // No need to worry about taking remainders here. The input
     // will prevent values over a day. We interpret the input as
     // local, which adds the UTC offset back in.
-    else ts = new TimeStamp(value, "local");
+    else ts = new telem.TimeStamp(value, "local");
     onChange(Number(ts.valueOf()));
   };
 

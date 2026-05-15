@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x";
-
+import { xy } from "@synnaxlabs/x/xy";
 export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
   path.map((point, i) => xy.translate(point, miters[i]));

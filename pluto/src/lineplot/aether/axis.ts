@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { throttle } from "@synnaxlabs/x/debounce";
+import { direction } from "@synnaxlabs/x/direction";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
 import { aether } from "@synnaxlabs/charon/aether/runtime";
 import { Theming } from "@synnaxlabs/charon/theming";
 import { theming } from "@synnaxlabs/charon/theming/aether";
-import {
-  bounds,
-  box,
-  direction,
-  scale,
-  throttle,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+
 import { z } from "zod";
 
 import { axis } from "@/vis/axis";
@@ -37,7 +35,7 @@ export const baseAxisStateZ = axis.axisStateZ
       })
       .or(z.boolean().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.default(TimeSpan.seconds(10)),
+    autoBoundUpdateInterval: telem.TimeSpan.z.default(telem.TimeSpan.seconds(10)),
     size: z.number().default(0),
     label: z.string().default(""),
     labelSize: z.number().default(0),
@@ -59,10 +57,10 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
   );
 
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
-const now = TimeStamp.now();
+const now = telem.TimeStamp.now();
 export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
   lower: Number(now.valueOf()),
-  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
+  upper: Number(now.add(telem.TimeSpan.HOUR).valueOf()),
 };
 
 export const emptyBounds = (type: TickType): bounds.Bounds =>

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type location } from "@synnaxlabs/x";
-
+import { color } from "@synnaxlabs/x/color";
+import { location } from "@synnaxlabs/x/location";
 export interface OrientableProps {
   orientation?: location.Outer;
 }

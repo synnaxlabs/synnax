@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dimensions, type location, xy } from "@synnaxlabs/x";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 export type DetailedRadius = Record<location.CornerString, xy.XY>;

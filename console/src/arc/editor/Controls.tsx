@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { primitive } from "@synnaxlabs/x/primitive";
 import "@/arc/editor/Controls.css";
 
 import { type rack, task } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+
 import { useCallback, useEffect, useState } from "react";
 
 import { useTask } from "@/arc/hooks";
