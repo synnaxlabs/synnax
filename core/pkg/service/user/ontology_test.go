@@ -13,42 +13,14 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-var _ = Describe("Ontology", Ordered, func() {
-	var (
-		db      *gorp.DB
-		svc     *user.Service
-		userKey uuid.UUID
-		otg     *ontology.Ontology
-	)
-	BeforeAll(func(ctx SpecContext) {
-		userKey = uuid.New()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-	})
+var _ = Describe("Ontology", func() {
 	Describe("Schema", func() {
-		It("Should return the ontology schema", func(ctx SpecContext) {
+		It("Should return the ontology schema", func(_ SpecContext) {
 			schema := svc.Schema().Shape()
 			Expect(schema.DataType()).To(Equal(zyn.ObjectT))
 			fields := schema.Fields()
@@ -56,16 +28,17 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(fields).To(HaveKey("username"))
 		})
 	})
-	Describe("retrieveResource", func() {
-		It("Should retrieve a users schema entity by its key", func(ctx SpecContext) {
-			u := MustSucceed(svc.NewWriter(nil).Register(ctx, user.User{
-				Username: "test",
-				Key:      userKey,
+	Describe("RetrieveResource", func() {
+		It("Should retrieve a user's schema entity by its key", func(ctx SpecContext) {
+			key := uuid.New()
+			created := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+				Username: uuid.NewString(),
+				Key:      key,
 			}))
-			resource := MustSucceed(svc.RetrieveResource(ctx, userKey.String(), nil))
+			resource := MustSucceed(svc.RetrieveResource(ctx, key.String(), nil))
 			var resU user.User
 			Expect(resource.Parse(&resU)).To(Succeed())
-			Expect(resU).To(Equal(u))
+			Expect(resU).To(Equal(created))
 		})
 	})
 })
