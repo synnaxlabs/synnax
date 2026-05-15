@@ -434,12 +434,6 @@ export interface SelectCanGroupArgs {
   selected: readonly string[];
 }
 
-const isGroupVariant = (
-  configs: Record<string, unknown>,
-  k: string,
-): boolean =>
-  (configs[k] as { variant?: string } | undefined)?.variant === Groups.GROUP_VARIANT;
-
 /** True when ≥2 non-group nodes would end up in the new group. Selecting groups
  * counts their members; selecting groups + loose nodes merges them into a new
  * super-group. */
@@ -454,7 +448,7 @@ export const useSelectCanGroup = Flux.createSelector<
     if (s == null) return false;
     let count = 0;
     for (const k of selected) {
-      if (isGroupVariant(s.configs, k)) continue;
+      if (Groups.isGroupContainer(k, s.configs)) continue;
       count++;
       if (count >= 2) return true;
     }
@@ -474,7 +468,7 @@ export const useSelectCanUngroup = Flux.createSelector<
     const s = store.schematics.get(key);
     if (s == null) return false;
     for (const k of selected) {
-      if (isGroupVariant(s.configs, k)) return true;
+      if (Groups.isGroupContainer(k, s.configs)) return true;
       const node = s.nodes.find((n) => n.key === k);
       if (node?.groupId != null) return true;
     }
@@ -495,9 +489,9 @@ export const useGroup = (resourceKey: schematic.Key) => {
       const selectedSet = new Set(selectedKeys);
       const dissolvedGroupKeys = new Set<string>();
       for (const k of selectedKeys)
-        if (isGroupVariant(s.configs, k)) dissolvedGroupKeys.add(k);
+        if (Groups.isGroupContainer(k, s.configs)) dissolvedGroupKeys.add(k);
       const memberNodes = s.nodes.filter((n) => {
-        if (selectedSet.has(n.key)) return !isGroupVariant(s.configs, n.key);
+        if (selectedSet.has(n.key)) return !Groups.isGroupContainer(n.key, s.configs);
         return n.groupId != null && dissolvedGroupKeys.has(n.groupId);
       });
       if (memberNodes.length < 2) return;
@@ -537,7 +531,7 @@ export const useUngroup = (resourceKey: schematic.Key) => {
       if (s == null) return;
       const groupsToRemove = new Set<string>();
       for (const k of selectedKeys) {
-        if (isGroupVariant(s.configs, k)) groupsToRemove.add(k);
+        if (Groups.isGroupContainer(k, s.configs)) groupsToRemove.add(k);
         const node = s.nodes.find((n) => n.key === k);
         if (node?.groupId != null) groupsToRemove.add(node.groupId);
       }

@@ -10,14 +10,19 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type record, type xy } from "@synnaxlabs/x";
 
+import { type Config as GroupBoxConfig } from "@/schematic/node/general/groupBox/config";
+
 export const GROUP_VARIANT = "groupBox";
 export const GROUP_PADDING = 30;
 
-const isGroupContainer = (
+const isGroupBoxConfig = (
+  c: record.Unknown | undefined,
+): c is GroupBoxConfig => c?.variant === GROUP_VARIANT;
+
+export const isGroupContainer = (
   key: string,
   configs: Record<string, record.Unknown>,
-): boolean =>
-  (configs[key] as { variant?: string } | undefined)?.variant === GROUP_VARIANT;
+): boolean => isGroupBoxConfig(configs[key]);
 
 /** Group container's own key; member's groupId; undefined if loose. */
 export const groupKeyOf = (
@@ -218,7 +223,8 @@ export const auditGroups = (
   const clearGroupIdNodes: schematic.Node[] = [];
   const resizeGroups: AuditResult["resizeGroups"] = [];
   for (const n of allNodes) {
-    if (!isGroupContainer(n.key, configs)) continue;
+    const existing = configs[n.key];
+    if (!isGroupBoxConfig(existing)) continue;
     const groupMembers = members.get(n.key) ?? [];
     if (groupMembers.length <= 1) {
       removeGroupKeys.push(n.key);
@@ -232,11 +238,8 @@ export const auditGroups = (
     if (
       position.x !== n.position.x ||
       position.y !== n.position.y ||
-      dimensions.width !== (configs[n.key] as { dimensions?: { width: number } } | undefined)
-        ?.dimensions?.width ||
-      dimensions.height !==
-        (configs[n.key] as { dimensions?: { height: number } } | undefined)?.dimensions
-          ?.height
+      dimensions.width !== existing.dimensions?.width ||
+      dimensions.height !== existing.dimensions?.height
     )
       resizeGroups.push({ key: n.key, position, dimensions });
   }

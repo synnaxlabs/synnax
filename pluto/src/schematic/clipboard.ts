@@ -71,7 +71,7 @@ const buildPayload = (
     ...includedEdges.map((edge) => edge.key),
   ]) {
     const c = schem.configs[k];
-    if (c != null) configs[k] = c as record.Unknown;
+    if (c != null) configs[k] = c;
   }
   return {
     payload: {

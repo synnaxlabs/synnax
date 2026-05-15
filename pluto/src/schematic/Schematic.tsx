@@ -135,7 +135,7 @@ export const Schematic = ({
       for (const r of audit.resizeGroups) {
         const node = next.nodes.find((n) => n.key === r.key);
         if (node == null) continue;
-        const existing = next.configs[r.key] as Record<string, unknown> | undefined;
+        const existing = next.configs[r.key];
         auditActions.push(
           schematic.setNode({
             node: { ...node, position: r.position },
