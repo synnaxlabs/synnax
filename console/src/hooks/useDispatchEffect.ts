@@ -9,12 +9,13 @@
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/pluto";
+import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 export const useDispatchEffect = <P>(
   f: () => void,
-  debounce: number = 0,
+  debounce: CrudeTimeSpan = 0,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const baseDispatch = useDispatch();

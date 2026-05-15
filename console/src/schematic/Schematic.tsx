@@ -23,7 +23,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, type color, deep, type sticky, uuid, xy } from "@synnaxlabs/x";
+import { box, type color, deep, type sticky, TimeSpan, uuid, xy } from "@synnaxlabs/x";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -183,8 +183,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch_, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch
-    // automatically by Diagram.tsx, like setNodes immediately following addElement
+    // roughly the right time needed to prevent actions that get dispatch automatically
+    // by Diagram.tsx, like setNodes immediately following addElement
+    TimeSpan.milliseconds(30),
   );
   const undoableDispatch = useSyncComponent(layoutKey, undoableDispatch_);
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, DataType, debounce, zod } from "@synnaxlabs/x";
+import { array, type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -204,7 +204,7 @@ export class DebouncedBatchRetriever implements Retriever {
   private readonly wrapped: Retriever;
   private readonly debouncedRun: () => void;
 
-  constructor(wrapped: Retriever, deb: number) {
+  constructor(wrapped: Retriever, deb: CrudeTimeSpan) {
     this.wrapped = wrapped;
     this.debouncedRun = debounce(() => {
       void this.run();
