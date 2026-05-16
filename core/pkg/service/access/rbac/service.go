@@ -205,12 +205,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	// reconcileRootUser makes sure that there is exactly one root user with the
 	// provided credentials.
-	if err = reconcileRootUser(
-		ctx,
-		cfg,
-		s.Role,
-		s.builtinRoles.OwnerKey,
-	); !ok(err, nil) {
+	if err = s.reconcileRootUser(ctx); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil

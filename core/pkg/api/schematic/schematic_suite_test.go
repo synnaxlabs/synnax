@@ -53,7 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
@@ -61,23 +61,24 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	workspaceSvc := MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-		Search:   searchIdx,
-		User:     userSvc,
-		Auth:     authSvc,
+		DB:              db,
+		Ontology:        otg,
+		Group:           groupSvc,
+		Search:          searchIdx,
+		User:            userSvc,
+		Auth:            authSvc,
+		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       db,

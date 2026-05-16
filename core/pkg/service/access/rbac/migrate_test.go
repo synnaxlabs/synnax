@@ -165,25 +165,29 @@ var _ = Describe("Legacy Permission Migration", func() {
 		}))
 		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 
+		creds := auth.Credentials{Username: "suite-root", Password: "p"}
+
 		// First open
 		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-			User:     userSvc,
-			Auth:     authSvc,
+			DB:              db,
+			Ontology:        otg,
+			Group:           groupSvc,
+			Search:          searchIdx,
+			User:            userSvc,
+			Auth:            authSvc,
+			RootCredentials: creds,
 		}))
 		Expect(svc1.Close()).To(Succeed())
 
 		// Second open should not fail
 		svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-			User:     userSvc,
-			Auth:     authSvc,
+			DB:              db,
+			Ontology:        otg,
+			Group:           groupSvc,
+			Search:          searchIdx,
+			User:            userSvc,
+			Auth:            authSvc,
+			RootCredentials: creds,
 		}))
 		Expect(svc2.Close()).To(Succeed())
 	})
