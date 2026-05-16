@@ -56,9 +56,25 @@ describe("StreamMultiChannelLog", () => {
       isIndex: false,
     });
 
+    channelInt: channel.Channel = new channel.Channel({
+      key: 3,
+      name: "channel_int",
+      dataType: DataType.INT64,
+      isIndex: false,
+    });
+
+    channelJSON: channel.Channel = new channel.Channel({
+      key: 4,
+      name: "channel_json",
+      dataType: DataType.JSON,
+      isIndex: false,
+    });
+
     async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
       if (key === this.channelA.key) return this.channelA;
       if (key === this.channelB.key) return this.channelB;
+      if (key === this.channelInt.key) return this.channelInt;
+      if (key === this.channelJSON.key) return this.channelJSON;
       throw new Error(`Channel ${key} not found`);
     }
 
@@ -132,6 +148,52 @@ describe("StreamMultiChannelLog", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].channelKey).toBe(c.channelA.key);
     expect(entries[0].value).toBe("42");
+  });
+
+  it("should clean f64-widened FLOAT32 values to shortest decimal", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float32Array([1.234]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    const entries = log.value();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].value).toBe("1.234");
+  });
+
+  it("should stringify INT64 bigint values", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelInt.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new BigInt64Array([42n, -7n]) });
+    c.streamHandler?.(new Map([[c.channelInt.key, new MultiSeries([series])]]));
+    const entries = log.value();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].value).toBe("42");
+    expect(entries[1].value).toBe("-7");
+  });
+
+  it("should stringify JSON values as their serialized form", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelJSON.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({
+      data: [{ name: "Alice", value: 30 }],
+      dataType: DataType.JSON,
+    });
+    c.streamHandler?.(new Map([[c.channelJSON.key, new MultiSeries([series])]]));
+    const entries = log.value();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].value).toBe('{"name":"Alice","value":30}');
   });
 
   it("should maintain arrival order and not sort across multiple channels", async () => {
