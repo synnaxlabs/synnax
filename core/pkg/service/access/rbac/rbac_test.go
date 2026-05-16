@@ -18,9 +18,74 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("ServiceConfig", func() {
+	// fullCfg returns a ServiceConfig with every required field populated. Override and
+	// Validate specs branch off this to exercise individual fields.
+	var cfg rbac.ServiceConfig
+	BeforeEach(func() {
+		cfg = rbac.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
+			Auth:     authSvc,
+		}
+	})
+	Describe("Override", func() {
+		It("Should take each required field from the override when the base is zero", func() {
+			result := rbac.ServiceConfig{}.Override(cfg)
+			Expect(result.DB).To(Equal(db))
+			Expect(result.Ontology).To(Equal(otg))
+			Expect(result.Group).To(Equal(groupSvc))
+			Expect(result.Search).To(Equal(searchIdx))
+			Expect(result.User).To(Equal(userSvc))
+			Expect(result.Auth).To(Equal(authSvc))
+		})
+		It("Should keep each required field from the base when the override is zero", func() {
+			result := cfg.Override(rbac.ServiceConfig{})
+			Expect(result.DB).To(Equal(db))
+			Expect(result.Ontology).To(Equal(otg))
+			Expect(result.Group).To(Equal(groupSvc))
+			Expect(result.Search).To(Equal(searchIdx))
+			Expect(result.User).To(Equal(userSvc))
+			Expect(result.Auth).To(Equal(authSvc))
+		})
+		It("Should take RootCredentials from the override when set", func() {
+			creds := auth.Credentials{Username: "u", Password: "p"}
+			result := cfg.Override(rbac.ServiceConfig{RootCredentials: creds})
+			Expect(result.RootCredentials).To(Equal(creds))
+		})
+		It("Should keep RootCredentials from the base when the override is zero", func() {
+			creds := auth.Credentials{Username: "u", Password: "p"}
+			cfg.RootCredentials = creds
+			result := cfg.Override(rbac.ServiceConfig{})
+			Expect(result.RootCredentials).To(Equal(creds))
+		})
+	})
+	Describe("Validate", func() {
+		It("Should succeed when every required field is set", func() {
+			Expect(cfg.Validate()).To(Succeed())
+		})
+		DescribeTable("Should return an error when a required field is missing",
+			func(mutate func(*rbac.ServiceConfig), errorMsg string) {
+				mutate(&cfg)
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring(errorMsg)))
+			},
+			Entry("db", func(c *rbac.ServiceConfig) { c.DB = nil }, "db: must be non-nil"),
+			Entry("ontology", func(c *rbac.ServiceConfig) { c.Ontology = nil }, "ontology: must be non-nil"),
+			Entry("group", func(c *rbac.ServiceConfig) { c.Group = nil }, "group: must be non-nil"),
+			Entry("search", func(c *rbac.ServiceConfig) { c.Search = nil }, "search: must be non-nil"),
+			Entry("user", func(c *rbac.ServiceConfig) { c.User = nil }, "user: must be non-nil"),
+			Entry("auth", func(c *rbac.ServiceConfig) { c.Auth = nil }, "auth: must be non-nil"),
+		)
+	})
+})
 
 var _ = Describe("Service", func() {
 	var tx gorp.Tx
@@ -28,38 +93,23 @@ var _ = Describe("Service", func() {
 	AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
 
 	Describe("OpenService", func() {
-		It("Should open a service with valid configuration", func(ctx SpecContext) {
+		It("Should open a service with a valid configuration", func(ctx SpecContext) {
 			s := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
+				Group:    groupSvc,
 				Search:   searchIdx,
+				User:     userSvc,
+				Auth:     authSvc,
 			}))
 			Expect(s).ToNot(BeNil())
 			Expect(s.Policy).ToNot(BeNil())
 			Expect(s.Role).ToNot(BeNil())
 			Expect(s.Close()).To(Succeed())
 		})
-		It("Should return error with missing DB", func(ctx SpecContext) {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				Ontology: otg,
-				Group:    g,
-			})
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should return error with missing Ontology", func(ctx SpecContext) {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:    db,
-				Group: g,
-			})
-			Expect(err).To(HaveOccurred())
-		})
-		It("Should return error with missing Group", func(ctx SpecContext) {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			})
-			Expect(err).To(HaveOccurred())
+		It("Should propagate ServiceConfig.Validate errors", func(ctx SpecContext) {
+			Expect(rbac.OpenService(ctx, rbac.ServiceConfig{})).
+				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 	})
 
@@ -72,8 +122,8 @@ var _ = Describe("Service", func() {
 			obj2         ontology.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
-			policyWriter = svc.Policy.NewWriter(tx, true)
-			roleWriter = svc.Role.NewWriter(tx, true)
+			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
+			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj1 = ontology.ID{Type: "channel", Key: "channel-1"}
 			obj2 = ontology.ID{Type: "channel", Key: "channel-2"}
@@ -99,7 +149,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
 			It("Should deny access when no policy exists", func(ctx SpecContext) {
@@ -108,7 +158,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 
 			It("Should allow access with ActionAll wildcard", func(ctx SpecContext) {
@@ -135,7 +185,7 @@ var _ = Describe("Service", func() {
 						Objects: []ontology.ID{obj1},
 						Action:  action,
 					}
-					Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+					Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 				}
 			})
 
@@ -158,7 +208,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
 			It("Should deny when multiple objects and only one is allowed", func(ctx SpecContext) {
@@ -179,7 +229,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 		})
 
@@ -205,7 +255,7 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
 			It("Should deny access after role unassignment", func(ctx SpecContext) {
@@ -229,10 +279,10 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 
 				Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
 			})
 		})
 	})
@@ -244,8 +294,8 @@ var _ = Describe("Service", func() {
 			subject      ontology.ID
 		)
 		BeforeEach(func(ctx SpecContext) {
-			policyWriter = svc.Policy.NewWriter(tx, true)
-			roleWriter = svc.Role.NewWriter(tx, true)
+			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
+			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
 		})
@@ -274,21 +324,21 @@ var _ = Describe("Service", func() {
 			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
-			policies := MustSucceed(svc.RetrievePoliciesForSubject(ctx, subject, tx))
+			policies := MustSucceed(rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx))
 			Expect(policies).To(HaveLen(2))
 			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
 			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
 		})
 
 		It("Should return empty list when no roles assigned", func(ctx SpecContext) {
-			policies := MustSucceed(svc.RetrievePoliciesForSubject(ctx, subject, tx))
+			policies := MustSucceed(rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx))
 			Expect(policies).To(BeEmpty())
 		})
 	})
 
 	Describe("NewEnforcer", func() {
 		It("Should create a functional enforcer", func(ctx SpecContext) {
-			enforcer := svc.NewEnforcer(nil)
+			enforcer := rbacSvc.NewEnforcer(nil)
 			Expect(enforcer).ToNot(BeNil())
 
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
@@ -303,11 +353,11 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should use provided transaction", func(ctx SpecContext) {
-			enforcer := svc.NewEnforcer(tx)
+			enforcer := rbacSvc.NewEnforcer(tx)
 			Expect(enforcer).ToNot(BeNil())
 
-			policyWriter := svc.Policy.NewWriter(tx, true)
-			roleWriter := svc.Role.NewWriter(tx, true)
+			policyWriter := rbacSvc.Policy.NewWriter(tx, true)
+			roleWriter := rbacSvc.Role.NewWriter(tx, true)
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj := ontology.ID{Type: "channel", Key: "ch1"}
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
