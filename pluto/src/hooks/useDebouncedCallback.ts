@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, debounce, TimeSpan } from "@synnaxlabs/x";
 import { type DependencyList, useCallback } from "react";
 
-export const useDebouncedCallback = <F extends (...args: any[]) => void>(
-  func: F,
-  waitFor: number,
+export const useDebouncedCallback = <Args extends unknown[]>(
+  func: (...args: Args) => void,
+  waitFor: CrudeTimeSpan,
   deps: DependencyList,
-): F => useCallback(debounce(func, waitFor), [waitFor, ...deps]);
+): ((...args: Args) => void) => {
+  const debouncePeriod = new TimeSpan(waitFor).valueOf();
+  return useCallback(debounce(func, debouncePeriod), [debouncePeriod, ...deps]);
+};

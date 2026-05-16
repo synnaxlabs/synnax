@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package framer_test
+//go:build !windows
+
+package service_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestFramer(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Framer Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+var _ = Describe("Service", func() {
+	It("Is only meaningful on Windows", func() {
+		Skip("cmd/service is a Windows-only command")
+	})
+})

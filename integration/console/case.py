@@ -15,6 +15,8 @@ from playwright.sync_api import (
     Browser,
     BrowserContext,
     BrowserType,
+    ConsoleMessage,
+    Error,
     Page,
     sync_playwright,
 )
@@ -58,19 +60,18 @@ class ConsoleCase(TestCase):
         )
         self.page = self.context.new_page()
 
-        # Forward browser console messages to the test log for debugging.
-        def _forward_console(msg) -> None:  # type: ignore[no-untyped-def]
+        def _forward_console(msg: ConsoleMessage) -> None:
             try:
                 text = msg.text
             except Exception:
                 text = "<unprintable>"
             self.log(f"[browser:{msg.type}] {text}")
 
+        def _forward_page_error(exc: Error) -> None:
+            self.log(f"[browser:pageerror] {exc}")
+
         self.page.on("console", _forward_console)
-        self.page.on(
-            "pageerror",
-            lambda exc: self.log(f"[browser:pageerror] {exc}"),
-        )
+        self.page.on("pageerror", _forward_page_error)
 
         # Set timeouts
         self.page.set_default_timeout(default_timeout)  # 1s

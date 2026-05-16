@@ -48,18 +48,18 @@ export interface PropertiesProps {
 
 export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
   const selected = useSelectSelected(layoutKey);
-  const selectedConfigs = Schematic.useSelectConfigs({
+  const configByKey = Schematic.useSelectConfigs({
     key: layoutKey,
     keys: selected,
   });
-  if (selected.length === 0 || selectedConfigs.length == 0)
+  if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
         Select a Schematic element to configure its properties.
       </Text.Text>
     );
   if (selected.length > 1)
-    return <MultiConfig layoutKey={layoutKey} selectedConfigs={selectedConfigs} />;
+    return <MultiConfig layoutKey={layoutKey} configByKey={configByKey} />;
   const elKey = selected[0];
   return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
 });
@@ -123,16 +123,15 @@ const IndividualConfig = ({
 
 interface MultiElementPropertiesProps {
   layoutKey: string;
-  selectedConfigs: Schematic.ElementConfig[];
+  configByKey: Map<string, Schematic.ElementConfig>;
 }
 
 const MultiConfig = ({
   layoutKey,
-  selectedConfigs,
+  configByKey,
 }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
-
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
   const allNodes = Schematic.useSelectAllNodes({ key: layoutKey });
   const allConfigs = Schematic.useSelectAllConfigs({ key: layoutKey });
@@ -142,15 +141,6 @@ const MultiConfig = ({
   const handleUngroup = Schematic.useUngroup(layoutKey);
   const canGroup = Schematic.useSelectCanGroup({ key: layoutKey, selected });
   const canUngroup = Schematic.useSelectCanUngroup({ key: layoutKey, selected });
-
-  const configByKey = useMemo(() => {
-    const m = new Map<string, Schematic.ElementConfig>();
-    selected.forEach((k, i) => {
-      const cfg = selectedConfigs[i];
-      if (cfg != null) m.set(k, cfg);
-    });
-    return m;
-  }, [selected, selectedConfigs]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -170,23 +160,22 @@ const MultiConfig = ({
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
-  selectedConfigs.find((cfg) => {
-    if (!("label" in cfg)) return false;
+  for (const cfg of configByKey.values()) {
+    if (!("label" in cfg)) continue;
     firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
-    return firstNodeLabel != null;
-  });
+    if (firstNodeLabel != null) break;
+  }
 
   const colorGroups = useMemo(() => {
     const groups: Record<color.Hex, string[]> = {};
-    selected.forEach((key, i) => {
-      const cfg = selectedConfigs[i];
-      if (cfg == null || !("color" in cfg) || cfg.color == null) return;
+    configByKey.forEach((cfg, key) => {
+      if (!("color" in cfg) || cfg.color == null) return;
       const hex = color.hex(cfg.color as color.Crude);
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(key);
     });
     return groups;
-  }, [selected, selectedConfigs]);
+  }, [configByKey]);
 
   const handleLayouts = (
     nodeEl: Element,
@@ -342,9 +331,9 @@ const MultiConfig = ({
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
-    selectedConfigs.forEach((cfg, i) => {
+    configByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
-      onChange(selected[i], {
+      onChange(key, {
         orientation: location.rotate(cfg.orientation, dir),
       } as Partial<Schematic.ElementConfig>);
     });
@@ -359,9 +348,9 @@ const MultiConfig = ({
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
-    selectedConfigs.forEach((cfg, i) => {
+    configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
-      onChange(selected[i], {
+      onChange(elKey, {
         label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
       } as Partial<Schematic.ElementConfig>);
     });

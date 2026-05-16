@@ -95,8 +95,6 @@ var _ = Describe("TS Actions Plugin", func() {
 						"export type SetValuePayload",
 						"export const incrementPayloadZ = z.object({",
 						"export type IncrementPayload",
-						"set_value: \"set_value\"",
-						"increment: \"increment\"",
 						"export const actionZ = z.discriminatedUnion(\"type\", [",
 						"z.literal(\"set_value\")",
 						"z.literal(\"increment\")",
@@ -156,7 +154,6 @@ var _ = Describe("TS Actions Plugin", func() {
 				resp := MustGenerate(ctx, source, "board", loader, p)
 				ExpectContent(resp, "actions.gen.ts").
 					ToContain(
-						"set_node_position: \"set_node_position\"",
 						"export const setNodePosition",
 						"setNodePosition: (state: Draft<Board>, payload: SetNodePositionPayload) => HandlerResult;",
 						"return handlers.setNodePosition(state, action.setNodePosition);",

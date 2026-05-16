@@ -81,7 +81,7 @@ export const isHashable = (value: unknown): value is Hashable =>
   value != null &&
   typeof value === "object" &&
   "hash" in value &&
-  typeof (value as Hashable).hash === "function";
+  typeof value.hash === "function";
 
 /**
  * Type representing zero values for each primitive type

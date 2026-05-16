@@ -40,20 +40,20 @@ var _ = Describe("Reducer", func() {
 				node("n1", 0, 0),
 				node("n2", 5, 5),
 			}}
-			out := MustSucceed(schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 				Key:      "n1",
 				Position: spatial.XY{X: 100, Y: 200},
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(HaveLen(2))
 			Expect(out.Nodes[0]).To(Equal(node("n1", 100, 200)))
 			Expect(out.Nodes[1]).To(Equal(node("n2", 5, 5)))
 		})
 		It("Should be a no-op when the key does not match any node", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out := MustSucceed(schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 				Key:      "ghost",
 				Position: spatial.XY{X: 100, Y: 200},
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n1", 0, 0)}))
 		})
 		It("Should only move the first matching node when keys are duplicated", func() {
@@ -61,10 +61,10 @@ var _ = Describe("Reducer", func() {
 				node("dup", 0, 0),
 				node("dup", 1, 1),
 			}}
-			out := MustSucceed(schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 				Key:      "dup",
 				Position: spatial.XY{X: 9, Y: 9},
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 9, Y: 9}))
 			Expect(out.Nodes[1].Position).To(Equal(spatial.XY{X: 1, Y: 1}))
 		})
@@ -73,17 +73,17 @@ var _ = Describe("Reducer", func() {
 	Describe("SetNode", func() {
 		It("Should append the node to the end of the slice when no node has the same key", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodeAction(schematic.SetNodePayload{
 				Node: node("n2", 1, 2),
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n1", 0, 0), node("n2", 1, 2)}))
 		})
 		It("Should write config under the node's key when config is non-nil", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodeAction(schematic.SetNodePayload{
 				Node:   node("n1", 0, 0),
 				Config: msgpack.EncodedJSON{"label": "Pump", "color": "#ff0000"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs).To(HaveKey("n1"))
 			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
 				"label": "Pump",
@@ -92,9 +92,9 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodeAction(schematic.SetNodePayload{
 				Node: node("n1", 0, 0),
-			}).Reduce(state))
+			})))
 			Expect(out.Configs).To(BeNil())
 		})
 		It("Should replace an existing node in place when the key already exists, preserving slice index", func() {
@@ -103,9 +103,9 @@ var _ = Describe("Reducer", func() {
 				node("n2", 1, 1),
 				node("n3", 2, 2),
 			}}
-			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetNodeAction(schematic.SetNodePayload{
 				Node: node("n2", 9, 9),
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Nodes[0]).To(Equal(node("n1", 0, 0)))
 			Expect(out.Nodes[1]).To(Equal(node("n2", 9, 9)))
@@ -122,9 +122,9 @@ var _ = Describe("Reducer", func() {
 					"n2": {"label": "Tank"},
 				},
 			}
-			out := MustSucceed(schematic.NewRemoveNodeAction(schematic.RemoveNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 				Key: "n1",
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n2", 1, 1)}))
 			Expect(out.Configs).ToNot(HaveKey("n1"))
 			Expect(out.Configs).To(HaveKey("n2"))
@@ -134,9 +134,9 @@ var _ = Describe("Reducer", func() {
 				Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
 				Edges: []schematic.Edge{edge("e1", "n1", "out", "n2", "in")},
 			}
-			out := MustSucceed(schematic.NewRemoveNodeAction(schematic.RemoveNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 				Key: "n1",
-			}).Reduce(state))
+			})))
 			Expect(out.Edges).To(HaveLen(1))
 			Expect(out.Edges[0].Source.Node).To(Equal("n1"))
 		})
@@ -145,9 +145,9 @@ var _ = Describe("Reducer", func() {
 				Nodes:   []schematic.Node{node("n1", 0, 0)},
 				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
 			}
-			out := MustSucceed(schematic.NewRemoveNodeAction(schematic.RemoveNode{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 				Key: "ghost",
-			}).Reduce(state))
+			})))
 			Expect(out.Nodes).To(Equal(state.Nodes))
 			Expect(out.Configs).To(Equal(state.Configs))
 		})
@@ -156,9 +156,9 @@ var _ = Describe("Reducer", func() {
 	Describe("AddEdge", func() {
 		It("Should append an edge whose key is not yet present", func() {
 			state := schematic.Schematic{Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")}}
-			out := MustSucceed(schematic.NewAddEdgeAction(schematic.AddEdge{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewAddEdgeAction(schematic.AddEdgePayload{
 				Edge: edge("e2", "b", "o", "c", "i"),
-			}).Reduce(state))
+			})))
 			Expect(out.Edges).To(HaveLen(2))
 			Expect(out.Edges[1].Key).To(Equal("e2"))
 		})
@@ -167,9 +167,9 @@ var _ = Describe("Reducer", func() {
 				edge("e1", "a", "o", "b", "i"),
 				edge("e2", "b", "o", "c", "i"),
 			}}
-			out := MustSucceed(schematic.NewAddEdgeAction(schematic.AddEdge{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewAddEdgeAction(schematic.AddEdgePayload{
 				Edge: edge("e1", "x", "y", "z", "w"),
-			}).Reduce(state))
+			})))
 			Expect(out.Edges).To(Equal(state.Edges))
 		})
 	})
@@ -180,16 +180,16 @@ var _ = Describe("Reducer", func() {
 				edge("e1", "a", "o", "b", "i"),
 				edge("e2", "b", "o", "c", "i"),
 			}}
-			out := MustSucceed(schematic.NewRemoveEdgeAction(schematic.RemoveEdge{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "e1",
-			}).Reduce(state))
+			})))
 			Expect(out.Edges).To(Equal([]schematic.Edge{edge("e2", "b", "o", "c", "i")}))
 		})
 		It("Should be a no-op when the key does not match any edge", func() {
 			state := schematic.Schematic{Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")}}
-			out := MustSucceed(schematic.NewRemoveEdgeAction(schematic.RemoveEdge{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "ghost",
-			}).Reduce(state))
+			})))
 			Expect(out.Edges).To(Equal(state.Edges))
 		})
 	})
@@ -197,20 +197,20 @@ var _ = Describe("Reducer", func() {
 	Describe("SetConfig", func() {
 		It("Should write the config entry under the given key", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"label": "Pump"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
 		})
 		It("Should merge payload fields into an existing config entry", func() {
 			state := schematic.Schematic{Configs: map[string]msgpack.EncodedJSON{
 				"n1": {"label": "Old", "color": "#ff0000"},
 			}}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"label": "New"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
 				"label": "New",
 				"color": "#ff0000",
@@ -218,10 +218,10 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "orphan",
 				Config: msgpack.EncodedJSON{"data": 1},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
 		})
 		It("Should override the payload color with the edge's source color on insert", func() {
@@ -231,10 +231,10 @@ var _ = Describe("Reducer", func() {
 					"src": {"color": "#00ff00"},
 				},
 			}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
 				"variant": "pipe",
 				"color":   "#00ff00",
@@ -247,10 +247,10 @@ var _ = Describe("Reducer", func() {
 					"src": {"color": "#00ff00"},
 				},
 			}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "pipe"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
 				"variant": "pipe",
 				"color":   "#00ff00",
@@ -263,10 +263,10 @@ var _ = Describe("Reducer", func() {
 					"src": {"label": "Pump"},
 				},
 			}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
 				"variant": "pipe",
 				"color":   "#000000",
@@ -276,10 +276,10 @@ var _ = Describe("Reducer", func() {
 			state := schematic.Schematic{
 				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
 			}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
 				"variant": "pipe",
 				"color":   "#000000",
@@ -293,10 +293,10 @@ var _ = Describe("Reducer", func() {
 					"e1":  {"variant": "pipe", "color": "#000000"},
 				},
 			}
-			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+			out := MustSucceed(schematic.Reduce(state, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "electric"},
-			}).Reduce(state))
+			})))
 			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
 				"variant": "electric",
 				"color":   "#000000",
@@ -309,12 +309,12 @@ var _ = Describe("Reducer", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("pump", 0, 0)}}
 			actions := make([]schematic.Action, 0, 30)
 			for i := range 30 {
-				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      "pump",
 					Position: spatial.XY{X: float64(i), Y: float64(i * 2)},
 				}))
 			}
-			out := MustSucceed(schematic.ReduceAll(state, actions))
+			out := MustSucceed(schematic.Reduce(state, actions...))
 			Expect(out.Nodes).To(HaveLen(1))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 29, Y: 58}))
 		})
@@ -322,21 +322,21 @@ var _ = Describe("Reducer", func() {
 		It("Should build a complete graph from an empty schematic", func() {
 			state := schematic.Schematic{}
 			actions := []schematic.Action{
-				schematic.NewSetNodeAction(schematic.SetNode{Node: node("pump", 0, 0)}),
-				schematic.NewSetNodeAction(schematic.SetNode{Node: node("valve", 100, 0)}),
-				schematic.NewSetNodeAction(schematic.SetNode{Node: node("tank", 200, 0)}),
-				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: edge("e1", "pump", "out", "valve", "in")}),
-				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: edge("e2", "valve", "out", "tank", "in")}),
-				schematic.NewSetConfigAction(schematic.SetConfig{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{Node: node("pump", 0, 0)}),
+				schematic.NewSetNodeAction(schematic.SetNodePayload{Node: node("valve", 100, 0)}),
+				schematic.NewSetNodeAction(schematic.SetNodePayload{Node: node("tank", 200, 0)}),
+				schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: edge("e1", "pump", "out", "valve", "in")}),
+				schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: edge("e2", "valve", "out", "tank", "in")}),
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
 					Config: msgpack.EncodedJSON{"label": "Main Pump"},
 				}),
-				schematic.NewSetConfigAction(schematic.SetConfig{
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "e1",
 					Config: msgpack.EncodedJSON{"variant": "pipe"},
 				}),
 			}
-			out := MustSucceed(schematic.ReduceAll(state, actions))
+			out := MustSucceed(schematic.Reduce(state, actions...))
 			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Edges).To(HaveLen(2))
 			Expect(out.Configs).To(HaveLen(2))
@@ -351,10 +351,10 @@ var _ = Describe("Reducer", func() {
 				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "v1"}},
 			}
 			actions := []schematic.Action{
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
-				schematic.NewSetNodeAction(schematic.SetNode{Node: node("n1", 50, 50)}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
+				schematic.NewSetNodeAction(schematic.SetNodePayload{Node: node("n1", 50, 50)}),
 			}
-			out := MustSucceed(schematic.ReduceAll(state, actions))
+			out := MustSucceed(schematic.Reduce(state, actions...))
 			Expect(out.Nodes).To(HaveLen(2))
 			Expect(out.Nodes[1]).To(Equal(node("n1", 50, 50)))
 			Expect(out.Configs).ToNot(HaveKey("n1"))
@@ -365,30 +365,30 @@ var _ = Describe("Reducer", func() {
 		It("Should converge an idempotent action sequence to the same state as a single application", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
 			single := []schematic.Action{
-				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      "n1",
 					Position: spatial.XY{X: 10, Y: 20},
 				}),
 			}
 			doubled := []schematic.Action{single[0], single[0], single[0]}
-			Expect(MustSucceed(schematic.ReduceAll(state, single))).To(Equal(MustSucceed(schematic.ReduceAll(state, doubled))))
+			Expect(MustSucceed(schematic.Reduce(state, single...))).To(Equal(MustSucceed(schematic.Reduce(state, doubled...))))
 		})
 
 		It("Should apply a 50-action editor session and converge to a coherent schematic", func() {
 			state := schematic.Schematic{}
 			var actions []schematic.Action
 			for i := range 5 {
-				actions = append(actions, schematic.NewSetNodeAction(schematic.SetNode{
+				actions = append(actions, schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: node("n"+string(rune('0'+i)), float64(i*100), 0),
 				}))
 			}
 			for i := range 5 {
 				key := "n" + string(rune('0'+i))
-				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      key,
 					Position: spatial.XY{X: float64(i * 100), Y: 50},
 				}))
-				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      key,
 					Position: spatial.XY{X: float64(i * 100), Y: 100},
 				}))
@@ -396,21 +396,21 @@ var _ = Describe("Reducer", func() {
 			for i := range 4 {
 				src := "n" + string(rune('0'+i))
 				dst := "n" + string(rune('0'+i+1))
-				actions = append(actions, schematic.NewAddEdgeAction(schematic.AddEdge{
+				actions = append(actions, schematic.NewAddEdgeAction(schematic.AddEdgePayload{
 					Edge: edge("e"+string(rune('0'+i)), src, "out", dst, "in"),
 				}))
 			}
 			for i := range 3 {
-				actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfig{
+				actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "n" + string(rune('0'+i)),
 					Config: msgpack.EncodedJSON{"label": "node " + string(rune('0'+i))},
 				}))
 			}
-			actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfig{
+			actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfigPayload{
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "electric"},
 			}))
-			out := MustSucceed(schematic.ReduceAll(state, actions))
+			out := MustSucceed(schematic.Reduce(state, actions...))
 			Expect(out.Nodes).To(HaveLen(5))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 0, Y: 100}))
 			Expect(out.Nodes[4].Position).To(Equal(spatial.XY{X: 400, Y: 100}))
@@ -424,37 +424,37 @@ var _ = Describe("Reducer", func() {
 				Name:  "empty",
 				Nodes: []schematic.Node{node("n1", 0, 0)},
 			}
-			Expect(MustSucceed(schematic.ReduceAll(state, nil))).To(Equal(state))
-			Expect(MustSucceed(schematic.ReduceAll(state, []schematic.Action{}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state))).To(Equal(state))
 		})
 	})
 
 	Describe("Action envelope", func() {
 		It("Should return state unchanged when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			Expect(MustSucceed(schematic.Action{Type: "totally_made_up"}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: "totally_made_up"}))).To(Equal(state))
 		})
 
 		It("Should return state unchanged when Type names a variant whose payload pointer is nil", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodePosition}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNode}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveNode}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeAddEdge}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveEdge}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetConfig}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodeMeasured}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNodePosition}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNode}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeRemoveNode}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeAddEdge}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeRemoveEdge}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetConfig}))).To(Equal(state))
+			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNodeMeasured}))).To(Equal(state))
 		})
 
 		It("Should dispatch on Type and ignore extra payload pointers when more than one is set", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			pos := schematic.SetNodePosition{Key: "n1", Position: spatial.XY{X: 50, Y: 60}}
-			edge := schematic.AddEdge{Edge: edge("e_extra", "n1", "o", "n2", "i")}
-			out := MustSucceed(schematic.Action{
+			pos := schematic.SetNodePositionPayload{Key: "n1", Position: spatial.XY{X: 50, Y: 60}}
+			edge := schematic.AddEdgePayload{Edge: edge("e_extra", "n1", "o", "n2", "i")}
+			out := MustSucceed(schematic.Reduce(state, schematic.Action{
 				Type:            schematic.ActionTypeSetNodePosition,
 				SetNodePosition: &pos,
 				AddEdge:         &edge,
-			}.Reduce(state))
+			}))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
 			Expect(out.Edges).To(BeEmpty())
 		})
