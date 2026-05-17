@@ -6,7 +6,7 @@
   "channels": [
     {
       "channel": 1,
-      "color": "red",
+      "color": "#ff0000",
       "notation": "scientific",
       "precision": 2,
       "alias": "temp"
