@@ -69,6 +69,12 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, user.User{Username: name})).
 				Error().To(MatchError(auth.ErrRepeatedUsername))
 		})
+		It("Should reject RootUser=true so the root-user invariant cannot be bypassed", func(ctx SpecContext) {
+			Expect(w.Create(ctx, user.User{
+				Username: uuid.NewString(),
+				RootUser: true,
+			})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
+		})
 	})
 	Describe("ChangeUsername", func() {
 		It("Should change the username of a user", func(ctx SpecContext) {
@@ -107,31 +113,6 @@ var _ = Describe("Writer", func() {
 			Expect(u.LastName).To(Equal("Surname"))
 		})
 	})
-	Describe("SetRootUser", func() {
-		It("Should flip a non-root user's RootUser flag to true and back", func(ctx SpecContext) {
-			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
-			Expect(created.RootUser).To(BeFalse())
-			Expect(w.SetRootUser(ctx, created.Key, true)).To(Succeed())
-			var promoted user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&promoted).Exec(ctx, tx)).To(Succeed())
-			Expect(promoted.RootUser).To(BeTrue())
-			Expect(w.SetRootUser(ctx, created.Key, false)).To(Succeed())
-			var demoted user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&demoted).Exec(ctx, tx)).To(Succeed())
-			Expect(demoted.RootUser).To(BeFalse())
-		})
-		It("Should be idempotent when called with the same target value", func(ctx SpecContext) {
-			created := MustSucceed(w.Create(ctx, user.User{
-				Username: uuid.NewString(),
-				RootUser: true,
-			}))
-			Expect(w.SetRootUser(ctx, created.Key, true)).To(Succeed())
-			Expect(w.SetRootUser(ctx, created.Key, true)).To(Succeed())
-			var fetched user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&fetched).Exec(ctx, tx)).To(Succeed())
-			Expect(fetched.RootUser).To(BeTrue())
-		})
-	})
 	Describe("Delete", func() {
 		It("Should delete a single user", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
@@ -149,11 +130,15 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().Where(user.MatchUsernames(b.Username)).Exists(ctx, nil)).To(BeFalse())
 		})
 		It("Should not delete a root user", func(ctx SpecContext) {
-			root := MustSucceed(w.Create(ctx, user.User{
+			// Insert a root user directly via the raw gorp writer because
+			// Writer.Create rejects RootUser=true.
+			rootUser := user.User{
+				Key:      uuid.New(),
 				Username: uuid.NewString(),
 				RootUser: true,
-			}))
-			Expect(w.Delete(ctx, root.Key)).To(MatchError(ContainSubstring("cannot delete root user")))
+			}
+			Expect(gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, rootUser)).To(Succeed())
+			Expect(w.Delete(ctx, rootUser.Key)).To(MatchError(ContainSubstring("cannot delete root user")))
 		})
 		It("Should be a no-op when the user does not exist", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, uuid.New())).To(Succeed())

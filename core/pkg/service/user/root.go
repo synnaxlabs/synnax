@@ -130,7 +130,7 @@ func (s *Service) reconcileWithCreds(
 	if matchingRootIdx >= 0 {
 		matchingRoot = roots[matchingRootIdx]
 	} else {
-		created, err := s.NewWriter(tx).Create(ctx, User{
+		created, err := s.NewWriter(tx).create(ctx, User{
 			Username: s.cfg.RootCredentials.Username,
 			RootUser: true,
 		})
@@ -157,7 +157,7 @@ func (s *Service) reconcileWithCreds(
 // demoteRoot clears the RootUser flag on u. Existing role assignments are left
 // untouched. Always logs a warning so operators notice ownership transitions.
 func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
-	if err := s.NewWriter(tx).SetRootUser(ctx, u.Key, false); err != nil {
+	if err := s.NewWriter(tx).setRootUser(ctx, u.Key, false); err != nil {
 		return errors.Wrapf(err, "demote root user %q", u.Username)
 	}
 	s.cfg.L.Warn("demoted root user", zap.String("username", u.Username))

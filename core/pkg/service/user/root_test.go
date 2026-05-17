@@ -12,6 +12,7 @@ package user_test
 import (
 	"context"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -32,8 +33,10 @@ func openRootUser(ctx context.Context, username, pwd string) *user.Service {
 	return MustOpen(user.OpenService(ctx, cfg))
 }
 
-// seedUser registers a user record and matching credentials in a single transaction,
-// mirroring the API-layer create flow.
+// seedUser registers a user record and matching credentials in a single transaction.
+// Non-root users go through the public Writer.Create; root users are inserted with
+// the raw gorp writer because [user.Writer.Create] now rejects RootUser=true. The
+// raw insert mirrors what the reconciler does internally.
 func seedUser(
 	ctx context.Context,
 	svc *user.Service,
@@ -47,24 +50,38 @@ func seedUser(
 		}); err != nil {
 			return err
 		}
-		var err error
-		u, err = svc.NewWriter(tx).Create(ctx, user.User{
-			Username: username, RootUser: root,
-		})
-		return err
+		if !root {
+			var err error
+			u, err = svc.NewWriter(tx).Create(ctx, user.User{Username: username})
+			return err
+		}
+		u = user.User{Key: uuid.New(), Username: username, RootUser: true}
+		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
+			return err
+		}
+		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
 	})).To(Succeed())
 	return u
 }
 
 // seedUserRecordOnly creates a user record without registering credentials, simulating
-// an orphan record (RootUser=true, no auth row) that the reconciler must heal by
-// registering creds.
+// an orphan record that the reconciler must heal by registering creds. Root records are
+// inserted with the raw gorp writer because [user.Writer.Create] now rejects
+// RootUser=true.
 func seedUserRecordOnly(
 	ctx context.Context, svc *user.Service, username string, root bool,
 ) user.User {
-	return MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
-		Username: username, RootUser: root,
-	}))
+	if !root {
+		return MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+	}
+	u := user.User{Key: uuid.New(), Username: username, RootUser: true}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, u); err != nil {
+			return err
+		}
+		return otg.NewWriter(tx).DefineResource(ctx, user.OntologyID(u.Key))
+	})).To(Succeed())
+	return u
 }
 
 // seedAuthRowOnly registers credentials without creating a user record, simulating an
@@ -95,11 +112,15 @@ func rootUsers(ctx context.Context, svc *user.Service) []user.User {
 }
 
 // purgeUsersAndAuth deletes every user record and every auth credential from the
-// suite-level db, restoring a clean slate between specs. The root-user guard on
-// [user.Writer.Delete] is bypassed by first clearing the RootUser flag on every user.
+// suite-level db, restoring a clean slate between specs. Uses the raw gorp writer and
+// the ontology writer directly so it can delete root users — the public
+// [user.Writer.Delete] rejects them by design.
 func purgeUsersAndAuth(ctx context.Context) {
 	var users []user.User
 	Expect(svc.NewRetrieve().Entries(&users).Exec(ctx, nil)).To(Succeed())
+	if len(users) == 0 {
+		return
+	}
 	keys := make([]user.Key, len(users))
 	usernames := make([]string, len(users))
 	for i, u := range users {
@@ -107,21 +128,15 @@ func purgeUsersAndAuth(ctx context.Context) {
 		usernames[i] = u.Username
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := svc.NewWriter(tx)
-		for _, k := range keys {
-			if err := w.SetRootUser(ctx, k, false); err != nil {
-				return err
-			}
+		if err := gorp.WrapWriter[user.Key, user.User](tx).Delete(ctx, keys...); err != nil {
+			return err
 		}
-		if len(keys) > 0 {
-			if err := w.Delete(ctx, keys...); err != nil {
-				return err
-			}
+		if err := otg.NewWriter(tx).DeleteManyResources(
+			ctx, user.OntologyIDsFromKeys(keys),
+		); err != nil {
+			return err
 		}
-		if len(usernames) > 0 {
-			return authSvc.NewWriter(tx).Deactivate(ctx, usernames...)
-		}
-		return nil
+		return authSvc.NewWriter(tx).Deactivate(ctx, usernames...)
 	})).To(Succeed())
 }
 

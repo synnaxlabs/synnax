@@ -31,9 +31,16 @@ type Writer struct {
 }
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
-// assigned. The returned User has Key populated. Returns [auth.ErrRepeatedUsername] if
-// a user with u.Username already exists.
+// assigned. The returned User has Key populated. Returns an error if u.RootUser is true
+// and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
+	if u.RootUser {
+		return User{}, errors.New("cannot create a root user; root users are provisioned at startup")
+	}
+	return w.create(ctx, u)
+}
+
+func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if u.Key == uuid.Nil {
 		u.Key = uuid.New()
 	}
@@ -90,10 +97,7 @@ func (w Writer) ChangeName(ctx context.Context, key Key, first, last string) err
 		}).Exec(ctx, w.tx)
 }
 
-// SetRootUser sets the RootUser flag of the user identified by key. This method does
-// not enforce the "at most one RootUser" invariant; that invariant is owned by
-// startup-time reconciliation in the rbac service.
-func (w Writer) SetRootUser(ctx context.Context, key Key, root bool) error {
+func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).
 		Change(func(_ gorp.Context, u User) User { u.RootUser = root; return u }).
