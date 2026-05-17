@@ -100,15 +100,10 @@ type autoIndexer struct {
 }
 
 // newAutoIndexer constructs an autoIndexer scoped to channels — the channel metadata
-// for the leaseholder's local key slice. keys and authorities are the writer's
-// leaseholder-local open-time configuration, used to seed the dataAuth map. start
-// seeds the high-water mark so the first auto-stamped sample is >= start + 1.
-func newAutoIndexer(
-	channels []channel.Channel,
-	keys channel.Keys,
-	authorities []control.Authority,
-	start telem.TimeStamp,
-) *autoIndexer {
+// for the leaseholder's local key slice. cfg is the writer's leaseholder-local
+// open-time configuration; cfg.Keys and cfg.Authorities seed the dataAuth map, and
+// cfg.Start seeds the high-water mark so the first auto-stamped sample is >= Start+1.
+func newAutoIndexer(channels []channel.Channel, cfg Config) *autoIndexer {
 	dataToIndex := make(map[channel.Key]channel.Key, len(channels))
 	seen := set.New[channel.Key]()
 	var indexKeys channel.Keys
@@ -127,19 +122,19 @@ func newAutoIndexer(
 		}
 	}
 	dataAuth := make(map[channel.Key]control.Authority, len(dataToIndex))
-	if len(authorities) > 0 {
-		for i, k := range keys {
+	if len(cfg.Authorities) > 0 {
+		for i, k := range cfg.Keys {
 			if _, isData := dataToIndex[k]; !isData {
 				continue
 			}
-			dataAuth[k] = authorities[i%len(authorities)]
+			dataAuth[k] = cfg.Authorities[i%len(cfg.Authorities)]
 		}
 	}
 	return &autoIndexer{
 		indexKeys:     indexKeys,
 		dataToIndex:   dataToIndex,
 		dataAuth:      dataAuth,
-		highWaterMark: start,
+		highWaterMark: cfg.Start,
 	}
 }
 
