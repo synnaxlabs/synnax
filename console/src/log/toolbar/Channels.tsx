@@ -17,12 +17,11 @@ import {
   Icon,
   Input,
   List,
-  type Log as PLog,
   Notation,
   Select,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
+import { color, DataType, type notation, primitive, type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -48,7 +47,7 @@ const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
 const TIMESTAMP_TZS = ["UTC", "local"] as const;
 
 interface TimestampFormatSelectProps extends Omit<
-  Select.ButtonsProps<PLog.TimestampFormat>,
+  Select.ButtonsProps<telem.TimestampFormat>,
   "keys"
 > {}
 
@@ -73,7 +72,7 @@ const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement 
 );
 
 interface TimestampTZSelectProps extends Omit<
-  Select.ButtonsProps<PLog.TimestampTZ>,
+  Select.ButtonsProps<telem.Timezone>,
   "keys"
 > {}
 
@@ -111,7 +110,7 @@ const ChannelRow = ({
 }: ChannelRowProps): ReactElement => {
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
-  const hasCustomColor = config.color !== "";
+  const hasCustomColor = !color.isZero(config.color);
   const showNumeric = showsNumericFields(ch?.dataType);
   const showTimestamp = isTimestamp(ch?.dataType);
 
@@ -189,7 +188,7 @@ const ChannelRow = ({
           <>
             <TimestampFormatSelect
               value={config.timestamp.format}
-              onChange={(v: PLog.TimestampFormat) =>
+              onChange={(v: telem.TimestampFormat) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, format: v },
                 })
@@ -198,7 +197,7 @@ const ChannelRow = ({
             <TimestampTZSelect
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
-              onChange={(v: PLog.TimestampTZ) =>
+              onChange={(v: telem.Timezone) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, tz: v },
                 })
@@ -208,9 +207,9 @@ const ChannelRow = ({
         )}
         <Color.Swatch
           value={hasCustomColor ? config.color : defaultColor}
-          onChange={(c) => onConfigChange(channelKey, { color: color.hex(c) })}
+          onChange={(c) => onConfigChange(channelKey, { color: c })}
           onDelete={
-            hasCustomColor ? () => onConfigChange(channelKey, { color: "" }) : undefined
+            hasCustomColor ? () => onConfigChange(channelKey, { color: color.ZERO }) : undefined
           }
           size="small"
         />

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { color } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -78,7 +79,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -86,7 +87,7 @@ describe("log/toolbar/Channels", () => {
           },
           {
             channel: 20,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -107,7 +108,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -115,7 +116,7 @@ describe("log/toolbar/Channels", () => {
           },
           {
             channel: 20,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -134,7 +135,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -158,7 +159,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",

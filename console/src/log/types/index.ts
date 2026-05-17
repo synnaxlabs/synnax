@@ -26,6 +26,7 @@ export const channelEntryZ = v1.channelEntryZ;
 export type ToolbarTab = v1.ToolbarTab;
 export type ToolbarState = v1.ToolbarState;
 export const ZERO_TOOLBAR_STATE = v1.ZERO_TOOLBAR_STATE;
+export const stateFromLog = v1.stateFromLog;
 
 export type AnyState = v0.State | v1.State;
 export type AnySliceState = v0.SliceState | v1.SliceState;

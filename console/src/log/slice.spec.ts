@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
+
+const RED = color.construct("#ff0000");
 
 import {
   actions,
@@ -66,10 +69,10 @@ describe("Log Slice", () => {
       const key = "log-1";
       store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(42)] }));
       store.dispatch(
-        actions.setChannelConfig({ key, channelKey: 42, config: { color: "#ff0000" } }),
+        actions.setChannelConfig({ key, channelKey: 42, config: { color: RED } }),
       );
       const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
-      expect(entry).toEqual({ ...ZERO_CHANNEL_CONFIG, channel: 42, color: "#ff0000" });
+      expect(entry).toEqual({ ...ZERO_CHANNEL_CONFIG, channel: 42, color: RED });
     });
 
     it("should merge partial updates into an existing config", () => {
@@ -79,7 +82,7 @@ describe("Log Slice", () => {
         actions.setChannelConfig({
           key,
           channelKey: 1,
-          config: { color: "#ff0000", precision: 2 },
+          config: { color: RED, precision: 2 },
         }),
       );
       store.dispatch(
@@ -88,7 +91,7 @@ describe("Log Slice", () => {
       const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
       expect(entry).toEqual({
         channel: 1,
-        color: "#ff0000",
+        color: RED,
         notation: "standard",
         precision: 4,
         alias: "",
@@ -181,11 +184,11 @@ describe("Log Slice", () => {
     });
 
     it("should reject channel precision above 17", () => {
-      expect(() => channelConfigZ.parse({ color: "", precision: 18 })).toThrow();
+      expect(() => channelConfigZ.parse({ color: color.ZERO, precision: 18 })).toThrow();
     });
 
     it("should reject channel precision below -1", () => {
-      expect(() => channelConfigZ.parse({ color: "", precision: -2 })).toThrow();
+      expect(() => channelConfigZ.parse({ color: color.ZERO, precision: -2 })).toThrow();
     });
 
     it("should default showChannelNames to true when missing", () => {

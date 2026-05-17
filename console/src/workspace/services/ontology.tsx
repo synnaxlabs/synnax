@@ -141,7 +141,7 @@ const useCreateLog = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...log } = data;
       await maybeChangeWorkspace(workspace);
-      placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
+      placeLayout(Log.create({ ...Log.stateFromLog(log), name: log.name }));
     },
   });
   return useCallback(
@@ -149,7 +149,11 @@ const useCreateLog = ({
       update({
         workspace: workspaceID.key,
         name: "New Log",
-        data: deep.copy(Log.ZERO_STATE),
+        channels: [],
+        remoteCreated: false,
+        timestampPrecision: 0,
+        showChannelNames: true,
+        showReceiptTimestamp: true,
       }),
     [workspaceID.key],
   );

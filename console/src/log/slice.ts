@@ -25,6 +25,7 @@ export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const migrateSlice = latest.migrateSlice;
+export const stateFromLog = latest.stateFromLog;
 
 export const SLICE_NAME = "log";
 
