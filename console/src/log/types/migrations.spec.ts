@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type log } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -53,8 +55,8 @@ describe("log type migrations", () => {
       const migrated = migrateState(v0State);
       expect(migrated.version).toBe(v1.VERSION);
       expect(migrated.channels).toEqual([
-        { channel: 1, ...v1.ZERO_CHANNEL_CONFIG },
-        { channel: 2, ...v1.ZERO_CHANNEL_CONFIG },
+        { ...v1.ZERO_CHANNEL_ENTRY, channel: 1 },
+        { ...v1.ZERO_CHANNEL_ENTRY, channel: 2 },
       ]);
     });
   });
@@ -68,6 +70,51 @@ describe("log type migrations", () => {
     it("should parse v1 state as-is", () => {
       const result = anyStateZ.parse(v1.ZERO_STATE);
       expect(result.version).toBe(v1.VERSION);
+    });
+  });
+
+  describe("stateFromLog", () => {
+    const SERVER_LOG: log.Log = {
+      key: "11111111-1111-1111-1111-111111111111",
+      name: "Sensor Log",
+      channels: [
+        { ...v1.ZERO_CHANNEL_ENTRY, channel: 1, color: color.construct("#ff0000") },
+        { ...v1.ZERO_CHANNEL_ENTRY, channel: 2, precision: 3 },
+      ],
+      remoteCreated: true,
+      timestampPrecision: 2,
+      showChannelNames: false,
+      showReceiptTimestamp: false,
+    };
+
+    it("should copy persisted fields from the server log", () => {
+      const state = v1.stateFromLog(SERVER_LOG);
+      expect(state.key).toBe(SERVER_LOG.key);
+      expect(state.channels).toEqual(SERVER_LOG.channels);
+      expect(state.remoteCreated).toBe(true);
+      expect(state.timestampPrecision).toBe(2);
+      expect(state.showChannelNames).toBe(false);
+      expect(state.showReceiptTimestamp).toBe(false);
+    });
+
+    it("should stamp the current state version", () => {
+      const state = v1.stateFromLog(SERVER_LOG);
+      expect(state.version).toBe(v1.VERSION);
+    });
+
+    it("should reset the toolbar to its default state", () => {
+      const state = v1.stateFromLog(SERVER_LOG);
+      expect(state.toolbar).toEqual(v1.ZERO_TOOLBAR_STATE);
+    });
+
+    it("should not carry the server name into the Console state", () => {
+      const state = v1.stateFromLog(SERVER_LOG);
+      expect(state).not.toHaveProperty("name");
+    });
+
+    it("should preserve an empty channels list", () => {
+      const state = v1.stateFromLog({ ...SERVER_LOG, channels: [] });
+      expect(state.channels).toEqual([]);
     });
   });
 });

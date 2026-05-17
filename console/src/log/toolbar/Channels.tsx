@@ -29,10 +29,9 @@ import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
 import {
   addChannel,
-  type ChannelConfig,
   removeChannelByIndex,
   setChannelAtIndex,
-  setChannelConfig,
+  setChannelEntry,
 } from "@/log/slice";
 
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
@@ -91,9 +90,12 @@ interface ChannelRowProps {
   index: number;
   channelKey: channel.Key;
   ch: channel.Channel | undefined;
-  config: ChannelConfig;
+  config: log.ChannelEntry;
   onChange: (index: number, channelKey: channel.Key) => void;
-  onConfigChange: (channelKey: channel.Key, config: Partial<ChannelConfig>) => void;
+  onConfigChange: (
+    channelKey: channel.Key,
+    config: Partial<Omit<log.ChannelEntry, "channel">>,
+  ) => void;
   onRemove: (index: number) => void;
   disabled: boolean;
 }
@@ -269,8 +271,13 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   );
 
   const handleConfigChange = useCallback(
-    (channelKey: channel.Key, config: Partial<ChannelConfig>): void => {
-      dispatch(setChannelConfig({ key: layoutKey, channelKey, config }));
+    (
+      channelKey: channel.Key,
+      config: Partial<Omit<log.ChannelEntry, "channel">>,
+    ): void => {
+      dispatch(
+        setChannelEntry({ key: layoutKey, entry: { ...config, channel: channelKey } }),
+      );
     },
     [dispatch, layoutKey],
   );
