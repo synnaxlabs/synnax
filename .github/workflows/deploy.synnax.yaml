@@ -288,7 +288,7 @@ jobs:
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
