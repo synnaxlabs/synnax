@@ -24,6 +24,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Service is the core authentication service for the Synnax API.
@@ -217,9 +218,17 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, err
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		// Look up the usernames of the keys that actually exist so we can
+		// deactivate the matching auth rows. A bare-key retrieve wraps
+		// query.ErrNotFound when any key is missing; we treat that as "those
+		// keys are simply not here" and continue with whatever was found, so
+		// deleting a non-existent user is a no-op rather than an error.
 		var toDelete []user.User
-		if err := s.internal.NewRetrieve().Where(user.MatchKeys(req.Keys...)).
-			Entries(&toDelete).Exec(ctx, tx); err != nil {
+		err := s.internal.NewRetrieve().
+			Where(user.MatchKeys(req.Keys...)).
+			Entries(&toDelete).
+			Exec(ctx, tx)
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 		if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {

@@ -89,8 +89,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close closes the service and releases any resources.
 func (s *Service) Close() error { return s.table.Close() }
 
-// Authenticate validates the identity of the entity with the given credentials. If the
-// credentials are invalid, [ErrInvalidCredentials] is returned.
+// Authenticate validates the identity of the entity with the given credentials. It
+// returns [ErrInvalidCredentials] only when creds.Username has no stored row or
+// creds.Password does not match the stored hash. Any other failure (e.g. a storage
+// error during the retrieve) is returned verbatim so callers can distinguish a
+// transient system failure from a credential mismatch.
 func (s *Service) Authenticate(ctx context.Context, creds Credentials) error {
 	if err := creds.Validate(); err != nil {
 		return err
@@ -103,7 +106,7 @@ func (s *Service) Authenticate(ctx context.Context, creds Credentials) error {
 		if errors.Is(err, query.ErrNotFound) {
 			return ErrInvalidCredentials
 		}
-		return errors.Combine(ErrInvalidCredentials, err)
+		return err
 	}
 	if err := bcrypt.
 		CompareHashAndPassword(stored.Password, []byte(creds.Password)); err != nil {

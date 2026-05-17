@@ -95,10 +95,7 @@ func (w Writer) ChangePassword(ctx context.Context, creds Credentials) error {
 	if errors.Is(err, query.ErrNotFound) {
 		return ErrInvalidCredentials
 	}
-	if err != nil {
-		return errors.Combine(ErrInvalidCredentials, err)
-	}
-	return nil
+	return err
 }
 
 // Deactivate removes credentials for the given usernames. No identity check; caller
@@ -139,10 +136,9 @@ func (w Writer) assertUsernameAvailable(ctx context.Context, username string) er
 	return nil
 }
 
+// hashPassword returns the bcrypt hash of plaintext, propagating any bcrypt error
+// (e.g. password too long, out of memory) verbatim so callers can distinguish a real
+// system failure from a credential mismatch.
 func hashPassword(plaintext string) ([]byte, error) {
-	h, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-	return h, nil
+	return bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
 }

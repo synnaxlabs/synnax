@@ -155,5 +155,13 @@ var _ = Describe("Writer", func() {
 			}))
 			Expect(w.Delete(ctx, root.Key)).To(MatchError(ContainSubstring("cannot delete root user")))
 		})
+		It("Should be a no-op when the user does not exist", func(ctx SpecContext) {
+			Expect(w.Delete(ctx, uuid.New())).To(Succeed())
+		})
+		It("Should delete existing users and ignore unknown keys in the same call", func(ctx SpecContext) {
+			existing := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			Expect(w.Delete(ctx, existing.Key, uuid.New())).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(existing.Key)).Exists(ctx, tx)).To(BeFalse())
+		})
 	})
 })

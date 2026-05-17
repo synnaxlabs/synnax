@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = Describe("Writer", func() {
@@ -38,12 +39,13 @@ var _ = Describe("Writer", func() {
 		It("Should return a RepeatedUsername error when the username is already registered", func(ctx SpecContext) {
 			Expect(errors.Is(svc.NewWriter(nil).Register(ctx, creds), auth.ErrRepeatedUsername)).To(BeTrue())
 		})
-		It("Should return ErrInvalidCredentials when bcrypt cannot hash the password", func(ctx SpecContext) {
+		It("Should propagate the bcrypt error verbatim when the password is too long to hash", func(ctx SpecContext) {
 			err := svc.NewWriter(nil).Register(ctx, auth.Credentials{
 				Username: uuid.NewString(),
 				Password: strings.Repeat("a", 73),
 			})
-			Expect(err).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(err).To(MatchError(bcrypt.ErrPasswordTooLong))
+			Expect(errors.Is(err, auth.ErrInvalidCredentials)).To(BeFalse())
 		})
 		It("Should reject an empty username before touching the store", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Register(ctx, auth.Credentials{
@@ -107,11 +109,13 @@ var _ = Describe("Writer", func() {
 				Password: newPassword,
 			})).To(MatchError(auth.ErrInvalidCredentials))
 		})
-		It("Should return InvalidCredentials when the new password is too long for bcrypt", func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
+		It("Should propagate the bcrypt error verbatim when the new password is too long to hash", func(ctx SpecContext) {
+			err := svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
 				Username: creds.Username,
 				Password: strings.Repeat("a", 73),
-			})).To(MatchError(auth.ErrInvalidCredentials))
+			})
+			Expect(err).To(MatchError(bcrypt.ErrPasswordTooLong))
+			Expect(errors.Is(err, auth.ErrInvalidCredentials)).To(BeFalse())
 		})
 		It("Should reject an empty username before touching the store", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
