@@ -89,7 +89,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, v55.Log]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_lift_typed_log", MigrateLog),
+				gorp.NewEntryMigration(
+					"v55_lift_typed_log",
+					func(ctx context.Context, old v55.Log) (Log, error) {
+						return MigrateLog(ctx, old, cfg.Instrumentation)
+					},
+				),
 				"msgpack_to_orc",
 			),
 		},

@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/log"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -58,6 +57,14 @@ var _ = Describe("ImportExport", func() {
 				MatchError(ContainSubstring("channels")),
 			)
 		})
+
+		It("Should reject a channel with a malformed color hex", func(ctx SpecContext) {
+			env := loadEnvelope("testdata/import_invalid_color.json")
+			Expect(svc.Import(ctx, tx, env)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("channels[0]")),
+				MatchError(ContainSubstring("not-a-hex")),
+			))
+		})
 	})
 
 	Describe("Export", func() {
@@ -80,18 +87,6 @@ var _ = Describe("ImportExport", func() {
 		It("Should error when the log does not exist", func(ctx SpecContext) {
 			Expect(svc.Export(ctx, uuid.New().String())).Error().To(
 				MatchError(query.ErrNotFound),
-			)
-		})
-
-		It("Should error when the on-disk Data is malformed", func(ctx SpecContext) {
-			l := log.Log{Name: "malformed"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, map[string]any{
-				"channels": "not-an-array",
-			})).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(svc.Export(ctx, l.Key.String())).Error().To(
-				MatchError(ContainSubstring("cannot unmarshal string")),
 			)
 		})
 	})

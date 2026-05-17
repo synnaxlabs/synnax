@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -25,18 +24,11 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 ) (string, error) {
-	// In the future, when the log is strongly-typed in ORC, this call will return a
-	// Log directly and we can stamp the name + a fresh key onto it before handing it
-	// to the writer without doing msgpack.EncodedJSON(migrated.ToMap()).
-	migrated, err := migrations.Migrate(env.Version, env.Data)
+	l, err := migrateData(env.Version, env.Data)
 	if err != nil {
 		return "", err
 	}
-	l := Log{
-		Key:  uuid.New(),
-		Name: env.Name,
-		Data: msgpack.EncodedJSON(migrated.ToMap()),
-	}
+	l.Name = env.Name
 	if err := s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
 		return "", err
 	}
@@ -52,17 +44,20 @@ func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error)
 	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
-	// In the future, when the log is strongly-typed in ORC, we can just return an
-	// imex.Envelope at this point with the Data field determined by an Oracle-generated
-	// method log.Data() that returns a map[string]any.
-	var d migrations.LatestData
-	if err := l.Data.Unmarshal(&d); err != nil {
-		return imex.Envelope{}, err
-	}
 	return imex.Envelope{
 		Version: migrations.LatestVersion,
 		Type:    string(ontology.ResourceTypeLog),
 		Name:    l.Name,
-		Data:    d.ToMap(),
+		Data:    l.data(),
 	}, nil
+}
+
+func (l Log) data() map[string]any {
+	return map[string]any{
+		"channels":               l.Channels,
+		"remote_created":         l.RemoteCreated,
+		"timestamp_precision":    l.TimestampPrecision,
+		"show_channel_names":     l.ShowChannelNames,
+		"show_receipt_timestamp": l.ShowReceiptTimestamp,
+	}
 }
