@@ -37,9 +37,10 @@ export const channelEntryZ = z.object({
   notation: notation.notationZ.default("standard"),
   /**
    * precision is the number of decimal digits to display. -1 means "use the
-   * log-level precision".
+   * log-level precision"; 17 is the maximum significant digits for a
+   * float64.
    */
-  precision: z.int32().default(-1),
+  precision: z.int32().min(-1).max(17).default(-1),
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().default(""),
   /** timestamp is the per-channel timestamp display configuration. */
@@ -62,7 +63,7 @@ export const logZ = z.object({
   /** remoteCreated indicates whether the log was created on a remote client. */
   remoteCreated: z.boolean().default(false),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
-  timestampPrecision: z.int32().default(0),
+  timestampPrecision: z.int32().min(0).max(3).default(0),
   /** showChannelNames controls whether channel names are displayed. */
   showChannelNames: z.boolean().default(true),
   /** showReceiptTimestamp controls whether the receipt timestamp column is displayed. */

@@ -46,9 +46,12 @@ ChannelEntry struct {
     precision int32             {
         @doc value        """
             is the number of decimal digits to display. -1 means "use the
-            log-level precision".
+            log-level precision"; 17 is the maximum significant digits for a
+            float64.
         """
         @validate default -1
+        @validate min     -1
+        @validate max     17
     }
     alias     string            {
         @doc value        "is a human-readable alias displayed in place of the channel name."
@@ -80,6 +83,8 @@ Log struct {
     timestamp_precision    int32          {
         @doc value        "is the precision of displayed timestamps (0-3)."
         @validate default 0
+        @validate min     0
+        @validate max     3
     }
     show_channel_names     bool           {
         @doc value        "controls whether channel names are displayed."

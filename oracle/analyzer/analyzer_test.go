@@ -190,6 +190,36 @@ var _ = Describe("Analyzer", func() {
 			Expect(validateDomain.Expressions[1].Values[0].IntValue).To(Equal(int64(255)))
 		})
 
+		It("Should merge repeated @validate directives on a field", func(ctx SpecContext) {
+			source := `
+					Settings struct {
+						precision int32 {
+							@validate default -1
+							@validate min     -1
+							@validate max     17
+						}
+					}
+				`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "settings", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			settings := table.MustGet("settings.Settings")
+			form := settings.Form.(resolution.StructForm)
+			field, found := form.Field("precision")
+			Expect(found).To(BeTrue())
+			validateDomain := field.Domains["validate"]
+			Expect(validateDomain.Expressions).To(HaveLen(3))
+			defaultExpr, ok := validateDomain.Expressions.Find("default")
+			Expect(ok).To(BeTrue())
+			Expect(defaultExpr.Values[0].IntValue).To(Equal(int64(-1)))
+			minExpr, ok := validateDomain.Expressions.Find("min")
+			Expect(ok).To(BeTrue())
+			Expect(minExpr.Values[0].IntValue).To(Equal(int64(-1)))
+			maxExpr, ok := validateDomain.Expressions.Find("max")
+			Expect(ok).To(BeTrue())
+			Expect(maxExpr.Values[0].IntValue).To(Equal(int64(17)))
+		})
+
 		It("Should collect struct-level domains", func(ctx SpecContext) {
 			source := `
 				Range struct {

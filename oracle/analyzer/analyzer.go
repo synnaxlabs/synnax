@@ -466,21 +466,24 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		AST:            def,
 	}
 
-	for _, inl := range def.AllInlineDomain() {
-		de := collectInlineDomain(inl)
-		field.Domains[de.Name] = de
+	addDomain := func(de resolution.Domain) {
+		if existing, ok := field.Domains[de.Name]; ok {
+			field.Domains[de.Name] = de.Merge(existing)
+		} else {
+			field.Domains[de.Name] = de
+		}
 		if de.Name == "key" {
 			*hasKeyDomain = true
 		}
 	}
 
+	for _, inl := range def.AllInlineDomain() {
+		addDomain(collectInlineDomain(inl))
+	}
+
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
-			de := collectDomain(d)
-			field.Domains[de.Name] = de
-			if de.Name == "key" {
-				*hasKeyDomain = true
-			}
+			addDomain(collectDomain(d))
 		}
 	}
 	return field
@@ -621,7 +624,11 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			if body := v.EnumValueBody(); body != nil {
 				for _, d := range body.AllDomain() {
 					de := collectDomain(d)
-					ev.Domains[de.Name] = de
+					if existing, ok := ev.Domains[de.Name]; ok {
+						ev.Domains[de.Name] = de.Merge(existing)
+					} else {
+						ev.Domains[de.Name] = de
+					}
 				}
 			}
 			form.Values = append(form.Values, ev)
