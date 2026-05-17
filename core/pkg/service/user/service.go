@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -47,11 +48,27 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// Auth is the auth service used to register and rotate credentials for the root
+	// user during startup-time reconciliation.
+	//
+	// [OPTIONAL] - Required when [ServiceConfig.RootCredentials] is set; ignored
+	// otherwise.
+	Auth *auth.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// RootCredentials is the username/password pair the cluster's root user must
+	// satisfy after startup. When non-zero, [OpenService] runs root-user
+	// reconciliation: it ensures exactly one user has RootUser=true with this username,
+	// and the stored credentials match this password (rotating the password if it
+	// diverges, registering it if no row exists).
+	//
+	// [OPTIONAL] - When the zero value is provided, root-user reconciliation limits
+	// itself to demoting all but one stale root user (if multiple exist) and otherwise
+	// leaves cluster state untouched.
+	RootCredentials auth.Credentials
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -67,7 +84,9 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
+	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -78,6 +97,9 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
+	if c.RootCredentials.Username != "" {
+		validate.NotNil(v, "auth", c.Auth)
+	}
 	return v.Error()
 }
 
@@ -120,6 +142,12 @@ func OpenService(
 		); !ok(err, sig) {
 			return nil, err
 		}
+	}
+	// reconcileRootUser makes sure that there is exactly one root user that matches the
+	// credentials in cfg.RootCredentials, or — when no credentials are configured —
+	// collapses multiple stale roots into one.
+	if err = s.reconcileRootUser(ctx); !ok(err, nil) {
+		return nil, err
 	}
 	return s, nil
 }
