@@ -424,14 +424,12 @@ The behavior depends on what already exists on disk:
         "The previous root user is demoted (the <code>RootUser</code> flag is cleared) but retains their <code>Owner</code> role and credentials, so they can still log in with full permissions. A new user is created with the configured username, marked root, and granted <code>Owner</code>.",
     },
     {
-      scenario:
-        "Configured username matches an existing <em>non-root</em> user",
+      scenario: "Configured username matches an existing <em>non-root</em> user",
       behavior:
         "The Core refuses to start with an error. The operator must rename the conflicting user or pick a different root username — the Core will not silently promote an existing account.",
     },
     {
-      scenario:
-        "Restart with no credentials configured (both flags omitted)",
+      scenario: "Restart with no credentials configured (both flags omitted)",
       behavior:
         "Auth state is left untouched. If multiple users somehow have <code>RootUser=true</code>, all but the lexicographically-first by username are demoted (keeping their <code>Owner</code> role) and a warning is logged. If <em>no</em> root user exists, the Core refuses to start — an empty cluster has no admin, and without credentials there is no way to create one.",
     },
@@ -440,18 +438,18 @@ The behavior depends on what already exists on disk:
 
 #### Recovering a forgotten root password
 
-Because the configured password is the source of truth, you can recover a forgotten
-root password by editing the Core's configuration (config file, environment variable,
-or `--password` flag) and restarting the Core. The stored password will be rotated on
-startup. Non-root users rotate their passwords through the API as normal — only the
-root user's password is governed by configuration.
+Because the configured password is the source of truth, you can recover a forgotten root
+password by editing the Core's configuration (config file, environment variable, or
+`--password` flag) and restarting the Core. The stored password will be rotated on
+startup. Non-root users rotate their passwords through the API as normal — only the root
+user's password is governed by configuration.
 
 #### Demoted users
 
-When a username change demotes the previous root user, that user keeps their
-`Owner` role and their original credentials. They can still log in with full
-permissions; they just no longer hold the immutable root-user flag. To fully
-remove them, an `Owner` can delete the demoted user through the API.
+When a username change demotes the previous root user, that user keeps their `Owner`
+role and their original credentials. They can still log in with full permissions; they
+just no longer hold the immutable root-user flag. To fully remove them, an `Owner` can
+delete the demoted user through the API.
 
 <Divider.Divider x />
 
