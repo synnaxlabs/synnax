@@ -270,6 +270,141 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Enforce", func() {
+		// Service.Enforce is a thin wrapper around NewEnforcer(nil).Enforce. These
+		// specs exercise the wrapper itself: it must read committed state from the
+		// underlying DB (no tx) and return the same access.ErrDenied / nil error
+		// signal that Enforcer.Enforce does.
+		var (
+			policyWriter policy.Writer
+			roleWriter   role.Writer
+			subject      ontology.ID
+			obj          ontology.ID
+		)
+		BeforeEach(func(ctx SpecContext) {
+			policyWriter = rbacSvc.Policy.NewWriter(nil, true)
+			roleWriter = rbacSvc.Role.NewWriter(nil, true)
+			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			obj = ontology.ID{Type: "channel", Key: uuid.New().String()}
+			Expect(otg.NewWriter(nil).DefineResource(ctx, subject)).To(Succeed())
+		})
+
+		It("Should allow access when committed state grants the requested action", func(ctx SpecContext) {
+			r := &role.Role{Name: "enforce-allow-" + uuid.NewString()}
+			Expect(roleWriter.Create(ctx, r)).To(Succeed())
+			p := &policy.Policy{
+				Name:    "enforce-allow-policy-" + uuid.NewString(),
+				Objects: []ontology.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(policyWriter.Create(ctx, p)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+			Expect(rbacSvc.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionRetrieve,
+			})).To(Succeed())
+		})
+
+		It("Should deny access when committed state has no matching policy", func(ctx SpecContext) {
+			Expect(rbacSvc.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionRetrieve,
+			})).To(MatchError(access.ErrDenied))
+		})
+
+		It("Should not observe writes pending in an uncommitted transaction", func(ctx SpecContext) {
+			// Service.Enforce opens against the bare DB. A policy written but not
+			// committed via tx must therefore not be visible to it — the request
+			// must still be denied.
+			pendingPolicyWriter := rbacSvc.Policy.NewWriter(tx, true)
+			pendingRoleWriter := rbacSvc.Role.NewWriter(tx, true)
+			r := &role.Role{Name: "pending-role-" + uuid.NewString()}
+			Expect(pendingRoleWriter.Create(ctx, r)).To(Succeed())
+			p := &policy.Policy{
+				Name:    "pending-policy-" + uuid.NewString(),
+				Objects: []ontology.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(pendingPolicyWriter.Create(ctx, p)).To(Succeed())
+			Expect(pendingPolicyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+			Expect(pendingRoleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+			Expect(rbacSvc.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionRetrieve,
+			})).To(MatchError(access.ErrDenied))
+		})
+	})
+
+	Describe("allowRequest action filtering", func() {
+		// These specs exercise the !hasAction branch of allowRequest: a policy is
+		// attached to the subject and its objects match the request, but its
+		// Actions slice does not contain the requested action, so the policy must
+		// be skipped during the search.
+		var (
+			policyWriter policy.Writer
+			roleWriter   role.Writer
+			subject      ontology.ID
+			obj          ontology.ID
+		)
+		BeforeEach(func(ctx SpecContext) {
+			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
+			roleWriter = rbacSvc.Role.NewWriter(tx, true)
+			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			obj = ontology.ID{Type: "channel", Key: uuid.New().String()}
+			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+		})
+
+		It("Should deny when the matching policy's actions do not contain the requested action", func(ctx SpecContext) {
+			r := &role.Role{Name: "read-only-" + uuid.NewString()}
+			Expect(roleWriter.Create(ctx, r)).To(Succeed())
+			p := &policy.Policy{
+				Name:    "read-only-policy-" + uuid.NewString(),
+				Objects: []ontology.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(policyWriter.Create(ctx, p)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionUpdate,
+			})).To(MatchError(access.ErrDenied))
+		})
+
+		It("Should fall through a non-matching-action policy to a matching-action policy", func(ctx SpecContext) {
+			r := &role.Role{Name: "split-actions-" + uuid.NewString()}
+			Expect(roleWriter.Create(ctx, r)).To(Succeed())
+			retrievePolicy := &policy.Policy{
+				Name:    "retrieve-only-" + uuid.NewString(),
+				Objects: []ontology.ID{obj},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			updatePolicy := &policy.Policy{
+				Name:    "update-only-" + uuid.NewString(),
+				Objects: []ontology.ID{obj},
+				Actions: []access.Action{access.ActionUpdate},
+			}
+			Expect(policyWriter.Create(ctx, retrievePolicy)).To(Succeed())
+			Expect(policyWriter.Create(ctx, updatePolicy)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, retrievePolicy.Key, updatePolicy.Key)).To(Succeed())
+			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionUpdate,
+			})).To(Succeed())
+		})
+	})
+
 	Describe("RetrievePoliciesForSubject", func() {
 		var (
 			policyWriter policy.Writer
