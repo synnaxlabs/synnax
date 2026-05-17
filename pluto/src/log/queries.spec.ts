@@ -30,10 +30,7 @@ describe("log queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const log = await client.logs.create(workspace.key, {
-        name: "retrieve_test",
-        data: {},
-      });
+      const log = await client.logs.create(workspace.key, { name: "retrieve_test" });
 
       const { result } = renderHook(() => Log.useRetrieve({ key: log.key }), {
         wrapper,
@@ -50,10 +47,7 @@ describe("log queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const log = await client.logs.create(workspace.key, {
-        name: "cached_log",
-        data: {},
-      });
+      const log = await client.logs.create(workspace.key, { name: "cached_log" });
 
       const { result: result1 } = renderHook(() => Log.useRetrieve({ key: log.key }), {
         wrapper,
@@ -83,7 +77,6 @@ describe("log queries", () => {
           key,
           workspace: workspace.key,
           name: "created_log",
-          data: {},
         });
       });
 
@@ -111,7 +104,6 @@ describe("log queries", () => {
           key,
           workspace: workspace.key,
           name: "stored_log",
-          data: {},
         });
       });
 
@@ -129,10 +121,7 @@ describe("log queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const log = await client.logs.create(workspace.key, {
-        name: "original_name",
-        data: {},
-      });
+      const log = await client.logs.create(workspace.key, { name: "original_name" });
 
       const { result } = renderHook(
         () => {
@@ -147,10 +136,7 @@ describe("log queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
-          key: log.key,
-          name: "renamed_log",
-        });
+        await result.current.rename.updateAsync({ key: log.key, name: "renamed_log" });
       });
 
       const retrieved = await client.logs.retrieve({ key: log.key });
@@ -162,10 +148,7 @@ describe("log queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const log = await client.logs.create(workspace.key, {
-        name: "cache_original",
-        data: {},
-      });
+      const log = await client.logs.create(workspace.key, { name: "cache_original" });
 
       const { result } = renderHook(
         () => ({
@@ -195,10 +178,7 @@ describe("log queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const log = await client.logs.create(workspace.key, {
-        name: "delete_single",
-        data: {},
-      });
+      const log = await client.logs.create(workspace.key, { name: "delete_single" });
 
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 
@@ -216,14 +196,8 @@ describe("log queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const log1 = await client.logs.create(workspace.key, {
-        name: "delete_multi_1",
-        data: {},
-      });
-      const log2 = await client.logs.create(workspace.key, {
-        name: "delete_multi_2",
-        data: {},
-      });
+      const log1 = await client.logs.create(workspace.key, { name: "delete_multi_1" });
+      const log2 = await client.logs.create(workspace.key, { name: "delete_multi_2" });
 
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 

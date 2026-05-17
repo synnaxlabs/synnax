@@ -105,9 +105,7 @@ describe("queries", () => {
         layout: { type: "schematic" },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -117,9 +115,7 @@ describe("queries", () => {
     });
 
     it("should update the list when a workspace is created", async () => {
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -143,9 +139,7 @@ describe("queries", () => {
         layout: { type: "dashboard" },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -167,9 +161,7 @@ describe("queries", () => {
         layout: { type: "dashboard", version: 1 },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -194,9 +186,7 @@ describe("queries", () => {
         layout: { type: "dashboard" },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -220,9 +210,7 @@ describe("queries", () => {
         layout: { type: "dashboard" },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -246,9 +234,7 @@ describe("queries", () => {
         layout: { counter: 0 },
       });
 
-      const { result } = renderHook(() => Workspace.useList(), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Workspace.useList(), { wrapper });
       act(() => {
         result.current.retrieve({});
       });
@@ -387,9 +373,7 @@ describe("queries", () => {
       await act(async () => {
         await result.current.saveLayout.updateAsync({
           key: ws.key,
-          layout: {
-            config: { setting1: "value2" },
-          },
+          layout: { config: { setting1: "value2" } },
         });
       });
 
@@ -405,22 +389,13 @@ describe("queries", () => {
 
   describe("useRetrieveChildren", () => {
     it("should return children filtered by a single type", async () => {
-      const ws = await client.workspaces.create({
-        name: "single_type_ws",
-        layout: {},
-      });
+      const ws = await client.workspaces.create({ name: "single_type_ws", layout: {} });
       const s1 = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "A Schematic",
       });
-      const l1 = await client.logs.create(ws.key, {
-        name: "My Log",
-        data: {},
-      });
-      await client.lineplots.create(ws.key, {
-        name: "My Plot",
-        data: {},
-      });
+      const l1 = await client.logs.create(ws.key, { name: "My Log" });
+      await client.lineplots.create(ws.key, { name: "My Plot", data: {} });
 
       const { result } = renderHook(
         () =>
@@ -439,26 +414,14 @@ describe("queries", () => {
     });
 
     it("should return children filtered by multiple types", async () => {
-      const ws = await client.workspaces.create({
-        name: "multi_type_ws",
-        layout: {},
-      });
+      const ws = await client.workspaces.create({ name: "multi_type_ws", layout: {} });
       const s1 = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "Source Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        name: "A Plot",
-        data: {},
-      });
-      const t1 = await client.tables.create(ws.key, {
-        name: "A Table",
-        data: {},
-      });
-      const l1 = await client.logs.create(ws.key, {
-        name: "A Log",
-        data: {},
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "A Plot", data: {} });
+      const t1 = await client.tables.create(ws.key, { name: "A Table", data: {} });
+      const l1 = await client.logs.create(ws.key, { name: "A Log" });
 
       const { result } = renderHook(
         () =>
@@ -491,18 +454,9 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "Other Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        name: "Plot",
-        data: {},
-      });
-      const t1 = await client.tables.create(ws.key, {
-        name: "Table",
-        data: {},
-      });
-      const l1 = await client.logs.create(ws.key, {
-        name: "Log",
-        data: {},
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "Plot", data: {} });
+      const t1 = await client.tables.create(ws.key, { name: "Table", data: {} });
+      const l1 = await client.logs.create(ws.key, { name: "Log" });
 
       const { result } = renderHook(
         () =>
@@ -524,10 +478,7 @@ describe("queries", () => {
     });
 
     it("should exclude the source resource from results", async () => {
-      const ws = await client.workspaces.create({
-        name: "exclude_ws",
-        layout: {},
-      });
+      const ws = await client.workspaces.create({ name: "exclude_ws", layout: {} });
       const s1 = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "Self",
@@ -577,10 +528,7 @@ describe("queries", () => {
     });
 
     it("should find children inside groups", async () => {
-      const ws = await client.workspaces.create({
-        name: "grouped_ws",
-        layout: {},
-      });
+      const ws = await client.workspaces.create({ name: "grouped_ws", layout: {} });
       const s1 = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "Top Level",
@@ -616,10 +564,7 @@ describe("queries", () => {
     });
 
     it("should find children in deeply nested groups", async () => {
-      const ws = await client.workspaces.create({
-        name: "deep_nested_ws",
-        layout: {},
-      });
+      const ws = await client.workspaces.create({ name: "deep_nested_ws", layout: {} });
       const s1 = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "Top Level",
@@ -659,14 +604,8 @@ describe("queries", () => {
     });
 
     it("should scope results to the source resource's workspace", async () => {
-      const ws1 = await client.workspaces.create({
-        name: "scope_ws_1",
-        layout: {},
-      });
-      const ws2 = await client.workspaces.create({
-        name: "scope_ws_2",
-        layout: {},
-      });
+      const ws1 = await client.workspaces.create({ name: "scope_ws_1", layout: {} });
+      const ws2 = await client.workspaces.create({ name: "scope_ws_2", layout: {} });
       const s1 = await client.schematics.create(ws1.key, {
         ...schematic.ZERO_NEW,
         name: "WS1 Schematic",
@@ -679,10 +618,7 @@ describe("queries", () => {
         name: "WS1 Plot",
         data: {},
       });
-      await client.lineplots.create(ws2.key, {
-        name: "WS2 Plot",
-        data: {},
-      });
+      await client.lineplots.create(ws2.key, { name: "WS2 Plot", data: {} });
 
       const { result } = renderHook(
         () =>
@@ -734,10 +670,7 @@ describe("queries", () => {
 
       beforeEach(async () => {
         // --- TestSpace ---
-        const ws = await client.workspaces.create({
-          name: "TestSpace",
-          layout: {},
-        });
+        const ws = await client.workspaces.create({ name: "TestSpace", layout: {} });
         sA = await client.schematics.create(ws.key, {
           ...schematic.ZERO_NEW,
           name: "Schematic A",
