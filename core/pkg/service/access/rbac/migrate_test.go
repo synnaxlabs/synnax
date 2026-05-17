@@ -64,21 +64,24 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    userGroup,
-			Search:   searchIdx,
-		}))
 		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			DB:              db,
+			Ontology:        otg,
+			Group:           userGroup,
+			Search:          searchIdx,
+			Auth:            authSvc,
+			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
+		}))
 
 		// Create test users
 		tx := DeferClose(db.OpenTx())
 		w := userSvc.NewWriter(tx)
-		rootUser := MustSucceed(w.Create(ctx, user.User{
-			Username: "root",
-			RootUser: true,
-		}))
+		var rootUser user.User
+		Expect(userSvc.NewRetrieve().
+			Where(user.MatchUsernames("root")).
+			Entry(&rootUser).
+			Exec(ctx, tx)).To(Succeed())
 		adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
 		schematicUser := MustSucceed(w.Create(ctx, user.User{
 			Username: "schematicuser",
@@ -113,7 +116,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Group:    userGroup,
 			Search:   searchIdx,
 			User:     userSvc,
-			Auth:     authSvc,
 		}))
 
 		// Look up the built-in role keys
@@ -157,37 +159,33 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
 		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-
-		creds := auth.Credentials{Username: "suite-root", Password: "p"}
-
-		// First open
-		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:              db,
 			Ontology:        otg,
 			Group:           groupSvc,
 			Search:          searchIdx,
-			User:            userSvc,
 			Auth:            authSvc,
-			RootCredentials: creds,
+			RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+		}))
+
+		// First open
+		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
 		}))
 		Expect(svc1.Close()).To(Succeed())
 
 		// Second open should not fail
 		svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:              db,
-			Ontology:        otg,
-			Group:           groupSvc,
-			Search:          searchIdx,
-			User:            userSvc,
-			Auth:            authSvc,
-			RootCredentials: creds,
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
 		}))
 		Expect(svc2.Close()).To(Succeed())
 	})

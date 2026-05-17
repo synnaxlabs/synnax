@@ -23,9 +23,9 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
@@ -66,26 +66,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// User is the user service used to load existing user records during root user
-	// reconciliation and to create the configured root user when needed.
+	// User is the user service used to load existing root users so the Owner role can
+	// be assigned to them during startup.
 	//
 	// [REQUIRED]
 	User *user.Service
-	// Auth is the auth service used to register and rotate credentials for the root
-	// user during reconciliation.
-	//
-	// [REQUIRED]
-	Auth *auth.Service
-	// RootCredentials is the username/password pair the cluster's root user must
-	// satisfy after startup. When non-zero, [OpenService] runs root-user
-	// reconciliation: it ensures exactly one user has RootUser=true with this username,
-	// that user holds the Owner role, and the stored credentials match this password
-	// (rotating the password if it diverges, registering it if no row exists).
-	//
-	// [OPTIONAL] - When the zero value is provided, root-user reconciliation limits
-	// itself to demoting all but one stale root user (if multiple exist) and otherwise
-	// leaves cluster state untouched.
-	RootCredentials auth.Credentials
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -99,8 +84,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.User = override.Nil(c.User, other.User)
-	c.Auth = override.Nil(c.Auth, other.Auth)
-	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -112,20 +95,14 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "user", c.User)
-	validate.NotNil(v, "auth", c.Auth)
 	return v.Error()
 }
 
 type Service struct {
 	Policy *policy.Service
 	Role   *role.Service
-	// builtinRoles holds the keys of the built-in roles provisioned during service
-	// initialization. Read by the v0 migration and the root-user reconciler; not part
-	// of the package's public API — external consumers look up built-in roles by name
-	// through Service.Role.
-	builtinRoles builtin.ProvisionResult
-	closer       io.MultiCloser
-	cfg          ServiceConfig
+	closer io.MultiCloser
+	cfg    ServiceConfig
 }
 
 // Close shuts down the RBAC service and its sub-services.
@@ -179,12 +156,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	// Provision built-in roles and policies. This is idempotent and runs every startup
 	// to ensure policy definitions stay up to date.
-	if s.builtinRoles, err = builtin.Provision(
-		ctx,
-		cfg.DB,
-		s.Policy,
-		s.Role,
-	); !ok(err, nil) {
+	builtinRoles, err := builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
+	if !ok(err, nil) {
 		return nil, err
 	}
 	// Phase 2 migration assigns users to roles based on the legacy mapping extracted by
@@ -198,17 +171,44 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
-			Roles:    s.builtinRoles,
+			Roles:    builtinRoles,
 		})},
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	// reconcileRootUser makes sure that there is exactly one root user with the
-	// provided credentials.
-	if err = s.reconcileRootUser(ctx); !ok(err, nil) {
+	// assignOwnerToRoots ensures every user with RootUser=true holds the Owner role.
+	// Reconciliation of which users are flagged as root happens earlier in
+	// user.OpenService; this step only wires the role assignment.
+	if err = s.assignOwnerToRoots(ctx, builtinRoles.OwnerKey); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// assignOwnerToRoots assigns the role identified by ownerKey to every user with
+// RootUser=true. The assignment is idempotent, so it is safe to run on every startup.
+func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) error {
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var roots []user.User
+		if err := s.cfg.User.NewRetrieve().
+			Where(user.MatchRootUser(true)).
+			Entries(&roots).
+			Exec(ctx, tx); err != nil {
+			return errors.Wrap(err, "load root users")
+		}
+		w := s.Role.NewWriter(tx, false)
+		for _, r := range roots {
+			if err := w.AssignRole(
+				ctx,
+				user.OntologyID(r.Key),
+				ownerKey,
+			); err != nil {
+				return errors.Wrapf(err,
+					"assign Owner role to root user %q", r.Username)
+			}
+		}
+		return nil
+	})
 }
 
 func (e *Enforcer) retrievePolicies(

@@ -44,21 +44,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Search:   searchIdx,
-	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:              db,
 		Ontology:        otg,
 		Group:           groupSvc,
 		Search:          searchIdx,
-		User:            userSvc,
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+	}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		User:     userSvc,
 	}))
 })
 

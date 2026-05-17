@@ -60,7 +60,6 @@ var _ = Describe("Provision", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 				User:     userSvc,
-				Auth:     authSvc,
 			}))
 
 			var ownerAfter role.Role
@@ -96,7 +95,6 @@ var _ = Describe("Provision", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 				User:     userSvc,
-				Auth:     authSvc,
 			}))
 
 			var updated policy.Policy

@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,7 +33,6 @@ var _ = Describe("ServiceConfig", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 			User:     userSvc,
-			Auth:     authSvc,
 		}
 	})
 	Describe("Override", func() {
@@ -45,7 +43,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Group).To(Equal(groupSvc))
 			Expect(result.Search).To(Equal(searchIdx))
 			Expect(result.User).To(Equal(userSvc))
-			Expect(result.Auth).To(Equal(authSvc))
 		})
 		It("Should keep each required field from the base when the override is zero", func() {
 			result := cfg.Override(rbac.ServiceConfig{})
@@ -54,18 +51,6 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Group).To(Equal(groupSvc))
 			Expect(result.Search).To(Equal(searchIdx))
 			Expect(result.User).To(Equal(userSvc))
-			Expect(result.Auth).To(Equal(authSvc))
-		})
-		It("Should take RootCredentials from the override when set", func() {
-			creds := auth.Credentials{Username: "u", Password: "p"}
-			result := cfg.Override(rbac.ServiceConfig{RootCredentials: creds})
-			Expect(result.RootCredentials).To(Equal(creds))
-		})
-		It("Should keep RootCredentials from the base when the override is zero", func() {
-			creds := auth.Credentials{Username: "u", Password: "p"}
-			cfg.RootCredentials = creds
-			result := cfg.Override(rbac.ServiceConfig{})
-			Expect(result.RootCredentials).To(Equal(creds))
 		})
 	})
 	Describe("Validate", func() {
@@ -82,7 +67,6 @@ var _ = Describe("ServiceConfig", func() {
 			Entry("group", func(c *rbac.ServiceConfig) { c.Group = nil }, "group: must be non-nil"),
 			Entry("search", func(c *rbac.ServiceConfig) { c.Search = nil }, "search: must be non-nil"),
 			Entry("user", func(c *rbac.ServiceConfig) { c.User = nil }, "user: must be non-nil"),
-			Entry("auth", func(c *rbac.ServiceConfig) { c.Auth = nil }, "auth: must be non-nil"),
 		)
 	})
 })
@@ -100,7 +84,6 @@ var _ = Describe("Service", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 				User:     userSvc,
-				Auth:     authSvc,
 			}))
 			Expect(s).ToNot(BeNil())
 			Expect(s.Policy).ToNot(BeNil())
