@@ -158,9 +158,7 @@ describe("Writer", () => {
         new TimeRange(TimeStamp.seconds(200), TimeStamp.seconds(202)),
         index.key,
       );
-      expect(userF.data).toEqual(
-        new BigInt64Array(userStamps.map((v) => v.valueOf())),
-      );
+      expect(userF.data).toEqual(new BigInt64Array(userStamps.map((v) => v.valueOf())));
       const autoF = await client.read(
         new TimeRange(beforeAuto, TimeStamp.now().add(TimeSpan.seconds(1))),
         index.key,
