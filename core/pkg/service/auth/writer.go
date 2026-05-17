@@ -142,7 +142,7 @@ func (w Writer) assertUsernameAvailable(ctx context.Context, username string) er
 func hashPassword(plaintext string) ([]byte, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.Combine(ErrInvalidCredentials, err)
+		return nil, err
 	}
 	return h, nil
 }
