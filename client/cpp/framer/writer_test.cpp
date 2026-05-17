@@ -110,10 +110,7 @@ TEST(WriterTests, testAutoIndexingDataOnly) {
     cfg.auto_indexing = true;
     auto writer = ASSERT_NIL_P(client.telem.open_writer(cfg));
     auto frame = x::telem::Frame(1);
-    frame.emplace(
-        data.key,
-        x::telem::Series(std::vector<float>{1, 2, 3, 4})
-    );
+    frame.emplace(data.key, x::telem::Series(std::vector<float>{1, 2, 3, 4}));
     ASSERT_NIL(writer.write(frame));
     ASSERT_NIL_P(writer.commit());
     ASSERT_NIL(writer.close());
@@ -133,10 +130,7 @@ TEST(WriterTests, testAutoIndexingMixedOmitIndex) {
     cfg.auto_indexing = true;
     auto writer = ASSERT_NIL_P(client.telem.open_writer(cfg));
     auto frame = x::telem::Frame(1);
-    frame.emplace(
-        data.key,
-        x::telem::Series(std::vector<float>{10, 20, 30})
-    );
+    frame.emplace(data.key, x::telem::Series(std::vector<float>{10, 20, 30}));
     ASSERT_NIL(writer.write(frame));
     ASSERT_NIL_P(writer.commit());
     ASSERT_NIL(writer.close());
@@ -224,17 +218,14 @@ TEST(WriterTests, testAutoIndexingMixedUserProvidedAndGenerated) {
     std::vector<x::telem::TimeStamp> received;
     while (received.size() < user_stamps.size() + 3) {
         auto res_frame = ASSERT_NIL_P(streamer.read());
-        for (const auto &ns : res_frame.series->at(0).values<int64_t>())
+        for (const auto &ns: res_frame.series->at(0).values<int64_t>())
             received.emplace_back(ns);
     }
     ASSERT_EQ(received.size(), user_stamps.size() + 3);
     for (size_t i = 0; i < user_stamps.size(); i++)
         ASSERT_EQ(received[i].nanoseconds(), user_stamps[i].nanoseconds());
     for (size_t i = user_stamps.size(); i < received.size(); i++)
-        ASSERT_GT(
-            received[i].nanoseconds(),
-            user_stamps.back().nanoseconds()
-        );
+        ASSERT_GT(received[i].nanoseconds(), user_stamps.back().nanoseconds());
 
     ASSERT_NIL(writer.close());
     ASSERT_NIL(streamer.close());

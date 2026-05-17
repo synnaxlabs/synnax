@@ -114,7 +114,7 @@ class TestWriter:
         idx_ch, data_ch = indexed_pair
         before = sy.TimeStamp.now()
         with client.open_writer(
-            start=0,
+            start=before,
             channels=[data_ch.key],
             auto_indexing=True,
         ) as w:
@@ -137,7 +137,7 @@ class TestWriter:
         idx_ch, data_ch = indexed_pair
         before = sy.TimeStamp.now()
         with client.open_writer(
-            start=0,
+            start=before,
             channels=[idx_ch.key, data_ch.key],
             auto_indexing=True,
         ) as w:
