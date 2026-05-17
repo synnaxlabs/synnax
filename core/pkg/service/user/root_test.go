@@ -146,7 +146,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		It("Should create a root user on a fresh cluster", func(ctx SpecContext) {
 			s := openRootUser(ctx, "alpha", "p1")
 			Expect(findUser(ctx, s, "alpha").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "alpha", Password: "p1",
 			})).To(Succeed())
 		})
@@ -164,15 +164,15 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		})
 		It("Should rotate the root password when config provides a different password", func(ctx SpecContext) {
 			svc1 := openRootUser(ctx, "alpha", "p1")
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "alpha", Password: "p1",
 			})).To(Succeed())
 			Expect(svc1.Close()).To(Succeed())
 			svc2 := openRootUser(ctx, "alpha", "p2")
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "alpha", Password: "p2",
 			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "alpha", Password: "p1",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 			Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
@@ -186,10 +186,10 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(findUser(ctx, svc2, "alpha").RootUser).To(BeFalse())
 			Expect(findUser(ctx, svc2, "beta").RootUser).To(BeTrue())
 			Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "alpha", Password: "p1",
 			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "beta", Password: "p2",
 			})).To(Succeed())
 		})
@@ -218,10 +218,10 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(findUser(ctx, s, "old-root").RootUser).To(BeFalse())
 			Expect(rootUsers(ctx, s)).To(HaveLen(1))
 			// New password is active; the old one no longer authenticates.
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "gamma", Password: "p3",
 			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "gamma", Password: "x",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
@@ -235,7 +235,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
 			Expect(gammaAfter.RootUser).To(BeTrue())
 			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "gamma", Password: "same-pwd",
 			})).To(Succeed())
 		})
@@ -284,11 +284,11 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
 			orphan := seedUserRecordOnly(ctx, seedSvc, "orphan-record", true)
 			Expect(seedSvc.Close()).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-record", Password: "newpassword",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 			s := openRootUser(ctx, "orphan-record", "newpassword")
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-record", Password: "newpassword",
 			})).To(Succeed())
 			u := findUser(ctx, s, "orphan-record")
@@ -300,7 +300,7 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			seedAuthRowOnly(ctx, "orphan-auth", "p")
 			s := openRootUser(ctx, "orphan-auth", "p")
 			Expect(findUser(ctx, s, "orphan-auth").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-auth", Password: "p",
 			})).To(Succeed())
 			Expect(rootUsers(ctx, s)).To(HaveLen(1))
@@ -309,10 +309,10 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			seedAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
 			s := openRootUser(ctx, "orphan-auth-rot", "new-password")
 			Expect(findUser(ctx, s, "orphan-auth-rot").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-auth-rot", Password: "new-password",
 			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: "orphan-auth-rot", Password: "old-password",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})

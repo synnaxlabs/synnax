@@ -204,7 +204,7 @@ func (s *Service) ensureAuthSync(
 	tx gorp.Tx,
 	creds auth.Credentials,
 ) error {
-	if err := s.cfg.Auth.Authenticate(ctx, creds); err == nil {
+	if err := s.cfg.Auth.Authenticate(ctx, tx, creds); err == nil {
 		return nil
 	} else if !errors.Is(err, auth.ErrInvalidCredentials) {
 		return errors.Wrap(err, "check root credentials")

@@ -34,7 +34,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Register", func() {
 		It("Should make the registered credentials valid for Authenticate", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 		})
 		It("Should return a RepeatedUsername error when the username is already registered", func(ctx SpecContext) {
 			Expect(errors.Is(svc.NewWriter(nil).Register(ctx, creds), auth.ErrRepeatedUsername)).To(BeTrue())
@@ -72,12 +72,12 @@ var _ = Describe("Writer", func() {
 			newUsername := uuid.NewString()
 			newCreds := auth.Credentials{Username: newUsername, Password: creds.Password}
 			Expect(svc.NewWriter(nil).UpdateUsername(ctx, creds.Username, newUsername)).To(Succeed())
-			Expect(svc.Authenticate(ctx, newCreds)).To(Succeed())
-			Expect(svc.Authenticate(ctx, creds)).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, nil, newCreds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should do nothing when the new username equals the old", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).UpdateUsername(ctx, creds.Username, creds.Username)).To(Succeed())
-			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 		})
 		It("Should return RepeatedUsername when the target name is taken", func(ctx SpecContext) {
 			newUsername := uuid.NewString()
@@ -87,8 +87,8 @@ var _ = Describe("Writer", func() {
 				svc.NewWriter(nil).UpdateUsername(ctx, creds.Username, newUsername),
 				auth.ErrRepeatedUsername,
 			)).To(BeTrue())
-			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
-			Expect(svc.Authenticate(ctx, newCreds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, newCreds)).To(Succeed())
 		})
 		It("Should return an error when the old username is not registered", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).UpdateUsername(ctx, uuid.NewString(), uuid.NewString())).
@@ -100,8 +100,8 @@ var _ = Describe("Writer", func() {
 		It("Should set a new password for the given username", func(ctx SpecContext) {
 			newCreds := auth.Credentials{Username: creds.Username, Password: newPassword}
 			Expect(svc.NewWriter(nil).ChangePassword(ctx, newCreds)).To(Succeed())
-			Expect(svc.Authenticate(ctx, creds)).To(MatchError(auth.ErrInvalidCredentials))
-			Expect(svc.Authenticate(ctx, newCreds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, nil, newCreds)).To(Succeed())
 		})
 		It("Should return InvalidCredentials when the username is not registered", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
@@ -123,7 +123,7 @@ var _ = Describe("Writer", func() {
 				Password: newPassword,
 			})).To(MatchError(ContainSubstring("username")))
 			// Original password must still work.
-			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 		})
 		It("Should reject an empty password before touching the store", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
@@ -131,13 +131,13 @@ var _ = Describe("Writer", func() {
 				Password: "",
 			})).To(MatchError(ContainSubstring("password")))
 			// Original password must still work.
-			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
+			Expect(svc.Authenticate(ctx, nil, creds)).To(Succeed())
 		})
 	})
 	Describe("Deactivate", func() {
 		It("Should delete the credentials", func(ctx SpecContext) {
 			Expect(svc.NewWriter(nil).Deactivate(ctx, creds.Username)).To(Succeed())
-			Expect(svc.Authenticate(ctx, creds)).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, nil, creds)).To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should be idempotent", func(ctx SpecContext) {
 			for range 2 {
@@ -148,8 +148,8 @@ var _ = Describe("Writer", func() {
 			creds2 := auth.Credentials{Username: uuid.NewString(), Password: "password"}
 			Expect(svc.NewWriter(nil).Register(ctx, creds2)).To(Succeed())
 			Expect(svc.NewWriter(nil).Deactivate(ctx, creds.Username, creds2.Username)).To(Succeed())
-			Expect(svc.Authenticate(ctx, creds)).To(MatchError(auth.ErrInvalidCredentials))
-			Expect(svc.Authenticate(ctx, creds2)).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, nil, creds)).To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Authenticate(ctx, nil, creds2)).To(MatchError(auth.ErrInvalidCredentials))
 		})
 	})
 })

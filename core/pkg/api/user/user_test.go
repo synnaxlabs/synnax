@@ -38,7 +38,7 @@ var _ = Describe("Service", func() {
 			)).To(Equal(types.Nil{}))
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(created.Key)).Exists(ctx, nil)).
 				To(BeFalse())
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
 				Username: username,
 				Password: "password",
 			})).To(MatchError(auth.ErrInvalidCredentials))

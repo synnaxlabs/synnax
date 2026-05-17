@@ -75,7 +75,7 @@ type LoginRequest struct{ auth.Credentials }
 // returns a response containing a valid JWT along with the user's details.
 func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, error) {
 	startTime := telem.Now()
-	if err := s.auth.Authenticate(ctx, req.Credentials); err != nil {
+	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
 		return LoginResponse{}, err
 	}
 	var u user.User
@@ -108,7 +108,7 @@ type ChangePasswordRequest struct {
 // ChangePassword changes the password for the user with the provided credentials.
 func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.auth.Authenticate(ctx, req.Credentials); err != nil {
+		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
 			return err
 		}
 		return s.auth.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
