@@ -788,6 +788,26 @@ func isArrayTypeRef(r resolution.TypeRef) bool {
 	return r.Name == "Array"
 }
 
+// hasEmptyCollectionDefault reports whether a field carries the sentinel
+// `@validate default empty`, used on collection-typed fields (arrays, maps,
+// record blobs) to request an empty-collection default in the generated zod.
+func hasEmptyCollectionDefault(field resolution.Field) bool {
+	d, ok := field.Domains["validate"]
+	if !ok {
+		return false
+	}
+	for _, expr := range d.Expressions {
+		if expr.Name != "default" || len(expr.Values) == 0 {
+			continue
+		}
+		v := expr.Values[0]
+		if v.Kind == resolution.ValueKindIdent && v.IdentValue == "empty" {
+			return true
+		}
+	}
+	return false
+}
+
 func hasPreserveCase(field resolution.Field) bool {
 	tsDomain, ok := field.Domains["ts"]
 	if !ok {
@@ -1148,6 +1168,10 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+			if hasEmptyCollectionDefault(field) {
+				fd.ZodType += ".default(() => [])"
+				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			}
 		}
 	} else if isMap {
 		keyZ := p.typeRefToZod(&field.Type.TypeArgs[0], table, data)
@@ -1649,7 +1673,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 	if validation.IsEmpty(rules) {
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
-	hasDefault := rules.Default != nil
+	// `default empty` is a collection-level sentinel that is realized after the
+	// array/map/record wrap, not on the element zod. Treat it as no element
+	// default here so the element schema type isn't wrapped in ZodDefault.
+	isEmptyCollectionDefault := rules.Default != nil &&
+		rules.Default.Kind == resolution.ValueKindIdent &&
+		rules.Default.IdentValue == "empty"
+	hasDefault := rules.Default != nil && !isEmptyCollectionDefault
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1691,7 +1721,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			}
 		}
 	}
-	if rules.Default != nil {
+	if rules.Default != nil && !isEmptyCollectionDefault {
 		switch rules.Default.Kind {
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%q)", zodType, rules.Default.StringValue)
