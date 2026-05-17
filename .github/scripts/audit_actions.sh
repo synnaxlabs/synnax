@@ -31,12 +31,12 @@ find "$GITHUB_DIR/workflows" "$GITHUB_DIR/actions" \
     | while IFS= read -r file; do
         rel=${file#"$REPO_DIR"/}
         grep -nE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*' "$file" \
-            | awk -v rel="$rel" '
+            | awk -v rel="$rel" -v sq="'" '
             {
                 line = $0
                 sub(/^[0-9]+:/, "", line)
                 sub(/^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*/, "", line)
-                gsub(/["\x27]/, "", line)
+                gsub("[\"" sq "]", "", line)
                 sub(/[[:space:]]+#.*$/, "", line)
                 sub(/[[:space:]]+$/, "", line)
                 if (line == "" || line ~ /^#/) next
