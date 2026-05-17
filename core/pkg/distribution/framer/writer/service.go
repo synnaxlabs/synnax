@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -104,12 +103,12 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// AutoIndexing causes the gateway node to generate timestamps for any index channel
-	// in Keys whose series is omitted from a Write frame. The first sample in each
-	// Write call is stamped with telem.Now() on the gateway; remaining samples in the
-	// same call are spaced 1ns apart. A per-writer high-water mark guarantees strict
-	// monotonicity across Write calls and across user-provided timestamps for other
-	// index channels in the same writer.
+	// AutoIndexing causes each leaseholder to generate timestamps for any index
+	// channel local to it (and in the writer's Keys) whose series is omitted from a
+	// Write frame. The first sample in each Write call is stamped with telem.Now() on
+	// the leaseholder that owns the index; remaining samples in the same call are
+	// spaced 1ns apart. A per-leaseholder high-water mark guarantees strict
+	// monotonicity across Write calls for indexes owned by that leaseholder.
 	//
 	// When AutoIndexing is true and the caller's Keys reference data channels whose
 	// index channels are not also in Keys, those index channels are implicitly added to
@@ -300,7 +299,6 @@ const (
 	gatewayWriterAddr      = address.Address("gateway_writer")
 	freeWriterAddr         = address.Address("free_writer")
 	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
-	autoIndexerAddr        = address.Address("auto_indexer")
 	validatorAddr          = address.Address("validator")
 	validatorResponsesAddr = address.Address("validator_responses")
 )
@@ -350,9 +348,8 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	var implicitIndexes set.Set[channel.Key]
 	if cfg.AutoIndexing != nil && *cfg.AutoIndexing {
-		cfg, implicitIndexes = expandKeysForAutoIndexing(cfg, channels)
+		cfg = expandKeysForAutoIndexing(cfg, channels)
 		channels, err = s.validateChannelKeys(ctx, cfg.Keys)
 		if err != nil {
 			return nil, err
@@ -374,15 +371,6 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	for _, ch := range channels {
 		channelMap[ch.Key()] = ch
 	}
-	ai := newAutoIndexer(
-		cfg.AutoIndexing != nil && *cfg.AutoIndexing,
-		channels,
-		cfg.Keys,
-		cfg.Authorities,
-		implicitIndexes,
-		cfg.Start,
-	)
-	plumber.SetSegment(pipe, autoIndexerAddr, ai)
 	v := &validator{keys: cfg.Keys, channels: channelMap}
 	plumber.SetSegment(pipe, validatorAddr, v)
 	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
@@ -414,7 +402,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasGateway {
 		routeValidatorTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
-		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
+		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway), channelMap)
 		if err != nil {
 			return nil, err
 		}
@@ -445,7 +433,6 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, autoIndexerAddr, validatorAddr, 30)
 	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 30)
 
 	plumber.MultiRouter[Response]{
@@ -456,7 +443,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(autoIndexerAddr))
+	lo.Must0(seg.RouteInletTo(validatorAddr))
 	lo.Must0(seg.RouteOutletFrom(validatorResponsesAddr, synchronizerAddr))
 	return seg, nil
 }

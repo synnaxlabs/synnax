@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -330,6 +331,67 @@ var _ = Describe("AutoIndexing", func() {
 			Expect(ts).To(HaveLen(2))
 			Expect(ts[0]).To(BeNumerically(">=", before))
 			Expect(ts[1]).To(Equal(ts[0] + 1))
+		})
+	})
+
+	Describe("Multi-node leaseholder stamping", func() {
+		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
+			builder := mock.ProvisionCluster(ctx, 2)
+			defer func() { Expect(builder.Close()).To(Succeed()) }()
+			gw := builder.Nodes[1]
+			peer := node.Key(2)
+
+			idx := channel.Channel{
+				Name:        channel.NewRandomName(),
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Leaseholder: peer,
+			}
+			Expect(gw.Channel.Create(ctx, &idx)).To(Succeed())
+			data := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: peer,
+			}
+			Expect(gw.Channel.Create(ctx, &data)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var chs []channel.Channel
+				g.Expect(gw.Channel.NewRetrieve().
+					Entries(&chs).
+					Where(channel.MatchKeys(idx.Key(), data.Key())).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(chs).To(HaveLen(2))
+			}).Should(Succeed())
+
+			before := telem.Now()
+			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:         []channel.Key{data.Key()},
+				Sync:         new(true),
+				AutoIndexing: new(true),
+			}))
+			MustSucceed(w.Write(frame.NewUnary(
+				data.Key(),
+				telem.NewSeriesV(1.1, 2.2, 3.3),
+			)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+			after := telem.Now()
+
+			iter := MustSucceed(gw.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   []channel.Key{idx.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+			ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+			Expect(iter.Close()).To(Succeed())
+
+			Expect(ts).To(HaveLen(3))
+			Expect(ts[0]).To(BeNumerically(">=", before))
+			Expect(ts[2]).To(BeNumerically("<=", after+telem.TimeStamp(3)))
+			Expect(ts[1]).To(Equal(ts[0] + 1))
+			Expect(ts[2]).To(Equal(ts[0] + 2))
 		})
 	})
 
