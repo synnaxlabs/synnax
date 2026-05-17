@@ -70,7 +70,8 @@ Log struct {
         @doc value "is a human-readable name for the log."
     }
     channels               ChannelEntry[] {
-        @doc value "are the channels displayed in this log, in order."
+        @doc value        "are the channels displayed in this log, in order."
+        @validate default empty
     }
     remote_created         bool           {
         @doc value        "indicates whether the log was created on a remote client."

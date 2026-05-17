@@ -24,14 +24,8 @@ describe("log", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      const randomLog = await client.logs.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const randomLog = await client.logs.create(ws.key, { name: "test" });
       await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
         AuthError,
       );
@@ -43,17 +37,9 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      const randomLog = await client.logs.create(ws.key, {
-        name: "test",
-        data: {},
-      });
-      const retrieved = await userClient.logs.retrieve({
-        key: randomLog.key,
-      });
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const randomLog = await client.logs.create(ws.key, { name: "test" });
+      const retrieved = await userClient.logs.retrieve({ key: randomLog.key });
       expect(retrieved.key).toBe(randomLog.key);
       expect(retrieved.name).toBe(randomLog.name);
     });
@@ -64,14 +50,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      await userClient.logs.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      await userClient.logs.create(ws.key, { name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -80,16 +60,10 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      await expect(
-        userClient.logs.create(ws.key, {
-          name: "test",
-          data: {},
-        }),
-      ).rejects.toThrow(AuthError);
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      await expect(userClient.logs.create(ws.key, { name: "test" })).rejects.toThrow(
+        AuthError,
+      );
     });
 
     it("should allow the caller to delete logs with the correct policy", async () => {
@@ -98,14 +72,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      const randomLog = await client.logs.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const randomLog = await client.logs.create(ws.key, { name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
         NotFoundError,
@@ -118,14 +86,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
-        name: "test",
-        layout: {},
-      });
-      const randomLog = await client.logs.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const randomLog = await client.logs.create(ws.key, { name: "test" });
       await expect(userClient.logs.delete(randomLog.key)).rejects.toThrow(AuthError);
     });
   });
