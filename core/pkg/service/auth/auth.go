@@ -32,7 +32,7 @@ type Credentials struct {
 	Username string `json:"username"  msgpack:"username" validate:"required"`
 	// Password is the plaintext password of the credential entry. Hashing and
 	// validation are the responsibility of [Service].
-	Password string `json:"password"  msgpack:"password"`
+	Password string `json:"password"  msgpack:"password" validate:"required"`
 }
 
 var _ override.Zeroable = Credentials{}

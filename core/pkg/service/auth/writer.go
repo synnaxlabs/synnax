@@ -30,8 +30,11 @@ type Writer struct {
 }
 
 // Register stores new credentials. Returns [ErrRepeatedUsername] if the username is
-// already taken.
+// already taken, or a validation error if creds has an empty username or password.
 func (w Writer) Register(ctx context.Context, creds Credentials) error {
+	if err := creds.Validate(); err != nil {
+		return err
+	}
 	if err := w.assertUsernameAvailable(ctx, creds.Username); err != nil {
 		return err
 	}
@@ -39,7 +42,7 @@ func (w Writer) Register(ctx context.Context, creds Credentials) error {
 	if err != nil {
 		return err
 	}
-	return w.service.table.NewCreate().Entry(&secureCredentials{
+	return w.service.table.NewCreate().Entry(&SecureCredentials{
 		Username: creds.Username,
 		Password: hashed,
 	}).Exec(ctx, w.tx)
@@ -63,7 +66,7 @@ func (w Writer) UpdateUsername(
 		return err
 	}
 	if err := w.service.table.NewDelete().
-		Where(gorp.MatchKeys[string, secureCredentials](oldUsername)).
+		Where(gorp.MatchKeys[string, SecureCredentials](oldUsername)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -72,15 +75,19 @@ func (w Writer) UpdateUsername(
 }
 
 // ChangePassword replaces the stored password for creds.Username with creds.Password.
-// No identity check; caller is responsible for authorization.
+// No identity check; caller is responsible for authorization. Returns a validation
+// error if creds has an empty username or password.
 func (w Writer) ChangePassword(ctx context.Context, creds Credentials) error {
+	if err := creds.Validate(); err != nil {
+		return err
+	}
 	hashed, err := hashPassword(creds.Password)
 	if err != nil {
 		return err
 	}
 	err = w.service.table.NewUpdate().
-		Where(gorp.MatchKeys[string, secureCredentials](creds.Username)).
-		Change(func(_ gorp.Context, c secureCredentials) secureCredentials {
+		Where(gorp.MatchKeys[string, SecureCredentials](creds.Username)).
+		Change(func(_ gorp.Context, c SecureCredentials) SecureCredentials {
 			c.Password = hashed
 			return c
 		}).
@@ -98,27 +105,27 @@ func (w Writer) ChangePassword(ctx context.Context, creds Credentials) error {
 // is responsible for authorization.
 func (w Writer) Deactivate(ctx context.Context, usernames ...string) error {
 	return w.service.table.NewDelete().
-		Where(gorp.MatchKeys[string, secureCredentials](usernames...)).
+		Where(gorp.MatchKeys[string, SecureCredentials](usernames...)).
 		Exec(ctx, w.tx)
 }
 
 func (w Writer) retrieve(
 	ctx context.Context,
 	username string,
-) (secureCredentials, error) {
-	var stored secureCredentials
+) (SecureCredentials, error) {
+	var stored SecureCredentials
 	if err := w.service.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, secureCredentials](username)).
+		Where(gorp.MatchKeys[string, SecureCredentials](username)).
 		Entry(&stored).
 		Exec(ctx, w.tx); err != nil {
-		return secureCredentials{}, err
+		return SecureCredentials{}, err
 	}
 	return stored, nil
 }
 
 func (w Writer) assertUsernameAvailable(ctx context.Context, username string) error {
 	exists, err := w.service.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, secureCredentials](username)).
+		Where(gorp.MatchKeys[string, SecureCredentials](username)).
 		Exists(ctx, w.tx)
 	if err != nil {
 		return err

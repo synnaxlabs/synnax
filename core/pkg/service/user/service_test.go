@@ -75,6 +75,10 @@ var _ = Describe("ServiceConfig", func() {
 			cfg.RootCredentials = auth.Credentials{Username: "u", Password: "p"}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("auth: must be non-nil")))
 		})
+		It("Should reject root credentials with an empty password", func() {
+			cfg.RootCredentials = auth.Credentials{Username: "u", Password: ""}
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("password")))
+		})
 		DescribeTable("Should return an error when a required field is missing",
 			func(mutate func(*user.ServiceConfig), errorMsg string) {
 				mutate(&cfg)

@@ -99,6 +99,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "search", c.Search)
 	if c.RootCredentials.Username != "" {
 		validate.NotNil(v, "auth", c.Auth)
+		v.Exec(c.RootCredentials.Validate)
 	}
 	return v.Error()
 }

@@ -45,6 +45,25 @@ var _ = Describe("Writer", func() {
 			})
 			Expect(err).To(MatchError(auth.ErrInvalidCredentials))
 		})
+		It("Should reject an empty username before touching the store", func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Register(ctx, auth.Credentials{
+				Username: "",
+				Password: "password",
+			})).To(MatchError(ContainSubstring("username")))
+		})
+		It("Should reject an empty password before touching the store", func(ctx SpecContext) {
+			emptyPassUser := uuid.NewString()
+			Expect(svc.NewWriter(nil).Register(ctx, auth.Credentials{
+				Username: emptyPassUser,
+				Password: "",
+			})).To(MatchError(ContainSubstring("password")))
+			// Ensure no orphaned row was created: a subsequent Register with the same
+			// username and a real password must succeed.
+			Expect(svc.NewWriter(nil).Register(ctx, auth.Credentials{
+				Username: emptyPassUser,
+				Password: "password",
+			})).To(Succeed())
+		})
 	})
 	Describe("UpdateUsername", func() {
 		It("Should rename the credential entry", func(ctx SpecContext) {
@@ -93,6 +112,22 @@ var _ = Describe("Writer", func() {
 				Username: creds.Username,
 				Password: strings.Repeat("a", 73),
 			})).To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should reject an empty username before touching the store", func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
+				Username: "",
+				Password: newPassword,
+			})).To(MatchError(ContainSubstring("username")))
+			// Original password must still work.
+			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
+		})
+		It("Should reject an empty password before touching the store", func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).ChangePassword(ctx, auth.Credentials{
+				Username: creds.Username,
+				Password: "",
+			})).To(MatchError(ContainSubstring("password")))
+			// Original password must still work.
+			Expect(svc.Authenticate(ctx, creds)).To(Succeed())
 		})
 	})
 	Describe("Deactivate", func() {

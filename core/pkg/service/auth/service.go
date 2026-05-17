@@ -22,14 +22,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type secureCredentials struct {
+type SecureCredentials struct {
 	Username string
 	Password []byte
 }
 
-func (s secureCredentials) GorpKey() string { return s.Username }
+func (s SecureCredentials) GorpKey() string { return s.Username }
 
-func (secureCredentials) SetOptions() []any { return nil }
+func (SecureCredentials) SetOptions() []any { return nil }
 
 // ServiceConfig is the configuration for opening a [Service].
 type ServiceConfig struct {
@@ -60,12 +60,14 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service is a Gorp-backed authenticator. Credentials are persisted as
-// [secureCredentials] entries in a single Gorp table; the on-disk shape is an
-// unexported implementation detail. All [gorp.Tx] values passed to [Service.NewWriter]
-// must be spawned from the same [gorp.DB] used to open the service.
+// [SecureCredentials] entries in a single Gorp table. [SecureCredentials] is exported
+// solely so that Gorp's type-name-derived key prefix remains stable across releases —
+// renaming or unexporting it would orphan every existing on-disk credential row, so
+// callers should treat it as an internal type. All [gorp.Tx] values passed to
+// [Service.NewWriter] must be spawned from the same [gorp.DB] used to open the service.
 type Service struct {
 	cfg   ServiceConfig
-	table *gorp.Table[string, secureCredentials]
+	table *gorp.Table[string, SecureCredentials]
 }
 
 // OpenService opens a new [Service] with the given configurations.
@@ -75,7 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[secureCredentials]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
@@ -93,9 +95,9 @@ func (s *Service) Authenticate(ctx context.Context, creds Credentials) error {
 	if err := creds.Validate(); err != nil {
 		return err
 	}
-	var stored secureCredentials
+	var stored SecureCredentials
 	if err := s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, secureCredentials](creds.Username)).
+		Where(gorp.MatchKeys[string, SecureCredentials](creds.Username)).
 		Entry(&stored).
 		Exec(ctx, s.cfg.DB); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
