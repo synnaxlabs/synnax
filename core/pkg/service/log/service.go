@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -84,8 +85,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Log]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Log]("msgpack_to_orc")},
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[Key, v55.Log]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration("v55_lift_typed_log", MigrateLog),
+				"msgpack_to_orc",
+			),
+		},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
