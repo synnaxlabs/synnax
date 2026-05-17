@@ -58,4 +58,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })
