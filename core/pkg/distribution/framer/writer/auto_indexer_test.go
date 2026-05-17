@@ -428,6 +428,36 @@ var _ = Describe("AutoIndexing", func() {
 		})
 	})
 
+	Describe("Conflict between user-provided and auto-generated index timestamps", func() {
+		It("Should surface a storage conflict when a user-provided index timestamp is ahead of a subsequent auto-stamp", func(ctx SpecContext) {
+			s := openAutoIndexScenario(ctx)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+
+			// A user-provided index timestamp far enough in the future that telem.Now()
+			// at the next write is guaranteed to be less. The autoIndexer intentionally
+			// does not absorb the future user-provided value — mixing future user-TS
+			// with auto-stamping is not a supported pattern, so cesium rejects the
+			// conflicting write rather than silently coercing.
+			future := telem.Now() + telem.HourTS
+			keys := []channel.Key{s.idx.Key(), s.data.Key()}
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:         keys,
+				Sync:         new(true),
+				AutoIndexing: new(true),
+			}))
+			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV(future),
+				telem.NewSeriesV[float64](1),
+			})))
+			Expect(w.Write(frame.NewUnary(
+				s.data.Key(),
+				telem.NewSeriesV[float64](2),
+			))).Error().To(MatchError(
+				ContainSubstring("must not be less than the previous commit timestamp"),
+			))
+		})
+	})
+
 	Describe("Watermark and mixed-frame handling", func() {
 		It("Should leave one index untouched while auto-stamping another in the same frame", func(ctx SpecContext) {
 			s := openAutoIndexScenario(ctx)

@@ -31,10 +31,12 @@ following process:
 
 - For each index channel in the writer that you didn't include in the write, Synnax
   generates a timestamp series with one timestamp per sample.
-- The first sample is stamped at the time Synnax receives the write. Subsequent samples
-  in the same write are spaced 1 nanosecond apart.
-- Generated timestamps are guaranteed to be strictly monotonic across all writes on the
-  same writer, even if you mix auto-generated and user-provided timestamps.
+- Timestamps are produced server-side by the Core that owns the index channel, so they
+  reflect the Core's wall clock — not the client's.
+- The first sample is stamped at the moment the Core processes the write. Subsequent
+  samples in the same write are spaced 1 nanosecond apart.
+- Auto-generated timestamps are strictly monotonic across consecutive auto-stamped
+  writes on the same writer.
 
 If you open the writer with a data channel but don't include its index channel, Synnax
 adds the index channel to the writer for you so it can stamp the data.

@@ -86,17 +86,23 @@ func expandKeysForAutoIndexing(cfg Config, channels []channel.Channel) Config {
 // The segment is a no-op when disabled or when there are no index channels in scope.
 type autoIndexer struct {
 	confluence.AbstractLinear[Request, Request]
-	// indexKeys lists every leaseholder-local index channel that has at least one
-	// referencing data channel also in the writer's local keys.
-	indexKeys channel.Keys
+	// indexes is the set of leaseholder-local index channels that have at least one
+	// referencing data channel in the writer's local keys.
+	indexes set.Set[channel.Key]
 	// dataToIndex maps each leaseholder-local non-index data channel in the writer's
 	// keys to the key of its index channel.
 	dataToIndex map[channel.Key]channel.Key
 	// dataAuth tracks the most recent authority observed for each local data channel,
 	// seeded from the open-time config and updated on every SetAuthority call. Used to
 	// recompute index authorities as the max across referencing data channels.
-	dataAuth      map[channel.Key]control.Authority
-	highWaterMark telem.TimeStamp
+	dataAuth map[channel.Key]control.Authority
+	// highWaterMark tracks, per index channel, the last timestamp this autoIndexer has
+	// produced, so a subsequent auto-stamp on the same index stays strictly monotonic
+	// even when a single Write generates enough samples to span the inter-write gap.
+	// User-provided timestamps do not advance highWaterMark — if a caller mixes a
+	// future user-TS with later auto-stamps, cesium's own monotonicity check will
+	// reject the conflicting write. Seeded from cfg.Start.
+	highWaterMark map[channel.Key]telem.TimeStamp
 }
 
 // newAutoIndexer constructs an autoIndexer scoped to channels — the channel metadata
@@ -105,8 +111,7 @@ type autoIndexer struct {
 // cfg.Start seeds the high-water mark so the first auto-stamped sample is >= Start+1.
 func newAutoIndexer(channels []channel.Channel, cfg Config) *autoIndexer {
 	dataToIndex := make(map[channel.Key]channel.Key, len(channels))
-	seen := set.New[channel.Key]()
-	var indexKeys channel.Keys
+	indexes := set.New[channel.Key]()
 	for _, ch := range channels {
 		if ch.IsIndex {
 			continue
@@ -116,10 +121,7 @@ func newAutoIndexer(channels []channel.Channel, cfg Config) *autoIndexer {
 			continue
 		}
 		dataToIndex[ch.Key()] = idx
-		if !seen.Contains(idx) {
-			seen.Add(idx)
-			indexKeys = append(indexKeys, idx)
-		}
+		indexes.Add(idx)
 	}
 	dataAuth := make(map[channel.Key]control.Authority, len(dataToIndex))
 	if len(cfg.Authorities) > 0 {
@@ -130,11 +132,15 @@ func newAutoIndexer(channels []channel.Channel, cfg Config) *autoIndexer {
 			dataAuth[k] = cfg.Authorities[i%len(cfg.Authorities)]
 		}
 	}
+	highWaterMark := make(map[channel.Key]telem.TimeStamp, len(indexes))
+	for idx := range indexes {
+		highWaterMark[idx] = cfg.Start
+	}
 	return &autoIndexer{
-		indexKeys:     indexKeys,
+		indexes:       indexes,
 		dataToIndex:   dataToIndex,
 		dataAuth:      dataAuth,
-		highWaterMark: cfg.Start,
+		highWaterMark: highWaterMark,
 	}
 }
 
@@ -153,7 +159,7 @@ func (a *autoIndexer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				switch req.Command {
 				case CommandWrite:
-					if len(a.indexKeys) > 0 {
+					if len(a.indexes) > 0 {
 						req.Frame = a.stamp(req.Frame)
 					}
 				case CommandSetAuthority:
@@ -200,7 +206,7 @@ func (a *autoIndexer) propagateAuthority(req Request) Request {
 	}
 
 	explicit := set.New(cfg.Keys...)
-	for _, idxKey := range a.indexKeys {
+	for idxKey := range a.indexes {
 		if explicit.Contains(idxKey) {
 			continue
 		}
@@ -222,10 +228,11 @@ func (a *autoIndexer) propagateAuthority(req Request) Request {
 }
 
 // stamp inspects fr, injects a TimeStamp series for each local index channel that is
-// missing from fr, and advances the high-water mark to cover the timestamps that were
-// just generated. Each generated series is sized to match the length of a data channel
-// that references its index, so two missing indexes covering data channels of different
-// lengths in the same frame are stamped independently.
+// missing from fr, and advances each index's high-water mark to cover the timestamps
+// that were just generated. Each generated series is sized to match the length of a
+// data channel that references its index. User-provided index timestamps in fr do not
+// advance any high-water mark; if they conflict with a subsequent auto-stamp, cesium
+// rejects the write rather than silently coercing.
 func (a *autoIndexer) stamp(fr frame.Frame) frame.Frame {
 	present := make(set.Set[channel.Key])
 	dataLens := make(map[channel.Key]int64)
@@ -241,29 +248,11 @@ func (a *autoIndexer) stamp(fr frame.Frame) frame.Frame {
 		}
 	}
 
-	var maxLen int64
-	for _, idxKey := range a.indexKeys {
-		if present.Contains(idxKey) {
-			continue
-		}
-		if n := dataLens[idxKey]; n > maxLen {
-			maxLen = n
-		}
-	}
-	if maxLen <= 0 {
-		return fr
-	}
-
-	t0 := telem.Now()
-	if a.highWaterMark > 0 && a.highWaterMark+1 > t0 {
-		t0 = a.highWaterMark + 1
-	}
-
-	stamps := make([]telem.TimeStamp, maxLen)
-	for j := range stamps {
-		stamps[j] = t0 + telem.TimeStamp(j)
-	}
-	for _, idxKey := range a.indexKeys {
+	// Sample Now() once so that indexes whose watermarks are <= now end up with
+	// identical t0s, preserving co-alignment for the common case of stamping multiple
+	// fresh indexes in a single Write.
+	now := telem.Now()
+	for idxKey := range a.indexes {
 		if present.Contains(idxKey) {
 			continue
 		}
@@ -271,8 +260,16 @@ func (a *autoIndexer) stamp(fr frame.Frame) frame.Frame {
 		if n == 0 {
 			continue
 		}
-		fr = fr.Append(idxKey, telem.NewSeriesV(stamps[:n]...))
+		t0 := now
+		if hwm := a.highWaterMark[idxKey]; hwm > 0 && hwm+1 > t0 {
+			t0 = hwm + 1
+		}
+		stamps := make([]telem.TimeStamp, n)
+		for j := range stamps {
+			stamps[j] = t0 + telem.TimeStamp(j)
+		}
+		a.highWaterMark[idxKey] = stamps[n-1]
+		fr = fr.Append(idxKey, telem.NewSeriesV(stamps...))
 	}
-	a.highWaterMark = t0 + telem.TimeStamp(maxLen-1)
 	return fr
 }
