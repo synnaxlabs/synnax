@@ -22,18 +22,14 @@ import (
 )
 
 // expandKeysForAutoIndexing returns a config whose Keys include any index channels
-// referenced by the data channels in cfg.Keys that are not already present, along with
-// the set of indexes that were added implicitly. When per-channel authorities are
-// supplied, each implicit index inherits the maximum authority of the data channels
-// that reference it, since writing to a data channel requires successfully writing its
-// index. When a single broadcast authority is supplied, the appended index keys
-// naturally inherit it.
+// referenced by the data channels in cfg.Keys that are not already present. When
+// per-channel authorities are supplied, each appended index inherits the maximum
+// authority of the data channels that reference it, since writing to a data channel
+// requires successfully writing its index. When a single broadcast authority is
+// supplied, the appended index keys naturally inherit it.
 //
 // channels must be the resolved channel metadata for cfg.Keys.
-func expandKeysForAutoIndexing(
-	cfg Config,
-	channels []channel.Channel,
-) (Config, set.Set[channel.Key]) {
+func expandKeysForAutoIndexing(cfg Config, channels []channel.Channel) Config {
 	existing := set.New(cfg.Keys...)
 	perChannelAuth := len(cfg.Authorities) > 1
 	var keyAuth map[channel.Key]control.Authority
@@ -64,7 +60,7 @@ func expandKeysForAutoIndexing(
 		}
 	}
 	if len(implicit) == 0 {
-		return cfg, nil
+		return cfg
 	}
 	cfg.Keys = append(cfg.Keys, implicit...)
 	if perChannelAuth {
@@ -72,40 +68,45 @@ func expandKeysForAutoIndexing(
 			cfg.Authorities = append(cfg.Authorities, indexAuth[idxKey])
 		}
 	}
-	return cfg, set.New(implicit...)
+	return cfg
 }
 
-// autoIndexer is a pipeline segment that injects server-generated timestamps for any
-// index channel in the writer's keys whose series is omitted from an inbound Write
-// frame, and propagates SetAuthority changes on data channels to the implicit index
-// channels they reference. The segment is a no-op when disabled.
+// autoIndexer runs on each leaseholder's storage-writer-facing pipeline and provides
+// two services scoped to channels local to that leaseholder:
+//
+//   - On CommandWrite, it injects a TimeStamp series for each index channel in the
+//     writer's keys whose series is omitted from the inbound frame. Timestamps are
+//     produced by this node's clock so the index data is stamped by the same node
+//     that persists it.
+//   - On CommandSetAuthority, it propagates authority changes on data channels to the
+//     index channels they reference, taking the max across referencing data channels.
+//     If the SetAuthority call explicitly includes an index in its Keys, that index is
+//     left untouched — the caller's explicit value wins.
+//
+// The segment is a no-op when disabled or when there are no index channels in scope.
 type autoIndexer struct {
 	confluence.AbstractLinear[Request, Request]
-	enabled   bool
+	// indexKeys lists every leaseholder-local index channel that has at least one
+	// referencing data channel also in the writer's local keys.
 	indexKeys channel.Keys
-	// dataToIndex maps each non-index data channel key in the writer to the key of its
-	// index channel. Used to size the timestamp series generated for each missing index
-	// from the length of a data channel that references it, and to recompute implicit
-	// index authorities when a referencing data channel's authority changes.
+	// dataToIndex maps each leaseholder-local non-index data channel in the writer's
+	// keys to the key of its index channel.
 	dataToIndex map[channel.Key]channel.Key
-	// implicitIndexes is the set of index channel keys that were added to the writer's
-	// Keys by expandKeysForAutoIndexing. Only these indexes have their authority
-	// recomputed when a SetAuthority call updates a referencing data channel.
-	implicitIndexes set.Set[channel.Key]
-	// dataAuth tracks the most recent authority observed for each data channel in the
-	// writer, seeded from the open-time config and updated on every SetAuthority call.
-	// Used to recompute implicit index authorities as the max across referencing data
-	// channels.
+	// dataAuth tracks the most recent authority observed for each local data channel,
+	// seeded from the open-time config and updated on every SetAuthority call. Used to
+	// recompute index authorities as the max across referencing data channels.
 	dataAuth      map[channel.Key]control.Authority
 	highWaterMark telem.TimeStamp
 }
 
+// newAutoIndexer constructs an autoIndexer scoped to channels — the channel metadata
+// for the leaseholder's local key slice. keys and authorities are the writer's
+// leaseholder-local open-time configuration, used to seed the dataAuth map. start
+// seeds the high-water mark so the first auto-stamped sample is >= start + 1.
 func newAutoIndexer(
-	enabled bool,
 	channels []channel.Channel,
 	keys channel.Keys,
 	authorities []control.Authority,
-	implicitIndexes set.Set[channel.Key],
 	start telem.TimeStamp,
 ) *autoIndexer {
 	dataToIndex := make(map[channel.Key]channel.Key, len(channels))
@@ -135,12 +136,10 @@ func newAutoIndexer(
 		}
 	}
 	return &autoIndexer{
-		enabled:         enabled,
-		indexKeys:       indexKeys,
-		dataToIndex:     dataToIndex,
-		implicitIndexes: implicitIndexes,
-		dataAuth:        dataAuth,
-		highWaterMark:   start,
+		indexKeys:     indexKeys,
+		dataToIndex:   dataToIndex,
+		dataAuth:      dataAuth,
+		highWaterMark: start,
 	}
 }
 
@@ -157,15 +156,13 @@ func (a *autoIndexer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				if a.enabled {
-					switch req.Command {
-					case CommandWrite:
-						if len(a.indexKeys) > 0 {
-							req.Frame = a.stamp(req.Frame)
-						}
-					case CommandSetAuthority:
-						req = a.propagateAuthority(req)
+				switch req.Command {
+				case CommandWrite:
+					if len(a.indexKeys) > 0 {
+						req.Frame = a.stamp(req.Frame)
 					}
+				case CommandSetAuthority:
+					req = a.propagateAuthority(req)
 				}
 				if err := signal.SendUnderContext(ctx, a.Out.Inlet(), req); err != nil {
 					return err
@@ -176,13 +173,12 @@ func (a *autoIndexer) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 // propagateAuthority synchronizes the autoIndexer's per-data-channel authority tracking
-// with the incoming SetAuthority request, and for per-channel calls augments req.Config
-// with an updated authority for each implicit index whose referencing data channels'
-// max may have changed. Broadcast calls (Config.Keys empty) are forwarded unchanged —
-// cesium already applies the broadcast authority across every channel in the writer,
-// including implicit indexes — but the tracked state is refreshed so the next
-// per-channel call computes correctly. Implicit indexes the caller explicitly included
-// in Config.Keys are left untouched.
+// with the incoming SetAuthority request and augments req.Config with an updated
+// authority for each local index whose referencing data channels' max may have changed.
+// Broadcast calls (Config.Keys empty) are forwarded unchanged — cesium already applies
+// the broadcast authority across every channel in the writer, including indexes — but
+// the tracked state is refreshed so the next per-channel call computes correctly.
+// Indexes the caller explicitly included in Config.Keys are left untouched.
 func (a *autoIndexer) propagateAuthority(req Request) Request {
 	cfg := req.Config
 	if len(cfg.Authorities) == 0 {
@@ -210,7 +206,7 @@ func (a *autoIndexer) propagateAuthority(req Request) Request {
 
 	explicit := set.New(cfg.Keys...)
 	for _, idxKey := range a.indexKeys {
-		if !a.implicitIndexes.Contains(idxKey) || explicit.Contains(idxKey) {
+		if explicit.Contains(idxKey) {
 			continue
 		}
 		var maxAuth control.Authority
@@ -230,11 +226,11 @@ func (a *autoIndexer) propagateAuthority(req Request) Request {
 	return req
 }
 
-// stamp inspects fr, injects a TimeStamp series for each index channel in the writer's
-// keys that is missing from fr, and advances the writer's high-water mark to cover the
-// timestamps that were just generated. Each generated series is sized to match the
-// length of a data channel that references its index, so two missing indexes covering
-// data channels of different lengths in the same frame are stamped independently.
+// stamp inspects fr, injects a TimeStamp series for each local index channel that is
+// missing from fr, and advances the high-water mark to cover the timestamps that were
+// just generated. Each generated series is sized to match the length of a data channel
+// that references its index, so two missing indexes covering data channels of different
+// lengths in the same frame are stamped independently.
 func (a *autoIndexer) stamp(fr frame.Frame) frame.Frame {
 	present := make(set.Set[channel.Key])
 	dataLens := make(map[channel.Key]int64)
