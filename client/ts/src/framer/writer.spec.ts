@@ -119,6 +119,7 @@ describe("Writer", () => {
       const [index, data] = await newIndexedPair(client);
       const before = TimeStamp.now();
       const writer = await client.openWriter({
+        start: before,
         channels: [data.key],
         autoIndexing: true,
       });

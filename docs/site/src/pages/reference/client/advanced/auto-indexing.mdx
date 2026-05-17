@@ -22,8 +22,6 @@ ts="autoIndexing" /> is enabled, Synnax generates those timestamps for you. This
 useful when the exact time of each sample doesn't matter and you'd rather have Synnax
 stamp the data when it arrives.
 
-<Divider.Divider x />
-
 ## How It Works
 
 When <Client.Var client:load py="auto_indexing" ts="autoIndexing" /> is set to
@@ -46,7 +44,9 @@ adds the index channel to the writer for you so it can stamp the data.
 ## Writing Without an Index Channel
 
 The simplest case is opening a writer with only a data channel and letting Synnax stamp
-every sample. No `start` timestamp is needed.
+every sample. The Python client requires a `start` argument, but it's just a placeholder
+when auto-indexing is on — pass `start=0` and Synnax will supply the real timestamps.
+The TypeScript client makes `start` optional.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 

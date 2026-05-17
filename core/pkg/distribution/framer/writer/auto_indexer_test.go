@@ -679,7 +679,7 @@ var _ = Describe("AutoIndexing", func() {
 			defer func() { Expect(wHigher.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wHigher.Write(frame.NewUnary(
 				s.idx.Key(),
-				telem.NewSeriesSecondsTSV(10),
+				telem.NewSeriesSecondsTSV(11),
 			)))
 			Expect(authorized).To(BeTrue())
 		})
@@ -730,7 +730,7 @@ var _ = Describe("AutoIndexing", func() {
 			defer func() { Expect(wAbove.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wAbove.Write(frame.NewUnary(
 				s.idx.Key(),
-				telem.NewSeriesSecondsTSV(10),
+				telem.NewSeriesSecondsTSV(11),
 			)))
 			Expect(authorized).To(BeTrue())
 		})
@@ -785,7 +785,7 @@ var _ = Describe("AutoIndexing", func() {
 			defer func() { Expect(wIdx2.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wIdx2.Write(frame.NewUnary(
 				idx2.Key(),
-				telem.NewSeriesSecondsTSV(10),
+				telem.NewSeriesSecondsTSV(11),
 			)))
 			Expect(authorized).To(BeFalse())
 		})

@@ -90,7 +90,7 @@ type Config struct {
 	// Start marks the starting timestamp of the first sample in the first frame. If
 	// telemetry occupying the given timestamp already exists for the provided keys, the
 	// writer will fail to open.
-
+	//
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
