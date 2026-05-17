@@ -59,7 +59,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
-		userGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -68,7 +68,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:              db,
 			Ontology:        otg,
-			Group:           userGroup,
+			Group:           groupSvc,
 			Search:          searchIdx,
 			Auth:            authSvc,
 			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
@@ -113,7 +113,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		testRBAC := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    userGroup,
+			Group:    groupSvc,
 			Search:   searchIdx,
 			User:     userSvc,
 		}))
