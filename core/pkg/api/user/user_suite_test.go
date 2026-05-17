@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package user
+package user_test
 
 import (
 	"testing"
@@ -15,9 +15,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -37,7 +41,7 @@ var (
 	db      *gorp.DB
 	authSvc *auth.Service
 	userSvc *user.Service
-	apiSvc  *Service
+	apiSvc  *apiuser.Service
 	root    user.User
 )
 
@@ -64,12 +68,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = &Service{
-		db:       db,
-		access:   rbacSvc,
-		internal: userSvc,
-		auth:     authSvc,
-	}
+	apiSvc = MustSucceed(apiuser.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service: &svc.Layer{
+			User: userSvc,
+			RBAC: rbacSvc,
+			Auth: authSvc,
+		},
+	}))
 	root = findRoot(ctx, userSvc, "api-user-suite-root")
 })
 
