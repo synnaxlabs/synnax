@@ -54,10 +54,11 @@ export const use = ({
   showChannelNames = true,
   showReceiptTimestamp = true,
   timestampPrecision = 0,
-  channels = [],
+  channels: rawChannels,
   color,
   telem,
 }: UseProps): UseReturn => {
+  const channels = rawChannels ?? [];
   const numericChannels = useMemo(
     () =>
       channels
