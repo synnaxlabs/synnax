@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -349,8 +350,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
+	var implicitIndexes set.Set[channel.Key]
 	if cfg.AutoIndexing != nil && *cfg.AutoIndexing {
-		cfg = expandKeysForAutoIndexing(cfg, channels)
+		cfg, implicitIndexes = expandKeysForAutoIndexing(cfg, channels)
 		channels, err = s.validateChannelKeys(ctx, cfg.Keys)
 		if err != nil {
 			return nil, err
@@ -374,7 +376,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 	ai := newAutoIndexer(
 		cfg.AutoIndexing != nil && *cfg.AutoIndexing,
-		indexKeysOf(channels),
+		channels,
+		cfg.Keys,
+		cfg.Authorities,
+		implicitIndexes,
 		cfg.Start,
 	)
 	plumber.SetSegment(pipe, autoIndexerAddr, ai)
