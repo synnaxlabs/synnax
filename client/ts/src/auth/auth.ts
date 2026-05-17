@@ -101,12 +101,7 @@ export class Client {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= new Promise((resolve, reject) => {
           this.client
-            .send(
-              LOGIN_ENDPOINT,
-              this.credentials,
-              credentialsZ,
-              tokenResponseZ,
-            )
+            .send(LOGIN_ENDPOINT, this.credentials, credentialsZ, tokenResponseZ)
             .then(([res, err]) => {
               if (err != null) return resolve(err);
               if (res == null) return resolve(new Error("No response from login"));
