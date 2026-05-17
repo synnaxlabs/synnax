@@ -13,10 +13,10 @@
 // detail of [Service].
 //
 // Higher-level packages compose these primitives: the user service owns credential
-// lifecycle alongside user records, and the rbac service drives startup-time root-user
-// reconciliation. Direct callers of this package are expected to be
-// infrastructure-level — most application code should reach for the user service
-// instead.
+// lifecycle alongside user records and drives startup-time root-user reconciliation
+// (creating, demoting, or rotating the root credential to match the configured root).
+// Direct callers of this package are expected to be infrastructure-level — most
+// application code should reach for the user service instead.
 package auth
 
 import (
