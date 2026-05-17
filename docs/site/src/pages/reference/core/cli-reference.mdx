@@ -426,12 +426,12 @@ The behavior depends on what already exists on disk:
     {
       scenario: "Configured username matches an existing <em>non-root</em> user",
       behavior:
-        "The Core refuses to start with an error. The operator must rename the conflicting user or pick a different root username — the Core will not silently promote an existing account.",
+        "The existing user is promoted in place: their <code>RootUser</code> flag is set to true, their stored password is rotated to match the configured one, and any previous root user is demoted. The user keeps the same key, name, and role assignments. This lets you point <code>--username</code> at an already-provisioned account to make it the root, instead of creating a new one.",
     },
     {
       scenario: "Restart with no credentials configured (both flags omitted)",
       behavior:
-        "Auth state is left untouched. If multiple users somehow have <code>RootUser=true</code>, all but the lexicographically-first by username are demoted (keeping their <code>Owner</code> role) and a warning is logged. If <em>no</em> root user exists, the Core refuses to start — an empty cluster has no admin, and without credentials there is no way to create one.",
+        "Auth state is left untouched. If multiple users somehow have <code>RootUser=true</code>, all but the first returned by the retrieve are demoted (keeping their <code>Owner</code> role) and a warning is logged. A cluster with zero or one root user is left as-is, so test setups and other callers that do not need a root user can open the Core without supplying credentials.",
     },
   ]}
 />

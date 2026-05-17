@@ -202,23 +202,42 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 			Expect(rootUsers(ctx, svc3)).To(HaveLen(1))
 		})
 	})
-	Describe("Non-root collision", func() {
-		It("Should refuse to start when a non-root user already owns the configured username", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			_ = seedUser(ctx, seedSvc, "gamma", "x", false)
+	Describe("Promotion of an existing non-root user", func() {
+		It("Should promote the existing user, rotate their password, and demote previous roots", func(ctx SpecContext) {
+			seedSvc := openRootUser(ctx, "old-root", "p")
+			seedUser(ctx, seedSvc, "gamma", "x", false)
+			gammaBefore := findUser(ctx, seedSvc, "gamma")
+			Expect(gammaBefore.RootUser).To(BeFalse())
 			Expect(seedSvc.Close()).To(Succeed())
-			Expect(user.OpenService(ctx, user.ServiceConfig{
-				DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
-				Auth:            authSvc,
-				RootCredentials: auth.Credentials{Username: "gamma", Password: "p3"},
-			})).Error().To(MatchError(ContainSubstring("non-root user with username")))
-			// Ensure the existing creds were not touched.
-			Expect(authSvc.Authenticate(ctx, auth.Credentials{
-				Username: "gamma", Password: "x",
-			})).To(Succeed())
+
+			s := openRootUser(ctx, "gamma", "p3")
+			gammaAfter := findUser(ctx, s, "gamma")
+			Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
+			Expect(gammaAfter.RootUser).To(BeTrue())
+			// Previous root demoted.
+			Expect(findUser(ctx, s, "old-root").RootUser).To(BeFalse())
+			Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			// New password is active; the old one no longer authenticates.
 			Expect(authSvc.Authenticate(ctx, auth.Credentials{
 				Username: "gamma", Password: "p3",
+			})).To(Succeed())
+			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+				Username: "gamma", Password: "x",
 			})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should promote and keep the same password when config matches the existing password", func(ctx SpecContext) {
+			seedSvc := DeferClose(openRootUser(ctx, "old-root", "p"))
+			seedUser(ctx, seedSvc, "gamma", "same-pwd", false)
+			gammaBefore := findUser(ctx, seedSvc, "gamma")
+
+			s := openRootUser(ctx, "gamma", "same-pwd")
+			gammaAfter := findUser(ctx, s, "gamma")
+			Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
+			Expect(gammaAfter.RootUser).To(BeTrue())
+			Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			Expect(authSvc.Authenticate(ctx, auth.Credentials{
+				Username: "gamma", Password: "same-pwd",
+			})).To(Succeed())
 		})
 	})
 	Describe("Stale root users", func() {

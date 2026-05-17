@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
@@ -31,8 +32,11 @@ import (
 //   - Any user records previously flagged RootUser=true that do not match the
 //     configured username are demoted (RootUser=false). Their existing role
 //     assignments are left untouched.
-//   - If a non-root user already owns the configured username, startup fails
-//     fast so the operator can resolve the conflict manually.
+//   - If a non-root user already owns the configured username, that user is
+//     promoted in place: their RootUser flag is set to true and their stored
+//     password is rotated to match cfg.RootCredentials.Password. This lets
+//     operators turn an existing account into the root user simply by pointing
+//     RootCredentials at it.
 //
 // When [ServiceConfig.RootCredentials] is unset, the reconciler does not touch the auth
 // service. It collapses any state where multiple user records have RootUser=true by
@@ -96,40 +100,25 @@ func (s *Service) collapseStaleRoots(
 }
 
 // reconcileWithCreds is the credentialed branch of the reconciler. It enforces the full
-// root-user invariant described on [Service.reconcileRootUser].
+// root-user invariant described on [Service.reconcileRootUser]. The flow is:
+//  1. Identify the root user that matches the configured username, promoting an
+//     existing non-root user with that username if one exists.
+//  2. Sync the stored password to match config (rotating or registering as needed).
+//  3. Create the root user record if no existing user matches.
+//  4. Demote every other stale root.
 func (s *Service) reconcileWithCreds(
 	ctx context.Context,
 	tx gorp.Tx,
 	roots []User,
 ) error {
-	matchingRootIdx := -1
-	for i, r := range roots {
-		if r.Username == s.cfg.RootCredentials.Username {
-			matchingRootIdx = i
-			break
-		}
-	}
-	if matchingRootIdx < 0 {
-		exists, err := s.NewRetrieve().
-			Where(MatchUsernames(s.cfg.RootCredentials.Username)).
-			Exists(ctx, tx)
-		if err != nil {
-			return errors.Wrap(err, "look up configured root username")
-		}
-		if exists {
-			return errors.Newf(
-				"cannot provision root user: a non-root user with username %q already exists",
-				s.cfg.RootCredentials.Username,
-			)
-		}
+	matchingRoot, err := s.resolveMatchingRoot(ctx, tx, roots)
+	if err != nil {
+		return err
 	}
 	if err := s.ensureAuthSync(ctx, tx, s.cfg.RootCredentials); err != nil {
 		return err
 	}
-	var matchingRoot User
-	if matchingRootIdx >= 0 {
-		matchingRoot = roots[matchingRootIdx]
-	} else {
+	if matchingRoot.Key == (Key{}) {
 		created, err := s.NewWriter(tx).create(ctx, User{
 			Username: s.cfg.RootCredentials.Username,
 			RootUser: true,
@@ -152,6 +141,48 @@ func (s *Service) reconcileWithCreds(
 		}
 	}
 	return nil
+}
+
+// resolveMatchingRoot returns the user record that should hold RootUser=true after
+// reconciliation, applying the rules described on [Service.reconcileRootUser]:
+//   - If an existing root user already has the configured username, it is returned
+//     unchanged.
+//   - If a non-root user has the configured username, it is promoted in place to
+//     RootUser=true and returned. The auth-password rotation happens later via
+//     [Service.ensureAuthSync].
+//   - If no user has the configured username, the zero User is returned and the
+//     caller is responsible for creating the record.
+func (s *Service) resolveMatchingRoot(
+	ctx context.Context,
+	tx gorp.Tx,
+	roots []User,
+) (User, error) {
+	for _, r := range roots {
+		if r.Username == s.cfg.RootCredentials.Username {
+			return r, nil
+		}
+	}
+	var existing User
+	err := s.NewRetrieve().
+		Where(MatchUsernames(s.cfg.RootCredentials.Username)).
+		Entry(&existing).
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return User{}, nil
+	}
+	if err != nil {
+		return User{}, errors.Wrap(err, "look up configured root username")
+	}
+	if err := s.NewWriter(tx).setRootUser(ctx, existing.Key, true); err != nil {
+		return User{}, errors.Wrapf(err,
+			"promote existing user %q to root", existing.Username)
+	}
+	existing.RootUser = true
+	s.cfg.L.Info(
+		"promoted existing user to root",
+		zap.String("username", existing.Username),
+	)
+	return existing, nil
 }
 
 // demoteRoot clears the RootUser flag on u. Existing role assignments are left
