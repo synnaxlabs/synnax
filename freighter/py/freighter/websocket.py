@@ -310,9 +310,6 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         AsyncMiddlewareCollector.__init__(self)
         _Base.__init__(self, **kwargs)
 
-    def __(self) -> AsyncStreamClient:
-        return self
-
     async def stream(
         self,
         target: str,
@@ -372,9 +369,6 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
     def __init__(self, **kwargs: Any) -> None:
         MiddlewareCollector.__init__(self)
         _Base.__init__(self, **kwargs)
-
-    def __(self) -> StreamClient:
-        return self
 
     def stream(
         self,
