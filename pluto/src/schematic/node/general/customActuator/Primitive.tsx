@@ -12,9 +12,13 @@ import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type MouseEventHandler, type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Icon } from "@/icon";
+import { Note } from "@/note";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Toggle } from "@/schematic/node/common/toggle";
+import { Symbol } from "@/schematic/symbol";
+import { Text } from "@/text";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   specKey: string;
@@ -34,19 +38,27 @@ export const Primitive = ({
   stateOverrides,
   ...rest
 }: Props): ReactElement => {
-  const resolution = Custom.useResolveSymbol(specKey);
+  const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
+  const spec = result.variant === "success" ? result.data.data : undefined;
   const containerRef = useRef<HTMLButtonElement>(null);
   Custom.useRender({
     container: containerRef.current,
     orientation,
     activeState: enabled ? "active" : "base",
     externalScale: scale,
-    spec: resolution.status === "resolved" ? resolution.spec : undefined,
+    spec,
     stateOverrides,
   });
-  if (resolution.status === "missing")
-    return <Custom.Missing orientation={orientation} className={className} />;
-  const handles = resolution.status === "resolved" ? resolution.spec.handles : [];
+  if (Symbol.isMissing(result))
+    return (
+      <Note.Note variant="warning" className={className}>
+        <Text.Text level="p" status="warning">
+          <Icon.Warning />
+          Missing Custom Symbol
+        </Text.Text>
+      </Note.Note>
+    );
+  const handles = spec?.handles ?? [];
   return (
     <Toggle.Button
       ref={containerRef}

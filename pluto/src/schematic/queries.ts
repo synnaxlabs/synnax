@@ -23,10 +23,6 @@ import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { type Symbol } from "@/schematic/symbol";
-import {
-  collectCustomSymbolRefs,
-  type CustomSymbolRefs,
-} from "@/schematic/symbol/Audit";
 import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "schematics";
@@ -230,23 +226,6 @@ export const useSelectSnapshot = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key }) => requireSchematic(store, key).snapshot,
-});
-
-/// useSelectCustomSymbolRefs walks the schematic's configs and aggregates every
-/// custom-symbol reference (variant `customStatic` / `customActuator`) into a
-/// unique-key list plus a reverse map of which node keys carry each reference.
-/// The audit and bulk-resolve UIs consume this to detect and group missing
-/// symbol references.
-export const useSelectCustomSymbolRefs = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  CustomSymbolRefs
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => {
-    const s = store.schematics.get(key);
-    return collectCustomSymbolRefs(s?.configs as Record<string, unknown> | undefined);
-  },
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];

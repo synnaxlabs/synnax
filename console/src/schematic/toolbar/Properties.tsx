@@ -33,13 +33,14 @@ import {
   type record,
   xy,
 } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { selectViewport, useSelectSelected } from "@/schematic/selectors";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { MissingSymbolForm } from "@/schematic/toolbar/MissingSymbolForm";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
@@ -81,9 +82,10 @@ const IndividualConfig = ({
     });
   };
 
+  const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
-    values: deep.copy(config),
+    values: initialValues,
     sync: true,
     onChange: ({ values }) => onChange(elKey, deep.copy(values)),
   });
@@ -108,14 +110,49 @@ const IndividualConfig = ({
 
   if (config == null) return null;
   const C = Schematic.ELEMENT_REGISTRY[config.variant];
+  const isCustom =
+    config.variant === "customStatic" || config.variant === "customActuator";
 
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
-        <C.Form key={elKey} actions={actions} schematicKey={layoutKey} />
+        {isCustom && isRemote && specKey != null ? (
+          <CustomVariantForm
+            specKey={specKey}
+            elKey={elKey}
+            actions={actions}
+            schematicKey={layoutKey}
+            VariantForm={C.Form}
+          />
+        ) : (
+          <C.Form key={elKey} actions={actions} schematicKey={layoutKey} />
+        )}
       </Form.Form>
     </Flex.Box>
   );
+};
+
+interface CustomVariantFormProps {
+  specKey: string;
+  elKey: string;
+  actions: ReactNode;
+  schematicKey: string;
+  VariantForm: FC<Schematic.Node.FormProps>;
+}
+
+const CustomVariantForm = ({
+  specKey,
+  elKey,
+  actions,
+  schematicKey,
+  VariantForm,
+}: CustomVariantFormProps): ReactElement => {
+  const result = Schematic.Symbol.useRetrieve(
+    { key: specKey },
+    { addStatusOnFailure: false },
+  );
+  if (Schematic.Symbol.isMissing(result)) return <MissingSymbolForm />;
+  return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
 };
 
 interface MultiElementPropertiesProps {

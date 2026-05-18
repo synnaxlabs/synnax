@@ -112,8 +112,10 @@ export const useRender = ({
   const currState = stateOverrides?.[stateIndex] ?? spec.states[stateIndex];
 
   const stateDiffers = prevStateRef.current !== currState;
-  const stateOverridesDiffers =
-    JSON.stringify(prevStateOverridesRef.current) !== JSON.stringify(stateOverrides);
+  const stateOverridesDiffers = !deep.equal(
+    prevStateOverridesRef.current,
+    stateOverrides,
+  );
   const different =
     externalScaleDiffers ||
     svgDiffers ||
@@ -123,7 +125,7 @@ export const useRender = ({
   if (!different) return;
   if (externalScaleDiffers) prevExternalScaleRef.current = externalScale;
   if (orientationDiffers) prevOrientationRef.current = orientation;
-  if (specDiffers) prevSpecDataRef.current = deep.copy(spec);
+  if (specDiffers) prevSpecDataRef.current = spec;
   if (stateOverridesDiffers) prevStateOverridesRef.current = stateOverrides;
   const { svg, scaleStroke, scale } = spec;
   if (svgElementRef.current == null || svgDiffers) {
@@ -163,7 +165,7 @@ export const useRender = ({
 
   if (stateDiffers || stateOverridesDiffers) {
     applyState(svgElementRef.current, currState, prevStateRef.current);
-    prevStateRef.current = deep.copy(currState);
+    prevStateRef.current = currState;
   }
 
   if (

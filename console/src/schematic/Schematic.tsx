@@ -22,7 +22,6 @@ import { useDispatch, useStore } from "react-redux";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
-import { MissingSymbolsBanner } from "@/schematic/MissingSymbolsBanner";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
 import { useSelect } from "@/schematic/selectors";
 import {
@@ -146,7 +145,6 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
           snapshot={isSnapshot}
           hasUpdatePermission={hasUpdatePermission}
         />
-        <MissingSymbolsBanner layoutKey={key} />
       </Base.Schematic>
       {legend.visible && (
         <Control.Legend
