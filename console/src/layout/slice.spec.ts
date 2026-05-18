@@ -107,6 +107,27 @@ describe("Layout Slice", () => {
       expect(select(state(), "popup-1")?.location).toBe("window");
       expect(selectActiveMosaicTabState(state()).layoutKey).toBeNull();
     });
+
+    it("should recover when a layout claims location mosaic but is absent from the mosaic tree", () => {
+      // Persisted state from another Console can leave a layout entry whose
+      // location is "mosaic" while the matching tab is missing from the mosaic
+      // tree. Re-placing the layout (e.g., via the search palette) must
+      // resurrect the tab instead of throwing "Tab not found".
+      const layout = mosaicLayout("orphan-arc");
+      store = configureStore({
+        reducer: rootReducer,
+        preloadedState: {
+          [SLICE_NAME]: {
+            ...ZERO_SLICE_STATE,
+            layouts: { ...ZERO_SLICE_STATE.layouts, "orphan-arc": layout },
+          },
+        },
+      });
+      expect(() => store.dispatch(place(layout))).not.toThrow();
+      const [, root] = selectMosaic(state());
+      expect(Mosaic.findTabNode(root!, "orphan-arc")).toBeDefined();
+      expect(selectActiveMosaicTabState(state()).layoutKey).toBe("orphan-arc");
+    });
   });
 
   describe("remove", () => {

@@ -224,26 +224,25 @@ export const { actions, reducer } = createSlice({
       if (mosaic.activeTab != null && mosaicKey == null)
         mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
 
-      // If we're moving to a mosaic, insert a tab.
-      if (prev?.location !== "mosaic" && location === "mosaic") {
-        mosaic.root = Mosaic.insertTab(
-          mosaic.root,
-          mosaicTab,
-          tab?.location,
-          mosaicKey,
-        );
+      // Use mosaic membership rather than prev.location: a layout entry can
+      // claim location "mosaic" without a matching node in the mosaic tree
+      // when the persisted state is inconsistent (e.g., a workspace saved
+      // from another Console where layouts and mosaic state diverged).
+      if (location === "mosaic") {
+        if (Mosaic.findTabNode(mosaic.root, key) != null)
+          mosaic.root = Mosaic.updateTab(
+            Mosaic.selectTab(mosaic.root, key),
+            key,
+            () => mosaicTab,
+          );
+        else
+          mosaic.root = Mosaic.insertTab(
+            mosaic.root,
+            mosaicTab,
+            tab?.location,
+            mosaicKey,
+          );
         mosaic.activeTab = key;
-      }
-
-      // If the tab already exists and its in the mosaic, make it the active tab
-      // and select it. Also rename it.
-      if (prev?.location === "mosaic" && location === "mosaic") {
-        mosaic.activeTab = key;
-        mosaic.root = Mosaic.updateTab(
-          Mosaic.selectTab(mosaic.root, key),
-          key,
-          () => mosaicTab,
-        );
       }
 
       state.layouts[key] = layout;
