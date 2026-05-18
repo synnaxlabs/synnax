@@ -49,7 +49,7 @@ describe("migrations", () => {
     it("should park v5 graph state into pendingUpload as typed v6 configs", () => {
       const populated: v5.State = {
         ...v5.ZERO_STATE,
-        nodes: [{ key: "n1", position: { x: 0, y: 0 } } as v0.Node],
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         edges: [
           {
             key: "e1",
@@ -59,7 +59,7 @@ describe("migrations", () => {
             targetHandle: "2",
           },
         ],
-        props: { n1: { key: "valve", color: "#ff0000" } as v0.NodeProps },
+        props: { n1: { key: "valve", color: "#ff0000" } },
       };
       const migrated = migrateState(populated);
       expect(migrated.pendingUpload).toBeDefined();
