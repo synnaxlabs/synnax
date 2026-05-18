@@ -220,7 +220,7 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     actions: Action[],
     opts: { skipPreprocess?: boolean } = {},
   ): ReplayResult<Action> | null {
-    const current = this.docs.get(key) as State | undefined;
+    const current = this.docs.get(key);
     if (current == null) return null;
     const processed =
       !opts.skipPreprocess && this.preprocess != null
@@ -255,16 +255,24 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     }));
   }
 
-  prepareUndo(scope: string, key: Key): Reversal<Action> | null {
-    const state = this.undos.get(key) as UndoState<Action> | undefined;
-    if (state == null || state.undo.length === 0) return null;
-    // Walk down the stack from the top, skipping stale entries (those
-    // whose targets were touched by a remote action after the entry was
-    // pushed). Bail after STALE_AUTO_ADVANCE_CAP stale entries.
+  // Walks the chosen stack from the top, skipping entries whose targets were
+  // remote-touched after the entry's push ts. Caps the walk at
+  // STALE_AUTO_ADVANCE_CAP and drops a fully stale tail. On hit, returns the
+  // entry's reversal actions (inverse for undo, forward for redo) and a
+  // commit that moves the entry to the opposite stack.
+  private prepareReversal(
+    scope: string,
+    key: Key,
+    side: "undo" | "redo",
+  ): Reversal<Action> | null {
+    const state = this.undos.get(key);
+    if (state == null) return null;
+    const stack = state[side];
+    if (stack.length === 0) return null;
     let stale = 0;
     let idx = -1;
-    for (let i = state.undo.length - 1; i >= 0; i--) {
-      const e = state.undo[i];
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const e = stack[i];
       if (e.targets.some((t) => state.remoteTouched[t]?.after(e.ts))) {
         stale++;
         if (stale >= STALE_AUTO_ADVANCE_CAP) break;
@@ -277,35 +285,29 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
       if (stale > 0)
         this.updateUndo(scope, key, (s) => ({
           ...s,
-          undo: s.undo.slice(0, s.undo.length - stale),
+          [side]: s[side].slice(0, s[side].length - stale),
         }));
       return null;
     }
-    const entry = state.undo[idx];
+    const entry = stack[idx];
+    const other = side === "undo" ? "redo" : "undo";
     return {
-      actions: entry.inverse,
+      actions: side === "undo" ? entry.inverse : entry.forward,
       commit: () =>
         this.updateUndo(scope, key, (s) => ({
           ...s,
-          undo: s.undo.slice(0, idx),
-          redo: [...s.redo, entry],
+          [side]: s[side].slice(0, idx),
+          [other]: [...s[other], entry],
         })),
     };
   }
 
+  prepareUndo(scope: string, key: Key): Reversal<Action> | null {
+    return this.prepareReversal(scope, key, "undo");
+  }
+
   prepareRedo(scope: string, key: Key): Reversal<Action> | null {
-    const state = this.undos.get(key) as UndoState<Action> | undefined;
-    if (state == null || state.redo.length === 0) return null;
-    const entry = state.redo[state.redo.length - 1];
-    return {
-      actions: entry.forward,
-      commit: () =>
-        this.updateUndo(scope, key, (s) => ({
-          ...s,
-          undo: [...s.undo, entry],
-          redo: s.redo.slice(0, -1),
-        })),
-    };
+    return this.prepareReversal(scope, key, "redo");
   }
 
   beginTransaction(
@@ -314,7 +316,7 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     send: DispatchSend<Action>,
     kind?: string,
   ): Transaction<Action> {
-    const initial = this.docs.get(key) as State | undefined;
+    const initial = this.docs.get(key);
     const accumulated: Action[] = [];
     let done = false;
     return {
@@ -372,7 +374,7 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   }
 
   applyRemote(scope: string, key: Key, actions: Action[]): void {
-    const current = this.docs.get(key) as State | undefined;
+    const current = this.docs.get(key);
     if (current == null) return;
     const { next, targets } = this.reduce(current, actions);
     this.docs.set(scope, key, next);
@@ -405,12 +407,12 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   }
 
   hasUndo(key: Key): boolean {
-    const s = this.undos.get(key) as UndoState<Action> | undefined;
+    const s = this.undos.get(key);
     return (s?.undo.length ?? 0) > 0;
   }
 
   hasRedo(key: Key): boolean {
-    const s = this.undos.get(key) as UndoState<Action> | undefined;
+    const s = this.undos.get(key);
     return (s?.redo.length ?? 0) > 0;
   }
 

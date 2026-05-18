@@ -403,6 +403,62 @@ describe("UndoableStore", () => {
       expect(store.hasUndo("k")).toBe(true);
     });
 
+    it("skips a stale top entry (target touched after the entry's ts)", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0, b: 0 });
+      // Two entries pushed then undone, oldest first into redo.
+      store.recordEntry(
+        "k",
+        [{ type: "set", key: "a", value: 1 }],
+        [{ type: "set", key: "a", value: 0 }],
+        ["a"],
+      );
+      store.recordEntry(
+        "k",
+        [{ type: "set", key: "b", value: 1 }],
+        [{ type: "set", key: "b", value: 0 }],
+        ["b"],
+      );
+      store.prepareUndo("k")?.commit();
+      store.prepareUndo("k")?.commit();
+      // Mark "a" as remote-touched at a future ts → top of redo is stale.
+      store.markRemoteTouched("k", ["a"], TimeStamp.now().add(TimeSpan.SECOND));
+      const r = store.prepareRedo("k");
+      // Walks past the stale "a" entry and returns "b"'s forward.
+      expect(r?.actions).toEqual([{ type: "set", key: "b", value: 1 }]);
+    });
+
+    it("returns null and drops stale entries when the entire redo stack is stale", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      store.recordEntry(
+        "k",
+        [{ type: "set", key: "a", value: 1 }],
+        [{ type: "set", key: "a", value: 0 }],
+        ["a"],
+      );
+      store.prepareUndo("k")?.commit();
+      store.markRemoteTouched("k", ["a"], TimeStamp.now().add(TimeSpan.SECOND));
+      expect(store.prepareRedo("k")).toBeNull();
+      expect(store.hasRedo("k")).toBe(false);
+    });
+
+    it("ignores a remote touch older than the redo entry", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      store.markRemoteTouched("k", ["a"], TimeStamp.now().sub(TimeSpan.MINUTE));
+      store.recordEntry(
+        "k",
+        [{ type: "set", key: "a", value: 1 }],
+        [{ type: "set", key: "a", value: 0 }],
+        ["a"],
+      );
+      store.prepareUndo("k")?.commit();
+      expect(store.prepareRedo("k")?.actions).toEqual([
+        { type: "set", key: "a", value: 1 },
+      ]);
+    });
+
     it("undo → redo → undo cycle restores state correctly at each step", () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });

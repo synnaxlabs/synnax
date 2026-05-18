@@ -383,6 +383,39 @@ describe("Flux.createDispatch", () => {
       await waitFor(() => expect(result.current.redo.canRedo).toBe(false));
     });
 
+    it("auto-advances past redo entries invalidated by remote touches", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+          redo: td.useRedo({ key: k }),
+        }),
+        send,
+      );
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 7, y: 8 } }),
+        });
+      });
+      act(() => result.current.undo.undo());
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
+      // Stamp n1 strictly after the entry's ts so the only redo entry is
+      // stale; redo should drop it without sending.
+      act(() => {
+        result.current.store[Schematic.FLUX_STORE_KEY].markRemoteTouched(
+          key,
+          ["n1"],
+          TimeStamp.now().add(TimeSpan.SECOND),
+        );
+      });
+      const callsBefore = send.mock.calls.length;
+      act(() => result.current.redo.redo());
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(false));
+      expect(send).toHaveBeenCalledTimes(callsBefore);
+    });
+
     it("returns the entry to the redo stack when the redo send fails", async () => {
       let calls = 0;
       const send = vi.fn<SendFn>(async () => {

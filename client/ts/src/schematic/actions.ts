@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, deep, type record } from "@synnaxlabs/x";
+import { color, type record } from "@synnaxlabs/x";
+import { current } from "immer";
 
 import {
   type Action,
@@ -65,10 +66,9 @@ const handlers: Handlers = {
         targets: [payload.node.key],
       };
     }
-    const oldNode = deep.copy(state.nodes[idx]);
+    const oldNode = current(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.node.key];
-    const oldConfig =
-      oldConfigRaw != null ? deep.copy(oldConfigRaw as record.Unknown) : undefined;
+    const oldConfig = oldConfigRaw != null ? current(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
     if (payload.config != null) state.configs[payload.node.key] = payload.config;
     return {
@@ -85,10 +85,9 @@ const handlers: Handlers = {
   removeNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return NO_OP;
-    const oldNode = deep.copy(state.nodes[idx]);
+    const oldNode = current(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.key];
-    const oldConfig =
-      oldConfigRaw != null ? deep.copy(oldConfigRaw as record.Unknown) : undefined;
+    const oldConfig = oldConfigRaw != null ? current(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
     return {
@@ -114,7 +113,7 @@ const handlers: Handlers = {
   removeEdge: (state, payload) => {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return NO_OP;
-    const oldEdge = deep.copy(state.edges[idx]);
+    const oldEdge = current(state.edges[idx]);
     state.edges.splice(idx, 1);
     return {
       inverse: [addEdge({ edge: oldEdge })],
@@ -130,7 +129,7 @@ const handlers: Handlers = {
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
-      const existing = deep.copy(existingRaw as record.Unknown);
+      const existing = current(existingRaw);
       const restoreFields: record.Unknown = {};
       for (const k of Object.keys(payload.config))
         if (existing[k] !== undefined) restoreFields[k] = existing[k];

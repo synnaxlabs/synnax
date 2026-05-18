@@ -141,6 +141,8 @@ export class ScopedUnaryStore<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
+  get(key: Key): Value | undefined;
+  get(keys: Key[] | ((value: Value) => boolean)): Value[];
   get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
     if (typeof keys === "function")
       return Array.from(this.entries.values()).filter(keys);
@@ -265,8 +267,7 @@ export class ScopedUnaryStore<
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
       ): (() => void) => this.set(scope, key, valueOrVariant, variant),
-      get: ((key: Key | Key[] | ((value: Value) => boolean)) =>
-        this.get(key)) as UnaryStore<Key, Value>["get"],
+      get: this.get.bind(this) as UnaryStore<Key, Value>["get"],
       list: () => this.list(),
       has: (key: Key | Key[]) => this.has(key),
       delete: (

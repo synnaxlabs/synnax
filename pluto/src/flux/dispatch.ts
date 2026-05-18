@@ -59,21 +59,21 @@ export const createDispatch = <
   send,
 }: CreateDispatchParams<Key, Action, SK>) => {
   // Reduce + send with rollback. Used by dispatch, undo, and redo. The
-  // `record` closure consumes the reducer output and contributes a stack
-  // mutation rollback to the chain.
+  // `commitStack` closure applies the per-op stack mutation (push entry on
+  // dispatch; transition undo↔redo on undo/redo) and returns its rollback.
   const apply = async (
     store: ScopedStore,
     client: Client,
     key: Key,
     actions: Action[],
-    record: (r: ReplayResult<Action>) => destructor.Destructor,
+    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
     addStatus: Adder,
     op: string,
     skipPreprocess = false,
   ): Promise<boolean> => {
     const r = store[storeKey].replay(key, actions, { skipPreprocess });
     if (r == null) return false;
-    const stackRollback = record(r);
+    const stackRollback = commitStack(r);
     try {
       await send({ client, key, actions: r.processed, sessionKey: client.key });
       return true;
