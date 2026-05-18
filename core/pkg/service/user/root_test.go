@@ -141,7 +141,7 @@ func purgeUsersAndAuth(ctx context.Context) {
 }
 
 var _ = Describe("Root user reconciliation", Serial, func() {
-	AfterEach(func(ctx SpecContext) { purgeUsersAndAuth(ctx) })
+	BeforeEach(func(ctx SpecContext) { purgeUsersAndAuth(ctx) })
 	Describe("Bootstrap (no existing state)", func() {
 		It("Should create a root user on a fresh cluster", func(ctx SpecContext) {
 			s := openRootUser(ctx, "alpha", "p1")
