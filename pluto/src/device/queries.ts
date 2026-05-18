@@ -64,7 +64,7 @@ export const useSetSynchronizer = (onSet: (device: device.Device) => void): void
   useEffect(() => store.devices.onSet(onSet), [store]);
 };
 
-export interface RetrieveQuery extends device.RetrieveSingleParams {}
+export type RetrieveQuery = device.RetrieveSingleParams;
 
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
@@ -100,9 +100,9 @@ export const retrieveSingle = async <
   return dev as device.Device<Properties, Make, Model>;
 };
 
-export interface RetrieveMultipleQuery {
+export type RetrieveMultipleQuery = {
   keys: device.Key[];
-}
+};
 
 export const retrieveMultiple = async <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -186,7 +186,7 @@ export const {
   useRetrieveEffect,
 } = createRetrieve();
 
-export interface ListParams extends device.RetrieveMultipleParams {}
+export type ListParams = device.RetrieveMultipleParams;
 
 export const useList = Flux.createList<
   ListParams,
@@ -278,7 +278,7 @@ export const createCreate = <
 
 export const { useUpdate: useCreate } = createCreate();
 
-export interface UseRetrieveGroupArgs {}
+export type UseRetrieveGroupArgs = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
@@ -319,7 +319,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 export const formSchema = device.deviceZ();
 
-export interface FormQuery extends RetrieveQuery {}
+export type FormQuery = RetrieveQuery;
 
 export const createForm = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,

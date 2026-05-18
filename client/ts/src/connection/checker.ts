@@ -81,14 +81,14 @@ export class Checker {
    */
   constructor(
     client: UnaryClient,
-    pollFreq: telem.TimeSpan = telem.TimeSpan.seconds(30),
+    pollFreq: telem.CrudeTimeSpan = telem.TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
     clockSkewThreshold: telem.CrudeTimeSpan = telem.TimeSpan.seconds(1),
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
-    this.pollFrequency = pollFreq;
+    this.pollFrequency = new telem.TimeSpan(pollFreq);
     this.clientVersion = clientVersion;
     this.name = name;
     this.skewCalc = new telem.ClockSkewCalculator();

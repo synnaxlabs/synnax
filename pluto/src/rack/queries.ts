@@ -46,10 +46,10 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER],
 };
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: rack.Key;
   includeStatus?: boolean;
-}
+};
 
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
@@ -74,7 +74,7 @@ const retrieveSingle = async ({
   return res;
 };
 
-export interface ListQuery extends rack.RetrieveMultipleParams {}
+export type ListQuery = rack.RetrieveMultipleParams;
 
 const rackSupportsIntegration = (
   r: rack.Payload,

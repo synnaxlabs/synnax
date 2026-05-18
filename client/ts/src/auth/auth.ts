@@ -15,8 +15,8 @@ import { z } from "zod";
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
-const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
-interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
+const credentialsZ = z.object({ username: z.string(), password: z.string() });
+interface Credentials extends z.infer<typeof credentialsZ> {}
 
 const clusterInfoZ = z.object({
   clusterKey: z.string(),
@@ -50,12 +50,12 @@ type AuthState =
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly credentials: InsecureCredentials;
+  private readonly credentials: Credentials;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
 
-  constructor(client: UnaryClient, credentials: InsecureCredentials) {
+  constructor(client: UnaryClient, credentials: Credentials) {
     this.client = client;
     this.credentials = credentials;
     this.retryCount = 0;
@@ -102,12 +102,7 @@ export class Client {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= new Promise((resolve, reject) => {
           this.client
-            .send(
-              LOGIN_ENDPOINT,
-              this.credentials,
-              insecureCredentialsZ,
-              tokenResponseZ,
-            )
+            .send(LOGIN_ENDPOINT, this.credentials, credentialsZ, tokenResponseZ)
             .then(([res, err]) => {
               if (err != null) return resolve(err);
               if (res == null) return resolve(new Error("No response from login"));

@@ -46,7 +46,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
 };
 
-export interface RetrieveQuery extends label.RetrieveSingleParams {}
+export type RetrieveQuery = label.RetrieveSingleParams;
 
 export const retrieveSingle = async ({
   store,
@@ -66,9 +66,9 @@ export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =
     type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
   });
 
-interface LabelsOfQuery {
+type LabelsOfQuery = {
   id: ontology.ID;
-}
+};
 
 export const retrieveCachedLabelsOf = (store: FluxSubStore, id: ontology.ID) => {
   const keys = store.relationships
@@ -154,7 +154,7 @@ export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
   ],
 });
 
-export interface ListQuery extends label.RetrieveMultipleParams {}
+export type ListQuery = label.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, label.Key, label.Label, FluxSubStore>(
   {
@@ -184,9 +184,9 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label, FluxSu
   },
 );
 
-interface FormQuery {
+type FormQuery = {
   key?: label.Key;
-}
+};
 
 export const formSchema = label.labelZ.partial({ key: true });
 
@@ -226,9 +226,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-export interface RetrieveMultipleParams {
+export type RetrieveMultipleParams = {
   keys: label.Key[];
-}
+};
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   RetrieveMultipleParams,

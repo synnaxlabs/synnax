@@ -21,7 +21,7 @@ import {
   type UseResizeHandler,
   type UseResizeOpts,
 } from "@synnaxlabs/lyra/hooks";
-
+import { telem } from "@synnaxlabs/x/telem";
 import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,
@@ -56,12 +56,12 @@ const ZERO_CANVASES: Canvases = {
 };
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
-  resizeDebounce?: number;
+  resizeDebounce?: telem.CrudeTimeSpan;
 }
 
 export const Canvas = ({
   children,
-  resizeDebounce: debounce = 100,
+  resizeDebounce: debounce = telem.TimeSpan.milliseconds(100),
   className,
   ...rest
 }: CanvasProps): ReactElement => {

@@ -24,7 +24,7 @@ import {
   type Schematic as PSchematic,
   telem,
 } from "@synnaxlabs/pluto";
-
+import { id } from "@synnaxlabs/x/id";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -38,7 +38,6 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
-import { Schematic } from "@/schematic";
 
 const handleSelect: Ontology.HandleSelect = ({
   store,
@@ -79,7 +78,7 @@ const handleSelect: Ontology.HandleSelect = ({
   }
 };
 
-const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
+const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -88,7 +87,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
       },
     ],
     segments: {
-      valueStream: telem.streamChannelValue({ channel: Number(id.key) }),
+      valueStream: telem.streamChannelValue({ channel: Number(otgID.key) }),
       stringifier: telem.stringifyNumber({ precision: 2 }),
     },
     outlet: "stringifier",
@@ -98,9 +97,15 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     label: { label: name, level: "p" },
     telem: t,
   };
-  const items = [Schematic.createValueHaulItem(nodeConfig)];
+  const items = [
+    PSchematic.createHaulItem({
+      key: id.create(),
+      variant: "value",
+      config: nodeConfig,
+    }),
+  ];
   if (data?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(id.key))];
+  return [PChannel.createHaulItem(Number(otgID.key))];
 };
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;

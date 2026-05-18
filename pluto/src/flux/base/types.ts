@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { state } from "@synnaxlabs/lyra/state";
+import { type state } from "@synnaxlabs/lyra/state";
+import { type primitive } from "@synnaxlabs/x/primitive";
 
 /** Options to control async operations. */
 export interface FetchOptions {
@@ -16,27 +17,51 @@ export interface FetchOptions {
 }
 
 /**
- * Represents a serializable data shape used throughout the flux query system.
- * This is the base type for all query parameters, request data, and response data.
+ * Plain-data shape used to address a record in the flux query system. Queries
+ * are hashed by {@link queryCache.hashQuery} to produce stable cache keys, so
+ * they must be primitives, arrays of queries, plain string-keyed objects of
+ * queries, or class instances implementing {@link primitive.Hashable}. Maps,
+ * Sets, Dates, and non-Hashable class instances are rejected at compile time
+ * because their fields don't recursively reduce to {@link Query}.
  *
- * Shapes must be serializable objects to ensure proper comparison, memoization,
- * and transmission across network boundaries.
+ * Consumer query types must be declared with `type` aliases, not `interface`,
+ * because TypeScript interfaces lack an implicit string index signature and
+ * fail the `{ readonly [k: string]: Query }` branch.
  *
  * @example
  * ```typescript
- * interface UserQuery extends Shape {
+ * type UserQuery = {
  *   userId: number;
  *   includeProfile?: boolean;
- * }
+ * };
+ * ```
+ */
+export type Query =
+  | string
+  | number
+  | bigint
+  | boolean
+  | null
+  | undefined
+  | primitive.Hashable
+  | readonly Query[]
+  | { readonly [key: string]: Query };
+
+/**
+ * Shape of values returned and stored by the flux query system. Unlike
+ * {@link Query}, data values do not need to be hashable — they may carry
+ * arbitrary state including class instances or non-serializable references.
  *
- * interface UserData extends Shape {
+ * @example
+ * ```typescript
+ * interface UserData extends Data {
  *   id: number;
  *   name: string;
- *   email: string;
+ *   createdAt: Date;
  * }
  * ```
  */
-export type Shape = state.State;
+export type Data = state.State;
 
 export interface Verbs {
   present: string;

@@ -26,7 +26,7 @@ export const useSyncLayout = (): void => {
   const client = Synnax.use();
   const prevSyncRef = useRef<unknown>(null);
   const sync = Workspace.useSaveLayout({
-    debounce: telem.TimeSpan.milliseconds(250).milliseconds,
+    debounce: telem.TimeSpan.milliseconds(250),
     beforeUpdate: useCallback(async () => {
       const s = store.getState();
       const key = selectActiveKey(s);

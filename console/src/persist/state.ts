@@ -183,12 +183,11 @@ const PERSIST_DEBOUNCE = telem.TimeSpan.milliseconds(250);
  */
 export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
-  debounceInterval: telem.TimeSpan = PERSIST_DEBOUNCE,
+  debounceInterval: telem.CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
-  const debouncedPersist = debounce(
-    engine.persist.bind(engine),
-    debounceInterval.milliseconds,
-  );
+  const debouncedPersist = debounce((state: S) => {
+    engine.persist(state).catch((e) => console.error("Failed to persist state", e));
+  }, debounceInterval);
   return (store) => (next) => (action) => {
     const result = next(action);
     const type = (action as Action | undefined)?.type;

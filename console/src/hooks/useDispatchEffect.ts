@@ -9,12 +9,13 @@
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
+import { telem } from "@synnaxlabs/x/telem";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 export const useDispatchEffect = <P>(
   f: () => void,
-  debounce: number = 0,
+  debounce: telem.CrudeTimeSpan = 0,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
   const baseDispatch = useDispatch();

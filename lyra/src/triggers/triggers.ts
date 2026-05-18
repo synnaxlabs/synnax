@@ -184,6 +184,12 @@ export interface Event {
   next: Trigger[];
   /** The current cursor position. */
   cursor: xy.XY;
+  /**
+   * Prevents the event from being dispatched to any remaining subscribers with a
+   * lower priority than the current subscriber. Subscribers at the same priority
+   * level that have not yet been notified still receive the event.
+   */
+  stopPropagation: () => void;
 }
 
 /** A callback that is fired when a trigger is activated. */

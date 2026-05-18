@@ -17,7 +17,7 @@ import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
@@ -39,7 +39,9 @@ export const Picker = ({
   ...rest
 }: PickerProps): ReactElement => {
   const updateFreq = useFrequentUpdater();
-  const updateFreqDebounced = useDebouncedCallback(updateFreq, 1000, [updateFreq]);
+  const updateFreqDebounced = useDebouncedCallback(updateFreq, telem.TimeSpan.SECOND, [
+    updateFreq,
+  ]);
 
   const baseHandleChange = useCallback(
     (c: color.Color): void => {

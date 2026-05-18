@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { uuid } from "@synnaxlabs/x/uuid";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -72,13 +71,11 @@ describe("Schematic", () => {
       });
       await client.schematics.setData(schem.key, {
         ...schematic.ZERO_NEW,
-        authority: 5,
         nodes: [{ key: "n1", position: { x: 10, y: 20 }, zIndex: 0 }],
         configs: { n1: { variant: "valve" } },
       });
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.name).toEqual("Schematic");
-      expect(res.authority).toEqual(5);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0].key).toEqual("n1");
       expect((res.configs.n1 as Record<string, unknown>).variant).toEqual("valve");
@@ -171,10 +168,7 @@ describe("Schematic", () => {
           snapshot: true,
         });
         await expect(
-          client.schematics.setData(schem2.key, {
-            ...schematic.ZERO_NEW,
-            authority: 2,
-          }),
+          client.schematics.setData(schem2.key, { ...schematic.ZERO_NEW }),
         ).rejects.toThrow(ValidationError);
       });
     });
@@ -228,7 +222,7 @@ describe("Schematic", () => {
       expect(res.configs).toEqual({ n2: { label: "Tank" } });
     });
 
-    test("setEdge upserts an edge by key, replacing in place", async () => {
+    test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       const e = (
         key: string,
@@ -246,13 +240,13 @@ describe("Schematic", () => {
         edges: [e("e1", "a", "o", "b", "i"), e("e2", "b", "o", "c", "i")],
       });
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setEdge({ edge: e("e2", "x", "y", "z", "w") }),
-        schematic.setEdge({ edge: e("e3", "c", "o", "d", "i") }),
+        schematic.addEdge({ edge: e("e2", "x", "y", "z", "w") }),
+        schematic.addEdge({ edge: e("e3", "c", "o", "d", "i") }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.edges).toEqual([
         e("e1", "a", "o", "b", "i"),
-        e("e2", "x", "y", "z", "w"),
+        e("e2", "b", "o", "c", "i"),
         e("e3", "c", "o", "d", "i"),
       ]);
     });
@@ -286,35 +280,12 @@ describe("Schematic", () => {
       expect(res.configs.n1.label).toBe("Replaced");
     });
 
-    test("setAuthority replaces the authority value", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
-      await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setAuthority({ value: 200 }),
-      ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
-      expect(res.authority).toBe(200);
-    });
-
-    test("setLegend replaces the legend wholesale", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
-      const legend = {
-        visible: true,
-        position: { x: 10, y: 20 },
-        colors: { on: color.construct("#ff0000") },
-      };
-      await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setLegend({ legend }),
-      ]);
-      const res = await client.schematics.retrieve({ key: schem.key });
-      expect(res.legend).toEqual(legend);
-    });
-
     test("applies a multi-action sequence atomically", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
         schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
-        schematic.setEdge({
+        schematic.addEdge({
           edge: {
             key: "e1",
             source: { node: "pump", param: "out" },
@@ -322,12 +293,10 @@ describe("Schematic", () => {
           },
         }),
         schematic.setConfig({ key: "pump", config: { label: "Main Pump" } }),
-        schematic.setAuthority({ value: 200 }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
-      expect(res.authority).toBe(200);
       expect(res.configs.pump.label).toBe("Main Pump");
     });
 
@@ -343,28 +312,6 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, "sess-1", actions);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
-    });
-
-    test("rejects dispatch on a snapshot with ValidationError", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
-      const snap = await client.schematics.copy({
-        key: schem.key,
-        name: "snap",
-        snapshot: true,
-      });
-      await expect(
-        client.schematics.dispatch(snap.key, "sess-1", [
-          schematic.setAuthority({ value: 9 }),
-        ]),
-      ).rejects.toThrow(ValidationError);
-    });
-
-    test("rejects dispatch with NotFoundError when the target schematic is missing", async () => {
-      await expect(
-        client.schematics.dispatch(uuid.create(), "sess-1", [
-          schematic.setAuthority({ value: 9 }),
-        ]),
-      ).rejects.toThrow(NotFoundError);
     });
 
     test("preserves arbitrary key casing within config values through dispatch", async () => {

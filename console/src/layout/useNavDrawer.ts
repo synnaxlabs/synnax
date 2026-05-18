@@ -12,6 +12,7 @@ import { useDebouncedCallback, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import type { Nav } from "@synnaxlabs/lyra/nav";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
+import { telem } from "@synnaxlabs/x/telem";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -53,10 +54,10 @@ export const useNavDrawer = (
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
-    (size) => {
+    (size: number) => {
       dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
-    100,
+    telem.TimeSpan.milliseconds(100),
     [dispatch, windowKey],
   );
 

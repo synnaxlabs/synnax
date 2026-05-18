@@ -96,7 +96,7 @@ const MetaDataListItem = ({
       ({
         reset,
       }: Flux.AfterSaveParams<
-        Flux.Shape,
+        Flux.Query,
         typeof Ranger.kvPairFormSchema,
         Ranger.FluxSubStore
       >) => {

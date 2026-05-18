@@ -56,9 +56,9 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_WORKSPACE_LISTENER, DELETE_WORKSPACE_LISTENER],
 };
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: workspace.Key;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -84,10 +84,10 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams {
+export type ListParams = {
   offset?: number;
   limit?: number;
-}
+};
 
 export const useList = Flux.createList<
   ListParams,
@@ -140,7 +140,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export interface RetrieveGroupQuery {}
+export type RetrieveGroupQuery = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
@@ -213,10 +213,10 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
   },
 });
 
-export interface RetrieveChildrenQuery {
+export type RetrieveChildrenQuery = {
   resourceID?: ontology.ID;
   types: ontology.ResourceType[];
-}
+};
 
 const collectChildren = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],

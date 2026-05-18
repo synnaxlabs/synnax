@@ -15,14 +15,14 @@ import type { state } from "@/state";
  * Parameters for pagination functionality.
  * These parameters are automatically managed by the pager utilities.
  */
-export interface PagerParams {
+export type PagerParams = {
   /** Search term for filtering results */
   searchTerm?: string;
   /** Number of items to skip (for pagination) */
   offset?: number;
   /** Maximum number of items to return per page */
   limit?: number;
-}
+};
 
 /**
  * Return type for the usePager hook, providing pagination utilities.

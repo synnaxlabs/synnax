@@ -26,42 +26,41 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
-export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
-  onUndo: () => void;
-  onRedo: () => void;
-  onCopy: (cursor: xy.XY) => void;
-  onPaste: (cursor: xy.XY) => void;
-  onClear: () => void;
-  onSelectAll: () => void;
-  disabled?: boolean;
+export interface UseTriggersProps {
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onCopy?: (cursor: xy.XY) => void;
+  onPaste?: (cursor: xy.XY) => void;
+  onClearSelection?: () => void;
+  onSelectAll?: () => void;
+  enabled?: boolean | (() => boolean);
 }
 
 export const useTriggers = ({
   onCopy,
   onPaste,
-  onClear,
+  onClearSelection: onClear,
   onSelectAll,
   onUndo,
   onRedo,
-  region,
-  disabled,
+  enabled,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
     loose: true,
-    region,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (region?.current == null || stage !== "start" || disabled) return;
+        if (stage !== "start" || enabled === false) return;
+        if (typeof enabled === "function" && !enabled()) return;
         const mode = Triggers.determineMode(CONFIG, triggers);
-        if (mode == "undo") return onUndo();
-        if (mode == "redo") return onRedo();
-        if (mode == "copy") return onCopy(cursor);
-        if (mode == "paste") return onPaste(cursor);
-        if (mode == "clear") return onClear();
-        if (mode == "all") return onSelectAll();
+        if (mode == "undo") return onUndo?.();
+        if (mode == "redo") return onRedo?.();
+        if (mode == "copy") return onCopy?.(cursor);
+        if (mode == "paste") return onPaste?.(cursor);
+        if (mode == "clear") return onClear?.();
+        if (mode == "all") return onSelectAll?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, disabled],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, enabled],
     ),
   });
 };

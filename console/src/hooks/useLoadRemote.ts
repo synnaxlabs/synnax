@@ -26,9 +26,9 @@ export interface UseLoadRemoteProps<V extends migrate.Migratable> {
   actionCreator: (v: V) => PayloadAction<any>;
 }
 
-interface RetrieveParams {
+type RetrieveParams = {
   key: string;
-}
+};
 
 interface CreateLoadRemoteParams<V extends state.State> {
   targetVersion: string;

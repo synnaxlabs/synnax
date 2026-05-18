@@ -18,9 +18,9 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, id, xy } from "@synnaxlabs/x";
+import { box, id, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Controls } from "@/arc/editor/Controls";
 import { Provider, useArcEditorContext } from "@/arc/editor/graph/Context";
@@ -125,7 +125,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30,
+    TimeSpan.milliseconds(30),
   );
 
   const theme = Theming.use();
@@ -258,14 +258,21 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const store = useStore<RootState>();
+
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
+    [store, layoutKey],
+  );
+
   Diagram.useTriggers({
     onCopy: handleCopySelection,
     onPaste: handlePasteSelection,
     onSelectAll: handleSelectAll,
-    onClear: handleClearSelection,
+    onClearSelection: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
-    region: ref,
+    enabled: enableTriggers,
   });
 
   const ctxValue = useMemo(

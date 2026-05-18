@@ -46,21 +46,27 @@ export const ingest: Import.DirectoryIngester = async (
     }),
   );
 
-  Object.entries(layout.layouts).forEach(([key, layout]) => {
-    const ingest = fileIngesters[layout.type];
-    if (ingest == null) return;
+  for (const [key, childLayout] of Object.entries(layout.layouts)) {
+    const ingest = fileIngesters[childLayout.type];
+    if (ingest == null) continue;
     const data = files.find(
       (file) =>
-        file.name === `${layout.name}.json` ||
+        file.name === `${childLayout.name}.json` ||
         file.name === `${key}.json` ||
         (typeof file.data === "object" &&
           file.data != null &&
           (("key" in file.data && file.data.key === key) ||
-            ("name" in file.data && file.data.name === layout.name))),
+            ("name" in file.data && file.data.name === childLayout.name))),
     )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    ingest(data, { layout, placeLayout, store: fluxStore, client });
-  });
+    await ingest(data, {
+      layout: childLayout,
+      placeLayout,
+      store: fluxStore,
+      client,
+      workspaceKey: wsKey,
+    });
+  }
 };
 
 export interface IngestContext {

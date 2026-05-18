@@ -21,7 +21,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-
+import { telem } from "@synnaxlabs/x/telem";
 import {
   type CSSProperties,
   type DetailedHTMLProps,
@@ -115,7 +115,7 @@ export interface LinePlotProps
     >,
     Omit<HTMLDivProps, "ref">,
     Aether.ComponentProps {
-  resizeDebounce?: number;
+  resizeDebounce?: telem.CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
   ref?: Ref<LinePlotRef>;
 }

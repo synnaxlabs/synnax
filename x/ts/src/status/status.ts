@@ -97,6 +97,26 @@ export const fromException = (
   return create<typeof exceptionDetailsSchema, "error">(crude);
 };
 
+/**
+ * Converts an exception-shaped status (one built via {@link fromException}) back
+ * into a thrown-shaped {@link Error}. The returned error carries the status's
+ * wrapped message, copies `name` and `stack` from the inner error preserved on
+ * `details.error`, and stashes the full status on `cause` for callers that need
+ * the rich shape.
+ *
+ * Use this when bridging the status pipeline back into a context that expects
+ * a real Error — typically before `throw`-ing across an error boundary.
+ */
+export const toError = (
+  s: Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">>,
+): Error => {
+  const inner = s.details.error;
+  const err = new Error(s.message, { cause: s });
+  err.name = inner.name;
+  err.stack = inner.stack;
+  return err;
+};
+
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,

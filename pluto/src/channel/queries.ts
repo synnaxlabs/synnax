@@ -105,10 +105,10 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: channel.Key;
   rangeKey?: ranger.Key;
-}
+};
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema
@@ -274,9 +274,9 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
     },
   });
 
-export interface RetrieveMultipleQuery extends channel.RetrieveOptions {
+export type RetrieveMultipleQuery = channel.RetrieveOptions & {
   keys: channel.Key[];
-}
+};
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
@@ -357,7 +357,7 @@ const updateForm = async ({
   set("key", ch.key);
 };
 
-export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
+export type FormQuery = optional.Optional<RetrieveQuery, "key">;
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
@@ -392,13 +392,13 @@ export const useCalculatedForm = Flux.createForm<
   mountListeners: formMountListeners,
 });
 
-export interface ListQuery extends channel.RetrieveOptions {
+export type ListQuery = channel.RetrieveOptions & {
   searchTerm?: string;
   rangeKey?: string;
   internal?: boolean;
   offset?: number;
   limit?: number;
-}
+};
 
 const DEFAULT_LIST_PARAMS: ListQuery = {
   internal: false,
@@ -549,7 +549,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
   },
 });
 
-interface RetrieveGroupQuery {}
+type RetrieveGroupQuery = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   RetrieveGroupQuery,

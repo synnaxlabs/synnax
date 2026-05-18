@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
-import type { status } from "@synnaxlabs/lyra/status/aether";
 import { type framer, type Synnax } from "@synnaxlabs/client";
+import { type state } from "@synnaxlabs/lyra/state";
+import { type status } from "@synnaxlabs/lyra/status/aether";
+import { destructor } from "@synnaxlabs/x/destructor";
 
+import { QueryCache } from "@/flux/base/queryCache";
 import {
   createStore,
   type InternalStore,
@@ -19,6 +21,7 @@ import {
   type StoreConfig,
 } from "@/flux/base/store";
 import { openStreamer as fluxOpenStreamer } from "@/flux/base/streamer";
+import { type Query } from "@/flux/base/types";
 
 interface ClientArgs<ScopedStore extends Store> {
   client: Synnax | null;
@@ -31,6 +34,12 @@ interface ClientArgs<ScopedStore extends Store> {
 export class Client<ScopedStore extends Store = Store> {
   private readonly store: InternalStore;
   private readonly streamCloser: Promise<destructor.Async> | null = null;
+  // Lazy registry of per-`createRetrieve` query caches, keyed by a unique
+  // cache key generated at createRetrieve construction. Stored at the
+  // erased type so the map is homogeneous; `getCache` reifies the typed
+  // view, which is sound because each key is bound to one (Q, D) pair at
+  // the call to `new QueryCache<Q, D>()`.
+  private readonly caches = new Map<string, QueryCache<Query, state.State>>();
   readonly client: Synnax | null;
 
   constructor({
@@ -51,6 +60,18 @@ export class Client<ScopedStore extends Store = Store> {
       store: scopeStore<ScopedStore>(this.store, ""),
       openStreamer,
     });
+  }
+
+  /// Returns the query cache for the given key, creating one on first use.
+  /// Each createRetrieve operation owns a unique key; reads and writes
+  /// against the returned instance are typed concretely.
+  getCache<Q extends Query, D extends state.State>(key: string): QueryCache<Q, D> {
+    let cache = this.caches.get(key);
+    if (cache == null) {
+      cache = new QueryCache<Q, D>() as unknown as QueryCache<Query, state.State>;
+      this.caches.set(key, cache);
+    }
+    return cache as unknown as QueryCache<Q, D>;
   }
 
   async awaitInitialized() {

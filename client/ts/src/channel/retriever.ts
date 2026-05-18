@@ -39,13 +39,10 @@ const reqZ = z.object({
   internal: z.boolean().optional(),
   legacyCalculated: z.boolean().optional(),
 });
-export interface RetrieveRequest extends z.input<typeof reqZ> {}
+export type RetrieveRequest = z.input<typeof reqZ>;
 
-export interface RetrieveOptions extends Omit<
-  RetrieveRequest,
-  "keys" | "names" | "search"
-> {}
-export interface PageOptions extends Omit<RetrieveOptions, "offset" | "limit"> {}
+export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
+export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
 
 const resZ = z.object({ channels: array.nullishToEmpty(payloadZ) });
 
@@ -207,7 +204,7 @@ export class DebouncedBatchRetriever implements Retriever {
   private readonly wrapped: Retriever;
   private readonly debouncedRun: () => void;
 
-  constructor(wrapped: Retriever, deb: number) {
+  constructor(wrapped: Retriever, deb: telem.CrudeTimeSpan) {
     this.wrapped = wrapped;
     this.debouncedRun = debounce(() => {
       void this.run();

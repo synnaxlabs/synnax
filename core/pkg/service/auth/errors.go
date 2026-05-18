@@ -13,23 +13,21 @@ import (
 	"context"
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-
 	"github.com/synnaxlabs/x/errors"
 )
 
 var (
-	// InvalidCredentials is returned when the credentials for a particular entity
-	// are invalid.
-	InvalidCredentials = password.ErrInvalid
-
-	RepeatedUsername = errors.Wrap(base.ErrAuth, "username already exists")
-
-	// Error is the base error for all authentication related errors.
-	Error        = base.ErrAuth
-	InvalidToken = errors.Wrap(base.ErrAuth, "invalid token")
-	ExpiredToken = errors.Wrap(base.ErrAuth, "expired token")
+	// ErrAuth is the base error for all authentication related errors.
+	ErrAuth = errors.New("auth error")
+	// ErrInvalidCredentials is returned when the supplied credentials do not
+	// match a registered entity.
+	ErrInvalidCredentials = errors.Wrap(ErrAuth, "invalid credentials")
+	// ErrRepeatedUsername is returned when a username is already taken.
+	ErrRepeatedUsername = errors.Wrap(ErrAuth, "username already exists")
+	// ErrInvalidToken is returned when a bearer token fails validation.
+	ErrInvalidToken = errors.Wrap(ErrAuth, "invalid token")
+	// ErrExpiredToken is returned when a bearer token has expired.
+	ErrExpiredToken = errors.Wrap(ErrAuth, "expired token")
 )
 
 const (
@@ -41,19 +39,19 @@ const (
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
-	if errors.CheapIs(err, InvalidToken) {
+	if errors.CheapIs(err, ErrInvalidToken) {
 		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
 	}
-	if errors.CheapIs(err, InvalidCredentials) {
+	if errors.CheapIs(err, ErrInvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
 	}
-	if errors.CheapIs(err, ExpiredToken) {
+	if errors.CheapIs(err, ErrExpiredToken) {
 		return errors.Payload{Type: expiredTokenType, Data: err.Error()}, true
 	}
-	if errors.CheapIs(err, RepeatedUsername) {
+	if errors.CheapIs(err, ErrRepeatedUsername) {
 		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
 	}
-	if errors.CheapIs(err, Error) {
+	if errors.CheapIs(err, ErrAuth) {
 		return errors.Payload{Type: errorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -62,20 +60,18 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 func decode(_ context.Context, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case invalidCredentialsType:
-		return errors.Wrap(InvalidCredentials, p.Data), true
+		return errors.Wrap(ErrInvalidCredentials, p.Data), true
 	case invalidTokenType:
-		return errors.Wrap(InvalidToken, p.Data), true
+		return errors.Wrap(ErrInvalidToken, p.Data), true
 	case repeatedUsernameType:
-		return errors.Wrap(RepeatedUsername, p.Data), true
+		return errors.Wrap(ErrRepeatedUsername, p.Data), true
 	case expiredTokenType:
-		return errors.Wrap(ExpiredToken, p.Data), true
+		return errors.Wrap(ErrExpiredToken, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
-		return errors.Wrap(base.ErrAuth, p.Data), true
+		return errors.Wrap(ErrAuth, p.Data), true
 	}
 	return nil, false
 }
 
-func init() {
-	errors.Register(encode, decode)
-}
+func init() { errors.Register(encode, decode) }

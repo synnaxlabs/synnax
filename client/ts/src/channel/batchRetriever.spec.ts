@@ -58,7 +58,10 @@ describe("channelchannel.Retriever", () => {
         operations: [],
       }));
     });
-    const retriever = new channel.DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(
+      base,
+      telem.TimeSpan.milliseconds(10),
+    );
     const res = await Promise.all([
       retriever.retrieve([1]),
       retriever.retrieve([2]),
@@ -87,7 +90,10 @@ describe("channelchannel.Retriever", () => {
         operations: [],
       }));
     });
-    const retriever = new channel.DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(
+      base,
+      telem.TimeSpan.milliseconds(10),
+    );
     const res = await Promise.all([
       retriever.retrieve([1]),
       retriever.retrieve([2]),
@@ -101,7 +107,10 @@ describe("channelchannel.Retriever", () => {
     const base = new MockRetriever(async (): Promise<channel.Payload[]> => {
       throw new Error("failed to fetch");
     });
-    const retriever = new channel.DebouncedBatchRetriever(base, 10);
+    const retriever = new channel.DebouncedBatchRetriever(
+      base,
+      telem.TimeSpan.milliseconds(10),
+    );
     await expect(retriever.retrieve([1])).rejects.toThrow("failed to fetch");
   });
 });

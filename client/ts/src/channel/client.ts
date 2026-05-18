@@ -392,7 +392,9 @@ export class Client {
     return await this.writer.rename(array.toArray(keys), array.toArray(names));
   }
 
-  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+  createDebouncedBatchRetriever(
+    deb: telem.CrudeTimeSpan = telem.TimeSpan.milliseconds(10),
+  ): Retriever {
     return new CacheRetriever(
       new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
     );

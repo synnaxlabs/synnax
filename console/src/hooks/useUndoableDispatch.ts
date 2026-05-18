@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
 import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
-
+import { deep } from "@synnaxlabs/x/deep";
+import { telem } from "@synnaxlabs/x/telem";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
@@ -26,7 +26,7 @@ export const useUndoableDispatch = <
 >(
   selector: Selector<StoreType, SelectedType>,
   stateUpdateActionCreator: (state: SelectedType) => UnknownAction,
-  waitFor: number = 0,
+  waitFor: telem.CrudeTimeSpan = 0,
   size: number = 20,
 ) => {
   const store = useStore<StoreType>();

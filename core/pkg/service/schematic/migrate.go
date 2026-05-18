@@ -15,11 +15,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v3"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
@@ -31,15 +28,15 @@ import (
 // fields are sourced from the per-schematic blob the console used to
 // persist alongside those gorp fields, after legacy.MigrateData walks the
 // legacy migration chain up to v5.Data. UI-only fields (editable,
-// fitViewOnResize, viewport, mode, toolbar, control, viewportMode, the
-// wire-format key) are dropped; Authority defaults to 1 when the source
-// carries zero. Edges flip from the flat source / sourceHandle pair into
-// nested Handle objects, edge.data segments / color / variant lift into
-// the props map keyed by edge id, and node-prop "key" renames to "variant"
-// so the lifted shape matches the EdgeProps / NodeProps schema declared in
-// schematic.oracle. v55 is the last snapshot in which Schematic.Data is
-// untyped; future migrations transform one typed snapshot into another
-// and never need this blob handling.
+// fitViewOnResize, viewport, mode, toolbar, control, viewportMode, authority,
+// legend, the wire-format key) are dropped; the latter live on the console
+// slice and never reach the server. Edges flip from the flat source /
+// sourceHandle pair into nested Handle objects, edge.data segments / color /
+// variant lift into the props map keyed by edge id, and node-prop "key"
+// renames to "variant" so the lifted shape matches the EdgeProps / NodeProps
+// schema declared in schematic.oracle. v55 is the last snapshot in which
+// Schematic.Data is untyped; future migrations transform one typed snapshot
+// into another and never need this blob handling.
 func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error) {
 	out, err := AutoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -71,11 +68,6 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 			out.Configs[edge.Key] = edgeProps
 		}
 	}
-	out.Authority = control.Authority(d.Authority)
-	if out.Authority == 0 {
-		out.Authority = 1
-	}
-	out.Legend = migrateLegend(d.Legend)
 	return out, nil
 }
 
@@ -125,40 +117,6 @@ func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 		}
 	}
 	return out, lifted, nil
-}
-
-func migrateLegend(l v1.Legend) Legend {
-	out := Legend{
-		Visible: l.Visible,
-		Position: spatial.StickyXY{
-			X: l.Position.X,
-			Y: l.Position.Y,
-		},
-		// Always non-nil: matches the console v6 migrateLegendColors contract,
-		// which returns {} when input colors are absent. Marshals cleanly as
-		// "{}" rather than "null".
-		Colors: make(map[string]color.Color, len(l.Colors)),
-	}
-	if l.Position.Units != nil {
-		out.Position.Units = &spatial.StickyUnits{
-			X: spatial.StickyUnit(l.Position.Units.X),
-			Y: spatial.StickyUnit(l.Position.Units.Y),
-		}
-	}
-	if l.Position.Root != nil {
-		out.Position.Root = &spatial.CornerLocation{
-			X: spatial.XLocation(l.Position.Root.X),
-			Y: spatial.YLocation(l.Position.Root.Y),
-		}
-	}
-	for k, hex := range l.Colors {
-		c, err := color.FromHex(hex)
-		if err != nil {
-			continue
-		}
-		out.Colors[k] = c
-	}
-	return out
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the

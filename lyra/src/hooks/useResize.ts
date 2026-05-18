@@ -10,6 +10,7 @@
 import { box } from "@synnaxlabs/x/box";
 import { debounce as debounceF } from "@synnaxlabs/x/debounce";
 import { direction } from "@synnaxlabs/x/direction";
+import { telem } from "@synnaxlabs/x/telem";
 import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -20,9 +21,9 @@ export interface UseResizeOpts {
    * A list of triggers that should cause the callback to be called.
    */
   triggers?: direction.Direction[];
-  /**  Debounce the resize event by this many milliseconds.
-  Useful for preventing expensive renders until resizing has stopped. */
-  debounce?: number;
+  /** Debounce the resize event by this duration. Useful for preventing expensive
+  renders until resizing has stopped. */
+  debounce?: telem.CrudeTimeSpan;
   /** If false, the hook wont observe the element. Defaults to true. */
   enabled?: boolean;
 }
@@ -64,7 +65,7 @@ export const useResize = <E extends HTMLElement>(
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [memoTriggers, onResize, debounce],
+    [memoTriggers, onResize, debounce.valueOf()],
   );
 
   useEffect(() => {

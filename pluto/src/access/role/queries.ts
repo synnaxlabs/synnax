@@ -21,9 +21,9 @@ import { Ontology } from "@/ontology";
 export const RESOURCE_NAME = "Role";
 export const PLURAL_RESOURCE_NAME = "Roles";
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: string;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -52,7 +52,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export interface ListQuery extends List.PagerParams {}
+export type ListQuery = List.PagerParams;
 
 export const useList = Flux.createList<
   ListQuery,
@@ -115,9 +115,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export interface ChangeRoleFormQuery {
+export type ChangeRoleFormQuery = {
   key: user.Key;
-}
+};
 
 export const changeRoleFormSchema = z.object({
   key: user.keyZ,

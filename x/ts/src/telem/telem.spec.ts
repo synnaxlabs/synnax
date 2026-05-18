@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
+import { primitive } from "@/primitive";
 import {
   telem } from "@/telem";
 
@@ -947,6 +948,24 @@ describe("TimeStamp", () => {
       expect(ts.formatBySpan(span)).toBe("ISOTime");
     });
   });
+
+  describe("hash", () => {
+    it("returns the bigint nanosecond value as a string", () => {
+      expect(new TimeStamp(1234567890n).hash()).toBe("1234567890");
+    });
+
+    it("is stable across instances representing the same value", () => {
+      expect(new TimeStamp(42n).hash()).toBe(new TimeStamp(42n).hash());
+    });
+
+    it("differs across distinct values", () => {
+      expect(new TimeStamp(1n).hash()).not.toBe(new TimeStamp(2n).hash());
+    });
+
+    it("satisfies primitive.isHashable", () => {
+      expect(primitive.isHashable(new TimeStamp(0n))).toBe(true);
+    });
+  });
 });
 
 describe("TimeSpan", () => {
@@ -1349,6 +1368,20 @@ describe("TimeSpan", () => {
       expect(ts2.valueOf()).toBe(BigInt(Number.MAX_SAFE_INTEGER));
     });
   });
+
+  describe("hash", () => {
+    it("returns the bigint nanosecond value as a string", () => {
+      expect(TimeSpan.milliseconds(500).hash()).toBe("500000000");
+    });
+
+    it("is stable across instances representing the same value", () => {
+      expect(TimeSpan.seconds(1).hash()).toBe(TimeSpan.seconds(1).hash());
+    });
+
+    it("satisfies primitive.isHashable", () => {
+      expect(primitive.isHashable(TimeSpan.ZERO)).toBe(true);
+    });
+  });
 });
 
 describe("Rate", () => {
@@ -1463,6 +1496,20 @@ describe("Rate", () => {
       const result = r1.div(0.5);
       expect(result).toBeInstanceOf(telem.Rate);
       expect(result.valueOf()).toBe(200);
+    });
+  });
+
+  describe("hash", () => {
+    it("returns the Hz value as a string", () => {
+      expect(new Rate(100).hash()).toBe("100");
+    });
+
+    it("is stable across instances representing the same value", () => {
+      expect(new Rate(60).hash()).toBe(new Rate(60).hash());
+    });
+
+    it("satisfies primitive.isHashable", () => {
+      expect(primitive.isHashable(new Rate(1))).toBe(true);
     });
   });
 });
@@ -1742,6 +1789,33 @@ describe("TimeRange", () => {
       });
     });
   });
+
+  describe("hash", () => {
+    it("composes the start and end hashes with a dash", () => {
+      const tr = new TimeRange(new TimeStamp(100n), new TimeStamp(200n));
+      expect(tr.hash()).toBe("100-200");
+    });
+
+    it("is stable across instances representing the same range", () => {
+      const a = new TimeRange(new TimeStamp(1n), new TimeStamp(2n));
+      const b = new TimeRange(new TimeStamp(1n), new TimeStamp(2n));
+      expect(a.hash()).toBe(b.hash());
+    });
+
+    it("differs when start or end differs", () => {
+      const base = new TimeRange(new TimeStamp(1n), new TimeStamp(2n));
+      expect(base.hash()).not.toBe(
+        new TimeRange(new TimeStamp(1n), new TimeStamp(3n)).hash(),
+      );
+      expect(base.hash()).not.toBe(
+        new TimeRange(new TimeStamp(0n), new TimeStamp(2n)).hash(),
+      );
+    });
+
+    it("satisfies primitive.isHashable", () => {
+      expect(primitive.isHashable(TimeRange.ZERO)).toBe(true);
+    });
+  });
 });
 
 describe("Density", () => {
@@ -2011,6 +2085,25 @@ describe("DataType", () => {
         expect(dt.toString()).toBe(expected);
         expect(dt.toString(true)).toBe(short);
       });
+    });
+  });
+
+  describe("hash", () => {
+    it("returns the data type identifier as a string", () => {
+      expect(DataType.FLOAT32.hash()).toBe("float32");
+      expect(DataType.STRING.hash()).toBe("string");
+    });
+
+    it("is stable across instances representing the same data type", () => {
+      expect(new DataType("uint8").hash()).toBe(new DataType("uint8").hash());
+    });
+
+    it("differs across distinct data types", () => {
+      expect(DataType.FLOAT32.hash()).not.toBe(DataType.FLOAT64.hash());
+    });
+
+    it("satisfies primitive.isHashable", () => {
+      expect(primitive.isHashable(DataType.UNKNOWN)).toBe(true);
     });
   });
 });

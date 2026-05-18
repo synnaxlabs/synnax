@@ -50,7 +50,7 @@ export interface AsyncListOptions extends base.FetchOptions {
 }
 
 export type UseListReturn<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -68,7 +68,7 @@ export type UseListReturn<
 };
 
 export interface RetrieveByKeyParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   Store extends flux.Store,
 > extends Omit<RetrieveParams<Query, Store>, "query"> {
@@ -77,7 +77,7 @@ export interface RetrieveByKeyParams<
 }
 
 export interface RetrieveCachedParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Store extends flux.Store,
 > {
   query: Partial<Query>;
@@ -85,7 +85,7 @@ export interface RetrieveCachedParams<
 }
 
 export interface CreateListParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
   Store extends flux.Store,
@@ -99,7 +99,7 @@ export interface CreateListParams<
 }
 
 export interface UseListParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -111,7 +111,7 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -140,7 +140,7 @@ const parseOnListChangeArgs = <K extends record.Key, E extends record.Keyed<K>>(
 };
 
 export interface ListMountListenersParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Key extends record.Key,
   Data extends record.Keyed<Key>,
   Store extends flux.Store,
@@ -157,7 +157,7 @@ const defaultFilter = () => true;
 const DEFAULT_RETRIEVE_DEBOUNCE = telem.TimeSpan.milliseconds(100);
 
 interface GetInitialDataParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
@@ -172,7 +172,7 @@ interface GetInitialDataParams<
 }
 
 const getInitialData = <
-  Query extends base.Shape,
+  Query extends base.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
@@ -196,7 +196,7 @@ const getInitialData = <
 
 export const createList =
   <
-    Query extends base.Shape,
+    Query extends base.Query,
     Key extends record.Key,
     Data extends record.Keyed<Key>,
     ScopedStore extends flux.Store = {},
@@ -212,7 +212,7 @@ export const createList =
     const {
       filter = defaultFilter,
       sort,
-      initialQuery = null,
+      initialQuery,
       retrieveDebounce = DEFAULT_RETRIEVE_DEBOUNCE,
       useCachedList = true,
     } = params;
@@ -222,7 +222,7 @@ export const createList =
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
     const store = useStore<ScopedStore>();
-    const queryRef = useRef<Query | null>(initialQuery);
+    const queryRef = useRef<Query | null>(initialQuery ?? null);
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
       loadingResult<Key[]>(
         `retrieving ${name}`,
@@ -432,7 +432,7 @@ export const createList =
     const retrieveSync = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
-      new telem.TimeSpan(retrieveDebounce).milliseconds,
+      retrieveDebounce,
       [retrieveAsync],
     );
 
@@ -449,7 +449,7 @@ export const createList =
 export interface UseListItemArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<base.Shape, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<base.Query, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

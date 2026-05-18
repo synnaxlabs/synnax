@@ -113,7 +113,9 @@ export class Core implements Client {
 
   constructor({ instrumentation, core }: CoreProps) {
     this.ins = instrumentation;
-    this.channelRetriever = core.channels.createDebouncedBatchRetriever(10);
+    this.channelRetriever = core.channels.createDebouncedBatchRetriever(
+      telem.TimeSpan.milliseconds(10),
+    );
     this.cache = new cache.Cache({
       channelRetriever: this.channelRetriever,
       instrumentation: this.ins.child("cache"),

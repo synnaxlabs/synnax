@@ -86,8 +86,7 @@ export class Reader implements ReadClient {
       batchDebounce: args.batchDebounce ?? telem.TimeSpan.milliseconds(50),
       overlapThreshold: args.overlapThreshold ?? telem.TimeSpan.milliseconds(5),
     };
-    const deb = this.args.batchDebounce.milliseconds;
-    this.debouncedRead = debounce(() => void this.batchRead(), deb);
+    this.debouncedRead = debounce(() => void this.batchRead(), this.args.batchDebounce);
   }
 
   /** Implements ReadClient. */

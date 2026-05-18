@@ -95,8 +95,13 @@ UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  */
 export class TimeStamp
   extends primitive.ValueExtension<bigint>
-  implements primitive.Stringer
+  implements primitive.Stringer, primitive.Hashable
 {
+  /** @returns the bigint nanosecond value as a string for stable hashing. */
+  hash(): string {
+    return this.value.toString();
+  }
+
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) super(TimeStamp.now().valueOf());
     else if (value instanceof Date)
@@ -852,7 +857,7 @@ export class TimeStamp
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan
   extends primitive.ValueExtension<bigint>
-  implements primitive.Stringer
+  implements primitive.Stringer, primitive.Hashable
 {
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
@@ -896,6 +901,11 @@ export class TimeSpan
    */
   valueOf(): bigint {
     return this.value;
+  }
+
+  /** @returns the bigint nanosecond value as a string for stable hashing. */
+  hash(): string {
+    return this.value.toString();
   }
 
   /**
@@ -1310,11 +1320,16 @@ export class TimeSpan
 /** Rate represents a data rate in Hz. */
 export class Rate
   extends primitive.ValueExtension<number>
-  implements primitive.Stringer
+  implements primitive.Stringer, primitive.Hashable
 {
   constructor(value: CrudeRate) {
     if (primitive.isCrudeValueExtension<number>(value)) value = value.value;
     super(value.valueOf());
+  }
+
+  /** @returns the Hz value as a string for stable hashing. */
+  hash(): string {
+    return this.value.toString();
   }
 
   /** @returns a pretty string representation of the rate in the format "X Hz". */
@@ -1549,7 +1564,12 @@ export class Density
  * @property start - A TimeStamp representing the start of the range.
  * @property end - A Timestamp representing the end of the range.
  */
-export class TimeRange implements primitive.Stringer {
+export class TimeRange implements primitive.Stringer, primitive.Hashable {
+  /** @returns a stable hash composed of the start and end timestamps. */
+  hash(): string {
+    return `${this.start.hash()}-${this.end.hash()}`;
+  }
+
   /**
    * The starting TimeStamp of the TimeRange.
    *
@@ -1823,8 +1843,13 @@ export class TimeRange implements primitive.Stringer {
 /** DataType is a string that represents a data type. */
 export class DataType
   extends primitive.ValueExtension<string>
-  implements primitive.Stringer
+  implements primitive.Stringer, primitive.Hashable
 {
+  /** @returns the data type identifier as a string for stable hashing. */
+  hash(): string {
+    return this.value;
+  }
+
   constructor(value: CrudeDataType) {
     if (primitive.isCrudeValueExtension<string>(value)) value = value.value;
     if (

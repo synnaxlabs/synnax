@@ -101,8 +101,8 @@ const DEFAULT_EXPIRATION = telem.TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = telem.TimeSpan.seconds(1);
 
 interface UseNotificationsProps {
-  expiration?: telem.TimeSpan;
-  poll?: telem.TimeSpan;
+  expiration?: telem.CrudeTimeSpan;
+  poll?: telem.CrudeTimeSpan;
 }
 
 export const useNotifications = ({
@@ -112,11 +112,12 @@ export const useNotifications = ({
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => telem.TimeStamp.now());
+  const pollMs = new telem.TimeSpan(poll).milliseconds;
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(telem.TimeStamp.now()), poll.milliseconds);
+    const interval = setInterval(() => setNow(telem.TimeStamp.now()), pollMs);
     return () => clearInterval(interval);
-  }, [poll.milliseconds]);
+  }, [pollMs]);
 
   const filtered = useMemo(() => {
     const threshold = now.sub(expiration);

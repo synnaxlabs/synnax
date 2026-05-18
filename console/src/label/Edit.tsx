@@ -51,7 +51,7 @@ const LabelListItem = ({
       ({
         reset,
       }: Flux.AfterSaveParams<
-        Flux.Shape,
+        Flux.Query,
         typeof Label.formSchema,
         Label.FluxSubStore
       >) => {

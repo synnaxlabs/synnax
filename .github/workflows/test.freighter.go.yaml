@@ -32,5 +32,4 @@ jobs:
     secrets: inherit
     with:
       directory: freighter/go
-      ginkgo_flags: -p --randomize-all
       coverage_flag: freighter-go

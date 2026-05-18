@@ -105,7 +105,6 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	a.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, types.Nil]{}
 	a.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	a.SchematicRename = noop.UnaryServer[schematic.RenameRequest, types.Nil]{}
 	a.SchematicSetData = noop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
 	a.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, types.Nil]{}
 	a.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}

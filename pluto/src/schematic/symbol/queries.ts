@@ -53,9 +53,9 @@ export const STORE_CONFIG: Flux.UnaryStoreConfig<
   listeners: [SET_SYMBOL_LISTENER, DELETE_SYMBOL_LISTENER],
 };
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: string;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -81,13 +81,13 @@ export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
   ],
 });
 
-export interface ListQuery {
+export type ListQuery = {
   keys?: string[];
   parent?: ontology.ID;
   searchTerm?: string;
   offset?: number;
   limit?: number;
-}
+};
 
 const matchSymbolRelationship = (r: ontology.Relationship, parent: ontology.ID) =>
   ontology.matchRelationship(r, {
@@ -154,9 +154,9 @@ export const useList = Flux.createList<
   ],
 });
 
-export interface FormQuery {
+export type FormQuery = {
   key?: string;
-}
+};
 
 export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })

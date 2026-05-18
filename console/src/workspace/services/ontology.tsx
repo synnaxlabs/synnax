@@ -11,7 +11,6 @@ import { array } from "@synnaxlabs/x/array";
 import { deep } from "@synnaxlabs/x/deep";
 import { strings } from "@synnaxlabs/x/strings";
 import {
-  DisconnectedError,
   lineplot,
   log,
   type ontology,
@@ -26,13 +25,11 @@ import {
   LinePlot as PLinePlot,
   Log as PLog,
   Schematic as PSchematic,
-  Synnax,
   Table as PTable,
   Workspace as Base,
 } from "@synnaxlabs/pluto";
 
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
@@ -49,8 +46,9 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 import { useExport } from "@/workspace/export";
-import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
+import { selectActiveKey } from "@/workspace/selectors";
 import { maybeRename, setActive } from "@/workspace/slice";
+import { useMaybeChange } from "@/workspace/useMaybeChange";
 
 const useDelete = createUseDelete({
   type: "Workspace",
@@ -66,55 +64,11 @@ const useDelete = createUseDelete({
   },
 });
 
-const useMaybeChangeWorkspace = (): ((key: string) => Promise<void>) => {
-  const dispatch = useDispatch();
-  const activeWS = useSelectActiveKey();
-  const client = Synnax.use();
-  return async (key) => {
-    if (activeWS === key) return;
-    if (client == null) throw new DisconnectedError();
-    const { layout, ...ws } = await client.workspaces.retrieve(key);
-    dispatch(setActive(ws));
-    dispatch(
-      Layout.setWorkspace({ slice: layout as Layout.SliceState, keepNav: false }),
-    );
-  };
-};
-
-const useCreateSchematic = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChangeWorkspace();
-  const workspaceID = ids[0];
-  const { update } = PSchematic.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { workspace, ...schematic } = data;
-      await maybeChangeWorkspace(workspace);
-      placeLayout(Schematic.create(Schematic.fromRemote(schematic)));
-    },
-  });
-  return useCallback(
-    () =>
-      update({
-        workspace: workspaceID.key,
-        name: "New Schematic",
-        snapshot: false,
-        authority: 1,
-        legend: deep.copy(Schematic.ZERO_STATE.legend),
-        nodes: [],
-        edges: [],
-        configs: {},
-      }),
-    [workspaceID.key],
-  );
-};
-
 const useCreateLinePlot = ({
   placeLayout,
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  const maybeChangeWorkspace = useMaybeChange();
   const workspaceID = ids[0];
   const { update } = PLinePlot.useCreate({
     afterSuccess: async ({ data }) => {
@@ -138,7 +92,7 @@ const useCreateLog = ({
   placeLayout,
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  const maybeChangeWorkspace = useMaybeChange();
   const workspaceID = ids[0];
   const { update } = PLog.useCreate({
     afterSuccess: async ({ data }) => {
@@ -162,7 +116,7 @@ const useCreateTable = ({
   placeLayout,
   selection: { ids },
 }: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChangeWorkspace();
+  const maybeChangeWorkspace = useMaybeChange();
   const workspaceID = ids[0];
   const { update } = PTable.useCreate({
     afterSuccess: async ({ data }) => {
@@ -206,7 +160,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const createLog = useCreateLog(props);
   const createTable = useCreateTable(props);
   const firstID = selection.ids[0];
-  const createSchematic = useCreateSchematic(props);
+  const createSchematic = Schematic.useCreate({ workspace: ids[0].key });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -263,7 +217,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             </Menu.Item>
           )}
           {hasSchematicCreatePermission && (
-            <Menu.Item itemKey="createSchematic" onClick={createSchematic}>
+            <Menu.Item itemKey="createSchematic" onClick={() => createSchematic()}>
               <PSchematic.CreateIcon />
               Create schematic
             </Menu.Item>

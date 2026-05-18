@@ -116,12 +116,14 @@ synnax start -l localhost:9090 -im
     {
       option: "--username",
       default: '"synnax"',
-      description: "Username for the database root user.",
+      description:
+        'Username for the cluster root user. Reconciled on every start — see <a href="#root-user-reconciliation">Root User Reconciliation</a> for the behavior when this changes between restarts.',
     },
     {
       option: "--password",
       default: '"seldon"',
-      description: "Password for the database root user.",
+      description:
+        'Password for the cluster root user. The configured value is the source of truth: if the stored password diverges, it is rotated to match on the next start. See <a href="#root-user-reconciliation">Root User Reconciliation</a>.',
     },
     {
       option: "--license-key",
@@ -385,6 +387,69 @@ disable-channel-name-validation = false
 ```
 </slot>
 </Tabs>
+
+### Root User Reconciliation
+
+Every time a Core starts, it reconciles the configured `--username` / `--password`
+against the existing cluster state. The configured credentials are the source of truth:
+the Core makes the state match config, rather than asking the operator to log in and
+update things by hand.
+
+The behavior depends on what already exists on disk:
+
+<Table.Data
+  client:only="react"
+  columns={[
+    { key: "scenario", name: "Scenario", type: "html", width: 260 },
+    { key: "behavior", name: "Behavior", type: "html" },
+  ]}
+  data={[
+    {
+      scenario: "Fresh Core (no existing users)",
+      behavior:
+        "A new user is created with the configured username and marked as the root user. Credentials are registered and the user is granted the <code>Owner</code> role.",
+    },
+    {
+      scenario: "Restart with unchanged credentials",
+      behavior: "No-op — the existing root user is left alone.",
+    },
+    {
+      scenario: "Restart with the same username but a different password",
+      behavior:
+        "The stored password is rotated to match the configured one. The old password no longer authenticates. Other users' passwords are untouched.",
+    },
+    {
+      scenario: "Restart with a different username",
+      behavior:
+        "The previous root user is demoted (the <code>RootUser</code> flag is cleared) but retains their <code>Owner</code> role and credentials, so they can still log in with full permissions. A new user is created with the configured username, marked root, and granted <code>Owner</code>.",
+    },
+    {
+      scenario: "Configured username matches an existing <em>non-root</em> user",
+      behavior:
+        "The existing user is promoted in place: their <code>RootUser</code> flag is set to true, their stored password is rotated to match the configured one, and any previous root user is demoted. The user keeps the same key, name, and role assignments. This lets you point <code>--username</code> at an already-provisioned account to make it the root, instead of creating a new one.",
+    },
+    {
+      scenario: "Restart with no credentials configured (both flags omitted)",
+      behavior:
+        "Auth state is left untouched. If multiple users somehow have <code>RootUser=true</code>, all but the first returned by the retrieve are demoted (keeping their <code>Owner</code> role) and a warning is logged. A cluster with zero or one root user is left as-is, so test setups and other callers that do not need a root user can open the Core without supplying credentials.",
+    },
+  ]}
+/>
+
+#### Recovering a forgotten root password
+
+Because the configured password is the source of truth, you can recover a forgotten root
+password by editing the Core's configuration (config file, environment variable, or
+`--password` flag) and restarting the Core. The stored password will be rotated on
+startup. Non-root users rotate their passwords through the API as normal — only the root
+user's password is governed by configuration.
+
+#### Demoted users
+
+When a username change demotes the previous root user, that user keeps their `Owner`
+role and their original credentials. They can still log in with full permissions; they
+just no longer hold the immutable root-user flag. To fully remove them, an `Owner` can
+delete the demoted user through the API.
 
 <Divider.Divider x />
 

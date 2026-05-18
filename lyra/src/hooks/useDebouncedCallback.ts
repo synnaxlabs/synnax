@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { debounce } from "@synnaxlabs/x/debounce";
+import { telem } from "@synnaxlabs/x/telem";
 import { type DependencyList, useCallback } from "react";
 
-export const useDebouncedCallback = <F extends (...args: any[]) => void>(
-  func: F,
-  waitFor: number,
+export const useDebouncedCallback = <Args extends unknown[]>(
+  func: (...args: Args) => void,
+  waitFor: telem.CrudeTimeSpan,
   deps: DependencyList,
-): F => useCallback(debounce(func, waitFor), [waitFor, ...deps]);
+): ((...args: Args) => void) => {
+  const debouncePeriod = new telem.TimeSpan(waitFor).valueOf();
+  return useCallback(debounce(func, debouncePeriod), [debouncePeriod, ...deps]);
+};

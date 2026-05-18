@@ -11,7 +11,7 @@ import { array } from "@synnaxlabs/x/array";
 import { errors } from "@synnaxlabs/x/errors";
 import { alamos } from "@synnaxlabs/alamos";
 import { channel, DataType, UnexpectedError } from "@synnaxlabs/client";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
@@ -51,7 +51,10 @@ describe("cacheManager", () => {
             }),
         );
       });
-      const retriever = new channel.DebouncedBatchRetriever(ret, 10);
+      const retriever = new channel.DebouncedBatchRetriever(
+        ret,
+        telem.TimeSpan.milliseconds(10),
+      );
       const manager = new Cache({
         channelRetriever: retriever,
         instrumentation: alamos.NOOP,
@@ -76,7 +79,10 @@ describe("cacheManager", () => {
         );
       });
 
-      const retriever = new channel.DebouncedBatchRetriever(ret, 10);
+      const retriever = new channel.DebouncedBatchRetriever(
+        ret,
+        telem.TimeSpan.milliseconds(10),
+      );
       const manager = new Cache({
         channelRetriever: retriever,
         instrumentation: alamos.NOOP,
