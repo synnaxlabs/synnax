@@ -113,14 +113,12 @@ export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 export interface UseRetrieveEffectParams<
   Query extends base.Query,
   Data extends state.State,
+> extends Pick<
+  UseObservableBaseRetrieveParams<Query, Data>,
+  "scope" | "beforeRetrieve" | "addStatusOnFailure"
 > {
-  scope?: string;
   onChange?: (result: Result<Data>, query: Query) => void;
   query?: Query;
-  /// When false, suppresses the failure toast from the global status aggregator. Use
-  /// this when the consumer renders the error state inline (e.g., a placeholder) and
-  /// a transient toast would be redundant or noisy.
-  addStatusOnFailure?: boolean;
 }
 
 export interface UseRetrieve<Query extends base.Query, Data extends state.State> {

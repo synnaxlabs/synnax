@@ -93,10 +93,10 @@ const IndividualConfig = ({
     "specKey",
     { ctx: formMethods, optional: true },
   );
-  const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
+  const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
   const placeLayout = Layout.usePlacer();
   let actions: ReactNode = null;
-  if (isRemote && specKey != null)
+  if (isCustom)
     actions = (
       <Button.Button
         variant="filled"
@@ -110,13 +110,10 @@ const IndividualConfig = ({
 
   if (config == null) return null;
   const C = Schematic.ELEMENT_REGISTRY[config.variant];
-  const isCustom =
-    config.variant === "customStatic" || config.variant === "customActuator";
-
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
-        {isCustom && isRemote && specKey != null ? (
+        {isCustom ? (
           <CustomVariantForm
             specKey={specKey}
             elKey={elKey}

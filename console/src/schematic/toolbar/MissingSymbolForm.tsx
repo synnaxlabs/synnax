@@ -50,10 +50,16 @@ export const MissingSymbolForm = (): ReactElement => {
   );
   const handleCreate = useCallback(() => {
     if (createGroupKey == null) return;
+    const missingKey = form.get<string>("specKey", { optional: true })?.value;
     placeLayout(
-      createEditLayout({ args: { parent: group.ontologyID(createGroupKey) } }),
+      createEditLayout({
+        args: {
+          parent: group.ontologyID(createGroupKey),
+          createKey: missingKey,
+        },
+      }),
     );
-  }, [placeLayout, createGroupKey]);
+  }, [placeLayout, createGroupKey, form]);
   return (
     <Flex.Box
       y

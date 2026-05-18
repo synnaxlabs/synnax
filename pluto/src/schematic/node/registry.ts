@@ -329,3 +329,30 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as unknown as Spec<Variant, Config>;
 };
+
+/// CustomVariant is the union of Variants that reference a user-defined
+/// symbol spec via specKey rather than rendering a hard-coded SVG.
+export type CustomVariant = typeof CustomActuator.VARIANT | typeof CustomStatic.VARIANT;
+export type CustomConfig = ConfigOf<CustomVariant>;
+
+/// CUSTOM_VARIANTS is the set form of CustomVariant. Prefer the isCustomVariant
+/// / isCustomConfig guards at call sites; expose the set for cases that need
+/// to iterate the membership directly (e.g. tests).
+export const CUSTOM_VARIANTS: ReadonlySet<Variant> = new Set<Variant>([
+  CustomActuator.VARIANT,
+  CustomStatic.VARIANT,
+]);
+
+export const isCustomVariant = (
+  variant: string | undefined,
+): variant is CustomVariant =>
+  variant != null && CUSTOM_VARIANTS.has(variant as Variant);
+
+export const isCustomConfig = (config: Config): config is CustomConfig =>
+  isCustomVariant(config.variant);
+
+/// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
+/// variant. Used by the symbols toolbar to render the built-in catalog.
+export const STATIC_SPECS: ReadonlyArray<Spec<Variant, Config>> = (
+  Object.values(REGISTRY) as ReadonlyArray<Spec<Variant, Config>>
+).filter((s) => !isCustomVariant(s.key));
