@@ -23,6 +23,12 @@ class Codec(Protocol):
         """:returns: the MIME content type of the Codec"""
         ...
 
+    def file_extension(self) -> str:
+        """:returns: the file extension (without leading dot) associated with the
+        Codec's on-disk format, e.g. "json" or "msgpack".
+        """
+        ...
+
     def encode(self, data: BaseModel) -> bytes:
         """
         Encodes the given data into a binary representation.
@@ -49,6 +55,9 @@ class MessagePackCodec(Codec):
     def content_type(self) -> str:
         return "application/msgpack"
 
+    def file_extension(self) -> str:
+        return "msgpack"
+
     def encode(self, payload: BaseModel) -> bytes:
         packed = msgpack.packb(payload.model_dump(by_alias=True))
         if not isinstance(packed, bytes):
@@ -66,6 +75,9 @@ class JSONCodec(Codec):
 
     def content_type(self) -> str:
         return "application/json"
+
+    def file_extension(self) -> str:
+        return "json"
 
     def encode(self, payload: BaseModel) -> bytes:
         return payload.model_dump_json(by_alias=True).encode()

@@ -37,6 +37,9 @@ class MyVerySpecialCustomCodec(Codec):
     def content_type(self) -> str:
         return "application/json"
 
+    def file_extension(self) -> str:
+        return "json"
+
     def encode(self, data: BaseModel) -> bytes:
         if isinstance(data, WebsocketMessage):
             data.payload = Message(id=4200, message="the key to the universe")
