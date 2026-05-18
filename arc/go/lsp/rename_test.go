@@ -293,10 +293,17 @@ func main() {
 	Describe("OnRename", func() {
 		channelResolver := symbol.MapResolver{
 			"sensor": symbol.Symbol{
-				Name: "sensor",
+				Name:       "sensor",
+				Type:       types.Chan(types.F32()),
+				Kind:       symbol.KindChannel,
+				ID:         42,
+				Renameable: true,
+			},
+			"internal_sensor": symbol.Symbol{
+				Name: "internal_sensor",
 				Type: types.Chan(types.F32()),
 				Kind: symbol.KindChannel,
-				ID:   42,
+				ID:   43,
 			},
 		}
 		channelContent := `func test() {
@@ -388,9 +395,9 @@ func main() {
 			Expect(err).To(MatchError(renameErr))
 		})
 
-		It("should not invoke OnRename for source-defined symbols", func(ctx SpecContext) {
+		It("should invoke OnRename for source-defined symbols too", func(ctx SpecContext) {
 			callCount := 0
-			onRename := func(_ context.Context, sym *symbol.Scope, _, _ string) error {
+			onRename := func(_ context.Context, _ *symbol.Scope, _, _ string) error {
 				callCount++
 				return nil
 			}
@@ -412,15 +419,21 @@ func main() {
 			Expect(callCount).To(Equal(1))
 		})
 
-		It("should reject rename on channels when OnRename is not configured", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: channelResolver}))
+		It("should reject rename on symbols not marked Renameable", func(ctx SpecContext) {
+			onRename := func(context.Context, *symbol.Scope, string, string) error { return nil }
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: channelResolver,
+				OnRename:       onRename,
+			}))
 			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, channelContent)
+			OpenArcDocument(server, ctx, uri, `func test() {
+    x f32 := internal_sensor + 1.0
+}`)
 
 			prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 14},
+					Position:     protocol.Position{Line: 1, Character: 14}, // internal_sensor
 				},
 			}))
 			Expect(prepared).To(BeNil())
@@ -430,27 +443,9 @@ func main() {
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 14},
 				},
-				NewName: "renamed_sensor",
+				NewName: "renamed",
 			}))
 			Expect(result).To(BeNil())
-		})
-
-		It("should allow PrepareRename on channels when OnRename is configured", func(ctx SpecContext) {
-			onRename := func(context.Context, *symbol.Scope, string, string) error { return nil }
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: channelResolver,
-				OnRename:       onRename,
-			}))
-			server.SetClient(&MockClient{})
-			OpenArcDocument(server, ctx, uri, channelContent)
-
-			prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 14},
-				},
-			}))
-			Expect(prepared).ToNot(BeNil())
 		})
 	})
 })

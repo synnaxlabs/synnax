@@ -26,17 +26,14 @@ func (s *Server) logUnexpectedSymbolError(sym *symbol.Scope, err error) {
 	}
 }
 
-func (s *Server) isRenameable(sym *symbol.Scope, err error) bool {
+func isRenameable(sym *symbol.Scope, err error) bool {
 	if errors.Is(err, query.ErrNotFound) || sym == nil {
 		return false
 	}
-	if sym.AST != nil {
-		return true
-	}
-	// Channels resolve through the global resolver and have no AST. They are
-	// renameable only when the host has registered an OnRename callback to
-	// propagate the rename to the underlying resource.
-	return sym.Kind == symbol.KindChannel && s.cfg.OnRename != nil
+	// Source-defined symbols rename via text edits alone. Resolver-supplied
+	// symbols opt in via Symbol.Renameable; the host's OnRename callback is
+	// responsible for propagating the rename to the underlying resource.
+	return sym.AST != nil || sym.Renameable
 }
 
 func (s *Server) PrepareRename(
@@ -48,7 +45,7 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if !s.isRenameable(sym, err) {
+	if !isRenameable(sym, err) {
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
@@ -64,18 +61,22 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 	targetSym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if !s.isRenameable(targetSym, err) {
+	if !isRenameable(targetSym, err) {
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(targetSym, err)
+	// Reference matching for global symbols (no AST) re-resolves each identifier
+	// through GlobalResolver, so it must run before OnRename — otherwise an
+	// OnRename that renames the backing resource (e.g., a Synnax channel) makes
+	// the old name unresolvable and findAllReferences returns nothing.
+	locations := s.findAllReferences(ctx, doc, targetSym)
+	if len(locations) == 0 {
+		return nil, nil
+	}
 	if s.cfg.OnRename != nil {
 		if err := s.cfg.OnRename(ctx, targetSym, targetSym.Name, params.NewName); err != nil {
 			return nil, err
 		}
-	}
-	locations := s.findAllReferences(ctx, doc, targetSym)
-	if len(locations) == 0 {
-		return nil, nil
 	}
 	docLocations := doc.toDocLocations(locations)
 	edits := make([]protocol.TextEdit, 0, len(docLocations))
@@ -117,7 +118,7 @@ func (s *Server) findAllReferences(
 		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
 		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
 		sym, err := scope.Resolve(ctx, tokenText)
-		if !s.isRenameable(sym, err) {
+		if !isRenameable(sym, err) {
 			continue
 		}
 		s.logUnexpectedSymbolError(sym, err)
