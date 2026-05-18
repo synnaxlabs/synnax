@@ -23,8 +23,8 @@
   },
   "dependencies": {
     "async-mutex": "catalog:",
-    "nanoid": "^5.1.9",
-    "uuid": "^13.0.0",
+    "nanoid": "^5.1.11",
+    "uuid": "^13.0.2",
     "zod": "catalog:"
   },
   "devDependencies": {
