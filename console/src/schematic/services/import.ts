@@ -7,21 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
-import { create, LAYOUT_TYPE } from "@/schematic/Schematic";
+import { create, LAYOUT_TYPE } from "@/schematic/layout";
 import { anyStateZ } from "@/schematic/slice";
 
-export const ingest: Import.FileIngester = (
+const parseImport = (
+  data: unknown,
+  fallbackName: string | undefined,
+): schematic.New => {
+  const direct = schematic.schematicZ.safeParse(data);
+  if (direct.success) {
+    const { key: _key, ...rest } = direct.data;
+    return { ...rest, name: fallbackName ?? rest.name };
+  }
+  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
+  if (legacy.pendingUpload == null)
+    throw new Error("Imported schematic has no graph data");
+  const { snapshot, nodes, edges, configs } = legacy.pendingUpload;
+  return { name: fallbackName ?? "Schematic", snapshot, nodes, edges, configs };
+};
+
+export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client },
+  { layout, placeLayout, store, client, workspaceKey },
 ) => {
-  const state = anyStateZ.parse(data);
   if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import schematics");
-  // create with an undefined key so we do not have to worry about the key that was from
-  // the imported data overwriting existing schematics in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout, type: LAYOUT_TYPE }));
+  if (client == null) throw new DisconnectedError();
+  const newPayload = parseImport(data, layout?.name);
+  const created = await client.schematics.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const { key, name } = created;
+  store.schematics.set(key, created);
+  placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
 };

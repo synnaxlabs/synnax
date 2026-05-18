@@ -57,7 +57,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   const {
     position,
     onPositionChange,
-    allowVisibleChange: _,
+    allowEntryVisibleChange: _,
     background = 1,
     ...rest
   } = restProps;

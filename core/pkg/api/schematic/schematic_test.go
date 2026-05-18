@@ -27,7 +27,7 @@ import (
 // returns it with its key populated. Writes commit immediately (nil tx) so
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
-	s := schematic.Schematic{Name: name, Authority: 1}
+	s := schematic.Schematic{Name: name}
 	Expect(schematicSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
 	return s
 }
@@ -39,8 +39,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 9,
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
+					Key: "n1",
 				})},
 			})).Error().To(MatchError(access.ErrDenied))
 		})
@@ -51,15 +51,16 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 7,
+				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 				})},
 			})).Error().To(Succeed())
 			var res schematic.Schematic
 			Expect(schematicSvc.NewRetrieve().
 				Where(schematic.MatchKeys(s.Key)).
 				Entry(&res).Exec(ctx, nil)).To(Succeed())
-			Expect(res.Authority).To(BeEquivalentTo(7))
+			Expect(res.Nodes).To(HaveLen(1))
+			Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 1, Y: 2}))
 		})
 
 		It("Should reject when the subject's policy targets a different schematic", func(ctx SpecContext) {
@@ -69,8 +70,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        b.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 9,
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
+					Key: "n1",
 				})},
 			})).Error().To(MatchError(access.ErrDenied))
 		})
@@ -84,13 +85,13 @@ var _ = Describe("api.Service.Dispatch", func() {
 				Key:        s.Key,
 				SessionKey: "sess-1",
 				Actions: []schematic.Action{
-					schematic.NewSetNodeAction(schematic.SetNode{
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 					}),
-					schematic.NewSetNodeAction(schematic.SetNode{
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 					}),
-					schematic.NewSetEdgeAction(schematic.SetEdge{Edge: schematic.Edge{
+					schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: schematic.Edge{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
 						Target: schematic.Handle{Node: "n2", Param: "in"},
@@ -113,8 +114,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        snap.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 9,
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
+					Key: "n1",
 				})},
 			})).Error().To(MatchError(validate.ErrValidation))
 		})
@@ -125,8 +126,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        missing,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 9,
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
+					Key: "n1",
 				})},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
@@ -144,8 +145,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "session-marker-xyz",
-				Actions: []schematic.Action{schematic.NewSetAuthorityAction(schematic.SetAuthority{
-					Value: 12,
+				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node: schematic.Node{Key: "n1"},
 				})},
 			})).Error().To(Succeed())
 			var got schematic.ScopedAction

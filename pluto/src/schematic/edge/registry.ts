@@ -18,7 +18,7 @@ import { Jacketed } from "@/schematic/edge/jacketed";
 import { Pipe } from "@/schematic/edge/pipe";
 import { Pneumatic } from "@/schematic/edge/pneumatic";
 import { Secondary } from "@/schematic/edge/secondary";
-import { type Edge, type Spec } from "@/schematic/edge/spec";
+import { type Spec } from "@/schematic/edge/spec";
 
 export const REGISTRY = {
   pipe: Pipe.spec,
@@ -34,10 +34,8 @@ const VARIANTS = Object.keys(REGISTRY) as Variant[];
 export const variantZ = z.enum(VARIANTS);
 export type Variant = keyof typeof REGISTRY;
 
-const resolveSpec = (variant: string): Spec<Variant, Config> => {
+export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Edge with variant ${variant} not found`);
   return spec as unknown as Spec<Variant, Config>;
 };
-
-export const resolve = (variant: string): Edge<Config> => resolveSpec(variant).Edge;
