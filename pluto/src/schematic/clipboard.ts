@@ -94,6 +94,36 @@ const tryParsePayload = (raw: string): Payload | null => {
   return payload;
 };
 
+const writeAsync = async (payload: Payload): Promise<void> => {
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      [MIME]: new Blob([JSON.stringify(payload)], { type: MIME }),
+      "text/plain": new Blob([describe(payload)], { type: "text/plain" }),
+    }),
+  ]);
+};
+
+const readAsync = async (): Promise<Payload | null> => {
+  let items: ClipboardItem[];
+  try {
+    items = await navigator.clipboard.read();
+  } catch {
+    return null;
+  }
+  for (const item of items) {
+    if (!item.types.includes(MIME)) continue;
+    try {
+      const blob = await item.getType(MIME);
+      const parsed = JSON.parse(await blob.text()) as Payload;
+      if (parsed.version !== VERSION) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 /** Builds the dispatch actions for pasting payload at cursor. Pure: no clipboard
  * I/O. Returns the new keys for caller-side selection sync. */
 const buildPasteActions = (
@@ -225,7 +255,7 @@ export const useClipboard = ({
     if (schem == null) return;
     const built = buildPayload(schem, selectedRef.current);
     if (built == null) return;
-    void navigator.clipboard.writeText(JSON.stringify(built.payload));
+    void writeAsync(built.payload);
   }, [key, store]);
 
   const cut = useCallback(() => {
@@ -233,7 +263,7 @@ export const useClipboard = ({
     if (schem == null) return;
     const built = buildPayload(schem, selectedRef.current);
     if (built == null) return;
-    void navigator.clipboard.writeText(JSON.stringify(built.payload));
+    void writeAsync(built.payload);
     const actions = buildCutActions(built);
     if (actions.length > 0) dispatch({ key, actions });
   }, [key, store, dispatch]);
@@ -241,8 +271,7 @@ export const useClipboard = ({
   const paste = useCallback(
     (cursor: xy.XY) => {
       void (async () => {
-        const raw = await navigator.clipboard.readText();
-        const payload = tryParsePayload(raw);
+        const payload = await readAsync();
         if (payload == null) return;
         const { actions, newKeys } = buildPasteActions(payload, cursor);
         if (actions.length === 0) return;

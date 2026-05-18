@@ -23,13 +23,20 @@ export const isGroupContainer = (
   configs: Record<string, record.Unknown>,
 ): boolean => isGroupBoxConfig(configs[key]);
 
+/** True when the node has a non-empty groupId. The server round-trips unset
+ * groupId as "" through protobuf, so `!= null` alone is not sufficient. */
+export const hasGroupId = (
+  node: schematic.Node,
+): node is schematic.Node & { groupId: string } =>
+  typeof node.groupId === "string" && node.groupId.length > 0;
+
 /** Group container's own key; member's groupId; undefined if loose. */
 export const groupKeyOf = (
   node: schematic.Node,
   configs: Record<string, record.Unknown>,
 ): string | undefined => {
   if (isGroupContainer(node.key, configs)) return node.key;
-  return node.groupId ?? undefined;
+  return hasGroupId(node) ? node.groupId : undefined;
 };
 
 /** Filters selectedKeys to just the group container keys. */
@@ -60,7 +67,7 @@ export const expandSelectionToGroups = (
   for (const k of selectedKeys) {
     if (isGroupContainer(k, configs)) activeGroupKeys.add(k);
     const node = nodeByKey.get(k);
-    if (node?.groupId != null) activeGroupKeys.add(node.groupId);
+    if (node != null && hasGroupId(node)) activeGroupKeys.add(node.groupId);
   }
   if (activeGroupKeys.size === 0) return [...selectedKeys];
   const result = new Set(selectedKeys);
@@ -68,7 +75,7 @@ export const expandSelectionToGroups = (
     if (result.has(node.key)) continue;
     if (isGroupContainer(node.key, configs)) {
       if (activeGroupKeys.has(node.key)) result.add(node.key);
-    } else if (node.groupId != null && activeGroupKeys.has(node.groupId))
+    } else if (hasGroupId(node) && activeGroupKeys.has(node.groupId))
       result.add(node.key);
   }
   return [...result];
@@ -82,7 +89,7 @@ export const findOrphanedGroups = (
 ): string[] => {
   const memberCounts = new Map<string, number>();
   for (const n of allNodes)
-    if (n.groupId != null)
+    if (hasGroupId(n))
       memberCounts.set(n.groupId, (memberCounts.get(n.groupId) ?? 0) + 1);
   const out: string[] = [];
   for (const n of allNodes) {
@@ -161,7 +168,7 @@ export const remapGroupId = (
   node: schematic.Node,
   keyMap: Readonly<Record<string, string>>,
 ): schematic.Node => {
-  if (node.groupId == null) return node;
+  if (!hasGroupId(node)) return node;
   const mapped = keyMap[node.groupId];
   if (mapped != null) return { ...node, groupId: mapped };
   const { groupId: _drop, ...rest } = node;
@@ -213,7 +220,7 @@ export const auditGroups = (
 ): AuditResult => {
   const members = new Map<string, schematic.Node[]>();
   for (const n of allNodes) {
-    if (n.groupId == null) continue;
+    if (!hasGroupId(n)) continue;
     const list = members.get(n.groupId);
     if (list != null) list.push(n);
     else members.set(n.groupId, [n]);

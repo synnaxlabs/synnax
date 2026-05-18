@@ -16,7 +16,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
@@ -661,6 +661,230 @@ describe("schematic clipboard", () => {
         const members = result.current.nodes.filter((n) => n.groupId === g.key);
         expect(members).toHaveLength(2);
       }
+    });
+  });
+
+  describe("imperative clipboard (navigator.clipboard)", () => {
+    // jsdom's Blob lacks .text(); stub Blob and ClipboardItem so the source's
+    // writeAsync/readAsync can roundtrip without a real browser.
+    class FakeBlob {
+      readonly type: string;
+      private readonly content: string;
+      constructor(parts: Array<string | object>, opts?: { type?: string }) {
+        this.content = parts.map((p) => (typeof p === "string" ? p : "")).join("");
+        this.type = opts?.type ?? "";
+      }
+      async text(): Promise<string> {
+        return this.content;
+      }
+    }
+
+    class FakeClipboardItem {
+      readonly types: string[];
+      private readonly blobs: Record<string, FakeBlob>;
+      constructor(blobs: Record<string, FakeBlob>) {
+        this.blobs = blobs;
+        this.types = Object.keys(blobs);
+      }
+      async getType(type: string): Promise<FakeBlob> {
+        return this.blobs[type];
+      }
+    }
+
+    const buildReadItem = (payload: unknown): FakeClipboardItem =>
+      new FakeClipboardItem({
+        [MIME]: new FakeBlob([JSON.stringify(payload)], { type: MIME }),
+      });
+
+    let writeMock: ReturnType<typeof vi.fn>;
+    let readMock: ReturnType<typeof vi.fn>;
+    let readResult: FakeClipboardItem[];
+
+    beforeEach(() => {
+      readResult = [];
+      writeMock = vi.fn(async () => {});
+      readMock = vi.fn(async () => readResult);
+      Object.defineProperty(navigator, "clipboard", {
+        value: { write: writeMock, read: readMock },
+        configurable: true,
+        writable: true,
+      });
+      vi.stubGlobal("ClipboardItem", FakeClipboardItem);
+      vi.stubGlobal("Blob", FakeBlob);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("copy writes a ClipboardItem populating both MIME and text/plain slots", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.copy());
+      await waitFor(() => expect(writeMock).toHaveBeenCalledTimes(1));
+
+      const items = writeMock.mock.calls[0][0] as FakeClipboardItem[];
+      expect(items).toHaveLength(1);
+      expect(items[0].types.sort()).toEqual([MIME, "text/plain"].sort());
+
+      const json = JSON.parse(await (await items[0].getType(MIME)).text());
+      expect(json.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "g1",
+        "m1",
+        "m2",
+      ]);
+
+      const summary = await (await items[0].getType("text/plain")).text();
+      expect(summary).toBe("3 nodes, 0 edges");
+    });
+
+    it("cut writes the ClipboardItem and removes the selected group and members", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.clipboard.cut());
+      await waitFor(() => expect(writeMock).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.nodes).toHaveLength(1));
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["loose"]);
+    });
+
+    it("paste reads from the MIME slot and applies the payload at the cursor", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const onPaste = vi.fn();
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, onPaste }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      readResult = [
+        buildReadItem({
+          version: 1,
+          nodes: [{ key: "src", position: { x: 0, y: 0 } }],
+          edges: [],
+          configs: { src: { variant: "tank" } },
+          anchor: { x: 0, y: 0 },
+        }),
+      ];
+
+      act(() => result.current.clipboard.paste({ x: 50, y: 50 }));
+      await waitFor(() => expect(result.current.nodes).toHaveLength(5));
+      expect(readMock).toHaveBeenCalledTimes(1);
+      expect(onPaste).toHaveBeenCalledTimes(1);
+    });
+
+    it("paste ignores ClipboardItems that lack the schematic MIME slot", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      readResult = [
+        new FakeClipboardItem({
+          "text/plain": new FakeBlob(["unrelated"], { type: "text/plain" }),
+        }),
+      ];
+
+      await act(async () => {
+        result.current.clipboard.paste({ x: 0, y: 0 });
+        await new Promise((r) => setTimeout(r, 20));
+      });
+      expect(result.current.nodes).toHaveLength(4);
+    });
+
+    it("paste is a no-op when navigator.clipboard.read rejects", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      readMock.mockRejectedValueOnce(new Error("permission denied"));
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      await act(async () => {
+        result.current.clipboard.paste({ x: 0, y: 0 });
+        await new Promise((r) => setTimeout(r, 20));
+      });
+      expect(result.current.nodes).toHaveLength(4);
+    });
+
+    it("paste ignores a MIME payload with a mismatched version", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      readResult = [
+        buildReadItem({
+          version: 999,
+          nodes: [],
+          edges: [],
+          configs: {},
+          anchor: { x: 0, y: 0 },
+        }),
+      ];
+
+      await act(async () => {
+        result.current.clipboard.paste({ x: 0, y: 0 });
+        await new Promise((r) => setTimeout(r, 20));
+      });
+      expect(result.current.nodes).toHaveLength(4);
+    });
+
+    it("copy then paste roundtrips with fresh keys at the cursor offset", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.clipboard.copy());
+      await waitFor(() => expect(writeMock).toHaveBeenCalledTimes(1));
+      readResult = writeMock.mock.calls[0][0] as FakeClipboardItem[];
+
+      act(() => result.current.clipboard.paste({ x: 500, y: 500 }));
+      await waitFor(() => expect(result.current.nodes).toHaveLength(7));
     });
   });
 });

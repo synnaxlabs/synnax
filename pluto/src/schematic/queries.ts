@@ -470,7 +470,7 @@ export const useSelectCanUngroup = Flux.createSelector<
     for (const k of selected) {
       if (Groups.isGroupContainer(k, s.configs)) return true;
       const node = s.nodes.find((n) => n.key === k);
-      if (node?.groupId != null) return true;
+      if (node != null && Groups.hasGroupId(node)) return true;
     }
     return false;
   },
@@ -492,7 +492,7 @@ export const useGroup = (resourceKey: schematic.Key) => {
         if (Groups.isGroupContainer(k, s.configs)) dissolvedGroupKeys.add(k);
       const memberNodes = s.nodes.filter((n) => {
         if (selectedSet.has(n.key)) return !Groups.isGroupContainer(n.key, s.configs);
-        return n.groupId != null && dissolvedGroupKeys.has(n.groupId);
+        return Groups.hasGroupId(n) && dissolvedGroupKeys.has(n.groupId);
       });
       if (memberNodes.length < 2) return;
       const { position, dimensions } = Groups.computeGroupBoundingBox(memberNodes);
@@ -533,12 +533,12 @@ export const useUngroup = (resourceKey: schematic.Key) => {
       for (const k of selectedKeys) {
         if (Groups.isGroupContainer(k, s.configs)) groupsToRemove.add(k);
         const node = s.nodes.find((n) => n.key === k);
-        if (node?.groupId != null) groupsToRemove.add(node.groupId);
+        if (node != null && Groups.hasGroupId(node)) groupsToRemove.add(node.groupId);
       }
       if (groupsToRemove.size === 0) return;
       const actions: schematic.Action[] = [];
       for (const n of s.nodes)
-        if (n.groupId != null && groupsToRemove.has(n.groupId)) {
+        if (Groups.hasGroupId(n) && groupsToRemove.has(n.groupId)) {
           const { groupId: _drop, ...rest } = n;
           actions.push(schematic.setNode({ node: rest, config: undefined }));
         }
