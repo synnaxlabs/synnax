@@ -10,6 +10,7 @@
 import { type FC } from "react";
 import { type z } from "zod";
 
+import { type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
 export interface EdgeProps<Config extends object = object> extends Diagram.EdgeProps {
@@ -26,7 +27,7 @@ export interface Spec<
   key: Variant;
   name: string;
   configZ: z.ZodType<P>;
-  Form: FC;
+  Form: FC<FormProps>;
   Edge: Edge<P>;
   defaultConfig: () => P;
 }

@@ -14,20 +14,9 @@ syntax = "proto3";
 package service.schematic.pb;
 
 import "google/protobuf/struct.proto";
-import "x/go/color/pb/color.proto";
 import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
-
-// Legend is the control legend overlay configuration.
-message Legend {
-  // visible is whether the legend is visible.
-  bool visible = 1;
-  // position is the legend position within the schematic.
-  .x.spatial.pb.StickyXY position = 2;
-  // colors maps control status keys to their display colors.
-  map<string, .x.color.pb.Color> colors = 3;
-}
 
 // Node is a diagram node representing a symbol in the schematic.
 message Node {
@@ -72,16 +61,12 @@ message Schematic {
   string name = 2;
   // snapshot indicates whether this schematic represents a saved snapshot state.
   bool snapshot = 3;
-  // authority is the control authority level for this schematic.
-  uint32 authority = 4;
-  // legend is the control legend overlay configuration.
-  Legend legend = 5;
   // nodes contains all diagram nodes in the schematic.
-  repeated Node nodes = 6;
+  repeated Node nodes = 4;
   // edges contains all connections between nodes.
-  repeated Edge edges = 7;
+  repeated Edge edges = 5;
   // configs contains per-element configuration keyed by node or edge key. The shape of
   // each value is determined by the element's variant; the wire format intentionally
   // stores it as an opaque record.
-  map<string, google.protobuf.Struct> configs = 8;
+  map<string, google.protobuf.Struct> configs = 6;
 }
