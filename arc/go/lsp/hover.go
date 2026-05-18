@@ -314,6 +314,16 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
 	).Render(),
+	parser.LiteralIMPORT: doc.New(
+		doc.TitleWithKind(parser.LiteralIMPORT, "Keyword"),
+		doc.Paragraph("Imports modules so their qualified members can be used. A module must be imported before its dotted members (e.g. time.now, authority.set) can be referenced."),
+		doc.Divider(),
+		arcCode("import ( time authority )"),
+		doc.Divider(),
+		doc.Paragraph("Aliases rename the qualifier:"),
+		doc.Divider(),
+		arcCode("import ( time as t )"),
+	).Render(),
 	"set_authority": deprecatedDoc("set_authority", "authority.set{}", "authority.set{value=255}"),
 	"authority.set": doc.New(
 		doc.TitleWithKind("authority.set", "Function"),

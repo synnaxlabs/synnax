@@ -282,6 +282,15 @@ var completions = []completionInfo{
 		Category:     categoryTopLevelKeyword,
 	},
 	{
+		Label:        parser.LiteralIMPORT,
+		Detail:       "import declaration",
+		Doc:          "Imports modules so their qualified members can be used",
+		Insert:       "import ( ${1:module} )",
+		Kind:         protocol.CompletionItemKindKeyword,
+		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     categoryTopLevelKeyword,
+	},
+	{
 		Label:        parser.LiteralIF,
 		Detail:       "if statement",
 		Doc:          "Conditional statement",

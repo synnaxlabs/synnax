@@ -34,6 +34,7 @@ const (
 	parenContextInputList
 	parenContextMultiOutput
 	parenContextAuthority
+	parenContextImport
 )
 
 type printer struct {
@@ -681,6 +682,17 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 		return
 	}
 
+	// Import blocks stay on one line with a space pad: `import ( a b c )`.
+	// Empty `import ()` renders without internal padding.
+	if ctx == parenContextImport {
+		p.emitChar("(")
+		if !p.isEmptyParenList(idx, tokens) {
+			p.writeSpace()
+		}
+		p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+		return
+	}
+
 	// Check if this paren list should be multiline
 	if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 		depth := len(p.parenContextStack)
@@ -702,8 +714,18 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 
 func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	p.popDelimiter()
-	p.popParenContext()
+	ctx := p.popParenContext()
 	depth := len(p.parenContextStack) + 1
+
+	// Trailing space pad for non-empty import blocks: `... b c )`.
+	if ctx == parenContextImport {
+		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
+		if !isEmptyList {
+			p.writeSpace()
+		}
+		p.emitChar(")")
+		return
+	}
 
 	if p.multilineParens.Contains(depth) {
 		p.multilineParens.Remove(depth)
@@ -726,6 +748,9 @@ func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 func (p *printer) detectParenContext(idx int, tokens []antlr.Token) parenContext {
 	if idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerAUTHORITY {
 		return parenContextAuthority
+	}
+	if idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerIMPORT {
+		return parenContextImport
 	}
 	if p.isInputListParen(idx, tokens) {
 		return parenContextInputList
@@ -959,11 +984,23 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 func (p *printer) needsNewlineBefore(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerAUTHORITY:
+		// AUTHORITY also names an importable module; an `import ( authority )`
+		// shouldn't break onto a new line.
+		if tokType == parser.ArcLexerAUTHORITY && p.inImportParenContext() {
+			return false
+		}
 		return p.prevToken != nil && p.lastTokenType != parser.ArcLexerRBRACE
 	case parser.ArcLexerSTAGE:
 		return p.prevToken != nil
 	}
 	return false
+}
+
+func (p *printer) inImportParenContext() bool {
+	if len(p.parenContextStack) == 0 {
+		return false
+	}
+	return p.parenContextStack[len(p.parenContextStack)-1] == parenContextImport
 }
 
 func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {
@@ -1099,7 +1136,8 @@ func (p *printer) isKeyword(tokType int) bool {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
 		parser.ArcLexerFOR, parser.ArcLexerRETURN,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
-		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
+		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY,
+		parser.ArcLexerIMPORT, parser.ArcLexerAS:
 		return true
 	}
 	return false
@@ -1137,7 +1175,7 @@ func (p *printer) needsSpaceBeforeParen() bool {
 	switch p.lastTokenType {
 	case parser.ArcLexerIDENTIFIER:
 		return false
-	case parser.ArcLexerIF, parser.ArcLexerAUTHORITY:
+	case parser.ArcLexerIF, parser.ArcLexerAUTHORITY, parser.ArcLexerIMPORT:
 		return true
 	case parser.ArcLexerRBRACE:
 		return true

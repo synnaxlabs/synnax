@@ -37,6 +37,18 @@ var _ = Describe("Formatter", func() {
 		Entry("power with multiply", "x := 2 ^ 3 * 4", "x := 2 ^ 3 * 4\n"),
 	)
 
+	DescribeTable("Imports",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single module", "import(time)", "import ( time )\n"),
+		Entry("multiple modules", "import (time math status)", "import ( time math status )\n"),
+		Entry("aliased", "import (time as t)", "import ( time as t )\n"),
+		Entry("hierarchical path", "import (math.trig)", "import ( math.trig )\n"),
+		Entry("authority keyword", "import (authority)", "import ( authority )\n"),
+		Entry("empty", "import ()", "import ()\n"),
+	)
+
 	DescribeTable("Unit Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))

@@ -108,7 +108,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|sequence|stage|next|authority)\\b"
+          "match": "\\b(func|sequence|stage|next|authority|import|as)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
