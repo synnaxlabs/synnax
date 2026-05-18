@@ -189,7 +189,6 @@ export const createReducer =
     switch (action.type) {
 {{- range .Actions}}
       case "{{ .TypeName }}":
-        if (action.{{ camelCase .Name }} == null) break;
         handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
         break;
 {{- end}}
