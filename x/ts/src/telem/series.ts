@@ -204,12 +204,14 @@ export class Series<T extends TelemValue = TelemValue>
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: z.coerce.bigint().optional(),
-    data: z.union([
-      stringArrayZ,
-      nullArrayZ,
-      z.instanceof(ArrayBuffer),
-      z.instanceof(Uint8Array),
-    ]),
+    data: z
+      .union([
+        stringArrayZ,
+        nullArrayZ,
+        z.instanceof(ArrayBuffer),
+        z.instanceof(Uint8Array),
+      ])
+      .default(() => new Uint8Array().buffer),
     glBufferUsage: glBufferUsageZ.default("static").optional(),
   });
 
