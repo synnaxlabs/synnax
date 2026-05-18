@@ -14,6 +14,7 @@ package schematic
 import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/union"
 )
 
 const (
@@ -96,51 +97,51 @@ type Action struct {
 
 // Reduce applies the given actions sequentially to state by dispatching on
 // each action's Type to the matching payload's Handle method. Unknown action
-// types and actions with a nil payload pointer for the named Type leave state
-// unchanged. Returns the first error encountered along with the partially-
-// reduced state.
+// types leave state unchanged. An action whose Type names a known variant but
+// carries a nil payload pointer returns an error. Returns the first error
+// encountered along with the partially-reduced state.
 func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeRename:
 			if a.Rename == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		case ActionTypeSetNodePosition:
 			if a.SetNodePosition == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
 		case ActionTypeSetNodeMeasured:
 			if a.SetNodeMeasured == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodeMeasured.Handle(state)
 		case ActionTypeSetNode:
 			if a.SetNode == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNode.Handle(state)
 		case ActionTypeRemoveNode:
 			if a.RemoveNode == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveNode.Handle(state)
 		case ActionTypeAddEdge:
 			if a.AddEdge == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.AddEdge.Handle(state)
 		case ActionTypeRemoveEdge:
 			if a.RemoveEdge == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveEdge.Handle(state)
 		case ActionTypeSetConfig:
 			if a.SetConfig == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetConfig.Handle(state)
 		default:

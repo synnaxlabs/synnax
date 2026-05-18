@@ -15,10 +15,12 @@ import { Layout } from "@/layout";
 import { MIDDLEWARE } from "@/schematic/middleware";
 import {
   actions,
+  purgeState,
   reducer,
   SLICE_NAME,
   type StoreState,
   ZERO_SLICE_STATE,
+  ZERO_STATE,
 } from "@/schematic/slice";
 
 describe("Schematic Slice", () => {
@@ -38,6 +40,13 @@ describe("Schematic Slice", () => {
     expect(s).toBeDefined();
     expect(s.selected).toEqual([]);
     expect(s.toolbar.activeTab).toBe("symbols");
+    expect(s.editable).toBe(false);
+  });
+
+  it("should honor an editable override on create", () => {
+    const key = "schematic-2";
+    store.dispatch(actions.create({ key, editable: true }));
+    const s = store.getState()[SLICE_NAME].schematics[key];
     expect(s.editable).toBe(true);
   });
 
@@ -52,6 +61,7 @@ describe("Schematic Slice", () => {
   });
 
   it("should toggle editable and clear selection on disable", () => {
+    store.dispatch(actions.setEditable({ key: layoutKey, editable: true }));
     store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
     store.dispatch(actions.setEditable({ key: layoutKey, editable: false }));
     const s = store.getState()[SLICE_NAME].schematics[layoutKey];
@@ -75,6 +85,17 @@ describe("Schematic Slice", () => {
   it("should remove a schematic", () => {
     store.dispatch(actions.remove({ keys: [layoutKey] }));
     expect(store.getState()[SLICE_NAME].schematics[layoutKey]).toBeUndefined();
+  });
+
+  it("should reset transient fields on purge", () => {
+    const state = structuredClone(ZERO_STATE);
+    state.controlStatus = "acquired";
+    state.selected = ["n1"];
+    state.toolbar = { ...state.toolbar, activeTab: "properties" };
+    purgeState(state);
+    expect(state.controlStatus).toBe("released");
+    expect(state.selected).toEqual([]);
+    expect(state.toolbar.activeTab).toBe("symbols");
   });
 });
 

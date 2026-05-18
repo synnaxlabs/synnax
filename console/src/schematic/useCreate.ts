@@ -29,7 +29,7 @@ export const useCreate = ({
     afterSuccess: async ({ data }) => {
       const { workspace, key, name } = data;
       if (workspace != null) await maybeChangeWorkspace(workspace);
-      placeLayout(create({ key, name }));
+      placeLayout(create({ key, name, editable: true }));
     },
   });
   return useCallback(

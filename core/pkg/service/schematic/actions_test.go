@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
 )
 
 // node constructs a node at the given coordinates. zIndex is left zero.
@@ -175,22 +176,34 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("RemoveEdge", func() {
-		It("Should remove the matching edge", func() {
-			state := schematic.Schematic{Edges: []schematic.Edge{
-				edge("e1", "a", "o", "b", "i"),
-				edge("e2", "b", "o", "c", "i"),
-			}}
+		It("Should remove the matching edge and any config stored under its key", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{
+					edge("e1", "a", "o", "b", "i"),
+					edge("e2", "b", "o", "c", "i"),
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"e1": {"color": "#fff"},
+					"e2": {"color": "#000"},
+				},
+			}
 			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "e1",
 			})))
 			Expect(out.Edges).To(Equal([]schematic.Edge{edge("e2", "b", "o", "c", "i")}))
+			Expect(out.Configs).ToNot(HaveKey("e1"))
+			Expect(out.Configs).To(HaveKey("e2"))
 		})
 		It("Should be a no-op when the key does not match any edge", func() {
-			state := schematic.Schematic{Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")}}
+			state := schematic.Schematic{
+				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
+				Configs: map[string]msgpack.EncodedJSON{"e1": {"color": "#fff"}},
+			}
 			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "ghost",
 			})))
 			Expect(out.Edges).To(Equal(state.Edges))
+			Expect(out.Configs).To(Equal(state.Configs))
 		})
 	})
 
@@ -435,16 +448,22 @@ var _ = Describe("Reducer", func() {
 			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: "totally_made_up"}))).To(Equal(state))
 		})
 
-		It("Should return state unchanged when Type names a variant whose payload pointer is nil", func() {
-			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNodePosition}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNode}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeRemoveNode}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeAddEdge}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeRemoveEdge}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetConfig}))).To(Equal(state))
-			Expect(MustSucceed(schematic.Reduce(state, schematic.Action{Type: schematic.ActionTypeSetNodeMeasured}))).To(Equal(state))
-		})
+		DescribeTable("Should error when Type names a variant whose payload pointer is nil",
+			func(actionType string) {
+				state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
+				out, err := schematic.Reduce(state, schematic.Action{Type: actionType})
+				Expect(err).To(MatchError(union.ErrMissingPayload))
+				Expect(out).To(Equal(state))
+			},
+			Entry("rename", schematic.ActionTypeRename),
+			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
+			Entry("set_node_measured", schematic.ActionTypeSetNodeMeasured),
+			Entry("set_node", schematic.ActionTypeSetNode),
+			Entry("remove_node", schematic.ActionTypeRemoveNode),
+			Entry("add_edge", schematic.ActionTypeAddEdge),
+			Entry("remove_edge", schematic.ActionTypeRemoveEdge),
+			Entry("set_config", schematic.ActionTypeSetConfig),
+		)
 
 		It("Should dispatch on Type and ignore extra payload pointers when more than one is set", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}

@@ -22,6 +22,8 @@ import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
+// preventDefault is a vi.fn() mock here, so passing it to expect() loses no
+// `this` binding — the unbound-method warning does not apply.
 /* eslint-disable @typescript-eslint/unbound-method */
 
 const createDataTransfer = (initial: Record<string, string> = {}): DataTransfer => {

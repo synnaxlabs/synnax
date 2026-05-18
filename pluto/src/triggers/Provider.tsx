@@ -110,7 +110,7 @@ export const Provider = ({
   const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
     const next = state.next.length > 0 ? [state.next] : [];
     const prev = state.prev.length > 0 ? [state.prev] : [];
-    let minPriority = Number.NEGATIVE_INFINITY;
+    let minPriority = -Infinity;
     for (const { callback, priority } of registry.current) {
       if (priority < minPriority) break;
       const stopPropagation = () => {
