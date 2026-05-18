@@ -9,13 +9,12 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
-import { useRetrieveEffect } from "@/schematic/symbol/queries";
 
 export interface Props {
   specKey: string;
@@ -32,21 +31,19 @@ export const Primitive = ({
   className,
   stateOverrides,
 }: Props): ReactElement => {
-  const [spec, setSpec] = useState<schematic.symbol.Spec | undefined>(undefined);
-  useRetrieveEffect({
-    query: { key: specKey },
-    onChange: (res) => setSpec(res.data?.data),
-  });
+  const resolution = Custom.useResolveSymbol(specKey);
   const containerRef = useRef<HTMLDivElement>(null);
   Custom.useRender({
     container: containerRef.current,
     orientation,
     activeState: "base",
     externalScale: scale,
-    spec,
+    spec: resolution.status === "resolved" ? resolution.spec : undefined,
     stateOverrides,
   });
-  const handles = spec?.handles ?? [];
+  if (resolution.status === "missing")
+    return <Custom.Missing orientation={orientation} className={className} />;
+  const handles = resolution.status === "resolved" ? resolution.spec.handles : [];
   return (
     <Base.Div
       ref={containerRef}

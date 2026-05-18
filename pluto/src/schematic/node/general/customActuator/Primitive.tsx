@@ -9,13 +9,12 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
-import { type MouseEventHandler, type ReactElement, useRef, useState } from "react";
+import { type MouseEventHandler, type ReactElement, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { useRetrieveEffect } from "@/schematic/symbol/queries";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   specKey: string;
@@ -35,21 +34,19 @@ export const Primitive = ({
   stateOverrides,
   ...rest
 }: Props): ReactElement => {
-  const [spec, setSpec] = useState<schematic.symbol.Spec | undefined>(undefined);
-  useRetrieveEffect({
-    query: { key: specKey },
-    onChange: (res) => setSpec(res.data?.data),
-  });
+  const resolution = Custom.useResolveSymbol(specKey);
   const containerRef = useRef<HTMLButtonElement>(null);
   Custom.useRender({
     container: containerRef.current,
     orientation,
     activeState: enabled ? "active" : "base",
     externalScale: scale,
-    spec,
+    spec: resolution.status === "resolved" ? resolution.spec : undefined,
     stateOverrides,
   });
-  const handles = spec?.handles ?? [];
+  if (resolution.status === "missing")
+    return <Custom.Missing orientation={orientation} className={className} />;
+  const handles = resolution.status === "resolved" ? resolution.spec.handles : [];
   return (
     <Toggle.Button
       ref={containerRef}
