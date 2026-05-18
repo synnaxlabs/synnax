@@ -29,7 +29,7 @@ std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str) {
     return {
         TimeFormat::ISO8601,
         errors::Error(
-            ERROR,
+            BASE_ERROR,
             "unknown time format \"" + str +
                 "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\","
                 " \"unix_us\", or \"unix_ns\""
