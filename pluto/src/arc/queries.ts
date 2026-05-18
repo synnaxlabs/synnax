@@ -372,7 +372,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
           ).length > 0;
         if (isChild)
           onChange((prev) => {
-            if (prev == null) return tsk as task.Task;
+            if (prev == null) return tsk;
             return client.tasks.sugar({ ...tsk.payload, status: prev.status });
           });
       }),

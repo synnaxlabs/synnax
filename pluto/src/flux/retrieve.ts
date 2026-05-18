@@ -435,12 +435,7 @@ const useSuspended = <
           }
           cache.set(memoQuery, successResult(name, next));
         };
-        const result = mountListeners({
-          client: client as AllowDisconnected extends true ? Client | null : Client,
-          store,
-          query: memoQuery,
-          onChange,
-        });
+        const result = mountListeners({ client, store, query: memoQuery, onChange });
         const listeners = Array.isArray(result) ? result : [result];
         return () => {
           cacheSub();
