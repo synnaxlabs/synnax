@@ -19,6 +19,4 @@ import z from "zod";
  * - [items] → [items]
  */
 export const nullishToEmpty = <Z extends z.ZodType>(item: Z) =>
-  z
-    .union([z.null().transform<z.infer<Z>[]>(() => []), item.array()])
-    .default(() => []);
+  z.union([z.null().transform<z.infer<Z>[]>(() => []), item.array()]).default(() => []);
