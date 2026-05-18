@@ -28,6 +28,16 @@ import { type NameProps, type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
+/**
+ * The visual variant of the tab selector.
+ *
+ * - `default`: flat strip with a bottom border and a primary-colored underline on the
+ *   selected tab.
+ * - `pill`: separated rounded buttons; the selected tab has a filled background and
+ *   no underline. Inspired by Linear's nav style.
+ */
+export type SelectorVariant = "default" | "pill";
+
 export interface SelectorProps extends Omit<
   Flex.BoxProps,
   "children" | "contextMenu" | "onDrop"
@@ -38,6 +48,7 @@ export interface SelectorProps extends Omit<
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
   actions?: ReactNode;
+  variant?: SelectorVariant;
 }
 
 const CLS = "tabs-selector";
@@ -50,8 +61,10 @@ export const Selector = ({
   contextMenu,
   addTooltip,
   actions,
+  variant = "default",
   ...rest
 }: SelectorProps): ReactElement | null => {
+  const isDefault = variant === "default";
   const {
     tabs,
     selected,
@@ -79,6 +92,7 @@ export const Selector = ({
       <Flex.Box
         className={CSS(
           CSS.B(CLS),
+          CSS.BM(CLS, variant),
           className,
           menuProps.className,
           draggingOver && CSS.M("drag-over"),
@@ -86,13 +100,18 @@ export const Selector = ({
         size={size}
         align="center"
         justify="between"
-        empty
+        empty={isDefault}
         direction={direction}
         onContextMenu={menuProps.open}
         onDrop={onDrop}
         {...rest}
       >
-        <Flex.Box direction={direction} className={CSS.BE(CLS, "tabs")} empty>
+        <Flex.Box
+          direction={direction}
+          className={CSS.BE(CLS, "tabs")}
+          empty={isDefault}
+          gap={isDefault ? undefined : "small"}
+        >
           {tabs.map((tab) => (
             <SelectorButton
               key={tab.tabKey}
@@ -105,6 +124,7 @@ export const Selector = ({
               onRename={onRename}
               closable={tab.closable ?? closable}
               size={size}
+              variant={variant}
               Name={Name}
               {...tab}
             />
@@ -125,10 +145,11 @@ export const Selector = ({
             {onCreate != null && (
               <Button.Button
                 size={size}
-                sharp
                 onClick={onCreate}
                 tooltip={addTooltip}
                 variant="text"
+                sharp={isDefault}
+                contrast={isDefault ? undefined : 2}
               >
                 <Icon.Add />
               </Button.Button>
@@ -187,6 +208,20 @@ const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
   });
 };
 
+const PILL_BUTTON_PROPS = {
+  variant: "outlined",
+  rounded: true,
+  contrast: 2,
+  color: 1,
+  textColor: 1,
+} as const;
+
+const DEFAULT_BUTTON_PROPS = {
+  variant: "text",
+  bordered: false,
+  sharp: true,
+} as const;
+
 const SelectorButton = ({
   selected,
   altColor = false,
@@ -204,6 +239,7 @@ const SelectorButton = ({
   unsavedChanges = false,
   loading = false,
   onDrop,
+  variant,
   Name = DefaultName,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLElement> = useCallback(
@@ -244,15 +280,15 @@ const SelectorButton = ({
   );
 
   const isSelected = selected === tabKey;
+  const isPill = variant === "pill";
   const level = Text.COMPONENT_SIZE_LEVELS[size];
+  const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
 
   return (
     <Button.Button
       el="div"
       size={size}
       id={tabKey}
-      variant="text"
-      sharp
       className={CSS(
         Menu.CONTEXT_TARGET,
         TABS_SELECTOR_BUTTON_CLASS,
@@ -279,8 +315,8 @@ const SelectorButton = ({
         setDragOverPosition(null);
         handleDragEnd(e);
       }}
-      bordered={false}
-      rounded={false}
+      {...variantProps}
+      borderColor={isPill ? (isSelected ? 7 : 5) : undefined}
     >
       <StartIcon loading={loading} icon={icon} level={level} />
       <Name
@@ -289,6 +325,7 @@ const SelectorButton = ({
         onRename={onRename}
         editable={editable}
         level={level}
+        selected={isSelected}
       />
       {closable && onClose != null && (
         <Button.Button
@@ -315,15 +352,19 @@ export interface SelectorButtonProps extends Spec {
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
   size: Component.Size;
+  variant: SelectorVariant;
   Name?: ComponentType<NameProps>;
 }
 
 export interface DefaultNameProps
-  extends NameProps, Omit<Text.TextProps, "level" | "onChange"> {}
+  extends NameProps, Omit<Text.TextProps, "level" | "onChange"> {
+  selected: boolean;
+}
 
 export const DefaultName = ({
   onRename,
   name,
+  selected,
   tabKey,
   editable = true,
   level,
@@ -342,6 +383,7 @@ export const DefaultName = ({
       onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
       overflow="ellipsis"
+      color={selected ? 11 : 8}
       {...rest}
     />
   );

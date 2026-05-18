@@ -47,6 +47,7 @@ export interface NameProps {
   tabKey: string;
   name: string;
   level: Text.Level;
+  selected: boolean;
   onRename?: (key: string, name: string) => void;
   editable?: boolean;
 }

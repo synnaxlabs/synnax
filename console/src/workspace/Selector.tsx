@@ -88,13 +88,13 @@ export const Selector = (): ReactElement | null => {
         allowNone
       >
         <Dialog.Trigger
-          size="medium"
           className={CSS.B("trigger")}
           contrast={2}
+          size="large"
           weight={400}
+          hideCaret
         >
           <Icon.Workspace key="workspace" />
-          {active?.name ?? "No workspace"}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>

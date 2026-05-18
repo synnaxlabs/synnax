@@ -9,31 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-palette {
-    width: min(100%, 600px);
-    transition: width 0.3s;
-}
-
-@media (max-width: 1100px) {
-    .console-palette {
-        width: min(100%, 400px);
-    }
-}
-
-@media (max-width: 800px) {
-    .console-palette {
-        width: 100% !important;
-        max-width: 50px;
-        & .pluto-btn span {
-            display: none;
-        }
-    }
-    .pluto-navbar.pluto--location-top .pluto-navbar__content.pluto--center {
-        justify-content: start;
-        padding-left: 2rem;
-    }
-}
-
 .console-palette__content {
     width: 100%;
     max-width: 1200px;

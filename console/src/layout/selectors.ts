@@ -15,11 +15,16 @@ import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {
   type NavDrawerEntryState,
   type NavDrawerLocation,
+  type PanelMeta,
   SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
+  type WindowPanelsState,
 } from "@/layout/slice";
+
+const activeMosaicKey = (state: SliceState, windowKey: string): string =>
+  state.windowPanels[windowKey]?.active ?? windowKey;
 
 /**
  * Selects the layout state.
@@ -127,7 +132,11 @@ export const selectMosaic = (
 ): [string, Mosaic.Node] | [null, null] => {
   const winKey = selectWindowKey(state, windowKey);
   if (winKey == null) return [null, null];
-  return [winKey, selectSliceState(state).mosaics[winKey].root];
+  const slice = selectSliceState(state);
+  const panelKey = activeMosaicKey(slice, winKey);
+  const mosaic = slice.mosaics[panelKey];
+  if (mosaic == null) return [null, null];
+  return [winKey, mosaic.root];
 };
 
 export interface UseSelectFocusedReturn {
@@ -141,9 +150,11 @@ export const selectFocused = (
 ): UseSelectFocusedReturn => {
   const win = selectWindow(state, windowKey);
   if (win == null) return { windowKey: null, focused: null };
+  const slice = selectSliceState(state);
+  const panelKey = activeMosaicKey(slice, win.key);
   return {
     windowKey: win.key,
-    focused: selectSliceState(state).mosaics[win.key]?.focused ?? null,
+    focused: slice.mosaics[panelKey]?.focused ?? null,
   };
 };
 
@@ -258,8 +269,9 @@ export const selectActiveMosaicTabState = (
   const hasModals = Object.values(sliceState.layouts).some(
     (l) => l.location === "modal" && l.windowKey === winKey,
   );
+  const panelKey = activeMosaicKey(sliceState, winKey);
   return {
-    layoutKey: sliceState.mosaics[winKey].activeTab,
+    layoutKey: sliceState.mosaics[panelKey]?.activeTab ?? null,
     blurred: hasModals,
   };
 };
@@ -317,3 +329,47 @@ export const selectColorContext = (state: StoreState): Color.ContextState => {
 
 export const useSelectColorContext = (): Color.ContextState =>
   useMemoSelect(selectColorContext, []);
+
+export const selectWindowPanels = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): WindowPanelsState | null => {
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return null;
+  return selectSliceState(state).windowPanels[winKey] ?? null;
+};
+
+export const useSelectWindowPanels = (): WindowPanelsState | null =>
+  useMemoSelect(selectWindowPanels, []);
+
+export const selectActivePanelKey = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string | null => {
+  const wp = selectWindowPanels(state, windowKey);
+  return wp?.active ?? null;
+};
+
+export const useSelectActivePanelKey = (): string | null =>
+  useMemoSelect(selectActivePanelKey, []);
+
+export const selectPanel = (state: StoreState, key: string): PanelMeta | null =>
+  selectSliceState(state).panels[key] ?? null;
+
+export const useSelectPanel = (key: string): PanelMeta | null =>
+  useMemoSelect((state: StoreState) => selectPanel(state, key), [key]);
+
+export const selectOrderedPanels = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): PanelMeta[] => {
+  const wp = selectWindowPanels(state, windowKey);
+  if (wp == null) return [];
+  const slice = selectSliceState(state);
+  return wp.order
+    .map((k) => slice.panels[k])
+    .filter((p): p is PanelMeta => p != null);
+};
+
+export const useSelectOrderedPanels = (): PanelMeta[] =>
+  useMemoSelect(selectOrderedPanels, []);
