@@ -211,6 +211,21 @@ var _ = Describe("Parse", func() {
 					Start: 0, End: 13, SpecOffset: 10,
 				},
 			}),
+		Entry("placeholder with index expression", "{arr[0]}",
+			[]literal.FmtStrSegment{
+				{Text: "arr[0]", IsPlaceholder: true, Start: 0, End: 8, SpecOffset: -1},
+			}),
+		Entry("placeholder with slice expression", "{arr[0:5]}",
+			[]literal.FmtStrSegment{
+				{Text: "arr[0:5]", IsPlaceholder: true, Start: 0, End: 10, SpecOffset: -1},
+			}),
+		Entry("placeholder with slice expression and spec", "{arr[0:5]:s}",
+			[]literal.FmtStrSegment{
+				{
+					Text: "arr[0:5]", Spec: "s", IsPlaceholder: true,
+					Start: 0, End: 12, SpecOffset: 9,
+				},
+			}),
 	)
 
 	DescribeTable("error cases",

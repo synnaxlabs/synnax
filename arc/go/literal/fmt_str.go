@@ -132,20 +132,25 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return 0, errors.New("unmatched '{'")
 }
 
-// splitSpec splits a placeholder body on the last `:` at brace depth 0,
-// yielding (expr, spec). Colons inside nested `{...}` (e.g. struct literals)
-// are skipped.
+// splitSpec splits a placeholder body on the last `:` at brace and bracket
+// depth 0, yielding (expr, spec). Colons inside nested `{...}` (struct
+// literals) or `[...]` (index/slice expressions) are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
 	idx := -1
-	depth := 0
+	braceDepth := 0
+	bracketDepth := 0
 	for i := len(body) - 1; i >= 0; i-- {
 		switch body[i] {
 		case '}':
-			depth++
+			braceDepth++
 		case '{':
-			depth--
+			braceDepth--
+		case ']':
+			bracketDepth++
+		case '[':
+			bracketDepth--
 		case ':':
-			if depth == 0 {
+			if braceDepth == 0 && bracketDepth == 0 {
 				idx = i
 			}
 		}
