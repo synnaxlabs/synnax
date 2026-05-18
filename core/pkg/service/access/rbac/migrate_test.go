@@ -20,8 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -55,31 +56,37 @@ func userHasSpecificRole(
 var _ = Describe("Legacy Permission Migration", func() {
 	It("Should migrate users with legacy policies to correct roles", func(ctx SpecContext) {
 		// Set up a fresh DB with legacy data pre-seeded
-		testDB := DeferClose(gorp.Wrap(memkv.New()))
-		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		testSearch := MustOpen(search.Open())
-		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Search:   testSearch,
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
 		}))
-		testUserSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Group:    testGroup,
-			Search:   testSearch,
+		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			DB:              db,
+			Ontology:        otg,
+			Group:           groupSvc,
+			Search:          searchIdx,
+			Auth:            authSvc,
+			RootCredentials: auth.Credentials{Username: "root", Password: "p"},
 		}))
 
 		// Create test users
-		tx := testDB.OpenTx()
-		rootUser := &user.User{Username: "root", RootUser: true}
-		Expect(testUserSvc.NewWriter(tx).Create(ctx, rootUser)).To(Succeed())
-		adminUser := &user.User{Username: "admin"}
-		Expect(testUserSvc.NewWriter(tx).Create(ctx, adminUser)).To(Succeed())
-		schematicUser := &user.User{Username: "schematicuser"}
-		Expect(testUserSvc.NewWriter(tx).Create(ctx, schematicUser)).To(Succeed())
-		regularUser := &user.User{Username: "regular"}
-		Expect(testUserSvc.NewWriter(tx).Create(ctx, regularUser)).To(Succeed())
+		tx := DeferClose(db.OpenTx())
+		w := userSvc.NewWriter(tx)
+		var rootUser user.User
+		Expect(userSvc.NewRetrieve().
+			Where(user.MatchUsernames("root")).
+			Entry(&rootUser).
+			Exec(ctx, tx)).To(Succeed())
+		adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
+		schematicUser := MustSucceed(w.Create(ctx, user.User{
+			Username: "schematicuser",
+		}))
+		regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
 
 		// Seed legacy policies with Subjects field
 		adminPolicy := v0.Policy{
@@ -104,16 +111,15 @@ var _ = Describe("Legacy Permission Migration", func() {
 
 		// Open RBAC service, which runs Phase 1 (extraction) and Phase 2 (assignment)
 		testRBAC := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Group:    testGroup,
-			Search:   testSearch,
-			User:     testUserSvc,
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
 		}))
 
 		// Look up the built-in role keys
-		tx2 := testDB.OpenTx()
-		defer func() { Expect(tx2.Close()).To(Succeed()) }()
+		tx2 := DeferClose(db.OpenTx())
 
 		var ownerRole role.Role
 		Expect(testRBAC.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
@@ -123,13 +129,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(testRBAC.Role.NewRetrieve().Where(role.MatchNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
 
 		// Root user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(rootUser.Key), ownerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(rootUser.Key), ownerRole.Key)).To(BeTrue())
 		// Admin policy user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(adminUser.Key), ownerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(adminUser.Key), ownerRole.Key)).To(BeTrue())
 		// Schematic policy user -> Engineer
-		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(schematicUser.Key), engineerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(schematicUser.Key), engineerRole.Key)).To(BeTrue())
 		// Regular user -> Operator
-		Expect(userHasSpecificRole(ctx, tx2, testOtg, user.OntologyID(regularUser.Key), operatorRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(regularUser.Key), operatorRole.Key)).To(BeTrue())
 
 		// Legacy policies should be deleted
 		reader := gorp.WrapReader[uuid.UUID, v0.Policy](tx2)
@@ -145,38 +151,41 @@ var _ = Describe("Legacy Permission Migration", func() {
 	})
 
 	It("Should be idempotent across multiple service opens", func(ctx SpecContext) {
-		testDB := DeferClose(gorp.Wrap(memkv.New()))
-		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		testSearch := MustOpen(search.Open())
-		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Search:   testSearch,
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
 		}))
-		testUserSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Group:    testGroup,
-			Search:   testSearch,
+		authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+		userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			DB:              db,
+			Ontology:        otg,
+			Group:           groupSvc,
+			Search:          searchIdx,
+			Auth:            authSvc,
+			RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 		}))
 
 		// First open
 		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Group:    testGroup,
-			Search:   testSearch,
-			User:     testUserSvc,
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
 		}))
 		Expect(svc1.Close()).To(Succeed())
 
 		// Second open should not fail
 		svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       testDB,
-			Ontology: testOtg,
-			Group:    testGroup,
-			Search:   testSearch,
-			User:     testUserSvc,
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+			User:     userSvc,
 		}))
 		Expect(svc2.Close()).To(Succeed())
 	})
