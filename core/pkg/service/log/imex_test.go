@@ -66,7 +66,7 @@ var _ = Describe("ImportExport", func() {
 		It("Should reject a channel with a malformed color hex", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_invalid_color.json")
 			Expect(svc.Import(ctx, tx, env)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("channels[0]")),
+				MatchError(ContainSubstring("invalid hex color")),
 				MatchError(ContainSubstring("not-a-hex")),
 			))
 		})

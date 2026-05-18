@@ -10,56 +10,150 @@
 package v1
 
 import (
+	"encoding/json"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/zyn"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const Version imex.Version = 1
 
-// ChannelEntry is a channel reference with display configuration.
+// TimestampConfig is per-channel timestamp display configuration. v1 was originally
+// frozen without this struct; the field was added later by console clients and
+// persisted through the v55 gorp blob without bumping the wire-format version, so
+// v1 captures it here for round-trip fidelity.
+type TimestampConfig struct {
+	Format telem.TimestampFormat `json:"format"`
+	Tz     telem.Timezone        `json:"tz"`
+}
+
+// ChannelEntry is a channel reference with display configuration. Fields are typed
+// so a successful Parse produces a directly-usable value; color.Color.UnmarshalJSON
+// converts the wire-format hex string into the typed Color.
 type ChannelEntry struct {
-	Channel   int    `json:"channel"`
-	Color     string `json:"color"`
-	Notation  string `json:"notation"`
-	Precision int    `json:"precision"`
-	Alias     string `json:"alias"`
+	Channel   channel.Key       `json:"channel"`
+	Color     color.Color       `json:"color"`
+	Notation  notation.Notation `json:"notation"`
+	Precision int32             `json:"precision"`
+	Alias     string            `json:"alias"`
+	Timestamp TimestampConfig   `json:"timestamp"`
 }
 
 // Data is the frozen type for log data at version 1. Channels are stored as config
-// entries with display options. Key, Name, Type, and Version are envelope-level fields
-// and are not part of Data.
+// entries with display options. Key, Name, Type, and Version are envelope-level
+// fields and are not part of Data.
 type Data struct {
 	Channels             []ChannelEntry `json:"channels"`
 	RemoteCreated        bool           `json:"remote_created"`
-	TimestampPrecision   int            `json:"timestamp_precision"`
+	TimestampPrecision   int32          `json:"timestamp_precision"`
 	ShowChannelNames     bool           `json:"show_channel_names"`
 	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
 }
 
-// ToMap projects Data into the encoding-neutral map[string]any form used by the imex
-// envelope and the Log storage layer. Keys must mirror the json tags on Data; the
-// data_test.go drift test enforces that every tagged field appears here.
-func (d Data) ToMap() map[string]any {
-	return map[string]any{
-		"channels":               d.Channels,
-		"remote_created":         d.RemoteCreated,
-		"timestamp_precision":    d.TimestampPrecision,
-		"show_channel_names":     d.ShowChannelNames,
-		"show_receipt_timestamp": d.ShowReceiptTimestamp,
+// Parse marshals the imex map back to JSON and unmarshals it into a typed Data.
+// The typed fields (color.Color, notation.Notation, telem.TimestampFormat,
+// telem.Timezone) handle their own conversion via the standard library's
+// json.Unmarshaler interface where applicable, so the wire format flows directly
+// into the typed shape without per-field parser helpers. An empty per-channel
+// color string is scrubbed pre-unmarshal so it doesn't trip
+// color.Color.UnmarshalJSON, which has no opinion on the empty case; closed-set
+// membership for the enum fields is enforced by Validate, not by this function.
+// Callers that need strict validation chain the two together.
+func Parse(raw map[string]any) (Data, error) {
+	scrubChannels(raw, func(s string) bool { return s == "" })
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return Data{}, err
+	}
+	var d Data
+	if err := json.Unmarshal(b, &d); err != nil {
+		return Data{}, err
+	}
+	return d, nil
+}
+
+// ParseLenient is the gorp-boot variant of Parse. Before unmarshalling it also
+// scrubs any per-channel color hex that would fail color.Color.UnmarshalJSON so
+// a single corrupted field never blocks the whole row from loading. Enum strings
+// (notation, timestamp format, timezone) flow through unchanged — they assign
+// into named string types so unmarshal accepts any string; the latest-Log lift
+// substitutes defaults for values outside the closed sets. The returned Data is
+// always usable; an underlying json.Marshal failure produces a zero Data plus
+// the error, which the catch-all in MigrateLog then drops.
+func ParseLenient(raw map[string]any) (Data, error) {
+	scrubChannels(raw, func(s string) bool {
+		if s == "" {
+			return true
+		}
+		_, err := color.FromHex(s)
+		return err != nil
+	})
+	return Parse(raw)
+}
+
+// scrubChannels walks the per-channel color field on the raw map and removes any
+// value for which drop returns true, so the subsequent json.Unmarshal sees the
+// field as absent and color.Color stays at its zero value. The raw map is
+// mutated in place; both Parse and ParseLenient deliberately accept the side
+// effect because the map is owned by the imex envelope and isn't read again
+// after migration.
+func scrubChannels(raw map[string]any, drop func(string) bool) {
+	list, ok := raw["channels"].([]any)
+	if !ok {
+		return
+	}
+	for _, e := range list {
+		m, ok := e.(map[string]any)
+		if !ok {
+			continue
+		}
+		s, ok := m["color"].(string)
+		if !ok {
+			continue
+		}
+		if drop(s) {
+			delete(m, "color")
+		}
 	}
 }
 
-// Schema validates the wire shape of a v1 log payload.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"channels": zyn.Array(zyn.Object(map[string]zyn.Schema{
-		"channel":   zyn.Number().Int().Coerce(),
-		"color":     zyn.String().Optional(),
-		"notation":  zyn.String().Optional(),
-		"precision": zyn.Number().Int().Coerce().Optional(),
-		"alias":     zyn.String().Optional(),
-	})),
-	"remote_created":         zyn.Bool().Optional(),
-	"timestamp_precision":    zyn.Number().Int().Coerce().Optional(),
-	"show_channel_names":     zyn.Bool().Optional(),
-	"show_receipt_timestamp": zyn.Bool().Optional(),
-})
+// Validate enforces closed-set membership for the typed enum fields on Data. Used
+// by the imex import path so a malformed envelope is rejected at the API
+// boundary; the lenient gorp-boot path skips this and lets the latest-Log lift
+// substitute defaults for any invalid value that slipped past json.Unmarshal.
+func Validate(d Data) error {
+	for i, c := range d.Channels {
+		switch c.Notation {
+		case "",
+			notation.NotationStandard,
+			notation.NotationScientific,
+			notation.NotationEngineering:
+		default:
+			return errors.Newf("channels[%d].notation: invalid value %q", i, c.Notation)
+		}
+		switch c.Timestamp.Format {
+		case "",
+			telem.TimestampFormatPreciseTime,
+			telem.TimestampFormatPreciseDate,
+			telem.TimestampFormatIso:
+		default:
+			return errors.Newf(
+				"channels[%d].timestamp.format: invalid value %q",
+				i, c.Timestamp.Format,
+			)
+		}
+		switch c.Timestamp.Tz {
+		case "", telem.TimezoneLocal, telem.TimezoneUtc:
+		default:
+			return errors.Newf(
+				"channels[%d].timestamp.tz: invalid value %q",
+				i, c.Timestamp.Tz,
+			)
+		}
+	}
+	return nil
+}

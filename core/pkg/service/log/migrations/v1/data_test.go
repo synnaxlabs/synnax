@@ -11,52 +11,31 @@ package v1_test
 
 import (
 	"encoding/json"
-	"reflect"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Data", func() {
-	Describe("ToMap", func() {
-		It("Should produce a key for every json-tagged field on Data", func() {
-			m := v1.Data{}.ToMap()
-			t := reflect.TypeOf(v1.Data{})
-			for i := range t.NumField() {
-				tag := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
-				Expect(m).To(HaveKey(tag), "field %s missing from Data.ToMap", tag)
-			}
-		})
-
-		It("Should preserve typed values without coercing through JSON", func() {
-			d := v1.Data{
-				Channels:             []v1.ChannelEntry{{Channel: 7, Color: "red"}},
-				RemoteCreated:        true,
-				TimestampPrecision:   3,
-				ShowChannelNames:     false,
-				ShowReceiptTimestamp: true,
-			}
-			m := d.ToMap()
-			Expect(m["channels"]).To(Equal(d.Channels))
-			Expect(m["remote_created"]).To(Equal(true))
-			Expect(m["timestamp_precision"]).To(Equal(3))
-			Expect(m["show_channel_names"]).To(Equal(false))
-			Expect(m["show_receipt_timestamp"]).To(Equal(true))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should parse a valid v1 payload with all fields populated", func() {
+	Describe("Parse", func() {
+		It("Should parse a fully populated v1 payload via json.Unmarshal", func() {
 			data := map[string]any{
 				"channels": []any{
 					map[string]any{
 						"channel":   1,
-						"color":     "red",
+						"color":     "#ff0000",
 						"notation":  "scientific",
 						"precision": 2,
 						"alias":     "temp",
+						"timestamp": map[string]any{
+							"format": "ISO",
+							"tz":     "UTC",
+						},
 					},
 				},
 				"remote_created":         true,
@@ -64,27 +43,21 @@ var _ = Describe("Data", func() {
 				"show_channel_names":     false,
 				"show_receipt_timestamp": true,
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(Succeed())
+			d := MustSucceed(v1.Parse(data))
 			Expect(d.Channels).To(HaveLen(1))
-			Expect(d.Channels[0].Channel).To(Equal(1))
-			Expect(d.Channels[0].Color).To(Equal("red"))
-			Expect(d.Channels[0].Notation).To(Equal("scientific"))
-			Expect(d.Channels[0].Precision).To(Equal(2))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(d.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(d.Channels[0].Notation).To(Equal(notation.NotationScientific))
+			Expect(d.Channels[0].Precision).To(Equal(int32(2)))
 			Expect(d.Channels[0].Alias).To(Equal("temp"))
-			Expect(d.RemoteCreated).To(BeTrue())
-			Expect(d.TimestampPrecision).To(Equal(3))
-			Expect(d.ShowChannelNames).To(BeFalse())
-			Expect(d.ShowReceiptTimestamp).To(BeTrue())
 		})
 
-		It("Should accept channel entries with only the required channel field", func() {
+		It("Should accept channel entries with only the channel field", func() {
 			data := map[string]any{
 				"channels": []any{map[string]any{"channel": 5}},
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(Succeed())
-			Expect(d.Channels[0].Channel).To(Equal(5))
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(5)))
 		})
 
 		It("Should coerce json.Number values throughout the payload", func() {
@@ -97,53 +70,66 @@ var _ = Describe("Data", func() {
 				},
 				"timestamp_precision": json.Number("2"),
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(Succeed())
-			Expect(d.Channels[0].Channel).To(Equal(7))
-			Expect(d.Channels[0].Precision).To(Equal(4))
-			Expect(d.TimestampPrecision).To(Equal(2))
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(7)))
+			Expect(d.Channels[0].Precision).To(Equal(int32(4)))
+			Expect(d.TimestampPrecision).To(Equal(int32(2)))
 		})
 
-		It("Should reject a missing channels field", func() {
-			data := map[string]any{"remote_created": true}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channels")))
-		})
-
-		It("Should reject a channel entry missing the required channel key", func() {
+		It("Should fail on a malformed color hex", func() {
 			data := map[string]any{
-				"channels": []any{map[string]any{"color": "red"}},
+				"channels": []any{map[string]any{"channel": 1, "color": "not-a-hex"}},
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channel")))
+			Expect(v1.Parse(data)).Error().To(MatchError(ContainSubstring("invalid hex color")))
 		})
 
-		It("Should reject channels containing a non-object entry", func() {
-			data := map[string]any{"channels": []any{1, 2, 3}}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channels")))
-		})
-
-		It("Should reject a non-bool show_channel_names", func() {
+		It("Should accept any string for a typed enum (Validate enforces closed sets)", func() {
 			data := map[string]any{
-				"channels":           []any{map[string]any{"channel": 1}},
-				"show_channel_names": "yes",
+				"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(
-				MatchError(ContainSubstring("show_channel_names")),
-			)
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+		})
+	})
+
+	Describe("ParseLenient", func() {
+		It("Should drop an invalid color hex pre-unmarshal", func() {
+			data := map[string]any{
+				"channels": []any{
+					map[string]any{"channel": 1, "color": "not-a-hex"},
+				},
+			}
+			d := MustSucceed(v1.ParseLenient(data))
+			Expect(d.Channels).To(HaveLen(1))
+			Expect(d.Channels[0].Color).To(Equal(color.Color{}))
 		})
 
-		It("Should reject a fractional timestamp_precision", func() {
+		It("Should leave enum strings unchanged for the latest-Log lift to handle", func() {
 			data := map[string]any{
-				"channels":            []any{map[string]any{"channel": 1}},
-				"timestamp_precision": 1.5,
+				"channels": []any{
+					map[string]any{"channel": 1, "notation": "garbage"},
+				},
 			}
-			var d v1.Data
-			Expect(v1.Schema.Parse(data, &d)).To(
-				MatchError(ContainSubstring("timestamp_precision")),
-			)
+			d := MustSucceed(v1.ParseLenient(data))
+			Expect(d.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+		})
+	})
+
+	Describe("Validate", func() {
+		It("Should accept a Data with no enum violations", func() {
+			d := v1.Data{Channels: []v1.ChannelEntry{{
+				Channel:  channel.Key(1),
+				Notation: notation.NotationScientific,
+			}}}
+			Expect(v1.Validate(d)).To(Succeed())
+		})
+
+		It("Should reject an unknown notation value", func() {
+			d := v1.Data{Channels: []v1.ChannelEntry{{
+				Channel:  channel.Key(1),
+				Notation: notation.Notation("logarithmic"),
+			}}}
+			Expect(v1.Validate(d)).To(MatchError(ContainSubstring("invalid value \"logarithmic\"")))
 		})
 	})
 })

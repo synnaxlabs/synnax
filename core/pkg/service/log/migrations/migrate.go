@@ -9,10 +9,10 @@
 
 // Package migrations is the single entry point for migrating an opaque log data payload
 // through the chain of historical wire formats up to the latest version. Each
-// subpackage v0..vN owns a frozen Data shape, its Schema, and (for vN > v0) a typed
-// Migrate function that lifts the previous version's Data into its own. This package
-// owns the version-to-parser dispatch and the forward lift chain, so the per-version
-// subpackages contain no version-dispatch logic.
+// subpackage v0..vN owns a frozen Data shape and (for vN > v0) a typed Migrate function
+// that lifts the previous version's Data into its own. This package owns the version-
+// to-parser dispatch and the forward lift chain, so the per-version subpackages contain
+// no version-dispatch logic.
 package migrations
 
 import (
@@ -29,9 +29,11 @@ type LatestData = v1.Data
 const LatestVersion = v1.Version
 
 // Migrate parses a wire-format log payload at its declared version and walks the chain
-// of typed lifts forward to Latest. A version greater than LatestVersion is rejected as
+// of typed lifts forward to Latest. v1 is parsed via json.Unmarshal then strictly
+// validated; a malformed color hex or an enum value outside the closed set surfaces as
+// an error. A version greater than LatestVersion is rejected as
 // imex.ErrUnsupportedVersion; an unspecified or pre-v0 payload is parsed as v0 and
-// migrated forward.
+// migrated forward. Used by the imex import path.
 func Migrate(version imex.Version, data map[string]any) (LatestData, error) {
 	if version > LatestVersion {
 		return LatestData{}, imex.NewErrUnsupportedVersion(
@@ -40,11 +42,37 @@ func Migrate(version imex.Version, data map[string]any) (LatestData, error) {
 	}
 	switch version {
 	case v1.Version:
-		var d v1.Data
-		if err := v1.Schema.Parse(data, &d); err != nil {
+		d, err := v1.Parse(data)
+		if err != nil {
+			return LatestData{}, err
+		}
+		if err := v1.Validate(d); err != nil {
 			return LatestData{}, err
 		}
 		return d, nil
+	default:
+		var d v0.Data
+		if err := v0.Schema.Parse(data, &d); err != nil {
+			return LatestData{}, err
+		}
+		return v1.Migrate(d), nil
+	}
+}
+
+// MigrateLenient is the gorp-boot variant of Migrate. v1 is parsed via v1.ParseLenient
+// (which scrubs invalid color hex pre-unmarshal) and Validate is skipped entirely, so
+// any enum value outside the closed set flows through as a typed string for the
+// latest-Log lift to substitute. Lower versions fall through the same v0→v1 chain
+// because their fields are too narrow to be invalid in the same way.
+func MigrateLenient(version imex.Version, data map[string]any) (LatestData, error) {
+	if version > LatestVersion {
+		return LatestData{}, imex.NewErrUnsupportedVersion(
+			string(ontology.ResourceTypeLog), version, LatestVersion,
+		)
+	}
+	switch version {
+	case v1.Version:
+		return v1.ParseLenient(data)
 	default:
 		var d v0.Data
 		if err := v0.Schema.Parse(data, &d); err != nil {

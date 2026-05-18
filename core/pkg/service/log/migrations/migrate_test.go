@@ -12,9 +12,12 @@ package migrations_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,7 +32,7 @@ var _ = Describe("Migrate", func() {
 			"channels": []any{
 				map[string]any{
 					"channel":   1,
-					"color":     "blue",
+					"color":     "#0000ff",
 					"notation":  "scientific",
 					"precision": 2,
 				},
@@ -41,18 +44,26 @@ var _ = Describe("Migrate", func() {
 		}
 		result := MustSucceed(migrations.Migrate(v1.Version, data))
 		Expect(result.Channels).To(HaveLen(1))
-		Expect(result.Channels[0].Channel).To(Equal(1))
-		Expect(result.Channels[0].Color).To(Equal("blue"))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Color).To(Equal(color.MustFromHex("#0000ff")))
 		Expect(result.RemoteCreated).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeFalse())
 	})
 
-	It("Should reject a malformed v1 payload", func() {
+	It("Should reject a v1 payload with a malformed color hex", func() {
 		data := map[string]any{
-			"channels": []any{map[string]any{"color": "red"}}, // missing required channel
+			"channels": []any{map[string]any{"channel": 1, "color": "red"}},
 		}
 		Expect(migrations.Migrate(v1.Version, data)).Error().
-			To(MatchError(ContainSubstring("channel")))
+			To(MatchError(ContainSubstring("invalid hex color")))
+	})
+
+	It("Should reject a v1 payload with a notation outside the closed set", func() {
+		data := map[string]any{
+			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
+		}
+		Expect(migrations.Migrate(v1.Version, data)).Error().
+			To(MatchError(ContainSubstring("invalid value \"garbage\"")))
 	})
 
 	It("Should parse a v0 payload and lift it forward to the latest", func() {
@@ -62,9 +73,9 @@ var _ = Describe("Migrate", func() {
 		}
 		result := MustSucceed(migrations.Migrate(v0.Version, data))
 		Expect(result.Channels).To(HaveLen(3))
-		Expect(result.Channels[0].Channel).To(Equal(1))
-		Expect(result.Channels[0].Notation).To(Equal("standard"))
-		Expect(result.Channels[0].Precision).To(Equal(-1))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
+		Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
 		Expect(result.RemoteCreated).To(BeTrue())
 		Expect(result.ShowChannelNames).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeTrue())

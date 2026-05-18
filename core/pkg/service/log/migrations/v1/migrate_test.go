@@ -12,8 +12,12 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Migrate", func() {
@@ -24,12 +28,14 @@ var _ = Describe("Migrate", func() {
 		}
 		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(3))
-		Expect(result.Channels[0].Channel).To(Equal(1))
-		Expect(result.Channels[0].Color).To(Equal(""))
-		Expect(result.Channels[0].Notation).To(Equal("standard"))
-		Expect(result.Channels[0].Precision).To(Equal(-1))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Color).To(Equal(color.Color{}))
+		Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
+		Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
 		Expect(result.Channels[0].Alias).To(Equal(""))
-		Expect(result.Channels[2].Channel).To(Equal(3))
+		Expect(result.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
+		Expect(result.Channels[0].Timestamp.Tz).To(Equal(telem.TimezoneLocal))
+		Expect(result.Channels[2].Channel).To(Equal(channel.Key(3)))
 	})
 
 	It("Should preserve RemoteCreated", func() {
@@ -41,7 +47,7 @@ var _ = Describe("Migrate", func() {
 	It("Should set correct v1 defaults", func() {
 		old := v0.Data{Channels: []int{}, RemoteCreated: false}
 		result := v1.Migrate(old)
-		Expect(result.TimestampPrecision).To(Equal(0))
+		Expect(result.TimestampPrecision).To(Equal(int32(0)))
 		Expect(result.ShowChannelNames).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeTrue())
 	})
