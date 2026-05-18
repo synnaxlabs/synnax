@@ -109,10 +109,6 @@ describe("Layout Slice", () => {
     });
 
     it("should recover when a layout claims location mosaic but is absent from the mosaic tree", () => {
-      // Persisted state from another Console can leave a layout entry whose
-      // location is "mosaic" while the matching tab is missing from the mosaic
-      // tree. Re-placing the layout (e.g., via the search palette) must
-      // resurrect the tab instead of throwing "Tab not found".
       const layout = mosaicLayout("orphan-arc");
       store = configureStore({
         reducer: rootReducer,
@@ -129,15 +125,7 @@ describe("Layout Slice", () => {
       expect(selectActiveMosaicTabState(state()).layoutKey).toBe("orphan-arc");
     });
 
-    it("should not throw when re-placing a layout whose tab lives in another window's mosaic", () => {
-      // Cross-window placement is the most likely live trigger for the
-      // "Tab not found" report: a layout already lives in window A's mosaic,
-      // but the user re-opens it (e.g., from the search palette) while
-      // focused on window B. usePlacer fires `place` with the current
-      // window's key, so prev.windowKey !== layout.windowKey and the new
-      // window's mosaic does not yet contain the tab. The reducer must
-      // move the tab without throwing and must not leave an orphan copy in
-      // the source mosaic.
+    it("should move the tab to the new window without throwing or leaving an orphan when prev.windowKey differs", () => {
       const subWindowKey = "sub-window-1";
       const subWindowLayout: State = {
         key: "cross-arc",
@@ -178,8 +166,6 @@ describe("Layout Slice", () => {
       expect(Mosaic.findTabNode(mainRoot, "cross-arc")).toBeDefined();
       expect(selectActiveMosaicTabState(state()).layoutKey).toBe("cross-arc");
       const subMosaic = sliceState.mosaics[subWindowKey];
-      // purgeEmptyMosaics may delete the now-empty source mosaic entirely;
-      // either way, the tab must not remain in it.
       if (subMosaic != null)
         expect(Mosaic.findTabNode(subMosaic.root, "cross-arc")).toBeUndefined();
     });
@@ -591,10 +577,6 @@ describe("Layout Slice", () => {
     });
 
     it("should resurrect orphan mosaic layouts that the workspace's mosaics map omits", () => {
-      // Persisted workspaces can carry direction-B divergence: a layout entry
-      // with location "mosaic" whose tab is absent from the mosaics map.
-      // setWorkspace must reconcile by inserting the tab back into its claimed
-      // mosaic so the user can see and interact with it on load.
       const ws = {
         ...ZERO_SLICE_STATE,
         layouts: {
@@ -609,10 +591,6 @@ describe("Layout Slice", () => {
     });
 
     it("should fall back to the main mosaic when an orphan layout points at a missing window", () => {
-      // If the workspace's saved mosaics map has no entry for a layout's
-      // windowKey (e.g., a sub-window that no longer exists), reconciliation
-      // must place the tab in the main mosaic and rewrite the layout's
-      // windowKey so subsequent operations target a real mosaic.
       const ws = {
         ...ZERO_SLICE_STATE,
         layouts: {

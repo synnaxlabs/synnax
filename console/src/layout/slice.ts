@@ -194,11 +194,11 @@ const tabFromLayout = (layout: State): Tabs.Spec => ({
   tabKey: layout.key,
 });
 
-// Reconcile direction-B divergence: layout entries that claim location
-// "mosaic" but whose tab is absent from the mosaic tree. Persisted workspaces
-// can carry this divergence in from older Console versions or cross-Console
-// edits; reconciling on load lets the user see and interact with the tab
-// instead of triggering "Tab not found" on first re-open.
+// Inserts a tab for every location:"mosaic" layout whose tab is missing
+// from its claimed mosaic, falling back to the main mosaic when the window
+// is gone. Persisted state can carry this shape of inconsistency, and
+// without reconciliation the next attempt to re-open the layout throws
+// "Tab not found" in place().
 const reconcileMosaicLayouts = (state: SliceState) => {
   Object.values(state.layouts).forEach((layout) => {
     if (layout.location !== "mosaic") return;
@@ -229,11 +229,9 @@ export const { actions, reducer } = createSlice({
 
       if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
 
-      // Remove the tab from its previous mosaic when leaving the mosaic
-      // location entirely or when moving across windows. The previous mosaic
-      // is keyed by prev.windowKey (where the tab actually lives), not by the
-      // incoming layout.windowKey, so cross-window placements clean up the
-      // source.
+      // Clean up the source mosaic when leaving the mosaic location or
+      // moving across windows. The source is keyed by prev.windowKey, not
+      // by the incoming layout.windowKey.
       if (
         prev != null &&
         prev.location === "mosaic" &&
@@ -254,10 +252,9 @@ export const { actions, reducer } = createSlice({
       if (mosaic?.activeTab != null && mosaicKey == null)
         mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
 
-      // Use mosaic membership rather than prev.location: a layout entry can
-      // claim location "mosaic" without a matching node in the mosaic tree
-      // when the persisted state is inconsistent (e.g., a workspace saved
-      // from another Console where layouts and mosaic state diverged).
+      // Decide insert vs. select/update by mosaic membership: a layout can
+      // claim location "mosaic" without a matching mosaic node when
+      // persisted state is inconsistent.
       if (location === "mosaic" && mosaic != null) {
         if (Mosaic.findTabNode(mosaic.root, key) != null)
           mosaic.root = Mosaic.updateTab(
@@ -503,8 +500,9 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
     ) => {
-      // migrateSlice returns a frozen object via its zod parse; clone before
-      // reconciliation so the helper can mutate layouts and mosaic trees.
+      // Mosaic.insertTab mutates tabs arrays in place; clone before
+      // reconciling so the helper does not fight frozen nested objects
+      // carried over from the previous store snapshot.
       const next = deep.copy(
         migrateSlice({
           ...slice,
