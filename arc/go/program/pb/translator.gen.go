@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"github.com/samber/lo"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
 	"github.com/synnaxlabs/arc/program"
 )
@@ -31,23 +30,22 @@ func ProgramToPB(r program.Program) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	sequencesVal, err := irpb.SequencesToPB(r.Sequences)
-	if err != nil {
-		return nil, err
-	}
 	authoritiesVal, err := irpb.AuthoritiesToPB(r.Authorities)
 	if err != nil {
 		return nil, err
 	}
+	rootVal, err := irpb.ScopeToPB(r.Root)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Program{
-		Strata:            lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
 		Wasm:              r.WASM,
 		OutputMemoryBases: r.OutputMemoryBases,
 		Functions:         functionsVal,
 		Nodes:             nodesVal,
 		Edges:             edgesVal,
-		Sequences:         sequencesVal,
 		Authorities:       authoritiesVal,
+		Root:              rootVal,
 	}
 	return pb, nil
 }
@@ -71,15 +69,14 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Sequences, err = irpb.SequencesFromPB(pb.Sequences)
-	if err != nil {
-		return program.Program{}, err
-	}
 	r.Authorities, err = irpb.AuthoritiesFromPB(pb.Authorities)
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Root, err = irpb.ScopeFromPB(pb.Root)
+	if err != nil {
+		return program.Program{}, err
+	}
 	r.WASM = pb.Wasm
 	r.OutputMemoryBases = pb.OutputMemoryBases
 	return r, nil

@@ -288,6 +288,22 @@ class TestTimeSpan:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND == sy.TimeSpan(0)
 
+    def test_abs_positive(self) -> None:
+        """Should return the same value for positive spans"""
+        assert abs(sy.TimeSpan(1000)) == sy.TimeSpan(1000)
+
+    def test_abs_negative(self) -> None:
+        """Should return the absolute value for negative spans"""
+        assert abs(sy.TimeSpan(-500)) == sy.TimeSpan(500)
+
+    def test_abs_zero(self) -> None:
+        """Should return zero for zero span"""
+        assert abs(sy.TimeSpan(0)) == sy.TimeSpan(0)
+
+    def test_abs_returns_timespan(self) -> None:
+        """Should return a TimeSpan instance"""
+        assert isinstance(abs(sy.TimeSpan(-1000)), sy.TimeSpan)
+
     def test_gt(self) -> None:
         """Should correctly compare two time spans"""
         assert sy.TimeSpan.MICROSECOND > sy.TimeSpan.NANOSECOND
@@ -423,6 +439,30 @@ class TestDataType:
     def test_np(self, value: sy.DataType, expected: np.dtype[np.generic]) -> None:
         """Should return the correct numpy representation of the data type"""
         assert value.np == expected
+
+    @pytest.mark.parametrize(
+        "data_type, expected",
+        [
+            (sy.DataType.STRING, True),
+            (sy.DataType.JSON, True),
+            (sy.DataType.BYTES, True),
+            (sy.DataType.UUID, False),
+            (sy.DataType.TIMESTAMP, False),
+            (sy.DataType.FLOAT64, False),
+            (sy.DataType.FLOAT32, False),
+            (sy.DataType.INT64, False),
+            (sy.DataType.INT32, False),
+            (sy.DataType.INT16, False),
+            (sy.DataType.INT8, False),
+            (sy.DataType.UINT64, False),
+            (sy.DataType.UINT32, False),
+            (sy.DataType.UINT16, False),
+            (sy.DataType.UINT8, False),
+        ],
+    )
+    def test_is_variable(self, data_type: sy.DataType, expected: bool) -> None:
+        """is_variable should return True only for variable-length data types."""
+        assert data_type.is_variable is expected
 
 
 @pytest.mark.telem

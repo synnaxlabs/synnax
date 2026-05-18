@@ -12,9 +12,7 @@ package op
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	telemOp "github.com/synnaxlabs/x/telem/op"
@@ -24,14 +22,6 @@ type Module struct{}
 
 func NewModule() *Module { return &Module{} }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
@@ -40,10 +30,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	opFn, ok := logicalOps[cfg.Node.Type]
 	if ok {
 		return &binary{State: cfg.State, op: opFn}, nil
-	}
-	unCat, ok := typedUnaryOps[cfg.Node.Type]
-	if ok {
-		return &unary{State: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
 	}
 	unOpFn, ok := unaryOps[cfg.Node.Type]
 	if ok {
@@ -76,7 +62,7 @@ func (n *binary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type unary struct {
@@ -97,5 +83,5 @@ func (n *unary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }

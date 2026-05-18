@@ -10,129 +10,89 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
+	"reflect"
 	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/set"
 )
 
-// Filter is a composable query filter that evaluates entries. The struct
-// carries closures for raw-byte pre-screening and decoded-entry evaluation,
-// plus an optional precomputed candidate-key set for filters backed by a
-// secondary index. Retrieve uses Keys to short-circuit into the execKeys fast
-// path; Eval and Raw run as post-checks against the fetched entries.
+// Filter is a composable query filter applied to entries during a
+// Retrieve. A filter can carry any subset of three independent
+// constraints: a candidate primary-key set (keys), a raw-byte pre-screen
+// that runs before decode (raw), and a decoded-entry predicate that
+// runs after decode (eval). Compose with And, Or, and Not.
 type Filter[K Key, E Entry[K]] struct {
-	// Eval evaluates a decoded entry. Nil means no decoded-entry constraint.
-	Eval func(ctx Context, e *E) (bool, error)
-	// Raw evaluates the raw encoded bytes before decoding. The filter receives
-	// both the pebble key and the encoded value, so callers can short-circuit
-	// on key-shaped data without ever touching the value (or vice versa).
-	// Returning false skips the entry without allocating a decoded value. Nil
+	// eval evaluates a decoded entry against the raw key and value
+	// bytes. Nil means no decoded-entry constraint.
+	eval func(ctx Context, e *E, key, value []byte) (bool, error)
+	// raw evaluates the encoded key and value before decoding. Returning
+	// false skips the entry without allocating a decoded value. Nil
 	// means no raw constraint.
-	Raw func(key, value []byte) (bool, error)
-	// Keys, if non-nil, is the candidate set of primary keys this filter
-	// matches. Set by Retrieve.Exec after invoking the resolver returned
-	// from an index-backed Filter constructor (Lookup.Filter /
-	// Sorted.Filter / BytesLookup.Filter), or by And/Or composition via
-	// intersectKeys / unionKeys when all children are eager. When
-	// present, Retrieve.Exec routes into the execKeys fast path: only
-	// those keys are fetched from the KV store, and Eval/Raw run as
-	// post-checks. A nil Keys means the filter is unbounded and
-	// Retrieve falls back to a full-table scan via execFilter.
+	raw func(key, value []byte) (bool, error)
+	// keys, if non-nil, is the candidate set of primary keys this filter
+	// matches. A nil keys means the filter is unbounded.
 	//
-	// Compose-time semantics: And intersects Keys across children that have
-	// them; Or unions across children only when every child has Keys (a single
-	// child without Keys collapses Or back to unbounded). Not always drops
-	// Keys because inverting a key set requires the universe.
-	Keys []K
-	// membership is a lazy O(1) lookup mirror of Keys, populated on first
-	// use by *lazyMembership.contains. Retrieve.Exec wraps the resolver's
-	// returned keys in a lazyMembership without building the underlying
-	// set; the build happens only the first time a downstream consumer
-	// actually probes (intersectKeys, unionKeys, execKeys' effectiveKeys
-	// merge, Or.Eval for Keys-only children).
+	// Composition: And intersects keys across children that have them;
+	// Or unions across children only when every child has keys (a single
+	// child without keys collapses Or back to unbounded); Not always
+	// drops keys because inverting a key set requires the universe.
+	keys []K
+	// membership is a lazy O(1) mirror of keys. Nil when the filter has
+	// no keys or was constructed without an ComparableKey-constrained
+	// builder; containsKey gates on it being non-nil.
 	//
-	// Lazy matters a lot for the composition path: a bound filter whose
-	// Keys set has N elements would eagerly cost an N-entry map at
-	// construction, but if intersectKeys ends up walking THIS filter's
-	// Keys directly (because it's the larger side), we never need to
-	// probe its membership and that N-entry map never allocates. On a
-	// 12500-key filter that's a ~150 KB saving per query.
-	//
-	// Nil when the filter either has no Keys or was constructed without
-	// an IndexKey-constrained builder (e.g., plain Match / MatchRaw).
-	// containsKey gates on it being non-nil, so reading is always safe.
+	// Lazy materialization avoids allocating an N-entry hashmap for a
+	// keys slice that intersectKeys / unionKeys may end up walking
+	// directly. For a 12500-key filter participating in a composition
+	// where it is the walked side, the saving is ~150 KB per query.
 	membership *lazyMembership[K]
-	// resolve, if non-nil, computes Keys (and a membership build
-	// function) at Retrieve.Exec time with the open tx in scope. It is
-	// set by index-backed constructors that need read-your-own-writes
-	// semantics: the resolver reads committed index state for the
-	// queried values and overlays the per-tx delta tracked on
-	// tx.txIdentity(). When resolve is present, Retrieve.Exec invokes
-	// it before dispatching to execKeys so the rest of the pipeline
-	// sees the merged keys through the normal Keys/membership fields.
+	// resolve, if non-nil, computes keys and the membership build
+	// function at Retrieve.Exec time. Index-backed constructors set it
+	// to deliver read-your-own-writes against the open tx; And/Or
+	// composition propagates resolvers when any child has one (Not
+	// always drops resolve, since inverting a key set requires the
+	// universe).
 	//
-	// Filter composition (And/Or) propagates resolvers: if any child
-	// has resolve, the composed filter also carries one that fires
-	// each child and recombines via intersectKeys / unionKeys. Not
-	// always drops resolve (inverting a key set requires the universe).
-	//
-	// resolve returning (nil, nil, nil) means "no candidate keys" —
-	// the execKeys fast path treats this as an empty result, NOT as
-	// unbounded. An unbounded filter has no Keys and no resolver.
+	// A resolve return of (nil, nil, nil) means "no candidate keys" —
+	// the execKeys path treats this as an empty result, NOT as
+	// unbounded. An unbounded filter has no keys and no resolver.
 	resolve resolveFilter[K]
 }
 
 // resolveFilter is the signature for a deferred Filter resolver. It
 // returns the effective candidate keys for an indexed filter under the
-// given transaction, plus the build function that downstream composition
-// and execKeys use to construct a lazy O(1) membership predicate over
-// the returned keys.
-//
-// The keys returned are the merge of committed index state and any
-// per-tx delta the transaction has staged. The build function is a
-// package-level generic over K (indexedKeyMembership or
-// bytesIndexedKeyMembership) captured at construction time; it's
-// returned rather than stored in the Filter directly so composed
-// resolvers can forward the correct build function for the composed
-// key set.
+// given transaction (merging committed index state with any per-tx
+// delta) plus a build function for constructing an O(1) membership
+// predicate over the returned keys.
 type resolveFilter[K Key] func(
 	ctx context.Context,
 	tx Tx,
 ) (keys []K, build func([]K) keyMembership[K], err error)
 
-// keyMembership is the typed O(1) membership predicate carried alongside
-// Filter.Keys. Implementations are constructed at IndexKey-constrained call
-// sites and type-erased back through keyMembership[K] for K : Key.
+// keyMembership is an O(1) membership predicate over a set of keys.
 type keyMembership[K Key] interface {
 	Contains(K) bool
 }
 
-// lazyMembership wraps a Keys slice plus a deferred build function so the
-// underlying keyMembership is only materialized on first probe. Consumers
-// call contains() which does a sync.Once-guarded build + lookup.
-//
-// The build function is captured at the IndexKey-constrained index
-// (Lookup / Sorted / BytesLookup), which is where K is provably
-// comparable. Resolvers return it alongside the resolved keys; the
-// Retrieve.Exec hook and And/Or resolver composition rewrap the same
-// build function in a new lazyMembership. Any Filter derived from an
-// indexed source — directly or via composition — can rebuild
-// membership on demand without re-establishing the IndexKey constraint
-// at the consumer.
+// lazyMembership wraps a keys slice plus a deferred build function so
+// the underlying keyMembership is materialized on first probe. Safe
+// for concurrent use.
 type lazyMembership[K Key] struct {
-	once  sync.Once
-	set   keyMembership[K]
-	keys  []K
+	// once guards a single build call across concurrent probes.
+	once sync.Once
+	// set is the materialized membership predicate; nil until once fires.
+	set keyMembership[K]
+	// keys is the candidate set passed to build.
+	keys []K
+	// build constructs the keyMembership from keys on first probe.
 	build func([]K) keyMembership[K]
 }
 
-// contains reports whether k is in the underlying key set. On first call,
-// builds the keyMembership via the captured build function; subsequent
-// calls hit the cached result. sync.Once makes this safe under concurrent
-// access even though Filter values are usually goroutine-local, and the
-// cost of the Once guard after first call is a single atomic load.
+// contains reports whether k is in the underlying key set, materializing
+// the membership predicate on first call.
 func (l *lazyMembership[K]) contains(k K) bool {
 	l.once.Do(func() { l.set = l.build(l.keys) })
 	return l.set.Contains(k)
@@ -147,22 +107,16 @@ func newLazyMembership[K Key](
 	return &lazyMembership[K]{keys: keys, build: build}
 }
 
-// indexedKeyMembership is the package-level build function returned by
-// Lookup.Filter / Sorted.Filter resolvers. Extracted so the closure
-// captured by every indexed filter resolver is a reference to a single
-// static generic function rather than an escaped closure, avoiding a
-// per-construction heap allocation that a closure literal would cause.
-//
-// Returned from resolvers alongside the resolved Keys so Retrieve.Exec
-// (and And/Or composition) can wrap them in a lazyMembership whose
-// first-probe build produces a typed O(1) membership predicate.
-func indexedKeyMembership[K IndexKey](keys []K) keyMembership[K] {
-	return set.FromSlice(keys)
+// indexedKeyMembership builds an O(1) membership predicate over a set
+// of comparable keys. Defined as a package-level generic (rather than
+// a closure literal) so resolvers can return it without forcing a
+// per-construction heap allocation.
+func indexedKeyMembership[K ComparableKey](keys []K) keyMembership[K] {
+	return set.New(keys...)
 }
 
-// bytesIndexedKeyMembership is the build function counterpart to
-// indexedKeyMembership for []byte-keyed tables. Returned by
-// BytesLookup.Filter's resolver alongside the resolved keys.
+// bytesIndexedKeyMembership builds an O(1) membership predicate over a
+// set of []byte keys.
 func bytesIndexedKeyMembership(keys [][]byte) keyMembership[[]byte] {
 	m := make(bytesKeyMembership, len(keys))
 	for _, b := range keys {
@@ -171,11 +125,9 @@ func bytesIndexedKeyMembership(keys [][]byte) keyMembership[[]byte] {
 	return m
 }
 
-// bytesKeyMembership is a string-keyed O(1) membership predicate over a set
-// of []byte keys. It is the byte-table counterpart to set.Set[K] used by
-// strictly-comparable IndexKey tables. Contains converts the probe to a
-// string at the call site; on modern Go this is a no-alloc conversion.
-type bytesKeyMembership map[string]struct{}
+// bytesKeyMembership is an O(1) membership predicate over a set of
+// []byte keys, keyed internally by string conversion.
+type bytesKeyMembership set.Set[string]
 
 // Contains implements keyMembership[[]byte].
 func (m bytesKeyMembership) Contains(k []byte) bool {
@@ -183,60 +135,110 @@ func (m bytesKeyMembership) Contains(k []byte) bool {
 	return ok
 }
 
-// containsKey reports whether k is present in the filter's precomputed Keys
-// set. Returns false when membership is nil, which happens when the filter
-// either has no Keys set at all or carries an Eval-only constraint. Routes
-// through the lazy predicate, which triggers a one-time build on first call.
+// present reports whether the filter carries any active constraint. A
+// zero-value Filter is treated as absent.
+func (f Filter[K, E]) present() bool {
+	return f.eval != nil ||
+		f.raw != nil ||
+		f.keys != nil ||
+		f.membership != nil ||
+		f.resolve != nil
+}
+
+// containsKey reports whether k is in the filter's keys set. O(1) when
+// the filter carries a membership predicate; O(len(f.keys)) otherwise.
 func (f Filter[K, E]) containsKey(k K) bool {
-	if f.membership == nil {
+	if f.membership != nil {
+		return f.membership.contains(k)
+	}
+	if f.keys == nil {
 		return false
 	}
-	return f.membership.contains(k)
+	return linearContainsKey(f.keys, k)
 }
 
-// Match wraps a bare closure as a Filter.
+// linearContainsKey reports whether k is in keys via O(n) scan.
+// Handles []byte-shaped K via bytes.Equal since []byte is not ==
+// comparable; other K kinds dispatch through interface equality.
+func linearContainsKey[K Key](keys []K, k K) bool {
+	if len(keys) == 0 {
+		return false
+	}
+	if reflect.TypeOf(keys[0]).Kind() == reflect.Slice {
+		probe := reflect.ValueOf(k).Bytes()
+		for _, fk := range keys {
+			if bytes.Equal(reflect.ValueOf(fk).Bytes(), probe) {
+				return true
+			}
+		}
+		return false
+	}
+	probe := any(k)
+	for _, fk := range keys {
+		if any(fk) == probe {
+			return true
+		}
+	}
+	return false
+}
+
+// Match wraps a decoded-entry predicate as a Filter.
 func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Eval: f}
+	return Filter[K, E]{
+		eval: func(ctx Context, e *E, _, _ []byte) (bool, error) {
+			return f(ctx, e)
+		},
+	}
 }
 
-// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs before
-// decoding and receives both the pebble key and the encoded value; returning
-// false skips the entry entirely.
+// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs
+// before decoding and receives the pebble key and encoded value;
+// returning false skips the entry without allocating a decoded value.
 func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Raw: f}
+	return Filter[K, E]{raw: f}
 }
 
-// And returns a filter that matches when ALL children match. Eval and Raw
-// stages compose by short-circuiting on the first false. Keys composes by
-// intersecting child key sets: a result Keys is set whenever at least one
-// child has Keys, and equals the intersection of all children's Keys
-// (children without Keys are unbounded and don't restrict the intersection).
+// MatchKeys returns a Filter that restricts results to entries whose
+// primary key is in the given set. Compose with And or Or to intersect
+// or union with other filters (including index-backed ones).
 //
-// The Eval and Raw closure allocations are skipped entirely when no child
-// has them. For a common "all children are index-backed Keys-only filters"
-// composition this means And allocates nothing but the intersection slice
-// and a lazy membership wrapper — no closure capture, no heap dispatch.
+// An empty (nil) keys argument produces a non-nil empty keys slice so
+// the filter is treated as "bounded by zero keys" (matches nothing)
+// rather than unbounded.
+func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
+	if keys == nil {
+		keys = []K{}
+	}
+	return Filter[K, E]{keys: keys}
+}
+
+// And returns a filter that matches when ALL children match. Each
+// child's keys, raw, and eval constraints are composed independently:
+// keys are intersected, raw runs as a short-circuit AND pre-screen,
+// and eval runs as an AND-composed post-decode predicate. The raw
+// pre-screen survives composition, so MatchRaw children retain their
+// no-decode skip.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
+
 	hasAnyEval := false
 	for _, child := range filters {
-		if child.Eval != nil {
+		if child.eval != nil {
 			hasAnyEval = true
 			break
 		}
 	}
 	if hasAnyEval {
-		// Only build the iterating closure when at least one child has
-		// an Eval predicate. If every child is Keys-only, execKeys
-		// fetches exactly the intersection and match() is trivially
-		// true — so leaving f.Eval == nil is semantically correct and
-		// saves the closure + captured-filters allocation.
-		f.Eval = func(ctx Context, e *E) (bool, error) {
-			for _, f := range filters {
-				if f.Eval == nil {
+		f.eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
+			for _, child := range filters {
+				if child.keys != nil && !child.containsKey(entryKey) {
+					return false, nil
+				}
+				if child.eval == nil {
 					continue
 				}
-				ok, err := f.Eval(ctx, e)
+				ok, err := child.eval(ctx, e, key, value)
 				if err != nil || !ok {
 					return false, err
 				}
@@ -244,33 +246,29 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
+
 	var firstRaw func(key, value []byte) (bool, error)
 	rawCount := 0
 	for _, child := range filters {
-		if child.Raw != nil {
+		if child.raw != nil {
 			if rawCount == 0 {
-				firstRaw = child.Raw
+				firstRaw = child.raw
 			}
 			rawCount++
 		}
 	}
 	switch rawCount {
 	case 0:
-		// No Raw at any child: leave f.Raw nil, no closure.
 	case 1:
-		// Exactly one Raw: assign directly, no wrapper closure.
-		f.Raw = firstRaw
+		f.raw = firstRaw
 	default:
-		// 2+ Raw children: need the iterating wrapper. Rebuild the list
-		// here to avoid leaking every child (including Raw-less ones)
-		// into the captured environment.
 		raws := make([]func([]byte, []byte) (bool, error), 0, rawCount)
 		for _, child := range filters {
-			if child.Raw != nil {
-				raws = append(raws, child.Raw)
+			if child.raw != nil {
+				raws = append(raws, child.raw)
 			}
 		}
-		f.Raw = func(key, value []byte) (bool, error) {
+		f.raw = func(key, value []byte) (bool, error) {
 			for _, r := range raws {
 				ok, err := r(key, value)
 				if err != nil || !ok {
@@ -280,15 +278,8 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
+
 	if anyHasResolver(filters) {
-		// At least one child carries a deferred resolver, which means
-		// its effective Keys depend on the open tx at Retrieve.Exec
-		// time. Defer the whole intersection: compose a resolver that
-		// fires each resolver-child, re-wraps the result in a
-		// materialized child filter (with a fresh lazy membership over
-		// the resolved keys), and passes every child — eager and
-		// resolved — into intersectKeys. The eager path below is
-		// skipped to avoid snapshotting stale Keys at compose time.
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
 			materialized, err := materializeFilters[K, E](ctx, tx, filters)
 			if err != nil {
@@ -300,49 +291,35 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		return f
 	}
 	var build func([]K) keyMembership[K]
-	f.Keys, build = intersectKeys[K, E](filters)
-	if build != nil && f.Keys != nil {
-		f.membership = newLazyMembership(f.Keys, build)
+	f.keys, build = intersectKeys[K, E](filters)
+	if build != nil && f.keys != nil {
+		f.membership = newLazyMembership(f.keys, build)
 	}
 	return f
 }
 
-// Or returns a filter that matches when ANY child matches. Short-circuits on
-// the first true. Raw pre-screening is not composed for Or because a branch
-// without a Raw check may still match after decoding, so we must always
-// decode. Keys composes only when EVERY child has Keys (otherwise an
-// unbounded child means the result is unbounded), and equals the union of
-// all children's Keys.
+// Or returns a filter that matches when ANY child matches.
 //
-// Eval handles index-backed children (Eval == nil, Keys != nil) by probing
-// the child's typed membership against the entry's key. This is required
-// because execKeys fetches the union of all children's Keys then runs each
-// fetched entry through Or.Eval; without the membership probe, no Keys-only
-// child would ever return true and the post-filter would drop every result.
+// Composition rules:
+//   - keys are unioned only when every child has keys; a single
+//     unbounded child collapses the union to unbounded.
+//   - raw survives as a pre-screen only when every child is raw-only
+//     (no eval, no keys); otherwise the raw paths dispatch inside
+//     eval at decode time.
+//   - eval evaluates each child's full predicate (keys ∧ eval/raw)
+//     against the entry and OR's the results.
 //
-// If every child is Keys-only and every child has a full Keys set (so Or
-// could compose a complete union), f.Eval is left nil: execKeys fetches
-// exactly the union and match() is trivially true, so the closure is dead
-// weight. Mixed compositions still need the closure.
+// When every child is keys-only with a complete keys set, both f.eval
+// and f.raw are left nil and matching reduces to membership in the
+// union.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
+
 	if anyHasResolver(filters) {
-		// Any resolver-child means the union cannot be computed at
-		// compose time. Defer everything. Copy the filters slice
-		// first: the Or resolver mutates resolver-carrying children
-		// in place so the Eval closure (which captures the same
-		// slice) sees materialized Keys/membership when it probes
-		// them at match time. Copying protects callers from any
-		// surprise mutation of a slice they passed to Or(...).
-		//
-		// unionKeys already handles the "one child is unbounded"
-		// case by returning (nil, nil), which Retrieve.Exec treats
-		// as "no execKeys fast path; fall into execFilter full scan
-		// and run the composed Eval on every row". In that degraded
-		// mode, Eval-time containsKey probes on resolver children
-		// must see the materialized state — which is why the
-		// resolver mutates the slice instead of computing a local
-		// copy.
+		// Or's eval closure may probe child membership at match
+		// time after the resolver runs, so the resolver mutates
+		// each child in place. Copy the slice so the original
+		// caller is not affected.
 		filters = append([]Filter[K, E](nil), filters...)
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
 			if err := materializeFiltersMut[K, E](ctx, tx, filters); err != nil {
@@ -351,43 +328,54 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			keys, build := unionKeys[K, E](filters)
 			return keys, build, nil
 		}
-		// Fall through to the Eval composition below. f.Keys and
-		// f.membership stay nil at compose time: Retrieve.Exec will
-		// populate them from the resolver before match runs.
 	} else {
 		var build func([]K) keyMembership[K]
-		f.Keys, build = unionKeys[K, E](filters)
-		if build != nil && f.Keys != nil {
-			f.membership = newLazyMembership(f.Keys, build)
+		f.keys, build = unionKeys[K, E](filters)
+		if build != nil && f.keys != nil {
+			f.membership = newLazyMembership(f.keys, build)
 		}
 	}
-	// If the union composed successfully AND every child was Keys-only,
-	// we can skip the Eval closure: execKeys will fetch exactly the
+
+	// raw composition: pre-screen survives only when every child is
+	// raw-only. In that case the raw OR is the full predicate and we
+	// don't need an eval closure.
+	if len(filters) > 0 && allRawOnly(filters) {
+		f.raw = func(key, value []byte) (bool, error) {
+			for _, child := range filters {
+				ok, err := child.raw(key, value)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					return true, nil
+				}
+			}
+			return false, nil
+		}
+		return f
+	}
+
+	// If the union composed successfully AND every child was keys-only,
+	// we can skip the eval closure: execKeys will fetch exactly the
 	// union and match() can short-circuit to true.
-	allKeysOnly := f.Keys != nil
+	allKeysOnly := f.keys != nil
 	if allKeysOnly {
 		for _, child := range filters {
-			if child.Eval != nil {
+			if child.eval != nil || child.raw != nil {
 				allKeysOnly = false
 				break
 			}
 		}
 	}
 	if !allKeysOnly {
-		f.Eval = func(ctx Context, e *E) (bool, error) {
-			key := (*e).GorpKey()
-			for _, f := range filters {
-				if f.Eval != nil {
-					ok, err := f.Eval(ctx, e)
-					if err != nil {
-						return false, err
-					}
-					if ok {
-						return true, nil
-					}
-					continue
+		f.eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
+			for _, child := range filters {
+				ok, err := evalChild(ctx, child, e, entryKey, key, value)
+				if err != nil {
+					return false, err
 				}
-				if f.Keys != nil && f.containsKey(key) {
+				if ok {
 					return true, nil
 				}
 			}
@@ -397,31 +385,25 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return f
 }
 
-// Not returns a filter that inverts the child. Raw pre-screening is not
-// composed for Not because inverting a raw rejection requires decoding to
-// check the Eval stage. Keys are dropped for the same reason: inverting a
-// key set requires the universe of all keys, which the filter does not have.
-// Resolve is dropped for the same reason — if Keys can't survive inversion,
-// neither can their deferred computation.
+// Not returns a filter that inverts the child. The result is always
+// unbounded (its keys field is nil): inverting a candidate set
+// requires the universe of all keys. When the child is raw-only, Not
+// composes an inverted raw so the pre-decode skip survives.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
-		Eval: func(ctx Context, e *E) (bool, error) {
-			if f.Eval != nil {
-				// f.Eval may be a partial predicate (And.Eval skips
-				// Keys-only children). If f also has a Keys constraint,
-				// an entry outside that set can never satisfy f, so
-				// Not(f) is trivially true.
-				if f.Keys != nil && !f.containsKey((*e).GorpKey()) {
-					return true, nil
-				}
-				ok, err := f.Eval(ctx, e)
-				return !ok, err
-			}
-			if f.Keys != nil {
-				return !f.containsKey((*e).GorpKey()), nil
-			}
-			return false, nil
+		eval: func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
+			ok, err := evalChild(ctx, f, e, entryKey, key, value)
+			return !ok, err
 		},
+	}
+	if f.raw != nil && f.eval == nil && f.keys == nil && f.resolve == nil {
+		raw := f.raw
+		out.raw = func(key, value []byte) (bool, error) {
+			ok, err := raw(key, value)
+			return !ok, err
+		}
+		out.eval = nil
 	}
 	if f.resolve != nil {
 		out.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
@@ -429,9 +411,11 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 			if err != nil {
 				return nil, nil, err
 			}
-			f.Keys = keys
+			f.keys = keys
 			if build != nil && keys != nil {
 				f.membership = newLazyMembership(keys, build)
+			} else {
+				f.membership = nil
 			}
 			return nil, nil, nil
 		}
@@ -439,9 +423,41 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	return out
 }
 
+// evalChild evaluates a child's full predicate at decode time. Returns
+// true if the entry passes every constraint the child carries. A child
+// with no constraints is a vacuous match.
+func evalChild[K Key, E Entry[K]](
+	ctx Context,
+	f Filter[K, E],
+	e *E,
+	entryKey K,
+	key, value []byte,
+) (bool, error) {
+	if f.keys != nil && !f.containsKey(entryKey) {
+		return false, nil
+	}
+	if f.eval != nil {
+		return f.eval(ctx, e, key, value)
+	}
+	if f.raw != nil {
+		return f.raw(key, value)
+	}
+	return true, nil
+}
+
+// allRawOnly reports whether every filter has raw set and no eval,
+// keys, or resolve.
+func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
+	for _, f := range filters {
+		if f.raw == nil || f.eval != nil || f.keys != nil || f.resolve != nil {
+			return false
+		}
+	}
+	return true
+}
+
 // anyHasResolver reports whether any child filter carries a deferred
-// resolver. Used by And/Or to decide between the eager compose-time
-// path and the deferred resolve-time path.
+// resolver.
 func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	for _, child := range filters {
 		if child.resolve != nil {
@@ -454,9 +470,7 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 // materializeFilters returns a slice of filters with every resolver-child
 // materialized against the open tx. Eager children are copied through
 // unchanged. The returned slice is a fresh copy; the input is not
-// mutated. Used by And's deferred resolver, which does not need
-// in-place updates because And.Eval never probes children's memberships
-// directly.
+// mutated.
 func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
@@ -473,7 +487,7 @@ func materializeFilters[K Key, E Entry[K]](
 			return nil, err
 		}
 		out[i] = child
-		out[i].Keys = keys
+		out[i].keys = keys
 		if build != nil && keys != nil {
 			out[i].membership = newLazyMembership(keys, build)
 		} else {
@@ -483,14 +497,10 @@ func materializeFilters[K Key, E Entry[K]](
 	return out, nil
 }
 
-// materializeFiltersMut is the in-place counterpart to materializeFilters. It
-// overwrites resolver-carrying children with their materialized form so
-// downstream closures that captured the same slice observe the
-// post-resolution state. Used by Or whose Eval closure may probe child
-// membership at match time when the union degrades to an unbounded
-// filter. Callers must ensure the slice is owned by the composed
-// filter (copy before calling) so the mutation isn't observed by the
-// original caller.
+// materializeFiltersMut materializes every resolver-carrying child in
+// place so closures that captured the same slice observe the
+// post-resolution state. Callers must own the slice (copy before
+// calling) so the mutation isn't observed by the original caller.
 func materializeFiltersMut[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
@@ -504,7 +514,7 @@ func materializeFiltersMut[K Key, E Entry[K]](
 		if err != nil {
 			return err
 		}
-		filters[i].Keys = keys
+		filters[i].keys = keys
 		if build != nil && keys != nil {
 			filters[i].membership = newLazyMembership(keys, build)
 		} else {
@@ -514,16 +524,107 @@ func materializeFiltersMut[K Key, E Entry[K]](
 	return nil
 }
 
-// BoundFilter is a Filter parameterized over a service-defined Retrieve type
-// R. It's the underlying type behind the per-service Filter alias emitted by
-// the oracle query plugin: a closure that takes the caller's Retrieve and
-// produces a gorp.Filter[K, E] bound to it. Service code uses BoundFilter so
-// filter constructors can read from r.indexes / r.label / r.hostProvider when
-// evaluated by Retrieve.Where, while pure constructors can ignore r entirely.
+// intersectKeys returns the intersection of every child filter's keys
+// plus the build function for a lazy membership over the result.
+// Children with nil keys are treated as unbounded and do not restrict
+// the intersection. Returns nil when no child has keys (unbounded);
+// returns an empty non-nil slice when bounded children do not overlap.
 //
-// The MatchBound / AndBound / OrBound / NotBound helpers below let generated
-// code stay one-liner thin instead of re-emitting the same closure plumbing
-// per service.
+// The multi-child path walks the LARGEST child's keys directly,
+// probing the smaller children's lazy memberships for each candidate.
+// This trades CPU for memory: it never materializes the largest
+// child's membership map, which on a 12500-key filter is a ~150 KB
+// per-query saving — at the price of doing the membership probes
+// against the smaller side instead of the larger.
+func intersectKeys[K Key, E Entry[K]](
+	filters []Filter[K, E],
+) (keys []K, build func([]K) keyMembership[K]) {
+	bounded := make([]Filter[K, E], 0, len(filters))
+	for _, f := range filters {
+		if f.keys != nil {
+			bounded = append(bounded, f)
+			if build == nil && f.membership != nil {
+				build = f.membership.build
+			}
+		}
+	}
+	if len(bounded) == 0 {
+		return nil, nil
+	}
+	if len(bounded) == 1 {
+		return bounded[0].keys, build
+	}
+	slices.SortFunc(bounded, func(a, b Filter[K, E]) int {
+		return len(a.keys) - len(b.keys)
+	})
+	candidates := bounded[len(bounded)-1].keys
+	rest := bounded[:len(bounded)-1]
+	out := make([]K, 0, len(bounded[0].keys))
+	for _, c := range candidates {
+		inAll := true
+		for _, f := range rest {
+			if !f.containsKey(c) {
+				inAll = false
+				break
+			}
+		}
+		if inAll {
+			out = append(out, c)
+		}
+	}
+	return out, build
+}
+
+// unionKeys returns the union of every child filter's keys plus the
+// build function for a lazy membership over the result. Returns nil
+// when any child has nil keys (unbounded).
+//
+// Filters are processed in ascending keys-length order so the largest
+// child contributes its keys directly without its membership map ever
+// being built — symmetric to intersectKeys' memory-optimal walk.
+func unionKeys[K Key, E Entry[K]](
+	filters []Filter[K, E],
+) (keys []K, build func([]K) keyMembership[K]) {
+	if len(filters) == 0 {
+		return nil, nil
+	}
+	bounded := make([]Filter[K, E], 0, len(filters))
+	var total int
+	for _, f := range filters {
+		if f.keys == nil {
+			return nil, nil
+		}
+		bounded = append(bounded, f)
+		total += len(f.keys)
+		if build == nil && f.membership != nil {
+			build = f.membership.build
+		}
+	}
+	slices.SortFunc(bounded, func(a, b Filter[K, E]) int {
+		return len(a.keys) - len(b.keys)
+	})
+	out := make([]K, 0, total)
+	for i, f := range bounded {
+		for _, k := range f.keys {
+			seen := false
+			for _, prior := range bounded[:i] {
+				if prior.containsKey(k) {
+					seen = true
+					break
+				}
+			}
+			if !seen {
+				out = append(out, k)
+			}
+		}
+	}
+	return out, build
+}
+
+// BoundFilter is a Filter that requires a service-defined Retrieve type
+// R to produce its constraints. Use BoundFilter when the filter needs
+// to read from R (e.g. a service's indexes or providers); pure
+// constructors that don't need R can ignore the parameter.
 type BoundFilter[R any, K Key, E Entry[K]] func(r R) Filter[K, E]
 
 // MatchBound wraps a closure that needs the Retrieve R into a BoundFilter.
@@ -533,16 +634,15 @@ func MatchBound[R any, K Key, E Entry[K]](
 	f func(ctx Context, r R, e *E) (bool, error),
 ) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
-		return Filter[K, E]{Eval: func(ctx Context, e *E) (bool, error) {
+		return Filter[K, E]{eval: func(ctx Context, e *E, _, _ []byte) (bool, error) {
 			return f(ctx, r, e)
 		}}
 	}
 }
 
-// AndBound returns a BoundFilter that matches when all provided filters
-// match. Each child is bound to the same Retrieve before being composed via
-// gorp.And, so the resulting filter inherits And's Eval/Raw/Keys composition
-// semantics.
+// AndBound returns a BoundFilter that matches when all provided
+// filters match. Each child is bound to the same Retrieve and the
+// results are composed via And.
 func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
@@ -571,139 +671,4 @@ func NotBound[R any, K Key, E Entry[K]](f BoundFilter[R, K, E]) BoundFilter[R, K
 	return func(r R) Filter[K, E] {
 		return Not(f(r))
 	}
-}
-
-// intersectKeys returns the intersection of every child filter's Keys plus
-// the build function needed to construct a lazy membership over the result.
-// Children with nil Keys are treated as unbounded and do not restrict the
-// result. The returned slice is nil when no child has Keys (the And filter
-// is unbounded), and an empty non-nil slice when children have
-// non-overlapping key sets.
-//
-// When exactly one child has Keys, that child's slice is returned directly
-// without copying — Filter.Keys is treated as immutable by every consumer
-// (Retrieve.execKeys passes it to GetMany unchanged), so sharing is safe
-// and avoids a per-Where allocation on the common single-indexed-filter
-// path.
-//
-// The multi-child path sorts a working copy of the bounded children by Keys
-// length and walks the LARGEST one, probing the memberships of the smaller
-// ones for each candidate. This looks counterintuitive — walking the
-// larger side does more comparison work — but it's the memory-optimal
-// choice: walking a filter means touching its Keys slice directly without
-// ever calling containsKey on it, so we never materialize its membership
-// map. With lazy membership, the walked side's hmap is never allocated.
-//
-// Concretely, for a common composition like Where(And(narrow, wide)) where
-// narrow has 1 key and wide has 12500 keys, walking smaller + probing
-// wider would build a 12500-entry hmap just to serve one probe. Walking
-// wider + probing narrow's lazily-built 1-entry hmap costs ~12500 extra
-// map lookups but saves the 12500-entry allocation — a ~150 KB per-op
-// reduction, which is the dominant cost in the composition benchmark.
-// For control-system workloads where GC pauses are the bottleneck, this
-// trade (up to ~2x CPU for proportional memory reduction) is a clear win.
-//
-// Membership probing always goes through each filter's lazy predicate,
-// which builds on first call and caches via sync.Once. Subsequent probes
-// on the same filter hit the cached map at no extra cost.
-func intersectKeys[K Key, E Entry[K]](
-	filters []Filter[K, E],
-) (keys []K, build func([]K) keyMembership[K]) {
-	bounded := make([]Filter[K, E], 0, len(filters))
-	for _, f := range filters {
-		if f.Keys != nil {
-			bounded = append(bounded, f)
-			if build == nil && f.membership != nil {
-				build = f.membership.build
-			}
-		}
-	}
-	if len(bounded) == 0 {
-		return nil, nil
-	}
-	if len(bounded) == 1 {
-		return bounded[0].Keys, build
-	}
-	slices.SortFunc(bounded, func(a, b Filter[K, E]) int {
-		return len(a.Keys) - len(b.Keys)
-	})
-	// Walk the LARGEST (last after ascending sort), probe the smaller
-	// siblings' lazily-built memberships. See the method comment for
-	// why this is the memory-optimal choice.
-	candidates := bounded[len(bounded)-1].Keys
-	rest := bounded[:len(bounded)-1]
-	// Pre-size the result to the SMALLEST side's length, not the walker's:
-	// the intersection can't be larger than any single child's key set, and
-	// bounded[0] is the smallest after the ascending sort. Sizing to the
-	// walker's length (which could be orders of magnitude larger) would
-	// allocate a result buffer wildly out of proportion to the actual
-	// intersection size — measured at ~50 KB per op on the composition
-	// benchmark before this fix.
-	out := make([]K, 0, len(bounded[0].Keys))
-	for _, c := range candidates {
-		inAll := true
-		for _, f := range rest {
-			if !f.containsKey(c) {
-				inAll = false
-				break
-			}
-		}
-		if inAll {
-			out = append(out, c)
-		}
-	}
-	return out, build
-}
-
-// unionKeys returns the union of every child filter's Keys plus the build
-// function needed to construct a lazy membership over the result. The
-// returned slice is nil when any child has nil Keys (the Or filter is
-// unbounded). Duplicates across children are detected by probing the
-// lazily-materialized membership predicates of earlier children, which is
-// O(1) per probe after the one-time build.
-//
-// Filters are processed in ascending-Keys-length order, which puts the
-// largest child last. Under lazy membership, walking child i triggers
-// membership builds for filters[:i] (the smaller ones) but never for
-// filters[i+1:]. Sorting ascending means the largest filter's membership
-// is never built — only probed against by later iterations, which don't
-// happen because the largest is the last walk step. Symmetric to the
-// intersectKeys flip: the largest contributes its Keys directly, no map.
-func unionKeys[K Key, E Entry[K]](
-	filters []Filter[K, E],
-) (keys []K, build func([]K) keyMembership[K]) {
-	if len(filters) == 0 {
-		return nil, nil
-	}
-	bounded := make([]Filter[K, E], 0, len(filters))
-	var total int
-	for _, f := range filters {
-		if f.Keys == nil {
-			return nil, nil
-		}
-		bounded = append(bounded, f)
-		total += len(f.Keys)
-		if build == nil && f.membership != nil {
-			build = f.membership.build
-		}
-	}
-	slices.SortFunc(bounded, func(a, b Filter[K, E]) int {
-		return len(a.Keys) - len(b.Keys)
-	})
-	out := make([]K, 0, total)
-	for i, f := range bounded {
-		for _, k := range f.Keys {
-			seen := false
-			for _, prior := range bounded[:i] {
-				if prior.containsKey(k) {
-					seen = true
-					break
-				}
-			}
-			if !seen {
-				out = append(out, k)
-			}
-		}
-	}
-	return out, build
 }

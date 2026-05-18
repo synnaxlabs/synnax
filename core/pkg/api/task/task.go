@@ -125,7 +125,7 @@ func (s *Service) Retrieve(
 		q = q.Where(task.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(task.MatchKeys(req.Keys...))
 	}
 	if hasTypes {
 		q = q.Where(task.MatchTypes(req.Types...))
@@ -150,7 +150,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err = status.NewRetrieve[task.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...).
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

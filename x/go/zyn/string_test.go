@@ -46,57 +46,69 @@ var _ = Describe("String", func() {
 		It("Should return nil if the value is not a valid string", func() {
 			Expect(zyn.String().Validate(struct{}{})).To(HaveOccurred())
 		})
+		It("Should succeed when an optional string receives nil", func() {
+			Expect(zyn.String().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required string receives nil", func() {
+			Expect(zyn.String().Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
+		It("Should succeed when an optional UUID string receives nil", func() {
+			Expect(zyn.String().UUID().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required UUID string receives nil", func() {
+			Expect(zyn.String().UUID().Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
 	})
 
 	Describe("Invalid Inputs", func() {
 		Specify("Non-string destination", func() {
 			var dest chan struct{}
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Numeric destination", func() {
 			var dest int
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Float destination", func() {
 			var dest float64
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Bool destination", func() {
 			var dest bool
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Slice destination", func() {
 			var dest []string
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Map destination", func() {
 			var dest map[string]any
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("Struct destination", func() {
 			var dest struct{ Name string }
-			Expect(zyn.String().Parse("hello", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("nil pointer", func() {
 			var dest *string
-			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("non-pointer destination", func() {
 			var dest string
-			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("nil interface", func() {
 			var dest any
-			Expect(zyn.String().Parse("hello", dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.String().Parse("hello", dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("invalid type", func() {
@@ -114,7 +126,7 @@ var _ = Describe("String", func() {
 
 		Specify("required field with nil value", func() {
 			var dest string
-			Expect(zyn.String().Parse(nil, &dest)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.String().Parse(nil, &dest)).To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("optional field with value", func() {
@@ -189,13 +201,13 @@ var _ = Describe("String", func() {
 		Describe("Invalid Inputs", func() {
 			Specify("nil value", func() {
 				_, err := zyn.String().Dump(nil)
-				Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(err).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("nil pointer", func() {
 				var s *string
 				_, err := zyn.String().Dump(s)
-				Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(err).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {
@@ -244,7 +256,7 @@ var _ = Describe("String", func() {
 
 			Specify("nil value", func() {
 				var dest string
-				Expect(zyn.String().UUID().Parse(nil, &dest)).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(zyn.String().UUID().Parse(nil, &dest)).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {
@@ -262,22 +274,22 @@ var _ = Describe("String", func() {
 
 			Specify("numeric destination", func() {
 				var dest int
-				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("bool destination", func() {
 				var dest bool
-				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("slice destination", func() {
 				var dest []string
-				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("struct destination", func() {
 				var dest struct{ ID string }
-				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.String().UUID().Parse("123e4567-e89b-12d3-a456-426614174000", &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 		})
 
@@ -305,7 +317,7 @@ var _ = Describe("String", func() {
 
 			Specify("nil value", func() {
 				_, err := zyn.String().UUID().Dump(nil)
-				Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(err).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {

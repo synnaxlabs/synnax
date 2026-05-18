@@ -40,23 +40,23 @@ var _ = Describe("Alias", Ordered, func() {
 		tx        gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(ctx)
-		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
-		rangerSvc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		aliasSvc = MustSucceed(alias.OpenService(ctx, alias.ServiceConfig{
+		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
 			Channel:         svcchannel.Wrap(dist.Channel),
@@ -64,12 +64,6 @@ var _ = Describe("Alias", Ordered, func() {
 			Search:          dist.Search,
 		}))
 		Expect(dist.Search.Initialize(ctx)).To(Succeed())
-	})
-	AfterAll(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(rangerSvc.Close()).To(Succeed())
-		Expect(aliasSvc.Close()).To(Succeed())
-		Expect(dist.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = dist.DB.OpenTx()
@@ -201,7 +195,7 @@ var _ = Describe("Alias", Ordered, func() {
 			ch := createChannel(ctx)
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
 			_, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias")
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should fallback to the parent range if the alias is not found", func(ctx SpecContext) {

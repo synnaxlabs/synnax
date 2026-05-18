@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"go/format"
 	"os"
 	"strings"
 	"text/template"
@@ -251,6 +252,20 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := output.Data
 
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
+			if lhsData[i] {{.Op}} rhsData[i] {
+				v = 1
+			}
+			outData[i] = v
+		}
+		return
+	}
+
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
 		lhsLast = lhsData[lhsLen-1]
@@ -270,11 +285,11 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal {{.Op}} rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 {{else}}
@@ -290,6 +305,15 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = lhsData[i] {{.Op}} rhsData[i]
+		}
+		return
+	}
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
@@ -331,6 +355,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 {{end}}`
 
 // Template for scalar comparison operations (series op scalar -> uint8)
+// The single-store result pattern compiles to a branchless conditional-set.
 const scalarCompFuncTemplate = `{{range $.Operations}}
 func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
@@ -340,11 +365,11 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] {{.Op}} scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 {{end}}`
@@ -410,6 +435,15 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = {{$.Type.GoType}}(math.Mod(float64(lhsData[i]), float64(rhsData[i])))
+		}
+		return
+	}
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
@@ -595,8 +629,8 @@ func main() {
 		}))
 	}
 
-	output := buf.String()
-	lo.Must0(os.WriteFile("op_generated.go", []byte(output), 0644))
+	formatted := lo.Must(format.Source([]byte(buf.String())))
+	lo.Must0(os.WriteFile("op_generated.go", formatted, 0644))
 
 	fmt.Println("Generated op_generated.go successfully")
 }

@@ -105,6 +105,7 @@ var _ = Describe("NewLSP", func() {
 
 	It("Should republish diagnostics when channels change", func(ctx SpecContext) {
 		server := MustSucceed(svc.NewLSP())
+		DeferCleanup(func() { Expect(server.Shutdown(ctx)).To(Succeed()) })
 		client := &MockClient{}
 		server.SetClient(client)
 

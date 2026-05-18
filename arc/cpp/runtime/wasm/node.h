@@ -20,6 +20,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/str/state.h"
 
 namespace arc::runtime::wasm {
 class Node : public node::Node {
@@ -29,19 +30,25 @@ class Node : public node::Node {
     std::vector<x::telem::SampleValue> inputs;
     std::vector<Module::Function::Result> results;
     std::vector<int> offsets;
+    std::vector<bool> string_inputs;
+    std::vector<bool> string_outputs;
+    std::shared_ptr<stl::str::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
+    x::telem::MonoClock clock;
 
 public:
     Node(
         const ir::IR &prog,
         const ir::Node &node,
         state::Node &&state,
-        const Module::Function &func
+        const Module::Function &func,
+        std::shared_ptr<stl::str::State> str_state
     ):
         ir(node),
         state(std::move(state)),
         func(func),
+        str_state(std::move(str_state)),
         // Entry nodes have no incoming edges and are not expression nodes.
         // They should only execute once per stage entry.
         is_entry_node(
@@ -49,6 +56,12 @@ public:
         ) {
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
+        this->string_inputs.resize(node.inputs.size());
+        for (size_t i = 0; i < node.inputs.size(); i++)
+            this->string_inputs[i] = node.inputs[i].type.kind == types::Kind::String;
+        this->string_outputs.resize(node.outputs.size());
+        for (size_t i = 0; i < node.outputs.size(); i++)
+            this->string_outputs[i] = node.outputs[i].type.kind == types::Kind::String;
     }
 
     x::errors::Error next(node::Context &ctx) override {
@@ -75,8 +88,19 @@ public:
         for (auto &offset: this->offsets)
             offset = 0;
 
+        // String outputs are variable-density and cannot be resize'd. Their
+        // data buffer is built once at the end of the loop from accumulated
+        // strings. Numeric outputs are pre-sized here so set() can do
+        // fixed-stride writes per sample.
+        std::vector<std::vector<std::string>> string_results;
         for (size_t i = 0; i < this->ir.outputs.size(); i++) {
-            this->state.output(i)->resize(max_length);
+            if (this->string_outputs[i]) {
+                if (string_results.empty())
+                    string_results.resize(this->ir.outputs.size());
+                string_results[i].reserve(max_length);
+            } else {
+                this->state.output(i)->resize(max_length);
+            }
             this->state.output_time(i)->resize(max_length);
         }
 
@@ -90,7 +114,15 @@ public:
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 const auto input_series = this->state.input(j);
                 const auto input_len = static_cast<int>(input_series->size());
-                this->inputs[j] = input_series->at(i % input_len);
+                const auto idx = i % input_len;
+                if (!this->string_inputs[j]) {
+                    this->inputs[j] = input_series->at(idx);
+                } else {
+                    // String channels are variable-length but WASM expects
+                    // i32 handles. Convert inline.
+                    const auto s = input_series->at<std::string>(idx);
+                    this->inputs[j] = static_cast<int32_t>(this->str_state->create(s));
+                }
             }
 
             const auto err = this->func.call(this->inputs, this->results);
@@ -109,12 +141,20 @@ public:
             if (!this->ir.inputs.empty() && longest_input_time)
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
-                ts = x::telem::TimeStamp::now();
+                ts = this->clock.now();
 
             for (size_t j = 0; j < results.size(); j++) {
                 auto [value, changed] = results[j];
                 if (!changed) continue;
-                this->state.output(j)->set(this->offsets[j], value);
+                if (this->string_outputs[j]) {
+                    // WASM returned an i32 string handle; materialize it
+                    // to its actual string value, mirroring the input-side
+                    // conversion above.
+                    const auto handle = static_cast<uint32_t>(std::get<int32_t>(value));
+                    string_results[j].push_back(this->str_state->get(handle));
+                } else {
+                    this->state.output(j)->set(this->offsets[j], value);
+                }
                 this->state.output_time(j)->set(this->offsets[j], ts);
                 this->offsets[j]++;
             }
@@ -122,9 +162,13 @@ public:
 
         for (size_t j = 0; j < this->ir.outputs.size(); j++) {
             const auto off = this->offsets[j];
-            this->state.output(j)->resize(off);
+            auto &out = this->state.output(j);
+            if (this->string_outputs[j])
+                *out = x::telem::Series(string_results[j], x::telem::STRING_T);
+            else
+                out->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
+            if (off > 0) ctx.mark_changed(j);
         }
 
         return x::errors::NIL;
@@ -132,8 +176,8 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 }

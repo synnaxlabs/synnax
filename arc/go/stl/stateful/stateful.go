@@ -103,40 +103,44 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Name: "state",
 	Members: symbol.MapResolver{
 		"load": {
-			Name: "load",
+			Name:     "load",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
 				Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
 			}),
 		},
 		"store": {
-			Name: "store",
+			Name:     "store",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
 			}),
 		},
 		"load_series": {
-			Name: "load_series",
+			Name:     "load_series",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
 				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
 			}),
 		},
 		"store_series": {
-			Name: "store_series",
+			Name:     "store_series",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
 			}),
 		},
 	},
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
 }
 
 func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {

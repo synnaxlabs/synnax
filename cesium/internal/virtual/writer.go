@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = resource.NewClosedError("virtual.writer")
+var ErrWriterClosed = resource.NewClosedError("virtual.writer")
 
 type WriterConfig struct {
 	ErrOnUnauthorizedOpen *bool
@@ -114,7 +114,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)

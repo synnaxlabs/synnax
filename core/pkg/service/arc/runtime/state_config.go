@@ -35,7 +35,7 @@ func retrieveChannels(
 ) ([]channel.Channel, error) {
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func retrieveChannels(
 	})
 	indexChannels := make([]channel.Channel, 0, len(indexes))
 	if err := channelSvc.NewRetrieve().
-		WhereKeys(indexes...).
+		Where(channel.MatchKeys(indexes...)).
 		Entries(&indexChannels).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func NewStateConfig(
 	for key := range prog.Authorities.Channels {
 		writes.Add(channel.Key(key))
 	}
-	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.ToSlice(), writes.ToSlice()))
+	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Slice(), writes.Slice()))
 	if err != nil {
 		return ExtendedStateConfig{}, err
 	}

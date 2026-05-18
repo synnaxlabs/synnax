@@ -14,9 +14,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGossip(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Gossip Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

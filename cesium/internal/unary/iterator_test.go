@@ -14,17 +14,17 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			Describe("Channel Indexed", func() {
 				var (
@@ -33,13 +33,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					index   uint32 = 1
 					data    uint32 = 2
 					fs      fs.FS
-					cleanUp func() error
 				)
 				BeforeEach(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Alex",
 							Key:      index,
@@ -51,7 +50,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					}))
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Megos",
 							Key:      data,
@@ -65,7 +64,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -816,7 +814,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							dbKey    = GenerateChannelKey()
 							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
-								MetaCodec: codec,
+								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      iKey,
 									DataType: telem.TimeStampT,
@@ -828,7 +826,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							}))
 							dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
-								MetaCodec: codec,
+								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Key:      dbKey,
 									DataType: telem.Int64T,
@@ -867,7 +865,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							iKey = GenerateChannelKey()
 							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
-								MetaCodec: codec,
+								MetaCodec: json.Codec,
 								Channel: channel.Channel{
 									Name:     "Ozturk",
 									Key:      iKey,
@@ -942,17 +940,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 			Describe("Close", func() {
 				var (
-					fs      fs.FS
-					cleanUp func() error
-					db      *unary.DB
-					key     cesium.ChannelKey
+					fs  fs.FS
+					db  *unary.DB
+					key cesium.ChannelKey
 				)
 				BeforeEach(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					key = GenerateChannelKey()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "ludwig",
@@ -964,22 +961,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should not allow operations on a closed iterator", func(ctx SpecContext) {
-					var (
-						i = MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
-						e = resource.NewClosedError("unary.iterator")
-					)
+					i := MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
-					Expect(i.Error()).To(HaveOccurredAs(e))
+					Expect(i.Error()).To(MatchError(unary.ErrIteratorClosed))
 					Expect(i.Error()).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
-
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				It("Should not allow an iterator to operate on a closed db", func(ctx SpecContext) {
@@ -987,7 +978,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					i, err := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(i).To(BeNil())
-					Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
+					Expect(err).To(MatchError(unary.ErrDBClosed))
 				})
 			})
 		})
@@ -1019,7 +1010,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				unaryFS := MustSucceed(fs.Sub("data"))
 				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Fred",
 						Key:      indexKey,
@@ -1032,7 +1023,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				}))
 				db := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        unaryFS,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Armisen",
 						Key:      dataKey,
@@ -1108,7 +1099,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				uFS2 := MustSucceed(fs.Sub("data2"))
 				indexDB := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "GI",
 						Key:      indexKey,
@@ -1119,7 +1110,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				}))
 				db1 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS1,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Joe",
 						Key:      data1Key,
@@ -1131,7 +1122,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				db1.SetIndex(indexDB.Index())
 				db2 := MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        uFS2,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Jon",
 						Key:      data2Key,

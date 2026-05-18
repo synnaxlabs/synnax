@@ -95,9 +95,11 @@ Channel struct {
             is the cluster node that holds the lease for this channel and is
             authorized to accept writes.
         """
+        @filter
     }
     data_type   telem.DataType      {
         @doc value "is the data type of samples stored in this channel."
+        @filter
     }
     is_index    bool                {
         @doc value """
@@ -105,6 +107,7 @@ Channel struct {
             have int64 values (TIMESTAMP data type) written in ascending order,
             and are most commonly unix nanosecond timestamps.
         """
+        @filter
     }
     local_key   LocalKey            {
         @doc value "is the locally-unique portion of this channel's key."
@@ -112,8 +115,7 @@ Channel struct {
     local_index LocalKey            {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     virtual     bool                {
@@ -130,6 +132,7 @@ Channel struct {
     }
     internal    bool                {
         @doc value "is true if this is a system channel hidden from normal user queries."
+        @filter
     }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
@@ -141,17 +144,17 @@ Channel struct {
         """
     }
 
-    @doc value       """
+    @doc value    """
         is an internal representation of a channel containing all storage and
         distribution metadata. This type is used internally by the server;
         clients should use APIChannel instead.
     """
-    @go output       "core/pkg/distribution/channel"
+    @go output    "core/pkg/distribution/channel"
     @go marshal
     @go migrate
-    @retrieve custom
-    @retrieve key    "Key"
-    @search type     "channel"
+    @retrieve
+    @retrieve key "Key"
+    @search type  "channel"
     @py omit
     @ts omit
     @cpp omit
@@ -196,8 +199,7 @@ APIChannel struct {
     index       Key                  {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     alias       string?              {
@@ -268,8 +270,7 @@ NewChannel struct extends APIChannel {
     index       Key?                 {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     is_index    bool?                {

@@ -9,8 +9,8 @@
 
 #pragma once
 
+#include <cstddef>
 #include <functional>
-#include <string>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -31,11 +31,14 @@ struct Context {
     /// @brief Indicates what triggered this scheduler run.
     /// Time-based nodes should only fire when reason is TimerTick.
     RunReason reason;
-    std::function<void(const std::string &output_param)> mark_changed;
+    /// @brief records that one of the current node's outputs has a new
+    /// value for the current cycle. The ordinal is the output's 0-based
+    /// position in the owning ir::Node's outputs slice. Zero hash
+    /// lookups on the hot path.
+    std::function<void(size_t output_idx)> mark_changed;
     std::function<void()> mark_self_changed;
     std::function<void(x::telem::TimeSpan)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
-    std::function<void()> activate_stage;
 };
 
 class Node {
@@ -49,12 +52,12 @@ public:
     /// Default implementation does nothing.
     virtual void reset() {}
 
-    /// @brief Checks if the output at the given param name is truthy.
-    /// Used by the scheduler to evaluate one-shot edges - edges only fire
-    /// when the source output is truthy.
-    /// @param param The name of the output parameter to check.
-    /// @returns true if the output exists and its last value is non-zero, false
-    /// otherwise.
-    [[nodiscard]] virtual bool is_output_truthy(const std::string &param) const = 0;
+    /// @brief reports whether the output at the given 0-based ordinal is
+    /// truthy. Used by the scheduler to evaluate conditional edges and
+    /// sequential-scope transitions — both fire only when the source
+    /// output is truthy (non-zero for numeric types). Nodes that embed
+    /// state::Node automatically inherit an implementation that indexes
+    /// into the output cache without any string lookup.
+    [[nodiscard]] virtual bool is_output_truthy(size_t output_idx) const = 0;
 };
 }

@@ -35,23 +35,15 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		src := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(src.Close()).To(Succeed())
-		})
-		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		src := MustOpen(search.Open())
+		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   src,
 		}))
 		w = svc.NewWriter(nil)
-	})
-
-	AfterAll(func() {
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("Create", func() {
@@ -82,7 +74,7 @@ var _ = Describe("Group", Ordered, func() {
 			created := MustSucceed(w.Create(ctx, "retrieve-test", ontology.RootID))
 
 			var g group.Group
-			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g).To(Equal(created))
 		})
 
@@ -92,7 +84,7 @@ var _ = Describe("Group", Ordered, func() {
 			g2 := MustSucceed(w.Create(ctx, "multi2", ontology.RootID))
 
 			var ret []group.Group
-			Expect(svc.NewRetrieve().WhereKeys(g1.Key, g2.Key).Entries(&ret).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(g1.Key, g2.Key)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(g1, g2))
 		})
 
@@ -113,7 +105,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Rename(ctx, created.Key, newName)).To(Succeed())
 
 			var g group.Group
-			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(&g).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(&g).Exec(ctx, nil)).To(Succeed())
 			Expect(g.Name).To(Equal(newName))
 		})
 	})
@@ -134,7 +126,7 @@ var _ = Describe("Group", Ordered, func() {
 
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
 
-			Expect(svc.NewRetrieve().WhereKeys(created.Key).Entry(new(group.Group)).
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(created.Key)).Entry(new(group.Group)).
 				Exec(ctx, nil)).To(HaveOccurred())
 		})
 
@@ -146,7 +138,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
 
-			Expect(svc.NewRetrieve().WhereKeys(parent.Key, child.Key).
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(parent.Key, child.Key)).
 				Entry(new(group.Group)).Exec(ctx, nil)).To(HaveOccurred())
 		})
 
@@ -160,9 +152,9 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
 
 			var groups []group.Group
-			Expect(svc.NewRetrieve().WhereKeys(child1.Key, child2.Key, parent.Key).
+			Expect(svc.NewRetrieve().Where(group.MatchKeys(child1.Key, child2.Key, parent.Key)).
 				Entries(&groups).Exec(ctx, nil)).
-				To(HaveOccurredAs(query.ErrNotFound))
+				To(MatchError(query.ErrNotFound))
 			Expect(groups).To(BeEmpty())
 		})
 
@@ -175,7 +167,7 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())
 
 			for _, key := range []uuid.UUID{root.Key, level1.Key, level2.Key, level3.Key} {
-				Expect(svc.NewRetrieve().WhereKeys(key).Entry(new(group.Group)).
+				Expect(svc.NewRetrieve().Where(group.MatchKeys(key)).Entry(new(group.Group)).
 					Exec(ctx, nil)).To(HaveOccurred())
 			}
 		})

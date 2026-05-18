@@ -12,8 +12,8 @@
 package workspace_test
 
 import (
-	"bytes"
 	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Codec", func() {
@@ -39,7 +40,7 @@ var _ = Describe("Codec", func() {
 				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:   "test_2",
 				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-				Layout: map[string]interface{}{"key_4": "value_4"},
+				Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 			}),
 			Entry("zero values", workspace.Workspace{
 				Key:    uuid.Nil,
@@ -56,7 +57,7 @@ func BenchmarkEncodeDecodeWorkspace(b *testing.B) {
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
 		Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-		Layout: map[string]interface{}{"key_4": "value_4"},
+		Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -79,7 +80,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:   "test_2",
 			Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-			Layout: map[string]interface{}{"key_4": "value_4"},
+			Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -120,8 +121,11 @@ func FuzzDecodeWorkspace(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }

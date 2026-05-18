@@ -14,14 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Errors", func() {
 	Describe("NewNotFoundError", func() {
 		It("Should return an error with the correct message", func() {
 			err := channel.NewNotFoundError(1)
-			Expect(err).To(HaveOccurredAs(channel.ErrNotFound))
+			Expect(err).To(MatchError(channel.ErrNotFound))
 			Expect(err).To(MatchError(ContainSubstring("channel with key 1 not found")))
 		})
 	})

@@ -3,6 +3,7 @@ title: "Version 0.38 Release Notes"
 ---
 
 import { Image } from "@/components/media/Media";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import Release from "@/components/releases/Release.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
@@ -26,6 +27,8 @@ export const components = mdxOverrides;
 Synnax v0.38.0 is our first release of 2025, and contains a large number of new features
 including beta calculated channels, workspace importing, and more.
 
+<Divider.Divider x />
+
 ### Calculated Channels
 
 [Calculated channels](/reference/console/calculated-channels) are a new feature that
@@ -37,6 +40,8 @@ Calculated channels are currently in beta, and you may run into stability issues
 unexpected behavior while using them. If you run into any issues, please report it to
 the Synnax team.
 
+<Divider.Divider x />
+
 ### Workspace Importing and Exporting
 
 The Synnax Console now supports sharing workspaces via a directory configuration.
@@ -44,11 +49,15 @@ Workspaces can be shared by
 [importing and exporting](/reference/console/workspaces#sharing-via-file) workspaces
 into directories to be stored on your desktop.
 
+<Divider.Divider x />
+
 ### Windows Core Installer
 
 The Windows version of the Core can now be installed by an installer. This means you
 only need to download a single installer file, and then run it to install the Core. More
 information can be found on our [Core installation page](/reference/core/installation).
+
+<Divider.Divider x />
 
 ### Python CLI Command Deprecation
 
@@ -59,6 +68,8 @@ access the Python client, you should now use the `sy` command:
 ```bash
 sy login
 ```
+
+<Divider.Divider x />
 
 ### Improvements
 
@@ -71,6 +82,8 @@ sy login
 - Groups are now positioned above all other items within the Resources Toolbar.
 - Line plots render `uint8` data faster.
 - `Cmd + A` can now be used to group all schematic elements.
+
+<Divider.Divider x />
 
 ### Bug Fixes
 

@@ -82,7 +82,7 @@ Getting Python setup correctly can be tricky, but luckily you'll only need to do
 once.
 
 ```zsh
-brew install python@3.11
+brew install python@3.12
 ```
 
 To verify the installation, run:
@@ -94,22 +94,22 @@ python --version
 The output should look something like:
 
 ```zsh
-Python 3.11.x
+Python 3.12.x
 ```
 
 In many cases, running this command will result display an earlier version of Python.
 This is because macOS comes with an older version of Python pre-installed. To fix this
-issue, we recommend a zsh alias. First, make sure the command `python3.11` is correctly
+issue, we recommend a zsh alias. First, make sure the command `python3.12` is correctly
 installed by running:
 
 ```zsh
-python3.11 --version
+python3.12 --version
 ```
 
 The output should look something like:
 
 ```zsh
-Python 3.11.x
+Python 3.12.x
 ```
 
 If it does not, you'll need to make sure `/opt/homebrew/bin` is in your `PATH` variable.
@@ -122,19 +122,19 @@ echo 'export PATH=/opt/homebrew/bin:$PATH' >> ~/.zshrc && source ~/.zshrc
 Now, verify that the above command works by running:
 
 ```zsh
-which python3.11
+which python3.12
 ```
 
 You should see something like:
 
 ```zsh
-/opt/homebrew/bin/python3.11
+/opt/homebrew/bin/python3.12
 ```
 
 Now, we can create the alias. Run:
 
 ```zsh
-echo 'alias python=python3.11 \n alias pip=pip3.11' >> ~/.zshrc && source ~/.zshrc
+echo 'alias python=python3.12 \n alias pip=pip3.12' >> ~/.zshrc && source ~/.zshrc
 ```
 
 Now, verify that the alias works by running:
@@ -146,7 +146,7 @@ python --version
 You should see something like:
 
 ```zsh
-python: aliased to python3.11
+python: aliased to python3.12
 ```
 
 Also, verify that pip is working by running:
@@ -158,7 +158,7 @@ pip --version
 You should see something like:
 
 ```zsh
-pip: aliased to pip3.11
+pip: aliased to pip3.12
 ```
 
 ## 5.1 - Install uv

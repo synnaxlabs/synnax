@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -52,13 +53,11 @@ var _ = Describe("Create", Ordered, func() {
 		tx gorp.Tx
 	)
 	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+		db = DeferClose(gorp.Wrap(memkv.New()))
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Context("Single entry", func() {
 		It("Should create the entry in the db", func(ctx SpecContext) {
 			e := &entry{
@@ -66,7 +65,7 @@ var _ = Describe("Create", Ordered, func() {
 				Data: "The answer to life, the universe, and everything",
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(42).Exists(ctx, tx)).To(BeTrue())
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](42)).Exists(ctx, tx)).To(BeTrue())
 		})
 	})
 
@@ -81,7 +80,7 @@ var _ = Describe("Create", Ordered, func() {
 			for i, e := range e {
 				keys[i] = e.ID
 			}
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(keys...).
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
 				Exists(ctx, tx)).To(BeTrue())
 		})
 	})
@@ -121,7 +120,7 @@ var _ = Describe("Create", Ordered, func() {
 				return entry{ID: e.ID, Data: e.Data + "!"}, nil
 			}).Exec(ctx, tx)).To(Succeed())
 			var e2 entry
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(int32(42)).Entry(&e2).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](int32(42))).Entry(&e2).Exec(ctx, tx)).To(Succeed())
 			Expect(e2.Data).To(Equal("The answer to life, the universe, and everything!"))
 		})
 	})
@@ -135,9 +134,9 @@ var _ = Describe("Create", Ordered, func() {
 				keys[i] = int32(i)
 			}
 			Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(keys...).Exists(ctx, db)).To(BeFalse())
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).Exists(ctx, db)).To(BeFalse())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(keys...).Exists(ctx, tx)).To(BeTrue())
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).Exists(ctx, tx)).To(BeTrue())
 		})
 	})
 })

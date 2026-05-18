@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-# Copyright 2025 Synnax Labs, Inc.
+# Copyright 2026 Synnax Labs, Inc.
 #
 # Use of this software is governed by the Business Source License included in the file
 # licenses/BSL.txt.
@@ -9,6 +8,8 @@ set -euo pipefail
 # As of the Change Date specified in that file, in accordance with the Business Source
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
+
+set -euo pipefail
 
 SCRIPT_DIR="$(
     cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
@@ -81,6 +82,7 @@ PYTHON_DIRS=(
     "$ROOT_DIR/alamos/py"
     "$ROOT_DIR/freighter/py"
     "$ROOT_DIR/client/py"
+    "$ROOT_DIR/x/py"
 )
 for d in "${PYTHON_DIRS[@]}"; do
     update_python "$d/pyproject.toml"

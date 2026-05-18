@@ -55,21 +55,22 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Schematic](f)
 }
 
-// WhereKeys filters for schematics whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to schematics whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Schematic] {
+		return gorp.MatchKeys[Key, Schematic](keys...)
+	}
 }
 
-// Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.indexes, r.label,
-// r.hostProvider, etc.
-func (r Retrieve) Where(filters ...Filter) Retrieve {
-	bound := make([]gorp.Filter[Key, Schematic], len(filters))
-	for i, f := range filters {
-		bound[i] = f(r)
-	}
-	r.gorp = r.gorp.Where(bound...)
+// Where applies the provided filter to the query, binding it to the Retrieve
+// so service-bound filters can read from r.indexes, r.label, r.hostProvider,
+// etc. To compose multiple filters, chain Where calls or pass a combined
+// filter via And / Or.
+func (r Retrieve) Where(filter Filter) Retrieve {
+	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 

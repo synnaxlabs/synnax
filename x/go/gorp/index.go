@@ -12,268 +12,375 @@ package gorp
 import (
 	"cmp"
 	"context"
+	"slices"
 	"sync"
+	"sync/atomic"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
+// ErrIndexInvalid indicates that a registered secondary index failed to
+// populate. Retrieve.Where(idx.Filter(...)) catches this sentinel and falls
+// back to a sequential scan with a synthesized predicate, so queries continue
+// to return correct results — just at scan cost. Direct callers of Get / GetTx
+// receive the sentinel and are responsible for their own fallback (see
+// ontology.parentsByIndex for the canonical pattern).
+//
+// A populate failure is logged via the table's instrumentation and stays
+// sticky for the lifetime of the process: there is no automatic rebuild.
+// Operators should investigate the underlying error and restart the affected
+// node to retry population.
+var ErrIndexInvalid = errors.New("gorp: index failed to populate")
+
 // Index is a registered secondary index on a Table. Implementations are
-// provided by gorp (Lookup, Sorted) and constructed via NewLookup / NewSorted.
-// The interface methods are unexported so external code cannot substitute
-// custom implementations; callers should use the provided generic types.
+// provided by gorp (LookupIndex, SortedIndex) and constructed via NewLookupIndex,
+// NewBytesLookup, and NewSortedIndex. The interface methods are unexported so
+// external code cannot substitute custom implementations; callers should
+// use the provided generic types.
 type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
-	// populate transitions the index into the populated state and returns
-	// (init error, insert closure, finish closure). The caller invokes insert
-	// once for every existing entry in the table, then invokes finish exactly
-	// once after the last insert. The implementation may hold a write lock
-	// across the entire populate phase, so finish is mandatory; failing to
-	// call it leaks the lock.
-	populate() (func(entry E), func(), error)
-	// set is invoked by the Table observer when an entry is created or
-	// updated. The index extracts the new indexed value from entry, removes
-	// any stale mapping for key, and inserts the new one.
-	set(key K, entry E)
-	// delete is invoked by the Table observer when an entry is deleted. The
-	// index uses its reverse map to locate and remove the stale mapping.
+	// populate returns an insert closure and a finish closure for the
+	// populate phase. The caller must invoke insert once for every existing
+	// entry in the table and then invoke finish exactly once with the
+	// terminal scan error (or nil on success). finish is mandatory:
+	// implementations hold a write lock across the populate phase and
+	// signal readiness to readers blocked in Filter; skipping finish leaks
+	// the lock and deadlocks every blocked reader.
+	populate() (func(entry E), func(error))
+	// set records entry in committed index state, keyed by entry.GorpKey(),
+	// replacing any prior mapping for the same key.
+	set(entry E)
+	// delete removes any committed mapping for key.
 	delete(key K)
-	// stageSet is invoked by a table-bound Writer after a tx-scoped Set,
-	// before the tx commits. It records the pending insert or update in a
-	// per-tx delta keyed off tx.txIdentity(). If the tx has no identity (DB
-	// acting as Tx), it is a no-op. The committed index is not touched.
-	stageSet(tx Tx, key K, entry E)
-	// stageDelete is the delete analogue of stageSet. It records a pending
-	// deletion in the per-tx delta. The committed index is not touched.
+	// stageSet records a pending insert or update of entry against tx's
+	// per-tx delta, keyed by entry.GorpKey(). Committed index state is
+	// not modified until tx commits. When tx has no per-tx identity (a
+	// DB used directly), the mutation applies to committed state
+	// immediately.
+	stageSet(tx Tx, entry E)
+	// stageDelete records a pending deletion of key against tx's per-tx
+	// delta. Committed index state is not modified until tx commits.
+	// When tx has no per-tx identity, the deletion applies to committed
+	// state immediately.
 	stageDelete(tx Tx, key K)
 }
 
-// Lookup is an in-memory exact-match index on a field of type V extracted
-// from entries of type E. Construct with NewLookup and register on a Table
-// via TableConfig.Indexes.
-type Lookup[K IndexKey, E Entry[K], V comparable] struct {
-	name    string
-	extract func(e *E) V
-	mu      sync.RWMutex
-	storage lookupStorage[K, V]
-	reverse map[K]V
-	overlay deltaOverlay[K, V]
+// baseIndex holds the scaffolding shared by every concrete index
+// implementation. Concrete types embed it as a value.
+type baseIndex[K Key, E Entry[K]] struct {
+	// name is the human-readable index name, used in diagnostics and
+	// in the ErrIndexInvalid wrap.
+	name string
+	// mu guards the concrete index's committed state. Held for writing
+	// during populate and flush; held for reading during Get.
+	mu sync.RWMutex
+	// populateDone is closed by populate's finish closure once the
+	// index has been populated (or has settled with an error). Filter
+	// waits on this so reads issued before the index is ready block
+	// instead of returning empty results.
+	populateDone chan struct{}
+	// populateErr captures the populate scan error, if any. Checked
+	// after populateDone closes to decide whether the index is usable
+	// or queries must fall back to a sequential scan.
+	populateErr atomic.Pointer[error]
 }
 
-// NewLookup constructs a Lookup index with the given display name and extract
-// function. The returned index is empty; register it on a Table through
-// TableConfig.Indexes to populate it from the existing table contents and
-// keep it in sync with future writes.
-func NewLookup[K IndexKey, E Entry[K], V comparable](
+func (b *baseIndex[K, E]) Name() string { return b.name }
+
+// waitPopulated blocks until populate finishes or ctx is canceled,
+// returning ErrIndexInvalid (wrapped with the index name) if populate
+// failed.
+func (b *baseIndex[K, E]) waitPopulated(ctx context.Context) error {
+	select {
+	case <-b.populateDone:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if b.populateErr.Load() != nil {
+		return errors.Wrapf(ErrIndexInvalid, "%q", b.name)
+	}
+	return nil
+}
+
+// populateErrWrapped returns ErrIndexInvalid wrapped with the index
+// name when populate failed. Callers must have already synchronized
+// with populateDone.
+func (b *baseIndex[K, E]) populateErrWrapped() error {
+	if b.populateErr.Load() != nil {
+		return errors.Wrapf(ErrIndexInvalid, "%q", b.name)
+	}
+	return nil
+}
+
+// LookupIndex is an in-memory exact-match secondary index on a field of type V
+// extracted from entries of type E. Construct comparable-keyed indexes via
+// NewLookupIndex and byte-keyed indexes via NewBytesLookup; both produce a
+// *LookupIndex, parameterized by the appropriate K. Register on a Table through
+// TableConfig.Indexes.
+//
+// LookupIndex itself is data-type-agnostic: it owns the populate state machine,
+// the E → V extraction, and Filter construction. Per-key bookkeeping
+// (forward / reverse maps, per-tx staging deltas, commit-time flush) lives
+// on the storage backend selected by the constructor.
+type LookupIndex[K Key, E Entry[K], V comparable] struct {
+	// baseIndex carries the populate lifecycle, mutex, and name.
+	baseIndex[K, E]
+	// extract reads the indexed field from an entry.
+	extract func(e *E) V
+	// storage holds the forward/reverse maps and per-tx staging overlay.
+	storage lookupStorage[K, V]
+	// buildMembership constructs an O(1) membership predicate over a
+	// resolved key set. Supplied by the constructor with the right shape
+	// for K (typed map for comparable K, string-keyed map for []byte).
+	buildMembership func([]K) keyMembership[K]
+}
+
+// NewLookupIndex constructs a LookupIndex over a comparable primary key K. The
+// returned index is empty; register it on a Table through TableConfig.Indexes
+// to populate it from the existing table contents and keep it in sync with
+// future writes.
+func NewLookupIndex[K ComparableKey, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
-) *Lookup[K, E, V] {
-	return &Lookup[K, E, V]{
-		name:    name,
-		extract: extract,
-		storage: newLookupStorage[K, V](),
-		reverse: make(map[K]V),
+) *LookupIndex[K, E, V] {
+	l := &LookupIndex[K, E, V]{
+		baseIndex:       baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
+		extract:         extract,
+		buildMembership: indexedKeyMembership[K],
 	}
+	l.storage = newMapLookupStorage[K, V](&l.mu)
+	return l
 }
 
-// Name implements Index.
-func (l *Lookup[K, E, V]) Name() string { return l.name }
+// NewBytesLookup constructs a LookupIndex over a []byte primary key. The shape
+// and semantics mirror NewLookupIndex; the only difference is the keying
+// strategy required because []byte does not satisfy comparable. Use
+// NewLookupIndex whenever K is comparable; reach for NewBytesLookup only when
+// the table key is genuinely []byte (e.g. composite keys encoded inline).
+func NewBytesLookup[E Entry[[]byte], V comparable](
+	name string,
+	extract func(e *E) V,
+) *LookupIndex[[]byte, E, V] {
+	l := &LookupIndex[[]byte, E, V]{
+		baseIndex:       baseIndex[[]byte, E]{name: name, populateDone: make(chan struct{})},
+		extract:         extract,
+		buildMembership: bytesIndexedKeyMembership,
+	}
+	l.storage = newBytesLookupStorage[V](&l.mu)
+	return l
+}
 
 //nolint:unused
-func (l *Lookup[K, E, V]) populate() (func(E), func(), error) {
+func (l *LookupIndex[K, E, V]) populate() (func(E), func(error)) {
 	l.mu.Lock()
 	insert := func(entry E) {
-		key := entry.GorpKey()
-		value := l.extract(&entry)
-		l.storage.put(key, value)
-		l.reverse[key] = value
+		l.storage.put(entry.GorpKey(), l.extract(&entry))
 	}
-	finish := func() { l.mu.Unlock() }
-	return insert, finish, nil
-}
-
-//nolint:unused
-func (l *Lookup[K, E, V]) set(key K, entry E) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	newValue := l.extract(&entry)
-	if oldValue, existed := l.reverse[key]; existed {
-		if oldValue == newValue {
-			return
+	finish := func(err error) {
+		if err != nil {
+			l.populateErr.Store(&err)
 		}
-		l.storage.remove(key, oldValue)
+		close(l.populateDone)
+		l.mu.Unlock()
 	}
-	l.storage.put(key, newValue)
-	l.reverse[key] = newValue
+	return insert, finish
 }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) delete(key K) {
+func (l *LookupIndex[K, E, V]) set(entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	oldValue, existed := l.reverse[key]
-	if !existed {
-		return
-	}
-	l.storage.remove(key, oldValue)
-	delete(l.reverse, key)
+	l.storage.put(entry.GorpKey(), l.extract(&entry))
 }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
-	l.overlay.stage(tx, key, l.extract(&entry))
+func (l *LookupIndex[K, E, V]) delete(key K) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.storage.delete(key)
 }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
-	l.overlay.unstage(tx, key)
+func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry E) {
+	l.storage.stageSet(tx, entry.GorpKey(), l.extract(&entry))
 }
 
-func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	return l.overlay.resolve(tx, l.Get(values...), values)
+//nolint:unused
+func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
+	l.storage.stageDelete(tx, key)
 }
 
-// Get returns the primary keys of entries whose indexed field matches any of
-// the provided values.
-func (l *Lookup[K, E, V]) Get(values ...V) []K {
+// Get returns the primary keys of entries whose indexed field matches any
+// of the provided values. Get blocks until the index has finished
+// populating. After populate settles, Get returns ErrIndexInvalid if
+// population failed; callers should fall back to a sequential scan or
+// surface the error to their caller.
+//
+// Returned slices are owned by the caller and may be freely retained.
+// For byte-keyed indexes (LookupIndex[[]byte, ...]) each returned key is a
+// fresh clone.
+func (l *LookupIndex[K, E, V]) Get(values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
+	<-l.populateDone
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	if err := l.populateErrWrapped(); err != nil {
+		return nil, err
+	}
 	if len(values) == 1 {
-		// Single-value fast path: avoid the append-grow loop. Allocate the
-		// result slice with the exact size and copy directly. This is the
-		// dominant case for index-backed exact-match queries.
-		src := l.storage.get(values[0])
-		out := make([]K, len(src))
-		copy(out, src)
-		return out
+		return l.storage.get(values[0]), nil
 	}
 	var out []K
 	for _, v := range values {
 		out = append(out, l.storage.get(v)...)
 	}
-	return out
+	return out, nil
 }
 
-// Filter returns a Filter[K, E] whose Keys are resolved at
-// Retrieve.Exec time against the passed transaction. The resolver
-// overlays any per-tx delta staged against this index on top of the
-// committed index state, so an indexed Retrieve inside the same write
-// tx that created / updated / deleted an entry sees those pending
-// changes (read-your-own-writes). When the tx has no per-tx scoping
-// (DB passed directly) or no staged mutations, the resolver falls
-// through to the committed-only path and returns the same keys that
-// the pre-overlay Filter would have returned.
+// GetTx is the tx-aware counterpart to Get. It returns the primary keys
+// of entries whose indexed field matches any of the provided values,
+// merging committed index state with any per-tx delta staged against
+// the open transaction. When tx has no per-tx scoping or no staged
+// mutations for this index, it returns the same result as Get. Use
+// GetTx when consuming keys directly outside of Retrieve — e.g. graph
+// traversal helpers that probe the index for candidate IDs. Returns
+// ErrIndexInvalid when population failed; see Get for the failure-mode
+// contract.
+func (l *LookupIndex[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	committed, err := l.Get(values...)
+	if err != nil {
+		return nil, err
+	}
+	return l.storage.resolve(tx, committed, values), nil
+}
+
+// Filter returns a Filter[K, E] matching entries whose indexed field is
+// any of values. The filter sees read-your-own-writes: an indexed
+// Retrieve inside a write tx that created, updated, or deleted an
+// entry observes those pending changes alongside committed index
+// state. A Retrieve against a DB used directly returns committed
+// state only.
 //
-// The returned Filter carries `resolve` instead of an eager `Keys`
-// field. Retrieve.Exec / Exists / Count invoke the resolver before
-// dispatch and assign the result to `Keys` + `membership` on the
-// local filter copy, after which the rest of the pipeline works
-// unchanged (execKeys fast path, composition with And/Or, etc.).
-func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
+// Filter blocks the Retrieve until the index has finished populating.
+// If population fails, the resolver returns ErrIndexInvalid; Retrieve
+// catches the sentinel and falls back to a sequential scan using the
+// eval predicate carried alongside the resolver, so queries continue
+// to return correct results at scan cost.
+func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			return l.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			if err := l.waitPopulated(ctx); err != nil {
+				return nil, nil, err
+			}
+			committed, err := l.Get(captured...)
+			if err != nil {
+				return nil, nil, err
+			}
+			return l.storage.resolve(tx, committed, captured), l.buildMembership, nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return slices.Contains(captured, l.extract(e)), nil
 		},
 	}
 }
 
-// GetTx is the tx-aware counterpart to Get. It returns the primary
-// keys of entries whose indexed field matches any of the provided
-// values, merging committed index state with any per-tx delta staged
-// against the open transaction. When tx is a DB (no per-tx scoping)
-// or has no staged mutations for this index, it returns the same
-// result as Get. Use GetTx when consuming keys directly outside of
-// Retrieve — e.g. graph traversal helpers that probe the index for
-// candidate IDs.
-func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) []K {
-	if len(values) == 0 {
-		return nil
-	}
-	return l.resolveTx(tx, values)
-}
-
-// Sorted is an ordered in-memory index on a field of type V extracted from
-// entries of type E. V is constrained to cmp.Ordered so the storage can use
-// the native `<` operator without a caller-supplied comparator. Sorted
-// supports exact-match lookups via Filter (same semantics as Lookup) and
-// ordered cursor-based pagination via Retrieve.OrderBy.
+// SortedIndex is an ordered in-memory index on a field of type V extracted from
+// entries of type E. V is constrained to cmp.Ordered so the storage can
+// compare values without a caller-supplied comparator. SortedIndex supports
+// exact-match lookups via Filter (same semantics as LookupIndex) and ordered
+// cursor-based pagination via Retrieve.OrderBy.
 //
-// Tx delta overlay is v1-scoped to equality Filter. Ordered cursor
-// iteration via Retrieve.OrderBy / SortedQuery.walkOrder does NOT
-// reflect uncommitted tx writes — it reads the committed sorted slice
-// directly.
-type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
-	name    string
+// Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor
+// iteration via Retrieve.OrderBy does NOT reflect uncommitted tx
+// writes; an open write tx that staged inserts or deletes will not
+// see those changes during ordered iteration.
+type SortedIndex[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
+	// baseIndex carries the populate lifecycle, mutex, and name.
+	baseIndex[K, E]
+	// extract reads the indexed field from an entry.
 	extract func(e *E) V
-	mu      sync.RWMutex
+	// storage holds entries in ascending V order.
 	storage *sortedStorage[K, V]
+	// reverse maps each primary key to its current indexed value; used
+	// to locate the old slot when an entry's value changes.
 	reverse map[K]V
+	// overlay tracks per-tx staging deltas for read-your-own-writes
+	// equality lookups.
 	overlay deltaOverlay[K, V]
 }
 
-// NewSorted constructs a Sorted index over the provided extract function.
+// NewSortedIndex constructs a SortedIndex index over the provided extract function.
 // V must satisfy cmp.Ordered (any built-in ordered primitive: signed and
 // unsigned integers, floats, or strings).
-func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
+func NewSortedIndex[K ComparableKey, E Entry[K], V cmp.Ordered](
 	name string,
 	extract func(e *E) V,
-) *Sorted[K, E, V] {
-	return &Sorted[K, E, V]{
-		name:    name,
-		extract: extract,
-		storage: newSortedStorage[K, V](),
-		reverse: make(map[K]V),
+) *SortedIndex[K, E, V] {
+	s := &SortedIndex[K, E, V]{
+		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
+		extract:   extract,
+		storage:   newSortedStorage[K, V](),
+		reverse:   make(map[K]V),
 	}
+	s.overlay.commitSet = func(key K, value V) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.setCommitted(key, value)
+	}
+	s.overlay.commitDelete = func(key K) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.deleteCommitted(key)
+	}
+	s.overlay.flush = s.flushTx
+	return s
 }
 
-// Name implements Index.
-func (s *Sorted[K, E, V]) Name() string { return s.name }
-
 //nolint:unused
-func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
+func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	s.mu.Lock()
-	// Bulk-load: append every entry to the storage's tail without maintaining
-	// the sort invariant per insert (the per-insert path is O(N) due to slice
-	// shifting). Sort once at finish for an O(N log N) populate instead of
-	// O(N²). The write lock is held across the whole phase, so concurrent
-	// reads can never observe the partially sorted state.
 	insert := func(entry E) {
 		key := entry.GorpKey()
 		value := s.extract(&entry)
 		s.storage.entries = append(
 			s.storage.entries,
-			sortedEntry[K, V]{Value: value, Key: key},
+			sortedEntry[K, V]{value: value, key: key},
 		)
 		s.reverse[key] = value
 	}
-	finish := func() {
-		s.storage.sortBulk()
+	finish := func(err error) {
+		if err != nil {
+			s.populateErr.Store(&err)
+		} else {
+			s.storage.sortBulk()
+		}
+		close(s.populateDone)
 		s.mu.Unlock()
 	}
-	return insert, finish, nil
+	return insert, finish
 }
 
-//nolint:unused
-func (s *Sorted[K, E, V]) set(key K, entry E) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	newValue := s.extract(&entry)
+// setCommitted applies a write to committed state. Caller must hold s.mu.
+func (s *SortedIndex[K, E, V]) setCommitted(key K, value V) {
 	if oldValue, existed := s.reverse[key]; existed {
-		if cmp.Compare(oldValue, newValue) == 0 {
+		if cmp.Compare(oldValue, value) == 0 {
 			return
 		}
 		s.storage.remove(key, oldValue)
 	}
-	s.storage.put(key, newValue)
-	s.reverse[key] = newValue
+	s.storage.put(key, value)
+	s.reverse[key] = value
 }
 
-//nolint:unused
-func (s *Sorted[K, E, V]) delete(key K) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// deleteCommitted removes a key from committed state. Caller must hold s.mu.
+func (s *SortedIndex[K, E, V]) deleteCommitted(key K) {
 	oldValue, existed := s.reverse[key]
 	if !existed {
 		return
@@ -283,59 +390,105 @@ func (s *Sorted[K, E, V]) delete(key K) {
 }
 
 //nolint:unused
-func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
-	s.overlay.stage(tx, key, s.extract(&entry))
+func (s *SortedIndex[K, E, V]) set(entry E) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.setCommitted(entry.GorpKey(), s.extract(&entry))
 }
 
 //nolint:unused
-func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
+func (s *SortedIndex[K, E, V]) delete(key K) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deleteCommitted(key)
+}
+
+//nolint:unused
+func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
+	s.overlay.stage(tx, entry.GorpKey(), s.extract(&entry))
+}
+
+//nolint:unused
+func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 	s.overlay.unstage(tx, key)
 }
 
-func (s *Sorted[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	return s.overlay.resolve(tx, s.Get(values...), values)
+// flushTx promotes the staged tx delta into committed index state.
+func (s *SortedIndex[K, E, V]) flushTx(d *delta[K, V]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, entry := range d.state {
+		if entry.deleted {
+			s.deleteCommitted(k)
+			continue
+		}
+		s.setCommitted(k, entry.value)
+	}
 }
 
-// Get returns the primary keys of entries whose indexed field matches any of
-// the provided values.
-func (s *Sorted[K, E, V]) Get(values ...V) []K {
+// resolveTx mirrors Lookup.resolveTx — Filter has already gated on
+// populateErr by the time this runs, so any error from Get is dropped.
+func (s *SortedIndex[K, E, V]) resolveTx(tx Tx, values []V) []K {
+	keys, _ := s.Get(values...)
+	return s.overlay.resolve(tx, keys, values)
+}
+
+// Get returns the primary keys of entries whose indexed field matches any
+// of the provided values. See LookupIndex.Get for the populate-failure contract.
+func (s *SortedIndex[K, E, V]) Get(values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if err := s.populateErrWrapped(); err != nil {
+		return nil, err
+	}
 	if len(values) == 1 {
 		src := s.storage.get(values[0])
 		out := make([]K, len(src))
 		copy(out, src)
-		return out
+		return out, nil
 	}
 	var out []K
 	for _, v := range values {
 		out = append(out, s.storage.get(v)...)
 	}
-	return out
+	return out, nil
 }
 
-// Filter returns an exact-match Filter[K, E] against the sorted index.
-// Like Lookup.Filter, the returned filter carries a deferred resolver
-// that merges committed index state with any per-tx delta at
-// Retrieve.Exec time. Ordered cursor iteration (Sorted.Ordered / OrderBy)
-// is not covered by the delta overlay in v1; only equality Filter.
-func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
+// Filter returns an exact-match Filter[K, E] matching entries whose
+// indexed field is any of values. Read-your-own-writes semantics
+// match LookupIndex.Filter. Ordered cursor iteration (SortedIndex.Ordered /
+// OrderBy) is not covered; only equality Filter.
+//
+// Filter blocks the Retrieve until the index has finished populating
+// and falls back to a sequential scan when populate fails. See
+// LookupIndex.Filter for the populate-failure contract.
+func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			if err := s.waitPopulated(ctx); err != nil {
+				return nil, nil, err
+			}
 			return s.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return slices.Contains(captured, s.extract(e)), nil
 		},
 	}
 }
 
-// GetTx is the tx-aware counterpart to Get. See Lookup.GetTx for
+// GetTx is the tx-aware counterpart to Get. See LookupIndex.GetTx for
 // semantics.
-func (s *Sorted[K, E, V]) GetTx(tx Tx, values ...V) []K {
+func (s *SortedIndex[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
-	return s.resolveTx(tx, values)
+	committed, err := s.Get(values...)
+	if err != nil {
+		return nil, err
+	}
+	return s.overlay.resolve(tx, committed, values), nil
 }

@@ -1090,4 +1090,154 @@ TEST(StopwatchTests, testReturnsTimeSpan) {
     const TimeSpan elapsed = sw.elapsed();
     ASSERT_GE(elapsed.nanoseconds(), 0);
 }
+
+/// @brief it should add a scalar nanosecond count to a TimeStamp.
+TEST(TimeStampInt64Tests, testAddition) {
+    const auto ts = TimeStamp(5);
+    const auto result = ts + std::int64_t{3};
+    ASSERT_EQ(result.nanoseconds(), 8);
+}
+
+/// @brief it should add a TimeStamp to a scalar nanosecond count.
+TEST(TimeStampInt64Tests, testAdditionFriend) {
+    const auto ts = TimeStamp(5);
+    const auto result = std::int64_t{3} + ts;
+    ASSERT_EQ(result.nanoseconds(), 8);
+}
+
+/// @brief it should subtract a scalar nanosecond count from a TimeStamp.
+TEST(TimeStampInt64Tests, testSubtraction) {
+    const auto ts = TimeStamp(5);
+    const auto result = ts - std::int64_t{3};
+    ASSERT_EQ(result.nanoseconds(), 2);
+}
+
+/// @brief it should subtract a TimeStamp from a scalar, returning a TimeSpan.
+TEST(TimeStampInt64Tests, testSubtractionFriend) {
+    const auto ts = TimeStamp(3);
+    const TimeSpan result = std::int64_t{5} - ts;
+    ASSERT_EQ(result.nanoseconds(), 2);
+}
+
+/// @brief it should multiply a TimeStamp by a scalar.
+TEST(TimeStampInt64Tests, testMultiplication) {
+    const auto ts = TimeStamp(5);
+    const auto result = ts * std::int64_t{3};
+    ASSERT_EQ(result.nanoseconds(), 15);
+}
+
+/// @brief it should multiply a scalar by a TimeStamp.
+TEST(TimeStampInt64Tests, testMultiplicationFriend) {
+    const auto ts = TimeStamp(5);
+    const auto result = std::int64_t{3} * ts;
+    ASSERT_EQ(result.nanoseconds(), 15);
+}
+
+/// @brief it should divide a TimeStamp by a scalar.
+TEST(TimeStampInt64Tests, testDivision) {
+    const auto ts = TimeStamp(15);
+    const auto result = ts / std::int64_t{3};
+    ASSERT_EQ(result.nanoseconds(), 5);
+}
+
+/// @brief it should divide a scalar by a TimeStamp.
+TEST(TimeStampInt64Tests, testDivisionFriend) {
+    const auto ts = TimeStamp(3);
+    const auto result = std::int64_t{15} / ts;
+    ASSERT_EQ(result.nanoseconds(), 5);
+}
+
+/// @brief it should compute modulo of a TimeStamp by a scalar.
+TEST(TimeStampInt64Tests, testModulo) {
+    const auto ts = TimeStamp(7);
+    const auto result = ts % std::int64_t{3};
+    ASSERT_EQ(result.nanoseconds(), 1);
+}
+
+/// @brief it should compute modulo of a scalar by a TimeStamp.
+TEST(TimeStampInt64Tests, testModuloFriend) {
+    const auto ts = TimeStamp(3);
+    const auto result = std::int64_t{7} % ts;
+    ASSERT_EQ(result.nanoseconds(), 1);
+}
+
+/// @brief it should add and assign a scalar to a TimeStamp.
+TEST(TimeStampInt64Tests, testAdditionAssignment) {
+    auto ts = TimeStamp(5);
+    ts += std::int64_t{3};
+    ASSERT_EQ(ts.nanoseconds(), 8);
+}
+
+/// @brief it should subtract and assign a scalar to a TimeStamp.
+TEST(TimeStampInt64Tests, testSubtractionAssignment) {
+    auto ts = TimeStamp(5);
+    ts -= std::int64_t{3};
+    ASSERT_EQ(ts.nanoseconds(), 2);
+}
+
+/// @brief it should multiply and assign a scalar to a TimeStamp.
+TEST(TimeStampInt64Tests, testMultiplicationAssignment) {
+    auto ts = TimeStamp(5);
+    ts *= std::int64_t{3};
+    ASSERT_EQ(ts.nanoseconds(), 15);
+}
+
+/// @brief it should divide and assign a scalar to a TimeStamp.
+TEST(TimeStampInt64Tests, testDivisionAssignment) {
+    auto ts = TimeStamp(15);
+    ts /= std::int64_t{3};
+    ASSERT_EQ(ts.nanoseconds(), 5);
+}
+
+/// @brief it should compute modulo and assign a scalar to a TimeStamp.
+TEST(TimeStampInt64Tests, testModuloAssignment) {
+    auto ts = TimeStamp(7);
+    ts %= std::int64_t{3};
+    ASSERT_EQ(ts.nanoseconds(), 1);
+}
+
+/// @brief it should compare a TimeStamp to a scalar for equality.
+TEST(TimeStampInt64Tests, testEquality) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts == std::int64_t{5});
+    ASSERT_FALSE(ts == std::int64_t{6});
+}
+
+/// @brief it should compare a TimeStamp to a scalar for inequality.
+TEST(TimeStampInt64Tests, testInequality) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts != std::int64_t{6});
+    ASSERT_FALSE(ts != std::int64_t{5});
+}
+
+/// @brief it should compare a TimeStamp to a scalar with less than.
+TEST(TimeStampInt64Tests, testLessThan) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts < std::int64_t{6});
+    ASSERT_FALSE(ts < std::int64_t{5});
+}
+
+/// @brief it should compare a TimeStamp to a scalar with greater than.
+TEST(TimeStampInt64Tests, testGreaterThan) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts > std::int64_t{4});
+    ASSERT_FALSE(ts > std::int64_t{5});
+}
+
+/// @brief it should compare a TimeStamp to a scalar with less than or equal.
+TEST(TimeStampInt64Tests, testLessThanEqual) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts <= std::int64_t{5});
+    ASSERT_TRUE(ts <= std::int64_t{6});
+    ASSERT_FALSE(ts <= std::int64_t{4});
+}
+
+/// @brief it should compare a TimeStamp to a scalar with greater than or equal.
+TEST(TimeStampInt64Tests, testGreaterThanEqual) {
+    const auto ts = TimeStamp(5);
+    ASSERT_TRUE(ts >= std::int64_t{5});
+    ASSERT_TRUE(ts >= std::int64_t{4});
+    ASSERT_FALSE(ts >= std::int64_t{6});
+}
+
 }

@@ -18,7 +18,6 @@ import (
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Switch", func() {
@@ -154,7 +153,7 @@ var _ = Describe("Switch", func() {
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}
 			cancel()
-			Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 		})
 
 	})

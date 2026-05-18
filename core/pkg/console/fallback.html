@@ -1,5 +1,5 @@
 <!--
-  Copyright 2025 Synnax Labs, Inc.
+  Copyright 2026 Synnax Labs, Inc.
 
   Use of this software is governed by the Business Source License included in the file
   licenses/BSL.txt.
@@ -28,10 +28,10 @@
                 height: 100vh;
                 margin: 0;
             }
-            .container {
+            main {
                 text-align: center;
                 padding: 2rem;
-                background: rgba(120, 120, 120);
+                background: rgb(120, 120, 120);
                 border-radius: 2rem;
             }
             h1 {
@@ -50,13 +50,13 @@
         </style>
     </head>
     <body>
-        <div class="container">
+        <main>
             <h1>Synnax Core</h1>
-            <p>Core built without embedded console</p>
+            <p>Core built without embedded Console</p>
             <p class="note">
-                To enable the embedded console UI, rebuild with the -tags console build
-                flag
+                To enable the embedded Console, rebuild with the
+                <code>-tags=console</code> build flag.
             </p>
-        </div>
+        </main>
     </body>
 </html>

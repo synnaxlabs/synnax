@@ -5,7 +5,8 @@ title: "Version 0.35 Release Notes"
 import { Image, Video } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
-import LabJack from "@/pages/releases/LabJack.astro";
+import LabJack from "@/components/releases/LabJack.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -36,11 +37,15 @@ Synnax version 0.35.0 introduces a new table component, fixes a few issues with 
 recently released LabJack driver, makes several improvements to schematic editing, and
 fixes a number of performance related bugs.
 
+<Divider.Divider x />
+
 ### Table Component
 
 The new table component is a powerful tool for displaying and interacting with tabular
 data. Tables are particularly useful for displaying data from many different channels,
 and for displaying data that should be flagged for exceeding certain thresholds.
+
+<Divider.Divider x />
 
 ### Schematic Improvements
 
@@ -108,6 +113,8 @@ your schematic.
   }}
 />
 
+<Divider.Divider x />
+
 ### Other Minor Improvements and Bug Fixes
 
 - Reduced response times for configuring [LabJack](/reference/driver/labjack) tasks.
@@ -116,6 +123,8 @@ your schematic.
 - Improved shutdown procedure for the Synnax Core and embedded Driver.
 - The light schematic symbol can now accept telemetry types beyond just boolean sources,
   and includes a threshold setting to trigger state changes
+
+<Divider.Divider x />
 
 ### Breaking Changes
 

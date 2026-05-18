@@ -10,14 +10,13 @@
 package table
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Table{}
+var _ gorp.Entry[Key] = Table{}
 
 // GorpKey implements gorp.Entry.
-func (t Table) GorpKey() uuid.UUID { return t.Key }
+func (t Table) GorpKey() Key { return t.Key }
 
 // SetOptions implements gorp.Entry.
 func (t Table) SetOptions() []any { return nil }

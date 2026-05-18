@@ -34,21 +34,33 @@ import (
 // changes to a particular entry type in a gorp.DB. It's not typically necessary
 // to instantiate this configuration directly, instead use a helper function
 // such as GorpPublisherConfigUUID.
+//
+// SetName and DeleteName default to "sy_<type>_set" / "sy_<type>_delete" when the
+// caller does not override them. To opt out of a channel entirely (e.g. when the
+// caller is publishing the set events through a separate, custom pipeline) set
+// DisableSet or DisableDelete; the corresponding events are then dropped and the
+// channel is not created. At least one of the two channels must remain enabled.
 type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Observable is the observable to subscribe to for entry changes.
 	Observable observe.Observable[gorp.TxReader[K, E]]
-	// SetDataType is the data type of the key used by the DB.
+	// SetDataType is the data type of the set channel.
 	SetDataType telem.DataType
-	// DeleteDataType is the data type of the key used by the DB.
+	// DeleteDataType is the data type of the delete channel.
 	DeleteDataType telem.DataType
-	// MarshalSet is a function that marshals the key used by the DB into a byte slice.
+	// MarshalSet is a function that marshals an entry into the set channel's payload.
 	MarshalSet func(entry E) ([]byte, error)
-	// MarshalDelete is a function that marshals the key used by the DB into a byte slice.
+	// MarshalDelete is a function that marshals a deleted entry's key into the delete
+	// channel's payload.
 	MarshalDelete func(K) ([]byte, error)
 	// SetName is the name of the set channel.
 	SetName string
 	// DeleteName is the name of the delete channel.
 	DeleteName string
+	// DisableSet drops VariantSet events and skips creating the set channel. Use
+	// when the caller propagates set events through a separate pipeline.
+	DisableSet bool
+	// DisableDelete drops VariantDelete events and skips creating the delete channel.
+	DisableDelete bool
 }
 
 var _ config.Config[GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
@@ -69,19 +81,30 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 	g.MarshalDelete = override.Nil(g.MarshalDelete, other.MarshalDelete)
 	g.SetName = override.String(g.SetName, other.SetName)
 	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
+	g.DisableSet = g.DisableSet || other.DisableSet
+	g.DisableDelete = g.DisableDelete || other.DisableDelete
 	g.Observable = override.Nil(g.Observable, other.Observable)
 	return g
 }
 
 func (g GorpPublisherConfig[K, E]) Validate() error {
 	v := validate.New("cdc.gorp_publisher_config")
-	validate.NotEmptyString(v, "set_name", g.SetName)
-	validate.NotEmptyString(v, "delete_name", g.DeleteName)
+	setEnabled := !g.DisableSet && g.SetName != ""
+	deleteEnabled := !g.DisableDelete && g.DeleteName != ""
+	v.Ternary(
+		"channels",
+		!setEnabled && !deleteEnabled,
+		"at least one of the set or delete channel must be enabled",
+	)
+	if setEnabled {
+		validate.NotEmptyString(v, "set_data_type", g.SetDataType)
+		validate.NotNil(v, "marshal_set", g.MarshalSet)
+	}
+	if deleteEnabled {
+		validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
+		validate.NotNil(v, "marshal_delete", g.MarshalDelete)
+	}
 	validate.NotNil(v, "observable", g.Observable)
-	validate.NotEmptyString(v, "set_data_type", g.SetDataType)
-	validate.NotEmptyString(v, "delete_data_type", g.DeleteDataType)
-	validate.NotNil(v, "marshal_set", g.MarshalSet)
-	validate.NotNil(v, "marshal_delete", g.MarshalDelete)
 	return v.Error()
 }
 
@@ -90,7 +113,7 @@ func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(b, '\n'), nil
+	return telem.MarshalVariableSample(b), nil
 }
 
 // GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that propagates
@@ -137,7 +160,7 @@ func GorpPublisherConfigString[E gorp.Entry[string]](obs observe.Observable[gorp
 		Observable:     obs,
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
-		MarshalDelete:  func(k string) ([]byte, error) { return append([]byte(k), '\n'), nil },
+		MarshalDelete:  func(k string) ([]byte, error) { return telem.MarshalVariableSample([]byte(k)), nil },
 		MarshalSet:     MarshalJSON[string, E],
 	}
 }
@@ -154,37 +177,47 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	if err != nil {
 		return nil, err
 	}
-	var (
-		obs = observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
-			Observable: cfg.Observable,
-			Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
-				var out []change.Change[[]byte, struct{}]
-				for c := range r {
-					oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
-					if c.Variant == change.VariantSet {
-						v, err := cfg.MarshalSet(c.Value)
-						if err != nil {
-							svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))
-						}
-						oc.Key = v
-					} else {
-						k, err := cfg.MarshalDelete(c.Key)
-						if err != nil {
-							svc.L.Error("failed to marshal delete", zap.Error(err), zap.String("channel", cfg.DeleteName))
-						}
-						oc.Key = k
+	setEnabled := !cfg.DisableSet && cfg.SetName != ""
+	deleteEnabled := !cfg.DisableDelete && cfg.DeleteName != ""
+	obs := observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
+		Observable: cfg.Observable,
+		Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
+			var out []change.Change[[]byte, struct{}]
+			for c := range r {
+				oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
+				if c.Variant == change.VariantSet {
+					if !setEnabled {
+						continue
 					}
-					out = append(out, oc)
+					v, err := cfg.MarshalSet(c.Value)
+					if err != nil {
+						svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))
+					}
+					oc.Key = v
+				} else {
+					if !deleteEnabled {
+						continue
+					}
+					k, err := cfg.MarshalDelete(c.Key)
+					if err != nil {
+						svc.L.Error("failed to marshal delete", zap.Error(err), zap.String("channel", cfg.DeleteName))
+					}
+					oc.Key = k
 				}
-				return out, true
-			},
-		}
-		obsCfg = ObservablePublisherConfig{
-			Name:          fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
-			Observable:    obs,
-			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true},
-			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true},
-		}
-	)
+				out = append(out, oc)
+			}
+			return out, len(out) > 0
+		},
+	}
+	obsCfg := ObservablePublisherConfig{
+		Name:       fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
+		Observable: obs,
+	}
+	if setEnabled {
+		obsCfg.SetChannel = channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true}
+	}
+	if deleteEnabled {
+		obsCfg.DeleteChannel = channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true}
+	}
 	return svc.PublishFromObservable(ctx, obsCfg)
 }

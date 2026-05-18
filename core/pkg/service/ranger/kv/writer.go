@@ -12,7 +12,7 @@ package kv
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -23,7 +23,7 @@ type Writer struct {
 }
 
 // Set sets a key-value pair on the specified range.
-func (w Writer) Set(ctx context.Context, rng uuid.UUID, key, value string) error {
+func (w Writer) Set(ctx context.Context, rng ranger.Key, key, value string) error {
 	return w.table.NewCreate().
 		Entry(&Pair{Range: rng, Key: key, Value: value}).
 		Exec(ctx, w.tx)
@@ -36,8 +36,8 @@ func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 
 // Delete deletes a key-value pair from the specified range. Delete is
 // idempotent and will not return an error if the key does not exist.
-func (w Writer) Delete(ctx context.Context, rng uuid.UUID, key string) error {
+func (w Writer) Delete(ctx context.Context, rng ranger.Key, key string) error {
 	return w.table.NewDelete().
-		WhereKeys(Pair{Range: rng, Key: key}.GorpKey()).
+		Where(gorp.MatchKeys[string, Pair](Pair{Range: rng, Key: key}.GorpKey())).
 		Exec(ctx, w.tx)
 }

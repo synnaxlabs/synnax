@@ -17,6 +17,7 @@ topLevelItem
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | stageDeclaration
     | globalConstant
     ;
 
@@ -81,23 +82,39 @@ config
 // =============================================================================
 
 // sequence main { stage precheck { } stage pressurization { } }
+// sequence { 1 -> valve_cmd   wait{duration=2s}   0 -> valve_cmd }
+// sequence { 1 -> valve_cmd, wait{duration=2s}, 0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
+    : SEQUENCE IDENTIFIER? LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
+    ;
+
+// Items in a sequence body. Commas between items are optional; newlines and
+// whitespace work as separators too, matching stage body syntax.
+sequenceItem
+    : stageDeclaration
+    | sequenceDeclaration
+    | flowStatement
+    | singleInvocation
     ;
 
 // stage precheck { items... }
+// stage { items... }
 stageDeclaration
-    : STAGE IDENTIFIER stageBody
+    : STAGE IDENTIFIER? stageBody
     ;
 
-// { reactive flows and transitions, comma-separated }
+// { reactive flows and transitions }
+// Items may be separated by newlines, commas, or both. This mirrors stageless
+// sequence bodies, which never required commas, and lets users inline flows
+// on one line with comma separators or lay them out vertically without.
 stageBody
-    : LBRACE (stageItem (COMMA stageItem)* COMMA?)? RBRACE
+    : LBRACE (stageItem (COMMA? stageItem)* COMMA?)? RBRACE
     ;
 
 stageItem
     : flowStatement
     | singleInvocation
+    | sequenceDeclaration
     ;
 
 singleInvocation
@@ -149,7 +166,18 @@ identifier
     ;
 
 function
-    : IDENTIFIER configValues
+    : qualifiedIdentifier configValues
+    | IDENTIFIER configValues
+    ;
+
+// AUTHORITY is a lexer keyword but also a valid module name
+// (authority.set). FOR is a lexer keyword but also a valid module
+// member name (stable.for). Without these alternatives the lexer
+// tokenizes them as keywords and the IDENTIFIER-only rule rejects them.
+qualifiedIdentifier
+    : IDENTIFIER DOT IDENTIFIER
+    | IDENTIFIER DOT FOR
+    | AUTHORITY DOT IDENTIFIER
     ;
 
 configValues
@@ -362,6 +390,7 @@ functionCallSuffix
 
 primaryExpression
     : literal
+    | qualifiedIdentifier
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast
@@ -378,6 +407,7 @@ typeCast
 literal
     : numericLiteral
     | STR_LITERAL
+    | STR_LITERAL_RAW
     | seriesLiteral
     ;
 

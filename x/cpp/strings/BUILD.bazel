@@ -3,13 +3,13 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "strings",
-    hdrs = ["put.h"],
+    hdrs = ["strings.h"],
     visibility = ["//visibility:public"],
 )
 
 cc_test(
     name = "strings_test",
-    srcs = ["put_test.cpp"],
+    srcs = ["strings_test.cpp"],
     deps = [
         "//x/cpp/strings",
         "@googletest//:gtest_main",

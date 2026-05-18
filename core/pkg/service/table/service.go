@@ -12,7 +12,6 @@ package table
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -65,7 +64,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying tables from Synnax.
 type Service struct {
 	ServiceConfig
-	table *gorp.Table[uuid.UUID, Table]
+	table *gorp.Table[Key, Table]
 }
 
 // OpenService instantiates a new table service using the provided configurations. Each
@@ -76,9 +75,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Table](ctx, gorp.TableConfig[uuid.UUID, Table]{
+	table, err := gorp.OpenTable[Key, Table](ctx, gorp.TableConfig[Key, Table]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Table]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Table]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

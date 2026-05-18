@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
@@ -23,12 +22,13 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -59,18 +59,6 @@ func (p *Plugin) Domains() []string { return nil }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
-
-var postWriter = &exec.PostWriter{
-	ConfigFile: "package.json",
-	Commands: [][]string{
-		{"npx", "prettier", "--write"},
-		{"npx", "eslint", "--fix"},
-	},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	return postWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -166,57 +154,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-type packageMapping struct {
-	// pathPrefix is the path prefix (e.g., "client/ts/src").
-	pathPrefix string
-	// packageName is the npm package name (e.g., "@synnaxlabs/client").
-	packageName string
-	// internalPrefix is the internal import prefix (e.g., "@/").
-	internalPrefix string
-}
-
-var knownPackages = []packageMapping{
-	{pathPrefix: "client/ts/src", packageName: "@synnaxlabs/client", internalPrefix: "@/"},
-	{pathPrefix: "x/ts/src", packageName: "@synnaxlabs/x", internalPrefix: "@/"},
-	{pathPrefix: "pluto/src", packageName: "@synnaxlabs/pluto", internalPrefix: "@/"},
-	{pathPrefix: "freighter/ts/src", packageName: "@synnaxlabs/freighter", internalPrefix: "@/"},
-	{pathPrefix: "alamos/ts/src", packageName: "@synnaxlabs/alamos", internalPrefix: "@/"},
-	{pathPrefix: "drift/src", packageName: "@synnaxlabs/drift", internalPrefix: "@/"},
-}
-
-func findPackage(outputPath string) *packageMapping {
-	for i := range knownPackages {
-		if strings.HasPrefix(outputPath, knownPackages[i].pathPrefix) {
-			return &knownPackages[i]
-		}
-	}
-	return nil
-}
-
-func calculateImportPath(fromPath, toPath string) string {
-	fromPkg, toPkg := findPackage(fromPath), findPackage(toPath)
-	if fromPkg == nil || toPkg == nil {
-		return calculateRelativeImport(fromPath, toPath)
-	}
-	if fromPkg.packageName == toPkg.packageName {
-		relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.pathPrefix), "/")
-		return toPkg.internalPrefix + relativePath
-	}
-	return toPkg.packageName
-}
-
-func calculateRelativeImport(from, to string) string {
-	rel, err := filepath.Rel(from, to)
-	if err != nil {
-		return "./" + to
-	}
-	rel = filepath.ToSlash(rel)
-	if !strings.HasPrefix(rel, ".") {
-		rel = "./" + rel
-	}
-	return rel
-}
-
 // hasNonPrimitiveDependency returns true if a type definition has dependencies
 // on non-primitive types (i.e., references other schema types that need to be
 // declared before this type). This is used to determine whether a distinct type
@@ -270,13 +207,13 @@ func (p *Plugin) generateFile(
 		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:   make([]sortedDeclData, 0),
 		GenerateTypes: p.Options.GenerateTypes,
-		Imports:       make(map[string]*importSpec),
+		Manager:       imports.NewManager(),
 	}
 	skip := func(s resolution.Type) bool { return omit.IsType(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
 	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
 	if data.Ontology != nil {
-		data.addNamedImport("@/ontology", "ontology")
+		data.AddImport("@/ontology", "ontology")
 	}
 
 	// Separate type definitions based on whether they have dependencies on schema types.
@@ -393,7 +330,7 @@ func (p *Plugin) extractOntology(
 	if data == nil {
 		return nil
 	}
-	keyType := lo.Capitalize(lo.CamelCase(data.KeyField.Name))
+	keyType := lo.Capitalize(camelCase(data.KeyField.Name))
 	primitive := data.KeyField.Primitive
 	if override := findFieldTypeOverride(structs, data.KeyField.Name, "ts"); override != "" {
 		primitive = override
@@ -624,9 +561,6 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
 		}
-		if len(aliasForm.TypeParams) == 0 && len(aliasForm.Target.TypeArgs) > 0 {
-			sd.AliasTypeRef = p.typeRefToTSType(&aliasForm.Target, table, data)
-		}
 		return sd
 	}
 
@@ -674,12 +608,28 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			break
 		}
 	}
+	for _, tp := range sd.TypeParams {
+		if tp.IsPrimitiveConstrained {
+			addXImport(data, xImport{name: "numeric", submodule: "numeric"})
+			break
+		}
+	}
 
 	sd.AllParamsOptional = true
 	for _, tp := range sd.TypeParams {
 		if !tp.HasDefault {
 			sd.AllParamsOptional = false
 			break
+		}
+	}
+
+	if sd.IsGeneric {
+		sd.IsPrimitiveConstrainedGeneric = true
+		for _, tp := range sd.TypeParams {
+			if !tp.IsPrimitiveConstrained || !tp.HasDefault {
+				sd.IsPrimitiveConstrainedGeneric = false
+				break
+			}
 		}
 	}
 
@@ -699,7 +649,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			}
 
 			parentTSName := domain.GetName(parentType, "ts")
-			schemaName := lo.CamelCase(parentTSName) + "Z"
+			schemaName := camelCase(parentTSName) + "Z"
 
 			if parentType.Namespace != data.Namespace {
 				ns := parentType.Namespace
@@ -707,7 +657,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
-				data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+				data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 				schemaName = ns + "." + schemaName
 			}
 
@@ -719,7 +669,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			if parentForm.IsGeneric() {
 				parentInfo.IsGeneric = true
 				for _, tp := range parentForm.TypeParams {
-					parentInfo.SchemaArgs = append(parentInfo.SchemaArgs, lo.CamelCase(tp.Name))
+					parentInfo.SchemaArgs = append(parentInfo.SchemaArgs, camelCase(tp.Name))
 				}
 			}
 
@@ -734,7 +684,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			sd.ExtendsParentSchemaArgs = sd.ExtendsParents[0].SchemaArgs
 
 			for _, f := range form.OmittedFields {
-				sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(f))
+				sd.OmittedFields = append(sd.OmittedFields, camelCase(f))
 			}
 
 			parentFields := make(map[string]resolution.Field)
@@ -755,7 +705,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					} else if isOnlyOptionalityChange(parentField, field) {
 						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					} else {
-						sd.OmittedFields = append(sd.OmittedFields, lo.CamelCase(field.Name))
+						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					}
 				} else {
@@ -884,6 +834,38 @@ func computeCoalescedTypes(sd *structData) {
 	}
 }
 
+// camelCase converts a name to camelCase, preserving trailing acronym runs of
+// two or more uppercase letters in the source. For example "ClientXY" becomes
+// "clientXY" rather than "clientXy", and "EntityID" becomes "entityID". When
+// the entire input is uppercase ("XY", "URL"), the standard all-lowercase
+// camelCase result is returned ("xy", "url"). Inputs containing underscores or
+// other non-alpha separators are routed through lo.CamelCase first so existing
+// snake_case/kebab-case handling is preserved.
+func camelCase(s string) string {
+	if s == "" {
+		return s
+	}
+	base := lo.CamelCase(s)
+	end := len(s)
+	runStart := end
+	for runStart > 0 {
+		c := s[runStart-1]
+		if c >= 'A' && c <= 'Z' {
+			runStart--
+			continue
+		}
+		break
+	}
+	runLen := end - runStart
+	if runLen < 2 || runStart == 0 {
+		return base
+	}
+	if len(base) < runLen {
+		return base
+	}
+	return base[:len(base)-runLen] + s[runStart:]
+}
+
 func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	sorted := make([]typeParamData, len(typeParams))
 	copy(sorted, typeParams)
@@ -892,7 +874,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	})
 	result := tsType
 	for _, tp := range sorted {
-		result = strings.ReplaceAll(result, tp.Name, `S["`+lo.CamelCase(tp.Name)+`"]`)
+		result = strings.ReplaceAll(result, tp.Name, `S["`+camelCase(tp.Name)+`"]`)
 	}
 	return result
 }
@@ -907,10 +889,14 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "string" {
 			tpd.Constraint = "z.ZodType<string>"
 		}
+		if tp.Constraint.Name == "numeric" {
+			tpd.IsPrimitiveConstrained = true
+			tpd.BareConstraint = "numeric.Value"
+		}
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumTypeName := lo.Capitalize(lo.CamelCase(resolved.Name))
+				enumTypeName := lo.Capitalize(camelCase(resolved.Name))
 				tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
 			}
 		}
@@ -925,7 +911,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		resolved, ok := tp.Default.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumZodName := lo.CamelCase(resolved.Name) + "Z"
+				enumZodName := camelCase(resolved.Name) + "Z"
 				tpd.Default = "typeof " + enumZodName
 				tpd.DefaultValue = enumZodName
 			} else {
@@ -936,8 +922,29 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 			tpd.Default = defaultToTS(tp.Default.Name)
 			tpd.DefaultValue = defaultValueToTS(tp.Default.Name)
 		}
+		if tpd.IsPrimitiveConstrained {
+			tpd.BareDefault = primitiveToBareTS(tp.Default.Name)
+		}
 	}
 	return tpd
+}
+
+// primitiveToBareTS maps an Oracle primitive name to its bare TypeScript type
+// (e.g. number, bigint, string, boolean) for use in interface signatures of
+// primitive-constrained generics. Returns the empty string for primitives with
+// no bare-TS mapping.
+func primitiveToBareTS(name string) string {
+	switch name {
+	case "string", "uuid":
+		return "string"
+	case "bool":
+		return "boolean"
+	case "int8", "int16", "int32", "int64",
+		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
+		"float32", "float64":
+		return "number"
+	}
+	return ""
 }
 
 type typeParamMapping struct {
@@ -986,7 +993,7 @@ func fallbackForConstraint(constraint *resolution.TypeRef, table *resolution.Tab
 	resolved, ok := constraint.Resolve(table)
 	if ok {
 		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return lo.CamelCase(resolved.Name) + "Z"
+			return camelCase(resolved.Name) + "Z"
 		}
 	}
 	return defaultValueToTS(constraint.Name)
@@ -999,7 +1006,7 @@ func fallbackSchemaTypeForConstraint(constraint *resolution.TypeRef, table *reso
 	resolved, ok := constraint.Resolve(table)
 	if ok {
 		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-			return "typeof " + lo.CamelCase(resolved.Name) + "Z"
+			return "typeof " + camelCase(resolved.Name) + "Z"
 		}
 	}
 	if m, ok := typeParamMappings[constraint.Name]; ok {
@@ -1071,7 +1078,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 
 	fd := fieldData{
 		Name:           field.Name,
-		TSName:         lo.CamelCase(field.Name),
+		TSName:         camelCase(field.Name),
 		Doc:            doc.Get(field.Domains),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
@@ -1131,6 +1138,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
+	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
 	if isArray {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1140,6 +1148,20 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+		}
+	} else if isMap {
+		keyZ := p.typeRefToZod(&field.Type.TypeArgs[0], table, data)
+		valueZ := p.typeRefToZod(&field.Type.TypeArgs[1], table, data)
+		keySchemaType := p.typeRefToZodSchemaType(&field.Type.TypeArgs[0], table, data)
+		valueSchemaType := p.typeRefToZodSchemaType(&field.Type.TypeArgs[1], table, data)
+		if isAnyOptional {
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(z.record(%s, %s))", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodRecord<%s, %s>>>", keySchemaType, valueSchemaType)
+		} else {
+			addXImport(data, xImport{name: "record", submodule: "record"})
+			fd.ZodType = fmt.Sprintf("record.nullishToEmpty(%s, %s)", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof record.nullishToEmpty<%s, %s>>", keySchemaType, valueSchemaType)
 		}
 	} else if isJSON {
 		if isAnyOptional {
@@ -1176,141 +1198,17 @@ func (p *Plugin) typeRefToZod(typeRef *resolution.TypeRef, table *resolution.Tab
 	return p.typeRefToZodInternal(typeRef, table, data, false)
 }
 
-func (p *Plugin) typeRefToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
-	if typeRef == nil {
-		return "unknown"
-	}
-	if resolution.IsPrimitive(typeRef.Name) {
-		return primitiveToTSType(typeRef.Name)
-	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return "unknown"
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		typeName := resolved.Name
-		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				// For type args that are structs/types, use typeof schemaZ
-				args[i] = p.typeArgToTSType(&arg, table, data)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
-		}
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("%s.%s", ns, typeName)
-		}
-		return typeName
-
-	case resolution.EnumForm:
-		typeName := resolved.Name
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("%s.%s", ns, typeName)
-		}
-		return typeName
-	}
-
-	return "unknown"
-}
-
-func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
-	if typeRef == nil {
-		return "unknown"
-	}
-	if resolution.IsPrimitive(typeRef.Name) {
-		return primitiveToTSType(typeRef.Name)
-	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return "unknown"
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		schemaName := lo.CamelCase(resolved.Name) + "Z"
-		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			// For generic types with args, recursively get the full schema call
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeArgToTSType(&arg, table, data)
-			}
-			if len(form.TypeParams) == 1 {
-				schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
-			} else {
-				namedArgs := make([]string, len(typeRef.TypeArgs))
-				for i, arg := range args {
-					namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[i].Name), arg)
-				}
-				schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
-			}
-		}
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
-		}
-		return fmt.Sprintf("typeof %s", schemaName)
-
-	case resolution.EnumForm:
-		schemaName := lo.CamelCase(resolved.Name) + "Z"
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
-		}
-		return fmt.Sprintf("typeof %s", schemaName)
-	}
-
-	return "unknown"
-}
-
-func primitiveToTSType(name string) string {
-	switch name {
-	case "string", "uuid":
-		return "string"
-	case "bool":
-		return "boolean"
-	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64":
-		return "number"
-	case "record":
-		return "unknown"
-	default:
-		return "unknown"
-	}
-}
-
 func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
 	if typeRef == nil {
 		return "z.unknown()"
 	}
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		paramName := lo.CamelCase(typeRef.TypeParam.Name)
+		paramName := camelCase(typeRef.TypeParam.Name)
 		if forStructArg {
 			return paramName
+		}
+		if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "numeric" {
+			return fmt.Sprintf("%s ?? %s", paramName, defaultValueToTS(typeRef.TypeParam.Default.Name))
 		}
 		if typeRef.TypeParam.Default != nil || typeRef.TypeParam.Optional {
 			effectiveRef := typeRef.TypeParam.Constraint
@@ -1350,7 +1248,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
+		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 		if form.IsGeneric() {
 			nonNilArgs := make([]struct {
 				index int
@@ -1371,7 +1269,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 				} else {
 					namedArgs := make([]string, len(nonNilArgs))
 					for i, arg := range nonNilArgs {
-						namedArgs[i] = fmt.Sprintf("%s: %s", lo.CamelCase(form.TypeParams[arg.index].Name), arg.value)
+						namedArgs[i] = fmt.Sprintf("%s: %s", camelCase(form.TypeParams[arg.index].Name), arg.value)
 					}
 					schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
 				}
@@ -1385,47 +1283,47 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
 
 	case resolution.EnumForm:
-		enumName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
+		enumName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
 			ns := resolved.Namespace
 			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
 
 	case resolution.DistinctForm:
-		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
+		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
 			ns := resolved.Namespace
 			targetOutputPath := output.GetPath(resolved, "ts")
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
 
 	case resolution.AliasForm:
 		if !form.IsGeneric() {
-			schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
+			schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
 			if resolved.Namespace != data.Namespace {
 				ns := resolved.Namespace
 				targetOutputPath := output.GetPath(resolved, "ts")
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
-				data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+				data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 				return fmt.Sprintf("%s.%s", ns, schemaName)
 			}
 			return schemaName
@@ -1457,6 +1355,9 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 	}
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
 		if forStructArg {
+			return typeRef.TypeParam.Name
+		}
+		if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "numeric" {
 			return typeRef.TypeParam.Name
 		}
 		return fmt.Sprintf("z.infer<%s>", typeRef.TypeParam.Name)
@@ -1523,7 +1424,7 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
 		return distinctName
@@ -1698,15 +1599,15 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 			for i, arg := range typeRef.TypeArgs {
 				args[i] = p.typeRefToZodSchemaType(&arg, table, data)
 			}
-			return fmt.Sprintf("ReturnType<typeof %s%sZ<%s>>", prefix, lo.CamelCase(tsName), strings.Join(args, ", "))
+			return fmt.Sprintf("ReturnType<typeof %s%sZ<%s>>", prefix, camelCase(tsName), strings.Join(args, ", "))
 		}
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
 	case resolution.EnumForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
 	case resolution.DistinctForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 	}
 
 	return "z.ZodType"
@@ -1718,9 +1619,9 @@ func isInXPackage(outputPath string) bool {
 
 func addXImport(data *templateData, imp xImport) {
 	if isInXPackage(data.OutputPath) {
-		data.addNamedImport("@/"+imp.submodule, imp.name)
+		data.AddImport("@/"+imp.submodule, imp.name)
 	} else {
-		data.addNamedImport(xPackageName, imp.name)
+		data.AddImport(xPackageName, imp.name)
 	}
 }
 
@@ -1844,8 +1745,8 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 }
 
 type templateData struct {
+	*imports.Manager
 	Request          *plugin.Request
-	Imports          map[string]*importSpec
 	Ontology         *ontologyData
 	DeclOrder        map[string]int
 	Namespace        string
@@ -1889,57 +1790,10 @@ func primitiveZeroValue(primitive string) string {
 	}
 }
 
-type importSpec struct {
-	Names set.Set[string]
-}
-
-func (d *templateData) addNamedImport(path, name string) {
-	if d.Imports[path] == nil {
-		d.Imports[path] = &importSpec{Names: make(set.Set[string])}
-	}
-	d.Imports[path].Names.Add(name)
-}
-
-func (d *templateData) filterImports(filter func(string) bool) []namedImportData {
-	var result []namedImportData
-	for path, spec := range d.Imports {
-		if len(spec.Names) > 0 && filter(path) {
-			names := make([]string, 0, len(spec.Names))
-			for name := range spec.Names {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			result = append(result, namedImportData{Path: path, Names: names})
-		}
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
-	return result
-}
-
-func (d *templateData) SynnaxImports() []namedImportData {
-	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
-}
-
-func (d *templateData) ExternalNamedImports() []namedImportData {
-	return d.filterImports(func(p string) bool {
-		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")
-	})
-}
-
-func (d *templateData) InternalNamedImports() []namedImportData {
-	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@/") })
-}
-
-type namedImportData struct {
-	Path  string
-	Names []string
-}
-
 type structData struct {
 	ExtendsName             string
 	TSName                  string
 	AliasOf                 string
-	AliasTypeRef            string
 	Doc                     string
 	ExtendsTypeName         string
 	Name                    string
@@ -1963,6 +1817,12 @@ type structData struct {
 	IsGeneric               bool
 	ConcreteTypes           bool
 	CoalesceTypeParams      bool
+	// IsPrimitiveConstrainedGeneric is true when every type param is constrained
+	// to a primitive set (e.g. T extends numeric) and has a default. In this mode
+	// the runtime zod schema is emitted as a plain z.object (defaults substituted
+	// for type-param-typed fields), but the TS interface keeps the generic shape
+	// with primitive constraints (e.g. T extends number | bigint = number).
+	IsPrimitiveConstrainedGeneric bool
 }
 
 type extendsParentInfo struct {
@@ -1974,7 +1834,14 @@ type extendsParentInfo struct {
 
 type typeParamData struct {
 	Name, Constraint, Default, DefaultValue string
-	HasDefault, IsJSON                      bool
+	// BareConstraint and BareDefault are populated for primitive-constrained
+	// generics (e.g. T extends numeric). Constraint/Default carry the zod-side
+	// values used in runtime-builder positions; BareConstraint/BareDefault carry
+	// the TS-side values used in interface signatures (e.g. "number | bigint",
+	// "number"). Empty for non-primitive-constrained params.
+	BareConstraint, BareDefault string
+	HasDefault, IsJSON          bool
+	IsPrimitiveConstrained      bool
 }
 
 type fieldData struct {
@@ -2005,7 +1872,7 @@ type enumValueData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"camelCase":   lo.CamelCase,
+	"camelCase":   camelCase,
 	"title":       lo.Capitalize,
 	"lower":       strings.ToLower,
 	"pluralUpper": func(name string) string { return strings.ToUpper(lo.SnakeCase(name)) + "S" },
@@ -2096,12 +1963,29 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 
 export const {{ camelCase .TSName }}Z = {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-{{- if .AliasTypeRef }}
-export type {{ .TSName }} = {{ .AliasTypeRef }};
-{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}
 {{- end }}
+{{- else if .IsPrimitiveConstrainedGeneric }}
+{{- if .Doc }}
+
+{{ formatDoc .TSName .Doc }}
+{{- end }}
+export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name | camelCase }}?: z.ZodType<{{ $p.Name }}>{{ end }}) =>
+  z.object({
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+    {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+  });
+{{- if $.GenerateTypes }}
+export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}> {
+{{- range .Fields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
 {{- end }}
 {{- else if .IsGeneric }}
 {{- if .IsSingleParam }}
@@ -2322,6 +2206,27 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 
 {{ formatDoc .TSName .Doc }}
 {{- end }}
+{{- if and .IsRecursive $.GenerateTypes }}
+export interface {{ .TSName }} {
+{{- range .Fields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
+export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}() {
+    return {{ .ZodType }};
+  },
+{{- else }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+});
+{{- else }}
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
@@ -2338,6 +2243,7 @@ export const {{ camelCase .TSName }}Z = z.object({
 });
 {{- if $.GenerateTypes }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

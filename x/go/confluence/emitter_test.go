@@ -19,16 +19,15 @@ import (
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Emitter", func() {
-	It("Should emit values at regular intervals", func() {
+	It("Should emit values at regular intervals", func(specCtx SpecContext) {
 		e := &Emitter[int]{
 			Interval: 1 * time.Millisecond,
 			Emit:     func(context.Context) (int, error) { return 1, nil },
 		}
-		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := signal.WithTimeout(specCtx, 100*time.Millisecond)
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
@@ -40,19 +39,20 @@ var _ = Describe("Emitter", func() {
 		}
 		Expect(len(received)).To(BeNumerically(">", 0))
 	})
-	It("Should exit if the emitter returns an error", func() {
+	It("Should exit if the emitter returns an error", func(specCtx SpecContext) {
+		exitedErr := errors.New("exited")
 		e := &Emitter[int]{
 			Interval: 1 * time.Millisecond,
 			Emit: func(context.Context) (int, error) {
-				return 1, errors.New("exited")
+				return 1, exitedErr
 			},
 		}
-		ctx, cancel := signal.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := signal.WithTimeout(specCtx, 100*time.Millisecond)
 		defer cancel()
 		stream := NewStream[int](0)
 		e.OutTo(stream)
 		e.Flow(ctx, CloseOutputInletsOnExit())
-		Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("exited")))
+		Expect(ctx.Wait()).To(MatchError(exitedErr))
 		_, ok := <-stream.Outlet()
 		Expect(ok).To(BeFalse())
 	})

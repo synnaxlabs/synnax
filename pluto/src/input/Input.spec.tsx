@@ -436,6 +436,69 @@ describe("Input", () => {
         expect(onBlur).toHaveBeenCalled();
       });
     });
+
+    describe("emptyValue", () => {
+      it("should render an empty string when the value equals emptyValue", () => {
+        const c = render(
+          <Input.Numeric value={-1} onChange={vi.fn()} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("");
+      });
+
+      it("should render the value when it does not equal emptyValue", () => {
+        const c = render(
+          <Input.Numeric value={3} onChange={vi.fn()} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("3");
+      });
+
+      it("should show the placeholder when the value equals emptyValue", () => {
+        const c = render(
+          <Input.Numeric
+            value={-1}
+            onChange={vi.fn()}
+            emptyValue={-1}
+            placeholder="Auto"
+          />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.placeholder).toBe("Auto");
+      });
+
+      it("should emit emptyValue when the input is cleared and blurred", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Numeric value={7} onChange={onChange} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).toHaveBeenCalledWith(-1);
+      });
+
+      it("should emit a parsed number when typing overrides the empty state", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Numeric value={-1} onChange={onChange} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "5" } });
+        fireEvent.blur(input);
+        expect(onChange).toHaveBeenCalledWith(5);
+      });
+
+      it("should not emit emptyValue when the input is cleared and emptyValue is unset", () => {
+        const onChange = vi.fn();
+        const c = render(<Input.Numeric value={7} onChange={onChange} />);
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+        expect((input as HTMLInputElement).value).toBe("7");
+      });
+    });
   });
 
   describe("Checkbox", () => {

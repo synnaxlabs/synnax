@@ -17,7 +17,7 @@ import (
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -31,7 +31,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -39,7 +39,7 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
-	internal := make([]*unary.Iterator, len(cfg.Channels))
+	var internal []*unary.Iterator
 	defer func() {
 		if err == nil {
 			return
@@ -50,22 +50,25 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			}
 		}
 	}()
-	for i, key := range cfg.Channels {
-		uDB, ok := db.mu.unaryDBs[key]
-		if !ok {
-			vdb, vok := db.mu.virtualDBs[key]
-			if vok {
-				return nil, errors.Newf(
-					"cannot open iterator on virtual channel %v",
-					vdb.Channel,
-				)
+	for _, key := range cfg.Channels {
+		if uDB, ok := db.mu.dbs.unary[key]; ok {
+			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
+				Bounds:        cfg.Bounds,
+				AutoChunkSize: cfg.AutoChunkSize,
+			})
+			if iterErr != nil {
+				return nil, iterErr
 			}
-			return nil, channel.NewNotFoundError(key)
+			internal = append(internal, iter)
+			continue
 		}
-		internal[i], err = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
-		if err != nil {
-			return nil, err
+		if vdb, ok := db.mu.dbs.virtual[key]; ok {
+			return nil, errors.Newf(
+				"cannot open iterator on virtual channel %v",
+				vdb.Channel,
+			)
 		}
+		return nil, channel.NewNotFoundError(key)
 	}
 	return &streamIterator{internal: internal}, nil
 }

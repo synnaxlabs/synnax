@@ -70,9 +70,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
 	It("Should allow creating channels after deleting some to stay under the limit", func(ctx SpecContext) {
@@ -96,9 +95,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Delete one channel
 		writer := dist.Channel.NewWriter(nil)
@@ -120,9 +118,8 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "AnotherOverLimit",
 			Leaseholder: 1,
 		}
-		err = dist.Channel.Create(ctx, &anotherCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &anotherCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
 	It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
@@ -146,19 +143,18 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		err := dist.Channel.Create(ctx, &overLimitCh)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("channel limit exceeded"))
+		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel
 		retrieve := dist.Channel.NewRetrieve()
-		Expect(retrieve.Entries(&retrievedChannels).Where(channel.MatchNodeKey(1)).Exec(ctx, nil)).To(Succeed())
+		Expect(retrieve.Entries(&retrievedChannels).Where(channel.MatchLeaseholders(1)).Exec(ctx, nil)).To(Succeed())
 		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
 
 		// Retrieve a specific channel by name
 		var singleChannel channel.Channel
-		Expect(retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
+		Expect(retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 	})
 	It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {

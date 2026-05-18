@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -55,9 +54,9 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 // and password are required, and the first and last name are optional.
 type NewUser struct {
 	svcauth.InsecureCredentials
-	FirstName string    `json:"first_name" msgpack:"first_name"`
-	LastName  string    `json:"last_name" msgpack:"last_name"`
-	Key       uuid.UUID `json:"key" msgpack:"key"`
+	FirstName string   `json:"first_name" msgpack:"first_name"`
+	LastName  string   `json:"last_name" msgpack:"last_name"`
+	Key       user.Key `json:"key" msgpack:"key"`
 }
 
 type (
@@ -102,8 +101,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 }
 
 type ChangeUsernameRequest struct {
-	Username string    `json:"username" msgpack:"username"`
-	Key      uuid.UUID `json:"key" msgpack:"key"`
+	Username string   `json:"username" msgpack:"username"`
+	Key      user.Key `json:"key" msgpack:"key"`
 }
 
 // ChangeUsername changes the username for the user with the given key.
@@ -113,7 +112,7 @@ func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest)
 		return types.Nil{}, errors.New("you cannot change your own username through the user service")
 	}
 	var u user.User
-	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.internal.NewRetrieve().Where(user.MatchKeys(req.Key)).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
 	if u.Username == req.Username {
@@ -139,9 +138,9 @@ func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest)
 }
 
 type RenameRequest struct {
-	FirstName string    `json:"first_name" msgpack:"first_name"`
-	LastName  string    `json:"last_name" msgpack:"last_name"`
-	Key       uuid.UUID `json:"key" msgpack:"key"`
+	FirstName string   `json:"first_name" msgpack:"first_name"`
+	LastName  string   `json:"last_name" msgpack:"last_name"`
+	Key       user.Key `json:"key" msgpack:"key"`
 }
 
 // Rename changes the name for the user with the provided key. If either the first
@@ -161,8 +160,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, err
 
 type (
 	RetrieveRequest struct {
-		Keys      []uuid.UUID `json:"keys" msgpack:"keys"`
-		Usernames []string    `json:"usernames" msgpack:"usernames"`
+		Keys      []user.Key `json:"keys" msgpack:"keys"`
+		Usernames []string   `json:"usernames" msgpack:"usernames"`
 	}
 	RetrieveResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
@@ -174,7 +173,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 	q := s.internal.NewRetrieve()
 
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
 		q = q.Where(user.MatchUsernames(req.Usernames...))
@@ -194,7 +193,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []user.Key `json:"keys" msgpack:"keys"`
 }
 
 // Delete removes the users with the provided keys from the Synnax cluster.
@@ -211,7 +210,7 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, err
 	users := make([]user.User, 0, len(req.Keys))
 	for _, key := range req.Keys {
 		var u user.User
-		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
+		err := s.internal.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, nil)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return types.Nil{}, err
 		}

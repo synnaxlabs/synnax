@@ -143,7 +143,7 @@ Arc supports standard operators for calculations:
 **Arithmetic:** `+`, `-`, `*`, `/`, `%`
 
 ```arc
-return (temp_1 + temp_2 + temp_3) / 3  // Average
+return(temp_1 + temp_2 + temp_3) / 3 // Average
 ```
 
 **Comparison:** <code style={{fontVariantLigatures: 'none'}}>==</code>, <code
@@ -152,7 +152,7 @@ style={{fontVariantLigatures: 'none'}}>&lt;=</code>, <code
 style={{fontVariantLigatures: 'none'}}>&gt;=</code>
 
 ```arc
-return pressure > 100  // Returns 1 (true) or 0 (false)
+return pressure > 100 // Returns 1 (true) or 0 (false)
 ```
 
 **Logical:** `and`, `or`, `not`
@@ -355,7 +355,7 @@ return pressure * 1.5
 **Adding an offset:**
 
 ```arc
-return temperature + 273.15  // Convert Celsius to Kelvin
+return temperature + 273.15 // Convert Celsius to Kelvin
 ```
 
 **Power calculation:**
@@ -375,7 +375,7 @@ return sensor_1 + sensor_2 + sensor_3
 **Average (in expression):**
 
 ```arc
-return (temp_1 + temp_2 + temp_3) / 3
+return(temp_1 + temp_2 + temp_3) / 3
 ```
 
 **Differential measurement:**
@@ -390,9 +390,9 @@ return inlet_pressure - outlet_pressure
 
 ```arc
 if (pressure > 100) {
-    return 1  // High alarm
+    return 1 // High alarm
 } else {
-    return 0  // Normal
+    return 0 // Normal
 }
 ```
 
@@ -400,11 +400,11 @@ if (pressure > 100) {
 
 ```arc
 if (temp > 100 and pressure > 50) {
-    return 2  // Critical
+    return 2 // Critical
 } else if (temp > 50) {
-    return 1  // Warning
+    return 1 // Warning
 } else {
-    return 0  // Normal
+    return 0 // Normal
 }
 ```
 

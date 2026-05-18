@@ -22,18 +22,16 @@ import (
 )
 
 var _ = Describe("Open", func() {
-	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				fs      fs.FS
-				cleanUp func() error
+				fs fs.FS
 			)
 			BeforeAll(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 			})
 			AfterAll(func() {
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {
@@ -50,10 +48,12 @@ var _ = Describe("Open", func() {
 					s := MustSucceed(fs.Sub("sub"))
 					MustSucceed(s.Sub("1"))
 
-					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
-					Expect(db).To(BeNil())
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("required"))
+					Expect(cesium.Open(
+						ctx,
+						"",
+						cesium.WithFS(s),
+						cesium.WithInstrumentation(PanicLogger()),
+					)).Error().To(MatchError(ContainSubstring("required")))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func(ctx SpecContext) {

@@ -1188,6 +1188,48 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.TypeParams[0].Constraint.Name).To(Equal("comparable"))
 		})
 
+		It("Should resolve numeric constraint with numeric default without warnings", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric = float64> {
+					lower T
+					upper T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			boundsType := table.MustGet("test.Bounds")
+			form := boundsType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("numeric"))
+			Expect(form.TypeParams[0].Default).NotTo(BeNil())
+			Expect(form.TypeParams[0].Default.Name).To(Equal("float64"))
+		})
+
+		It("Should reject numeric constraint without a default", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric> {
+					lower T
+					upper T
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("requires a default"))
+		})
+
+		It("Should reject numeric constraint with non-numeric default", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric = string> {
+					lower T
+					upper T
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("non-numeric default"))
+		})
+
 		It("Should parse generic struct with default type parameter", func(ctx SpecContext) {
 			source := `
 				Container struct<T = string> {
@@ -1367,6 +1409,81 @@ var _ = Describe("Analyzer", func() {
 			simpleType := table.MustGet("test.Simple")
 			form := simpleType.Form.(resolution.StructForm)
 			Expect(form.IsRecursive).To(BeFalse())
+		})
+
+		It("Should detect mutual recursion through struct fields", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b B?
+				}
+				B struct {
+					a A?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct array wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through an alias wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs = B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct struct wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b BWrap?
+				}
+				B struct {
+					a A?
+				}
+				BWrap B
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
 		})
 	})
 })

@@ -87,7 +87,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     for (const auto &master_info: masters) {
         auto [slaves, err] = this->pool->discover_slaves(master_info.key);
         if (err) {
-            VLOG(2) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
+            VLOG(1) << SCAN_LOG_PREFIX << "discovery failed for " << master_info.key
                     << ": " << err.message();
             continue;
         }

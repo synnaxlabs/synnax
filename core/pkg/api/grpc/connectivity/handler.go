@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -39,6 +40,7 @@ func (responseTranslator) Forward(
 	return &CheckResponse{
 		ClusterKey:  r.ClusterKey,
 		NodeVersion: r.NodeVersion,
+		NodeTime:    int64(r.NodeTime),
 	}, nil
 }
 
@@ -49,6 +51,7 @@ func (responseTranslator) Backward(
 	return connectivity.CheckResponse{
 		ClusterKey:  r.ClusterKey,
 		NodeVersion: r.NodeVersion,
+		NodeTime:    telem.TimeStamp(r.NodeTime),
 	}, nil
 }
 

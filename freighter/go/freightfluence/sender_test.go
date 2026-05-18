@@ -73,7 +73,7 @@ var _ = Describe("Sender", func() {
 				v = <-receiverStream.Outlet()
 				Expect(v).To(Equal(2))
 				cancel()
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -93,7 +93,7 @@ var _ = Describe("Sender", func() {
 				v := <-receiverStream.Outlet()
 				Expect(v).To(Equal(2))
 				cancel()
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 				_, ok := <-receiverStream.Outlet()
 				Expect(ok).To(BeFalse())
 			})
@@ -124,7 +124,7 @@ var _ = Describe("Sender", func() {
 				sender.InFrom(inputStream)
 				sender.Flow(sCtx, confluence.CancelOnFail())
 				inputStream.Inlet() <- 1
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 			})
 		})
 		Describe("TransformSender", func() {
@@ -140,7 +140,7 @@ var _ = Describe("Sender", func() {
 				sender.InFrom(inputStream)
 				sender.Flow(sCtx, confluence.CancelOnFail())
 				inputStream.Inlet() <- 1
-				Expect(sCtx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 			})
 		})
 	})

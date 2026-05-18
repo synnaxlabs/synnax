@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -58,19 +59,19 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			}
 			var existingStatuses []Status
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
-				WhereKeys(statusKeys...).
+				Where(status.MatchKeys[StatusDetails](statusKeys...)).
 				Entries(&existingStatuses).
 				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 				return err
 			}
-			existingKeys := make(map[string]bool)
+			existingKeys := make(set.Set[string])
 			for _, stat := range existingStatuses {
-				existingKeys[stat.Key] = true
+				existingKeys.Add(stat.Key)
 			}
 			var missingStatuses []Status
 			for _, t := range tasks {
 				key := OntologyID(t.Key).String()
-				if !existingKeys[key] {
+				if !existingKeys.Contains(key) {
 					missingStatuses = append(missingStatuses, Status{
 						Key:     key,
 						Name:    t.Name,

@@ -17,6 +17,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -113,6 +114,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("integer literal", "42", types.KindVariable, types.KindIntegerConstant),
 			Entry("float literal", "3.14", types.KindVariable, types.KindFloatConstant),
 			Entry("string literal", `"hello"`, types.KindString, types.KindInvalid),
+			Entry("raw string literal", "`hello`", types.KindString, types.KindInvalid),
+			Entry("empty raw string literal", "``", types.KindString, types.KindInvalid),
+			Entry("multi-line raw string literal", "`a\nb`", types.KindString, types.KindInvalid),
+			Entry("raw string with escaped backtick", "`say \\`hi\\``", types.KindString, types.KindInvalid),
 			Entry("boolean true", "true", types.KindU8, types.KindInvalid),
 			Entry("boolean false", "false", types.KindU8, types.KindInvalid),
 		)
@@ -700,6 +705,29 @@ var _ = Describe("Type Inference", func() {
 					MatchError(ContainSubstring("unknown unit")),
 				)
 			})
+		})
+	})
+
+	Describe("Qualified Identifier Type Inference", func() {
+		It("should infer the return type of time.now()", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("time.now()"))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t).To(Equal(types.TimeStamp()))
+		})
+
+		It("should infer the return type of bare now() (deprecated)", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("now()"))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t).To(Equal(types.TimeStamp()))
+		})
+
+		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
+			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			t := atypes.InferFromExpression(aCtx)
+			Expect(t.IsValid()).To(BeFalse())
 		})
 	})
 })

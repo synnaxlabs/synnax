@@ -10,14 +10,13 @@
 package schematic
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Schematic{}
+var _ gorp.Entry[Key] = Schematic{}
 
 // GorpKey implements gorp.Entry.
-func (s Schematic) GorpKey() uuid.UUID { return s.Key }
+func (s Schematic) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Schematic) SetOptions() []any { return nil }

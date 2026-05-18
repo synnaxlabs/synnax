@@ -30,6 +30,8 @@ func TestDriver(t *testing.T) {
 	RunSpecs(t, "Driver Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var _ = BeforeSuite(func() {
 	tmpDir := GinkgoT().TempDir()
 	mockBinaryPath = filepath.Join(tmpDir, "mockdriver")
@@ -44,4 +46,5 @@ var _ = BeforeSuite(func() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
+	ShouldNotLeakGoroutines()
 })

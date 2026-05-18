@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,14 +34,14 @@ var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
-			Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+			Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 			Entry(&r).
 			Exec(ctx, nil)).To(Succeed())
 		return r.Key
 	}
 
 	openDriver := func(ctx context.Context, factory driver.Factory) *driver.Driver {
-		driver := MustSucceed(driver.Open(ctx, driver.Config{
+		return MustOpen(driver.Open(ctx, driver.Config{
 			DB:        dist.DB,
 			Rack:      rackService,
 			Task:      taskService,
@@ -52,8 +51,6 @@ var _ = Describe("Driver", func() {
 			Factories: []driver.Factory{factory},
 			Host:      hostProvider,
 		}))
-		DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
-		return driver
 	}
 
 	var taskCounter atomic.Uint32
@@ -88,7 +85,7 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, &mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereKeys(embeddedRackKey(ctx)).
+				Where(rack.MatchKeys(embeddedRackKey(ctx))).
 				Entries(&racks).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
@@ -96,7 +93,7 @@ var _ = Describe("Driver", func() {
 		})
 
 		It("should set integrations on the rack from factory names", func(ctx SpecContext) {
-			d := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:      dist.DB,
 				Rack:    rackService,
 				Task:    taskService,
@@ -109,10 +106,9 @@ var _ = Describe("Driver", func() {
 				},
 				Host: hostProvider,
 			}))
-			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
@@ -131,7 +127,7 @@ var _ = Describe("Driver", func() {
 			}))
 			Expect(d1.Close()).To(Succeed())
 
-			d2 := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:      dist.DB,
 				Rack:    rackService,
 				Task:    taskService,
@@ -145,11 +141,10 @@ var _ = Describe("Driver", func() {
 				},
 				Host: hostProvider,
 			}))
-			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
@@ -501,7 +496,7 @@ var _ = Describe("Driver", func() {
 			Expect(d1.Close()).To(Succeed())
 			configuredTasks = sync.Map{}
 
-			d2 := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:        dist.DB,
 				Rack:      rackService,
 				Task:      taskService,
@@ -511,7 +506,6 @@ var _ = Describe("Driver", func() {
 				Factories: []driver.Factory{factory},
 				Host:      hostProvider,
 			}))
-			DeferCleanup(func() { Expect(d2.Close()).To(Succeed()) })
 
 			Expect(embeddedRackKey(ctx)).To(Equal(rackKey))
 			Eventually(func() bool {
@@ -629,7 +623,7 @@ var _ = Describe("Driver", func() {
 
 	Describe("Heartbeat", func() {
 		It("should send periodic status updates", func(ctx SpecContext) {
-			driver := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                dist.DB,
 				Rack:              rackService,
 				Task:              taskService,
@@ -640,13 +634,12 @@ var _ = Describe("Driver", func() {
 				Host:              hostProvider,
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
-			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -655,7 +648,7 @@ var _ = Describe("Driver", func() {
 		})
 
 		It("should use the configured heartbeat interval", func(ctx SpecContext) {
-			driver := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:                dist.DB,
 				Rack:              rackService,
 				Task:              taskService,
@@ -666,14 +659,13 @@ var _ = Describe("Driver", func() {
 				Host:              hostProvider,
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
-			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
 
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -682,8 +674,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -707,8 +699,8 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -718,16 +710,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []status.Status[any]
-			Expect(gorp.NewRetrieve[string, status.Status[any]]().
-				WhereKeys(statusKey).
+			Expect(statusSvc.NewRetrieve().
+				Where(status.MatchKeys[any](statusKey)).
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
@@ -984,7 +976,7 @@ var _ = Describe("Driver", func() {
 					return nil, cfgCtx.Err()
 				},
 			}
-			d := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:          dist.DB,
 				Rack:        rackService,
 				Task:        taskService,
@@ -995,7 +987,6 @@ var _ = Describe("Driver", func() {
 				Host:        hostProvider,
 				TaskTimeout: 50 * time.Millisecond,
 			}))
-			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
 
 			t := newTask(embeddedRackKey(ctx))
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
@@ -1032,7 +1023,7 @@ var _ = Describe("Driver", func() {
 					}, nil
 				},
 			}
-			d := MustSucceed(driver.Open(ctx, driver.Config{
+			MustOpen(driver.Open(ctx, driver.Config{
 				DB:          dist.DB,
 				Rack:        rackService,
 				Task:        taskService,
@@ -1043,7 +1034,6 @@ var _ = Describe("Driver", func() {
 				Host:        hostProvider,
 				TaskTimeout: 50 * time.Millisecond,
 			}))
-			DeferCleanup(func() { Expect(d.Close()).To(Succeed()) })
 			time.Sleep(50 * time.Millisecond)
 
 			t := newTask(embeddedRackKey(ctx))

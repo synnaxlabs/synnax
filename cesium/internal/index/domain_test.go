@@ -14,28 +14,27 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Domain", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
-				db      *domain.DB
-				idx     *index.Domain
-				fs      xfs.FS
-				cleanUp func() error
+				db  *domain.DB
+				idx *index.Domain
+				fs  xfs.FS
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 				idx = &index.Domain{DB: db}
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Distance", func() {
@@ -56,7 +55,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, _, err := idx.Distance(ctx, tr /*continuous*/, true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -358,7 +357,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -453,7 +452,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -612,7 +611,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), false)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -670,7 +669,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -747,7 +746,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -875,7 +874,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), false)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}

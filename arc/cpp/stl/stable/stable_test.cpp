@@ -14,6 +14,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stable/stable.h"
 
@@ -24,9 +25,8 @@ runtime::node::Context make_context() {
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = runtime::node::RunReason::TimerTick,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -107,8 +107,8 @@ void write_source(
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 
-/// @brief Helper that returns a NowFn capturing a mutable time reference.
-NowFn make_now(x::telem::TimeStamp &current_time) {
+/// @brief Helper that returns a NowFunc capturing a mutable time reference.
+x::telem::NowFunc make_now(x::telem::TimeStamp &current_time) {
     return [&current_time]() { return current_time; };
 }
 }
@@ -173,7 +173,7 @@ TEST(StableForTest, DoesNotEmitBeforeDuration) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
@@ -203,15 +203,11 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     // Advance past the duration (start + 1s).
     const auto emit_ns = start_ns + x::telem::SECOND.nanoseconds();
     current_time = x::telem::TimeStamp(emit_ns);
-    bool changed = false;
-    std::string changed_param;
-    ctx.mark_changed = [&](const std::string &p) {
-        changed = true;
-        changed_param = p;
-    };
+    std::vector<size_t> marked;
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
     ASSERT_NIL(node.next(ctx));
-    EXPECT_TRUE(changed);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->size(), 1);
@@ -249,7 +245,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     // At 1s, only 500ms since the change at 500ms — should NOT emit.
     bool changed = false;
     current_time = x::telem::TimeStamp(x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 
@@ -287,7 +283,7 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     // Second call later — same value, should NOT emit again.
     int call_count = 0;
     current_time = x::telem::TimeStamp(start_ns + 2 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ctx.mark_changed = [&](size_t) { call_count++; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_EQ(call_count, 0);
 }
@@ -321,7 +317,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     // At 3s, value 10 should emit.
     bool changed = false;
     current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -350,7 +346,7 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     // last_changed is at 200ms (when 5->10 occurred). At 1.2s, should emit.
     current_time = x::telem::TimeStamp(1200 * ms);
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -379,7 +375,7 @@ TEST(StableForTest, ResetClearsState) {
     node.reset();
     bool changed = false;
     current_time = x::telem::TimeStamp(5 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -396,7 +392,7 @@ TEST(StableForTest, HandlesEmptyInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -411,7 +407,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
         make_now(current_time)
     );
 
-    EXPECT_FALSE(node.is_output_truthy("output"));
+    EXPECT_FALSE(node.is_output_truthy(0));
 
     const auto start_ns = x::telem::MILLISECOND.nanoseconds();
     auto source = setup.make_source_node();
@@ -421,7 +417,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     current_time = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Same value repeated in input uses the first occurrence for stability.
@@ -444,7 +440,7 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     // last_changed at 100ms. At 1.1s, should emit.
     current_time = x::telem::TimeStamp(1100 * ms);
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -480,11 +476,25 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
 
     bool changed = false;
     current_time = x::telem::TimeStamp(3 * x::telem::SECOND.nanoseconds());
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 5);
+}
+
+TEST(StableModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    const auto dur = x::telem::SECOND.nanoseconds();
+    TestSetup setup(dur);
+    auto ir_node = setup.ir.nodes[1];
+    ir_node.type = "stable.for";
+
+    auto module = std::make_shared<Module>();
+    runtime::node::MultiFactory multi({module});
+    auto node = ASSERT_NIL_P(
+        multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_stable_node()))
+    );
+    ASSERT_NE(node, nullptr);
 }
 }

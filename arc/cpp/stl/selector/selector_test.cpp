@@ -14,6 +14,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/selector/selector.h"
 
@@ -24,9 +25,8 @@ runtime::node::Context make_context() {
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = runtime::node::RunReason::ChannelInput,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -141,7 +141,7 @@ TEST(SelectTest, HandlesNoInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -154,13 +154,13 @@ TEST(SelectTest, AllTrueInput) {
     auto source = setup.make_source_node();
     write_source(source, {1, 1, 1}, {100, 200, 300});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_FALSE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 3);
@@ -178,20 +178,20 @@ TEST(SelectTest, AllFalseInput) {
     auto source = setup.make_source_node();
     write_source(source, {0, 0, 0}, {100, 200, 300});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_FALSE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_FALSE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 0);
     EXPECT_EQ(checker.output(1)->size(), 3);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(2), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(2), 1);
 }
 
 /// @brief Test that mixed input is split correctly.
@@ -202,21 +202,21 @@ TEST(SelectTest, MixedInput) {
     auto source = setup.make_source_node();
     write_source(source, {1, 0, 1, 0}, {100, 200, 300, 400});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 2);
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 1);
     EXPECT_EQ(checker.output(0)->at<uint8_t>(1), 1);
     EXPECT_EQ(checker.output(1)->size(), 2);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 1);
 }
 
 /// @brief Test that true output timestamps match source timestamps.
@@ -263,13 +263,13 @@ TEST(SelectTest, SingleTrueValue) {
     auto source = setup.make_source_node();
     write_source(source, {1}, {100});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_FALSE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 1);
@@ -285,17 +285,17 @@ TEST(SelectTest, SingleFalseValue) {
     auto source = setup.make_source_node();
     write_source(source, {0}, {100});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &p) { changed_params.insert(p); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_FALSE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_FALSE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(1)->size(), 1);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
 }
 
 /// @brief Test long series (1000 elements). Mirrors Go test "Should handle
@@ -384,8 +384,8 @@ TEST(SelectTest, IsOutputTruthyDelegatesToState) {
     Select node(setup.make_select_node());
 
     // Before any output, should be false.
-    EXPECT_FALSE(node.is_output_truthy("true"));
-    EXPECT_FALSE(node.is_output_truthy("false"));
+    EXPECT_FALSE(node.is_output_truthy(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(node.is_output_truthy(FALSE_OUTPUT_IDX));
 }
 
 /// @brief Test that alignment and time_range are propagated to outputs.
@@ -415,4 +415,5 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     EXPECT_EQ(checker.output_time(1)->alignment, x::telem::Alignment(3, 10));
     EXPECT_EQ(checker.output_time(1)->time_range, x::telem::TimeRange(1000, 2000));
 }
+
 }

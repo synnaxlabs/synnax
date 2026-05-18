@@ -13,6 +13,7 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/status/status.h"
 
@@ -25,9 +26,10 @@ Setter noop_setter = [](x::status::Status<> &) { return x::errors::NIL; };
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = ::arc::runtime::node::RunReason::TimerTick,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
+        .mark_self_changed = [] {},
+        .set_deadline = [](x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -105,6 +107,33 @@ TEST(SetStatusModuleTest, CreatesSetStatusNode) {
     ASSERT_NE(node, nullptr);
 }
 
+/// @brief Test that module creates a node with qualified type via MultiFactory.
+TEST(SetStatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    auto status_node = make_ir_node();
+    status_node.type = "status.set";
+
+    ::arc::ir::Function fn;
+    fn.key = "test";
+
+    ::arc::ir::IR ir;
+    ir.nodes.push_back(status_node);
+    ir.functions.push_back(fn);
+
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("status"));
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto module = std::make_shared<Module>(client);
+    ::arc::runtime::node::MultiFactory multi({module});
+    auto node = ASSERT_NIL_P(
+        multi.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+    ASSERT_NE(node, nullptr);
+}
+
 /// @brief Test that next() calls the setter with correct info.
 TEST(SetStatusTest, NextCallsSetter) {
     x::status::Status<> received;
@@ -153,8 +182,8 @@ TEST(SetStatusTest, NextHandlesSetterError) {
 /// @brief Test that is_output_truthy always returns false.
 TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
     SetStatus node(make_status(), noop_setter);
-    EXPECT_FALSE(node.is_output_truthy("output"));
-    EXPECT_FALSE(node.is_output_truthy("anything"));
+    EXPECT_FALSE(node.is_output_truthy(0));
+    EXPECT_FALSE(node.is_output_truthy(1));
 }
 
 /// @brief Test that module creates nodes that set status on the cluster.

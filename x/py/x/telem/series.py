@@ -32,6 +32,8 @@ from x.telem.telem import (
     TimeStamp,
 )
 
+VARIABLE_LENGTH_PREFIX_SIZE = 4
+
 
 class Series(BaseModel):
     """Series is a strongly typed array of telemetry samples backed by an underlying
@@ -67,7 +69,16 @@ class Series(BaseModel):
         if not self.data_type.is_variable:
             return self.data_type.density.sample_count(len(self.data))
         if self.__len_cache is None:
-            self.__len_cache = self.data.count(b"\n")
+            count = 0
+            offset = 0
+            d = self.data
+            while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+                length = int.from_bytes(
+                    d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                )
+                offset += VARIABLE_LENGTH_PREFIX_SIZE + length
+                count += 1
+            self.__len_cache = count
         return self.__len_cache
 
     def __init__(
@@ -110,11 +121,17 @@ class Series(BaseModel):
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             if data_type == DataType.JSON:
-                data_ = (
-                    b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
+                parts = [json.dumps(d).encode("utf-8") for d in data]
+                data_ = b"".join(
+                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
+                    for p in parts
                 )
             elif data_type == DataType.STRING:
-                data_ = b"\n".join([str(d).encode("utf-8") for d in data]) + b"\n"
+                parts = [str(d).encode("utf-8") for d in data]
+                data_ = b"".join(
+                    len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p
+                    for p in parts
+                )
             elif data_type == DataType.UUID:
                 uuids = [d for d in data if isinstance(d, uuid.UUID)]
                 data_ = b"".join(d.bytes for d in uuids)
@@ -126,9 +143,15 @@ class Series(BaseModel):
             data_ = data.bytes
         elif isinstance(data, dict):
             data_type = data_type or DataType.JSON
-            data_ = json.dumps(data).encode("utf-8") + b"\n"
+            encoded = json.dumps(data).encode("utf-8")
+            data_ = (
+                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
+            )
         elif isinstance(data, str):
-            data_ = bytes(f"{data}\n", "utf-8")
+            encoded = data.encode("utf-8")
+            data_ = (
+                len(encoded).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + encoded
+            )
             data_type = DataType.STRING
         else:
             if data_type is None:
@@ -183,53 +206,52 @@ class Series(BaseModel):
             return uuid.UUID(bytes=d)
 
         if self.data_type == DataType.JSON:
-            d = self.__newline_getitem__(index)
+            d = self.__variable_getitem__(index)
             return json.loads(d)  # type: ignore[no-any-return]
 
         if self.data_type == DataType.STRING:
-            d = self.__newline_getitem__(index)
+            d = self.__variable_getitem__(index)
             return d.decode("utf-8")
 
         return self.__array__()[index]  # type: ignore[no-any-return]
 
-    def __newline_getitem__(self, index: int) -> bytes:
-        if index == 0:
-            start = 0
-        else:
-            start = self.data.find(b"\n")
-            while start >= 0 and index > 1:
-                start = self.data.find(b"\n", start + 1)
-                index -= 1
-            start += 1
-
-        if start < 0:
-            raise IndexError(f"[Series] - Index {index} out of bounds")
-
-        end = self.data.find(b"\n", start)
-        if end < 0:
-            end = len(self.data)
-        return self.data[start:end]
+    def __variable_getitem__(self, index: int) -> bytes:
+        offset = 0
+        d = self.data
+        current = 0
+        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            length = int.from_bytes(
+                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+            )
+            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            if current == index:
+                return d[offset : offset + length]
+            offset += length
+            current += 1
+        raise IndexError(f"[Series] - Index {index} out of bounds")
 
     def __iter__(self) -> Iterator[SampleValue]:  # type: ignore[override]
         if self.data_type == DataType.UUID:
             yield from [self[i] for i in range(len(self))]
         elif self.data_type == DataType.JSON:
-            for v in self.__iter__newline():
+            for v in self.__iter__variable():
                 yield json.loads(v)
         elif self.data_type == DataType.STRING:
-            for v in self.__iter__newline():
+            for v in self.__iter__variable():
                 yield v.decode("utf-8")
         else:
             yield from self.__array__()
 
-    def __iter__newline(self) -> Iterator[bytes]:
-        curr = 0
-        while curr < len(self.data):
-            end = self.data.find(b"\n", curr)
-            if end < 0:
-                end = len(self.data)
-            yield self.data[curr:end]
-            curr = end + 1
+    def __iter__variable(self) -> Iterator[bytes]:
+        offset = 0
+        d = self.data
+        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            length = int.from_bytes(
+                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+            )
+            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            yield d[offset : offset + length]
+            offset += length
 
     def __str__(self) -> str:
         return str(list(self))
@@ -283,9 +305,11 @@ CrudeSeries: TypeAlias = (
     | pd.Series
     | np.ndarray
     | list[float]
+    | list[int]
     | list[str]
     | list[dict[str, Any]]
     | list[uuid.UUID]
+    | list[TimeStamp]
     | np.number
     | str
     | uuid.UUID

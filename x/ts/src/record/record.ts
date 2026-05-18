@@ -141,6 +141,14 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
   return result;
 };
 
+export interface NullishToEmpty {
+  (): z.ZodType<Unknown>;
+  <K extends z.ZodType<Key>, V extends z.ZodType>(
+    key: K,
+    value: V,
+  ): z.ZodType<Record<z.infer<K>, z.infer<V>>>;
+}
+
 /**
  * For required JSON/record fields: coerces null/undefined to empty object {}.
  * Use when the record must always be present and iterable.
@@ -149,9 +157,18 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
  * - undefined → {}
  * - {} → {}
  * - {data} → {data}
+ *
+ * Without arguments the value type is unknown. Pass key and value zod schemas
+ * to type the resulting record (e.g. for `map<string, Color>` fields).
  */
-export const nullishToEmpty = (): z.ZodType<Unknown> =>
-  z.union([
-    z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
-    unknownZ(),
+export const nullishToEmpty = ((key?: z.ZodType, value?: z.ZodType) => {
+  if (key === undefined || value === undefined)
+    return z.union([
+      z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
+      unknownZ(),
+    ]);
+  return z.union([
+    z.union([z.null(), z.undefined()]).transform(() => ({})),
+    z.record(key as z.ZodType<Key>, value),
   ]);
+}) as NullishToEmpty;

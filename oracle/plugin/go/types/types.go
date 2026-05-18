@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -66,16 +65,6 @@ func (p *Plugin) Requires() []string { return nil }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-s", "-w"}},
-}
-
-// PostWrite runs gofmt on all generated Go files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -226,10 +215,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 			BaseType: data.resolver.ResolveTypeRef(form.Base, data.ctx),
 			IsAlias:  false,
 		}
-		for _, tp := range form.TypeParams {
-			if tp.HasDefault() {
-				continue
-			}
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
 		result.IsGeneric = len(result.TypeParams) > 0
@@ -238,12 +224,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		targetRef := form.Target
 		if targetResolved, ok := targetRef.Resolve(data.table); ok {
 			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				var nonDefaultedParams []resolution.TypeParam
-				for _, tp := range targetForm.TypeParams {
-					if !tp.HasDefault() {
-						nonDefaultedParams = append(nonDefaultedParams, tp)
-					}
-				}
+				nonDefaultedParams := resolution.NonDefaultedTypeParams(targetForm.TypeParams)
 				providedArgs := len(targetRef.TypeArgs)
 				if providedArgs < len(nonDefaultedParams) {
 					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
@@ -267,10 +248,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 			BaseType: baseType,
 			IsAlias:  true,
 		}
-		for _, tp := range form.TypeParams {
-			if tp.HasDefault() {
-				continue
-			}
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
 		result.IsGeneric = len(result.TypeParams) > 0
@@ -293,10 +271,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		sd.Name = name
 	}
 
-	for _, tp := range form.TypeParams {
-		if tp.HasDefault() {
-			continue
-		}
+	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		sd.TypeParams = append(sd.TypeParams, processTypeParam(tp, data))
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0

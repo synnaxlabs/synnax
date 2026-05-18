@@ -68,58 +68,6 @@ func (e *Edge) DecodeMsgpack(dec *msgpack.Decoder) error {
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // Go field names and new lowercase msgpack tag names for backward compatibility.
-func (s *Stage) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Stage
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(s)); err != nil {
-		return err
-	}
-	if len(s.Key) == 0 {
-		var legacy struct {
-			Key    string
-			Nodes  []string
-			Strata Strata
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		s.Key = legacy.Key
-		s.Nodes = legacy.Nodes
-		s.Strata = legacy.Strata
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
-func (s *Sequence) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Sequence
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(s)); err != nil {
-		return err
-	}
-	if len(s.Key) == 0 {
-		var legacy struct {
-			Key    string
-			Stages []Stage
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		s.Key = legacy.Key
-		s.Stages = legacy.Stages
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
 func (f *Function) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Function
 	raw, err := dec.DecodeRaw()
@@ -180,37 +128,6 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 		n.Inputs = legacy.Inputs
 		n.Outputs = legacy.Outputs
 		n.Channels = legacy.Channels
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
-func (ir *IR) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias IR
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(ir)); err != nil {
-		return err
-	}
-	if ir.Functions == nil && ir.Nodes == nil {
-		var legacy struct {
-			Functions Functions
-			Nodes     Nodes
-			Edges     Edges
-			Strata    Strata
-			Sequences Sequences
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		ir.Functions = legacy.Functions
-		ir.Nodes = legacy.Nodes
-		ir.Edges = legacy.Edges
-		ir.Strata = legacy.Strata
-		ir.Sequences = legacy.Sequences
 	}
 	return nil
 }

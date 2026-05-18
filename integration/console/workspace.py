@@ -9,6 +9,7 @@
 
 import json
 import random
+import re
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -260,13 +261,20 @@ class WorkspaceClient:
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
 
+        Matches the page label exactly; substring matches are ignored so a
+        rename to a superstring (e.g. ``foo`` → ``foo_renamed``) does not
+        leave the original locator pointing at the renamed item.
+
         Args:
             name: Name of the page (schematic, line plot, etc.)
 
         Returns:
             Locator for the page item
         """
-        return self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
+        pattern = re.compile(rf"^\s*{re.escape(name)}\s*$")
+        return (
+            self.layout.page.locator(".pluto-tree__item").filter(has_text=pattern).first
+        )
 
     def _scroll_to_page(self, name: str) -> bool:
         """Scroll the workspace tree to find a page that may be off-screen.
@@ -610,9 +618,12 @@ class WorkspaceClient:
             """
             const [data, name, sliceName, icon] = args;
             const key = crypto.randomUUID();
+            const createPayload = sliceName === 'schematic'
+                ? { key, data }
+                : { ...data, key };
             store.dispatch({
                 type: sliceName + '/create',
-                payload: { ...data, key }
+                payload: createPayload,
             });
             store.dispatch({
                 type: 'layout/place',
@@ -669,9 +680,12 @@ class WorkspaceClient:
             for (const [key, component] of Object.entries(components)) {
                 const sliceName = sliceMap[component.type];
                 if (!sliceName) continue;
+                const createPayload = sliceName === 'schematic'
+                    ? { key, data: component }
+                    : { ...component, key };
                 store.dispatch({
                     type: sliceName + '/create',
-                    payload: { ...component, key },
+                    payload: createPayload,
                 });
             }
             """,

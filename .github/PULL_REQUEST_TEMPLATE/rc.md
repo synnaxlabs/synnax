@@ -151,8 +151,7 @@ I can successfully:
 - **Visualization**
   - [ ] Scroll to view historical data.
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
-  - [ ] Switch the logging channel and observe data switching.
-  - [ ] Preserve log data from a virtual channel in the buffer.
+  - [ ] Change the color of a channel in the log.
 - [ ] Open a log from its link.
 
 ### Ranges
@@ -225,12 +224,6 @@ I can successfully:
 I can successfully:
 
 - [ ] Run the Driver for long periods with minimal memory leakage.
-- **Handle invalid device configurations and receive meaningful feedback:**
-  - [ ] Invalid ports.
-  - [ ] Incorrect task type for devices (e.g., analog read on an analog output device).
-  - [ ] Out-of-range values.
-  - [ ] Multiple tasks using the same channel.
-  - [ ] Device disconnection during a running task.
 - [ ] Shut down the Core (`Ctrl + C`) without errors from the Driver routine.
 
 ### LabJack

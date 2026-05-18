@@ -9,35 +9,41 @@
 
 package gorp
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/synnaxlabs/x/set"
+)
 
 // deltaEntry is the per-key staged state of an index under an open
-// transaction. value is the indexed field's current staged value for
-// the key; deleted indicates the key was staged for deletion.
+// transaction.
 type deltaEntry[V comparable] struct {
-	value   V
+	// value is the indexed field's staged value for the key. Zero when
+	// deleted is true.
+	value V
+	// deleted reports whether the key was staged for deletion.
 	deleted bool
 }
 
 // delta is the per-transaction overlay for a single secondary index.
 // SK is the storable key type (must be comparable for use as a map
-// key). For Lookup and Sorted, SK is the entry's primary key type
-// directly. For BytesLookup, SK is string (because []byte is not
-// comparable), and the BytesLookup wrapper converts at the boundary.
-//
-// state is authoritative: if a key is in state, the committed index's
-// view of that key is not trusted during resolve. forward is the
-// value-to-key inverse for fast resolve.
+// key). For comparable-keyed indexes SK is the entry's primary key
+// type directly; for byte-keyed indexes SK is string (because []byte
+// is not comparable), and the storage backend converts at the boundary.
 type delta[SK comparable, V comparable] struct {
-	state   map[SK]deltaEntry[V]
-	forward map[V]map[SK]struct{}
+	// state is the authoritative per-tx view: if a key is in state,
+	// the committed index's view of that key is ignored during resolve.
+	state map[SK]deltaEntry[V]
+	// forward is the value-to-keys inverse, mirroring non-deleted
+	// entries in state for O(1) resolve.
+	forward map[V]set.Set[SK]
 }
 
 //nolint:unused
 func newDelta[SK comparable, V comparable]() *delta[SK, V] {
 	return &delta[SK, V]{
 		state:   make(map[SK]deltaEntry[V]),
-		forward: make(map[V]map[SK]struct{}),
+		forward: make(map[V]set.Set[SK]),
 	}
 }
 
@@ -65,10 +71,10 @@ func (d *delta[SK, V]) stageDelete(key SK) {
 func (d *delta[SK, V]) addToForward(key SK, value V) {
 	bucket, ok := d.forward[value]
 	if !ok {
-		bucket = make(map[SK]struct{})
+		bucket = set.New[SK]()
 		d.forward[value] = bucket
 	}
-	bucket[key] = struct{}{}
+	bucket.Add(key)
 }
 
 //nolint:unused
@@ -90,48 +96,51 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 	if d.isEmpty() {
 		return committedKeys
 	}
-	result := make(map[SK]struct{}, len(committedKeys))
-	for _, k := range committedKeys {
-		result[k] = struct{}{}
-	}
-	valueSet := make(map[V]struct{}, len(values))
-	for _, v := range values {
-		valueSet[v] = struct{}{}
-	}
+	result := set.New(committedKeys...)
+	valueSet := set.New(values...)
 	for k, entry := range d.state {
 		if entry.deleted {
-			delete(result, k)
+			result.Remove(k)
 			continue
 		}
-		if _, wanted := valueSet[entry.value]; !wanted {
-			delete(result, k)
+		if !valueSet.Contains(entry.value) {
+			result.Remove(k)
 		}
 	}
 	for _, v := range values {
 		for k := range d.forward[v] {
-			result[k] = struct{}{}
+			result.Add(k)
 		}
 	}
-	out := make([]SK, 0, len(result))
-	for k := range result {
-		out = append(out, k)
-	}
-	return out
+	return result.Slice()
 }
 
-// deltaOverlay manages per-tx delta state for a single secondary
-// index. It owns the txDeltas map and mutex, the loadOrCreate
-// lifecycle, and the resolve merge. Embedded in Lookup, Sorted, and
-// BytesLookup so the staging pattern is written once.
+// deltaOverlay tracks per-tx delta state for a single secondary index
+// and routes mutations either to the per-tx buffer or, when tx has no
+// per-tx identity, directly to committed state via commitSet /
+// commitDelete. flush runs after a successful commit with the final
+// delta state; no flush runs on rollback.
 type deltaOverlay[SK comparable, V comparable] struct {
-	deltaMu  sync.Mutex
+	// deltaMu guards txDeltas.
+	deltaMu sync.Mutex
+	// txDeltas holds the per-tx staging buffer, keyed by tx identity.
 	txDeltas map[*txState]*delta[SK, V]
+	// commitSet applies a set directly to committed state. Invoked for
+	// writes against a tx with no per-tx identity.
+	commitSet func(key SK, value V)
+	// commitDelete applies a delete directly to committed state.
+	// Invoked for writes against a tx with no per-tx identity.
+	commitDelete func(key SK)
+	// flush promotes a committed tx's delta into committed state.
+	// Must apply every entry atomically; no flush runs on rollback.
+	flush func(*delta[SK, V])
 }
 
 //nolint:unused
 func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 	state := tx.txIdentity()
 	if state == nil {
+		o.commitSet(key, value)
 		return
 	}
 	o.loadOrCreate(state).stageSet(key, value)
@@ -141,6 +150,7 @@ func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 func (o *deltaOverlay[SK, V]) unstage(tx Tx, key SK) {
 	state := tx.txIdentity()
 	if state == nil {
+		o.commitDelete(key)
 		return
 	}
 	o.loadOrCreate(state).stageDelete(key)
@@ -182,10 +192,14 @@ func (o *deltaOverlay[SK, V]) loadOrCreate(state *txState) *delta[SK, V] {
 	}
 	d := newDelta[SK, V]()
 	o.txDeltas[state] = d
-	state.onCleanup(func() {
+	state.onCleanup(func(committed bool) {
 		o.deltaMu.Lock()
+		d := o.txDeltas[state]
 		delete(o.txDeltas, state)
 		o.deltaMu.Unlock()
+		if committed && d != nil && !d.isEmpty() && o.flush != nil {
+			o.flush(d)
+		}
 	})
 	return d
 }

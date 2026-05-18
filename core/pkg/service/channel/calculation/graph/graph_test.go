@@ -34,17 +34,16 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	distB := DeferClose(mock.NewCluster())
+	dist = DeferClose(distB.Provision(ctx))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() { Expect(labelSvc.Close()).To(Succeed()) })
-	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
@@ -52,26 +51,19 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	DeferCleanup(func() { Expect(statusSvc.Close()).To(Succeed()) })
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
 })
 
 func openGraph(ctx context.Context) *graph.Graph {
-	g := MustSucceed(graph.Open(ctx, graph.Config{
+	return MustOpen(graph.Open(ctx, graph.Config{
 		Channel: dist.Channel,
 		Status:  statusSvc,
 	}))
-	DeferCleanup(func() { Expect(g.Close()).To(Succeed()) })
-	return g
 }
 
 func fetchStatus(ctx context.Context, key channel.Key) (status.Status[types.Nil], bool) {
 	var statuses []status.Status[types.Nil]
 	err := status.NewRetrieve[types.Nil](statusSvc).
-		WhereKeys(channel.OntologyID(key).String()).
+		Where(status.MatchKeys[types.Nil](channel.OntologyID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
@@ -109,7 +101,7 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
 	var ch channel.Channel
-	Expect(dist.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil)).To(Succeed())
+	Expect(dist.Channel.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, nil)).To(Succeed())
 	return ch.DataType
 }
 

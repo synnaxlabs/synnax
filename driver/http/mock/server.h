@@ -37,6 +37,10 @@ struct Route {
     /// @brief if non-empty, respond with a redirect to this URL instead of the
     /// configured body. status_code should be 301, 302, 307, etc.
     std::string redirect_to;
+    /// @brief when greater than zero, the route returns the configured status_code for
+    /// this many requests, then switches to 200 for subsequent requests. Zero (default)
+    /// means the route always uses status_code.
+    int remaining_failures = 0;
 };
 
 /// @brief a received request logged by the mock server.

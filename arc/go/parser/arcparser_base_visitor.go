@@ -72,6 +72,10 @@ func (v *BaseArcParserVisitor) VisitSequenceDeclaration(ctx *SequenceDeclaration
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitSequenceItem(ctx *SequenceItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitStageDeclaration(ctx *StageDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -117,6 +121,10 @@ func (v *BaseArcParserVisitor) VisitIdentifier(ctx *IdentifierContext) interface
 }
 
 func (v *BaseArcParserVisitor) VisitFunction(ctx *FunctionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

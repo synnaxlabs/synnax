@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { URL } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { type UnaryClient } from "@synnaxlabs/freighter";
+import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
@@ -85,6 +86,70 @@ describe("connectivity", () => {
       const state = await connectivity.check();
       expect(state.clientServerCompatible).toBe(false);
       expect(state.clientVersion).toBe("0.0.0");
+    });
+  });
+  describe("clock skew", () => {
+    const createMockClient = (nodeTime: TimeStamp): UnaryClient => ({
+      send: vi.fn().mockResolvedValue([
+        {
+          clusterKey: "test-cluster",
+          nodeVersion: __VERSION__,
+          nodeTime,
+        },
+        null,
+      ]) as UnaryClient["send"],
+      use: vi.fn(),
+    });
+
+    it("should detect clock skew exceeding threshold", async () => {
+      const farFuture = TimeStamp.now().add(TimeSpan.hours(1));
+      const checker = new connection.Checker(
+        createMockClient(farFuture),
+        TimeSpan.seconds(30),
+        __VERSION__,
+        undefined,
+        TimeSpan.seconds(1),
+      );
+      const state = await checker.check();
+      expect(state.clockSkewExceeded).toBe(true);
+      expect(state.clockSkew.valueOf()).not.toBe(0n);
+      checker.stop();
+    });
+
+    it("should not flag skew within threshold", async () => {
+      const now = TimeStamp.now();
+      const checker = new connection.Checker(
+        createMockClient(now),
+        TimeSpan.seconds(30),
+        __VERSION__,
+        undefined,
+        TimeSpan.seconds(1),
+      );
+      const state = await checker.check();
+      expect(state.clockSkewExceeded).toBe(false);
+      checker.stop();
+    });
+
+    it("should fire onChange when clockSkewExceeded changes", async () => {
+      let callCount = 0;
+      const farFuture = TimeStamp.now().add(TimeSpan.hours(1));
+      const checker = new connection.Checker(
+        createMockClient(farFuture),
+        TimeSpan.seconds(30),
+        __VERSION__,
+        undefined,
+        TimeSpan.seconds(1),
+      );
+      // Wait for the constructor's initial check to complete
+      await checker.check();
+      checker.onChange(() => {
+        callCount++;
+      });
+      // Trigger another check - skewExceeded stays true, status stays connected,
+      // so onChange should not fire
+      await checker.check();
+      expect(callCount).toBe(0);
+      checker.stop();
     });
   });
 });

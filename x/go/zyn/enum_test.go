@@ -12,7 +12,7 @@ package zyn_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -41,6 +41,12 @@ var _ = Describe("Enum", func() {
 		It("Should return nil if the value is not a valid enum", func() {
 			Expect(zyn.Enum("a", "b", "c").Validate("d")).To(HaveOccurred())
 		})
+		It("Should succeed when an optional enum receives nil", func() {
+			Expect(zyn.Enum("a", "b", "c").Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required enum receives nil", func() {
+			Expect(zyn.Enum("a", "b", "c").Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
 	})
 	Describe("DataType Validation", func() {
 		Specify("invalid value", func() {
@@ -61,22 +67,22 @@ var _ = Describe("Enum", func() {
 		Specify("incompatible channel destination", func() {
 			var dest chan string
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible slice destination", func() {
 			var dest []string
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible map destination", func() {
 			var dest map[string]any
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible struct destination", func() {
 			var dest struct{ Value string }
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 	})
 	Describe("Optional Fields", func() {

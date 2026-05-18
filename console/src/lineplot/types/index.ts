@@ -62,6 +62,10 @@ export const rangesStateZ = v0.rangesStateZ;
 export type RangesState = v0.RangesState;
 export const ZERO_RANGES_STATE = v0.ZERO_RANGES_STATE;
 
+export const annotationsStateZ = v4.annotationsStateZ;
+export type AnnotationsState = v4.AnnotationsState;
+export const ZERO_ANNOTATIONS_STATE = v4.ZERO_ANNOTATIONS_STATE;
+
 export const stateZ = v4.stateZ;
 export type State = v4.State;
 export const ZERO_STATE = v4.ZERO_STATE;

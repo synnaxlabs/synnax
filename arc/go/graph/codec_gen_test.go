@@ -12,7 +12,7 @@
 package graph_test
 
 import (
-	"bytes"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -117,7 +118,7 @@ var _ = Describe("Codec", func() {
 					{
 						Key:      "test_61",
 						Type:     "test_62",
-						Config:   map[string]interface{}{"key_63": "value_63"},
+						Config:   msgpack.EncodedJSON{"key_63": "value_63"},
 						Position: spatial.XY{X: 65.5, Y: 66.5},
 					},
 				},
@@ -150,7 +151,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", graph.Node{
 				Key:      "test_1",
 				Type:     "test_2",
-				Config:   map[string]interface{}{"key_3": "value_3"},
+				Config:   msgpack.EncodedJSON{"key_3": "value_3"},
 				Position: spatial.XY{X: 5.5, Y: 6.5},
 			}),
 			Entry("zero values", graph.Node{
@@ -259,7 +260,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 			{
 				Key:      "test_61",
 				Type:     "test_62",
-				Config:   map[string]interface{}{"key_63": "value_63"},
+				Config:   msgpack.EncodedJSON{"key_63": "value_63"},
 				Position: spatial.XY{X: 65.5, Y: 66.5},
 			},
 		},
@@ -283,7 +284,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := graph.Node{
 		Key:      "test_1",
 		Type:     "test_2",
-		Config:   map[string]interface{}{"key_3": "value_3"},
+		Config:   msgpack.EncodedJSON{"key_3": "value_3"},
 		Position: spatial.XY{X: 5.5, Y: 6.5},
 	}
 	w := orc.NewWriter(0)
@@ -400,7 +401,7 @@ func FuzzDecodeGraph(f *testing.F) {
 				{
 					Key:      "test_61",
 					Type:     "test_62",
-					Config:   map[string]interface{}{"key_63": "value_63"},
+					Config:   msgpack.EncodedJSON{"key_63": "value_63"},
 					Position: spatial.XY{X: 65.5, Y: 66.5},
 				},
 			},
@@ -457,8 +458,11 @@ func FuzzDecodeGraph(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }
@@ -468,7 +472,7 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := graph.Node{
 			Key:      "test_1",
 			Type:     "test_2",
-			Config:   map[string]interface{}{"key_3": "value_3"},
+			Config:   msgpack.EncodedJSON{"key_3": "value_3"},
 			Position: spatial.XY{X: 5.5, Y: 6.5},
 		}
 		w := orc.NewWriter(0)
@@ -510,8 +514,11 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }
@@ -553,8 +560,11 @@ func FuzzDecodeViewport(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }

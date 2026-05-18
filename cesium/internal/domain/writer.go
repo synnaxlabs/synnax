@@ -48,10 +48,18 @@ type WriterConfig struct {
 	// invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
+	// OnRollover is invoked from inside Commit when the writer transitions from one
+	// underlying file to the next, immediately after the new file is acquired and
+	// before Commit returns. commitEnd is the timestamp of the just-finished domain's
+	// end, which is also the start timestamp of the new domain. Callers use this hook
+	// to flush per-domain state that accumulates across writes (e.g., per-domain
+	// offset tables, per-domain sample counters) and reset it for the new domain.
+	// [OPTIONAL]
+	OnRollover func(commitEnd telem.TimeStamp)
 }
 
 var (
-	errWriterClosed     = resource.NewClosedError("domain.writer")
+	ErrWriterClosed     = resource.NewClosedError("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -81,6 +89,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.End = override.Zero(w.End, other.End)
 	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
 	w.AutoIndexPersistInterval = override.Zero(w.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	w.OnRollover = override.Nil(w.OnRollover, other.OnRollover)
 	return w
 }
 
@@ -206,7 +215,7 @@ func (w *Writer) Len() int64 { return w.len }
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
-		return 0, errWriterClosed
+		return 0, ErrWriterClosed
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
@@ -244,7 +253,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 	defer span.End()
 
 	if w.closed {
-		return span.Error(errWriterClosed)
+		return span.Error(ErrWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
 		return span.Error(errors.Newf(
@@ -294,6 +303,9 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 		w.fileSize = telem.Size(newFileSize)
 		w.Start = commitEnd
 		w.prevCommit = 0
+		if w.OnRollover != nil {
+			w.OnRollover(commitEnd)
+		}
 	} else {
 		w.prevCommit = commitEnd
 	}

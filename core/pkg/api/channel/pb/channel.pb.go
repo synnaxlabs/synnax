@@ -55,7 +55,7 @@ type Channel struct {
 	// nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// index is the channel used to index this channel's values, associating each value with
-	// a timestamp. If zero, the channel's data will be indexed using its rate.
+	// a timestamp.
 	Index uint32 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	// alias is an optional alternate name for the channel within a specific context.
 	Alias string `protobuf:"bytes,7,opt,name=alias,proto3" json:"alias,omitempty"`

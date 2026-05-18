@@ -38,81 +38,119 @@ std::ostream &operator<<(std::ostream &os, const Edge &e) {
     return os << e.to_string();
 }
 
-std::string Stage::to_string() const {
-    return this->to_string_with_prefix("");
+namespace {
+
+/// @brief returns the short label used in tree output for a scope's mode.
+const char *scope_mode_label(const ScopeMode m) {
+    switch (m) {
+        case ScopeMode::Parallel:
+            return "parallel";
+        case ScopeMode::Sequential:
+            return "sequential";
+        default:
+            return "unspecified";
+    }
 }
 
-std::string Stage::to_string_with_prefix(const std::string &prefix) const {
+/// @brief returns the short label used in tree output for a scope's liveness.
+const char *liveness_label(const Liveness l) {
+    switch (l) {
+        case Liveness::Always:
+            return "always";
+        case Liveness::Gated:
+            return "gated";
+        default:
+            return "unspecified";
+    }
+}
+
+}
+
+std::string Transition::to_string() const {
     std::ostringstream ss;
-    ss << this->key << ": [";
-    for (size_t i = 0; i < this->nodes.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << this->nodes[i];
-    }
-    ss << "]";
-    if (!this->strata.empty()) {
-        ss << "\n" << this->strata.to_string_with_prefix(prefix);
-    }
+    ss << "on " << this->on.node << "/" << this->on.param << " ";
+    if (this->target_key.has_value())
+        ss << "=> " << *this->target_key;
+    else
+        ss << "=> exit";
     return ss.str();
 }
 
-std::ostream &operator<<(std::ostream &os, const Stage &s) {
-    return os << s.to_string();
+std::ostream &operator<<(std::ostream &os, const Transition &t) {
+    return os << t.to_string();
 }
 
-std::string Strata::to_string() const {
+const std::string &Member::key() const {
+    static const std::string empty;
+    if (this->node_key.has_value()) return *this->node_key;
+    if (this->scope) return this->scope->key;
+    return empty;
+}
+
+std::string Member::to_string() const {
     return this->to_string_with_prefix("");
 }
 
-std::string Strata::to_string_with_prefix(const std::string &prefix) const {
+std::string Member::to_string_with_prefix(const std::string &prefix) const {
+    if (this->node_key.has_value()) return *this->node_key;
+    if (this->scope) return this->scope->to_string_with_prefix(prefix);
+    return "(empty member)";
+}
+
+std::ostream &operator<<(std::ostream &os, const Member &m) {
+    return os << m.to_string();
+}
+
+std::string Scope::to_string() const {
+    return this->to_string_with_prefix("");
+}
+
+std::string Scope::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
-    for (size_t i = 0; i < this->size(); ++i) {
-        bool last = (i == this->size() - 1);
-        ss << prefix << tree_prefix(last) << "[" << i << "]: ";
-        const auto &stratum = (*this)[i];
-        for (size_t j = 0; j < stratum.size(); ++j) {
-            if (j > 0) ss << ", ";
-            ss << stratum[j];
+    const std::string label = this->key.empty() ? std::string("(scope)") : this->key;
+    ss << label << " [" << scope_mode_label(this->mode) << ", "
+       << liveness_label(this->liveness) << "]";
+
+    const bool is_parallel = this->mode == ScopeMode::Parallel;
+    const bool has_strata = is_parallel && !this->strata.empty();
+    const bool has_steps = !is_parallel && !this->steps.empty();
+    const bool has_transitions = !this->transitions.empty();
+
+    if (has_strata) {
+        for (size_t i = 0; i < this->strata.size(); ++i) {
+            const bool last = (i == this->strata.size() - 1) && !has_transitions;
+            ss << "\n" << prefix << tree_prefix(last) << "stratum " << i;
+            const auto &stratum = this->strata[i];
+            if (!stratum.empty()) {
+                const std::string inner_prefix = prefix + tree_indent(last);
+                for (size_t j = 0; j < stratum.size(); ++j) {
+                    const bool m_last = (j == stratum.size() - 1);
+                    ss << "\n" << inner_prefix << tree_prefix(m_last);
+                    ss << stratum[j].to_string_with_prefix(
+                        inner_prefix + tree_indent(m_last)
+                    );
+                }
+            }
         }
-        if (!last) ss << "\n";
     }
-    return ss.str();
-}
-
-std::ostream &operator<<(std::ostream &os, const Strata &s) {
-    return os << s.to_string();
-}
-
-const Stage &Sequence::operator[](const size_t idx) const {
-    return this->stages[idx];
-}
-
-const Stage &Sequence::next(const std::string &stage_key) const {
-    for (size_t i = 0; i < this->stages.size(); ++i)
-        if (this->stages[i].key == stage_key) {
-            if (i + 1 >= this->stages.size())
-                throw std::runtime_error("no next stage after: " + stage_key);
-            return this->stages[i + 1];
+    if (has_steps) {
+        for (size_t i = 0; i < this->steps.size(); ++i) {
+            const bool last = (i == this->steps.size() - 1) && !has_transitions;
+            ss << "\n" << prefix << tree_prefix(last);
+            ss << this->steps[i].to_string_with_prefix(prefix + tree_indent(last));
         }
-    throw std::runtime_error("stage not found: " + stage_key);
-}
-
-std::string Sequence::to_string() const {
-    return this->to_string_with_prefix("");
-}
-
-std::string Sequence::to_string_with_prefix(const std::string &prefix) const {
-    std::ostringstream ss;
-    ss << this->key;
-    for (size_t i = 0; i < this->stages.size(); ++i) {
-        bool last = (i == this->stages.size() - 1);
-        ss << "\n" << prefix << tree_prefix(last);
-        ss << this->stages[i].to_string_with_prefix(prefix + tree_indent(last));
+    }
+    if (has_transitions) {
+        for (size_t i = 0; i < this->transitions.size(); ++i) {
+            const bool last = (i == this->transitions.size() - 1);
+            ss << "\n" << prefix << tree_prefix(last);
+            ss << this->transitions[i].to_string();
+        }
     }
     return ss.str();
 }
 
-std::ostream &operator<<(std::ostream &os, const Sequence &s) {
+std::ostream &operator<<(std::ostream &os, const Scope &s) {
     return os << s.to_string();
 }
 
@@ -237,17 +275,23 @@ IR::edges_from(const std::string &node_key) const {
     return result;
 }
 
-const Sequence &IR::sequence(const std::string &key) const {
-    for (const auto &s: this->sequences)
-        if (s.key == key) return s;
-    throw std::runtime_error("sequence not found: " + key);
-}
-
 std::vector<Edge> IR::edges_to(const std::string &node_key) const {
     std::vector<Edge> result;
     for (const auto &e: this->edges)
         if (e.target.node == node_key) result.push_back(e);
     return result;
+}
+
+namespace {
+
+/// @brief reports whether a scope carries any non-zero state. Used to decide
+/// whether the Root section should appear in an IR's tree output.
+bool scope_is_zero(const Scope &s) {
+    return s.key.empty() && s.mode == ScopeMode::Unspecified &&
+           s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
+           s.strata.empty() && s.steps.empty() && s.transitions.empty();
+}
+
 }
 
 std::string IR::to_string() const {
@@ -258,14 +302,13 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << "IR";
 
-    bool has_functions = !this->functions.empty();
-    bool has_nodes = !this->nodes.empty();
-    bool has_edges = !this->edges.empty();
-    bool has_strata = !this->strata.empty();
-    bool has_sequences = !this->sequences.empty();
+    const bool has_functions = !this->functions.empty();
+    const bool has_nodes = !this->nodes.empty();
+    const bool has_edges = !this->edges.empty();
+    const bool has_root = !scope_is_zero(this->root);
 
     if (has_functions) {
-        bool last = !has_nodes && !has_edges && !has_strata && !has_sequences;
+        bool last = !has_nodes && !has_edges && !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Functions";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->functions.size(); ++i) {
@@ -278,7 +321,7 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     }
 
     if (has_nodes) {
-        bool last = !has_edges && !has_strata && !has_sequences;
+        bool last = !has_edges && !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Nodes";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->nodes.size(); ++i) {
@@ -291,7 +334,7 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     }
 
     if (has_edges) {
-        bool last = !has_strata && !has_sequences;
+        bool last = !has_root;
         ss << "\n" << prefix << tree_prefix(last) << "Edges";
         std::string child_prefix = prefix + tree_indent(last);
         for (size_t i = 0; i < this->edges.size(); ++i) {
@@ -301,23 +344,9 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
         }
     }
 
-    if (has_strata) {
-        bool last = !has_sequences;
-        ss << "\n" << prefix << tree_prefix(last) << "Strata";
-        std::string child_prefix = prefix + tree_indent(last);
-        ss << "\n" << this->strata.to_string_with_prefix(child_prefix);
-    }
-
-    if (has_sequences) {
-        ss << "\n" << prefix << tree_prefix(true) << "Sequences";
-        std::string child_prefix = prefix + tree_indent(true);
-        for (size_t i = 0; i < this->sequences.size(); ++i) {
-            bool s_last = (i == this->sequences.size() - 1);
-            ss << "\n" << child_prefix << tree_prefix(s_last);
-            ss << this->sequences[i].to_string_with_prefix(
-                child_prefix + tree_indent(s_last)
-            );
-        }
+    if (has_root) {
+        ss << "\n" << prefix << tree_prefix(true) << "Root ";
+        ss << this->root.to_string_with_prefix(prefix + tree_indent(true));
     }
 
     return ss.str();

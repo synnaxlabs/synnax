@@ -20,21 +20,19 @@ import (
 )
 
 var _ = Describe("Metrics", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db      *cesium.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Metrics", func() {

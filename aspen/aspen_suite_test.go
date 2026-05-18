@@ -10,12 +10,16 @@
 package aspen_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"testing"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAspen(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Aspen Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

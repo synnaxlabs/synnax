@@ -44,7 +44,7 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   renderLineHighlight: "none",
   formatOnPaste: false,
   formatOnType: true,
-  suggestOnTriggerCharacters: false,
+  suggestOnTriggerCharacters: true,
   showFoldingControls: "mouseover",
   hover: { above: false },
 };

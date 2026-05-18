@@ -226,6 +226,19 @@ describe("Channel", () => {
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
     });
+    test("retrieve by search term", async () => {
+      const prefix = id.create();
+      const names = [`${prefix}_1`, `${prefix}_2`];
+      await client.channels.create(
+        names.map((name) => ({ name, virtual: true, dataType: DataType.FLOAT32 })),
+      );
+      await expect
+        .poll(async () => {
+          const results = await client.channels.retrieve({ searchTerm: prefix });
+          return results.map((c) => c.name).sort();
+        })
+        .toEqual(names);
+    });
   });
 
   describe("delete", async () => {

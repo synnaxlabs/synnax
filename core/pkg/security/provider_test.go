@@ -53,7 +53,7 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				})
-				Expect(err).To(HaveOccurredAs(os.ErrNotExist))
+				Expect(err).To(MatchError(os.ErrNotExist))
 			})
 		})
 		Describe("Node Private", func() {

@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/gorp"
@@ -24,7 +23,7 @@ import (
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
-	obs observe.Observable[gorp.TxReader[uuid.UUID, group.Group]],
+	obs observe.Observable[gorp.TxReader[group.Key, group.Group]],
 ) (io.Closer, error) {
 	return signals.PublishFromGorp(
 		ctx,

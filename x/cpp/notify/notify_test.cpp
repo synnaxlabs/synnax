@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -80,23 +81,27 @@ TEST(NotifierTest, FdAvailability) {
 #endif
 }
 
-/// @brief it should handle producer-consumer signaling pattern.
+/// @brief it should handle producer-consumer signaling pattern. Signals
+/// coalesce (see MultipleSignalsCoalesce), so the consumer terminates on a
+/// done flag rather than counting up to num_signals.
 TEST(NotifierTest, ProducerConsumerPattern) {
     auto notifier = create();
     constexpr int num_signals = 100;
     int received = 0;
+    std::atomic<bool> done{false};
 
     std::thread producer([&]() {
         for (int i = 0; i < num_signals; i++) {
             std::this_thread::sleep_for((100 * telem::MICROSECOND).chrono());
             notifier->signal();
         }
+        done.store(true, std::memory_order_release);
+        notifier->signal();
     });
 
     std::thread consumer([&]() {
-        while (received < num_signals) {
+        while (!done.load(std::memory_order_acquire))
             if (notifier->wait(x::telem::MILLISECOND * 100)) received++;
-        }
     });
 
     producer.join();

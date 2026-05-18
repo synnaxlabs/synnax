@@ -10,6 +10,7 @@
 package telem_test
 
 import (
+	"encoding/binary"
 	"math"
 
 	"github.com/google/uuid"
@@ -87,6 +88,21 @@ var _ = Describe("SeriesFactory", func() {
 			Specify("different length strings", newVariableSeriesRoundtripTest([]string{"hello", "", "foo"}, telem.StringT))
 			Specify("empty", newVariableSeriesRoundtripTest([]string{}, telem.StringT))
 			Specify("[]byte", newVariableSeriesRoundtripTest([][]byte{{1, 2, 3}, {4, 5, 6}}, telem.BytesT))
+			Specify("single []byte", newVariableSeriesRoundtripTest([][]byte{{1}}, telem.BytesT))
+			Specify("empty []byte values", newVariableSeriesRoundtripTest([][]byte{{}, {}, {}}, telem.BytesT))
+			Specify("empty []byte", newVariableSeriesRoundtripTest([][]byte{}, telem.BytesT))
+			Specify("different length []byte", newVariableSeriesRoundtripTest([][]byte{{1, 2, 3}, {}, {4}}, telem.BytesT))
+			Specify("single JSON", func() {
+				s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(s.Len()).To(BeEquivalentTo(1))
+				Expect(string(s.At(0))).To(Equal(`{"a":1}`))
+			})
+			Specify("empty JSON", func() {
+				s := MustSucceed(telem.NewJSONSeries([]map[string]any{}))
+				Expect(s.DataType).To(Equal(telem.JSONT))
+				Expect(s.Len()).To(BeEquivalentTo(0))
+			})
 		})
 	})
 
@@ -213,6 +229,56 @@ var _ = Describe("SeriesFactory", func() {
 				To(MatchError(ContainSubstring(
 					"json: cannot unmarshal array into Go value of type string",
 				)))
+		})
+	})
+
+	Describe("MarshalVariableSample", func() {
+		It("Should marshal a typical sample with a length prefix", func() {
+			sample := []byte("hello")
+			result := telem.MarshalVariableSample(sample)
+			Expect(result).To(HaveLen(9))
+			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(5)))
+			Expect(result[4:]).To(Equal(sample))
+		})
+
+		It("Should marshal an empty sample", func() {
+			result := telem.MarshalVariableSample([]byte{})
+			Expect(result).To(HaveLen(4))
+			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(0)))
+		})
+
+		It("Should marshal a nil sample", func() {
+			result := telem.MarshalVariableSample(nil)
+			Expect(result).To(HaveLen(4))
+			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(0)))
+		})
+
+		It("Should marshal a single byte sample", func() {
+			result := telem.MarshalVariableSample([]byte{0xFF})
+			Expect(result).To(HaveLen(5))
+			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(1)))
+			Expect(result[4]).To(Equal(byte(0xFF)))
+		})
+
+		It("Should produce output readable by Series.At", func() {
+			samples := [][]byte{[]byte("foo"), []byte("barbaz"), []byte("")}
+			var data []byte
+			for _, s := range samples {
+				data = append(data, telem.MarshalVariableSample(s)...)
+			}
+			series := telem.Series{DataType: telem.StringT, Data: data}
+			Expect(series.Len()).To(Equal(int64(3)))
+			Expect(series.At(0)).To(Equal([]byte("foo")))
+			Expect(series.At(1)).To(Equal([]byte("barbaz")))
+			Expect(series.At(2)).To(BeEmpty())
+		})
+
+		It("Should produce the same encoding as NewSeriesV", func() {
+			fromFactory := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
+			var manual []byte
+			manual = append(manual, telem.MarshalVariableSample([]byte{1, 2})...)
+			manual = append(manual, telem.MarshalVariableSample([]byte{3, 4, 5})...)
+			Expect(manual).To(Equal(fromFactory.Data))
 		})
 	})
 

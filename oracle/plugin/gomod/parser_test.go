@@ -25,10 +25,9 @@ var _ = Describe("ParseModuleName", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "gomod-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should extract the module name from a go.mod file", func() {
@@ -52,9 +51,8 @@ var _ = Describe("ParseModuleName", func() {
 	It("should return an error for a go.mod without module directive", func() {
 		modPath := filepath.Join(tmpDir, "go.mod")
 		Expect(os.WriteFile(modPath, []byte("go 1.21\n"), 0o644)).To(Succeed())
-		_, err := gomod.ParseModuleName(modPath)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("no module directive"))
+		Expect(gomod.ParseModuleName(modPath)).
+			Error().To(MatchError(ContainSubstring("no module directive")))
 	})
 })
 
@@ -63,10 +61,9 @@ var _ = Describe("ResolveImportPath", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "gomod-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should use fallback prefix when repo root is empty", func() {

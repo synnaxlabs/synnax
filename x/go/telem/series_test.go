@@ -10,7 +10,7 @@
 package telem_test
 
 import (
-	"bytes"
+	"encoding/binary"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
@@ -29,6 +30,130 @@ func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
 }
 
 var _ = Describe("Series", func() {
+	Describe("Validate", func() {
+		Context("Fixed Density", func() {
+			DescribeTable("valid data",
+				func(s telem.Series) {
+					Expect(s.Validate()).To(Succeed())
+				},
+				Entry("int64", telem.NewSeriesV[int64](1, 2, 3)),
+				Entry("int32", telem.NewSeriesV[int32](1, 2, 3)),
+				Entry("int16", telem.NewSeriesV[int16](1, 2, 3)),
+				Entry("int8", telem.NewSeriesV[int8](1, 2, 3)),
+				Entry("uint64", telem.NewSeriesV[uint64](1, 2, 3)),
+				Entry("uint32", telem.NewSeriesV[uint32](1, 2, 3)),
+				Entry("uint16", telem.NewSeriesV[uint16](1, 2, 3)),
+				Entry("uint8", telem.NewSeriesV[uint8](1, 2, 3)),
+				Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0)),
+				Entry("float32", telem.NewSeriesV[float32](1.0, 2.0)),
+				Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3)),
+				Entry("uuid", telem.NewSeriesV(uuid.New())),
+				Entry("empty", telem.Series{DataType: telem.Int64T}),
+			)
+
+			DescribeTable("misaligned data",
+				func(dt telem.DataType, dataLen int) {
+					s := telem.Series{DataType: dt, Data: make([]byte, dataLen)}
+					Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry("uint32 with 7 bytes", telem.Uint32T, 7),
+				Entry("uint32 with 1 byte", telem.Uint32T, 1),
+				Entry("float64 with 13 bytes", telem.Float64T, 13),
+				Entry("int64 with 5 bytes", telem.Int64T, 5),
+				Entry("int16 with 3 bytes", telem.Int16T, 3),
+				Entry("uuid with 17 bytes", telem.UUIDT, 17),
+				Entry("timestamp with 9 bytes", telem.TimeStampT, 9),
+			)
+		})
+
+		Context("Variable Density", func() {
+			It("Should accept valid string series", func() {
+				s := telem.NewSeriesV("hello", "world")
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept valid bytes series", func() {
+				s := telem.NewSeriesV([]byte{1, 2, 3}, []byte{4, 5})
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept valid JSON series", func() {
+				s := MustSucceed(telem.NewJSONSeriesV(
+					map[string]any{"key": "value"},
+					map[string]any{"arr": []int{1, 2, 3}},
+				))
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept an empty variable series", func() {
+				s := telem.Series{DataType: telem.StringT}
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should reject a prefix pointing past the buffer end", func() {
+				data := make([]byte, 8)
+				binary.LittleEndian.PutUint32(data[0:], 100)
+				s := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should reject trailing bytes after valid samples", func() {
+				valid := telem.NewSeriesV("ok")
+				valid.Data = append(valid.Data, 0xFF, 0xFF)
+				Expect(valid.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should reject trailing bytes that are less than a prefix", func() {
+				valid := telem.NewSeriesV("ok")
+				valid.Data = append(valid.Data, 0xFF)
+				Expect(valid.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Context("JSON Validity", func() {
+			It("Should reject invalid JSON", func() {
+				data := telem.MarshalVariableSample([]byte(`{not json}`))
+				s := telem.Series{DataType: telem.JSONT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should accept valid JSON primitives", func() {
+				data := telem.MarshalVariableSample([]byte(`42`))
+				data = append(data, telem.MarshalVariableSample([]byte(`"hello"`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`true`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`null`))...)
+				s := telem.Series{DataType: telem.JSONT, Data: data}
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+
+		Context("UTF-8 Validity", func() {
+			It("Should reject invalid UTF-8 in string series", func() {
+				invalidUTF8 := []byte{0xFF, 0xFE}
+				data := telem.MarshalVariableSample(invalidUTF8)
+				s := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should accept valid UTF-8 including multi-byte characters", func() {
+				s := telem.NewSeriesV("hello", "日本語", "émoji 🎉")
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should not check UTF-8 for bytes series", func() {
+				s := telem.NewSeriesV([]byte{0xFF, 0xFE})
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+
+		Context("Unknown DataType", func() {
+			It("Should skip validation for unknown data types", func() {
+				s := telem.Series{DataType: telem.UnknownT, Data: []byte{1, 2, 3}}
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+	})
+
 	Describe("Len", func() {
 		It("Should correctly return the number of samples in a series with a fixed length data type", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)
@@ -37,6 +162,14 @@ var _ = Describe("Series", func() {
 		It("Should correctly return the number of samples in a series with a variable length data type", func() {
 			s := telem.NewSeriesV("bob", "alice", "charlie")
 			Expect(s.Len()).To(Equal(int64(3)))
+		})
+		It("Should correctly return the number of samples in a bytes series", func() {
+			s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
+			Expect(s.Len()).To(Equal(int64(2)))
+		})
+		It("Should correctly return the number of samples in a JSON series", func() {
+			s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}, map[string]any{"b": 2.0}))
+			Expect(s.Len()).To(Equal(int64(2)))
 		})
 	})
 
@@ -66,6 +199,26 @@ var _ = Describe("Series", func() {
 				Expect(s.At(0)).To(Equal([]byte("a")))
 				Expect(s.At(1)).To(Equal([]byte("b")))
 				Expect(s.At(2)).To(Equal([]byte("c")))
+			})
+
+			It("Should return the value at the given index for bytes series", func() {
+				s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5}, []byte{6})
+				Expect(s.At(0)).To(Equal([]byte{1, 2}))
+				Expect(s.At(1)).To(Equal([]byte{3, 4, 5}))
+				Expect(s.At(2)).To(Equal([]byte{6}))
+			})
+
+			It("Should return the value at the given index for JSON series", func() {
+				s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}, map[string]any{"b": 2.0}))
+				Expect(string(s.At(0))).To(Equal(`{"a":1}`))
+				Expect(string(s.At(1))).To(Equal(`{"b":2}`))
+			})
+
+			It("Should support negative indexing for variable density series", func() {
+				s := telem.NewSeriesV("a", "b", "c")
+				Expect(s.At(-1)).To(Equal([]byte("c")))
+				Expect(s.At(-2)).To(Equal([]byte("b")))
+				Expect(s.At(-3)).To(Equal([]byte("a")))
 			})
 
 			It("Should panic when the index is out of bounds", func() {
@@ -382,8 +535,15 @@ var _ = Describe("Series", func() {
 				s := MustSucceed(telem.NewJSONSeriesV(data...))
 				downsampled := s.Downsample(2)
 				Expect(downsampled.Len()).To(Equal(int64(2)))
-				split := bytes.Split(downsampled.Data, []byte("\n"))
-				Expect(len(split)).To(Equal(3)) // 2 items + empty string after last newline
+				result := telem.UnmarshalSeries[[]byte](downsampled)
+				Expect(result).To(HaveLen(2))
+			})
+
+			It("Should correctly down sample a bytes series", func() {
+				original := telem.NewSeriesV([]byte{1}, []byte{2}, []byte{3}, []byte{4})
+				downsampled := original.Downsample(2)
+				Expect(downsampled.Len()).To(Equal(int64(2)))
+				Expect(telem.UnmarshalSeries[[]byte](downsampled)).To(Equal([][]byte{{1}, {3}}))
 			})
 		})
 
@@ -789,6 +949,27 @@ var _ = Describe("Series", func() {
 			})
 			Expect(count).To(Equal(0))
 		})
+
+		It("iterates bytes series correctly", func() {
+			s := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
+			values := make([][]byte, 0, 2)
+			for sample := range s.Samples() {
+				v := make([]byte, len(sample))
+				copy(v, sample)
+				values = append(values, v)
+			}
+			Expect(values).To(Equal([][]byte{{1, 2}, {3, 4, 5}}))
+		})
+
+		It("iterates JSON series correctly", func() {
+			s := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+			values := make([]string, 0, 1)
+			for sample := range s.Samples() {
+				values = append(values, string(sample))
+			}
+			Expect(values).To(HaveLen(1))
+			Expect(values[0]).To(Equal(`{"a":1}`))
+		})
 	})
 
 	Describe("CopyValue", func() {
@@ -907,6 +1088,23 @@ var _ = Describe("Series", func() {
 			Expect(copied.TimeRange.Start).To(Equal(telem.TimeStamp(1000)))
 			Expect(copied.TimeRange.End).To(Equal(telem.TimeStamp(2000)))
 			Expect(copied.Alignment).To(Equal(telem.NewAlignment(5, 10)))
+		})
+
+		It("Should work with JSON series", func() {
+			original := MustSucceed(telem.NewJSONSeriesV(map[string]any{"a": 1.0}))
+			copied := original.DeepCopy()
+			Expect(copied.DataType).To(Equal(telem.JSONT))
+			Expect(copied.Len()).To(Equal(int64(1)))
+			Expect(string(copied.At(0))).To(Equal(`{"a":1}`))
+		})
+
+		It("Should work with bytes series", func() {
+			original := telem.NewSeriesV([]byte{1, 2, 3}, []byte{4, 5})
+			copied := original.DeepCopy()
+			Expect(copied.DataType).To(Equal(telem.BytesT))
+			Expect(copied.Len()).To(Equal(int64(2)))
+			Expect(copied.At(0)).To(Equal([]byte{1, 2, 3}))
+			Expect(copied.At(1)).To(Equal([]byte{4, 5}))
 		})
 	})
 })

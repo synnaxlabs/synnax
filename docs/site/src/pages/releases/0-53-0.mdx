@@ -4,6 +4,7 @@ title: "Version 0.53 Release Notes"
 
 import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -19,6 +20,8 @@ Synnax v0.53 completes the HTTP driver with write task support and adds Python c
 integration for programmatic HTTP task configuration. This release also includes
 stability improvements to the Arc runtime and server.
 
+<Divider.Divider x />
+
 ### HTTP Write Task
 
 The HTTP driver now supports writing data from Synnax channels to REST API endpoints,
@@ -29,12 +32,16 @@ with external web services.
 Combined with the read tasks from v0.52, the HTTP driver provides a full bidirectional
 bridge between Synnax and any REST API.
 
+<Divider.Divider x />
+
 ### Python Client HTTP Support
 
 The Python client can now create and configure HTTP read and write tasks
 programmatically. This provides an alternative to the Console UI for managing HTTP
 integrations, and makes it possible to script and automate HTTP task setup as part of
 larger deployment workflows.
+
+<Divider.Divider x />
 
 ### Minor Improvements and Bug Fixes
 

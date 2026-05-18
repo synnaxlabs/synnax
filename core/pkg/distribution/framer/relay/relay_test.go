@@ -19,12 +19,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -235,7 +235,7 @@ var _ = Describe("Relay", func() {
 			}()
 			svc := builder.Nodes[1]
 			for i, ch := range channels {
-				ch.Leaseholder = cluster.NodeKeyFree
+				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
 				channels[i] = ch
 			}
@@ -282,7 +282,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 })
@@ -317,7 +317,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		name:     "Gateway Only",
 		channels: channels,
 		dist:     svc,
-		close:    svc,
+		close:    builder,
 	}
 }
 
@@ -326,14 +326,14 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 2)
+		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -341,29 +341,29 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
-		close:    dist,
+		close:    builder,
 	}
 }
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	clstr := mock.ProvisionCluster(ctx, 3)
-	node := clstr.Nodes[1]
+	gateway := clstr.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKey(i + 1)
+		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(gateway.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(node.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).Exec(ctx, nil)).To(Succeed())
+		g.Expect(gateway.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
 		resCount: 3,
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
-		dist:     node,
+		dist:     gateway,
 		close:    clstr,
 	}
 }
@@ -373,7 +373,7 @@ func freeScenario(ctx context.Context) scenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.NodeKeyFree
+		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}
@@ -381,7 +381,7 @@ func freeScenario(ctx context.Context) scenario {
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).WhereKeys(keys...).
+		g.Expect(dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

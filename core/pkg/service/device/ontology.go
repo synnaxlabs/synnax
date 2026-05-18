@@ -25,7 +25,7 @@ import (
 )
 
 // OntologyID returns the unique ID for the device within the ontology.
-func OntologyID(key string) ontology.ID {
+func OntologyID(key Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}
 }
 
@@ -37,13 +37,13 @@ func OntologyIDsFromDevices(devices []Device) []ontology.ID {
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
-func OntologyIDs(keys []string) []ontology.ID {
-	return lo.Map(keys, func(k string, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // KeysFromOntologyIDs returns the keys for the given ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) []string {
-	keys := make([]string, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) []Key {
+	keys := make([]Key, len(ids))
 	for i, id := range ids {
 		keys[i] = id.Key
 	}
@@ -70,7 +70,7 @@ var (
 	_ search.FieldsProvider = (*Service)(nil)
 )
 
-type change = xchange.Change[string, Device]
+type change = xchange.Change[Key, Device]
 
 // Type returns the type of the device ontology service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
@@ -90,7 +90,7 @@ func (s *Service) RetrieveResource(
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var d Device
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&d).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&d).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(d), nil
@@ -107,7 +107,7 @@ func translateChange(c change) ontology.Change {
 // OnChange implements determines what should happen in the ontology when a change is
 // made to a device.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Device]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Device]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

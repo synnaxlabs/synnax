@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/graph"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -143,7 +142,7 @@ var _ = Describe("Writer", func() {
 					idOne,
 					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{newSampleType("42")},
-				)).To(HaveOccurredAs(query.ErrNotFound))
+				)).To(MatchError(query.ErrNotFound))
 			})
 			It("Should return an error if a cyclic relationship is created", func(ctx SpecContext) {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())

@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Plugin generates gorp.Codec implementations for structs annotated with @go marshal.
@@ -51,15 +51,6 @@ func (p *Plugin) Name() string                { return "go/marshal" }
 func (p *Plugin) Domains() []string           { return []string{"go"} }
 func (p *Plugin) Requires() []string          { return []string{"go/types"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-s", "-w"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -128,19 +119,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	// Collect all packages that need a codec file (from structs or flex types).
-	allPkgs := make(map[string]bool)
+	allPkgs := make(set.Set[string])
 	for goPath := range merged {
-		allPkgs[goPath] = true
+		allPkgs.Add(goPath)
 	}
 	for goPath := range flexByPkg {
-		allPkgs[goPath] = true
+		allPkgs.Add(goPath)
 	}
 
 	// Generate one file per package in sorted order for deterministic output.
-	sortedPkgs := make([]string, 0, len(allPkgs))
-	for goPath := range allPkgs {
-		sortedPkgs = append(sortedPkgs, goPath)
-	}
+	sortedPkgs := allPkgs.Slice()
 	sort.Strings(sortedPkgs)
 	for _, goPath := range sortedPkgs {
 		packageName := naming.DerivePackageName(goPath)

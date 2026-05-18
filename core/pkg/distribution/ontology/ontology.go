@@ -66,8 +66,8 @@ type Ontology struct {
 // index lets the traverse dispatcher pick the index uniformly without
 // special-casing direction.
 type relationshipIndexes struct {
-	byTo   *gorp.BytesLookup[Relationship, ID]
-	byFrom *gorp.BytesLookup[Relationship, ID]
+	byTo   *gorp.LookupIndex[[]byte, Relationship, ID]
+	byFrom *gorp.LookupIndex[[]byte, Relationship, ID]
 }
 
 func newRelationshipIndexes() relationshipIndexes {

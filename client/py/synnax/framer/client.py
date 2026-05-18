@@ -79,7 +79,6 @@ class Client:
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
-        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -128,7 +127,6 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
-            use_experimental_codec=use_experimental_codec,
         )
 
     def open_iterator(
@@ -266,14 +264,18 @@ class Client:
         channels: channel.Params,
         n: int = 1,
     ) -> Frame | MultiSeries:
-        """
-        Reads the latest n samples from time_channel and data_channel.
+        """Reads the latest n samples from the given channel(s).
+
+        If fewer than n samples are available, returns only the samples that
+        exist.
 
         Args:
-            n: The number of samples to read.
+            channels: A single channel key/name or a list of channel keys/names.
+            n: The maximum number of samples to read. Defaults to 1.
 
         Returns:
-            A frame containing the latest n samples from time_channel and data_channel
+            A MultiSeries when a single channel is provided, or a Frame when
+            multiple channels are provided.
         """
         normal = channel.normalize_params(channels)
         aggregate = Frame()
@@ -298,7 +300,6 @@ class Client:
         channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
-        use_experimental_codec: bool = True,
         exclude_groups: list[int] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -319,7 +320,6 @@ class Client:
             client=self.__stream_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
-            use_experimental_codec=use_experimental_codec,
             exclude_groups=exclude_groups,
         )
 

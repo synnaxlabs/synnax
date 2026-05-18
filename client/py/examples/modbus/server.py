@@ -12,61 +12,48 @@ import math
 import time
 
 from pymodbus import ModbusDeviceIdentification
-from pymodbus.datastore import (
-    ModbusDeviceContext,
-    ModbusSequentialDataBlock,
-    ModbusServerContext,
-)
-from pymodbus.server import StartAsyncTcpServer
+from pymodbus.datastore.context import SimDevice
+from pymodbus.server import ModbusTcpServer
+from pymodbus.simulator.simdata import DataType, SimData
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
 from synnax import modbus
 
+SLAVE_ID = 0x00
+SENSOR_COUNT = 5
+
 
 async def updating_writer(context, rate: sy.Rate = 50 * sy.Rate.HZ):
     """Update Modbus registers continuously with simulated sensor data."""
-    slave_id = 0x00
     start_ref = time.time()
     i = 0
-    SENSOR_COUNT = 5
 
     while True:
         i += 1
         current_time = time.time()
         elapsed = current_time - start_ref
 
-        # Generate base sine wave value (same phase for all sensors)
         base_value = math.sin(elapsed)
 
-        # Create offset sine waves (same phase, different offsets)
-        # Store as holding registers (function code 3)
-        # Scale for UInt8 (0-255 range): sine goes -1 to +1, scaled to fit with offsets
         hr_values = []
         for sensor_idx in range(SENSOR_COUNT):
-            # Add offset to base sine wave: base_value + sensor_idx
-            # Scale to 0-255 range for UInt8 interpretation
             value = (base_value + sensor_idx) * 25 + 128
-            # Clamp to 0-255 and store as 16-bit register
             hr_values.append(max(0, min(255, int(value))))
 
-        # Write to holding registers starting at address 0
-        context[slave_id].setValues(3, 0, hr_values)
+        await context.async_setValues(SLAVE_ID, 3, 0, hr_values)
 
-        # Input registers (function code 4) - similar offset pattern
         ir_values = []
         for sensor_idx in range(SENSOR_COUNT):
             value = (base_value + sensor_idx) * 25 + 128
             ir_values.append(max(0, min(255, int(value))))
-        context[slave_id].setValues(4, 0, ir_values)
+        await context.async_setValues(SLAVE_ID, 4, 0, ir_values)
 
-        # Discrete inputs (function code 2) - simulating digital sensors
         digital_values = [i % 2 == 0, i % 3 == 0, i % 5 == 0, i % 7 == 0]
-        context[slave_id].setValues(2, 0, digital_values)
+        await context.async_setValues(SLAVE_ID, 2, 0, digital_values)
 
-        # Coils (function code 1) - simulating writable digital outputs
         coil_values = [True, False, True, False, True]
-        context[slave_id].setValues(1, 0, coil_values)
+        await context.async_setValues(SLAVE_ID, 1, 0, coil_values)
 
         await asyncio.sleep(1 / rate)
 
@@ -80,7 +67,7 @@ class ModbusSim(DeviceSim):
     device_name = "Modbus TCP Test Server"
 
     async def _run_server(self) -> None:
-        await run_server(self.host, self.port, self.rate)
+        await run_server(self.host, self.port, rate=self.rate)
 
     @staticmethod
     def create_device(rack_key: int) -> modbus.Device:
@@ -101,17 +88,16 @@ async def run_server(
     rate: sy.Rate = 50 * sy.Rate.HZ,
 ) -> None:
     """Run the Modbus TCP server."""
-    # Initialize data store
-    store = ModbusDeviceContext(
-        di=ModbusSequentialDataBlock(0, [0] * 100),  # Discrete Inputs
-        co=ModbusSequentialDataBlock(0, [0] * 100),  # Coils
-        hr=ModbusSequentialDataBlock(0, [0] * 100),  # Holding Registers
-        ir=ModbusSequentialDataBlock(0, [0] * 100),  # Input Registers
+    dev = SimDevice(
+        id=SLAVE_ID,
+        simdata=(
+            [SimData(0, values=[False] * 100, datatype=DataType.BITS)],
+            [SimData(0, values=[False] * 100, datatype=DataType.BITS)],
+            [SimData(0, values=[0] * 100, datatype=DataType.REGISTERS)],
+            [SimData(0, values=[0] * 100, datatype=DataType.REGISTERS)],
+        ),
     )
 
-    context = ModbusServerContext(devices=store, single=True)
-
-    # Server identification
     identity = ModbusDeviceIdentification()
     identity.VendorName = "Synnax Labs"
     identity.ProductCode = "MODBUS-SIM"
@@ -120,9 +106,9 @@ async def run_server(
     identity.ModelName = "Extended Simulator"
     identity.MajorMinorRevision = "1.0.0"
 
-    asyncio.create_task(updating_writer(context, rate))
-
-    await StartAsyncTcpServer(context=context, identity=identity, address=(host, port))
+    server = ModbusTcpServer(context=dev, identity=identity, address=(host, port))
+    asyncio.create_task(updating_writer(server.context, rate))
+    await server.serve_forever()
 
 
 if __name__ == "__main__":

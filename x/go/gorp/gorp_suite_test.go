@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -25,11 +26,7 @@ var (
 )
 var _ = BeforeSuite(func() {
 	kvDB = memkv.New()
-	db = gorp.Wrap(kvDB)
-})
-
-var _ = AfterSuite(func() {
-	Expect(db.Close()).To(Succeed())
+	db = DeferClose(gorp.Wrap(kvDB))
 })
 
 func TestGorp(t *testing.T) {

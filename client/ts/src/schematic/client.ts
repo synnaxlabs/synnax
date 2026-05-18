@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -23,12 +24,22 @@ import {
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-
-const setDataReqZ = z.object({
+const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
+export type SetDataBody = z.input<typeof setDataBodyZ>;
+const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
+const dispatchReqZ = z.object({
   key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
+  session_key: z.string(),
+  actions: actionZ.array(),
 });
+
+export const scopedActionZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
+
+export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -86,21 +97,25 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
+  async setData(key: Key, data: SetDataBody): Promise<void> {
     await sendRequired(
       this.client,
       "/schematic/set-data",
       { key, data },
       setDataReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, sessionKey: string, actions: Action[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      "/schematic/dispatch",
+      { key, session_key: sessionKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }
@@ -143,3 +158,10 @@ export class Client {
     return res.schematic;
   }
 }
+
+export const ZERO_NEW: New = {
+  name: "",
+  nodes: [],
+  edges: [],
+  configs: {},
+};

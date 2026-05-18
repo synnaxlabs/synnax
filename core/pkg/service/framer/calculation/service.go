@@ -336,7 +336,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		statuses []calculator.Status
 	)
 	if err := s.cfg.Channel.NewRetrieve().
-		WhereKeys(added...).
+		Where(channel.MatchKeys(added...)).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return err

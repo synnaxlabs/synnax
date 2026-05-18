@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -1129,7 +1130,8 @@ var _ = Describe("Expressions", func() {
 			Entry("string literal", `"hello" -> out`, true),
 			Entry("identifier (parsed as flowNode)", `x -> out`, false),
 			Entry("binary expression", `1 + 2 -> out`, false),
-			Entry("unary expression", `-1 -> out`, false),
+			Entry("negated literal", `-1 -> out`, true),
+			Entry("logical not expression", `not 1 -> out`, false),
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
@@ -1175,7 +1177,7 @@ var _ = Describe("Expressions", func() {
 			Entry("float literal", `3.14 -> out`, "3.14"),
 			Entry("string literal", `"hello" -> out`, `"hello"`),
 			Entry("binary expression", `1 + 2 -> out`, ""),
-			Entry("unary expression", `-1 -> out`, ""),
+			Entry("negated literal", `-1 -> out`, "1"),
 			Entry("non-literal expression", `x + y -> out`, ""),
 		)
 	})
@@ -1553,5 +1555,29 @@ var _ = Describe("Expressions", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
 		})
+	})
+
+	Describe("Qualified Identifier Analysis", func() {
+		DescribeTable("valid qualified function calls",
+			func(ctx SpecContext, code string) { expectSuccess(ctx, code, stl.SymbolResolver) },
+			Entry("time.now()", `
+				func testFunc() i64 { return time.now() }
+			`),
+			Entry("bare now() (deprecated)", `
+				func testFunc() i64 { return now() }
+			`),
+		)
+
+		DescribeTable("invalid qualified calls",
+			func(ctx SpecContext, code string, expectedMsg string) {
+				expectFailure(ctx, code, stl.SymbolResolver, expectedMsg)
+			},
+			Entry("undefined module", `
+				func testFunc() { x := fake.thing() }
+			`, "undefined symbol"),
+			Entry("undefined member", `
+				func testFunc() { x := time.nonexistent() }
+			`, "undefined symbol"),
+		)
 	})
 })

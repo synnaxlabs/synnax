@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -134,10 +135,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeFalse())
-			Expect(outputs.Contains("false")).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 		})
 		It("Should split all true values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -148,10 +149,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 1, 1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeTrue())
-			Expect(outputs.Contains("false")).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
@@ -167,15 +168,15 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](0, 0, 0, 0)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeFalse())
-			Expect(outputs.Contains("false")).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(4)))
 			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
-			Expect(falseVals).To(Equal([]uint8{0, 0, 0, 0}))
+			Expect(falseVals).To(Equal([]uint8{1, 1, 1, 1}))
 		})
 		It("Should split mixed true and false values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -186,10 +187,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 0, 1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeTrue())
-			Expect(outputs.Contains("false")).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			falseOut := selectNode.Output(1)
@@ -198,7 +199,7 @@ var _ = Describe("Select", func() {
 			trueVals := telem.UnmarshalSeries[uint8](*trueOut)
 			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
-			Expect(falseVals).To(Equal([]uint8{0, 0}))
+			Expect(falseVals).To(Equal([]uint8{1, 1}))
 		})
 		It("Should correctly copy timestamps for true values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -209,7 +210,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 0, 1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueTime := selectNode.OutputTime(0)
 			trueTimes := telem.UnmarshalSeries[telem.TimeStamp](*trueTime)
@@ -228,7 +229,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 0, 1, 0, 1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseTime := selectNode.OutputTime(1)
 			falseTimes := telem.UnmarshalSeries[telem.TimeStamp](*falseTime)
@@ -246,10 +247,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeTrue())
-			Expect(outputs.Contains("false")).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(1)))
@@ -263,10 +264,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](0)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeFalse())
-			Expect(outputs.Contains("false")).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(1)))
@@ -280,10 +281,10 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 2, 3, 1, 0)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			n, _ := factory.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { outputs.Add(output) }})
-			Expect(outputs.Contains("true")).To(BeTrue())
-			Expect(outputs.Contains("false")).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			falseOut := selectNode.Output(1)
@@ -305,7 +306,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(data...)
 			*source.OutputTime(0) = telem.NewSeriesV(times...)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			falseOut := selectNode.Output(1)
@@ -321,7 +322,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](0, 0, 1, 1, 1, 0)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			trueTime := selectNode.OutputTime(0)
@@ -342,7 +343,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](1, 1, 0, 0, 0, 1)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			falseTime := selectNode.OutputTime(1)
@@ -356,10 +357,57 @@ var _ = Describe("Select", func() {
 		})
 	})
 	Describe("SymbolResolver", func() {
-		It("Should resolve select symbol", func(ctx SpecContext) {
-			sym, ok := selector.SymbolResolver["select"]
-			Expect(ok).To(BeTrue())
+		It("Should resolve bare select symbol", func(ctx SpecContext) {
+			sym := MustSucceed(selector.SymbolResolver.Resolve(ctx, "select"))
 			Expect(sym.Name).To(Equal("select"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
+		It("Should not resolve qualified selector.select symbol", func(ctx SpecContext) {
+			Expect(selector.SymbolResolver.Resolve(ctx, "selector.select")).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
+	Describe("Factory", func() {
+		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "select", Type: "select"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "select",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: "true", Type: types.U8()},
+							{Name: "false", Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s := node.New(analyzed)
+			compound := node.CompoundFactory{selector.NewModule()}
+			cfg := node.Config{
+				Node:  ir.Node{Key: "select", Type: "select"},
+				State: s.Node("select"),
+			}
+			n := MustSucceed(compound.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
 		})
 	})
 	Describe("Alignment Propagation", func() {
@@ -411,7 +459,7 @@ var _ = Describe("Select", func() {
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
 
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 			selectNode := s.Node("select")
 

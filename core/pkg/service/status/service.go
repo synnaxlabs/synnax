@@ -22,9 +22,12 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	xstatus "github.com/synnaxlabs/x/status"
+	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -100,6 +103,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		gorp.TableConfig[string, Status[any]]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
+			Migrations: []migrate.Migration{
+				gorp.NewEntryMigration[string, string, statusv54.Status[any], Status[any]](
+					"v54_drop_labels",
+					xstatus.MigrateStatus[any],
+				),
+			},
 		},
 	); !ok(err, s.table) {
 		return nil, err

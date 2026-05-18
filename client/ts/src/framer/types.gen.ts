@@ -18,3 +18,23 @@ export enum WriterCommand {
   SetAuthority = 3,
 }
 export const writerCommandZ = z.enum(WriterCommand);
+
+export enum IteratorCommand {
+  Open = 0,
+  Next = 1,
+  Prev = 2,
+  SeekFirst = 3,
+  SeekLast = 4,
+  SeekLE = 5,
+  SeekGE = 6,
+  Valid = 7,
+  Error = 8,
+}
+export const iteratorCommandZ = z.enum(IteratorCommand);
+
+export enum IteratorResponseVariant {
+  None = 0,
+  Ack = 1,
+  Data = 2,
+}
+export const iteratorResponseVariantZ = z.enum(IteratorResponseVariant);

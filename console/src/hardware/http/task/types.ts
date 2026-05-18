@@ -284,6 +284,6 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: record.unknownZ(),
+  config: record.nullishToEmpty(),
   statusData: z.null().optional(),
 } as const satisfies task.Schemas;

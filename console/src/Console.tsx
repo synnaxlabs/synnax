@@ -48,6 +48,7 @@ import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
 import { Range } from "@/range";
+import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
@@ -142,6 +143,7 @@ const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
+  Runtime.useExternalLinkHandler();
 
   return (
     <Pluto.Provider

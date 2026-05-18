@@ -98,7 +98,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 // Delete deletes the task with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	if err := w.table.NewDelete().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (w Writer) Copy(
 	}
 	newKey := NewKey(key.Rack(), localKey)
 	var res Task
-	if err = w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, t Task) Task {
+	if err = w.table.NewUpdate().Where(gorp.MatchKeys[Key, Task](key)).Change(func(_ gorp.Context, t Task) Task {
 		t.Key = newKey
 		t.Name = name
 		t.Snapshot = snapshot

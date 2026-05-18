@@ -36,6 +36,7 @@ struct Server::Impl {
     mutable std::mutex mu;
     std::vector<ReceivedRequest> requests;
     std::vector<Route> routes;
+    std::vector<std::shared_ptr<std::atomic<int>>> failure_counters;
 
     static Method parse_httplib_method(const std::string &m) {
         if (m == "GET") return Method::GET;
@@ -78,13 +79,22 @@ struct Server::Impl {
         } else {
             this->svr = std::make_unique<httplib::Server>();
         }
+        this->failure_counters.clear();
         for (const auto &route: this->routes)
-            this->register_route(route);
+            this->failure_counters.push_back(
+                std::make_shared<std::atomic<int>>(route.remaining_failures)
+            );
+        for (size_t i = 0; i < this->routes.size(); i++)
+            this->register_route(this->routes[i], this->failure_counters[i]);
     }
 
-    void register_route(const Route &route) {
+    void register_route(
+        const Route &route,
+        const std::shared_ptr<std::atomic<int>> &counter
+    ) {
         auto handler = [this,
-                        route](const httplib::Request &req, httplib::Response &res) {
+                        route,
+                        counter](const httplib::Request &req, httplib::Response &res) {
             log_request(req);
             if (route.delay > x::telem::TimeSpan::ZERO())
                 std::this_thread::sleep_for(route.delay.chrono());
@@ -93,8 +103,16 @@ struct Server::Impl {
                 res.set_redirect(route.redirect_to, route.status_code);
                 return;
             }
-            res.status = route.status_code;
-            res.set_content(route.response_body, route.content_type);
+            if (route.remaining_failures > 0 && counter->fetch_sub(1) > 0) {
+                res.status = route.status_code;
+                res.set_content(route.response_body, route.content_type);
+            } else if (route.remaining_failures > 0) {
+                res.status = 200;
+                res.set_content(R"({"status":"ok"})", route.content_type);
+            } else {
+                res.status = route.status_code;
+                res.set_content(route.response_body, route.content_type);
+            }
         };
 
         switch (route.method) {

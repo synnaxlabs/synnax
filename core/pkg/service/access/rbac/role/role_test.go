@@ -104,9 +104,8 @@ var _ = Describe("Writer", func() {
 				Description: "A builtin role",
 				Internal:    true,
 			}
-			err := restrictedWriter.Create(ctx, r)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot create internal role"))
+			Expect(restrictedWriter.Create(ctx, r)).
+				Error().To(MatchError(ContainSubstring("cannot create internal role")))
 		})
 	})
 
@@ -126,7 +125,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().WhereKeys(roles[0].Key).Entry(&r).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(role.MatchKeys(roles[0].Key)).Entry(&r).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -140,7 +139,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
 			var retrieved role.Role
-			err := svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieved).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(role.MatchKeys(r.Key)).Entry(&retrieved).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -153,9 +152,8 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 
 			restrictedWriter := svc.NewWriter(tx, false)
-			err := restrictedWriter.Delete(ctx, r.Key)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot delete builtin role"))
+			Expect(restrictedWriter.Delete(ctx, r.Key)).
+				Error().To(MatchError(ContainSubstring("cannot delete builtin role")))
 		})
 	})
 
@@ -277,7 +275,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve a single role by key", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
-				WhereKeys(roles[0].Key).
+				Where(role.MatchKeys(roles[0].Key)).
 				Entry(&r).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(r.Key).To(Equal(roles[0].Key))
@@ -287,7 +285,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve multiple roles by keys", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				WhereKeys(roles[0].Key, roles[1].Key).
+				Where(role.MatchKeys(roles[0].Key, roles[1].Key)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(rs).To(HaveLen(2))
@@ -296,7 +294,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
-				WhereKeys(uuid.New()).
+				Where(role.MatchKeys(uuid.New())).
 				Entry(&r).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))

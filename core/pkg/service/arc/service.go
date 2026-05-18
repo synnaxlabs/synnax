@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -94,7 +94,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table  *gorp.Table[uuid.UUID, Arc]
+	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
 }
@@ -123,9 +123,9 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
+func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	var entry Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&entry).Exec(ctx, nil)
+	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
@@ -154,9 +154,18 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[uuid.UUID, Arc]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Arc]("msgpack_to_orc")},
+	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Key, Arc]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[Key, Key, arcv54.Arc, Arc](
+					"v54_drop_program_status",
+					MigrateArc,
+				),
+				"msgpack_to_orc",
+			),
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

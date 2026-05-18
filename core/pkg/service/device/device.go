@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ gorp.Entry[string] = Device{}
+var _ gorp.Entry[Key] = Device{}
 
 // GorpKey gives a unique key for the device for use in gorp.
-func (d Device) GorpKey() string { return d.Key }
+func (d Device) GorpKey() Key { return d.Key }
 
 // SetOptions returns nil.
 func (d Device) SetOptions() []any { return nil }

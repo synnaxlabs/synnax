@@ -27,19 +27,46 @@ var _ = Describe("AST Utilities", func() {
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
 			Entry("string", `"hello"`),
+			Entry("raw string", "`hello`"),
+			Entry("empty raw string", "``"),
+			Entry("multi-line raw string", "`a\nb`"),
+			Entry("raw string with escaped backtick", "`say \\`hi\\``"),
 			Entry("unit literal", "5ms"),
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
 		)
 
 		DescribeTable("false cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("addition", "1 + 2"),
-			Entry("unary minus", "-1"),
+			Entry("logical not", "not 1"),
 			Entry("identifier", "x"),
 			Entry("function call", "foo()"),
 			Entry("index", "arr[0]"),
 			Entry("parenthesized", "(42)"),
 			Entry("comparison", "1 > 0"),
 			Entry("logical", "1 and 0"),
+		)
+	})
+
+	Describe("IsNegatedLiteral", func() {
+		DescribeTable("true cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeTrue()) },
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
+		)
+
+		DescribeTable("false cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeFalse()) },
+			Entry("positive integer", "42"),
+			Entry("positive float", "3.14"),
+			Entry("positive unit literal", "5ms"),
+			Entry("string", `"hello"`),
+			Entry("identifier", "x"),
+			Entry("addition", "1 + 2"),
+			Entry("logical not", "not 1"),
 		)
 	})
 
@@ -53,7 +80,13 @@ var _ = Describe("AST Utilities", func() {
 			Entry("integer", "42", "42"),
 			Entry("float", "3.14", "3.14"),
 			Entry("string", `"hello"`, `"hello"`),
+			Entry("raw string", "`hello`", "`hello`"),
+			Entry("multi-line raw string preserves newline", "`a\nb`", "`a\nb`"),
+			Entry("raw string with escaped backtick", "`say \\`hi\\``", "`say \\`hi\\``"),
 			Entry("unit literal", "5ms", "5ms"),
+			Entry("negated integer extracts inner literal", "-1", "1"),
+			Entry("negated float extracts inner literal", "-3.14", "3.14"),
+			Entry("negated unit extracts inner literal", "-5ms", "5ms"),
 		)
 
 		It("returns nil for non-literal", func() {
@@ -75,6 +108,9 @@ var _ = Describe("AST Utilities", func() {
 		DescribeTable("false cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("string", `"hello"`),
+			Entry("raw string", "`hello`"),
+			Entry("multi-line raw string", "`a\nb`"),
+			Entry("raw string with escaped backtick", "`say \\`hi\\``"),
 			Entry("identifier", "x"),
 			Entry("addition", "1 + 2"),
 			Entry("negated identifier", "-x"),
@@ -96,6 +132,9 @@ var _ = Describe("AST Utilities", func() {
 			}),
 			Entry("string literal", `"hi"`, func(p parser.IPrimaryExpressionContext) {
 				Expect(p.Literal().GetText()).To(Equal(`"hi"`))
+			}),
+			Entry("raw string literal", "`hi`", func(p parser.IPrimaryExpressionContext) {
+				Expect(p.Literal().GetText()).To(Equal("`hi`"))
 			}),
 		)
 

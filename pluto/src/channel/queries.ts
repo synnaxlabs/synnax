@@ -82,10 +82,6 @@ export const formSchema = channel.newZ
   .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
     message: "Data channel must have an index",
     path: ["index"],
-  })
-  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
-    message: "Persisted channels must have a fixed-size data type",
-    path: ["dataType"],
   });
 
 export const calculatedFormSchema = formSchema.safeExtend({
@@ -102,10 +98,10 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: channel.Key;
   rangeKey?: ranger.Key;
-}
+};
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema
@@ -168,7 +164,7 @@ const retrieveMultiple = async ({
   query: { keys, rangeKey },
   store,
 }: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>) => {
-  const channels = store.channels.get(keys);
+  let channels = store.channels.get(keys);
   const existingKeys = new Set(channels?.map((ch) => ch.key));
   const missingKeys = keys.filter((key) => !existingKeys.has(key));
   if (missingKeys.length > 0) {
@@ -176,6 +172,7 @@ const retrieveMultiple = async ({
     channels.push(...missingChannels);
     store.channels.set(missingChannels);
   }
+  channels = Flux.orderByKeys(keys, channels, (ch) => ch.key);
   if (rangeKey != null) {
     const aliasKeys = keys.map((key) =>
       ranger.alias.createKey({ range: rangeKey, channel: key }),
@@ -270,9 +267,9 @@ export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
     },
   });
 
-export interface RetrieveMultipleQuery extends channel.RetrieveOptions {
+export type RetrieveMultipleQuery = channel.RetrieveOptions & {
   keys: channel.Key[];
-}
+};
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
@@ -353,7 +350,7 @@ const updateForm = async ({
   set("key", ch.key);
 };
 
-export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
+export type FormQuery = optional.Optional<RetrieveQuery, "key">;
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
@@ -388,13 +385,13 @@ export const useCalculatedForm = Flux.createForm<
   mountListeners: formMountListeners,
 });
 
-export interface ListQuery extends channel.RetrieveOptions {
+export type ListQuery = channel.RetrieveOptions & {
   searchTerm?: string;
   rangeKey?: string;
   internal?: boolean;
   offset?: number;
   limit?: number;
-}
+};
 
 const DEFAULT_LIST_PARAMS: ListQuery = {
   internal: false,
@@ -545,7 +542,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<
   },
 });
 
-interface RetrieveGroupQuery {}
+type RetrieveGroupQuery = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   RetrieveGroupQuery,

@@ -32,7 +32,7 @@ type (
 )
 
 var (
-	errDBClosed          = resource.NewClosedError("cesium.db")
+	ErrDBClosed          = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound   = channel.ErrNotFound
 	ZeroLeadingAlignment = alignment.ZeroLeading
 )
@@ -57,9 +57,11 @@ type DB struct {
 	relay  *relay
 	closed *atomic.Bool
 	mu     struct {
-		unaryDBs   map[ChannelKey]unary.DB
-		virtualDBs map[ChannelKey]virtual.DB
-		digests    struct {
+		dbs struct {
+			unary   map[ChannelKey]unary.DB
+			virtual map[ChannelKey]virtual.DB
+		}
+		digests struct {
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]
@@ -72,7 +74,7 @@ type DB struct {
 // Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	_, span := db.T.Bench(ctx, "write")
 	defer span.End()
@@ -92,7 +94,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 // WriteSeries writes a series into the specified channel at the specified start time.
 func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	return db.Write(ctx, start, telem.UnaryFrame(key, series))
 }
@@ -100,7 +102,7 @@ func (db *DB) WriteSeries(ctx context.Context, key channel.Key, start telem.Time
 // Read reads from the database at the specified time range and outputs a frame.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...channel.Key) (frame Frame, err error) {
 	if db.closed.Load() {
-		return frame, errDBClosed
+		return frame, ErrDBClosed
 	}
 	_, span := db.T.Bench(ctx, "read")
 	defer func() { err = span.EndWith(err) }()
@@ -123,12 +125,12 @@ func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var size telem.Size
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.dbs.unary {
 		size += u.Size()
 	}
 	return Metrics{
 		DiskSize:     size,
-		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+		ChannelCount: len(db.mu.dbs.unary) + len(db.mu.dbs.virtual),
 	}
 }
 
@@ -158,7 +160,7 @@ func (db *DB) Close() error {
 	err = errors.Join(err, db.shutdown.Close())
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
 	return err

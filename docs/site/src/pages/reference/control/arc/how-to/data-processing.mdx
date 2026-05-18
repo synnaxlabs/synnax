@@ -33,7 +33,7 @@ The function:
 
 ```arc
 func to_celsius(f f64) f64 {
-    return (f - 32.0) * 5.0 / 9.0
+    return(f - 32.0) * 5.0 / 9.0
 }
 ```
 
@@ -48,7 +48,7 @@ Config parameters make functions reusable. They're set when you instantiate the
 function, not when data flows through:
 
 ```arc
-func scale{factor f64}(value f64) f64 {
+func scale{factor f64} (value f64) f64 {
     return value * factor
 }
 
@@ -68,7 +68,7 @@ Use config parameters for:
 - Anything that varies per sensor but stays constant during execution
 
 ```arc
-func linear_scale{gain f64, offset f64}(raw f64) f64 {
+func linear_scale{gain f64, offset f64} (raw f64) f64 {
     return raw * gain + offset
 }
 
@@ -131,9 +131,9 @@ Compare with `:=`, which resets every execution:
 
 ```arc
 func broken_counter() i64 {
-    count := 0         // resets to 0 every time
+    count := 0 // resets to 0 every time
     count = count + 1
-    return count       // always returns 1
+    return count // always returns 1
 }
 ```
 
@@ -207,7 +207,7 @@ An exponential moving average (EMA) smooths noisy data while responding to chang
 weights recent values more heavily:
 
 ```arc
-func ema{alpha f64}(value f64) f64 {
+func ema{alpha f64} (value f64) f64 {
     avg $= value
     avg = alpha * value + (1.0 - alpha) * avg
     return avg
@@ -228,10 +228,7 @@ The `alpha` parameter controls responsiveness:
 When a function needs multiple sensor values, pass the channels as config parameters:
 
 ```arc
-func pressure_diff{
-    inlet chan f64,
-    outlet chan f64
-}() f64 {
+func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
     p1 := inlet
     p2 := outlet
     return p1 - p2
@@ -288,8 +285,8 @@ Good when:
 Inside a function body, reading a channel returns its latest value immediately:
 
 ```arc
-func check_limits{sensor chan f64, limit f64}() u8 {
-    value := sensor    // reads latest value, doesn't block
+func check_limits{sensor chan f64, limit f64} () u8 {
+    value := sensor // reads latest value, doesn't block
     if value > limit {
         return 1
     }
@@ -310,7 +307,7 @@ If nothing has been written to the channel yet, reading returns zero.
 Use `if`/`else` for conditional logic:
 
 ```arc
-func clamp{min f64, max f64}(value f64) f64 {
+func clamp{min f64, max f64} (value f64) f64 {
     if value < min {
         return min
     }
@@ -344,15 +341,10 @@ When you have redundant sensors, use voting to reject outliers. A median of thre
 readings ignores a single faulty sensor:
 
 ```arc
-func median3{
-    a chan f64,
-    b chan f64,
-    c chan f64
-}() f64 {
+func median3{a chan f64, b chan f64, c chan f64} () f64 {
     va := a
     vb := b
     vc := c
-
     // Find the middle value
     if (va >= vb and va <= vc) or (va >= vc and va <= vb) {
         return va
@@ -363,11 +355,7 @@ func median3{
     return vc
 }
 
-interval{period=50ms} -> median3{
-    a=pressure_1,
-    b=pressure_2,
-    c=pressure_3
-} -> pressure_voted
+interval{period=50ms} -> median3{a=pressure_1, b=pressure_2, c=pressure_3} -> pressure_voted
 ```
 
 If one sensor fails and reads 0 while the others read 500, the median is 500. The faulty
@@ -381,7 +369,7 @@ Detecting how fast a value is changing requires tracking the previous value and 
 by time:
 
 ```arc
-func rate{dt_ms f64}(value f64) f64 {
+func rate{dt_ms f64} (value f64) f64 {
     prev $= value
     d := value - prev
     prev = value
@@ -409,31 +397,27 @@ signal, computes rate of change, and outputs everything:
 
 ```arc
 // Unit conversion: voltage to psi
-func volts_to_psi{v_min f64, v_max f64, p_max f64}(v f64) f64 {
+func volts_to_psi{v_min f64, v_max f64, p_max f64} (v f64) f64 {
     ratio := (v - v_min) / (v_max - v_min)
     return ratio * p_max
 }
-
 // Exponential moving average
-func ema{alpha f64}(value f64) f64 {
+func ema{alpha f64} (value f64) f64 {
     avg $= value
     avg = alpha * value + (1.0 - alpha) * avg
     return avg
 }
-
 // Rate of change
-func rate{dt_ms f64}(value f64) f64 {
+func rate{dt_ms f64} (value f64) f64 {
     prev $= value
     d := value - prev
     prev = value
     return d / (dt_ms / 1000.0)
 }
-
 // Pipeline: raw voltage -> psi -> smoothed -> rate
 pressure_raw -> volts_to_psi{v_min=0.5, v_max=4.5, p_max=1000.0} -> pressure_psi
 pressure_psi -> ema{alpha=0.3} -> pressure_smooth
 pressure_smooth -> rate{dt_ms=50.0} -> pressure_rate
-
 // Also output a high-pressure flag
 pressure_smooth > 800 -> pressure_high
 ```

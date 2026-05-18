@@ -14,7 +14,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
@@ -33,7 +33,7 @@ type ClusterInfo struct {
 	// NodeVersion is the current version of the Synnax Core being used.
 	NodeVersion string `json:"node_version" msgpack:"node_version"`
 	// NodeKey is the key of the node in the cluster that the request was sent to.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// NodeTime is the time of the node that the request was sent to.
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
@@ -44,7 +44,7 @@ type Service struct {
 	authenticator svcauth.Authenticator
 	token         *token.Service
 	user          *user.Service
-	cluster       cluster.Cluster
+	cluster       node.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {

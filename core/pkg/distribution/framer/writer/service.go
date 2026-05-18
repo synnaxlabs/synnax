@@ -26,9 +26,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -121,7 +120,7 @@ type keyAuthority struct {
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
-func (k keyAuthority) Lease() cluster.NodeKey { return k.key.Lease() }
+func (k keyAuthority) Lease() node.Key { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
@@ -209,7 +208,7 @@ type ServiceConfig struct {
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
@@ -338,7 +337,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeValidatorTo  address.Address
 	)
 
-	v := &validator{keys: cfg.Keys}
+	channelMap := make(map[channel.Key]channel.Channel, len(channels))
+	for _, ch := range channels {
+		channelMap[ch.Key()] = ch
+	}
+	v := &validator{keys: cfg.Keys, channels: channelMap}
 	plumber.SetSegment(pipe, validatorAddr, v)
 	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
 	plumber.SetSegment(
@@ -424,7 +427,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	if err := s.cfg.Channel.
 		NewRetrieve().
 		Entries(&channels).
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}

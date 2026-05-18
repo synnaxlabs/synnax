@@ -18,6 +18,8 @@
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 #include "core/pkg/api/grpc/channel/channel.grpc.pb.h"
 #include "core/pkg/api/grpc/channel/channel.pb.h"
+#include "core/pkg/api/grpc/connectivity/connectivity.grpc.pb.h"
+#include "core/pkg/api/grpc/connectivity/connectivity.pb.h"
 #include "core/pkg/api/grpc/device/device.grpc.pb.h"
 #include "core/pkg/api/grpc/device/device.pb.h"
 #include "core/pkg/api/grpc/framer/framer.grpc.pb.h"
@@ -161,6 +163,10 @@ Transport::Transport(
         grpc::view::DeleteRequest,
         google::protobuf::Empty,
         grpc::view::ViewDeleteService>>(pool, base_target);
+    this->connectivity_check = std::make_unique<freighter::grpc::UnaryClient<
+        google::protobuf::Empty,
+        grpc::connectivity::CheckResponse,
+        grpc::connectivity::ConnectivityService>>(pool, base_target);
 };
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
@@ -191,5 +197,6 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     view_create->use(mw);
     view_retrieve->use(mw);
     view_delete->use(mw);
+    connectivity_check->use(mw);
 }
 }

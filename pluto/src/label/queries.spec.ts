@@ -86,13 +86,15 @@ describe("queries", () => {
       act(() => {
         result.current.retrieve({ searchTerm: "special" });
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-      expect(
-        result.current.data
-          .map((key: label.Key) => result.current.getItem(key)?.name)
-          .includes("special_label"),
-      ).toBe(true);
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
+        expect(
+          result.current.data
+            .map((key: label.Key) => result.current.getItem(key)?.name)
+            .includes("special_label"),
+        ).toBe(true);
+      });
     });
 
     it("should handle pagination with limit and offset", async () => {

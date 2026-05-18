@@ -17,6 +17,7 @@ export * from "@/workspace/selectors";
 export * from "@/workspace/slice";
 export * from "@/workspace/types";
 export * from "@/workspace/useCheckCore";
+export * from "@/workspace/useMaybeChange";
 export * from "@/workspace/useSyncComponent";
 export * from "@/workspace/useSyncLayout";
 

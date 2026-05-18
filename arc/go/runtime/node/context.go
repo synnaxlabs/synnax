@@ -30,9 +30,11 @@ const (
 // It embeds context.Context for cancellation, deadlines, and values.
 type Context struct {
 	context.Context
-	// MarkChanged signals that an output parameter has new data.
+	// MarkChanged signals that an output has new data, identified by the
+	// output's 0-based position in the owning ir.Node's Outputs slice.
 	// This triggers dependent nodes to execute in the next scheduler pass.
-	MarkChanged func(output string)
+	// Zero hash lookups on the hot path.
+	MarkChanged func(outputIdx int)
 	// MarkSelfChanged requests that this node be re-executed on the next
 	// scheduler cycle without requiring upstream re-triggering. Used by
 	// nodes like Wait that need multiple ticks to complete after activation.
@@ -44,10 +46,6 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// ActivateStage transitions to the stage associated with the currently
-	// executing node. Used by stage_entry nodes to trigger stage transitions.
-	// The scheduler uses the current node key to look up the target stage.
-	ActivateStage func()
 	// Elapsed is the time elapsed since the runtime started.
 	// Used by time-based nodes (interval, wait) to track timing.
 	Elapsed telem.TimeSpan

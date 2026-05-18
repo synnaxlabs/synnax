@@ -183,17 +183,13 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
       - name: Install Clang Format
-        run: |
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+        run: scripts/install_clang_format.sh
 
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp

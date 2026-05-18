@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 
 import { Aether } from "@/aether";
 import { type RenderProp } from "@/component/renderProp";
@@ -20,20 +20,36 @@ import { range } from "@/lineplot/range/aether";
 import { Menu } from "@/menu";
 
 export interface ProviderProps extends Aether.ComponentProps {
+  visible?: boolean;
+  onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
   menu?: RenderProp<range.SelectedState>;
 }
 
-export const Provider = ({ aetherKey, menu, ...rest }: ProviderProps): ReactElement => {
+export const Provider = ({
+  aetherKey,
+  menu,
+  visible = true,
+  onHasAnnotationsChange,
+  ...rest
+}: ProviderProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setViewport, setHold } = useContext("Range.Provider");
   const [, { hovered, count }, setState] = Aether.use({
     aetherKey: cKey,
     type: range.Provider.TYPE,
     schema: range.providerStateZ,
-    initialState: { ...rest, cursor: null, hovered: null, count: 0 },
+    initialState: { ...rest, visible, cursor: null, hovered: null, count: 0 },
+    onAetherChange: useCallback(
+      ({ count }: range.ProviderState) => onHasAnnotationsChange?.(count > 0),
+      [onHasAnnotationsChange],
+    ),
   });
+  useEffect(() => {
+    setState((s) => ({ ...s, visible }));
+  }, [visible, setState]);
+
   const gridStyle = useGridEntry(
-    { key: cKey, loc: "top", size: count > 0 ? 32 : 0, order: 3 },
+    { key: cKey, loc: "top", size: visible && count > 0 ? 32 : 0, order: 3 },
     "Range.Provider",
   );
 

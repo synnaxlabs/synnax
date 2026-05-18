@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Address", func() {
@@ -76,11 +77,11 @@ var _ = Describe("Address", func() {
 		})
 
 		It("Should generate unique addresses", func() {
-			seen := make(map[string]bool)
+			seen := make(set.Set[string])
 			for range 1000 {
 				addr := address.Rand()
-				Expect(seen[addr.String()]).To(BeFalse(), "Generated duplicate address")
-				seen[addr.String()] = true
+				Expect(seen.Contains(addr.String())).To(BeFalse(), "Generated duplicate address")
+				seen.Add(addr.String())
 			}
 		})
 	})

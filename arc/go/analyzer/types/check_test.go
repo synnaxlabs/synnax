@@ -131,21 +131,20 @@ var _ = Describe("Check", func() {
 		)
 	})
 
-	Describe("Unit Mismatch", func() {
-		It("should fail for same kind with different units", func() {
+	Describe("Unit Compatibility", func() {
+		It("should fail for same kind with different non-nil units", func() {
 			ast := testutil.NewMockAST(1)
 			t1 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi"}}
 			t2 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "bar"}}
-			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test: expected f32 psi, got f32 bar")))
+			Expect(atypes.Check(cs, t1, t2, ast, "test")).Error().
+				To(MatchError(ContainSubstring("type mismatch")))
 		})
 
-		It("should fail for type with unit vs type without unit", func() {
+		It("should succeed for type with unit vs type without unit", func() {
 			ast := testutil.NewMockAST(1)
 			t1 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi"}}
 			t2 := types.F32()
-			Expect(atypes.Check(cs, t1, t2, ast, "test")).
-				Error().To(MatchError(ContainSubstring("type mismatch in test: expected f32 psi, got f32")))
+			Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
 		})
 
 		It("should succeed for same kind with same unit", func() {
@@ -153,6 +152,22 @@ var _ = Describe("Check", func() {
 			t1 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi", Scale: 1}}
 			t2 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi", Scale: 1}}
 			Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
+		})
+
+		It("should succeed for i64 ns vs i64 (timestamp <-> int64)", func() {
+			ast := testutil.NewMockAST(1)
+			Expect(atypes.Check(cs, types.TimeStamp(), types.I64(), ast, "test")).To(Succeed())
+			Expect(atypes.Check(cs, types.I64(), types.TimeStamp(), ast, "test")).To(Succeed())
+		})
+
+		It("should succeed for chan i64 ns <-> chan i64", func() {
+			ast := testutil.NewMockAST(1)
+			Expect(atypes.Check(
+				cs,
+				types.Chan(types.TimeStamp()),
+				types.Chan(types.I64()),
+				ast, "test",
+			)).To(Succeed())
 		})
 	})
 

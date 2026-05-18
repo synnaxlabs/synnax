@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -31,8 +30,7 @@ import (
 type Plugin struct{ Options Options }
 
 type Options struct {
-	FileNamePattern  string
-	DisableFormatter bool
+	FileNamePattern string
 }
 
 func DefaultOptions() Options {
@@ -50,18 +48,6 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var cppPostWriter = &exec.PostWriter{
-	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
-	Commands:   [][]string{{"clang-format", "-i"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter {
-		return nil
-	}
-	return cppPostWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -1099,6 +1085,41 @@ func (p *Plugin) generateNestedArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
 ) (forward, backward string) {
+	// Inner element type (e.g., Member for []Members where Members = []Member).
+	// When it's a struct, delegate to its to_proto/from_proto helpers so the
+	// nested conversion type-checks and propagates errors correctly. The
+	// primitive-inner path preserves the original `add_values(v)` form.
+	if elemType, ok := p.getArrayElementType(typeRef, data.table); ok {
+		if innerElem, ok := p.getArrayElementType(elemType, data.table); ok {
+			if innerResolved, ok := innerElem.Resolve(data.table); ok {
+				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+					if innerResolved.Namespace != data.rawNs {
+						targetOutputPath := output.GetPath(innerResolved, "cpp")
+						if targetOutputPath != "" {
+							data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+							data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						}
+					}
+					innerCppType := p.typeRefToCppForTranslator(innerElem, data)
+					forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto* wrapper = pb.add_%s();
+        for (const auto& v : item) {
+            auto [v_pb, err] = v.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v_pb;
+        }
+    }`, cppFieldName, pbAccessorName)
+					backward = fmt.Sprintf(`for (const auto& wrapper : pb.%s()) {
+        std::vector<%s> inner;
+        if (auto err = x::pb::from_proto_repeated<%s>(inner, wrapper.values())) return {{}, err};
+        cpp.%s.push_back(std::move(inner));
+    }`, pbAccessorName, innerCppType, innerCppType, cppFieldName)
+					return forward, backward
+				}
+			}
+		}
+	}
+
 	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
         auto* wrapper = pb.add_%s();
         for (const auto& v : item) wrapper->add_values(v);

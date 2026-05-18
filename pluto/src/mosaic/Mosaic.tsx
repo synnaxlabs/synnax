@@ -41,6 +41,7 @@ export interface MosaicProps
       | "onRename"
       | "onClose"
       | "addTooltip"
+      | "Name"
     >,
     Omit<
       Flex.BoxProps,
@@ -98,6 +99,7 @@ export const Mosaic = memo(
     contextMenu,
     addTooltip,
     className,
+    Name,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -114,6 +116,7 @@ export const Mosaic = memo(
       onReorder,
       activeTab,
       addTooltip,
+      Name,
     };
 
     const handleResize = useCallback(
@@ -175,10 +178,43 @@ interface TabLeafProps extends Omit<
  * This type should be used when the user wants to drop a tab in the mosaic.
  * Dropping an item with this signature will call the {@link Mosaic} onDrop handler.
  */
-export const HAUL_DROP_TYPE = "pluto-mosaic-tab-drop";
+export const HAUL_DROP_TYPE = "pluto_mosaic_tab_drop";
+
+export type TabDropHaulItem = Haul.Item<typeof HAUL_DROP_TYPE, string, undefined>;
+
+export const createTabDropHaulItem = (
+  tabKey: string,
+  elementID?: string,
+): TabDropHaulItem => ({ type: HAUL_DROP_TYPE, key: tabKey, elementID });
+
+export const isTabDropHaulItem = (item: Haul.Item): item is TabDropHaulItem =>
+  item.type === HAUL_DROP_TYPE;
+
+export const filterTabDropHaulItems = (items: Haul.Item[]): TabDropHaulItem[] =>
+  items.filter(isTabDropHaulItem);
+
+export const canDropTabDropHaulItem =
+  Haul.canDropOfType<TabDropHaulItem>(HAUL_DROP_TYPE);
+
 /** This type should be used when the user wants to create a new tab in the mosaic.
 Dropping an item with this signature will call the {@link Mosaic} onCreate handler. */
-export const HAUL_CREATE_TYPE = "pluto-mosaic-tab-create";
+export const HAUL_CREATE_TYPE = "pluto_mosaic_tab_create";
+
+export type TabCreateHaulItem = Haul.Item<typeof HAUL_CREATE_TYPE, string, undefined>;
+
+export const createTabCreateHaulItem = (tabKey: string): TabCreateHaulItem => ({
+  type: HAUL_CREATE_TYPE,
+  key: tabKey,
+});
+
+export const isTabCreateHaulItem = (item: Haul.Item): item is TabCreateHaulItem =>
+  item.type === HAUL_CREATE_TYPE;
+
+export const filterTabCreateHaulItems = (items: Haul.Item[]): TabCreateHaulItem[] =>
+  items.filter(isTabCreateHaulItem);
+
+export const canDropTabCreateHaulItem =
+  Haul.canDropOfType<TabCreateHaulItem>(HAUL_CREATE_TYPE);
 
 /** Checks whether the tab can actually be dropped in this location or not */
 const validDrop = (
@@ -188,9 +224,9 @@ const validDrop = (
 ): boolean => {
   const hasFiles = Haul.filterByType(Haul.FILE_TYPE, dragging).length > 0;
   if (hasFiles && hasFileDrop) return true;
-  const drop = Haul.filterByType(HAUL_DROP_TYPE, dragging).map((t) => t.key);
+  const drop = filterTabDropHaulItems(dragging).map((t) => t.key);
   const willHaveTabRemaining = tabs.filter((t) => !drop.includes(t.tabKey)).length > 0;
-  const create = Haul.filterByType(HAUL_CREATE_TYPE, dragging);
+  const create = filterTabCreateHaulItems(dragging);
   return (
     create.length > 0 ||
     (drop.length > 0 && (willHaveTabRemaining || tabs.length === 0))
@@ -232,15 +268,15 @@ const TabLeaf = memo(
           onFileDrop?.(key, loc, event);
           return items;
         }
-        const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
+        const dropped = filterTabDropHaulItems(items);
         if (dropped.length > 0) {
           const tabKey = dropped.map(({ key }) => key)[0];
-          onDrop(key, tabKey as string, loc, index);
+          onDrop(key, tabKey, loc, index);
         }
-        const created = Haul.filterByType(HAUL_CREATE_TYPE, items);
+        const created = filterTabCreateHaulItems(items);
         if (created.length > 0) {
           const tabKey = created.map(({ key }) => key);
-          onCreate?.(key, loc, tabKey as string[]);
+          onCreate?.(key, loc, tabKey);
         }
         return dropped;
       },
@@ -272,9 +308,7 @@ const TabLeaf = memo(
 
     const handleDragStart = useCallback(
       (e: DragEvent<HTMLElement>, { tabKey }: Tabs.Tab): void => {
-        startDrag([
-          { key: tabKey, type: HAUL_DROP_TYPE, elementID: e.currentTarget.id },
-        ]);
+        startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id)]);
       },
       [startDrag],
     );

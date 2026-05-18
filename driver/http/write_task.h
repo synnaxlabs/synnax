@@ -118,7 +118,7 @@ public:
 
     /// @brief writes a frame of command values to HTTP endpoints.
     /// @param frame the frame containing command channel values.
-    /// @returns nil on success, or the first error encountered.
+    /// @returns nil on success, or a combined error describing all failures.
     x::errors::Error write(x::telem::Frame &frame) override;
 };
 

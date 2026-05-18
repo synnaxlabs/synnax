@@ -376,19 +376,29 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	if id := primary.IDENTIFIER(); id != nil {
-		funcName := id.GetText()
-		scope, err := ctx.Scope.Resolve(ctx, funcName)
+	funcName := parser.PrimaryName(primary)
+	if funcName != "" {
+		scope, err := ctx.Resolve(funcName)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
 				return
+			}
+			if callerFn != nil && scope.Exec == symbol.ExecFlow {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName, funcName,
+				))
+				return
+			}
+			if funcName != "len" && funcName != "series.len" {
+				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
@@ -477,8 +487,15 @@ func validateFunctionCall(
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
+	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
+		name := parser.QualifiedName(qid)
+		if _, err := ctx.Resolve(name); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		}
+		return
+	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		resolved, err := ctx.Resolve(id.GetText())
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -633,6 +650,9 @@ func isValidCast(source, target basetypes.Type) bool {
 		return true
 	}
 	if source.Kind == target.Kind {
+		return true
+	}
+	if target.Kind == basetypes.KindString && source.IsNumeric() {
 		return true
 	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {

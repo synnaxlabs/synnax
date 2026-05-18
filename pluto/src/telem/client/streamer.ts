@@ -40,7 +40,7 @@ interface StreamerProps {
 
 // Introduce a slight debounce into stream start requests so that rapid streaming
 // request don't slam the socket with lots of updates.
-const STREAM_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+const STREAM_DEBOUNCE = TimeSpan.milliseconds(100);
 
 const THROTTLE_RATE = Rate.hz(60).valueOf();
 

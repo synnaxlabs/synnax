@@ -228,6 +228,55 @@ await writer.write(
   </Fragment>
 </Client.Tabs>
 
+### Writing Variable-Length Data
+
+Strings, JSON, and bytes are written through the same writer API as fixed-width samples.
+The channel's data type determines how the writer encodes each value.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["event_time", "event_log"],
+) as writer:
+    writer.write({
+        "event_time": [sy.TimeStamp.now(), sy.TimeStamp.now() + sy.TimeSpan.SECOND],
+        "event_log": ["startup complete", "tank pressurized"],
+    })
+    writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["event_time", "event_log"],
+});
+try {
+  await writer.write({
+    event_time: [TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1))],
+    event_log: ["startup complete", "tank pressurized"],
+  });
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+JSON channels accept and return native objects. Bytes channels accept any Python `bytes`
+value or TypeScript `Uint8Array`. Variable-length channels can share a writer with
+fixed-width channels and a common index, so a single `write` call can commit timestamps,
+numeric samples, and string or JSON annotations together.
+
 ### Closing a Writer
 
 After you're done writing, it's essential to close the writer to release network

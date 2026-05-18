@@ -28,6 +28,16 @@ func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
 // Shape returns the base shape of the boolean schema.
 func (b BoolZ) Shape() Shape { return b.baseZ }
 
+// Validate checks that the data is a valid boolean without parsing into a destination.
+func (b BoolZ) Validate(data any) error {
+	if b.expectedType != nil {
+		dest := reflect.New(b.expectedType).Interface()
+		return b.Parse(data, dest)
+	}
+	var dest any
+	return b.Parse(data, &dest)
+}
+
 // validateDestination validates that the destination is compatible with boolean data
 func (b BoolZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {

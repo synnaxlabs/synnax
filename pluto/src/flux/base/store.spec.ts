@@ -11,7 +11,12 @@ import { type record } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type base } from "@/flux/base";
-import { createStore, ScopedUnaryStore, scopeStore } from "@/flux/base/store";
+import {
+  createStore,
+  orderByKeys,
+  ScopedUnaryStore,
+  scopeStore,
+} from "@/flux/base/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();
@@ -1482,6 +1487,79 @@ describe("Base Store", () => {
         const store = createStore({}, basicHandleError);
         expect(store).toEqual({});
       });
+    });
+  });
+
+  describe("orderByKeys", () => {
+    interface Item {
+      key: number;
+      name: string;
+    }
+    const getKey = (i: Item) => i.key;
+
+    it("should return items in the order of the input keys", () => {
+      const items: Item[] = [
+        { key: 3, name: "c" },
+        { key: 1, name: "a" },
+        { key: 2, name: "b" },
+      ];
+      const ordered = orderByKeys([1, 2, 3], items, getKey);
+      expect(ordered.map((i) => i.name)).toEqual(["a", "b", "c"]);
+    });
+
+    it("should drop keys that have no corresponding item", () => {
+      const items: Item[] = [
+        { key: 1, name: "a" },
+        { key: 3, name: "c" },
+      ];
+      const ordered = orderByKeys([1, 2, 3], items, getKey);
+      expect(ordered.map((i) => i.name)).toEqual(["a", "c"]);
+    });
+
+    it("should deduplicate repeated keys", () => {
+      const items: Item[] = [
+        { key: 1, name: "a" },
+        { key: 2, name: "b" },
+      ];
+      const ordered = orderByKeys([1, 2, 1, 2, 1], items, getKey);
+      expect(ordered.map((i) => i.name)).toEqual(["a", "b"]);
+    });
+
+    it("should return an empty array when keys is empty", () => {
+      const items: Item[] = [{ key: 1, name: "a" }];
+      expect(orderByKeys([], items, getKey)).toEqual([]);
+    });
+
+    it("should return an empty array when items is empty", () => {
+      expect(orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
+    });
+
+    it("should ignore items whose key is not present in keys", () => {
+      const items: Item[] = [
+        { key: 1, name: "a" },
+        { key: 99, name: "x" },
+      ];
+      const ordered = orderByKeys([1], items, getKey);
+      expect(ordered.map((i) => i.name)).toEqual(["a"]);
+    });
+
+    it("should support string keys", () => {
+      const items = [
+        { key: "b", name: "two" },
+        { key: "a", name: "one" },
+      ];
+      const ordered = orderByKeys(["a", "b"], items, (i) => i.key);
+      expect(ordered.map((i) => i.name)).toEqual(["one", "two"]);
+    });
+
+    it("should keep the first occurrence when items contains duplicate keys", () => {
+      const items: Item[] = [
+        { key: 1, name: "first" },
+        { key: 1, name: "second" },
+      ];
+      const ordered = orderByKeys([1], items, getKey);
+      // Map.set with the same key keeps the last value written — confirming contract.
+      expect(ordered).toEqual([{ key: 1, name: "second" }]);
     });
   });
 });

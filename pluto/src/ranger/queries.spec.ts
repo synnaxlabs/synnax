@@ -102,13 +102,15 @@ describe("queries", () => {
           { signal: controller.signal },
         );
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-      expect(
-        result.current.data
-          .map((key: ranger.Key) => result.current.getItem(key)?.name)
-          .includes("special_range"),
-      ).toBe(true);
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
+        expect(
+          result.current.data
+            .map((key: ranger.Key) => result.current.getItem(key)?.name)
+            .includes("special_range"),
+        ).toBe(true);
+      });
     });
 
     it("should handle includeLabels parameter", async () => {

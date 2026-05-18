@@ -418,6 +418,9 @@ class TimeSpan(int):
     def __rmul__(self, rhs: CrudeTimeSpan) -> TimeSpan:  # type: ignore[misc]
         return self.__mul__(rhs)
 
+    def __abs__(self) -> TimeSpan:
+        return TimeSpan(super().__abs__())
+
     # overrides below widen int's parameter type to accept CrudeTimeSpan
     def __gt__(self, rhs: CrudeTimeSpan) -> bool:  # type: ignore[misc]
         return super().__gt__(TimeSpan(rhs))
@@ -1010,7 +1013,9 @@ class DataType(str):
 
     @property
     def is_variable(self) -> bool:
-        return self == DataType.STRING or self == DataType.JSON
+        return (
+            self == DataType.STRING or self == DataType.JSON or self == DataType.BYTES
+        )
 
     @property
     def has_np(self) -> bool:
@@ -1042,6 +1047,7 @@ class DataType(str):
     UINT8: DataType
     STRING: DataType
     JSON: DataType
+    BYTES: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1063,6 +1069,7 @@ DataType.UINT16 = DataType("uint16")
 DataType.UINT8 = DataType("uint8")
 DataType.JSON = DataType("json")
 DataType.STRING = DataType("string")
+DataType.BYTES = DataType("bytes")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1077,6 +1084,7 @@ DataType.ALL = (
     DataType.UINT8,
     DataType.STRING,
     DataType.JSON,
+    DataType.BYTES,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1136,6 +1144,7 @@ DataType._DENSITIES = {
     DataType.UINT8: Density.BIT8,
     DataType.STRING: Density.UNKNOWN,
     DataType.JSON: Density.UNKNOWN,
+    DataType.BYTES: Density.UNKNOWN,
 }
 
 

@@ -59,6 +59,17 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
         std::move(processor),
     };
 }
+
+/// @brief helper to count requests matching a given path.
+size_t count_requests_for_path(
+    const std::vector<mock::ReceivedRequest> &reqs,
+    const std::string &path
+) {
+    size_t count = 0;
+    for (const auto &r: reqs)
+        if (r.path == path) count++;
+    return count;
+}
 }
 
 /// @brief it should fail to parse config when endpoints array is empty.
@@ -777,7 +788,7 @@ TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
 }
 
 /// @brief when one endpoint in a parallel batch returns an error, the write should
-/// still return that error.
+/// still return that error with the failing endpoint's details.
 TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
     mock::Server server(
         mock::ServerConfig{
@@ -831,10 +842,83 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
+    EXPECT_NE(err.data.find("/api/bad"), std::string::npos)
+        << "Expected failing endpoint path in error. Got: " << err.data;
 
-    // Both requests should have been sent (parallel, not short-circuit).
+    // The good endpoint succeeds on round 1 (progress), so the bad endpoint is retried.
+    // Round 2 has only the bad endpoint which fails again (no progress), so the retry
+    // stops. Total: good=1, bad=2.
     auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 2);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/bad"), 2);
+}
+
+/// @brief when multiple endpoints in a parallel batch return errors, the combined
+/// error should contain details from all failing endpoints.
+TEST(HTTPWriteTask, ParallelBatchAllFailures) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/client-err",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/server-err",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/client-err";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/server-err";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    // The critical error (400) is the first error type encountered.
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(err.data.find("/api/client-err"), std::string::npos)
+        << "Expected critical endpoint in error. Got: " << err.data;
+    EXPECT_NE(err.data.find("/api/server-err"), std::string::npos)
+        << "Expected temporary endpoint in error. Got: " << err.data;
+
+    // The critical error on client-err counts as progress, so server-err is retried
+    // once. Round 2: server-err fails again (no progress), retry stops.
+    auto reqs = server.received_requests();
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/client-err"), 1);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/server-err"), 2);
 }
 
 /// @brief it should use only the last sample value when a series has multiple
@@ -1599,5 +1683,326 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
     auto verbose_param = reqs[0].query_params.find("verbose");
     ASSERT_NE(verbose_param, reqs[0].query_params.end());
     EXPECT_EQ(verbose_param->second, "true");
+}
+
+/// @brief when one endpoint always succeeds and another fails then succeeds, only the
+/// failing endpoint should be retried.
+TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/good",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/flaky",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                    .remaining_failures = 1,
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/good";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/flaky";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/flaky"), 2);
+}
+
+/// @brief when all endpoints fail with temporary errors and no progress is made, retry
+/// should stop after one round.
+TEST(HTTPWriteTask, NoProgressStopsRetry) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/a",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/b",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/a";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/b";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(reqs.size(), 2);
+}
+
+/// @brief progress-driven retry across multiple rounds: C always succeeds, A fails
+/// once, B fails twice. Each round makes progress until all resolve.
+TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/a",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                    .remaining_failures = 1,
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/b",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                    .remaining_failures = 2,
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/c",
+                    .status_code = 200,
+                    .response_body = R"({"status":"ok"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep_a;
+    ep_a.request.method = Method::POST;
+    ep_a.request.path = "/api/a";
+    ep_a.request.request_content_type = "application/json";
+    ep_a.channel.pointer = x::json::json::json_pointer("/value");
+    ep_a.channel.json_type = x::json::Type::Number;
+    ep_a.channel.channel_key = 1;
+
+    WriteEndpoint ep_b;
+    ep_b.request.method = Method::POST;
+    ep_b.request.path = "/api/b";
+    ep_b.request.request_content_type = "application/json";
+    ep_b.channel.pointer = x::json::json::json_pointer("/value");
+    ep_b.channel.json_type = x::json::Type::Number;
+    ep_b.channel.channel_key = 2;
+
+    WriteEndpoint ep_c;
+    ep_c.request.method = Method::POST;
+    ep_c.request.path = "/api/c";
+    ep_c.request.request_content_type = "application/json";
+    ep_c.channel.pointer = x::json::json::json_pointer("/value");
+    ep_c.channel.json_type = x::json::Type::Number;
+    ep_c.channel.channel_key = 3;
+
+    cfg.endpoints = {ep_a, ep_b, ep_c};
+    cfg.cmd_keys = {1, 2, 3};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+    frame.emplace(synnax::channel::Key(3), x::telem::Series(std::vector<double>{30.0}));
+
+    ASSERT_NIL(sink->write(frame));
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/a"), 2);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/b"), 3);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/c"), 1);
+}
+
+/// @brief a critical error (400) on one endpoint should not prevent temporary failures
+/// on other endpoints from being retried.
+TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/critical",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/flaky",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                    .remaining_failures = 1,
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/critical";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/flaky";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(err.data.find("/api/critical"), std::string::npos);
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/critical"), 1);
+    EXPECT_EQ(count_requests_for_path(reqs, "/api/flaky"), 2);
+}
+
+/// @brief when all endpoints return critical errors, no retry should occur.
+TEST(HTTPWriteTask, AllCriticalNoRetry) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/a",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/b",
+                    .status_code = 404,
+                    .response_body = R"({"error":"not found"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/a";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/b";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+
+    auto reqs = server.received_requests();
+    EXPECT_EQ(reqs.size(), 2);
 }
 }

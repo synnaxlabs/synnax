@@ -10,7 +10,6 @@
 package arc_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,6 +34,8 @@ func TestArc(t *testing.T) {
 	RunSpecs(t, "Arc Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
@@ -49,79 +50,57 @@ var (
 	testRack *rack.Rack
 )
 
-var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		DB: db,
-	}))
-	searchIdx := MustSucceed(search.Open())
-	DeferCleanup(func() {
-		Expect(searchIdx.Close()).To(Succeed())
-	})
-
-	// Use mock distribution for simplified testing
-	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
-
-	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Search:   searchIdx,
-	}))
-	labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Search:   searchIdx,
-	}))
-	statSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-		Search:   searchIdx,
-	}))
-	rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:                  db,
-		Ontology:            otg,
-		Group:               groupSvc,
-		HostProvider:        mock.StaticHostKeyProvider(1),
-		Status:              statSvc,
-		HealthCheckInterval: 10 * telem.Millisecond,
-		Search:              searchIdx,
-	}))
-	taskSvc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Rack:     rackSvc,
-		Status:   statSvc,
-		Search:   searchIdx,
-	}))
-	testRack = &rack.Rack{Name: "Test Rack"}
-	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
-
-	svc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Channel:  dist.Channel,
-		Task:     taskSvc,
-		Search:   searchIdx,
-	}))
-})
-
 var (
-	_ = AfterSuite(func(ctx SpecContext) {
-		Expect(svc.Close()).To(Succeed())
-		Expect(taskSvc.Close()).To(Succeed())
-		Expect(rackSvc.Close()).To(Succeed())
-		Expect(statSvc.Close()).To(Succeed())
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(groupSvc.Close()).To(Succeed())
-		Expect(dist.Close()).To(Succeed())
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+	_ = BeforeSuite(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		dist = DeferClose(mock.NewCluster().Provision(ctx))
+		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
+		}))
+		statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Label:    labelSvc,
+			Search:   searchIdx,
+		}))
+		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:                  db,
+			Ontology:            otg,
+			Group:               groupSvc,
+			HostProvider:        mock.StaticHostKeyProvider(1),
+			Status:              statSvc,
+			HealthCheckInterval: 10 * telem.Millisecond,
+			Search:              searchIdx,
+		}))
+		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Rack:     rackSvc,
+			Status:   statSvc,
+			Search:   searchIdx,
+		}))
+		testRack = &rack.Rack{Name: "Test Rack"}
+		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Channel:  dist.Channel,
+			Task:     taskSvc,
+			Search:   searchIdx,
+		}))
 	})
-	_ = BeforeEach(func(ctx SpecContext) { tx = db.OpenTx() })
-	_ = AfterEach(func(ctx SpecContext) { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = db.OpenTx() })
+	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 )

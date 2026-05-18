@@ -14,19 +14,20 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
 type MigrationConfig struct {
-	HostProvider cluster.HostProvider
+	HostProvider node.HostProvider
 	Status       *status.Service
 }
 
@@ -117,19 +118,19 @@ func backfillStatuses(
 	}
 	var existingStatuses []status.Status[StatusDetails]
 	if err = status.NewRetrieve[StatusDetails](cfg.Status).
-		WhereKeys(statusKeys...).
+		Where(status.MatchKeys[StatusDetails](statusKeys...)).
 		Entries(&existingStatuses).
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	existingKeys := make(map[string]bool)
+	existingKeys := make(set.Set[string])
 	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
+		existingKeys.Add(stat.Key)
 	}
 	var missingStatuses []status.Status[StatusDetails]
 	for _, r := range racks {
 		key := OntologyID(r.Key).String()
-		if !existingKeys[key] {
+		if !existingKeys.Contains(key) {
 			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,
 				Name:    r.Name,

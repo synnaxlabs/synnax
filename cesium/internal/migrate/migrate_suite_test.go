@@ -15,12 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
-
-var fileSystems = testutil.FileSystems
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Migrate Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

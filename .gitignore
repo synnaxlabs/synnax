@@ -72,6 +72,8 @@ work
 # |||| DATA ||||
 
 **/data
+!pluto/src/schematic/edge/data
+!pluto/src/schematic/edge/data/**
 synnax-data
 synnax-data/**
 
@@ -251,8 +253,10 @@ synnax-data/**
 # |||| EMBEDDED CONSOLE ||||
 
 # |||| EMBEDDED DRIVER ||||
-# Allow driver service assets to be tracked
 assets
+
+# |||| GENERATED CERTIFICATES ||||
+client/py/examples/opcua/certificates/
 
 # |||| OTHER ||||
 .obsidian
@@ -268,3 +272,6 @@ core/synnax
 .bazelrc.user
 
 .claude
+
+# |||| ORACLE ||||
+.oracle/

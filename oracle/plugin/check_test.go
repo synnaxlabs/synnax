@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestPlugin(t *testing.T) {
@@ -29,13 +30,10 @@ var _ = Describe("Check Utilities", func() {
 	var tempDir string
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "oracle-check-test")
-		Expect(err).To(BeNil())
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		tempDir = MustSucceed(os.MkdirTemp("", "oracle-check-test"))
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tempDir)).To(Succeed())
+		})
 	})
 
 	Describe("FileModTime", func() {
@@ -162,11 +160,13 @@ var _ = Describe("Check Utilities", func() {
 				},
 			}
 
-			msg := err.Error()
-			Expect(msg).To(ContainSubstring("go-types"))
-			Expect(msg).To(ContainSubstring("1 stale file(s)"))
-			Expect(msg).To(ContainSubstring("core/ranger/types.gen.go"))
-			Expect(msg).To(ContainSubstring("schemas/ranger.oracle"))
+			Expect(err).To(SatisfyAll(
+				MatchError(ContainSubstring("go-types")),
+				MatchError(ContainSubstring("1 stale file(s)")),
+				MatchError(ContainSubstring("core/ranger/types.gen.go")),
+				MatchError(ContainSubstring("schemas/ranger.oracle")),
+			))
+
 		})
 
 		It("Should indicate missing files", func() {
@@ -181,9 +181,7 @@ var _ = Describe("Check Utilities", func() {
 					},
 				},
 			}
-
-			msg := err.Error()
-			Expect(msg).To(ContainSubstring("missing"))
+			Expect(err).To(MatchError(ContainSubstring("missing")))
 		})
 	})
 
@@ -205,10 +203,11 @@ var _ = Describe("Check Utilities", func() {
 				Reason:     innerErr,
 			}
 
-			msg := err.Error()
-			Expect(msg).To(ContainSubstring("go-query"))
-			Expect(msg).To(ContainSubstring("go-types"))
-			Expect(msg).To(ContainSubstring("oracle generate -p go-types"))
+			Expect(err).To(SatisfyAll(
+				MatchError(ContainSubstring("go-query")),
+				MatchError(ContainSubstring("go-types")),
+				MatchError(ContainSubstring("oracle generate -p go-types")),
+			))
 		})
 	})
 })

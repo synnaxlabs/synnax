@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Sentinel errors for type unification failures.
@@ -153,26 +154,26 @@ func concreteTypeForHint(t types.Type) string {
 }
 
 func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
-	return s.unifyTypesWithVisited(t1, t2, source, make(map[string]bool))
+	return s.unifyTypesWithVisited(t1, t2, source, make(set.Set[string]))
 }
 
-func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, visiting map[string]bool) error {
+func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, visiting set.Set[string]) error {
 	// Check for type variables BEFORE applying substitutions
 	// This preserves the original type variable for updating
 	if t1.Kind == types.KindVariable {
-		if visiting[t1.Name] {
+		if visiting.Contains(t1.Name) {
 			return nil
 		}
-		visiting[t1.Name] = true
-		defer delete(visiting, t1.Name)
+		visiting.Add(t1.Name)
+		defer visiting.Remove(t1.Name)
 		return s.unifyTypeVariableWithVisited(t1, t2, source, visiting)
 	}
 	if t2.Kind == types.KindVariable {
-		if visiting[t2.Name] {
+		if visiting.Contains(t2.Name) {
 			return nil
 		}
-		visiting[t2.Name] = true
-		defer delete(visiting, t2.Name)
+		visiting.Add(t2.Name)
+		defer visiting.Remove(t2.Name)
 		return s.unifyTypeVariableWithVisited(t2, t1, source, visiting)
 	}
 
@@ -202,7 +203,7 @@ func (s *System) unifyTypesWithVisited(t1, t2 types.Type, source Constraint, vis
 func (s *System) unifyTypeVariableWithVisited(
 	tv, other types.Type,
 	source Constraint,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
 		// Type variable already has a substitution

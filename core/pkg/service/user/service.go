@@ -90,7 +90,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	closer  xio.MultiCloser
-	table   *gorp.Table[uuid.UUID, User]
+	table   *gorp.Table[Key, User]
 	indexes indexes
 }
 
@@ -103,9 +103,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, User](ctx, gorp.TableConfig[uuid.UUID, User]{
+	if s.table, err = gorp.OpenTable[Key, User](ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, User]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, User]("msgpack_to_orc")},
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -115,7 +115,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp[uuid.UUID, User](
+		if sig, err = signals.PublishFromGorp[Key, User](
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigUUID[User](s.table.Observe()),

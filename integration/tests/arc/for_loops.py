@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_FOR_LOOP_SOURCE = """
@@ -46,7 +46,7 @@ func sum_step(n i64) i64 {
     return sum
 }
 
-func accumulate_until{limit i32}(n i32) i32 {
+func accumulate_until{limit i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         sum = sum + i
@@ -57,7 +57,7 @@ func accumulate_until{limit i32}(n i32) i32 {
     return sum
 }
 
-func sum_excluding{skip i32}(n i32) i32 {
+func sum_excluding{skip i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         if i == skip {
@@ -76,7 +76,7 @@ func countdown(n i64) i64 {
     return sum
 }
 
-func drain_until{limit i32}(start i32) i32 {
+func drain_until{limit i32} (start i32) i32 {
     sum i32 := 0
     for i := range(start, 0, -1) {
         sum = sum + i
@@ -154,7 +154,7 @@ func empty_range(n i32) i32 {
     for i := range(i32(10), i32(5)) {
         sum = sum + 1
     }
-    for i := range(i32(0), i32(10), i32(-1)) {
+    for i := range(i32(0), i32(10), i32( -1)) {
         sum = sum + 1
     }
     return sum
@@ -427,18 +427,7 @@ class ForLoops(ArcConsoleCase):
             create_virtual_channel(self.client, name, dtype)
         for case in CASES:
             create_virtual_channel(self.client, case.in_ch, case.in_dtype)
-            idx = self.client.channels.create(
-                name=f"{case.out_ch}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=case.out_ch,
-                data_type=case.out_dtype,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, case.out_ch, case.out_dtype)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

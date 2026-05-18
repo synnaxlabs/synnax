@@ -29,11 +29,10 @@ var _ = Describe("Output", func() {
 		origStdout = os.Stdout
 		r, w = MustSucceed2(os.Pipe())
 		os.Stdout = w
-	})
-
-	AfterEach(func() {
-		os.Stdout = origStdout
-		Expect(r.Close()).To(Succeed())
+		DeferCleanup(func() {
+			os.Stdout = origStdout
+			Expect(r.Close()).To(Succeed())
+		})
 	})
 
 	captureOutput := func(fn func()) string {

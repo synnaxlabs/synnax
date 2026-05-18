@@ -9,6 +9,7 @@
 
 #include <set>
 
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/device/device.h"
@@ -279,9 +280,14 @@ WriteTaskSink::WriteTaskSink(
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
-    // First pass: build all requests, bailing on conversion errors.
-    std::vector<Request> requests;
-    std::vector<size_t> ep_indices;
+    struct PendingRequest {
+        Request request;
+        size_t ep_idx;
+        synnax::channel::Key ch_key;
+        x::telem::Series series;
+    };
+
+    std::vector<PendingRequest> pending;
     for (const auto &[ch_key, series]: frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
@@ -323,34 +329,82 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
         auto req = base_requests[ep_idx];
         req.body = build_body(ep, json_val);
-        requests.push_back(std::move(req));
-        ep_indices.push_back(ep_idx);
+        pending.push_back({
+            .request = std::move(req),
+            .ep_idx = ep_idx,
+            .ch_key = ch_key,
+            .series = series.shallow_copy(),
+        });
     }
 
-    if (requests.empty()) return x::errors::NIL;
+    if (pending.empty()) return x::errors::NIL;
 
-    auto results = processor->execute(requests);
+    std::vector<std::string> error_msgs;
+    std::string first_error_type;
 
-    // Check results and return the first error.
-    for (size_t i = 0; i < results.size(); i++) {
-        const auto ep_idx = ep_indices[i];
-        const auto &ep = cfg.endpoints[ep_idx];
-        auto &[resp, req_err] = results[i];
-        if (req_err)
-            return {
-                req_err.type,
-                std::string(to_string(ep.request.method)) + " " +
-                    base_requests[ep_idx].url + ": " + req_err.data,
-            };
-        if (auto status_err = errors::from_status(resp.status_code); status_err) {
-            auto msg = std::string(to_string(ep.request.method)) + " " +
-                       base_requests[ep_idx].url + " returned " +
-                       std::to_string(resp.status_code);
-            if (!resp.body.empty()) msg += ": " + resp.body;
-            return {status_err.type, msg};
+    while (!pending.empty()) {
+        std::vector<Request> batch;
+        batch.reserve(pending.size());
+        for (const auto &p: pending)
+            batch.push_back(p.request);
+        auto results = processor->execute(batch);
+
+        std::vector<PendingRequest> still_pending;
+        bool made_progress = false;
+        x::telem::Frame success_frame;
+
+        for (size_t i = 0; i < results.size(); i++) {
+            const auto &p = pending[i];
+            const auto &ep = cfg.endpoints[p.ep_idx];
+            auto &[resp, req_err] = results[i];
+
+            x::errors::Error err = x::errors::NIL;
+            if (req_err)
+                err = req_err;
+            else if (
+                auto status_err = errors::from_status(resp.status_code); status_err
+            )
+                err = status_err;
+
+            if (!err) {
+                made_progress = true;
+                success_frame.emplace(p.ch_key, p.series.shallow_copy());
+                continue;
+            }
+
+            if (err.matches(errors::TEMPORARY_ERROR)) {
+                still_pending.push_back(std::move(pending[i]));
+            } else {
+                made_progress = true;
+                if (first_error_type.empty()) first_error_type = err.type;
+                auto msg = std::string(to_string(ep.request.method)) + " " +
+                           base_requests[p.ep_idx].url;
+                if (req_err)
+                    msg += ": " + req_err.data;
+                else {
+                    msg += " returned " + std::to_string(resp.status_code);
+                    if (!resp.body.empty()) msg += ": " + resp.body;
+                }
+                error_msgs.push_back(std::move(msg));
+            }
         }
+
+        if (!success_frame.empty()) this->set_state(success_frame);
+        pending = std::move(still_pending);
+        if (!made_progress) break;
     }
-    return x::errors::NIL;
+
+    for (const auto &p: pending) {
+        if (first_error_type.empty()) first_error_type = errors::TEMPORARY_ERROR.type;
+        const auto &ep = cfg.endpoints[p.ep_idx];
+        error_msgs.push_back(
+            std::string(to_string(ep.request.method)) + " " +
+            base_requests[p.ep_idx].url + ": timed out"
+        );
+    }
+
+    if (error_msgs.empty()) return x::errors::NIL;
+    return {first_error_type, x::strings::join(error_msgs, "; ")};
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(

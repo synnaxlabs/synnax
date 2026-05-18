@@ -39,35 +39,58 @@ const MinTolerance = 5 * telem.Millisecond
 // unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
 const unsetBaseInterval = telem.TimeSpanMax
 
-var baseSymbolResolver = symbol.MapResolver{
-	intervalSymbolName: {
+var (
+	intervalSymbol = symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-	},
-	waitSymbolName: {
+	}
+	waitSymbol = symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-	},
-	nowSymbolName: {
+	}
+	nowSymbol = symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-	},
+	}
+)
+
+func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
+}
+
+var deprecatedBareResolver = symbol.MapResolver{
+	intervalSymbolName: deprecated(intervalSymbol, "time.interval"),
+	waitSymbolName:     deprecated(waitSymbol, "time.wait"),
+	nowSymbolName:      deprecated(nowSymbol, "time.now"),
+}
+
+var moduleMembers = symbol.MapResolver{
+	intervalSymbolName: intervalSymbol,
+	waitSymbolName:     waitSymbol,
+	nowSymbolName:      nowSymbol,
 }
 
 type Module struct {
 	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
 	BaseInterval telem.TimeSpan
+	// clock provides monotonically increasing timestamps, avoiding
+	// duplicate values on platforms with coarse clock resolution.
+	clock telem.MonoClock
 }
 
 func NewModule(
@@ -77,20 +100,21 @@ func NewModule(
 	if rat == nil {
 		return &Module{BaseInterval: unsetBaseInterval}, nil
 	}
+	mod := &Module{BaseInterval: unsetBaseInterval}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(telem.Now())
+			return uint64(mod.clock.Now())
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return &Module{BaseInterval: unsetBaseInterval}, nil
+	return mod, nil
 }
 
 var SymbolResolver = symbol.CompoundResolver{
-	baseSymbolResolver,
-	&symbol.ModuleResolver{Name: "time", Members: baseSymbolResolver},
+	deprecatedBareResolver,
+	&symbol.ModuleResolver{Name: "time", Members: moduleMembers},
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -127,6 +151,9 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			startTime: -1,
 			fired:     false,
 		}, nil
+
+	case nowSymbolName:
+		return &Now{State: cfg.State, clock: &m.clock}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -196,7 +223,7 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + i.period)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
@@ -244,7 +271,7 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (w *Wait) Reset() {
@@ -252,3 +279,24 @@ func (w *Wait) Reset() {
 	w.startTime = -1
 	w.fired = false
 }
+
+// Now outputs the current wall-clock timestamp when triggered.
+type Now struct {
+	*node.State
+	clock *telem.MonoClock
+}
+
+func (n *Now) Init(_ node.Context) {}
+
+func (n *Now) Next(ctx node.Context) {
+	ts := n.clock.Now()
+	output := n.Output(0)
+	outputTime := n.OutputTime(0)
+	output.Resize(1)
+	outputTime.Resize(1)
+	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
+	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
+	ctx.MarkChanged(0)
+}
+
+func (n *Now) Reset() { n.State.Reset() }

@@ -22,6 +22,7 @@ from synnax.exceptions import ExpiredToken, InvalidToken
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 from x.deprecation import deprecated_getattr
+from x.telem import TimeStamp
 
 
 class InsecureCredentials(BaseModel):
@@ -29,9 +30,17 @@ class InsecureCredentials(BaseModel):
     password: str
 
 
+class ClusterInfo(BaseModel):
+    cluster_key: str = ""
+    node_version: str = ""
+    node_key: int = 0
+    node_time: TimeStamp = TimeStamp(0)
+
+
 class TokenResponse(BaseModel):
     token: str
     user: User
+    cluster_info: ClusterInfo = ClusterInfo()
 
 
 AUTHORIZATION_HEADER = "Authorization"

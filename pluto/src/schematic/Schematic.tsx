@@ -9,38 +9,149 @@
 
 import "@/schematic/Schematic.css";
 
-import { TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type schematic } from "@synnaxlabs/client";
+import { box, TimeSpan, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useRef } from "react";
 
-import { Component } from "@/component";
 import { CSS } from "@/css";
-import { ConnectionLine, Edge, type EdgeData } from "@/schematic/edge";
-import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
-import { Diagram } from "@/vis/diagram";
+import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
+import { Key } from "@/key";
+import { useClipboard } from "@/schematic/clipboard";
+import {
+  Diagram,
+  edgeChangesToActions,
+  nodeChangesToActions,
+} from "@/schematic/Diagram";
+import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
+import { Node } from "@/schematic/node";
+import {
+  useAddNode,
+  useDispatch,
+  useSelectAllEdges,
+  useSelectAllNodes,
+} from "@/schematic/queries";
+import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
-  Diagram.DiagramProps,
-  "dragHandleSelector"
-> {}
-
-const edgeRenderer = Component.renderProp(Edge);
-
+  BaseDiagram.DiagramProps,
+  | "dragHandleSelector"
+  | "nodes"
+  | "edges"
+  | "onNodesChange"
+  | "onEdgesChange"
+  | "onChange"
+> {
+  enableTriggers?: boolean | (() => boolean);
+  resourceKey: schematic.Key;
+}
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
+const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 
 export const Schematic = ({
   className,
-  children,
+  resourceKey: key,
+  viewport,
+  onDoubleClick,
+  onSelectionChange,
+  selected,
+  enableTriggers,
   ...props
-}: SchematicProps): ReactElement => (
-  <Diagram.Diagram
-    className={CSS(CSS.B("schematic"), className)}
-    dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
-    autoRenderInterval={AUTO_RENDER_INTERVAL}
-    {...props}
-  >
-    <Diagram.EdgeRenderer<EdgeData> connectionLineComponent={ConnectionLine}>
-      {edgeRenderer}
-    </Diagram.EdgeRenderer>
-    {children}
-  </Diagram.Diagram>
-);
+}: SchematicProps): ReactElement => {
+  const nodes = useSelectAllNodes({ key });
+  const nodesRef = useSyncedRef(nodes);
+  const edges = useSelectAllEdges({ key });
+  const edgesRef = useSyncedRef(edges);
+  const { update: dispatch } = useDispatch();
+  const handleNodesChange = useCallback(
+    (changes: BaseDiagram.NodeChange[]) => {
+      const actions = nodeChangesToActions(changes);
+      if (actions.length > 0) dispatch({ key, actions });
+    },
+    [key, dispatch],
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: BaseDiagram.EdgeChange[]) => {
+      const actions = edgeChangesToActions(changes);
+      if (actions.length > 0) dispatch({ key, actions });
+    },
+    [key, dispatch],
+  );
+
+  const handleAddNode = useAddNode(key);
+  const ref = useRef<HTMLDivElement>(null);
+  const viewportRef = useSyncedRef(viewport);
+  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
+    if (ref.current == null) return xy.ZERO;
+    return BaseDiagram.calculateCursorPosition(
+      box.construct(ref.current),
+      cursor,
+      viewportRef.current,
+    );
+  }, []);
+
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      const valid = filterHaulItems(items);
+      if (event == null) return valid;
+      const position = xy.truncate(calculateCursorPosition(event), 0);
+      valid.forEach(({ data }) => handleAddNode({ ...data, position }));
+      return valid;
+    },
+    [handleAddNode, calculateCursorPosition],
+  );
+
+  const dropProps = Haul.useDrop({
+    type: "Schematic",
+    key,
+    canDrop: canDropHaulItem,
+    onDrop: handleDrop,
+  });
+
+  const handleClearSelection = useCallback(
+    () => onSelectionChange?.([]),
+    [onSelectionChange],
+  );
+  const handleSelectAll = useCallback(() => {
+    onSelectionChange?.([
+      ...nodesRef.current.map((n) => n.key),
+      ...edgesRef.current.map((e) => e.key),
+    ]);
+  }, [onSelectionChange]);
+
+  const { onCopy, onPaste } = useClipboard({
+    key,
+    selected,
+    onPaste: onSelectionChange,
+  });
+
+  BaseDiagram.useTriggers({
+    onSelectAll: handleSelectAll,
+    onClearSelection: handleClearSelection,
+    enabled: enableTriggers,
+  });
+
+  return (
+    <Key.Provider value={key}>
+      <Diagram
+        ref={ref}
+        className={CSS(CSS.B("schematic"), className)}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
+        autoRenderInterval={AUTO_RENDER_INTERVAL}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        viewport={viewport}
+        onSelectionChange={onSelectionChange}
+        onDoubleClick={onDoubleClick}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        nodes={nodes}
+        edges={edges}
+        selected={selected}
+        {...dropProps}
+        {...props}
+      />
+    </Key.Provider>
+  );
+};

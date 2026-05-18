@@ -13,7 +13,6 @@ export * from "@/spatial/dimensions";
 export * from "@/spatial/direction";
 export * from "@/spatial/location";
 export * from "@/spatial/scale";
-export * as spatial from "@/spatial/spatial";
 export * from "@/spatial/sticky";
-export * from "@/spatial/types.gen";
+export * as spatial from "@/spatial/types.gen";
 export * from "@/spatial/xy";

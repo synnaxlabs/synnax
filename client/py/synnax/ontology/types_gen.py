@@ -19,8 +19,6 @@ RESOURCE_TYPE_BUILTIN: Literal["builtin"] = "builtin"
 
 RESOURCE_TYPE_CHANNEL: Literal["channel"] = "channel"
 
-RESOURCE_TYPE_CLUSTER: Literal["cluster"] = "cluster"
-
 RESOURCE_TYPE_DEVICE: Literal["device"] = "device"
 
 RESOURCE_TYPE_FRAMER: Literal["framer"] = "framer"
@@ -66,7 +64,6 @@ ResourceType = Literal[
     "arc",
     "builtin",
     "channel",
-    "cluster",
     "device",
     "framer",
     "group",

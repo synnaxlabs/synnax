@@ -122,6 +122,7 @@ func New(cfgs ...Config) (*Server, error) {
 					parser.LiteralLBRACE,
 					parser.LiteralEQ,
 					parser.LiteralCOMMA,
+					parser.LiteralDOT,
 				},
 			},
 			DefinitionProvider:              true,

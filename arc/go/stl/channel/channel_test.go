@@ -275,7 +275,7 @@ var _ = Describe("Channel", func() {
 				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 101, 102))
 				channelState.Ingest(fr)
 				var outputChanged bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputChanged = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputChanged = true }})
 				Expect(outputChanged).To(BeTrue())
 				Expect(*progState.Node("source").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1.5, 2.5, 3.5)))
 				Expect(*progState.Node("source").OutputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 101, 102)))
@@ -292,7 +292,7 @@ var _ = Describe("Channel", func() {
 				fr := telem.UnaryFrame[uint32](20, telem.NewSeriesV[int32](100, 200))
 				channelState.Ingest(fr)
 				var outputChanged bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputChanged = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputChanged = true }})
 				Expect(outputChanged).To(BeTrue())
 				Expect(*progState.Node("source").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](100, 200)))
 				Expect(progState.Node("source").OutputTime(0).DataType).To(Equal(telem.TimeStampT))
@@ -307,7 +307,7 @@ var _ = Describe("Channel", func() {
 					State: progState.Node("source"),
 				}))
 				var outputChanged bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputChanged = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputChanged = true }})
 				Expect(outputChanged).To(BeFalse())
 			})
 
@@ -325,7 +325,7 @@ var _ = Describe("Channel", func() {
 				channelState.Ingest(telem.UnaryFrame[uint32](20, d1))
 
 				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeTrue())
 				Expect(nodeState.Output(0).Len()).To(Equal(int64(3)))
 				Expect(nodeState.OutputTime(0).Len()).To(Equal(int64(3)))
@@ -337,7 +337,7 @@ var _ = Describe("Channel", func() {
 				d2.Alignment = telem.NewAlignment(1, 3)
 				channelState.Ingest(telem.UnaryFrame[uint32](20, d2))
 
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeTrue())
 				Expect(nodeState.Output(0).Len()).To(Equal(int64(2)))
 				Expect(nodeState.OutputTime(0).Len()).To(Equal(int64(2)),
@@ -360,7 +360,7 @@ var _ = Describe("Channel", func() {
 					channelState.Ingest(telem.UnaryFrame[uint32](20, d))
 
 					var triggered bool
-					source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+					source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 					Expect(triggered).To(BeTrue())
 					ts := telem.ValueAt[telem.TimeStamp](*nodeState.OutputTime(0), 0)
 					Expect(ts).To(BeNumerically(">", prevTS),
@@ -399,14 +399,14 @@ var _ = Describe("Channel", func() {
 
 				outputCount := 0
 
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputCount++ }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputCount++ }})
 				Expect(outputCount).To(Equal(1))
 				o := nodeState.Output(0)
 				Expect(*o).To(telem.MatchSeries(d1))
 				ot := nodeState.OutputTime(0)
 				Expect(*ot).To(telem.MatchSeries(t1))
 
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputCount++ }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputCount++ }})
 				Expect(outputCount).To(Equal(2))
 				o = nodeState.Output(0)
 				Expect(*o).To(telem.MatchSeries(d2))
@@ -436,7 +436,7 @@ var _ = Describe("Channel", func() {
 				source.Reset()
 
 				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeFalse(), "stale pre-reset data should not trigger the source")
 
 				d2 := telem.NewSeriesV[float32](2.0)
@@ -448,7 +448,7 @@ var _ = Describe("Channel", func() {
 				fr2 = fr2.Append(11, t2)
 				channelState.Ingest(fr2)
 
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeTrue(), "data written after reset should trigger the source")
 			})
 			It("Should be a no-op when channel has no data", func(ctx SpecContext) {
@@ -461,7 +461,7 @@ var _ = Describe("Channel", func() {
 				}))
 				Expect(func() { source.Reset() }).ToNot(Panic())
 				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { triggered = true }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeFalse())
 			})
 		})
@@ -483,7 +483,7 @@ var _ = Describe("Channel", func() {
 				fr2 = fr2.Append(10, telem.NewSeriesV[float32](2.0))
 				channelState.Ingest(fr2)
 				callCount := 0
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { callCount++ }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { callCount++ }})
 				Expect(callCount).To(Equal(1))
 			})
 
@@ -518,7 +518,7 @@ var _ = Describe("Channel", func() {
 				fr = fr.Append(31, timeSeries)
 				channelState.Ingest(fr)
 				outputCount := 0
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { outputCount++ }})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { outputCount++ }})
 				Expect(outputCount).To(Equal(0))
 			})
 		})
@@ -581,7 +581,7 @@ var _ = Describe("Channel", func() {
 				*upstream.Output(0) = inputData
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(500, 501)
 				changed := false
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) { changed = true }})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
 				Expect(changed).To(BeTrue())
 
 				outData := *sinkState.Output(0)
@@ -610,7 +610,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: progState.Node("sink"),
 				}))
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.Get(100).Series).To(BeEmpty())
@@ -627,7 +627,7 @@ var _ = Describe("Channel", func() {
 				*upstream.Output(0) = telem.NewSeriesV[float32]()
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV()
 				Expect(progState.Node("sink").RefreshInputs()).To(BeFalse())
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.Get(100).Series).To(BeEmpty())
@@ -646,14 +646,14 @@ var _ = Describe("Channel", func() {
 				*upstream.Output(0) = telem.NewSeriesV[float32](1.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 				Expect(progState.Node("sink").RefreshInputs()).To(BeTrue())
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr1, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr1.Get(100).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
 				*upstream.Output(0) = telem.NewSeriesV[float32](2.0)
 				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 				Expect(progState.Node("sink").RefreshInputs()).To(BeTrue())
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr2, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr2.Get(100).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
@@ -713,9 +713,9 @@ var _ = Describe("Channel", func() {
 				ingestFr = ingestFr.Append(1, telem.NewSeriesV[int32](42, 99))
 				ingestFr = ingestFr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
 				channelState.Ingest(ingestFr)
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				Expect(s.Node("write").RefreshInputs()).To(BeTrue())
-				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				outputFr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(outputFr.Get(3).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](42, 99)))
@@ -784,12 +784,12 @@ var _ = Describe("Channel", func() {
 				fr = fr.Append(20, telem.NewSeriesV[float64](3.3, 4.4))
 				fr = fr.Append(21, telem.NewSeriesSecondsTSV(100, 200))
 				channelState.Ingest(fr)
-				source1.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-				source2.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				source1.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
+				source2.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				Expect(s.Node("write1").RefreshInputs()).To(BeTrue())
 				Expect(s.Node("write2").RefreshInputs()).To(BeTrue())
-				sink1.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-				sink2.Next(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
+				sink1.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
+				sink2.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				channelState.ClearReads()
 				outputFr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())

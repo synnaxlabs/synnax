@@ -41,20 +41,21 @@ func RepoRoot() (string, error) {
 	return findGitRoot(cwd)
 }
 
-// findGitRoot walks up the directory tree looking for a .git directory.
+// findGitRoot walks up the directory tree looking for a .git entry. Accepts
+// both a directory (main checkout) and a file (linked worktree, where .git
+// is a file containing a gitdir: pointer).
 func findGitRoot(startPath string) (string, error) {
 	current := startPath
 
 	for {
 		gitPath := filepath.Join(current, ".git")
-		if info, err := os.Stat(gitPath); err == nil && info.IsDir() {
+		if _, err := os.Stat(gitPath); err == nil {
 			return current, nil
 		}
 
 		parent := filepath.Dir(current)
 		if parent == current {
-			// Reached filesystem root
-			return "", errors.Newf("oracle must be run within a git repository: no .git directory found in %s or any parent", startPath)
+			return "", errors.Newf("oracle must be run within a git repository: no .git entry found in %s or any parent", startPath)
 		}
 		current = parent
 	}

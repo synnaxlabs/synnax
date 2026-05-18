@@ -14,16 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/encoding/json"
-)
-
-var (
-	codec       = json.Codec
-	fileSystems = testutil.FileSystems
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestVirtual(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Virtual Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

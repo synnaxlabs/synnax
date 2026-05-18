@@ -27,14 +27,9 @@ var _ = Describe("Observe", func() {
 		grapeTable *gorp.Table[int32, grape]
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		entryTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
-		grapeTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}))
-	})
-	AfterEach(func() {
-		Expect(entryTable.Close()).To(Succeed())
-		Expect(grapeTable.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		entryTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
+		grapeTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}))
 	})
 	It("Should correctly observe a change to the key value store", func(ctx SpecContext) {
 		tx := db.OpenTx()
@@ -102,7 +97,7 @@ var _ = Describe("Observe", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		tx := db.OpenTx()
-		Expect(gorp.NewDelete[int32, entry]().WhereKeys(42).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewDelete[int32, entry]().Where(gorp.MatchKeys[int32, entry](42)).Exec(ctx, tx)).To(Succeed())
 
 		var deleteChanges []change.Change[int32, entry]
 		entryTable.Observe().OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {

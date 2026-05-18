@@ -29,6 +29,10 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
+	// clock provides monotonically increasing timestamps for indexed
+	// channel writes, avoiding duplicate timestamps on platforms with
+	// coarse clock resolution (e.g. Windows).
+	clock telem.MonoClock
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
@@ -162,7 +166,7 @@ func (cs *ProgramState) WriteChannelF64(key uint32, v float64) {
 func (cs *ProgramState) writeIndexedTimestamp(key uint32) {
 	idx := cs.indexes[key]
 	if idx != 0 {
-		appendFixedWriteSample(cs, idx, telem.Now())
+		appendFixedWriteSample(cs, idx, cs.clock.Now())
 	}
 }
 

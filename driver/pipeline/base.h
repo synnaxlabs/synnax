@@ -48,7 +48,7 @@ public:
     /// @brief the main run loop for the pipeline.
     virtual void run() = 0;
 
-    /// @brief starts the control pipeline. This method is idempotent.
+    /// @brief starts the pipeline. This method is idempotent.
     /// @returns true if this is the first call to start() ever or the first call to
     /// start() since the pipeline was last stopped.
     /// @returns false otherwise.
@@ -64,11 +64,11 @@ public:
     /// start().
     /// @returns false if this is an N+1 call to stop() since the last call to
     /// start().
-    /// @details this function is safe to call from within the pipeline operation
-    /// thread itself. If done so, the pipeline breaker will be stopped, but the
-    /// thread will not be joined. If calling stop() from within the pipeline
-    /// itself, it's important that stop() be called again before the pipeline is
-    /// destructed to properly join the thread.
+    /// @details this function is safe to call from within the pipeline operation thread
+    /// itself. If done so, the pipeline breaker will be stopped, but the thread will
+    /// not be joined. If calling stop() from within the pipeline itself, it's important
+    /// that stop() be called again before the pipeline is destructed to properly join
+    /// the thread.
     virtual bool stop() {
         const auto stopped = this->breaker.stop();
         if (this->thread.get_id() != std::this_thread::get_id() &&
@@ -77,10 +77,10 @@ public:
         return stopped;
     }
 
-    /// @brief returns true if the pipeline is currently running. This method may
-    /// return true if the pipeline is in a transient state, i.e., start has been
-    /// called, but the pipeline has not started or failed yet or if stop has been
-    /// called, but the pipeline has not stopped yet.
+    /// @brief returns true if the pipeline is currently running. This method may return
+    /// true if the pipeline is in a transient state, i.e., start has been called, but
+    /// the pipeline has not started or failed yet or if stop has been called, but the
+    /// pipeline has not stopped yet.
     bool running() const { return this->breaker.running(); }
 };
 }

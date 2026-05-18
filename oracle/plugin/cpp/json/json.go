@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -34,8 +33,7 @@ var primitiveMapper = cppprimitives.Mapper()
 type Plugin struct{ Options Options }
 
 type Options struct {
-	FileNamePattern  string
-	DisableFormatter bool
+	FileNamePattern string
 }
 
 func DefaultOptions() Options {
@@ -53,18 +51,6 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var cppPostWriter = &exec.PostWriter{
-	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
-	Commands:   [][]string{{"clang-format", "-i"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter {
-		return nil
-	}
-	return cppPostWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -285,16 +271,11 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
-	if t.Name == parent.QualifiedName {
-		return true
-	}
-	for _, arg := range t.TypeArgs {
-		if isSelfReference(arg, parent) {
-			return true
-		}
-	}
-	return false
+// isSelfReference reports whether t directly or transitively references parent.
+// Stays consistent with the cpp types plugin's decision on hard-optional
+// fields by sharing resolution.RefersTo.
+func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolution.Table) bool {
+	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
 func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
@@ -338,7 +319,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 		typeParamName = field.Type.TypeParam.Name
 	}
 
-	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent)
+	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent, data.table)
 
 	parseExpr := p.parseExprForField(field, parent, cppType, data, isSelfRef)
 	toJSONExpr := p.toJSONExprForField(field, parent, data, isSelfRef)
@@ -648,6 +629,16 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
         j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
 	}
 
+	// Self-referential hard-optional fields are wrapped as x::mem::indirect<T>
+	// by the types plugin. indirect<T> has the same has_value() + -> interface
+	// as std::optional<T>, and the underlying T (struct, or a distinct/alias
+	// resolving to one) always has to_json(). Emit the unwrap pattern here so
+	// the cycle-through-distinct case doesn't fall through to the default
+	// assignment below, which would be ill-typed against indirect<T>.
+	if isSelfRef {
+		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+	}
+
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
@@ -675,6 +666,22 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
+			}
+			// Nested-array-of-struct case: outer element resolves to another
+			// array (e.g., Members = []Member) whose inner element is a
+			// struct. nlohmann_json can't serialize vector<vector<Struct>>
+			// directly — serialize each inner array via to_array and bundle
+			// them in a JSON array.
+			if innerElem, ok := p.resolveToArrayElement(elemType, data); ok {
+				if innerResolved, ok := innerElem.Resolve(data.table); ok {
+					if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+						return fmt.Sprintf(`{
+        auto arr = x::json::json::array();
+        for (const auto& inner : this->%s) arr.push_back(x::json::to_array(inner));
+        j["%s"] = arr;
+    }`, fieldName, jsonName)
+					}
+				}
 			}
 		}
 

@@ -21,16 +21,6 @@ single_version_override(
     patches = ["//patches:cpp-httplib-add-load.patch"],
 )
 
-bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
-
-# We're using this branch per this issue:
-# https://github.com/hedronvision/bazel-compile-commands-extractor/pull/219#issuecomment-2607795958
-git_override(
-    module_name = "hedron_compile_commands",
-    commit = "f5fbd4cee671d8d908f37c83abaf70fba5928fc7",
-    remote = "https://github.com/mikael-s-persson/bazel-compile-commands-extractor",
-)
-
 # Override boringssl (pulled transitively by cpp-httplib) to use openssl instead.
 local_path_override(
     module_name = "boringssl",

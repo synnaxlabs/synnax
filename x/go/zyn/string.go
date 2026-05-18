@@ -39,6 +39,16 @@ func (s StringZ) Optional() StringZ { s.optional = true; return s }
 // Shape returns the base shape of the string schema.
 func (s StringZ) Shape() Shape { return s.baseZ }
 
+// Validate checks that the data is a valid string without parsing into a destination.
+func (s StringZ) Validate(data any) error {
+	if s.expectedType != nil {
+		dest := reflect.New(s.expectedType).Interface()
+		return s.Parse(data, dest)
+	}
+	var dest any
+	return s.Parse(data, &dest)
+}
+
 // validateDestinationValue validates that the destination is compatible with string
 // data
 func (s StringZ) validateDestinationValue(dest reflect.Value) error {

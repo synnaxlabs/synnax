@@ -32,7 +32,7 @@ var (
 
 // MarshalJSON implements json.Marshaler.
 func (ts TimeSpan) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringInt64(int64(ts))
+	return xjson.MarshalStringInt64(int64(ts)), nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

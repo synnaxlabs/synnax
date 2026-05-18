@@ -28,8 +28,7 @@ TEST(TestAuth, testLoginHappyPath) {
     const auto mw = std::make_shared<auth::Middleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon",
-        5 * x::telem::SECOND
+        "seldon"
     );
     auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
@@ -48,8 +47,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     const auto mw = std::make_shared<auth::Middleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon",
-        5 * x::telem::SECOND
+        "seldon"
     );
     auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
@@ -71,8 +69,7 @@ TEST(TestAuth, testLoginRetry) {
     const auto mw = std::make_shared<auth::Middleware>(
         std::move(mock_login_client),
         "synnax",
-        "seldon",
-        5 * x::telem::SECOND
+        "seldon"
     );
     auto mock_client = freighter::mock::UnaryClient<int, int>{
         {1, 1},
@@ -106,8 +103,7 @@ protected:
         mw = std::make_shared<auth::Middleware>(
             std::move(mock_login_client),
             "synnax",
-            "seldon",
-            5 * x::telem::SECOND
+            "seldon"
         );
         mock_client = freighter::mock::UnaryClient<int, int>{
             {1, 1},

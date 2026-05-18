@@ -27,24 +27,48 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	bareSymbolName      = "set_status"
+	qualifiedMemberName = "set"
+	moduleName          = "status"
+)
+
+// Two separate resolvers are needed because the bare name ("set_status")
+// differs from the qualified member name ("set"). The bare form will be
+// deprecated and removed once users migrate to status.set{}.
 var (
-	symbolName = "set_status"
-	symbolSet  = symbol.Symbol{
-		Name: "set_status",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "status_key", Type: types.String()},
-				{Name: "variant", Type: types.String()},
-				{Name: "message", Type: types.String()},
-				{Name: "name", Type: types.String(), Value: ""},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-		}),
+	symbolProps = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "status_key", Type: types.String()},
+			{Name: "variant", Type: types.String()},
+			{Name: "message", Type: types.String()},
+			{Name: "name", Type: types.String(), Value: ""},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8()},
+		},
+	})
+	bareResolver = symbol.MapResolver{
+		bareSymbolName: {
+			Name:       bareSymbolName,
+			Kind:       symbol.KindFunction,
+			Exec:       symbol.ExecFlow,
+			Type:       symbolProps,
+			Deprecated: "status.set",
+		},
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
+	moduleResolver = &symbol.ModuleResolver{
+		Name: moduleName,
+		Members: symbol.MapResolver{
+			qualifiedMemberName: {
+				Name: qualifiedMemberName,
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: symbolProps,
+			},
+		},
+	}
+	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
 type Module struct {
@@ -63,65 +87,59 @@ func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, erro
 	return SymbolResolver.Search(ctx, term)
 }
 
+func (m *Module) ModuleName() string { return moduleName }
+
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	f := &statusFactory{stat: m.stat}
-	return f.Create(ctx, cfg)
-}
-
-type setStatus struct {
-	statusSvc *status.Service
-	ins       alamos.Instrumentation
-	stat      status.Status[any]
-}
-
-func (s *setStatus) Init(node.Context) {}
-
-func (s *setStatus) Reset() {}
-
-func (s *setStatus) IsOutputTruthy(output string) bool {
-	return false
-}
-
-func (s *setStatus) Next(ctx node.Context) {
-	s.stat.Time = telem.Now()
-	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
-		s.ins.L.Error("error setting status", zap.Error(err))
-	}
-}
-
-type statusFactory struct {
-	stat *status.Service
-}
-
-var schema = zyn.Object(map[string]zyn.Schema{
-	"status_key": zyn.String(),
-	"message":    zyn.String(),
-	"variant":    zyn.String(),
-})
-
-type nodeConfig struct {
-	StatusKey string `json:"status_key"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-}
-
-func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg nodeConfig
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	var nodeCfg setNodeConfig
+	if err := setNodeConfigSchema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	var stat status.Status[any]
-	if err := s.stat.NewRetrieve().
-		WhereKeys(nodeCfg.StatusKey).
+	if err := m.stat.NewRetrieve().
+		Where(status.MatchKeys[any](nodeCfg.StatusKey)).
 		Entry(&stat).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey
+	stat.Name = nodeCfg.Name
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
-	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
+	return &setNode{ins: cfg.Instrumentation, stat: stat, statusSvc: m.stat}, nil
+}
+
+type setNodeConfig struct {
+	StatusKey string `json:"status_key"`
+	Message   string `json:"message"`
+	Variant   string `json:"variant"`
+	Name      string `json:"name"`
+}
+
+var setNodeConfigSchema = zyn.Object(map[string]zyn.Schema{
+	"status_key": zyn.String(),
+	"message":    zyn.String(),
+	"variant":    zyn.String(),
+	"name":       zyn.String().Optional(),
+})
+
+type setNode struct {
+	statusSvc *status.Service
+	ins       alamos.Instrumentation
+	stat      status.Status[any]
+}
+
+func (s *setNode) Init(node.Context) {}
+
+func (s *setNode) Reset() {}
+
+func (s *setNode) IsOutputTruthy(int) bool { return false }
+
+func (s *setNode) Next(ctx node.Context) {
+	s.stat.Time = telem.Now()
+	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
+		s.ins.L.Error("error setting status", zap.Error(err))
+	}
 }

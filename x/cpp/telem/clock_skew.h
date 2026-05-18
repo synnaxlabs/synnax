@@ -24,10 +24,8 @@ public:
     std::function<TimeStamp()> now = TimeStamp::now;
     /// @brief timestamp when the most recent measurement started
     TimeStamp local_start_t = TimeStamp(0);
-    /// @brief running sum of all measured clock skews
-    TimeSpan accumulated_skew = TimeSpan::ZERO();
-    /// @brief number of measurements taken
-    std::uint64_t n = 0;
+    /// @brief most recently measured clock skew
+    TimeSpan last_skew = TimeSpan::ZERO();
 
     /// @brief default constructor
     ClockSkewCalculator() = default;
@@ -47,17 +45,12 @@ public:
         const auto local_end_t = this->now();
         const auto this_midpoint_t = this->local_start_t +
                                      (local_end_t - this->local_start_t) / 2;
-        const auto skew = this_midpoint_t - remote_midpoint_t;
-        this->accumulated_skew += skew;
-        this->n++;
+        this->last_skew = this_midpoint_t - remote_midpoint_t;
     }
 
-    /// @brief returns the average clock skew across all measurements
-    /// @return TimeSpan representing the average clock skew
-    TimeSpan skew() const {
-        if (this->n == 0) return TimeSpan::ZERO();
-        return this->accumulated_skew / this->n;
-    }
+    /// @brief returns the most recently measured clock skew
+    /// @return TimeSpan representing the clock skew
+    TimeSpan skew() const { return this->last_skew; }
 
     /// @brief checks if the absolute value of the average clock skew exceeds a
     /// threshold

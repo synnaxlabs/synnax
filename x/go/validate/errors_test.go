@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -62,7 +61,7 @@ var _ = Describe("Errors", func() {
 	Describe("InvalidTypeError", func() {
 		It("Should format the error message correctly", func() {
 			err := validate.NewInvalidTypeError("cat", "dog")
-			Expect(err).To(HaveOccurredAs(validate.ErrInvalidType))
+			Expect(err).To(MatchError(validate.ErrInvalidType))
 			Expect(err).To(MatchError(ContainSubstring("expected cat but received dog")))
 		})
 	})

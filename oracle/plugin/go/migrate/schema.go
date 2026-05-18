@@ -10,8 +10,10 @@
 package migrate
 
 import (
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // --- Schema equality (used by detectSchemaChange) ---
@@ -22,19 +24,19 @@ func schemasEqual(
 	oldType, newType resolution.Type,
 	oldTable, newTable *resolution.Table,
 ) bool {
-	return typesEqual(oldType, newType, oldTable, newTable, make(map[string]bool))
+	return typesEqual(oldType, newType, oldTable, newTable, make(set.Set[string]))
 }
 
 func typesEqual(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) bool {
-	if visiting[old.QualifiedName] {
+	if visiting.Contains(old.QualifiedName) {
 		return true
 	}
-	visiting[old.QualifiedName] = true
-	defer delete(visiting, old.QualifiedName)
+	visiting.Add(old.QualifiedName)
+	defer visiting.Remove(old.QualifiedName)
 
 	switch oldForm := old.Form.(type) {
 	case resolution.StructForm:
@@ -53,6 +55,10 @@ func typesEqual(
 			if !refsEqual(of.Type, nf.Type, oldTable, newTable, visiting) {
 				return false
 			}
+			if domain.GetStringFromField(of, "go", "marshal") !=
+				domain.GetStringFromField(nf, "go", "marshal") {
+				return false
+			}
 		}
 		for i := range oldForm.Extends {
 			if !refsEqual(oldForm.Extends[i], newForm.Extends[i], oldTable, newTable, visiting) {
@@ -62,12 +68,26 @@ func typesEqual(
 		return true
 	case resolution.EnumForm:
 		newForm, ok := new.Form.(resolution.EnumForm)
-		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum || len(oldForm.Values) != len(newForm.Values) {
+		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
 			return false
 		}
-		for i := range oldForm.Values {
-			if oldForm.Values[i].Name != newForm.Values[i].Name || oldForm.Values[i].Value != newForm.Values[i].Value {
-				return false
+		// Enum value adds, removes, and renames are wire-format-compatible:
+		// the underlying representation is the string (or int) itself, and old
+		// records still deserialize into the underlying type even when their
+		// stored value is no longer a named constant. The only enum delta that
+		// breaks wire format is renumbering an int enum — a name that exists in
+		// both versions assigned a different integer. Anything else is purely a
+		// source-level / application-semantic change and must not propagate
+		// through field references as a structural type change.
+		if oldForm.IsIntEnum {
+			newByName := make(map[string]int64, len(newForm.Values))
+			for _, v := range newForm.Values {
+				newByName[v.Name] = v.IntValue()
+			}
+			for _, ov := range oldForm.Values {
+				if newVal, exists := newByName[ov.Name]; exists && newVal != ov.IntValue() {
+					return false
+				}
 			}
 		}
 		return true
@@ -91,7 +111,7 @@ func typesEqual(
 func refsEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) bool {
 	if len(old.TypeArgs) != len(new.TypeArgs) {
 		return false
@@ -157,7 +177,7 @@ func SchemaDiff(
 	oldTable, newTable *resolution.Table,
 ) map[string]TypeDiff {
 	result := make(map[string]TypeDiff)
-	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(map[string]bool))
+	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(set.Set[string]))
 	return result
 }
 
@@ -165,16 +185,16 @@ func diffWalk(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
 	result map[string]TypeDiff,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) TypeChangeKind {
-	if visiting[old.QualifiedName] {
+	if visiting.Contains(old.QualifiedName) {
 		return TypeUnchanged
 	}
 	if existing, ok := result[old.QualifiedName]; ok {
 		return existing.Kind
 	}
-	visiting[old.QualifiedName] = true
-	defer delete(visiting, old.QualifiedName)
+	visiting.Add(old.QualifiedName)
+	defer visiting.Remove(old.QualifiedName)
 
 	goPath := output.GetPath(old, "go")
 
@@ -196,7 +216,7 @@ func diffWalk(
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
 	newStruct, newOk := new.Form.(resolution.StructForm)
 	if !oldOk || !newOk {
-		if !typesEqual(old, new, oldTable, newTable, make(map[string]bool)) {
+		if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
 			result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeChanged}
 			return TypeChanged
 		}
@@ -270,6 +290,10 @@ func diffStructFields(
 			selfChanged = true
 			continue
 		}
+		if domain.GetStringFromField(of, "go", "marshal") !=
+			domain.GetStringFromField(nf, "go", "marshal") {
+			selfChanged = true
+		}
 		diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindUnchanged, OldField: &of, NewField: &nf})
 	}
 	for _, nf := range new.Fields {
@@ -311,7 +335,7 @@ func diffRefWalk(
 	ref resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
 	result map[string]TypeDiff,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) TypeChangeKind {
 	oldResolved, oldOk := ref.Resolve(oldTable)
 	if !oldOk {

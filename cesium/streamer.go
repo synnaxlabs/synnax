@@ -86,7 +86,7 @@ func NewTranslatedStreamer[I any, O any](
 	translateResponse func(StreamerResponse) O,
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	return &streamer[I, O]{
 		StreamerConfig:    cfg,

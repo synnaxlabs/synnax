@@ -392,9 +392,7 @@ struct DeadlineNode final : public node::Node {
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 /// @brief Creates a runtime with a DeadlineNode for testing timeout conversion.

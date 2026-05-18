@@ -18,18 +18,22 @@ import (
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
-	entries  *Entries[K, E]
+	// entries is the set of entries the query will write.
+	entries Entries[K, E]
+	// onUpdate is the ordered set of MergeExisting filters applied when
+	// an entry with a matching key already exists. When onUpdate is
+	// empty, the query skips the existing-entry lookup entirely.
 	onUpdate onUpdate[K, E]
-	// indexes, when non-nil, are propagated into the writer constructed
-	// by Exec so secondary-index delta overlays see every write. Set by
-	// Table.NewCreate from t.indexes; left nil by the standalone
-	// NewCreate constructor.
+	// keyPrefix is the gorp key prefix for entry type E.
+	keyPrefix []byte
+	// indexes is the set of secondary indexes the query stages writes
+	// against. Nil means writes are not staged.
 	indexes []Index[K, E]
 }
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
-	return Create[K, E]{entries: new(Entries[K, E])}
+	return Create[K, E]{}
 }
 
 // MergeExisting adds a function to the query that can be used to prevent the accidental
@@ -45,13 +49,13 @@ func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating, existing 
 
 // Entries sets the Entries to write to the DB.
 func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
-	c.entries = multipleEntries(entries)
+	c.entries.bindMultiple(entries)
 	return c
 }
 
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] {
-	c.entries = singleEntry(entry)
+	c.entries.bindSingle(entry)
 	return c
 }
 
@@ -59,11 +63,11 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := newWriter(tx, c.indexes)
+	w := wrapWriter[K, E](tx, c.keyPrefix, c.indexes)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}
-	r := WrapReader[K, E](tx)
+	r := wrapReader[K, E](tx, c.keyPrefix)
 	all := c.entries.All()
 	toWrite := make([]E, 0, len(all))
 	for _, entry := range all {
@@ -84,18 +88,6 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 		toWrite = append(toWrite, e)
 	}
 	return w.Set(ctx, toWrite...)
-}
-
-// newWriter picks between the index-aware table writer and the
-// bare writer based on whether the query carries an index list.
-// Encapsulated here (and mirrored in update.go / delete.go) so every
-// caller uses the same resolution logic and tests can exercise both
-// paths without duplicating the conditional.
-func newWriter[K Key, E Entry[K]](tx Tx, indexes []Index[K, E]) *Writer[K, E] {
-	if indexes == nil {
-		return WrapWriter[K, E](tx)
-	}
-	return wrapTableWriter[K, E](tx, indexes)
 }
 
 type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from x.control import Authority, CrudeAuthority, Subject
+from x.telem.clock_skew import ClockSkewCalculator
 from x.telem.series import (
     CrudeSeries,
     MultiSeries,
@@ -40,6 +41,7 @@ from x.telem.telem import (
 
 __all__ = [
     "Alignment",
+    "ClockSkewCalculator",
     "Authority",
     "Bounds",
     "convert_time_units",

@@ -82,18 +82,18 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
-	Keys           []string   `json:"keys" msgpack:"keys"`
-	Names          []string   `json:"names" msgpack:"names"`
-	Makes          []string   `json:"makes" msgpack:"makes"`
-	Models         []string   `json:"models" msgpack:"models"`
-	Locations      []string   `json:"locations" msgpack:"locations"`
-	Racks          []rack.Key `json:"racks" msgpack:"racks"`
-	Limit          int        `json:"limit" msgpack:"limit"`
-	Offset         int        `json:"offset" msgpack:"offset"`
-	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool       `json:"include_status" msgpack:"include_status"`
-	IncludeParent  bool       `json:"include_parent" msgpack:"include_parent"`
+	SearchTerm     string       `json:"search_term" msgpack:"search_term"`
+	Keys           []device.Key `json:"keys" msgpack:"keys"`
+	Names          []string     `json:"names" msgpack:"names"`
+	Makes          []string     `json:"makes" msgpack:"makes"`
+	Models         []string     `json:"models" msgpack:"models"`
+	Locations      []string     `json:"locations" msgpack:"locations"`
+	Racks          []rack.Key   `json:"racks" msgpack:"racks"`
+	Limit          int          `json:"limit" msgpack:"limit"`
+	Offset         int          `json:"offset" msgpack:"offset"`
+	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	IncludeStatus  bool         `json:"include_status" msgpack:"include_status"`
+	IncludeParent  bool         `json:"include_parent" msgpack:"include_parent"`
 }
 
 type RetrieveResponse struct {
@@ -117,7 +117,7 @@ func (s *Service) Retrieve(
 	)
 	q := s.device.NewRetrieve()
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(device.MatchKeys(req.Keys...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -148,7 +148,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -192,7 +192,7 @@ func (s *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(

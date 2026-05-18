@@ -308,6 +308,15 @@ TEST(SampleFromBitsTest, HandlesTimestamp) {
     EXPECT_EQ(std::get<x::telem::TimeStamp>(ts_sample).nanoseconds(), 1000000000);
 }
 
+/// @brief sample_from_bits treats Kind::String as an i32 handle.
+TEST(SampleFromBitsTest, HandlesStringAsI32Handle) {
+    const auto sample = sample_from_bits(
+        42,
+        arc::types::Type{.kind = arc::types::Kind::String}
+    );
+    EXPECT_EQ(std::get<int32_t>(sample), 42);
+}
+
 TEST(SampleToWasmTypedTest, ConvertsF64) {
     arc::types::Type type{.kind = arc::types::Kind::F64};
     const auto result = sample_to_wasm(x::telem::SampleValue(3.14), type);

@@ -181,15 +181,7 @@ const loadSchematic = async (
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(
-    Schematic.create({
-      ...schematic.data,
-      key: schematic.key,
-      name: schematic.name,
-      snapshot: schematic.snapshot,
-      editable: false,
-    }),
-  );
+  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -219,9 +211,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
+        key: schematic.key,
         name: schematic.name,
-        ...schematic.data,
-        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
@@ -234,9 +225,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Schematic />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [
-    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
-  ],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <charconv>
+#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -17,6 +19,24 @@
 #include "arc/cpp/stl/str/state.h"
 
 namespace arc::stl::str {
+
+/// Formats v as the shortest round-trippable decimal, matching Go's
+/// strconv.FormatFloat(v, 'g', -1, bitSize). NaN and ±Inf are emitted as
+/// "NaN", "+Inf", "-Inf" to match Go's output exactly.
+template<typename T>
+std::string format_float(T v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "+Inf" : "-Inf";
+    char buf[32];
+    const auto [end, ec] = std::to_chars(
+        buf,
+        buf + sizeof(buf),
+        v,
+        std::chars_format::general
+    );
+    if (ec != std::errc{}) return "";
+    return {buf, end};
+}
 
 class Module : public stl::Module {
     std::shared_ptr<State> str_state;
@@ -92,6 +112,48 @@ public:
                 [ss](uint32_t handle) -> uint64_t {
                     return static_cast<uint64_t>(ss->get(handle).length());
                 }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_i32",
+                [ss](int32_t v) -> uint32_t { return ss->create(std::to_string(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_u32",
+                [ss](uint32_t v) -> uint32_t { return ss->create(std::to_string(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_i64",
+                [ss](int64_t v) -> uint32_t { return ss->create(std::to_string(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_u64",
+                [ss](uint64_t v) -> uint32_t { return ss->create(std::to_string(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_f32",
+                [ss](float v) -> uint32_t { return ss->create(format_float(v)); }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                "string",
+                "from_f64",
+                [ss](double v) -> uint32_t { return ss->create(format_float(v)); }
             )
             .unwrap();
     }

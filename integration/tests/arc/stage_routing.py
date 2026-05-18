@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STAGE_ROUTING = """
@@ -27,44 +27,44 @@ start_stage_routing_cmd => main
 
 sequence main {
     stage select_hold {
-        "select_hold" -> routing_stage_log,
+        "select_hold" -> routing_stage_log
         routing_flag -> select{} -> {
             true: select_on,
             false: select_off
-        },
+        }
     }
     stage select_on {
-        "select_on" -> routing_stage_log,
+        "select_on" -> routing_stage_log
         next_cmd => select_hold
     }
     stage select_off {
-        "select_off" -> routing_stage_log,
+        "select_off" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
 
     stage decide_stage_hold {
-        "decide_stage_hold" -> routing_stage_log,
+        "decide_stage_hold" -> routing_stage_log
         routing_sensor -> decide_stage{low=30.0, high=80.0} -> {
             vent: decide_stage_vent,
             press: decide_stage_press,
             abort: decide_stage_abort
-        },
+        }
     }
     stage decide_stage_vent {
-        "decide_stage_vent" -> routing_stage_log,
+        "decide_stage_vent" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
     stage decide_stage_press {
-        "decide_stage_press" -> routing_stage_log,
+        "decide_stage_press" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
     stage decide_stage_abort {
-        "decide_stage_abort" -> routing_stage_log,
+        "decide_stage_abort" -> routing_stage_log
         next_cmd => done
     }
 
     stage done {
-        "done" -> routing_stage_log,
+        "done" -> routing_stage_log
     }
 }
 """
@@ -84,30 +84,8 @@ class StageRouting(ArcConsoleCase):
     subscribe_channels = ["routing_stage_log"]
 
     def setup(self) -> None:
-        flag_idx = self.client.channels.create(
-            name="routing_flag_time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="routing_flag",
-            data_type=sy.DataType.UINT8,
-            index=flag_idx.key,
-            retrieve_if_name_exists=True,
-        )
-        sensor_idx = self.client.channels.create(
-            name="routing_sensor_time",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="routing_sensor",
-            data_type=sy.DataType.FLOAT64,
-            index=sensor_idx.key,
-            retrieve_if_name_exists=True,
-        )
+        create_indexed_pair(self.client, "routing_flag", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "routing_sensor", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
         create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
         super().setup()

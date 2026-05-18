@@ -69,7 +69,6 @@ y f64 := f64(x) + 1.0
 func add(x f64, y f64) f64 {
     return x + y
 }
-
 // Error: expected 2 arguments, got 1
 result := add(5.0)
 ```
@@ -85,21 +84,21 @@ result := add(5.0)
 
 ```arc
 // Error: undefined symbol 'ox_pt_1'
-value := ox_pt_1    // channel doesn't exist in cluster
+value := ox_pt_1 // channel doesn't exist in cluster
 ```
 
 **Example: SymbolRedefined**
 
 ```arc
 x := 42
-x := 100    // Error: x already declared
+x := 100 // Error: x already declared
 ```
 
 ```arc
 func example() {
     x := 10
     if x > 0 {
-        x := 20  // Error: conflicts with outer x
+        x := 20 // Error: conflicts with outer x
     }
 }
 ```
@@ -160,7 +159,7 @@ if b != 0 {
 
 ```arc
 data := [1.0, 2.0, 3.0]
-value := data[5]    // Runtime error: index 5 out of bounds
+value := data[5] // Runtime error: index 5 out of bounds
 ```
 
 **Prevention:**
@@ -225,7 +224,7 @@ Write intermediate values to channels for debugging:
 ```arc
 func debug_controller(value f64) f64 {
     error := value - setpoint
-    debug_error = error    // Write to channel for visibility
+    debug_error = error // Write to channel for visibility
     return error * gain
 }
 ```

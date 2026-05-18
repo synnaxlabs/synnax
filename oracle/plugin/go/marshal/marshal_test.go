@@ -319,7 +319,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("marshal skip on a field", func() {
+		Context("marshal omit on a field", func() {
 			It("Should exclude the field from encoding and decoding", func() {
 				source := `
 					@go output "core/pkg/test"
@@ -329,7 +329,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					Test struct {
 						name string
 						data record? {
-							@go marshal skip
+							@go marshal omit
 						}
 					}
 				`

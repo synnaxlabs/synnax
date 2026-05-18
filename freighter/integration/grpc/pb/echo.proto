@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package freighter.integration;
+
+option go_package = "github.com/synnaxlabs/freighter/integration/grpc/pb";
+
+service EchoService {
+  rpc Exec(Message) returns (Message);
+}
+
+message Message {
+  uint32 id = 1;
+  string message = 2;
+}

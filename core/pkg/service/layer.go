@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -149,6 +150,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// ImEx is the central import/export registry.
+	ImEx *imex.Service
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
@@ -266,11 +269,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
+		DB: cfg.Distribution.DB,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
@@ -407,7 +416,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
 		Instrumentation: cfg.Child("arc.runtime"),
 		Channel:         l.Channel,

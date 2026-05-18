@@ -79,7 +79,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}
 	racks := make([]Rack, 0, len(toAlert))
 	if err := m.svc.NewRetrieve().
-		WhereKeys(toAlert...).
+		Where(MatchKeys(toAlert...)).
 		Entries(&racks).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
@@ -103,7 +103,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
 			Details:     StatusDetails{Rack: r.Key},
 		}
-		m.L.Warn(strings.ToLower(stat.Message), zap.Stringer("time_since_alive", timeSinceAlive))
+		m.L.Warn(stat.Message, zap.Stringer("time_since_alive", timeSinceAlive))
 		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()

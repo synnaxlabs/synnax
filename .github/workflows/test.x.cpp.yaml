@@ -58,7 +58,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: false
           disk-cache: false
@@ -66,11 +66,7 @@ jobs:
 
       - name: Install Clang Format
         if: matrix.format
-        run: |
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+        run: scripts/install_clang_format.sh
 
       - name: Check Formatting
         if: matrix.format

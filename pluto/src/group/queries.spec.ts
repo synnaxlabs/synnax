@@ -127,12 +127,10 @@ describe("Group queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data.length).toBeGreaterThanOrEqual(2);
+        const names = result.current.getItem(result.current.data).map((g) => g.name);
+        expect(names).toContain("apple red");
+        expect(names).toContain("apple purple");
       });
-
-      const groupItems = result.current.getItem(result.current.data);
-      const names = groupItems.map((g) => g.name);
-      expect(names).toContain("apple red");
-      expect(names).toContain("apple purple");
     });
 
     it("should respect limit and offset parameters", async () => {

@@ -46,8 +46,8 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 	db := &DB{options: o, closed: &atomic.Bool{}}
-	db.mu.unaryDBs = make(map[channel.Key]unary.DB, len(info))
-	db.mu.virtualDBs = make(map[channel.Key]virtual.DB, len(info))
+	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
+	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
@@ -79,7 +79,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.virtualDBs[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
 	v, err := virtual.Open(ctx, virtual.Config{
@@ -91,12 +91,12 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
-	db.mu.virtualDBs[ch.Key] = *v
+	db.mu.dbs.virtual[ch.Key] = *v
 	return nil
 }
 
 func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
-	if _, isOpen := db.mu.unaryDBs[ch.Key]; isOpen {
+	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
 	u, err := unary.Open(ctx, unary.Config{
@@ -110,22 +110,21 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if err != nil {
 		return err
 	}
-	// In the case where we index the data using a separate index database, we need to
-	// set the index on the unary database. Otherwise, we assume the database is
-	// self-indexing.
+	// For non-index channels, resolve the index DB. The index DB is always a
+	// fixed-density unary DB (index channels are TimeStampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
-		idxDB, ok := db.mu.unaryDBs[u.Channel().Index]
+		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
 			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
 				return err
 			}
-			if idxDB, ok = db.mu.unaryDBs[u.Channel().Index]; !ok {
+			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
 				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
 			}
 		}
 		u.SetIndex(idxDB.Index())
 	}
-	db.mu.unaryDBs[ch.Key] = *u
+	db.mu.dbs.unary[ch.Key] = *u
 	return nil
 }
 
@@ -138,10 +137,6 @@ func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
 	if errors.Is(err, virtual.ErrNotVirtual) {
 		err = db.openUnary(ctx, ch, fs)
 	}
-	// For legacy, rate-based channels (V1), attempting to open a unary DB on them will
-	// return a meta.ErrIgnoreChannel error, which tells us to just ignore and not open
-	// that directory as an actual channel. This is a better alternative to deleting the
-	// channel, as we don't want to risk losing user data.
 	return errors.Skip(err, meta.ErrIgnoreChannel)
 }
 

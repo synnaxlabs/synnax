@@ -52,7 +52,7 @@ func run(pass *analysis.Pass) (any, error) {
 			if !ok {
 				return true
 			}
-			if skipFuncLits[block] {
+			if skipFuncLits.Contains(block) {
 				return false
 			}
 			if analyzeBlock(pass, block.List) {
@@ -135,8 +135,8 @@ func fileImportInfo(file *ast.File) importInfo {
 // FuncLits that are arguments to Eventually/Consistently. These blocks should be
 // skipped because those Gomega helpers retry on failure, and MustSucceed would panic
 // instead of allowing retries.
-func collectAsyncFuncLits(file *ast.File) map[*ast.BlockStmt]bool {
-	skip := map[*ast.BlockStmt]bool{}
+func collectAsyncFuncLits(file *ast.File) set.Set[*ast.BlockStmt] {
+	skip := make(set.Set[*ast.BlockStmt])
 	ast.Inspect(file, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
@@ -154,7 +154,7 @@ func collectAsyncFuncLits(file *ast.File) map[*ast.BlockStmt]bool {
 		}
 		for _, arg := range call.Args {
 			if funcLit, ok := arg.(*ast.FuncLit); ok {
-				skip[funcLit.Body] = true
+				skip.Add(funcLit.Body)
 			}
 		}
 		return true

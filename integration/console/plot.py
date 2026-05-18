@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from typing import Any, Literal
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.channels import ChannelClient
@@ -377,6 +378,40 @@ class Plot(ConsolePage):
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
         self.page.get_by_role("button", name="Save to Synnax").click()
+
+    def get_annotation_toggle(self) -> Locator:
+        """Return the range-annotation visibility toggle button.
+
+        The button only exists in the DOM when at least one range intersects
+        the current plot viewport.
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(
+            ".console-controls button:has(.pluto-icon--range)"
+        )
+
+    def wait_for_annotation_toggle(self, timeout: int = 5000) -> None:
+        """Wait for the annotation visibility toggle to appear."""
+        self.get_annotation_toggle().wait_for(state="visible", timeout=timeout)
+
+    def toggle_annotation_visibility(self) -> None:
+        """Click the annotation visibility toggle."""
+        self.get_annotation_toggle().click(timeout=5000)
+
+    def expect_annotations_visible(
+        self, visible: bool = True, timeout: int = 5000
+    ) -> None:
+        """Assert the annotation visibility toggle reflects the given state.
+
+        Pluto's Button.Toggle renders the "filled" variant when on.
+        """
+        pattern = re.compile(r"pluto-btn--filled")
+        toggle = expect(self.get_annotation_toggle())
+        if visible:
+            toggle.to_have_class(pattern, timeout=timeout)
+        else:
+            toggle.not_to_have_class(pattern, timeout=timeout)
 
     def has_channel(self, axis: Axis, channel_name: str) -> bool:
         """Check if a channel is shown on the specified axis in the toolbar."""

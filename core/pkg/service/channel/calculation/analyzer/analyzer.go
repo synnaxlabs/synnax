@@ -97,7 +97,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 	aCtx := acontext.CreateRoot(ctx, t, a.resolver)
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
-		return Result{Unresolved: a.resolver.unresolved.ToSlice()}, aCtx.Diagnostics
+		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,

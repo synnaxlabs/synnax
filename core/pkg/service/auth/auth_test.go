@@ -28,14 +28,11 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		invalidUserCreds auth.InsecureCredentials
 	)
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		authenticator = MustSucceed(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		authenticator = MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}
 		invalidPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
 		invalidUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}
-	})
-	AfterAll(func(ctx SpecContext) {
-		Expect(db.Close()).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		Expect(authenticator.NewWriter(nil).Register(ctx, creds)).To(Succeed())
@@ -48,7 +45,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			var secCreds auth.SecureCredentials
 			tx := db.OpenTx()
 			Expect(gorp.NewRetrieve[string, auth.SecureCredentials]().
-				WhereKeys(creds.Username).
+				Where(gorp.MatchKeys[string, auth.SecureCredentials](creds.Username)).
 				Entry(&secCreds).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(secCreds.Username).To(Equal(creds.Username))

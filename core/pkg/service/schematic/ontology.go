@@ -26,13 +26,13 @@ import (
 )
 
 // OntologyID returns unique identifier for the schematic within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeSchematic, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the schematics within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(key Key, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
@@ -54,7 +54,7 @@ func newResource(s Schematic) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
 }
 
-type change = xchange.Change[uuid.UUID, Schematic]
+type change = xchange.Change[Key, Schematic]
 
 var (
 	_ ontology.Service = (*Service)(nil)
@@ -73,7 +73,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, err
 	}
 	var schematic Schematic
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&schematic).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&schematic).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(schematic), nil
@@ -89,7 +89,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Schematic]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Schematic]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

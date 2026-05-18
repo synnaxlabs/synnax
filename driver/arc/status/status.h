@@ -43,9 +43,7 @@ public:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 class Module : public ::arc::stl::Module {
@@ -55,8 +53,10 @@ public:
     explicit Module(std::shared_ptr<synnax::Synnax> client):
         client(std::move(client)) {}
 
+    [[nodiscard]] std::string module_name() const override { return "status"; }
+
     bool handles(const std::string &node_type) const override {
-        return node_type == "set_status";
+        return node_type == "set_status" || node_type == "set";
     }
 
     std::pair<std::unique_ptr<::arc::runtime::node::Node>, x::errors::Error>

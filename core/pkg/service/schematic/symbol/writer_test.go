@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -69,7 +68,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &sym2, ws.OntologyID())).To(Succeed())
 
 			var retrieved symbol.Symbol
-			Expect(svc.NewRetrieve().WhereKeys(key).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(key)).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("updated-name"))
 			Expect(retrieved.Data["svg"]).To(Equal("<svg>updated</svg>"))
 		})
@@ -129,7 +128,7 @@ var _ = Describe("Writer", func() {
 
 			var res symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(sym.Key).
+				Where(symbol.MatchKeys(sym.Key)).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("new-name"))
@@ -149,7 +148,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "renamed")).To(Succeed())
 
 			var res symbol.Symbol
-			Expect(svc.NewRetrieve().WhereKeys(sym.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(sym.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["svg"]).To(Equal(originalData["svg"]))
 		})
 	})
@@ -166,7 +165,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Delete(ctx, sym.Key)).To(Succeed())
 
 			var res symbol.Symbol
-			err := svc.NewRetrieve().WhereKeys(sym.Key).Entry(&res).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(symbol.MatchKeys(sym.Key)).Entry(&res).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -192,9 +191,9 @@ var _ = Describe("Writer", func() {
 
 			var res []symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(sym1.Key, sym2.Key, sym3.Key).
+				Where(symbol.MatchKeys(sym1.Key, sym2.Key, sym3.Key)).
 				Entries(&res).
-				Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})

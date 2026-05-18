@@ -44,6 +44,11 @@ type options struct {
 		// external is a boolean flag indicating whether the caller provided an
 		// external transport they control themselves.
 		external bool
+		// ownedPool is the grpc client pool that defaultOptions created when
+		// the caller did not pass a custom transport. It is non-nil only when
+		// aspen is responsible for closing it. External transports are
+		// expected to come with their own pool lifecycle management.
+		ownedPool *fgrpc.Pool
 	}
 	// dirname is the directory where aspen will store its data.
 	// this option is ignored if a custom kv.ServiceConfig.Engine is set.
@@ -177,7 +182,14 @@ func mergeDefaultOptions(o *options) {
 	o.dirname = override.String(def.dirname, o.dirname)
 	o.kv = def.kv.Override(o.kv)
 	o.cluster = def.cluster.Override(o.cluster)
-	o.transport.Transport = override.Nil(def.transport.Transport, o.transport.Transport)
+	// Only allocate the default grpc client pool if the caller did not
+	// provide their own transport. Otherwise the eagerly-created pool would
+	// leak: nothing would reference it and nothing would close it.
+	if o.transport.Transport == nil {
+		pool := fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		o.transport.ownedPool = pool
+		o.transport.Transport = grpct.New(pool)
+	}
 	o.Instrumentation = override.Zero(def.Instrumentation, o.Instrumentation)
 	o.cluster.Instrumentation = o.Child("cluster")
 	o.kv.Instrumentation = o.Child("kv")
@@ -191,13 +203,9 @@ func mergeDefaultOptions(o *options) {
 }
 
 func defaultOptions() *options {
-	o := &options{
+	return &options{
 		dirname: "aspen",
 		cluster: cluster.DefaultConfig,
 		kv:      kv.DefaultConfig,
 	}
-	o.transport.Transport = grpct.New(
-		fgrpc.NewPool("", grpc.WithTransportCredentials(insecure.NewCredentials())),
-	)
-	return o
 }

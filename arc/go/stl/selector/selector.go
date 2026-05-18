@@ -20,20 +20,37 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// TrueOutputParam and FalseOutputParam name the two outputs of the select
+// node. The order they appear in the symbol's output params determines the
+// ordinal each output uses in MarkChanged / IsOutputTruthy calls — see
+// TrueOutputIdx and FalseOutputIdx below.
+const (
+	TrueOutputParam  = "true"
+	FalseOutputParam = "false"
+)
+
+// TrueOutputIdx and FalseOutputIdx are the ordinals the runtime
+// implementation passes to MarkChanged and IsOutputTruthy. They mirror
+// the declaration order of TrueOutputParam and FalseOutputParam in the
+// symbol's Outputs and must stay in sync with it.
+const (
+	TrueOutputIdx  = 0
+	FalseOutputIdx = 1
+)
+
 var (
-	trueParamName  = "true"
-	falseParamName = "false"
-	symbolName     = "select"
-	symbolSelect   = symbol.Symbol{
+	symbolName   = "select"
+	symbolSelect = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
-				{Name: "true", Type: types.U8()},
-				{Name: "false", Type: types.U8()},
+				{Name: TrueOutputParam, Type: types.U8()},
+				{Name: FalseOutputParam, Type: types.U8()},
 			},
 		}),
 	}
@@ -43,14 +60,6 @@ var (
 type Module struct{}
 
 func NewModule() *Module { return &Module{} }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
@@ -100,15 +109,15 @@ func (s *selectNode) Next(ctx node.Context) {
 			telem.CopyValue(*trueTime, time, trueIdx, i)
 			trueIdx++
 		} else {
-			falseData.Data[falseIdx] = 0
+			falseData.Data[falseIdx] = 1
 			telem.CopyValue(*falseTime, time, falseIdx, i)
 			falseIdx++
 		}
 	}
 	if trueData.Len() > 0 {
-		ctx.MarkChanged(trueParamName)
+		ctx.MarkChanged(0)
 	}
 	if falseData.Len() > 0 {
-		ctx.MarkChanged(falseParamName)
+		ctx.MarkChanged(1)
 	}
 }

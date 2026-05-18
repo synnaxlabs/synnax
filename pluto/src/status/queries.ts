@@ -52,7 +52,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_STATUS_LISTENER, DELETE_STATUS_LISTENER],
 };
 
-export interface ListParams extends status.MultiRetrieveArgs {}
+export type ListParams = status.MultiRetrieveArgs;
 
 export const useList = Flux.createList<
   ListParams,
@@ -139,7 +139,7 @@ export const { useUpdate: useSet } = Flux.createUpdate<SetParams, FluxSubStore>(
   },
 });
 
-export interface RetrieveQuery extends status.SingleRetrieveArgs {}
+export type RetrieveQuery = status.SingleRetrieveArgs;
 
 const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
@@ -223,9 +223,9 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     ],
   });
 
-export interface RetrieveMultipleQuery {
+export type RetrieveMultipleQuery = {
   keys: status.Key[];
-}
+};
 
 export const retrieveMultiple = async ({
   client,
@@ -241,7 +241,7 @@ export const retrieveMultiple = async ({
   if (missing.length === 0) return cached;
   const retrieved = await client.statuses.retrieve({ keys: missing });
   store.statuses.set(retrieved);
-  return [...cached, ...retrieved];
+  return Flux.orderByKeys(keys, [...cached, ...retrieved], (s) => s.key);
 };
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<

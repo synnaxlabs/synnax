@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { group } from "@/group";
@@ -75,21 +76,44 @@ describe("Symbol Client", () => {
     });
 
     it("should retrieve multiple symbols by keys", async () => {
-      const created1 = await client.schematics.symbols.create({
-        name: "Multi Test 1",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-        parent: group.ontologyID(symbolGroup.key),
-      });
-      const created2 = await client.schematics.symbols.create({
-        name: "Multi Test 2",
-        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+      const created = await client.schematics.symbols.create({
+        symbols: [
+          {
+            name: "Multi Test 1",
+            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+          },
+          {
+            name: "Multi Test 2",
+            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+          },
+        ],
         parent: group.ontologyID(symbolGroup.key),
       });
 
       const retrieved = await client.schematics.symbols.retrieve({
-        keys: [created1.key, created2.key],
+        keys: created.map((s) => s.key),
       });
       expect(retrieved).toHaveLength(2);
+    });
+
+    it("should retrieve symbols by search term", async () => {
+      const prefix = `searchable-symbol-${id.create()}`;
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.schematics.symbols.create({
+        symbols: names.map((name) => ({
+          name,
+          data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        })),
+        parent: group.ontologyID(symbolGroup.key),
+      });
+      await expect
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            searchTerm: prefix,
+          });
+          return results.map((s) => s.name).sort();
+        })
+        .toEqual(names);
     });
   });
 

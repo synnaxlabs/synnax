@@ -27,7 +27,10 @@ func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions
 // directly against the underlying key-value store, outside the isolated context of
 // a transaction.
 type DB struct {
+	// DB is the underlying key-value store.
 	kv.DB
+	// options carries the encoding/instrumentation configuration applied
+	// to every Tx opened from this DB.
 	options
 }
 
@@ -36,11 +39,8 @@ var _ Tx = (*DB)(nil)
 // OpenTx begins a new Tx against the DB.
 func (db *DB) OpenTx() Tx { return &tx{Tx: db.DB.OpenTx(), options: db.options} }
 
-// txIdentity implements Tx for DB. Because DB represents the "no transaction"
-// mode (queries commit directly), it owns no per-tx state and returns nil.
-// Subsystems that scope state to a transaction (e.g. secondary indexes
-// maintaining a delta overlay) treat a nil identity as the committed-only
-// path and skip staging.
+// txIdentity returns nil. DB has no per-tx state because operations against
+// it commit directly.
 func (db *DB) txIdentity() *txState { return nil }
 
 // WithTx executes the callback within the provided transaction Tx. If the callback
@@ -85,97 +85,97 @@ func OverrideTx(base, override Tx) Tx { return lo.Ternary(override != nil, overr
 // if they desire to do so, or simply use the DB directly otherwise.
 //
 // Tx is sealed: the unexported txIdentity method prevents external packages
-// from providing their own implementations. This is deliberate — subsystems
-// like secondary indexes scope per-tx state off the identity handle, and
-// allowing external implementations would either require them to implement
-// the handle or risk silently breaking the overlay contract.
+// from providing their own implementations.
 type Tx interface {
 	kv.Tx
 	encoding.Codec
-	// txIdentity returns the per-tx state handle used by subsystems that
-	// scope ephemeral state to a transaction's lifetime. Concrete tx
-	// implementations return a stable *txState that remains valid until
-	// Commit or Close runs cleanups. DB returns nil, signaling "no
-	// transaction" semantics — callers treat nil as committed-only and
-	// skip their per-tx logic.
+	// txIdentity returns a state handle scoped to this transaction's
+	// lifetime. The handle is stable from open through Commit or Close,
+	// so callers may use the pointer as a map key. A nil return means
+	// the receiver is not a real transaction (e.g. a DB used directly),
+	// and callers should treat the operation as already committed.
 	txIdentity() *txState
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
 // fields useful in gorp callbacks.
 type Context struct {
+	// Context is the underlying request-scoped context.
 	context.Context
 	// Tx is the transaction the query is operating under.
 	Tx Tx
 }
 
-// txState owns per-tx ephemeral state registered by subsystems (like
-// secondary indexes) that scope work to a single transaction's lifetime.
-// The pointer returned from Tx.txIdentity is used as a concrete map key by
-// those subsystems, so its lifetime must span from OpenTx through Commit
-// or Close. runCleanups is invoked from *tx.Commit and *tx.Close after
-// delegating to the underlying kv.Tx, giving commit-time observers (like
-// the index observer wired in attachIndexObserver) a chance to fire
-// against the global state before the per-tx overlay is dropped.
+// txState owns per-tx ephemeral state and runs cleanups when the owning
+// transaction commits or closes. The pointer is stable for the lifetime
+// of the transaction, so callers can use it as a map key. Cleanups
+// receive committed=true if Commit succeeded and committed=false
+// otherwise; they fire after the underlying commit attempt completes.
 type txState struct {
-	mu       sync.Mutex
-	cleanups []func()
+	// mu guards cleanups.
+	mu sync.Mutex
+	// cleanups is the list of hooks to invoke when the owning tx
+	// commits or closes, in registration order.
+	cleanups []func(committed bool)
 }
 
 // onCleanup registers a hook to run when the owning transaction commits
-// or closes. Safe to call from any goroutine that holds a reference to
-// the state handle.
+// or closes. The hook is invoked with committed=true if the owning tx
+// reached a successful Commit, and committed=false otherwise (Close
+// without prior Commit, or a failed Commit). Safe to call from any
+// goroutine that holds a reference to the state handle.
 //
 //nolint:unused
-func (s *txState) onCleanup(fn func()) {
+func (s *txState) onCleanup(fn func(committed bool)) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)
 	s.mu.Unlock()
 }
 
 // runCleanups invokes every registered hook exactly once in registration
-// order and then clears the list. Hooks themselves must not re-enter
-// runCleanups on the same state.
-func (s *txState) runCleanups() {
+// order, passing committed through to each, and then clears the list.
+// Hooks themselves must not re-enter runCleanups on the same state.
+func (s *txState) runCleanups(committed bool) {
 	s.mu.Lock()
 	hooks := s.cleanups
 	s.cleanups = nil
 	s.mu.Unlock()
 	for _, h := range hooks {
-		h()
+		h(committed)
 	}
 }
 
+// tx is the concrete Tx returned by DB.OpenTx.
 type tx struct {
+	// Tx is the underlying key-value transaction.
 	kv.Tx
+	// options carries the encoding/instrumentation configuration
+	// inherited from the parent DB.
 	options
+	// state is the per-tx ephemeral state used to register and run
+	// cleanups (e.g. index delta flushes).
 	state txState
 }
 
 var _ Tx = (*tx)(nil)
 
-// txIdentity returns this tx's state handle. The pointer is stable for
-// the lifetime of the tx and is used as a map key by per-tx state
-// registries (e.g. index delta overlays).
+// txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit delegates to the embedded kv.Tx and then runs any cleanup hooks
-// registered via state.onCleanup. Cleanups fire after the underlying
-// commit so that commit-time observers on the DB (like the secondary
-// index observer) have already updated global state before per-tx
-// overlays are dropped.
+// Commit commits the transaction. Hooks registered via state.onCleanup
+// run after the commit attempt completes, with committed=true on
+// success and committed=false otherwise.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	err := t.Tx.Commit(ctx, opts...)
-	t.state.runCleanups()
+	t.state.runCleanups(err == nil)
 	return err
 }
 
-// Close delegates to the embedded kv.Tx and then runs cleanups. For an
-// uncommitted tx this discards the per-tx overlay without ever touching
-// the global state.
+// Close closes the transaction. Hooks registered via state.onCleanup
+// run with committed=false.
 func (t *tx) Close() error {
 	err := t.Tx.Close()
-	t.state.runCleanups()
+	t.state.runCleanups(false)
 	return err
 }
 

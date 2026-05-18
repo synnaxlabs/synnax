@@ -133,25 +133,25 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 	primary := ctx.AST.PrimaryExpression()
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
-	if len(funcCalls) > 0 && primary.IDENTIFIER() != nil {
-		funcName := primary.IDENTIFIER().GetText()
+	funcName := parser.PrimaryName(primary)
+	if len(funcCalls) > 0 && funcName != "" {
 		if funcName != "true" && funcName != "false" {
-			// len() and now() are language-level builtins that require compiler
-			// dispatch rather than normal function resolution:
-			// - len() is polymorphic across series and strings, dispatching to
-			//   different host functions (series.len vs string.len) based on
-			//   argument type. The Arc type system has no overloading.
-			// - now() maps to time.now but is exposed as a bare global; deriving
-			//   WASM coordinates requires the qualified name "time.now".
-			if funcName == "len" {
-				return compileBuiltinLen(ctx, funcCalls[0])
-			}
-			if funcName == "now" {
-				return compileBuiltinNow(ctx)
+			// len(), series.len(), and string.len() are language-level builtins
+			// that require compiler dispatch rather than normal function resolution.
+			// len() is polymorphic, dispatching to series.len or string.len based
+			// on argument type. The qualified forms restrict to a specific type.
+			if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
+				return compileBuiltinLen(ctx, funcCalls[0], funcName)
 			}
 
 			scope, err := ctx.Scope.Resolve(ctx, funcName)
 			if err == nil && scope.Kind == symbol.KindFunction {
+				if scope.Exec == symbol.ExecFlow {
+					return types.Type{}, errors.Newf(
+						"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+						funcName, funcName,
+					)
+				}
 				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 			}
 		}
@@ -195,13 +195,33 @@ func compileFunctionCallExpr(
 		)
 	}
 
+	concreteInputs := make(types.Params, len(funcType.Inputs))
+	copy(concreteInputs, funcType.Inputs)
+
+	// Track resolved type variables as arguments are compiled so that
+	// later arguments sharing the same variable get a concrete hint
+	// (e.g. pow(channel_f32, 2) resolves T=f32 on the first arg,
+	// then compiles the literal 2 as f32 instead of defaulting to i64).
+	varMap := make(map[string]types.Type)
+
 	for i, arg := range args {
 		paramType := funcType.Inputs[i].Type
-		argType, err := Compile(context.Child(ctx, arg).WithHint(paramType))
+		hint := paramType
+		if paramType.Kind == types.KindVariable {
+			if resolved, ok := varMap[paramType.Name]; ok {
+				hint = resolved
+			}
+		}
+		argType, err := Compile(context.Child(ctx, arg).WithHint(hint))
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
-		if !types.Equal(argType, paramType) {
+		concreteInputs[i].Type = argType
+		if paramType.Kind == types.KindVariable && argType.Kind != types.KindNumericConstant &&
+			argType.Kind != types.KindIntegerConstant && argType.Kind != types.KindFloatConstant {
+			varMap[paramType.Name] = argType
+		}
+		if !types.Equal(argType, paramType) && paramType.Kind != types.KindVariable {
 			if err := EmitCast(ctx, argType, paramType); err != nil {
 				return types.Type{}, err
 			}
@@ -214,9 +234,26 @@ func compileFunctionCallExpr(
 			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
 		}
 	}
+	concreteOutputs := make(types.Params, len(funcType.Outputs))
+	copy(concreteOutputs, funcType.Outputs)
+	for i, out := range concreteOutputs {
+		if out.Type.Kind == types.KindVariable {
+			if resolved, ok := varMap[out.Type.Name]; ok {
+				concreteOutputs[i].Type = resolved
+			}
+		}
+	}
 
-	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, funcType)
-	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
+	concreteType := types.Function(types.FunctionProperties{
+		Inputs:  concreteInputs,
+		Outputs: concreteOutputs,
+	})
+	emitName := funcName
+	if scope.Deprecated != "" {
+		emitName = scope.Deprecated
+	}
+	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, emitName, concreteType)
+	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {
 		return defaultOutput.Type, nil
 	}
@@ -285,6 +322,9 @@ func compileIndexOrSlice(
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
+	}
+	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
+		return compileIdentifier(ctx, parser.QualifiedName(qid))
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
@@ -376,33 +416,38 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 func compileBuiltinLen(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	funcCall parser.IFunctionCallSuffixContext,
+	funcName string,
 ) (types.Type, error) {
 	var args []parser.IExpressionContext
 	if argList := funcCall.ArgumentList(); argList != nil {
 		args = argList.AllExpression()
 	}
 	if len(args) != 1 {
-		return types.Type{}, errors.Newf("len() requires exactly 1 argument, got %d", len(args))
+		return types.Type{}, errors.Newf("%s() requires exactly 1 argument, got %d", funcName, len(args))
 	}
 
 	argType, err := Compile(context.Child(ctx, args[0]))
 	if err != nil {
-		return types.Type{}, errors.Wrap(err, "argument 1 of len")
+		return types.Type{}, errors.Wrap(err, "argument 1 of "+funcName)
 	}
 
 	switch argType.Kind {
 	case types.KindSeries:
+		if funcName == "string.len" {
+			return types.Type{}, errors.Newf(
+				"string.len() requires a string argument, got series")
+		}
 		ctx.Resolver.EmitSeriesLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	case types.KindString:
+		if funcName == "series.len" {
+			return types.Type{}, errors.Newf(
+				"series.len() requires a series argument, got string")
+		}
 		ctx.Resolver.EmitStringLen(ctx.Writer, ctx.WriterID)
 		return types.I64(), nil
 	default:
-		return types.Type{}, errors.Newf("argument 1 of len: expected series or str, got %s", argType)
+		return types.Type{}, errors.Newf(
+			"argument 1 of %s: expected series or str, got %s", funcName, argType)
 	}
-}
-
-func compileBuiltinNow(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
-	ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID)
-	return types.TimeStamp(), nil
 }

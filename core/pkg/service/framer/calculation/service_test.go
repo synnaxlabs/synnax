@@ -19,10 +19,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -102,16 +102,16 @@ var _ = Describe("Calculation", Ordered, func() {
 	}
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(context.Background())
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		distB := DeferClose(mock.NewCluster())
+		dist = DeferClose(distB.Provision(ctx))
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
-		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
@@ -119,7 +119,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
@@ -127,10 +127,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Status:       statusSvc,
 			Search:       dist.Search,
 		}))
-		DeferCleanup(func() {
-			Expect(rackService.Close()).To(Succeed())
-		})
-		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -138,10 +135,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Status:   statusSvc,
 			Search:   dist.Search,
 		}))
-		DeferCleanup(func() {
-			Expect(taskSvc.Close()).To(Succeed())
-		})
-		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
@@ -149,11 +143,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			Task:     taskSvc,
 			Search:   dist.Search,
 		}))
-		DeferCleanup(func() {
-			Expect(arcSvc.Close()).To(Succeed())
-		})
 		channelSvc := svcchannel.Wrap(dist.Channel)
-		c = MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
+		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
@@ -161,11 +152,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			Arc:               arcSvc,
 			Status:            statusSvc,
 		}))
-	})
-
-	AfterAll(func(ctx SpecContext) {
-		Expect(c.Close()).To(Succeed())
-		Expect(dist.Close()).To(Succeed())
 	})
 
 	Describe("Calculation Patterns", func() {
@@ -180,7 +166,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
@@ -217,7 +203,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
@@ -269,7 +255,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
@@ -314,7 +300,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -365,7 +351,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -420,7 +406,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -469,13 +455,13 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        calc1Name,
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
@@ -517,7 +503,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression without return",
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
@@ -526,7 +512,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Expect(status.NewRetrieve[types.Nil](statusSvc).
-				WhereKeys(statusKey).
+				Where(status.MatchKeys[types.Nil](statusKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(st.Variant).To(Equal(xstatus.VariantError))
@@ -542,7 +528,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
@@ -555,7 +541,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
 			Eventually(func(g Gomega) {
 				err := status.NewRetrieve[types.Nil](statusSvc).
-					WhereKeys(statusKey).
+					Where(status.MatchKeys[types.Nil](statusKey)).
 					Entry(&st).
 					Exec(ctx, nil)
 				g.Expect(err).To(Succeed())
@@ -569,7 +555,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression",
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
@@ -578,7 +564,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
 			Expect(status.NewRetrieve[types.Nil](statusSvc).
-				WhereKeys(expectedKey).
+				Where(status.MatchKeys[types.Nil](expectedKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(st.Key).To(Equal(expectedKey))
@@ -597,7 +583,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
@@ -637,7 +623,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)

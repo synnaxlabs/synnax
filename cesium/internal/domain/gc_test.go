@@ -15,26 +15,24 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/cesium/internal/resource"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Garbage Collection", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				db      *domain.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *domain.DB
+				fs fs.FS
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Context("Happy path - one file", func() {
@@ -659,7 +657,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(MatchError(domain.ErrDBClosed))
 				})
 			})
 		})

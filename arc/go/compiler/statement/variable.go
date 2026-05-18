@@ -483,7 +483,11 @@ func compileOutputAssignment(
 	// Step 3: Calculate memory offset for this output
 	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
 	for i := 0; i < outputIndex; i++ {
-		offset += uint32(ctx.Outputs[i].Type.Density())
+		if ctx.Outputs[i].Type.Kind == types.KindString {
+			offset += 4
+		} else {
+			offset += uint32(ctx.Outputs[i].Type.Density())
+		}
 	}
 
 	// Step 4: Write value to output memory
@@ -506,6 +510,8 @@ func compileOutputAssignment(
 		ctx.Writer.WriteMemoryOp(wasm.OpF32Store, 2, 0)
 	case types.KindF64:
 		ctx.Writer.WriteMemoryOp(wasm.OpF64Store, 3, 0)
+	case types.KindString:
+		ctx.Writer.WriteMemoryOp(wasm.OpI32Store, 2, 0)
 	default:
 		return errors.Newf("unsupported output type %v", scope.Type)
 	}

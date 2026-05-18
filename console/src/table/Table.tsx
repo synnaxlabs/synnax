@@ -10,7 +10,6 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Button,
@@ -19,10 +18,9 @@ import {
   Table as Base,
   TableCells,
   Triggers,
-  usePrevious,
 } from "@synnaxlabs/pluto";
 import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
+import { memo, type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
@@ -34,6 +32,7 @@ import {
   select,
   useSelectCell,
   useSelectEditable,
+  useSelectIsRemoteCreated,
   useSelectLayout,
   useSelectSelectedColumns,
   useSelectVersion,
@@ -104,7 +103,6 @@ export const useSyncComponent = Workspace.createSyncComponent(
 );
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
   const editMode = useSelectEditable(layoutKey);
@@ -118,12 +116,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleAddCol = () => {
     syncDispatch(addCol({ key: layoutKey }));
   };
-
-  const prevName = usePrevious(name);
-
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [syncDispatch, name, prevName]);
 
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
     <ContextMenu.Menu>
@@ -210,13 +202,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
   }, []);
 
-  const windowKey = useSelectWindowKey() as string;
-
   const handleDoubleClick = useCallback(() => {
     if (!canEdit) return;
-    syncDispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-    );
+    syncDispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [canEdit]);
 
   const colSizes = layout.columns.map((col) => col.size);
@@ -488,3 +476,9 @@ export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | n
   if (table == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Table.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);

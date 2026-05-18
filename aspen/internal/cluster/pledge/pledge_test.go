@@ -100,7 +100,7 @@ var _ = Describe("PledgeServer", func() {
 					Peers:           peers,
 					Candidates:      func() node.Group { return node.Group{} },
 				}, pledge.BlazingFastConfig)
-				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
+				Expect(err).To(MatchError(context.DeadlineExceeded))
 				Expect(res.Key).To(Equal(node.Key(0)))
 				entries := net.Entries()
 				for i, entry := range entries {
@@ -213,7 +213,7 @@ var _ = Describe("PledgeServer", func() {
 					},
 					pledge.BlazingFastConfig,
 				)
-				Expect(err).To(HaveOccurredAs(context.DeadlineExceeded))
+				Expect(err).To(MatchError(context.DeadlineExceeded))
 			})
 		})
 		Describe("Cancelling a pledge", func() {
@@ -229,7 +229,7 @@ var _ = Describe("PledgeServer", func() {
 					Peers:      nodes.Addresses(),
 					Candidates: allCandidates(nodes),
 				})
-				Expect(err).To(HaveOccurredAs(context.Canceled))
+				Expect(err).To(MatchError(context.Canceled))
 				Expect(res.Key).To(Equal(node.Key(0)))
 			})
 		})

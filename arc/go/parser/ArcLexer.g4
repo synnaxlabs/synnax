@@ -90,6 +90,7 @@ LBRACKET    : '[';
 RBRACKET    : ']';
 COMMA       : ',';
 COLON       : ':';
+DOT         : '.';
 
 // =============================================================================
 // Literals
@@ -113,6 +114,12 @@ FLOAT_LITERAL
 // String literal
 STR_LITERAL
     : '"' (~["\\\r\n] | ESCAPE_SEQUENCE)* '"'
+    ;
+
+// Raw multi-line string literal. Supports \` for a literal backtick; all other
+// content is verbatim.
+STR_LITERAL_RAW
+    : '`' ('\\`' | ~[`])* '`'
     ;
 
 fragment ESCAPE_SEQUENCE

@@ -188,6 +188,7 @@ func analyze(c *analysisCtx) {
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
+		validateTypeParams(c, typ)
 	}
 }
 
@@ -236,6 +237,10 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
 		}
+		for _, a := range body.AllActionDef() {
+			action := collectAction(c, a, form.TypeParams)
+			form.Actions = append(form.Actions, action)
+		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			if existing, ok := domains[de.Name]; ok {
@@ -255,6 +260,39 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		Domains:       domains,
 		AST:           def,
 	}))
+}
+
+// collectAction translates a parsed action block into a resolution.Action,
+// reusing collectField for payload fields so action-field semantics match
+// struct-field semantics (optionality, validation, type refs).
+func collectAction(
+	c *analysisCtx,
+	def parser.IActionDefContext,
+	typeParams []resolution.TypeParam,
+) resolution.Action {
+	action := resolution.Action{
+		Name:    def.IDENT().GetText(),
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
+	body := def.ActionBody()
+	if body == nil {
+		return action
+	}
+	hasKeyDomain := false
+	for _, f := range body.AllFieldDef() {
+		field := collectField(c, f, typeParams, &hasKeyDomain)
+		action.Fields = append(action.Fields, field)
+	}
+	for _, d := range body.AllDomain() {
+		de := collectDomain(d)
+		if existing, ok := action.Domains[de.Name]; ok {
+			action.Domains[de.Name] = de.Merge(existing)
+		} else {
+			action.Domains[de.Name] = de
+		}
+	}
+	return action
 }
 
 func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
@@ -671,6 +709,11 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		for i := range form.Fields {
 			resolveTypeRef(c, typ, &form.Fields[i].Type)
 		}
+		for i := range form.Actions {
+			for j := range form.Actions[i].Fields {
+				resolveTypeRef(c, typ, &form.Actions[i].Fields[j].Type)
+			}
+		}
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Constraint)
@@ -804,19 +847,7 @@ func isRecursive(typ *resolution.Type, table *resolution.Table) bool {
 		return false
 	}
 	for _, field := range form.Fields {
-		if typeRefersTo(field.Type, typ, table) {
-			return true
-		}
-	}
-	return false
-}
-
-func typeRefersTo(ref resolution.TypeRef, target *resolution.Type, table *resolution.Table) bool {
-	if ref.Name == target.QualifiedName {
-		return true
-	}
-	for _, arg := range ref.TypeArgs {
-		if typeRefersTo(arg, target, table) {
+		if resolution.RefersTo(field.Type, typ.QualifiedName, table) {
 			return true
 		}
 	}
@@ -893,6 +924,44 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+	}
+}
+
+func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
+	switch f := form.(type) {
+	case resolution.StructForm:
+		return f.TypeParams
+	case resolution.AliasForm:
+		return f.TypeParams
+	case resolution.DistinctForm:
+		return f.TypeParams
+	}
+	return nil
+}
+
+func validateTypeParams(c *analysisCtx, typ resolution.Type) {
+	for _, tp := range typeParamsOf(typ.Form) {
+		if tp.Constraint == nil {
+			continue
+		}
+		if tp.Constraint.Name != "numeric" {
+			continue
+		}
+		if tp.Default == nil {
+			d := diagnostics.Errorf(nil,
+				"type parameter %s of %s constrained by 'numeric' requires a default (e.g. = float64); the constraint cannot be expressed concretely in Go, C++, Python, or Proto",
+				tp.Name, typ.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if !resolution.IsNumberPrimitive(tp.Default.Name) {
+			d := diagnostics.Errorf(nil,
+				"type parameter %s of %s constrained by 'numeric' has non-numeric default %q; default must be a number primitive (int*, uint*, float32, float64)",
+				tp.Name, typ.Name, tp.Default.Name)
 			d.File = c.filePath
 			c.diag.Add(d)
 		}

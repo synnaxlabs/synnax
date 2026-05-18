@@ -14,7 +14,6 @@ package device
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -33,22 +32,6 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.WriteWithLen(b)
-	}
-	if d.Status != nil {
-		w.Bool(true)
-		if err := (*d.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	if d.Parent != nil {
-		w.Bool(true)
-		if err := (*d.Parent).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -87,32 +70,6 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		}
 		if err = json.Unmarshal(b, &d.Properties); err != nil {
 			return err
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			d.Status = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v ontology.ID
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			d.Parent = &v
 		}
 	}
 	return nil

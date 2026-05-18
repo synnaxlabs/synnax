@@ -22,7 +22,7 @@ Tests Arc features not covered by arc_press_sequence:
 from examples.simulators import ThermalSimDAQ
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """
@@ -44,7 +44,7 @@ func track_peak_temp(current f32) f32 {
     return peak
 }
 
-func calc_temp_error{setpoint f32}(measured f32) f32 {
+func calc_temp_error{setpoint f32} (measured f32) f32 {
     return measured - setpoint
 }
 
@@ -57,20 +57,20 @@ temp_sensor -> calc_temp_error{50.0} -> temp_error
 
 sequence monitor {
     stage heating {
-        1 -> heater_cmd,
-        temp_sensor > 80 => abort,
+        1 -> heater_cmd
+        temp_sensor > 80 => abort
         temp_sensor > 60 => cooling
     }
     stage cooling {
-        0 -> heater_cmd,
-        temp_sensor > 80 => abort,
+        0 -> heater_cmd
+        temp_sensor > 80 => abort
         temp_sensor < 40 => heating
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> heater_cmd,
+        0 -> heater_cmd
         1 -> alarm_active
     }
 }
@@ -101,45 +101,9 @@ class ThermalMonitor(ArcConsoleCase):
 
     def _create_additional_channels(self) -> None:
         create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
-
-        cycle_count_time = self.client.channels.create(
-            name="cycle_count_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="cycle_count",
-            data_type=sy.DataType.INT64,
-            index=cycle_count_time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        peak_temp_time = self.client.channels.create(
-            name="peak_temp_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="peak_temp",
-            data_type=sy.DataType.FLOAT32,
-            index=peak_temp_time.key,
-            retrieve_if_name_exists=True,
-        )
-
-        temp_error_time = self.client.channels.create(
-            name="temp_error_time",
-            is_index=True,
-            data_type=sy.DataType.TIMESTAMP,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="temp_error",
-            data_type=sy.DataType.FLOAT32,
-            index=temp_error_time.key,
-            retrieve_if_name_exists=True,
-        )
+        create_indexed_pair(self.client, "cycle_count", sy.DataType.INT64)
+        create_indexed_pair(self.client, "peak_temp", sy.DataType.FLOAT32)
+        create_indexed_pair(self.client, "temp_error", sy.DataType.FLOAT32)
 
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()

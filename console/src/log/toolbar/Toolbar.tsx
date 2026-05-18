@@ -11,7 +11,8 @@ import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo, useState } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
@@ -20,6 +21,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import { useSelectOptional } from "@/log/selectors";
+import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
 import { Channels } from "@/log/toolbar/Channels";
 import { Properties } from "@/log/toolbar/Properties";
 
@@ -35,7 +37,13 @@ const TABS: Tabs.Tab[] = [
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
-  const [activeTab, setActiveTab] = useState("channels");
+  const dispatch = useDispatch();
+  const activeTab = state?.toolbar.activeTab ?? "channels";
+  const handleTabSelect = useCallback(
+    (tab: string) =>
+      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tab as ToolbarTab })),
+    [dispatch, layoutKey],
+  );
   const handleExport = useExport();
 
   const content = useCallback(
@@ -51,8 +59,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
 
   const tabsValue = useMemo(
-    () => ({ tabs: TABS, selected: activeTab, content, onSelect: setActiveTab }),
-    [activeTab, content],
+    () => ({ tabs: TABS, selected: activeTab, content, onSelect: handleTabSelect }),
+    [activeTab, content, handleTabSelect],
   );
 
   if (state == null) return null;

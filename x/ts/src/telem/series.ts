@@ -45,6 +45,17 @@ interface GL {
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
+/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+const stringifyFloat32 = (value: number): string => {
+  const f32 = Math.fround(value);
+  if (!Number.isFinite(f32)) return f32.toString();
+  for (let p = 1; p <= 9; p++) {
+    const parsed = parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return parsed.toString();
+  }
+  return f32.toString();
+};
+
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
   key: string;
@@ -114,7 +125,7 @@ const nullArrayZ = z
   .union([z.null(), z.undefined()])
   .transform(() => new Uint8Array().buffer);
 
-const NEW_LINE = 10;
+const UINT32_SIZE = 4;
 
 type JSType = "string" | "number" | "bigint";
 
@@ -358,12 +369,42 @@ export class Series<T extends TelemValue = TelemValue>
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
       if (this.dataType.equals(DataType.STRING)) {
         this.cachedLength = data_.length;
-        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`).buffer;
+        const encoded = (data_ as string[]).map((s) => new TextEncoder().encode(s));
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
+        const buf = new ArrayBuffer(totalBytes);
+        const view = new DataView(buf);
+        const bytes = new Uint8Array(buf);
+        let offset = 0;
+        for (const e of encoded) {
+          view.setUint32(offset, e.byteLength, true);
+          offset += UINT32_SIZE;
+          bytes.set(e, offset);
+          offset += e.byteLength;
+        }
+        this._data = buf;
       } else if (this.dataType.equals(DataType.JSON)) {
         this.cachedLength = data_.length;
-        this._data = new TextEncoder().encode(
-          `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
-        ).buffer;
+        const encoded = data_.map((d) =>
+          new TextEncoder().encode(binary.JSON_CODEC.encodeString(d)),
+        );
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
+        const buf = new ArrayBuffer(totalBytes);
+        const view = new DataView(buf);
+        const bytes = new Uint8Array(buf);
+        let offset = 0;
+        for (const e of encoded) {
+          view.setUint32(offset, e.byteLength, true);
+          offset += UINT32_SIZE;
+          bytes.set(e, offset);
+          offset += e.byteLength;
+        }
+        this._data = buf;
       } else if (this.dataType.usesBigInt && typeof first === "number")
         this._data = new this.dataType.Array(
           data_.map((v) => BigInt(Math.round(v as number))),
@@ -456,14 +497,25 @@ export class Series<T extends TelemValue = TelemValue>
   private writeVariable(other: Series): number {
     if (this.writePos === FULL_BUFFER) return 0;
     const available = this.byteCapacity.valueOf() - this.writePos;
-    const toWrite = other.subBytes(0, available);
-    this.writeToUnderlyingData(toWrite);
-    this.writePos += toWrite.byteLength.valueOf();
-    if (this.cachedLength != null) {
-      this.cachedLength += toWrite.length;
-      this.calculateCachedLength();
+    const otherBuf = other.buffer;
+    const otherByteLen = other.byteLength.valueOf();
+    const view = new DataView(otherBuf);
+    let offset = 0;
+    let samplesWritten = 0;
+    while (offset + UINT32_SIZE <= otherByteLen) {
+      const sampleLen = view.getUint32(offset, true);
+      const recordSize = UINT32_SIZE + sampleLen;
+      if (offset + recordSize > available) break;
+      offset += recordSize;
+      samplesWritten++;
     }
-    return toWrite.length;
+    if (offset === 0) return 0;
+    const toWrite = other.subBytes(0, offset);
+    this.writeToUnderlyingData(toWrite);
+    this.writePos += offset;
+    this.cachedLength = (this.cachedLength ?? 0) + samplesWritten;
+    this._cachedIndexes = undefined;
+    return samplesWritten;
   }
 
   private writeFixed(other: Series): number {
@@ -511,8 +563,21 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns An array of string representations of the series values.
    */
   toStrings(): string[] {
-    if (this.dataType.isVariable)
-      return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
+    if (this.dataType.isVariable) {
+      const result: string[] = [];
+      const buf = this.buffer;
+      const byteLen = this.byteLength.valueOf();
+      const view = new DataView(buf);
+      const decoder = new TextDecoder();
+      let offset = 0;
+      while (offset + UINT32_SIZE <= byteLen) {
+        const len = view.getUint32(offset, true);
+        offset += UINT32_SIZE;
+        result.push(decoder.decode(new Uint8Array(buf, offset, len)));
+        offset += len;
+      }
+      return result;
+    }
     return Array.from(this).map((d) => d.toString());
   }
 
@@ -560,7 +625,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Returns the number of samples in this array.
-   * For variable length data types, this is calculated by counting newlines.
+   * For variable length data types, this is calculated by scanning uint32 length prefixes.
    * @returns The number of samples in the series.
    */
   get length(): number {
@@ -575,12 +640,18 @@ export class Series<T extends TelemValue = TelemValue>
     if (!this.dataType.isVariable)
       throw new Error("cannot calculate length of a non-variable length data type");
     let cl = 0;
-    const ci: number[] = [0];
-    this.data.forEach((v, i) => {
-      if (v !== NEW_LINE) return;
+    const ci: number[] = [];
+    const buf = this.buffer;
+    const byteLen = this.byteLength.valueOf();
+    const view = new DataView(buf);
+    let offset = 0;
+    while (offset + UINT32_SIZE <= byteLen) {
+      const len = view.getUint32(offset, true);
+      offset += UINT32_SIZE;
+      ci.push(offset);
+      offset += len;
       cl++;
-      ci.push(i + 1);
-    });
+    }
     this._cachedIndexes = ci;
     this.cachedLength = cl;
     return cl;
@@ -634,7 +705,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
     this.cachedMax ??= this.calcRawMax();
-    return math.add(this.cachedMax, this.sampleOffset);
+    return this.applyOffset(this.cachedMax);
   }
 
   private calcRawMin(): math.Numeric {
@@ -660,7 +731,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
     this.cachedMin ??= this.calcRawMin();
-    return math.add(this.cachedMin, this.sampleOffset);
+    return this.applyOffset(this.cachedMin);
   }
 
   /** @returns the bounds of the series. */
@@ -717,7 +788,12 @@ export class Series<T extends TelemValue = TelemValue>
   at(index: number, required?: false): T | undefined;
 
   at(index: number, required: boolean = false): T | undefined {
-    if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
+    if (this.dataType.isVariable) {
+      const str = this.atVariable(index, required);
+      if (str == null) return undefined;
+      if (this.dataType.equals(DataType.STRING)) return str as T;
+      return caseconv.snakeToCamel(JSON.parse(str)) as T;
+    }
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
@@ -725,7 +801,16 @@ export class Series<T extends TelemValue = TelemValue>
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return math.add(v, this.sampleOffset) as T;
+    return this.applyOffset(v) as T;
+  }
+
+  // For huge bigint offsets (i64 timestamps narrowed to float32 for GL), math.add would
+  // coerce through Number() and lose precision above 2^53; do the addition in bigint
+  // space when the offset is a bigint.
+  private applyOffset(v: math.Numeric): math.Numeric {
+    if (typeof this.sampleOffset === "bigint" && typeof v === "number")
+      return BigInt(Math.round(v)) + this.sampleOffset;
+    return math.add(v, this.sampleOffset);
   }
 
   private atUUID(index: number, required: boolean): string | undefined {
@@ -740,33 +825,56 @@ export class Series<T extends TelemValue = TelemValue>
     return uuidString;
   }
 
-  private atVariable(index: number, required: boolean): T | undefined {
+  asString(index: number, required: true): string;
+
+  asString(index: number, required?: false): string | undefined;
+
+  asString(index: number, required: boolean = false): string | undefined {
+    if (this.dataType.isVariable) return this.atVariable(index, required);
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
+    const v = this.at(index, required as true);
+    if (v == null) return undefined;
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v as number);
+    return String(v);
+  }
+
+  private atVariable(index: number, required: boolean): string | undefined {
     let start = 0;
-    let end = 0;
+    let len = 0;
+    const buf = this.buffer;
+    const view = new DataView(buf);
     if (this._cachedIndexes != null) {
+      if (index < 0) index = this._cachedIndexes.length + index;
+      if (index < 0 || index >= this._cachedIndexes.length) {
+        if (required) throw new Error(`[series] - no value at index ${index}`);
+        return undefined;
+      }
       start = this._cachedIndexes[index];
-      end = this._cachedIndexes[index + 1] - 1;
+      len = view.getUint32(start - UINT32_SIZE, true);
     } else {
       if (index < 0) index = this.length + index;
-      for (let i = 0; i < this.data.length; i++)
-        if (this.data[i] === NEW_LINE) {
-          if (index === 0) {
-            end = i;
-            break;
-          }
-          start = i + 1;
-          index--;
+      const byteLen = this.byteLength.valueOf();
+      let offset = 0;
+      let found = false;
+      while (offset + UINT32_SIZE <= byteLen) {
+        const sampleLen = view.getUint32(offset, true);
+        offset += UINT32_SIZE;
+        if (index === 0) {
+          start = offset;
+          len = sampleLen;
+          found = true;
+          break;
         }
-      if (end === 0) end = this.data.length;
-      if (start >= end || index > 0) {
+        offset += sampleLen;
+        index--;
+      }
+      if (!found) {
         if (required) throw new Error(`[series] - no value at index ${index}`);
         return undefined;
       }
     }
-    const slice = this.data.slice(start, end);
-    if (this.dataType.equals(DataType.STRING))
-      return new TextDecoder().decode(slice) as T;
-    return caseconv.snakeToCamel(JSON.parse(new TextDecoder().decode(slice))) as T;
+    const slice = new Uint8Array(buf, start, len);
+    return new TextDecoder().decode(slice);
   }
 
   /**
@@ -1069,8 +1177,9 @@ class SubIterator<T> implements Iterator<T> {
 
 class StringSeriesIterator implements Iterator<string> {
   private readonly series: Series;
-  private index: number;
+  private byteOffset: number;
   private readonly decoder: TextDecoder;
+  private readonly view: DataView;
 
   constructor(series: Series) {
     if (!series.dataType.isVariable)
@@ -1078,18 +1187,21 @@ class StringSeriesIterator implements Iterator<string> {
         "cannot create a variable series iterator for a non-variable series",
       );
     this.series = series;
-    this.index = 0;
+    this.byteOffset = 0;
     this.decoder = new TextDecoder();
+    this.view = new DataView(series.buffer);
   }
 
   next(): IteratorResult<string> {
-    const start = this.index;
-    const data = this.series.data;
-    while (this.index < data.length && data[this.index] !== NEW_LINE) this.index++;
-    const end = this.index;
-    if (start === end) return { done: true, value: undefined };
-    this.index++;
-    const s = this.decoder.decode(this.series.buffer.slice(start, end));
+    const byteLen = this.series.byteLength.valueOf();
+    if (this.byteOffset + UINT32_SIZE > byteLen)
+      return { done: true, value: undefined };
+    const len = this.view.getUint32(this.byteOffset, true);
+    this.byteOffset += UINT32_SIZE;
+    const s = this.decoder.decode(
+      new Uint8Array(this.series.buffer, this.byteOffset, len),
+    );
+    this.byteOffset += len;
     return { done: false, value: s };
   }
 }

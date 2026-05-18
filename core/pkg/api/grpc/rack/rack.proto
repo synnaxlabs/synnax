@@ -40,6 +40,7 @@ message RetrieveRequest {
   repeated uint32 keys = 1;
   repeated string names = 2;
   string integration = 3;
+  bool include_status = 4;
 }
 
 message RetrieveResponse {

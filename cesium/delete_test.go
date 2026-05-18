@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
@@ -29,20 +28,18 @@ import (
 )
 
 var _ = Describe("Delete", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db      *cesium.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Delete Channel", func() {
 				var (
@@ -63,7 +60,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannel(key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -423,7 +420,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -470,7 +467,7 @@ var _ = Describe("Delete", func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
 						_, err := db.RetrieveChannels(ctx, data1)
-						Expect(err).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					})
 				})
 			})

@@ -16,6 +16,7 @@ import (
 
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	xtypes "github.com/synnaxlabs/x/types"
 )
 
@@ -27,15 +28,12 @@ type SeriesMatcherOption func(*seriesMatcher)
 // "Alignment", and "Data".
 func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
 	return func(m *seriesMatcher) {
-		m.excludedFields = make(map[string]bool)
-		for _, field := range fields {
-			m.excludedFields[field] = true
-		}
+		m.excludedFields = set.New(fields...)
 	}
 }
 
 type seriesMatcher struct {
-	excludedFields map[string]bool
+	excludedFields set.Set[string]
 	expected       Series
 }
 
@@ -48,7 +46,7 @@ type seriesMatcher struct {
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
-		excludedFields: make(map[string]bool),
+		excludedFields: make(set.Set[string]),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -63,7 +61,7 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 func MatchWrittenSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
-		excludedFields: map[string]bool{"TimeRange": true, "Alignment": true},
+		excludedFields: set.New("TimeRange", "Alignment"),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -90,16 +88,16 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 	if !ok {
 		return false, errors.Newf("MatchSeries matcher expects a Series but got %K", actual)
 	}
-	if !m.excludedFields["DataType"] && actualSeries.DataType != m.expected.DataType {
+	if !m.excludedFields.Contains("DataType") && actualSeries.DataType != m.expected.DataType {
 		return false, nil
 	}
-	if !m.excludedFields["TimeRange"] && actualSeries.TimeRange != m.expected.TimeRange {
+	if !m.excludedFields.Contains("TimeRange") && actualSeries.TimeRange != m.expected.TimeRange {
 		return false, nil
 	}
-	if !m.excludedFields["Alignment"] && actualSeries.Alignment != m.expected.Alignment {
+	if !m.excludedFields.Contains("Alignment") && actualSeries.Alignment != m.expected.Alignment {
 		return false, nil
 	}
-	if !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if !m.excludedFields.Contains("Data") && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		return false, nil
 	}
 	return true, nil
@@ -114,28 +112,28 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 		differences    []string
 		dataTypesEqual = actualSeries.DataType == m.expected.DataType
 	)
-	if !m.excludedFields["DataType"] && !dataTypesEqual {
+	if !m.excludedFields.Contains("DataType") && !dataTypesEqual {
 		differences = append(differences, fmt.Sprintf(
 			"DataType:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataType,
 			actualSeries.DataType,
 		))
 	}
-	if !m.excludedFields["TimeRange"] && actualSeries.TimeRange != m.expected.TimeRange {
+	if !m.excludedFields.Contains("TimeRange") && actualSeries.TimeRange != m.expected.TimeRange {
 		differences = append(differences, fmt.Sprintf(
 			"TimeRange:\n\tExpected: %s\n\tActual: %s",
 			m.expected.TimeRange,
 			actualSeries.TimeRange,
 		))
 	}
-	if !m.excludedFields["Alignment"] && actualSeries.Alignment != m.expected.Alignment {
+	if !m.excludedFields.Contains("Alignment") && actualSeries.Alignment != m.expected.Alignment {
 		differences = append(differences, fmt.Sprintf(
 			"Alignment:\n\tExpected: %v\n\tActual: %v",
 			m.expected.Alignment,
 			actualSeries.Alignment,
 		))
 	}
-	if dataTypesEqual && !m.excludedFields["Data"] && !bytes.Equal(actualSeries.Data, m.expected.Data) {
+	if dataTypesEqual && !m.excludedFields.Contains("Data") && !bytes.Equal(actualSeries.Data, m.expected.Data) {
 		differences = append(differences, fmt.Sprintf(
 			"Data:\n\tExpected: %v\n\tActual: %v",
 			m.expected.DataString(),

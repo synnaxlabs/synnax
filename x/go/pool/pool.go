@@ -9,7 +9,19 @@
 
 package pool
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/synnaxlabs/x/errors"
+)
+
+// ErrClosed is returned by Acquire after Close has been called.
+//
+// Acquiring from a closed pool is a programming error: the contract is that
+// the caller stops using the pool before calling Close. ErrClosed exists to
+// surface that bug deterministically rather than silently allocate an
+// untracked adapter.
+var ErrClosed = errors.New("pool: closed")
 
 type Adapter interface {
 	Healthy() bool
@@ -23,7 +35,20 @@ type Factory[K comparable, A Adapter] interface {
 }
 
 type Pool[K comparable, A Adapter] interface {
+	// Acquire returns an adapter for the given key, creating one via the
+	// Factory if no healthy adapter is already cached.
+	//
+	// Calling Acquire after Close is a programming error: the contract is
+	// that the caller stops using the pool before Close runs. As a safety
+	// net for buggy callers, Acquire returns ErrClosed instead of silently
+	// allocating an adapter that nothing will ever close.
 	Acquire(key K) (A, error)
+	// Close closes every adapter currently held by the pool.
+	//
+	// The caller is responsible for ensuring no goroutine is using the pool
+	// concurrently with or after Close. Close is idempotent — second and
+	// subsequent calls are no-ops. After Close, Acquire returns ErrClosed.
+	Close() error
 }
 
 func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
@@ -33,12 +58,15 @@ func New[K comparable, A Adapter](factory Factory[K, A]) Pool[K, A] {
 type core[K comparable, A Adapter] struct {
 	factory Factory[K, A]
 	pool    map[K][]A
-	mu      sync.RWMutex
+	mu      sync.Mutex
 }
 
-func (p *core[K, A]) Acquire(key K) (A, error) {
+func (p *core[K, A]) Acquire(key K) (a A, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.pool == nil {
+		return a, ErrClosed
+	}
 	if adapters, ok := p.pool[key]; ok {
 		for _, adapter := range adapters {
 			if adapter.Healthy() {
@@ -47,6 +75,25 @@ func (p *core[K, A]) Acquire(key K) (A, error) {
 		}
 	}
 	return p.new(key)
+}
+
+func (p *core[K, A]) Close() error {
+	p.mu.Lock()
+	adapters := p.pool
+	p.pool = nil
+	p.mu.Unlock()
+
+	// Adapter teardowns happen outside the lock so a slow Close (e.g. grpc
+	// client connection shutdown waiting on its internal WaitGroup) does not
+	// block concurrent callers and cannot deadlock if an adapter's Close
+	// path ever calls back into the pool.
+	var err error
+	for _, group := range adapters {
+		for _, adapter := range group {
+			err = errors.Combine(err, adapter.Close())
+		}
+	}
+	return err
 }
 
 func (p *core[K, A]) new(key K) (a A, err error) {

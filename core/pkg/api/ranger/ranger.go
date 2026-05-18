@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -114,7 +113,7 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
+		Keys          []ranger.Key    `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		HasLabels     []label.Key     `json:"has_labels" msgpack:"has_labels"`
@@ -149,7 +148,7 @@ func (s *Service) Retrieve(
 		q = q.Where(ranger.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
 		q = q.Where(ranger.MatchLabels(req.HasLabels...))
@@ -186,7 +185,7 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
+			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}
@@ -204,8 +203,8 @@ func (s *Service) Retrieve(
 }
 
 type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string     `json:"name" msgpack:"name"`
+	Key  ranger.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(
@@ -225,7 +224,7 @@ func (s *Service) Rename(
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(

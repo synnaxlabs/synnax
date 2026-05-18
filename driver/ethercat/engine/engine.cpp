@@ -81,7 +81,7 @@ void Engine::run() {
 
         auto [elapsed, on_time] = timer.wait();
         if (!on_time && this->config.max_overrun.nanoseconds() > 0)
-            VLOG(2) << "[ethercat] cycle overrun: " << elapsed;
+            VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
     }
 
     if (had_receive_error)

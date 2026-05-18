@@ -54,10 +54,14 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// WhereKeys filters for ranges whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to ranges whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Range] {
+		return gorp.MatchKeys[Key, Range](keys...)
+	}
 }
 
 // MatchNames returns a filter for ranges whose Name matches any of the provided values.
@@ -69,15 +73,12 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.indexes, r.label,
-// r.hostProvider, etc.
-func (r Retrieve) Where(filters ...Filter) Retrieve {
-	bound := make([]gorp.Filter[Key, Range], len(filters))
-	for i, f := range filters {
-		bound[i] = f(r)
-	}
-	r.gorp = r.gorp.Where(bound...)
+// Where applies the provided filter to the query, binding it to the Retrieve
+// so service-bound filters can read from r.indexes, r.label, r.hostProvider,
+// etc. To compose multiple filters, chain Where calls or pass a combined
+// filter via And / Or.
+func (r Retrieve) Where(filter Filter) Retrieve {
+	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 
@@ -118,7 +119,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return Retrieve{}, err
 	}
-	return r.WhereKeys(keys...), nil
+	return r.Where(MatchKeys(keys...)), nil
 }
 
 // Exec executes the query against the provided transaction.

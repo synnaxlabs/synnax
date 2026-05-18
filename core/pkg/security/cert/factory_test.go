@@ -75,9 +75,8 @@ var _ = Describe("Factory", func() {
 				LoaderConfig: cert.LoaderConfig{FS: fs},
 				KeySize:      mock.SmallKeySize,
 			}))
-			err := f.CreateNodePair()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("CA certificate not found"))
+			Expect(f.CreateNodePair()).
+				Error().To(MatchError(ContainSubstring("CA certificate not found")))
 		})
 		It("Should fail is no hosts are provided", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -85,9 +84,8 @@ var _ = Describe("Factory", func() {
 				KeySize:      mock.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
-			err := f.CreateNodePair()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no hosts provided"))
+			Expect(f.CreateNodePair()).
+				Error().To(MatchError(ContainSubstring("no hosts provided")))
 		})
 	})
 })

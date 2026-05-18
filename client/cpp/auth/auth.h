@@ -17,8 +17,6 @@
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/os/os.h"
-#include "x/cpp/telem/clock_skew.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -41,7 +39,7 @@ const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
 const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
 const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 
-/// @brief diagnostic information about the Synnax cluster.
+/// @brief diagnostic information about the Synnax Core.
 struct ClusterInfo {
     /// @brief a unique UUID key for the cluster.
     x::uuid::UUID cluster_key;
@@ -79,9 +77,6 @@ class Middleware final : public freighter::PassthroughMiddleware {
     std::string password;
     /// @brief
     std::mutex mu;
-    /// @brief the maximum clock skew between the client and server before logging a
-    /// warning.
-    x::telem::TimeSpan clock_skew_threshold;
 
 public:
     /// Cluster information.
@@ -90,13 +85,11 @@ public:
     Middleware(
         std::unique_ptr<LoginClient> login_client,
         std::string username,
-        std::string password,
-        const x::telem::TimeSpan clock_skew_threshold
+        std::string password
     ):
         login_client(std::move(login_client)),
         username(std::move(username)),
-        password(std::move(password)),
-        clock_skew_threshold(clock_skew_threshold) {}
+        password(std::move(password)) {}
 
     /// @brief authenticates with the credentials provided when constructing the
     /// Synnax client.
@@ -105,34 +98,16 @@ public:
         grpc::auth::LoginRequest req;
         req.set_username(this->username);
         req.set_password(this->password);
-        auto skew_calc = x::telem::ClockSkewCalculator();
-        skew_calc.start();
         auto [res, err] = login_client->send("/auth/login", req);
         if (err) return err;
         this->token = res.token();
         this->cluster_info = ClusterInfo(res.cluster_info());
-        skew_calc.end(this->cluster_info.node_time);
-
-        if (skew_calc.exceeds(this->clock_skew_threshold)) {
-            auto [host, _] = x::os::get_hostname();
-            auto direction = "ahead";
-            if (skew_calc.skew() > x::telem::TimeSpan::ZERO()) direction = "behind";
-            LOG(WARNING) << "measured excessive clock skew between this host and the "
-                            "Synnax cluster.";
-            LOG(WARNING) << "this host (" << host << ") is " << direction
-                         << "by approximately " << skew_calc.skew().abs();
-            LOG(
-                WARNING
-            ) << "this may cause problems with time-series data consistency. We highly "
-                 "recommend synchronizing your clock with the Synnax cluster.";
-        }
-
         this->authenticated = true;
         return x::errors::NIL;
     }
 
     /// @brief implements freighter::Middleware, ensuring that all requests to the
-    /// Synnax cluster are appropriately authenticated.
+    /// Synnax Core are appropriately authenticated.
     std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
         if (!this->authenticated)

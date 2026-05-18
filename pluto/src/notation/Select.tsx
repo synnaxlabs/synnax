@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/notation/Select.css";
+
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
+import { Icon } from "@/icon";
 import { Select as BaseSelect } from "@/select";
 
 export interface SelectNotationProps extends Omit<
@@ -17,10 +21,26 @@ export interface SelectNotationProps extends Omit<
   "keys"
 > {}
 
-export const Select = (props: SelectNotationProps): ReactElement => (
-  <BaseSelect.Buttons {...props} keys={notation.NOTATIONS}>
-    <BaseSelect.Button itemKey="standard">Standard</BaseSelect.Button>
-    <BaseSelect.Button itemKey="scientific">Scientific</BaseSelect.Button>
-    <BaseSelect.Button itemKey="engineering">Engineering</BaseSelect.Button>
+const LABEL_CLASS = CSS.BE("notation-select", "label");
+const ICON_CLASS = CSS.BE("notation-select", "icon");
+
+export const Select = ({ className, ...rest }: SelectNotationProps): ReactElement => (
+  <BaseSelect.Buttons
+    {...rest}
+    keys={notation.NOTATIONS}
+    className={CSS(className, CSS.B("notation-select"))}
+  >
+    <BaseSelect.Button itemKey="standard" tooltip="Standard">
+      <Icon.Decimal className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>Standard</span>
+    </BaseSelect.Button>
+    <BaseSelect.Button itemKey="scientific" tooltip="Scientific">
+      <Icon.Scientific className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>Scientific</span>
+    </BaseSelect.Button>
+    <BaseSelect.Button itemKey="engineering" tooltip="Engineering">
+      <Icon.Engineering className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>Engineering</span>
+    </BaseSelect.Button>
   </BaseSelect.Buttons>
 );

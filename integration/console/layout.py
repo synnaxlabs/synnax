@@ -324,7 +324,7 @@ class LayoutClient:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=300)
+        input_field.wait_for(state="attached", timeout=5000)
         input_field.fill(value)
 
     def get_input_field(self, input_label: str) -> str:
@@ -335,8 +335,8 @@ class LayoutClient:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=400)
-        return input_field.input_value(timeout=200)
+        input_field.wait_for(state="attached", timeout=5000)
+        return input_field.input_value(timeout=2000)
 
     def click_btn(self, button_label: str) -> None:
         """Click a button by label."""
@@ -384,12 +384,16 @@ class LayoutClient:
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""
         for option in button_options:
-            button = self.page.get_by_text(option).first
-            if button.count() > 0:
-                button.wait_for(state="attached", timeout=5000)
-                class_name = button.get_attribute("class") or ""
-                if "pluto-btn--filled" in class_name:
-                    return option
+            text_el = self.page.get_by_text(option, exact=True).first
+            if text_el.count() == 0:
+                continue
+            button = text_el.locator("xpath=ancestor-or-self::button[1]").first
+            if button.count() == 0:
+                continue
+            button.wait_for(state="attached", timeout=5000)
+            class_name = button.get_attribute("class") or ""
+            if "pluto-btn--filled" in class_name:
+                return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 

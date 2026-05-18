@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type ComponentType, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tabs } from "@/tabs";
+import { type NameProps } from "@/tabs/types";
 
 const StaticTabs = ({ tabs, ...rest }: Tabs.TabsProps): ReactElement => {
   const props = Tabs.useStatic({ tabs });
@@ -85,5 +86,59 @@ describe("Tabs", () => {
     expect(btn).toBeTruthy();
     fireEvent.click(getByLabelText("pluto-tabs__close"));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  describe("default tab name rendering", () => {
+    it("should commit a rename via the default name when Enter is pressed", () => {
+      const onRename = vi.fn();
+      const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
+      const { getByText } = render(<StaticTabs tabs={tabs} onRename={onRename} />);
+      const tab = getByText("Tab 1");
+      fireEvent.dblClick(tab);
+      tab.innerText = "Renamed";
+      fireEvent.keyDown(tab, { key: "Enter" });
+      expect(onRename).toHaveBeenCalledWith("tab1", "Renamed");
+    });
+
+    it("should not allow editing when no onRename prop is provided", () => {
+      const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
+      const { getByText } = render(<StaticTabs tabs={tabs} />);
+      const tab = getByText("Tab 1");
+      fireEvent.dblClick(tab);
+      expect(tab.getAttribute("contenteditable")).not.toBe("true");
+    });
+
+    it("should not allow editing a tab whose editable flag is false", () => {
+      const onRename = vi.fn();
+      const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1", editable: false }];
+      const { getByText } = render(<StaticTabs tabs={tabs} onRename={onRename} />);
+      const tab = getByText("Tab 1");
+      fireEvent.dblClick(tab);
+      expect(tab.getAttribute("contenteditable")).not.toBe("true");
+    });
+  });
+
+  describe("custom Name component", () => {
+    it("should render a custom Name component when one is provided", () => {
+      const CustomName: ComponentType<NameProps> = ({ name, tabKey, editable }) => (
+        <span>{`name=${name} key=${tabKey} editable=${editable ?? true}`}</span>
+      );
+      const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1", editable: false }];
+      const { getByText } = render(<StaticTabs tabs={tabs} Name={CustomName} />);
+      expect(getByText("name=Tab 1 key=tab1 editable=false")).toBeTruthy();
+    });
+
+    it("should pass the Tabs onRename through to the custom Name component", () => {
+      const onRename = vi.fn();
+      const CustomName: ComponentType<NameProps> = ({ tabKey, onRename }) => (
+        <button onClick={() => onRename?.(tabKey, "Renamed")}>rename-trigger</button>
+      );
+      const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
+      const { getByText } = render(
+        <StaticTabs tabs={tabs} Name={CustomName} onRename={onRename} />,
+      );
+      fireEvent.click(getByText("rename-trigger"));
+      expect(onRename).toHaveBeenCalledWith("tab1", "Renamed");
+    });
   });
 });

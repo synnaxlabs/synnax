@@ -73,6 +73,12 @@ const TOKEN_CONFIG = {
     light: "#0A7D00",
     scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
   },
+  // Distinct from `string` to mark verbatim, no-escape semantics.
+  stringRaw: {
+    dark: "#CE9178",
+    light: "#A31515",
+    scopes: ["string.quoted.raw.arc"],
+  },
   number: {
     dark: "#98C379",
     light: "#0A7D00",
@@ -96,7 +102,11 @@ const TOKEN_CONFIG = {
   function: {
     dark: "#556bf8",
     light: "#3774D0",
-    scopes: ["entity.name.function.arc", "support.function.builtin.arc"],
+    scopes: [
+      "entity.name.function.arc",
+      "support.function.builtin.arc",
+      "support.function.arc",
+    ],
   },
   stage: {
     dark: "#dadada",

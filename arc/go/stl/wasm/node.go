@@ -15,10 +15,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
+	"go.uber.org/zap"
 )
 
 var _ node.Node = (*nodeImpl)(nil)
@@ -50,7 +52,11 @@ type nodeImpl struct {
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
+	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
+	stringInputs  []bool
+	stringOutputs []bool
+	strings       *stlstrings.ProgramState
 }
 
 func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
@@ -118,8 +124,20 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.offsets {
 		n.offsets[j] = 0
 	}
+	// String outputs are variable-density and cannot be resized . Their
+	// Data buffer is built once at the end of the loop from accumulated
+	// strings. Numeric outputs are pre-sized here so setValueAt can do
+	// fixed-stride writes per sample.
+	var stringResults [][]string
 	for i := range n.ir.Outputs {
-		n.Output(i).Resize(maxLength)
+		if n.stringOutputs[i] {
+			if stringResults == nil {
+				stringResults = make([][]string, len(n.ir.Outputs))
+			}
+			stringResults[i] = make([]string, 0, maxLength)
+		} else {
+			n.Output(i).Resize(maxLength)
+		}
 		n.OutputTime(i).Resize(maxLength)
 	}
 	// Copy alignment and time range from inputs to outputs.
@@ -152,7 +170,16 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
-			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
+			idx := int(i % inputLen)
+			if !n.stringInputs[j] {
+				n.params[n.configCount+j] = valueAt(n.Input(j), idx)
+			} else {
+				// String channels are variable-length but WASM expects
+				// i32 handles. Convert inline — string channels are
+				// virtual (length 1), so At(idx) is always O(1).
+				data := n.Input(j).At(idx)
+				n.params[n.configCount+j] = uint64(n.strings.Create(string(data)))
+			}
 		}
 		res, err := n.call(ctx.Context, n.params...)
 		if err != nil {
@@ -169,21 +196,47 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if len(n.ir.Inputs) > 0 {
 			ts = valueAt(longestInputTime, int(i))
 		} else {
-			ts = uint64(telem.Now())
+			ts = uint64(n.clock.Now())
 		}
 		for j, value := range res {
 			if value.Changed {
-				setValueAt(*n.Output(j), n.offsets[j], value.Value)
+				if n.stringOutputs[j] {
+					// WASM returned an i32 string handle; materialize it
+					// to its actual string value, mirroring the input-side
+					// conversion above.
+					s, ok := n.strings.Get(uint32(value.Value))
+					if !ok {
+						// An unregistered handle is an Arc compiler/runtime
+						// bug, not anything a .arc program can provoke.
+						zap.S().DPanicf(
+							"node %s output %d returned unregistered string handle %d at sample %d/%d",
+							n.ir.Key,
+							j,
+							value.Value,
+							i,
+							maxLength,
+						)
+						continue
+					}
+					stringResults[j] = append(stringResults[j], s)
+				} else {
+					setValueAt(*n.Output(j), n.offsets[j], value.Value)
+				}
 				setValueAt(*n.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
 			}
 		}
 	}
 	for j := range n.ir.Outputs {
-		n.Output(j).Resize(int64(n.offsets[j]))
+		if n.stringOutputs[j] {
+			out := n.Output(j)
+			out.Data = telem.NewSeriesV[string](stringResults[j]...).Data
+		} else {
+			n.Output(j).Resize(int64(n.offsets[j]))
+		}
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
-			ctx.MarkChanged(n.ir.Outputs[j].Name)
+			ctx.MarkChanged(j)
 		}
 	}
 }

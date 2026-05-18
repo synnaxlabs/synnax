@@ -7,6 +7,12 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
+      base_version:
+        description:
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest release."
+        type: string
+        required: false
+        default: ""
 
   workflow_dispatch:
     inputs:
@@ -14,22 +20,24 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
-      append_latest:
-        description: "Auto-append 'latest' (current build) to the chain"
-        type: boolean
-        default: true
-      chain:
-        description: "Custom version chain (e.g. '0.52.0, 0.53.1, latest')"
+      base_version:
+        description:
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest release."
         type: string
+        required: false
         default: ""
 
 jobs:
-  setup:
-    name: Generate Migration Chains
-    runs-on: ubuntu-latest
-    outputs:
-      MATRIX: ${{ steps.chain.outputs.MATRIX }}
-      VERSIONS: ${{ steps.chain.outputs.VERSIONS }}
+  test:
+    name: "Migration (${{ matrix.os }})"
+    timeout-minutes: 60
+    runs-on:
+      - self-hosted
+      - ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -37,64 +45,14 @@ jobs:
       - name: Reference Run ID
         run: echo "Reference run ID:${{ inputs.ref_run_id }}"
 
-      - name: Generate Migration Chains
-        id: chain
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CUSTOM_CHAIN: ${{ inputs.chain }}
-          APPEND_LATEST: ${{ inputs.append_latest }}
-        run: integration/scripts/generate_migration_matrix.sh
-
-  build-clients:
-    name: Build Python Client Wheels
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Build client wheels
-        run: |
-          IFS=',' read -ra VERSIONS <<< "${{ needs.setup.outputs.VERSIONS }}"
-          for version in "${VERSIONS[@]}"; do
-            echo "Building wheels for $version..."
-            integration/scripts/build_client_wheels.sh "$version" "wheels/$version"
-          done
-
-      - name: Upload client wheels
-        uses: actions/upload-artifact@v7
-        with:
-          name: synnax-client-wheels
-          path: wheels/
-          retention-days: 7
-
-  test:
-    name: "From ${{ matrix.version }} (${{ matrix.os }})"
-    needs: [setup, build-clients]
-    timeout-minutes: 60
-    runs-on:
-      - self-hosted
-      - ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.MATRIX) }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
 
       - name: Force Quit Existing Synnax Processes (Unix)
         if: runner.os == 'Linux'
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Download and Setup Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -102,23 +60,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
+        run: integration/scripts/DownloadArtifacts.cmd
 
       - name: Download and Setup Artifacts (Unix)
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/download_artifacts_unix.sh
-
-      - name: Download Client Wheels
-        uses: actions/download-artifact@v7
-        with:
-          name: synnax-client-wheels
-          path: ~/synnax-wheels
+        run: integration/scripts/download_artifacts.sh
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -129,20 +81,22 @@ jobs:
         working-directory: integration
         run: uv run playwright install --with-deps
 
-      - name: Migration Test
+      - name: Run Migration Tests
         working-directory: integration
         env:
           GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
-        run: uv run migration-conductor --chain "${{ matrix.chain }}"
+        run: >-
+          uv run mc ${{ inputs.base_version != '' && format('--from {0}',
+          inputs.base_version) || '' }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: migration-results-${{ matrix.chain_name }}-${{ matrix.os }}
+          name: migration-results-${{ matrix.os }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -150,8 +104,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
-          name:
-            migration-core-logs-${{ matrix.chain_name }}-${{ matrix.os }}-attempt-${{
-            github.run_attempt }}
-          path: ~/synnax-data/synnax-core.log
+          name: migration-core-logs-${{ matrix.os }}-attempt-${{ github.run_attempt }}
+          path: ~/synnax-migration-data/synnax-core.log
           retention-days: 7
