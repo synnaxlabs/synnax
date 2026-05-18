@@ -150,7 +150,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
-    firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
+    firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
   }
 
@@ -319,7 +319,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       onChange(elKey, {
-        label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
+        label: { ...cfg.label, [key]: value },
       });
     });
   };
