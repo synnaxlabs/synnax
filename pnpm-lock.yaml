@@ -831,8 +831,8 @@ importers:
         specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
       '@types/use-sync-external-store':
-        specifier: ^0.0.6
-        version: 0.0.6
+        specifier: ^1.5.0
+        version: 1.5.0
       '@types/webgl2':
         specifier: ^0.0.12
         version: 0.0.12
@@ -2859,6 +2859,9 @@ packages:
 
   '@types/use-sync-external-store@0.0.6':
     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
+
+  '@types/use-sync-external-store@1.5.0':
+    resolution: {integrity: sha512-5dyB8nLC/qogMrlCizZnYWQTA4lnb/v+It+sqNl5YnSRAPMlIqY/X0Xn+gZw8vOL+TgTTr28VEbn3uf8fUtAkw==}
 
   '@types/webgl2@0.0.12':
     resolution: {integrity: sha512-42qYzEoJ1yQlDNWSwtJmQKUKAoYv25mjsxKXhwn4/1qlG3Xlr8t8EK/2771dVi5ytw/KX5XwwG5L8lNxLf6qSQ==}
@@ -8448,6 +8451,8 @@ snapshots:
   '@types/unist@3.0.3': {}
 
   '@types/use-sync-external-store@0.0.6': {}
+
+  '@types/use-sync-external-store@1.5.0': {}
 
   '@types/webgl2@0.0.12': {}
 
