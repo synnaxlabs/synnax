@@ -403,6 +403,35 @@ describe("caseconv", () => {
         expect(result.values[0].data.One).toBe(1);
       });
 
+      it("should resolve array element schema through wrapper schemas (default, optional, nullable)", () => {
+        const elementZ = z.object({
+          data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const input = {
+          items: [{ data: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } } }],
+        };
+        const expectPreserved = (result: R) => {
+          expect(result.items[0].data.CamelKey).toBe(1);
+          expect(result.items[0].data.snake_key).toBe(2);
+          expect(result.items[0].data.PascalKey.Inner_Key).toBe(3);
+        };
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().default(() => []) }),
+          }),
+        );
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().optional() }),
+          }),
+        );
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().nullable() }),
+          }),
+        );
+      });
+
       it("should handle array.nullishToEmpty with preserveCase on element field", async () => {
         const { nullishToEmpty } = await import("@/array/nullable");
         const elementZ = z.object({
@@ -720,10 +749,9 @@ describe("caseconv", () => {
 
       it("should preserve case through preserveCase wrapping a union (record.nullishToEmpty)", () => {
         const innerZ = caseconv.preserveCase(
-          z.union([
-            z.union([z.null(), z.undefined()]).transform(() => ({})),
-            z.record(z.string(), z.unknown()),
-          ]),
+          z
+            .union([z.null().transform(() => ({})), z.record(z.string(), z.unknown())])
+            .default(() => ({})),
         );
         const schema = z.object({ payload: innerZ });
         const input = {
