@@ -199,6 +199,18 @@ var _ = Describe("Parse", func() {
 				{Text: "", IsPlaceholder: true, Start: 4, End: 6, SpecOffset: -1},
 				{Text: " post", Start: 6, End: 11, SpecOffset: -1},
 			}),
+		Entry("placeholder with balanced nested braces", "{f({a: 1})}",
+			[]literal.FmtStrSegment{
+				{Text: "f({a: 1})", IsPlaceholder: true, Start: 0, End: 11, SpecOffset: -1},
+			}),
+		Entry("placeholder with balanced nested braces and spec",
+			"{f({a: 1}):d}",
+			[]literal.FmtStrSegment{
+				{
+					Text: "f({a: 1})", Spec: "d", IsPlaceholder: true,
+					Start: 0, End: 13, SpecOffset: 10,
+				},
+			}),
 	)
 
 	DescribeTable("error cases",

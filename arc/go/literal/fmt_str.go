@@ -117,20 +117,42 @@ func scanText(body string, pos int) (int, string) {
 }
 
 func findPlaceholderClose(body string, open int) (int, error) {
+	depth := 1
 	for i := open + 1; i < len(body); i++ {
 		switch body[i] {
 		case '{':
-			return 0, errors.New("unmatched '{'")
+			depth++
 		case '}':
-			return i, nil
+			depth--
+			if depth == 0 {
+				return i, nil
+			}
 		}
 	}
 	return 0, errors.New("unmatched '{'")
 }
 
-// splitSpec splits a placeholder body on the last `:`, yielding (expr, spec).
+// splitSpec splits a placeholder body on the last `:` at brace depth 0,
+// yielding (expr, spec). Colons inside nested `{...}` (e.g. struct literals)
+// are skipped.
 func splitSpec(body string) (expr, spec string, err error) {
-	idx := strings.LastIndexByte(body, ':')
+	idx := -1
+	depth := 0
+	for i := len(body) - 1; i >= 0; i-- {
+		switch body[i] {
+		case '}':
+			depth++
+		case '{':
+			depth--
+		case ':':
+			if depth == 0 {
+				idx = i
+			}
+		}
+		if idx >= 0 {
+			break
+		}
+	}
 	if idx < 0 {
 		return body, "", nil
 	}

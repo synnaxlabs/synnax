@@ -86,6 +86,33 @@ func multi_add(s str) {
     multi_add_out = len(s + str_second + "_suffix" + str_third)
 }
 str_trigger -> multi_add{}
+// ──────────────────────── format strings (function) ───────────────────
+// One function exercises constants, local variables, and channel refs.
+func fmt_fn() {
+    a := 99
+    b := 1.5
+    fmt_const_int_fn_out = `int: {42}`
+    fmt_const_hex_fn_out = `hex: {u8(255):x}`
+    fmt_const_float_fn_out = `pi: {3.14159:.2f}`
+    fmt_var_int_fn_out = `var int: {a}`
+    fmt_var_float_fn_out = `var float: {b:.1f}`
+    fmt_var_expr_fn_out = `expr: {a + 1}`
+    fmt_chan_int_fn_out = `chan: {fmt_int_in}`
+    fmt_chan_float_fn_out = `chan: {fmt_float_in:.2f}`
+    fmt_chan_str_fn_out = `chan: {fmt_str_in:q}`
+}
+fmt_trigger -> fmt_fn{}
+// ──────────────────────── format strings (flow) ───────────────────────
+// Constants in flow position.
+fmt_trigger -> `int: {42}` -> fmt_const_int_flow_out
+fmt_trigger -> `hex: {u8(255):x}` -> fmt_const_hex_flow_out
+fmt_trigger -> `pi: {3.14159:.2f}` -> fmt_const_float_flow_out
+// Channel references in flow position.
+fmt_trigger -> `chan: {fmt_int_in}` -> fmt_chan_int_flow_out
+fmt_trigger -> `chan: {fmt_float_in:.2f}` -> fmt_chan_float_flow_out
+fmt_trigger -> `chan: {fmt_str_in:q}` -> fmt_chan_str_flow_out
+// Multiple placeholders in one flow expression.
+fmt_trigger -> `i={fmt_int_in}, f={fmt_float_in:.1f}` -> fmt_multi_flow_out
 """
 
 VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -96,6 +123,27 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("equal_xx_diff_out", sy.DataType.UINT8),
     ("concat_nested_out", sy.DataType.INT64),
     ("multi_add_out", sy.DataType.INT64),
+    # Format string inputs and outputs (all virtual to keep setup uniform).
+    ("fmt_trigger", sy.DataType.UINT8),
+    ("fmt_int_in", sy.DataType.INT64),
+    ("fmt_float_in", sy.DataType.FLOAT64),
+    ("fmt_str_in", sy.DataType.STRING),
+    ("fmt_const_int_fn_out", sy.DataType.STRING),
+    ("fmt_const_hex_fn_out", sy.DataType.STRING),
+    ("fmt_const_float_fn_out", sy.DataType.STRING),
+    ("fmt_var_int_fn_out", sy.DataType.STRING),
+    ("fmt_var_float_fn_out", sy.DataType.STRING),
+    ("fmt_var_expr_fn_out", sy.DataType.STRING),
+    ("fmt_chan_int_fn_out", sy.DataType.STRING),
+    ("fmt_chan_float_fn_out", sy.DataType.STRING),
+    ("fmt_chan_str_fn_out", sy.DataType.STRING),
+    ("fmt_const_int_flow_out", sy.DataType.STRING),
+    ("fmt_const_hex_flow_out", sy.DataType.STRING),
+    ("fmt_const_float_flow_out", sy.DataType.STRING),
+    ("fmt_chan_int_flow_out", sy.DataType.STRING),
+    ("fmt_chan_float_flow_out", sy.DataType.STRING),
+    ("fmt_chan_str_flow_out", sy.DataType.STRING),
+    ("fmt_multi_flow_out", sy.DataType.STRING),
 ]
 
 INDEXED_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -201,8 +249,73 @@ class StlString(ArcConsoleCase):
         self.log("[multi_add] Expecting 18 (len('helloother_suffix!'))")
         self.wait_for_eq("multi_add_out", 18, is_virtual=True)
 
+    def _test_format(self) -> None:
+        """Format strings in function and flow contexts.
+
+        Format strings are a language feature (parser + compiler + runtime),
+        not part of the stl/strings module. They live here because they
+        produce string values and are closely related to the other string
+        operations exercised by this case; folding them in avoids the
+        overhead of a separate test case with its own arc, channels, and
+        teardown.
+
+        Pre-writes input channels, then writes fmt_trigger to fire every flow
+        and the fmt_fn function in a single pass. Each output asserts the
+        end-to-end pipeline: parser, analyzer, compiler, runtime formatting.
+        """
+        self.log("=== format strings ===")
+        self.writer.write("fmt_int_in", 42)
+        self.writer.write("fmt_float_in", 2.71828)
+        self.writer.write("fmt_str_in", "hello")
+        self.writer.write("fmt_trigger", 1)
+
+        # Function context: constants
+        self.log("[fmt_const_int_fn] Expecting 'int: 42'")
+        self.wait_for_eq("fmt_const_int_fn_out", "int: 42", is_virtual=True)
+        self.log("[fmt_const_hex_fn] Expecting 'hex: ff'")
+        self.wait_for_eq("fmt_const_hex_fn_out", "hex: ff", is_virtual=True)
+        self.log("[fmt_const_float_fn] Expecting 'pi: 3.14'")
+        self.wait_for_eq("fmt_const_float_fn_out", "pi: 3.14", is_virtual=True)
+
+        # Function context: local variables
+        self.log("[fmt_var_int_fn] Expecting 'var int: 99'")
+        self.wait_for_eq("fmt_var_int_fn_out", "var int: 99", is_virtual=True)
+        self.log("[fmt_var_float_fn] Expecting 'var float: 1.5'")
+        self.wait_for_eq("fmt_var_float_fn_out", "var float: 1.5", is_virtual=True)
+        self.log("[fmt_var_expr_fn] Expecting 'expr: 100'")
+        self.wait_for_eq("fmt_var_expr_fn_out", "expr: 100", is_virtual=True)
+
+        # Function context: channel references
+        self.log("[fmt_chan_int_fn] Expecting 'chan: 42'")
+        self.wait_for_eq("fmt_chan_int_fn_out", "chan: 42", is_virtual=True)
+        self.log("[fmt_chan_float_fn] Expecting 'chan: 2.72'")
+        self.wait_for_eq("fmt_chan_float_fn_out", "chan: 2.72", is_virtual=True)
+        self.log("[fmt_chan_str_fn] Expecting 'chan: \"hello\"'")
+        self.wait_for_eq("fmt_chan_str_fn_out", 'chan: "hello"', is_virtual=True)
+
+        # Flow context: constants
+        self.log("[fmt_const_int_flow] Expecting 'int: 42'")
+        self.wait_for_eq("fmt_const_int_flow_out", "int: 42", is_virtual=True)
+        self.log("[fmt_const_hex_flow] Expecting 'hex: ff'")
+        self.wait_for_eq("fmt_const_hex_flow_out", "hex: ff", is_virtual=True)
+        self.log("[fmt_const_float_flow] Expecting 'pi: 3.14'")
+        self.wait_for_eq("fmt_const_float_flow_out", "pi: 3.14", is_virtual=True)
+
+        # Flow context: channel references
+        self.log("[fmt_chan_int_flow] Expecting 'chan: 42'")
+        self.wait_for_eq("fmt_chan_int_flow_out", "chan: 42", is_virtual=True)
+        self.log("[fmt_chan_float_flow] Expecting 'chan: 2.72'")
+        self.wait_for_eq("fmt_chan_float_flow_out", "chan: 2.72", is_virtual=True)
+        self.log("[fmt_chan_str_flow] Expecting 'chan: \"hello\"'")
+        self.wait_for_eq("fmt_chan_str_flow_out", 'chan: "hello"', is_virtual=True)
+
+        # Flow context: multiple placeholders
+        self.log("[fmt_multi_flow] Expecting 'i=42, f=2.7'")
+        self.wait_for_eq("fmt_multi_flow_out", "i=42, f=2.7", is_virtual=True)
+
     def verify_sequence_execution(self) -> None:
         self._test_len()
         self._test_concat()
         self._test_equal()
         self._test_misc()
+        self._test_format()

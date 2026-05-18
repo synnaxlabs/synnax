@@ -69,11 +69,10 @@ const TOKEN_CONFIG = {
     scopes: ["keyword.operator.flow.arc"],
   },
   string: {
-    dark: "#98C379",
-    light: "#0A7D00",
+    dark: "#CE9178",
+    light: "#A31515",
     scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
   },
-  // Distinct from `string` to mark verbatim, no-escape semantics.
   stringRaw: {
     dark: "#CE9178",
     light: "#A31515",
