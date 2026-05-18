@@ -13,7 +13,7 @@ from freighter.alamos import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
-from freighter.codec import Codec, JSONCodec, MsgPackCodec
+from freighter.codec import Codec, JSONCodec, MessagePackCodec
 from freighter.context import Context, Role
 from freighter.exceptions import EOF, StreamClosed, Unreachable
 from freighter.http import HTTPClient
@@ -29,7 +29,14 @@ from freighter.transport import (
     Next,
     Transport,
 )
-from freighter.unary import AsyncUnaryClient, UnaryClient, send_required
+from freighter.unary import (
+    AsyncUnaryClient,
+    DownloadClient,
+    FilePath,
+    UnaryClient,
+    UploadClient,
+    send_required,
+)
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,
@@ -57,17 +64,19 @@ __all__ = [
     "Context",
     "Role",
     "decode_exception",
+    "DownloadClient",
     "encode_exception",
     "EOF",
     "Empty",
     "ExceptionPayload",
+    "FilePath",
     "Finalizer",
     "HTTPClient",
     "instrumentation_middleware",
     "JSONCodec",
     "Middleware",
     "MiddlewareCollector",
-    "MsgPackCodec",
+    "MessagePackCodec",
     "Next",
     "register_exception",
     "send_required",
@@ -77,6 +86,7 @@ __all__ = [
     "Transport",
     "UnaryClient",
     "Unreachable",
+    "UploadClient",
     "URL",
     "WebsocketClient",
 ]
