@@ -148,7 +148,8 @@ const receivePreloadedStateAndListen = async <
         });
         await runtime.emit({ sendState: true }, MAIN_WINDOW);
       } catch (e) {
-        reject(e as Error);
+        if (!(e instanceof Error)) throw e;
+        reject(e);
       }
     };
     // We're safe to void here because we're catching and rejecting the error in

@@ -305,7 +305,7 @@ export class Series<T extends TelemValue = TelemValue>
       data,
     } = props;
     if (isSeries(data)) {
-      const data_ = data as Series;
+      const data_ = data;
       this.key = data_.key;
       this.dataType = data_.dataType;
       this.sampleOffset = data_.sampleOffset;
@@ -330,7 +330,7 @@ export class Series<T extends TelemValue = TelemValue>
         "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
       );
     else if (isArray || isSingle) {
-      let first: TelemValue | unknown = data as TelemValue;
+      let first: TelemValue | unknown = data;
       if (!isSingle) {
         if (data.length === 0)
           throw new Error(

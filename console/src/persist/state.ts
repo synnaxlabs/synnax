@@ -142,7 +142,7 @@ export const open = async <S extends RequiredState>(
     let deepCopy = deep.copy(state);
     exclude.forEach((key) => {
       if (typeof key === "function") deepCopy = key(deepCopy);
-      else deep.remove<S>(deepCopy, key as string);
+      else deep.remove<S>(deepCopy, key);
     });
     await db.set(persistedStateKey(version), deepCopy).catch(console.error);
     await db.set(DB_VERSION_KEY, { version }).catch(console.error);
