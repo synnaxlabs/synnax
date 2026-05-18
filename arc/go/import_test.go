@@ -16,10 +16,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // analyze parses and runs full source-level analysis against the STL
@@ -208,6 +210,35 @@ sensor -> avg{} -> output
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`unknown module "banana"`))
+		})
+	})
+
+	Describe("authority block ordering", func() {
+		It("Should compile and run import + authority + dotted call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trigger_cmd": {types.U8(), 100},
+				"valve_cmd":   {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				import ( authority )
+				authority 100
+				trigger_cmd -> authority.set{value=200, channel=valve_cmd}
+			`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			changes := h.FlushAuthority()
+			Expect(changes).To(HaveLen(1),
+				"authority.set should buffer one authority change per activation")
+			Expect(changes[0].Authority).To(Equal(uint8(200)))
+			Expect(changes[0].Channel).ToNot(BeNil())
+			Expect(*changes[0].Channel).To(Equal(uint32(101)))
 		})
 	})
 })

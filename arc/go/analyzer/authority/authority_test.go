@@ -163,6 +163,43 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("before"))
 		})
 
+		It("Should allow an import block before the authority declaration", func(specCtx SpecContext) {
+			prog := MustSucceed(parser.Parse(`
+				import ( time )
+				authority 200
+			`))
+			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
+			config := authority.Analyze(ctx)
+			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("before"))
+			Expect(config.Default).ToNot(BeNil())
+			Expect(*config.Default).To(Equal(uint8(200)))
+		})
+
+		It("Should allow multiple imports before the authority declaration", func(specCtx SpecContext) {
+			prog := MustSucceed(parser.Parse(`
+				import ( time )
+				import ( authority )
+				authority 200
+			`))
+			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
+			config := authority.Analyze(ctx)
+			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("before"))
+			Expect(config.Default).ToNot(BeNil())
+			Expect(*config.Default).To(Equal(uint8(200)))
+		})
+
+		It("Should still reject authority appearing after a function even with imports first", func(specCtx SpecContext) {
+			prog := MustSucceed(parser.Parse(`
+				import ( time )
+				func test{} () {}
+				authority 200
+			`))
+			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
+			authority.Analyze(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("before"))
+		})
+
 		It("Should reject channel-specific authority value > 255", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (valve 300)`))
 			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
