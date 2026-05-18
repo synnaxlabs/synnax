@@ -20,9 +20,9 @@ import (
 type Create[K Key, E Entry[K]] struct {
 	// entries is the set of entries the query will write.
 	entries Entries[K, E]
-	// onUpdate is the chain of MergeExisting filters applied when an
-	// entry with a matching key already exists. Empty disables the
-	// existing-entry check.
+	// onUpdate is the ordered set of MergeExisting filters applied when
+	// an entry with a matching key already exists. When onUpdate is
+	// empty, the query skips the existing-entry lookup entirely.
 	onUpdate onUpdate[K, E]
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
