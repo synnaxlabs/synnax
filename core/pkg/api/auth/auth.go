@@ -111,9 +111,6 @@ func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest)
 		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
 			return err
 		}
-		return s.auth.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
-			Username: req.Username,
-			Password: req.NewPassword,
-		})
+		return s.auth.NewWriter(tx).ChangePassword(ctx, req.Credentials)
 	})
 }

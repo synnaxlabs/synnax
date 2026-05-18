@@ -11,7 +11,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -128,10 +127,7 @@ func (w Writer) assertUsernameAvailable(ctx context.Context, username string) er
 		return err
 	}
 	if exists {
-		return errors.Wrap(
-			ErrRepeatedUsername,
-			fmt.Sprintf("username %s already exists", username),
-		)
+		return errors.Wrapf(ErrRepeatedUsername, "username %s already exists", username)
 	}
 	return nil
 }

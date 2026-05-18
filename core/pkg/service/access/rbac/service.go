@@ -203,8 +203,11 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 				user.OntologyID(r.Key),
 				ownerKey,
 			); err != nil {
-				return errors.Wrapf(err,
-					"assign Owner role to root user %q", r.Username)
+				return errors.Wrapf(
+					err,
+					"assign Owner role to root user %q",
+					r.Username,
+				)
 			}
 		}
 		return nil
