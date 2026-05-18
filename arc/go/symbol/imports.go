@@ -10,6 +10,8 @@
 package symbol
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/set"
 )
@@ -50,6 +52,24 @@ func (s *ImportSet) Lookup(alias string) (*ImportRecord, bool) {
 	}
 	rec, ok := s.aliases[alias]
 	return rec, ok
+}
+
+// CanonicalName rewrites a qualified name's alias prefix to the underlying
+// module path (`t.now` → `time.now` when `time as t` is imported). Returns
+// the input unchanged when the name is unqualified or the alias is unbound.
+func (s *ImportSet) CanonicalName(name string) string {
+	if s == nil {
+		return name
+	}
+	dot := strings.IndexByte(name, '.')
+	if dot < 0 {
+		return name
+	}
+	rec, ok := s.aliases[name[:dot]]
+	if !ok || rec.Path == name[:dot] {
+		return name
+	}
+	return rec.Path + name[dot:]
 }
 
 // MarkUsed flags the alias as consumed. No-op for unknown aliases.

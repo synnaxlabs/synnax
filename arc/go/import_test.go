@@ -138,6 +138,28 @@ trig -> time.now{} -> now_out
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`module "time" is not imported`))
 		})
+
+		It("Should rewrite the alias to the canonical module in IR node types", func() {
+			t, parseDiag := text.Parse(text.Text{Raw: `
+import ( time as t )
+
+trig -> t.now{} -> now_out
+`})
+			if parseDiag != nil {
+				Expect(parseDiag.Ok()).To(BeTrue())
+			}
+			resolver := symbol.CompoundResolver{stl.SymbolResolver, chans}
+			i, d := text.Analyze(context.Background(), t, resolver)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+			var found bool
+			for _, n := range i.Nodes {
+				if n.Type == "time.now" {
+					found = true
+				}
+				Expect(n.Type).ToNot(Equal("t.now"), "IR node type still uses the alias")
+			}
+			Expect(found).To(BeTrue(), "expected an IR node with canonical type time.now")
+		})
 	})
 
 	Describe("hierarchical paths", func() {
