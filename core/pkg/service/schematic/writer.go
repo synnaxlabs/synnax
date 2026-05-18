@@ -62,6 +62,9 @@ func (w Writer) Create(
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
+	if ws == uuid.Nil {
+		return nil
+	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
@@ -85,19 +88,6 @@ func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key
 	}
 	k, err := uuid.Parse(res[0].ID.Key)
 	return k, true, err
-}
-
-// Rename renames the schematic with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key Key,
-	name string,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		Change(func(_ gorp.Context, s Schematic) Schematic {
-			s.Name = name
-			return s
-		}).Exec(ctx, w.tx)
 }
 
 // Copy creates a copy of the schematic with the given key and name. If the
@@ -168,8 +158,8 @@ func (w Writer) SetData(
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.
 // sessionKey identifies the originating client so subscribers can self-dedup.
-// Returns validate.ErrValidation if the target schematic is a snapshot, since
-// snapshots are immutable.
+// Snapshots are immutable except for Rename: returns validate.ErrValidation if
+// the target is a snapshot and any action other than Rename is included.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -179,14 +169,19 @@ func (w Writer) Dispatch(
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
-				return s, errors.Wrapf(
-					validate.ErrValidation,
-					"[Schematic] - cannot dispatch actions on snapshot %s:%s",
-					key,
-					s.Name,
-				)
+				for _, a := range actions {
+					if a.Type != ActionTypeRename {
+						return s, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							s.Name,
+						)
+					}
+				}
 			}
-			return ReduceAll(s, actions)
+			return Reduce(s, actions...)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}

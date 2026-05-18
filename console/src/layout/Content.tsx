@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
 import { useRenderer } from "@/layout/context";
@@ -36,13 +37,15 @@ export const Content = memo(
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;
     return (
-      <Renderer
-        key={layoutKey}
-        layoutKey={layoutKey}
-        onClose={handleClose}
-        visible={visible}
-        focused={isFocused}
-      />
+      <Errors.SuspenseBoundary>
+        <Renderer
+          key={layoutKey}
+          layoutKey={layoutKey}
+          onClose={handleClose}
+          visible={visible}
+          focused={isFocused}
+        />
+      </Errors.SuspenseBoundary>
     );
   },
 );

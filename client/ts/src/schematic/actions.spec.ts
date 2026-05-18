@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -15,16 +14,13 @@ import { reduce, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   actionZ,
+  addEdge,
   removeEdge,
   removeNode,
-  setAuthority,
   setConfig,
-  setEdge,
-  setLegend,
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
-import { ZERO_LEGEND } from "@/schematic/client";
 import { type Edge, type Node, type Schematic } from "@/schematic/types.gen";
 
 const node = (key: string, x: number, y: number): Node => ({
@@ -48,8 +44,6 @@ const empty = (overrides: Partial<Schematic> = {}): Schematic => ({
   key: "00000000-0000-0000-0000-000000000000",
   name: "",
   snapshot: false,
-  authority: 1,
-  legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
   configs: {},
@@ -143,22 +137,23 @@ describe("schematic reducer", () => {
   describe("setEdge", () => {
     it("should append an edge whose key is not yet present", () => {
       const state = empty({ edges: [edge("e1", "a", "o", "b", "i")] });
-      const out = reduceAll(state, [setEdge({ edge: edge("e2", "b", "o", "c", "i") })]);
+      const out = reduceAll(state, [addEdge({ edge: edge("e2", "b", "o", "c", "i") })]);
       expect(out.edges).toHaveLength(2);
       expect(out.edges[1].key).toBe("e2");
     });
-    it("should replace an existing edge in place, preserving slice index", () => {
+    it("should be a no-op when an edge with the same key already exists", () => {
+      const original = edge("e2", "b", "o", "c", "i");
       const state = empty({
         edges: [
           edge("e1", "a", "o", "b", "i"),
-          edge("e2", "b", "o", "c", "i"),
+          original,
           edge("e3", "c", "o", "d", "i"),
         ],
       });
-      const out = reduceAll(state, [setEdge({ edge: edge("e2", "x", "y", "z", "w") })]);
+      const out = reduceAll(state, [addEdge({ edge: edge("e2", "x", "y", "z", "w") })]);
       expect(out.edges).toHaveLength(3);
       expect(out.edges[0].key).toBe("e1");
-      expect(out.edges[1]).toEqual(edge("e2", "x", "y", "z", "w"));
+      expect(out.edges[1]).toEqual(original);
       expect(out.edges[2].key).toBe("e3");
     });
   });
@@ -185,12 +180,14 @@ describe("schematic reducer", () => {
       ]);
       expect(out.configs).toEqual({ n1: { label: "Pump" } });
     });
-    it("should overwrite an existing config entry", () => {
-      const state = empty({ configs: { n1: { label: "Old" } } });
+    it("should merge payload fields into an existing config entry", () => {
+      const state = empty({
+        configs: { n1: { label: "Old", color: "#ff0000" } },
+      });
       const out = reduceAll(state, [
         setConfig({ key: "n1", config: { label: "New" } }),
       ]);
-      expect(out.configs).toEqual({ n1: { label: "New" } });
+      expect(out.configs).toEqual({ n1: { label: "New", color: "#ff0000" } });
     });
     it("should accept a key that does not match any node or edge", () => {
       const out = reduceAll(empty(), [
@@ -198,24 +195,85 @@ describe("schematic reducer", () => {
       ]);
       expect(out.configs).toEqual({ orphan: { data: 1 } });
     });
-  });
-
-  describe("setAuthority", () => {
-    it("should replace the authority value", () => {
-      const out = reduceAll(empty({ authority: 1 }), [setAuthority({ value: 200 })]);
-      expect(out.authority).toBe(200);
+    it("should override the payload color with the source node's color when the new entry is for an edge", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 1, 0, 1] });
     });
-  });
-
-  describe("setLegend", () => {
-    it("should replace the legend wholesale", () => {
-      const newLegend = {
-        visible: true,
-        position: { x: 0, y: 0 },
-        colors: { on: color.construct("#ff0000") },
-      };
-      const out = reduceAll(empty(), [setLegend({ legend: newLegend })]);
-      expect(out.legend).toEqual(newLegend);
+    it("should inherit the source node's color when the payload omits color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe" } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 1, 0, 1] });
+    });
+    it("should leave the payload untouched when the source node has a zero color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 0, 0, 0] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should leave the payload untouched when the source node has no color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { label: "Pump" } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should leave the payload untouched when the source node has no config", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should not override the color when merging into an existing edge config", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: {
+          src: { color: [0, 1, 0, 1] },
+          e1: { variant: "pipe", color: [0, 0, 0, 0] },
+        },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "electric" } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "electric", color: [0, 0, 0, 0] });
+    });
+    it("should inherit the source color end-to-end when addEdge is followed by setConfig in one batch", () => {
+      const state = empty({
+        nodes: [node("src", 0, 0), node("tgt", 100, 0)],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        addEdge({ edge: edge("e1", "src", "o", "tgt", "i") }),
+        setConfig({
+          key: "e1",
+          config: { variant: "pipe", color: [0, 0, 0, 0], segments: [] },
+        }),
+      ]);
+      expect(out.configs.e1).toEqual({
+        variant: "pipe",
+        color: [0, 1, 0, 1],
+        segments: [],
+      });
     });
   });
 
@@ -258,8 +316,8 @@ describe("schematic reducer", () => {
         setNode({ node: node("pump", 0, 0) }),
         setNode({ node: node("valve", 100, 0) }),
         setNode({ node: node("tank", 200, 0) }),
-        setEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),
-        setEdge({ edge: edge("e2", "valve", "out", "tank", "in") }),
+        addEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),
+        addEdge({ edge: edge("e2", "valve", "out", "tank", "in") }),
         setConfig({ key: "pump", config: { label: "Main Pump" } }),
         setConfig({ key: "e1", config: { variant: "pipe" } }),
       ]);
@@ -309,27 +367,19 @@ describe("schematic reducer", () => {
       }
       for (let i = 0; i < 4; i++)
         actions.push(
-          setEdge({
+          addEdge({
             edge: edge(`e${i}`, `n${i}`, "out", `n${i + 1}`, "in"),
           }),
         );
       for (let i = 0; i < 3; i++)
         actions.push(setConfig({ key: `n${i}`, config: { label: `node ${i}` } }));
       actions.push(setConfig({ key: "e1", config: { variant: "electric" } }));
-      actions.push(setAuthority({ value: 255 }));
-      actions.push(
-        setLegend({
-          legend: { visible: true, position: { x: 0, y: 0 }, colors: {} },
-        }),
-      );
       const out = reduceAll(state, actions);
       expect(out.nodes).toHaveLength(5);
       expect(out.nodes[0].position).toEqual({ x: 0, y: 100 });
       expect(out.nodes[4].position).toEqual({ x: 400, y: 100 });
       expect(out.edges).toHaveLength(4);
       expect(Object.keys(out.configs)).toHaveLength(4);
-      expect(out.authority).toBe(255);
-      expect(out.legend.visible).toBe(true);
     });
 
     it("should leave state untouched when given an empty action list", () => {
