@@ -14,12 +14,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Authenticator Suite")
+	RunSpecs(t, "Auth Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var db *gorp.DB
+
+var _ = BeforeSuite(func() {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+})

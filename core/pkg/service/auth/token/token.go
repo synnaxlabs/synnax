@@ -112,7 +112,7 @@ func (s *Service) New(issuer user.Key) (string, error) {
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
-		return v, auth.InvalidToken
+		return v, auth.ErrInvalidToken
 	}
 	return v, nil
 }
@@ -145,16 +145,16 @@ func (s *Service) validate(token string) (user.Key, *jwt.RegisteredClaims, error
 	})
 	if err != nil {
 		if isVerificationError(err) {
-			return uuid.Nil, claims, auth.InvalidToken
+			return uuid.Nil, claims, auth.ErrInvalidToken
 		}
 		if isExpiredError(err) {
-			return uuid.Nil, claims, auth.ExpiredToken
+			return uuid.Nil, claims, auth.ErrExpiredToken
 		}
-		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
+		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
 	if err != nil {
-		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
+		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	return id, claims, nil
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
@@ -50,13 +50,13 @@ const tokenParamPrefix = "Bearer "
 
 var (
 	errInvalidAuthenticationParam = errors.Wrapf(
-		svcauth.Error,
+		auth.ErrAuth,
 		`invalid authorization token. Format should be
 		'Authorization: %s <token>'`,
 		tokenParamPrefix,
 	)
 	errNoAuthenticationParam = errors.Wrapf(
-		svcauth.Error,
+		auth.ErrAuth,
 		"no authentication token provided",
 	)
 )
