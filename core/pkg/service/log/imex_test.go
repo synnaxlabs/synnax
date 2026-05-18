@@ -16,9 +16,14 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -100,5 +105,56 @@ var _ = Describe("ImportExport", func() {
 			Expect(exported.Data).To(HaveKey("channels"))
 			Expect(exported.Data["channels"]).To(HaveLen(3))
 		})
+	})
+
+	Describe("(Log).Data", func() {
+		It("Should project every persisted body field with json-tag keys", func() {
+			l := log.Log{
+				Key:                  uuid.New(),
+				Name:                 "ignored",
+				Channels:             []log.ChannelEntry{{Channel: channel.Key(7)}},
+				RemoteCreated:        true,
+				TimestampPrecision:   2,
+				ShowChannelNames:     false,
+				ShowReceiptTimestamp: true,
+			}
+			data := l.Data()
+			Expect(data).To(HaveKeyWithValue("remote_created", true))
+			Expect(data).To(HaveKeyWithValue("timestamp_precision", int32(2)))
+			Expect(data).To(HaveKeyWithValue("show_channel_names", false))
+			Expect(data).To(HaveKeyWithValue("show_receipt_timestamp", true))
+			Expect(data["channels"]).To(Equal(l.Channels))
+		})
+
+		It("Should not project the envelope-level Key or Name", func() {
+			l := log.Log{Key: uuid.New(), Name: "should-not-appear"}
+			Expect(l.Data()).ToNot(HaveKey("key"))
+			Expect(l.Data()).ToNot(HaveKey("name"))
+		})
+
+		It("Should marshal cleanly to JSON via the channel struct tags", func() {
+			l := log.Log{
+				Channels: []log.ChannelEntry{{
+					Channel:   channel.Key(42),
+					Color:     color.MustFromHex("#ff0000"),
+					Notation:  notation.NotationScientific,
+					Precision: 3,
+					Alias:     "temp",
+					Timestamp: log.TimestampConfig{
+						Format: telem.TimestampFormatIso,
+						Tz:     telem.TimezoneUtc,
+					},
+				}},
+			}
+			raw := MustSucceed(json.Marshal(l.Data()))
+			Expect(string(raw)).To(SatisfyAll(
+				ContainSubstring(`"channel":42`),
+				ContainSubstring(`"notation":"scientific"`),
+				ContainSubstring(`"alias":"temp"`),
+				ContainSubstring(`"format":"ISO"`),
+				ContainSubstring(`"tz":"UTC"`),
+			))
+		})
+
 	})
 })

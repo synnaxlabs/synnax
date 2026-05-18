@@ -48,11 +48,16 @@ func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error)
 		Version: migrations.LatestVersion,
 		Type:    string(ontology.ResourceTypeLog),
 		Name:    l.Name,
-		Data:    l.data(),
+		Data:    l.Data(),
 	}, nil
 }
 
-func (l Log) data() map[string]any {
+// Data projects the Log into the encoding-neutral map[string]any form carried by
+// imex.Envelope.Data. Keys mirror the json tags on the typed fields; the typed values
+// (including []ChannelEntry, which carries the per-channel timestamp config the v1 zyn
+// schema does not declare) JSON-marshal correctly at the envelope boundary via their
+// struct tags.
+func (l Log) Data() map[string]any {
 	return map[string]any{
 		"channels":               l.Channels,
 		"remote_created":         l.RemoteCreated,
