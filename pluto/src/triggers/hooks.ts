@@ -28,6 +28,12 @@ export interface UseEvent {
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
+  /**
+   * Prevents the event from being dispatched to any remaining Triggers.use
+   * subscribers with a lower priority than the current one. Subscribers at the
+   * same priority that have not yet been notified still receive the event.
+   */
+  stopPropagation: () => void;
 }
 
 export interface UseProps extends MatchOptions {
@@ -35,6 +41,12 @@ export interface UseProps extends MatchOptions {
   region?: RefObject<HTMLElement | null>;
   callback?: (e: UseEvent) => void;
   regionMustBeElement?: boolean;
+  /**
+   * Priority of this subscriber. Higher-priority subscribers receive events
+   * before lower-priority ones and may call stopPropagation on the event to
+   * prevent lower-priority subscribers from receiving it. Defaults to 0.
+   */
+  priority?: number;
 }
 
 export const use = ({
@@ -44,6 +56,7 @@ export const use = ({
   loose,
   double,
   regionMustBeElement,
+  priority,
 }: UseProps): void => {
   const { listen } = useContext();
   let baseTriggers: Trigger[];
@@ -70,13 +83,17 @@ export const use = ({
       const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
-      const base = { target: e.target, cursor: e.cursor };
+      const base = {
+        target: e.target,
+        cursor: e.cursor,
+        stopPropagation: e.stopPropagation,
+      };
       if (added.length > 0)
         f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
       if (removed.length > 0)
         f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
-    });
-  }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement]);
+    }, priority);
+  }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement, priority]);
 };
 
 const filterInRegion = (

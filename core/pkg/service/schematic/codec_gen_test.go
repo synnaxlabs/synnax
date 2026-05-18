@@ -21,8 +21,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -66,72 +64,6 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", schematic.Handle{Node: "", Param: ""}),
 		)
 	})
-	Describe("Legend", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.Legend) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.Legend
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", schematic.Legend{
-				Visible: true,
-				Position: spatial.StickyXY{
-					X: 3.5,
-					Y: 4.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
-				},
-				Colors: map[string]color.Color{"test_11": {
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}},
-			}),
-			Entry("zero values", schematic.Legend{
-				Visible: false,
-				Position: spatial.StickyXY{
-					X:     0,
-					Y:     0,
-					Root:  nil,
-					Units: nil,
-				},
-				Colors: nil,
-			}),
-			Entry("empty collections", schematic.Legend{
-				Visible: true,
-				Position: spatial.StickyXY{
-					X: 3.5,
-					Y: 4.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
-				},
-				Colors: map[string]color.Color{},
-			}),
-		)
-	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Node) {
@@ -169,97 +101,41 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", schematic.Schematic{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:      "test_2",
-				Snapshot:  true,
-				Authority: control.Authority(5),
-				Legend: schematic.Legend{
-					Visible: false,
-					Position: spatial.StickyXY{
-						X: 8.5,
-						Y: 9.5,
-						Root: func() *spatial.CornerLocation {
-							v := spatial.CornerLocation{
-								X: spatial.XLocation("left"),
-								Y: spatial.YLocation("top"),
-							}
-							return &v
-						}(),
-						Units: func() *spatial.StickyUnits {
-							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-							return &v
-						}(),
-					},
-					Colors: map[string]color.Color{"test_16": {
-						R: 18,
-						G: 19,
-						B: 20,
-						A: 20.5,
-					}},
-				},
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Snapshot: true,
 				Nodes: []schematic.Node{
 					{
-						Key:      "test_22",
-						Position: spatial.XY{X: 24.5, Y: 25.5},
-						ZIndex:   27,
-						Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
+						Key:      "test_5",
+						Position: spatial.XY{X: 7.5, Y: 8.5},
+						ZIndex:   10,
+						Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 					},
 				},
 				Edges: []schematic.Edge{
 					{
-						Key:    "test_31",
-						Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-						Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+						Key:    "test_14",
+						Source: schematic.Handle{Node: "test_16", Param: "test_17"},
+						Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 					},
 				},
-				Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+				Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
 			}),
 			Entry("zero values", schematic.Schematic{
-				Key:       uuid.Nil,
-				Name:      "",
-				Snapshot:  false,
-				Authority: control.Authority(0),
-				Legend: schematic.Legend{
-					Visible: false,
-					Position: spatial.StickyXY{
-						X:     0,
-						Y:     0,
-						Root:  nil,
-						Units: nil,
-					},
-					Colors: nil,
-				},
-				Nodes:   nil,
-				Edges:   nil,
-				Configs: nil,
+				Key:      uuid.Nil,
+				Name:     "",
+				Snapshot: false,
+				Nodes:    nil,
+				Edges:    nil,
+				Configs:  nil,
 			}),
 			Entry("empty collections", schematic.Schematic{
-				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:      "test_2",
-				Snapshot:  true,
-				Authority: control.Authority(5),
-				Legend: schematic.Legend{
-					Visible: false,
-					Position: spatial.StickyXY{
-						X: 8.5,
-						Y: 9.5,
-						Root: func() *spatial.CornerLocation {
-							v := spatial.CornerLocation{
-								X: spatial.XLocation("left"),
-								Y: spatial.YLocation("top"),
-							}
-							return &v
-						}(),
-						Units: func() *spatial.StickyUnits {
-							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-							return &v
-						}(),
-					},
-					Colors: map[string]color.Color{},
-				},
-				Nodes:   []schematic.Node{},
-				Edges:   []schematic.Edge{},
-				Configs: map[string]msgpack.EncodedJSON{},
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:     "test_2",
+				Snapshot: true,
+				Nodes:    []schematic.Node{},
+				Edges:    []schematic.Edge{},
+				Configs:  map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -303,46 +179,6 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeLegend(b *testing.B) {
-	lv := schematic.Legend{
-		Visible: true,
-		Position: spatial.StickyXY{
-			X: 3.5,
-			Y: 4.5,
-			Root: func() *spatial.CornerLocation {
-				v := spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				}
-				return &v
-			}(),
-			Units: func() *spatial.StickyUnits {
-				v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-				return &v
-			}(),
-		},
-		Colors: map[string]color.Color{"test_11": {
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := lv.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.Legend
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := schematic.Node{
 		Key:      "test_1",
@@ -367,50 +203,25 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	s := schematic.Schematic{
-		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:      "test_2",
-		Snapshot:  true,
-		Authority: control.Authority(5),
-		Legend: schematic.Legend{
-			Visible: false,
-			Position: spatial.StickyXY{
-				X: 8.5,
-				Y: 9.5,
-				Root: func() *spatial.CornerLocation {
-					v := spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					}
-					return &v
-				}(),
-				Units: func() *spatial.StickyUnits {
-					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-					return &v
-				}(),
-			},
-			Colors: map[string]color.Color{"test_16": {
-				R: 18,
-				G: 19,
-				B: 20,
-				A: 20.5,
-			}},
-		},
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:     "test_2",
+		Snapshot: true,
 		Nodes: []schematic.Node{
 			{
-				Key:      "test_22",
-				Position: spatial.XY{X: 24.5, Y: 25.5},
-				ZIndex:   27,
-				Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
+				Key:      "test_5",
+				Position: spatial.XY{X: 7.5, Y: 8.5},
+				ZIndex:   10,
+				Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 			},
 		},
 		Edges: []schematic.Edge{
 			{
-				Key:    "test_31",
-				Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-				Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+				Key:    "test_14",
+				Source: schematic.Handle{Node: "test_16", Param: "test_17"},
+				Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 			},
 		},
-		Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+		Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -527,110 +338,6 @@ func FuzzDecodeHandle(f *testing.F) {
 	})
 }
 
-func FuzzDecodeLegend(f *testing.F) {
-	{
-		seed := schematic.Legend{
-			Visible: true,
-			Position: spatial.StickyXY{
-				X: 3.5,
-				Y: 4.5,
-				Root: func() *spatial.CornerLocation {
-					v := spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					}
-					return &v
-				}(),
-				Units: func() *spatial.StickyUnits {
-					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-					return &v
-				}(),
-			},
-			Colors: map[string]color.Color{"test_11": {
-				R: 13,
-				G: 14,
-				B: 15,
-				A: 15.5,
-			}},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.Legend{
-			Visible: false,
-			Position: spatial.StickyXY{
-				X:     0,
-				Y:     0,
-				Root:  nil,
-				Units: nil,
-			},
-			Colors: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.Legend{
-			Visible: true,
-			Position: spatial.StickyXY{
-				X: 3.5,
-				Y: 4.5,
-				Root: func() *spatial.CornerLocation {
-					v := spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					}
-					return &v
-				}(),
-				Units: func() *spatial.StickyUnits {
-					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-					return &v
-				}(),
-			},
-			Colors: map[string]color.Color{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.Legend
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.Legend
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeNode(f *testing.F) {
 	{
 		seed := schematic.Node{
@@ -690,50 +397,25 @@ func FuzzDecodeNode(f *testing.F) {
 func FuzzDecodeSchematic(f *testing.F) {
 	{
 		seed := schematic.Schematic{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:      "test_2",
-			Snapshot:  true,
-			Authority: control.Authority(5),
-			Legend: schematic.Legend{
-				Visible: false,
-				Position: spatial.StickyXY{
-					X: 8.5,
-					Y: 9.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
-				},
-				Colors: map[string]color.Color{"test_16": {
-					R: 18,
-					G: 19,
-					B: 20,
-					A: 20.5,
-				}},
-			},
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Snapshot: true,
 			Nodes: []schematic.Node{
 				{
-					Key:      "test_22",
-					Position: spatial.XY{X: 24.5, Y: 25.5},
-					ZIndex:   27,
-					Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
+					Key:      "test_5",
+					Position: spatial.XY{X: 7.5, Y: 8.5},
+					ZIndex:   10,
+					Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 				},
 			},
 			Edges: []schematic.Edge{
 				{
-					Key:    "test_31",
-					Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-					Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+					Key:    "test_14",
+					Source: schematic.Handle{Node: "test_16", Param: "test_17"},
+					Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 				},
 			},
-			Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+			Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -743,23 +425,12 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := schematic.Schematic{
-			Key:       uuid.Nil,
-			Name:      "",
-			Snapshot:  false,
-			Authority: control.Authority(0),
-			Legend: schematic.Legend{
-				Visible: false,
-				Position: spatial.StickyXY{
-					X:     0,
-					Y:     0,
-					Root:  nil,
-					Units: nil,
-				},
-				Colors: nil,
-			},
-			Nodes:   nil,
-			Edges:   nil,
-			Configs: nil,
+			Key:      uuid.Nil,
+			Name:     "",
+			Snapshot: false,
+			Nodes:    nil,
+			Edges:    nil,
+			Configs:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -769,32 +440,12 @@ func FuzzDecodeSchematic(f *testing.F) {
 	}
 	{
 		seed := schematic.Schematic{
-			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:      "test_2",
-			Snapshot:  true,
-			Authority: control.Authority(5),
-			Legend: schematic.Legend{
-				Visible: false,
-				Position: spatial.StickyXY{
-					X: 8.5,
-					Y: 9.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
-				},
-				Colors: map[string]color.Color{},
-			},
-			Nodes:   []schematic.Node{},
-			Edges:   []schematic.Edge{},
-			Configs: map[string]msgpack.EncodedJSON{},
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:     "test_2",
+			Snapshot: true,
+			Nodes:    []schematic.Node{},
+			Edges:    []schematic.Edge{},
+			Configs:  map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

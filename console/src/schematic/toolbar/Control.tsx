@@ -24,7 +24,7 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
       <Input.Item label="Control Authority">
         <Input.Numeric
-          value={authority ?? 0}
+          value={authority}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
           bounds={control.AUTHORITY_BOUNDS}
         />

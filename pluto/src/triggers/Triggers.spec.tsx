@@ -178,7 +178,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
       fireEvent.keyUp(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenCalledTimes(2);
       expect(callback).toHaveBeenLastCalledWith({
@@ -187,7 +188,8 @@ describe("Triggers", () => {
         prevTriggers: [["A"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
     });
 
     it("should handle multi-key combinations", async () => {
@@ -217,7 +219,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Release A first
       fireEvent.keyUp(document.body, { code: "KeyA" });
@@ -227,7 +230,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control", "A"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Release Control
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
@@ -255,7 +259,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.mouseUp(document.body, { button: 0 });
       expect(callback).toHaveBeenLastCalledWith({
@@ -264,7 +269,8 @@ describe("Triggers", () => {
         prevTriggers: [["MouseLeft"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
     });
 
     it("should handle double key presses", async () => {
@@ -295,7 +301,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(document.body, { code: "KeyA" });
       expect(callback).toHaveBeenLastCalledWith({
@@ -304,7 +311,8 @@ describe("Triggers", () => {
         prevTriggers: [["A", "A"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
     });
 
     it("should handle loose matching", async () => {
@@ -333,7 +341,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
@@ -344,7 +353,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
     });
 
     it("should handle multiple simultaneous triggers", async () => {
@@ -375,7 +385,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 0, y: 0 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
@@ -390,7 +401,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control", "A"]],
         cursor: { x: 0, y: 0 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(document.body, { code: "KeyB" });
       fireEvent.keyUp(document.body, { code: "ControlLeft" });
@@ -427,7 +439,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Move cursor out of region
       fireEvent.mouseMove(document.body, { clientX: -10, clientY: -10 });
@@ -477,7 +490,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(regionRef.current, { code: "KeyA" });
     });
@@ -518,7 +532,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.mouseUp(regionRef.current, { button: 0 });
     });
@@ -589,7 +604,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Release in correct order
       fireEvent.keyUp(input, { code: "KeyA", ctrlKey: true });
@@ -634,7 +650,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(editable, { code: "KeyB", ctrlKey: true });
       fireEvent.keyUp(editable, { code: "ControlLeft" });
@@ -668,7 +685,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(input, { code: "Escape" });
       vi.advanceTimersByTime(500);
@@ -683,7 +701,8 @@ describe("Triggers", () => {
         prevTriggers: [],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(input, { code: "ArrowUp" });
     });
@@ -732,7 +751,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Release in correct order
       fireEvent.keyUp(target, { code: "KeyA", metaKey: true });
@@ -768,7 +788,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(target, { code: "KeyS", ctrlKey: true });
       fireEvent.keyUp(target, { code: "ControlLeft" });
@@ -785,7 +806,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(target, { code: "KeyS", metaKey: true });
       fireEvent.keyUp(target, { code: "MetaLeft" });
@@ -820,7 +842,8 @@ describe("Triggers", () => {
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       fireEvent.keyUp(target, { code: "KeyX", metaKey: true });
       fireEvent.keyUp(target, { code: "MetaRight" });
@@ -856,7 +879,8 @@ describe("Triggers", () => {
         prevTriggers: [["Shift"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Keep holding both keys and verify the state
       expect(callback).toHaveBeenCalledTimes(1);
@@ -875,7 +899,8 @@ describe("Triggers", () => {
         prevTriggers: [["Shift", "A"]],
         cursor: { x: 10, y: 10 },
         stage: "end",
-      } satisfies Triggers.UseEvent);
+        stopPropagation: expect.any(Function),
+      });
 
       // Try pressing another key to verify the trigger is truly ended
       fireEvent.keyDown(target, { code: "KeyC", shiftKey: false });
@@ -885,6 +910,123 @@ describe("Triggers", () => {
       fireEvent.keyUp(target, { code: "KeyA", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyB", shiftKey: false });
       fireEvent.keyUp(target, { code: "KeyC", shiftKey: false });
+    });
+
+    describe("priority and stopPropagation", () => {
+      it("should invoke higher-priority subscribers before lower-priority ones", () => {
+        const order: string[] = [];
+        const high = vi.fn(() => order.push("high"));
+        const low = vi.fn(() => order.push("low"));
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(order).toEqual(["high", "low"]);
+      });
+
+      it("should not invoke lower-priority subscribers when a higher-priority one stops propagation", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
+        const low = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
+        expect(low).not.toHaveBeenCalled();
+      });
+
+      it("should still invoke same-priority peers when one of them stops propagation", () => {
+        const stopper = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
+        const peer = vi.fn();
+        const lower = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: stopper, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: peer, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: lower, triggers: [["A"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(stopper).toHaveBeenCalledOnce();
+        expect(peer).toHaveBeenCalledOnce();
+        expect(lower).not.toHaveBeenCalled();
+      });
+
+      it("should invoke all subscribers when none stops propagation", () => {
+        const high = vi.fn();
+        const low = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
+        expect(low).toHaveBeenCalledOnce();
+      });
+
+      it("should default priority to 0 so unconfigured subscribers are blocked by a stopping priority>0 peer", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => e.stopPropagation());
+        const defaultPriority = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 1 });
+          Triggers.use({ callback: defaultPriority, triggers: [["A"]] });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
+        expect(defaultPriority).not.toHaveBeenCalled();
+      });
+
+      it("should isolate stopPropagation across separate dispatches", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => {
+          if (e.stage === "start") e.stopPropagation();
+        });
+        const low = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(low).not.toHaveBeenCalled();
+        fireEvent.keyUp(document.body, { code: "KeyA" });
+        expect(low).toHaveBeenCalledOnce();
+        expect(low.mock.calls[0][0].stage).toBe("end");
+      });
     });
   });
 });

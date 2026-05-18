@@ -113,7 +113,6 @@ func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
 		SchematicCreate:   http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](router, "/api/v1/schematic/create"),
 		SchematicRetrieve: http.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](router, "/api/v1/schematic/retrieve"),
 		SchematicDelete:   http.NewUnaryServer[schematic.DeleteRequest, types.Nil](router, "/api/v1/schematic/delete"),
-		SchematicRename:   http.NewUnaryServer[schematic.RenameRequest, types.Nil](router, "/api/v1/schematic/rename"),
 		SchematicSetData:  http.NewUnaryServer[schematic.SetDataRequest, types.Nil](router, "/api/v1/schematic/set-data"),
 		SchematicDispatch: http.NewUnaryServer[schematic.DispatchRequest, types.Nil](router, "/api/v1/schematic/dispatch"),
 		SchematicCopy:     http.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](router, "/api/v1/schematic/copy"),

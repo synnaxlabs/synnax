@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@/context";
+import z from "zod";
 
-export const [Provider, useKey] = context.create<string>({
-  defaultValue: "",
-  displayName: "Schematic.Context",
-});
+import { Edge } from "@/schematic/edge";
+import { Node } from "@/schematic/node";
+
+export const elementConfigZ = z.discriminatedUnion("variant", [
+  ...Node.configZ.options,
+  ...Edge.configZ.options,
+]);
+export type ElementConfig = z.infer<typeof elementConfigZ>;
+
+export const ELEMENT_REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };

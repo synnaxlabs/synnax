@@ -13,24 +13,12 @@ package schematic
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
-
-// Legend is the control legend overlay configuration.
-type Legend struct {
-	// Visible is whether the legend is visible.
-	Visible bool `json:"visible" msgpack:"visible"`
-	// Position is the legend position within the schematic.
-	Position spatial.StickyXY `json:"position" msgpack:"position"`
-	// Colors maps control status keys to their display colors.
-	Colors map[string]color.Color `json:"colors" msgpack:"colors"`
-}
 
 // Node is a diagram node representing a symbol in the schematic.
 type Node struct {
@@ -75,10 +63,6 @@ type Schematic struct {
 	Name string `json:"name" msgpack:"name"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Authority is the control authority level for this schematic.
-	Authority control.Authority `json:"authority" msgpack:"authority"`
-	// Legend is the control legend overlay configuration.
-	Legend Legend `json:"legend" msgpack:"legend"`
 	// Nodes contains all diagram nodes in the schematic.
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
