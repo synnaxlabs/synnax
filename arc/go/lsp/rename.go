@@ -26,8 +26,17 @@ func (s *Server) logUnexpectedSymbolError(sym *symbol.Scope, err error) {
 	}
 }
 
-func isValidSymbol(sym *symbol.Scope, err error) bool {
-	return !errors.Is(err, query.ErrNotFound) && sym != nil && sym.AST != nil
+func (s *Server) isRenameable(sym *symbol.Scope, err error) bool {
+	if errors.Is(err, query.ErrNotFound) || sym == nil {
+		return false
+	}
+	if sym.AST != nil {
+		return true
+	}
+	// Channels resolve through the global resolver and have no AST. They are
+	// renameable only when the host has registered an OnRename callback to
+	// propagate the rename to the underlying resource.
+	return sym.Kind == symbol.KindChannel && s.cfg.OnRename != nil
 }
 
 func (s *Server) PrepareRename(
@@ -39,7 +48,7 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if !isValidSymbol(sym, err) {
+	if !s.isRenameable(sym, err) {
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(sym, err)
@@ -55,10 +64,15 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 	targetSym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
-	if !isValidSymbol(targetSym, err) {
+	if !s.isRenameable(targetSym, err) {
 		return nil, nil
 	}
 	s.logUnexpectedSymbolError(targetSym, err)
+	if s.cfg.OnRename != nil {
+		if err := s.cfg.OnRename(ctx, targetSym, targetSym.Name, params.NewName); err != nil {
+			return nil, err
+		}
+	}
 	locations := s.findAllReferences(ctx, doc, targetSym)
 	if len(locations) == 0 {
 		return nil, nil
@@ -83,9 +97,13 @@ func (s *Server) findAllReferences(
 	doc *Document,
 	targetSym *symbol.Scope,
 ) []protocol.Location {
-	if doc.IR.Symbols == nil || targetSym == nil || targetSym.AST == nil {
+	if doc.IR.Symbols == nil || targetSym == nil {
 		return nil
 	}
+	// Source-defined symbols match by AST identity. Global symbols (e.g.,
+	// channels) have no AST and instead match by kind + name, since every
+	// in-scope reference to the same name resolves to the same global symbol.
+	matchByAST := targetSym.AST != nil
 	allTokens := tokenizeContent(doc.Content)
 	var locations []protocol.Location
 	for _, t := range allTokens {
@@ -99,11 +117,15 @@ func (s *Server) findAllReferences(
 		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
 		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
 		sym, err := scope.Resolve(ctx, tokenText)
-		if !isValidSymbol(sym, err) {
+		if !s.isRenameable(sym, err) {
 			continue
 		}
 		s.logUnexpectedSymbolError(sym, err)
-		if sym.AST != targetSym.AST {
+		if matchByAST {
+			if sym.AST != targetSym.AST {
+				continue
+			}
+		} else if sym.Kind != targetSym.Kind || sym.AST != nil {
 			continue
 		}
 		locations = append(locations, protocol.Location{
