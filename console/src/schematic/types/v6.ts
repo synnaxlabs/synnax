@@ -82,7 +82,7 @@ export const ZERO_STATE: State = {
     activeTab: "symbols",
     selectedSymbolGroup: "general",
   },
-  editable: true,
+  editable: false,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1, mode: "select" },
   pendingUpload: undefined,

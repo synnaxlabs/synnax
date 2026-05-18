@@ -19,6 +19,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -229,13 +230,18 @@ describe("schematic queries", () => {
 
   describe("useCreate", () => {
     it("creates a schematic and stores it in the flux store", async () => {
-      const { result } = renderHook(() => Schematic.useCreate(), {
-        wrapper: Wrapper,
-      });
+      const { result } = renderHook(
+        () => {
+          const create = Schematic.useCreate();
+          const store = Flux.useStore<Schematic.FluxSubStore>();
+          return { create, store };
+        },
+        { wrapper: Wrapper },
+      );
 
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({
+        await result.current.create.updateAsync({
           ...schematic.ZERO_NEW,
           key,
           name: "created_schematic",
@@ -244,10 +250,14 @@ describe("schematic queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.variant).toBe("success");
+        expect(result.current.create.variant).toBe("success");
       });
-      expect(result.current.data?.name).toBe("created_schematic");
-      expect(result.current.data?.workspace).toBe(ws.key);
+      expect(result.current.create.data?.name).toBe("created_schematic");
+      expect(result.current.create.data?.workspace).toBe(ws.key);
+
+      const stored = result.current.store.schematics.get(key);
+      expect(stored).toBeDefined();
+      expect(stored?.snapshot).toBe(false);
 
       const retrieved = await client.schematics.retrieve({ key });
       expect(retrieved.name).toBe("created_schematic");

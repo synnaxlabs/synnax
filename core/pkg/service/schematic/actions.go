@@ -103,7 +103,8 @@ func (p AddEdgePayload) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle removes the edge with the matching key. No-op if no edge matches.
+// Handle removes the edge with the matching key and discards any config entry
+// stored under that key.
 func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
 		if state.Edges[i].Key == p.Key {
@@ -111,6 +112,7 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 			break
 		}
 	}
+	delete(state.Configs, p.Key)
 	return state, nil
 }
 

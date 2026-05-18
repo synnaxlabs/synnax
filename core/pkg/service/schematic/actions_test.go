@@ -176,22 +176,34 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("RemoveEdge", func() {
-		It("Should remove the matching edge", func() {
-			state := schematic.Schematic{Edges: []schematic.Edge{
-				edge("e1", "a", "o", "b", "i"),
-				edge("e2", "b", "o", "c", "i"),
-			}}
+		It("Should remove the matching edge and any config stored under its key", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{
+					edge("e1", "a", "o", "b", "i"),
+					edge("e2", "b", "o", "c", "i"),
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"e1": {"color": "#fff"},
+					"e2": {"color": "#000"},
+				},
+			}
 			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "e1",
 			})))
 			Expect(out.Edges).To(Equal([]schematic.Edge{edge("e2", "b", "o", "c", "i")}))
+			Expect(out.Configs).ToNot(HaveKey("e1"))
+			Expect(out.Configs).To(HaveKey("e2"))
 		})
 		It("Should be a no-op when the key does not match any edge", func() {
-			state := schematic.Schematic{Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")}}
+			state := schematic.Schematic{
+				Edges:   []schematic.Edge{edge("e1", "a", "o", "b", "i")},
+				Configs: map[string]msgpack.EncodedJSON{"e1": {"color": "#fff"}},
+			}
 			out := MustSucceed(schematic.Reduce(state, schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{
 				Key: "ghost",
 			})))
 			Expect(out.Edges).To(Equal(state.Edges))
+			Expect(out.Configs).To(Equal(state.Configs))
 		})
 	})
 

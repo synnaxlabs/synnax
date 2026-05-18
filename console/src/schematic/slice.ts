@@ -12,6 +12,7 @@ import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 import { type control } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
+import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type State = latest.State;
@@ -244,4 +245,16 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const PERSIST_EXCLUDE: never[] = [];
+export const purgeState = (state: State): State => {
+  state.controlStatus = "released";
+  state.toolbar = { ...state.toolbar, activeTab: "symbols" };
+  state.selected = [];
+  return state;
+};
+
+export const purgeSliceState = (state: RootState): RootState => {
+  Object.values(state[SLICE_NAME].schematics).forEach(purgeState);
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];

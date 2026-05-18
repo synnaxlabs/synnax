@@ -279,6 +279,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const { workspace, ...rest } = data;
     rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
     const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
+    store.schematics.set(s);
     return { ...s, workspace };
   },
 });
