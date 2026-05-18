@@ -23,7 +23,7 @@ import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import { useSelect } from "@/schematic/selectors";
+import { selectEditable, useSelect } from "@/schematic/selectors";
 import {
   setEditable,
   setFitViewOnResize,
@@ -114,8 +114,11 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const store = useStore<RootState>();
 
   const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key,
-    [store, key],
+    () =>
+      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
+      hasUpdatePermission &&
+      selectEditable(store.getState(), key),
+    [store, key, hasUpdatePermission],
   );
 
   return (

@@ -48,10 +48,7 @@ export interface PropertiesProps {
 
 export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
   const selected = useSelectSelected(layoutKey);
-  const configByKey = Schematic.useSelectConfigs({
-    key: layoutKey,
-    keys: selected,
-  });
+  const configByKey = Schematic.useSelectConfigs({ key: layoutKey, keys: selected });
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>

@@ -174,7 +174,11 @@ export interface UndoableUnaryStore<
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
 }
 
-interface StoreOpts<Key extends record.Key, State extends Data, Action> {
+export interface UndoableStoreConfig<
+  Key extends record.Key,
+  State extends Data,
+  Action,
+> {
   handleError: status.ErrorHandler;
   reduce: DispatchReducer<State, Action>;
   equal?: (a: State, b: State, key: Key) => boolean;
@@ -188,22 +192,22 @@ interface StoreOpts<Key extends record.Key, State extends Data, Action> {
 class UndoableStore<Key extends record.Key, State extends Data, Action> {
   private readonly docs: ScopedUnaryStore<Key, State>;
   private readonly undos: ScopedUnaryStore<Key, UndoState<Action>>;
-  private readonly reduce: DispatchReducer<State, Action>;
-  private readonly preprocess?: (state: State, actions: Action[]) => Action[];
-  private readonly isUndoable: (action: Action) => boolean;
-  private readonly kindOf: (actions: Action[]) => string;
-  private readonly coalesceWindow: TimeSpan;
-  private readonly stackCap: number;
+  private readonly config: Required<UndoableStoreConfig<Key, State, Action>>;
 
-  constructor(opts: StoreOpts<Key, State, Action>) {
-    this.docs = new ScopedUnaryStore<Key, State>(opts.handleError, opts.equal);
-    this.undos = new ScopedUnaryStore<Key, UndoState<Action>>(opts.handleError);
-    this.reduce = opts.reduce;
-    this.preprocess = opts.preprocess;
-    this.isUndoable = opts.isUndoable ?? (() => true);
-    this.kindOf = opts.kindOf ?? (() => "default");
-    this.coalesceWindow = opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW;
-    this.stackCap = opts.stackCap ?? DEFAULT_STACK_CAP;
+  constructor(opts: UndoableStoreConfig<Key, State, Action>) {
+    this.config = {
+      handleError: opts.handleError,
+      reduce: opts.reduce,
+      equal: opts.equal ?? (() => false),
+      preprocess: opts.preprocess ?? ((_, a) => a),
+      isUndoable: opts.isUndoable ?? (() => true),
+      kindOf: opts.kindOf ?? (() => "default"),
+      coalesceWindow: opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW,
+      stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
+    };
+    const { handleError, equal } = this.config;
+    this.docs = new ScopedUnaryStore<Key, State>(handleError, equal);
+    this.undos = new ScopedUnaryStore<Key, UndoState<Action>>(handleError);
   }
 
   private updateUndo(
@@ -222,11 +226,10 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   ): ReplayResult<Action> | null {
     const current = this.docs.get(key);
     if (current == null) return null;
-    const processed =
-      !opts.skipPreprocess && this.preprocess != null
-        ? this.preprocess(current, actions)
-        : actions;
-    const { next, inverse, targets } = this.reduce(current, processed);
+    const processed = opts.skipPreprocess
+      ? actions
+      : this.config.preprocess(current, actions);
+    const { next, inverse, targets } = this.config.reduce(current, processed);
     return { processed, inverse, targets, rollback: this.docs.set(scope, key, next) };
   }
 
@@ -239,18 +242,18 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     kindOverride?: string,
   ): destructor.Destructor {
     if (targets.length === 0) return destructor.NOOP;
-    const undoableForward = forward.filter(this.isUndoable);
+    const undoableForward = forward.filter(this.config.isUndoable);
     if (undoableForward.length === 0) return destructor.NOOP;
     const entry: StackEntry<Action> = {
       forward: undoableForward,
       inverse,
-      kind: kindOverride ?? this.kindOf(forward),
+      kind: kindOverride ?? this.config.kindOf(forward),
       ts: TimeStamp.now(),
       targets,
     };
     return this.updateUndo(scope, key, (s) => ({
       ...s,
-      undo: pushOnto(s.undo, entry, this.coalesceWindow, this.stackCap),
+      undo: pushOnto(s.undo, entry, this.config.coalesceWindow, this.config.stackCap),
       redo: [],
     }));
   }
@@ -333,7 +336,7 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
         if (accumulated.length === 0 || initial == null) return false;
         // Inverse must be computed against the pre-transaction snapshot so
         // undo restores to where the user started, not the last-add post-state.
-        const { inverse, targets } = this.reduce(initial, accumulated);
+        const { inverse, targets } = this.config.reduce(initial, accumulated);
         const stackRollback = this.recordEntry(
           scope,
           key,
@@ -376,7 +379,7 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   applyRemote(scope: string, key: Key, actions: Action[]): void {
     const current = this.docs.get(key);
     if (current == null) return;
-    const { next, targets } = this.reduce(current, actions);
+    const { next, targets } = this.config.reduce(current, actions);
     this.docs.set(scope, key, next);
     this.markRemoteTouched(scope, key, targets);
   }
