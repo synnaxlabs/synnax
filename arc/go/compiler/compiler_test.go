@@ -3739,6 +3739,7 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
+			import ( time )
 			func compute() i64 {
 				return time.now()
 			}

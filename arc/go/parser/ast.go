@@ -9,7 +9,11 @@
 
 package parser
 
-import "github.com/antlr4-go/antlr/v4"
+import (
+	"strings"
+
+	"github.com/antlr4-go/antlr/v4"
+)
 
 // IsLiteral checks if an expression is a single literal value (optionally negated)
 // with no other operators.
@@ -281,6 +285,69 @@ func PrimaryName(primary IPrimaryExpressionContext) string {
 		return id.GetText()
 	}
 	return ""
+}
+
+// ImportEntry is one collected import. Path is the dotted source path
+// ("math", "math.trig"); Alias is the user-visible qualifier.
+type ImportEntry struct {
+	Path  string
+	Alias string
+	AST   IImportItemContext
+}
+
+// ImportPathText returns the dotted source text of an importPath.
+// AUTHORITY is a lexer keyword, so the head is read separately.
+func ImportPathText(p IImportPathContext) string {
+	var b strings.Builder
+	if head := p.ImportPathHead(); head != nil {
+		if id := head.IDENTIFIER(); id != nil {
+			b.WriteString(id.GetText())
+		} else if auth := head.AUTHORITY(); auth != nil {
+			b.WriteString(auth.GetText())
+		}
+	}
+	for _, id := range p.AllIDENTIFIER() {
+		b.WriteByte('.')
+		b.WriteString(id.GetText())
+	}
+	return b.String()
+}
+
+// ImportAlias returns the user-visible alias: the AS clause identifier
+// when present, otherwise the last path segment.
+func ImportAlias(item IImportItemContext) string {
+	if item.AS() != nil {
+		if id := item.IDENTIFIER(); id != nil {
+			return id.GetText()
+		}
+	}
+	path := ImportPathText(item.ImportPath())
+	if idx := strings.LastIndexByte(path, '.'); idx >= 0 {
+		return path[idx+1:]
+	}
+	return path
+}
+
+// Imports collects every importStatement entry from a program in source order.
+func Imports(prog IProgramContext) []ImportEntry {
+	if prog == nil {
+		return nil
+	}
+	var entries []ImportEntry
+	for _, item := range prog.AllTopLevelItem() {
+		stmt := item.ImportStatement()
+		if stmt == nil {
+			continue
+		}
+		for _, imp := range stmt.AllImportItem() {
+			entries = append(entries, ImportEntry{
+				Path:  ImportPathText(imp.ImportPath()),
+				Alias: ImportAlias(imp),
+				AST:   imp,
+			})
+		}
+	}
+	return entries
 }
 
 // GetExpressionText extracts the source text of an expression from the token stream.

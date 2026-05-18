@@ -76,7 +76,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.avg{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `import ( math )
+my_sensor -> math.avg{} -> output_sensor`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -189,7 +190,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.min{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `import ( math )
+my_sensor -> math.min{} -> output_sensor`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -236,7 +238,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.max{} -> output_sensor`, resolver,
+			h := newRuntimeHarness(ctx, `import ( math )
+my_sensor -> math.max{} -> output_sensor`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -287,7 +290,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor": {types.F64(), 100},
 				"rate_out":  {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.derivative{} -> rate_out`, resolver,
+			h := newRuntimeHarness(ctx, `import ( math )
+my_sensor -> math.derivative{} -> rate_out`, resolver,
 				channel.Digest{Key: 99, DataType: telem.TimeStampT},
 				channel.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
 				channel.Digest{Key: 200, DataType: telem.Float64T},

@@ -390,6 +390,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle negated time unit config value", func(ctx SpecContext) {
 				source := `
+				import ( time )
 				time_trigger -> time.wait{duration=-3h} -> wait_out
 				`
 				resolver := symbol.CompoundResolver{
@@ -562,6 +563,7 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
+				import ( authority )
 				func source{} () u8 {
 					return 1
 				}
@@ -599,7 +601,8 @@ var _ = Describe("Text", func() {
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
 					},
 				}
-				source := `sensor -> math.avg{} -> output`
+				source := `import ( math )
+sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
 				Expect(diags.Ok()).To(BeTrue())
@@ -660,7 +663,8 @@ var _ = Describe("Text", func() {
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `sensor -> stable.for{duration=1s} -> output`
+				source := `import ( stable )
+sensor -> stable.for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
 				Expect(diags.Ok()).To(BeTrue())
@@ -743,7 +747,8 @@ var _ = Describe("Text", func() {
 						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
 					},
 				}
-				source := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
+				source := `import ( status )
+sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, statusResolver)
 				Expect(diags.Ok()).To(BeTrue())
@@ -790,7 +795,8 @@ var _ = Describe("Text", func() {
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `time.interval{period=100ms} -> output`
+				source := `import ( time )
+time.interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
 				Expect(diags.Ok()).To(BeTrue())
@@ -820,7 +826,8 @@ var _ = Describe("Text", func() {
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `time.wait{duration=500ms} -> output`
+				source := `import ( time )
+time.wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
 				Expect(diags.Ok()).To(BeTrue())
@@ -2822,6 +2829,7 @@ var _ = Describe("Text", func() {
 				stl.SymbolResolver,
 			}
 			source := `
+			import ( error )
 			func print{} () {
 			}
 
@@ -2890,6 +2898,7 @@ var _ = Describe("Text", func() {
 				stl.SymbolResolver,
 			}
 			source := `
+			import ( time )
 			interval{100ms} -> time.now{} -> ts_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -2905,6 +2914,7 @@ var _ = Describe("Text", func() {
 				stl.SymbolResolver,
 			}
 			source := `
+			import ( time )
 			interval{100ms} -> time.now{} -> int_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

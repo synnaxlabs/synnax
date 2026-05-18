@@ -1561,6 +1561,7 @@ var _ = Describe("Expressions", func() {
 		DescribeTable("valid qualified function calls",
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, stl.SymbolResolver) },
 			Entry("time.now()", `
+				import ( time )
 				func testFunc() i64 { return time.now() }
 			`),
 			Entry("bare now() (deprecated)", `
@@ -1572,10 +1573,11 @@ var _ = Describe("Expressions", func() {
 			func(ctx SpecContext, code string, expectedMsg string) {
 				expectFailure(ctx, code, stl.SymbolResolver, expectedMsg)
 			},
-			Entry("undefined module", `
+			Entry("undefined module without import", `
 				func testFunc() { x := fake.thing() }
-			`, "undefined symbol"),
+			`, `module "fake" is not imported`),
 			Entry("undefined member", `
+				import ( time )
 				func testFunc() { x := time.nonexistent() }
 			`, "undefined symbol"),
 		)

@@ -31,10 +31,12 @@ import (
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
+	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
+	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
 			addUnificationError(ctx.Diagnostics, err, ctx.AST)

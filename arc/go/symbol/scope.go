@@ -94,6 +94,9 @@ func ResolveConfigChannel(
 type Scope struct {
 	// GlobalResolver provides global built-in symbols available from any scope.
 	GlobalResolver Resolver
+	// Imports gates dotted lookups when non-nil on the root scope.
+	// Nil means ungated (graph mode, LSP block snippets).
+	Imports *ImportSet
 	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
 	Channels types.Channels
 	// Parent is the lexically enclosing scope. Nil for the root scope.
@@ -209,18 +212,37 @@ func (s *Scope) Root() *Scope {
 	return s.Parent.Root()
 }
 
-// Resolve looks up a symbol by name using lexical scoping rules.
-//
-// The search proceeds in order: direct children of this scope, the GlobalResolver
-// (if present), and then the parent scope (recursively).
-//
-// Returns an error if the symbol is not found in any scope.
+// Resolve looks up a symbol by name using lexical scoping rules. Search
+// order: children → GlobalResolver → parent. Dotted names also gate on
+// the root's ImportSet, returning ModuleNotImportedError when the alias
+// is unknown; aliases rewrite the prefix (`t.now` → `time.now`) before
+// the GlobalResolver lookup.
 func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	if child := s.FindChildByName(name); child != nil {
 		return child, nil
 	}
+	lookupName := name
+	var alias string
+	if dot := strings.IndexByte(name, '.'); dot > 0 {
+		alias = name[:dot]
+		root := s.Root()
+		if root.Imports != nil && !root.Imports.AutoAll() {
+			rec, ok := root.Imports.Lookup(alias)
+			if !ok {
+				return nil, &ModuleNotImportedError{Alias: alias, Name: name}
+			}
+			if rec.Path != alias {
+				lookupName = rec.Path + name[dot:]
+			}
+		}
+	}
 	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil && !sym.Internal {
+		if sym, err := s.GlobalResolver.Resolve(ctx, lookupName); err == nil && !sym.Internal {
+			if alias != "" {
+				if root := s.Root(); root.Imports != nil {
+					root.Imports.MarkUsed(alias)
+				}
+			}
 			return &Scope{Symbol: sym}, nil
 		}
 	}

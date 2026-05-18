@@ -40,3 +40,22 @@ func (e *UndefinedSymbolError) GetHint() string {
 	}
 	return ""
 }
+
+// ModuleNotImportedError is returned by Scope.Resolve when a dotted
+// name's module prefix is not in the active import set.
+type ModuleNotImportedError struct {
+	// Alias is the qualifier as written in source (before the first dot).
+	Alias string
+	// Name is the full qualified name that failed to resolve.
+	Name string
+}
+
+// Error implements the error interface.
+func (e *ModuleNotImportedError) Error() string {
+	return fmt.Sprintf("module %q is not imported", e.Alias)
+}
+
+// GetHint suggests the import statement that would make Name resolve.
+func (e *ModuleNotImportedError) GetHint() string {
+	return fmt.Sprintf("add `import ( %s )` at the top of the file", e.Alias)
+}
