@@ -13,12 +13,36 @@ program
     ;
 
 topLevelItem
-    : authorityBlock
+    : importStatement
+    | authorityBlock
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
     | stageDeclaration
     | globalConstant
+    ;
+
+// =============================================================================
+// Imports
+// =============================================================================
+
+importStatement
+    : IMPORT LPAREN importItem* RPAREN
+    ;
+
+importItem
+    : importPath (AS IDENTIFIER)?
+    ;
+
+// AUTHORITY is a lexer keyword that also names a module, so it is allowed as
+// the head of a path. Subsequent segments are IDENTIFIER.
+importPath
+    : importPathHead (DOT IDENTIFIER)*
+    ;
+
+importPathHead
+    : IDENTIFIER
+    | AUTHORITY
     ;
 
 // =============================================================================

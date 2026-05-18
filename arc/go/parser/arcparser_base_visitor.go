@@ -24,6 +24,22 @@ func (v *BaseArcParserVisitor) VisitTopLevelItem(ctx *TopLevelItemContext) inter
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitImportStatement(ctx *ImportStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitImportItem(ctx *ImportItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitImportPath(ctx *ImportPathContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitImportPathHead(ctx *ImportPathHeadContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitAuthorityBlock(ctx *AuthorityBlockContext) interface{} {
 	return v.VisitChildren(ctx)
 }
