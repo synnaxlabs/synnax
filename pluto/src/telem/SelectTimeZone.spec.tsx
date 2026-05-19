@@ -26,7 +26,7 @@ describe("SelectTimeZone", () => {
     return (
       <Telem.SelectTimeZone
         value={value}
-        onChange={(v) => {
+        onChange={(v: TimeZone) => {
           setValue(v);
           onChange?.(v);
         }}
