@@ -14,87 +14,10 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/color"
-	colorpb "github.com/synnaxlabs/x/color/pb"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// LegendToPB converts Legend to Legend.
-func LegendToPB(r schematic.Legend) (*Legend, error) {
-	positionVal, err := spatialpb.StickyXYToPB(r.Position)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Legend{
-		Visible:  r.Visible,
-		Position: positionVal,
-	}
-	if r.Colors != nil {
-		pb.Colors = make(map[string]*colorpb.Color, len(r.Colors))
-		for k, v := range r.Colors {
-			converted, err := colorpb.ColorToPB(v)
-			if err != nil {
-				return nil, err
-			}
-			pb.Colors[k] = converted
-		}
-	}
-	return pb, nil
-}
-
-// LegendFromPB converts Legend to Legend.
-func LegendFromPB(pb *Legend) (schematic.Legend, error) {
-	var r schematic.Legend
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Position, err = spatialpb.StickyXYFromPB(pb.Position)
-	if err != nil {
-		return schematic.Legend{}, err
-	}
-	r.Visible = pb.Visible
-	if pb.Colors != nil {
-		r.Colors = make(map[string]color.Color, len(pb.Colors))
-		for k, v := range pb.Colors {
-			converted, err := colorpb.ColorFromPB(v)
-			if err != nil {
-				return schematic.Legend{}, err
-			}
-			r.Colors[k] = converted
-		}
-	}
-	return r, nil
-}
-
-// LegendsToPB converts a slice of Legend to Legend.
-func LegendsToPB(rs []schematic.Legend) ([]*Legend, error) {
-	result := make([]*Legend, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = LegendToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// LegendsFromPB converts a slice of Legend to Legend.
-func LegendsFromPB(pbs []*Legend) ([]schematic.Legend, error) {
-	result := make([]schematic.Legend, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = LegendFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
 
 // NodeToPB converts Node to Node.
 func NodeToPB(r schematic.Node) (*Node, error) {
@@ -272,10 +195,6 @@ func EdgesFromPB(pbs []*Edge) ([]schematic.Edge, error) {
 
 // SchematicToPB converts Schematic to Schematic.
 func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
-	legendVal, err := LegendToPB(r.Legend)
-	if err != nil {
-		return nil, err
-	}
 	nodesVal, err := NodesToPB(r.Nodes)
 	if err != nil {
 		return nil, err
@@ -285,13 +204,11 @@ func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 		return nil, err
 	}
 	pb := &Schematic{
-		Name:      r.Name,
-		Snapshot:  r.Snapshot,
-		Authority: uint32(r.Authority),
-		Key:       r.Key.String(),
-		Legend:    legendVal,
-		Nodes:     nodesVal,
-		Edges:     edgesVal,
+		Name:     r.Name,
+		Snapshot: r.Snapshot,
+		Key:      r.Key.String(),
+		Nodes:    nodesVal,
+		Edges:    edgesVal,
 	}
 	if r.Configs != nil {
 		pb.Configs = make(map[string]*structpb.Struct, len(r.Configs))
@@ -318,10 +235,6 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 		return schematic.Schematic{}, err
 	}
 	r.Key = schematic.Key(parsedKey)
-	r.Legend, err = LegendFromPB(pb.Legend)
-	if err != nil {
-		return schematic.Schematic{}, err
-	}
 	r.Nodes, err = NodesFromPB(pb.Nodes)
 	if err != nil {
 		return schematic.Schematic{}, err
@@ -332,7 +245,6 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	}
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
-	r.Authority = control.Authority(pb.Authority)
 	if pb.Configs != nil {
 		r.Configs = make(map[string]msgpack.EncodedJSON, len(pb.Configs))
 		for k, v := range pb.Configs {

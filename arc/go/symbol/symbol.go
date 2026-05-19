@@ -155,6 +155,13 @@ type Symbol struct {
 	// remain visible to the compiler's resolve.Resolver which queries the
 	// symbol.Resolver interface directly.
 	Internal bool
+	// Renameable marks symbols whose backing resource the host can rename via an
+	// out-of-band side effect. Source-defined symbols (AST != nil) are renameable
+	// by source-text edits alone and do not need this flag; resolver-supplied
+	// symbols (e.g., Synnax channels) set it to opt into the LSP rename flow,
+	// which dispatches to the host via OnRename. Independent of Internal — the
+	// resolver decides the policy for its kind.
+	Renameable bool
 	// Exec indicates which execution context this symbol is valid in (WASM, Flow,
 	// or Both). A zero value is invalid and will cause resolution to fail, forcing
 	// every symbol to be explicitly tagged.

@@ -155,7 +155,7 @@ export const useRetrieveObservableName = ({
   });
 };
 
-export interface ListQuery extends task.RetrieveMultipleParams {}
+export type ListQuery = task.RetrieveMultipleParams;
 
 const unknownStatusZ = task.statusZ(z.unknown());
 
@@ -231,9 +231,9 @@ export interface InitialValues<
   key?: task.Key;
 }
 
-export interface FormQuery {
+export type FormQuery = {
   key?: task.Key;
-}
+};
 
 const taskToFormValues = <S extends task.Schemas = task.Schemas>(
   t: InitialValues<S>,

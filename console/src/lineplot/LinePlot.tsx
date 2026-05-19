@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   type axis,
@@ -35,6 +34,7 @@ import {
   scale,
   type sticky,
   TimeRange,
+  TimeSpan,
   unique,
 } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
@@ -142,7 +142,6 @@ const RangeAnnotationContextMenu = ({
 };
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
@@ -282,7 +281,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
-    100,
+    TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 
@@ -291,7 +290,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const storeLegendPosition = useDebouncedCallback(
     (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
-    100,
+    TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 
@@ -317,11 +316,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-    );
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
-  }, [windowKey, dispatch, layoutKey]);
+  }, [dispatch, layoutKey]);
 
   const handleSelectRule = useCallback(
     (ruleKey: string) => {

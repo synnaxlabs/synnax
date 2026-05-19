@@ -164,12 +164,6 @@ export const {{ camelCase .Name }}PayloadZ = z.object({
 
 export type {{ .Name }}Payload = z.infer<typeof {{ camelCase .Name }}PayloadZ>;
 {{end}}
-export const ACTION_TYPES = {
-{{- range .Actions}}
-  {{ .TypeName }}: "{{ .TypeName }}",
-{{- end}}
-} as const;
-
 export const actionZ = z.discriminatedUnion("type", [
 {{- range .Actions}}
   z.object({ type: z.literal("{{ .TypeName }}"), {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ }),
@@ -195,7 +189,6 @@ export const createReducer =
     switch (action.type) {
 {{- range .Actions}}
       case "{{ .TypeName }}":
-        if (action.{{ camelCase .Name }} == null) break;
         handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
         break;
 {{- end}}

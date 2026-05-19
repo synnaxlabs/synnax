@@ -99,7 +99,7 @@ class Client:
             include_schema=include_schema,
             exclude_field_data=exclude_field_data,
         )
-        resources = self.__exec_retrieve(req)
+        resources = self._exec_retrieve(req)
         if is_single:
             return resources[0]
         return resources
@@ -109,11 +109,11 @@ class Client:
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
         normalized: list[CrudeID] = normalize(id)
-        return self.__exec_retrieve(
+        return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], children=True)
         )
 
-    def __exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
+    def _exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
         return send_required(
             self._client, "/ontology/retrieve", req, RetrieveRes
         ).resources
@@ -123,7 +123,7 @@ class Client:
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
         normalized: list[CrudeID] = normalize(id)
-        return self.__exec_retrieve(
+        return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
         )
 
