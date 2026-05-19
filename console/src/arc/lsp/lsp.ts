@@ -71,12 +71,7 @@ const TOKEN_CONFIG = {
   string: {
     dark: "#CE9178",
     light: "#A31515",
-    scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
-  },
-  stringRaw: {
-    dark: "#CE9178",
-    light: "#A31515",
-    scopes: ["string.quoted.raw.arc"],
+    scopes: ["string.quoted.double.arc"],
   },
   stringPlaceholder: {
     dark: "#CC255F",

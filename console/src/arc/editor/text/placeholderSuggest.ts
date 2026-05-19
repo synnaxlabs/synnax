@@ -10,9 +10,12 @@
 import { type Code } from "@/code";
 
 // monaco-vscode-api ignores `tokenTypes` in language config, so the parent
-// `string.quoted.raw.arc` scope suppresses the popup inside `{...}`. The only
+// `string.quoted.double.arc` scope suppresses the popup inside `{...}`. The only
 // alternative is `quickSuggestions.strings: "on"`, which fires in every string.
-const PLACEHOLDER_RE = /`[^`]*(?<!\\)\{[^}]*$/;
+// Matches a format-string opening (f, rf, or fr prefix on " or """) followed by
+// an unclosed `{` at the caret.
+const PLACEHOLDER_RE =
+  /(?:rf|fr|f)(?:"""(?:[^"\\]|\\.|"(?!""))*|"(?:[^"\\]|\\.)*)(?<!\\)\{[^}]*$/;
 const WORD_CHAR_RE = /^\w$/;
 
 export const shouldTriggerSuggestion = (

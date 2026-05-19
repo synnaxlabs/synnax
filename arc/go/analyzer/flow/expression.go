@@ -22,37 +22,39 @@ import (
 )
 
 // AnalyzeSingleExpression converts an inline expression into a synthetic function
-// node. Backtick placeholders are analyzed here; IR shape is chosen downstream.
+// node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
-	// Literals register as KindConstant; raw strings with placeholders register
+	// Literals register as KindConstant; format strings with placeholders register
 	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
-			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-				body, ok := literal.FmtStrStripDelimiters(rawStr.GetText())
+			if strTerm := parser.StringTerminal(lit); strTerm != nil {
+				body, flags, ok := literal.StripQuotes(strTerm.GetText())
 				if !ok {
 					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-						"invalid raw string literal: %s", rawStr.GetText()))
+						"invalid string literal: %s", strTerm.GetText()))
 					return
 				}
-				segs, err := literal.FmtStrParse(body)
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-					return
-				}
-				if literal.FmtStrHasPlaceholder(segs) {
-					fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+				if flags.Format {
+					segs, err := literal.FmtStrParse(body)
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 						return
 					}
-					fnScope.AutoName("fmt_str_")
-					expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), rawStr)
-					return
+					if literal.FmtStrHasPlaceholder(segs) {
+						fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+						if err != nil {
+							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+							return
+						}
+						fnScope.AutoName("fmt_str_")
+						expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
+						return
+					}
 				}
 			}
 		}

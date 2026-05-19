@@ -12,6 +12,7 @@ package literal
 import (
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/arc/types"
@@ -39,20 +40,96 @@ func FmtStrHasPlaceholder(segs []FmtStrSegment) bool {
 	return slices.ContainsFunc(segs, func(s FmtStrSegment) bool { return s.IsPlaceholder })
 }
 
-// FmtStrStripDelimiters returns the inner body of a `...` raw string token,
-// or ok=false if text isn't well-formed. \` escapes are left verbatim.
-func FmtStrStripDelimiters(text string) (string, bool) {
-	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
-		return "", false
+// StringFlags carries the optional r/f prefix and the quote style of a string
+// literal. Raw skips standard escape processing; Format opts into {expr}
+// placeholders; Multi means the literal was triple-quoted.
+type StringFlags struct {
+	Raw    bool
+	Format bool
+	Multi  bool
+}
+
+// StripQuotes peels the optional r/f prefix and surrounding quote delimiters
+// from a string literal token, returning the inner body. ok=false when text is
+// malformed; well-formed tokens from the lexer should always succeed.
+func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
+	rest := text
+	for i := 0; i < 2 && len(rest) > 0 && (rest[0] == 'r' || rest[0] == 'f'); i++ {
+		switch rest[0] {
+		case 'r':
+			if flags.Raw {
+				return "", StringFlags{}, false
+			}
+			flags.Raw = true
+		case 'f':
+			if flags.Format {
+				return "", StringFlags{}, false
+			}
+			flags.Format = true
+		}
+		rest = rest[1:]
 	}
-	backslashes := 0
-	for i := len(text) - 2; i > 0 && text[i] == '\\'; i-- {
-		backslashes++
+	if len(rest) >= 6 && strings.HasPrefix(rest, `"""`) && strings.HasSuffix(rest, `"""`) {
+		flags.Multi = true
+		return rest[3 : len(rest)-3], flags, true
 	}
-	if backslashes%2 == 1 {
-		return "", false
+	if len(rest) >= 2 && rest[0] == '"' && rest[len(rest)-1] == '"' {
+		return rest[1 : len(rest)-1], flags, true
 	}
-	return text[1 : len(text)-1], true
+	return "", StringFlags{}, false
+}
+
+// UnescapeString applies the standard Arc escape table to body. Unrecognized
+// escapes pass through verbatim, so \{ in a non-format string stays as the two
+// characters \{ and in a format string survives for FmtStrParse to interpret.
+// Errors only on a trailing backslash or an incomplete \uXXXX escape.
+func UnescapeString(body string) (string, error) {
+	var b strings.Builder
+	b.Grow(len(body))
+	for i := 0; i < len(body); {
+		c := body[i]
+		if c != '\\' {
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		if i+1 >= len(body) {
+			return "", errors.New("trailing backslash in string literal")
+		}
+		next := body[i+1]
+		switch next {
+		case 'b':
+			b.WriteByte('\b')
+		case 't':
+			b.WriteByte('\t')
+		case 'n':
+			b.WriteByte('\n')
+		case 'f':
+			b.WriteByte('\f')
+		case 'r':
+			b.WriteByte('\r')
+		case '"':
+			b.WriteByte('"')
+		case '\\':
+			b.WriteByte('\\')
+		case 'u':
+			if i+6 > len(body) {
+				return "", errors.New(`incomplete \u escape in string literal`)
+			}
+			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 32)
+			if err != nil {
+				return "", errors.Newf(`invalid \u escape %q in string literal`, body[i:i+6])
+			}
+			b.WriteRune(rune(cp))
+			i += 6
+			continue
+		default:
+			b.WriteByte('\\')
+			b.WriteByte(next)
+		}
+		i += 2
+	}
+	return b.String(), nil
 }
 
 // FmtStrParse splits a format-string body into ordered segments at `{...}`

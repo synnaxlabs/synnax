@@ -44,7 +44,6 @@ const (
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeUnit
-	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
 )
 
@@ -70,7 +69,6 @@ var semanticTokenTypes = []string{
 	"input",
 	"output",
 	"unit",
-	"stringRaw",
 	"stringPlaceholder",
 }
 
@@ -91,8 +89,9 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
 		}
-		if t.GetTokenType() == parser.ArcLexerSTR_LITERAL_RAW {
-			tokens = append(tokens, expandRawStringPlaceholders(ctx, t, docIR)...)
+		if t.GetTokenType() == parser.ArcLexerSTR_LITERAL ||
+			t.GetTokenType() == parser.ArcLexerSTR_LITERAL_MULTI {
+			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
 			continue
 		}
 		var prevType, nextType int
@@ -113,10 +112,10 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 
 // appendTokenPerLine emits one LSP semantic token per source line covered by t.
 // Monaco does not render a single semantic token whose length crosses a newline,
-// so multi-line ANTLR tokens (e.g. STR_LITERAL_RAW spanning several lines) must
-// be split into per-line entries to receive consistent coloring across the whole
-// span. For single-line tokens this collapses to one append, matching the prior
-// behavior.
+// so multi-line ANTLR tokens (e.g. STR_LITERAL_MULTI spanning several lines)
+// must be split into per-line entries to receive consistent coloring across the
+// whole span. For single-line tokens this collapses to one append, matching the
+// prior behavior.
 func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []lsp.Token {
 	return appendTextTokenPerLine(
 		tokens,
@@ -259,10 +258,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ:
 		tokenType = SemanticTokenTypeOperator
-	case parser.ArcLexerSTR_LITERAL:
+	case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 		tokenType = SemanticTokenTypeString
-	case parser.ArcLexerSTR_LITERAL_RAW:
-		tokenType = SemanticTokenTypeStringRaw
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
@@ -275,14 +272,15 @@ func mapLexerTokenType(antlrType int) *uint32 {
 	return &tokenType
 }
 
-// expandRawStringPlaceholders tokenizes a STR_LITERAL_RAW with `{...}` placeholders.
-// All parsing is delegated to literal.FmtStrParse; this function only translates
-// segment offsets into LSP semantic tokens with line/column bookkeeping.
-func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
+// expandStringToken emits LSP semantic tokens for a STR_LITERAL or
+// STR_LITERAL_MULTI. Format strings (f/rf prefix) with placeholders have their
+// {...} segments expanded with classified inner expression tokens; everything
+// else collapses to a single string-colored token.
+func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
 	text := t.GetText()
-	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeStringRaw) }
-	body, ok := literal.FmtStrStripDelimiters(text)
-	if !ok {
+	body, flags, ok := literal.StripQuotes(text)
+	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeString) }
+	if !ok || !flags.Format {
 		return fallback()
 	}
 	segs, err := literal.FmtStrParse(body)
@@ -292,6 +290,15 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 	if !literal.FmtStrHasPlaceholder(segs) {
 		return fallback()
 	}
+	delimLen := 1
+	if flags.Multi {
+		delimLen = 3
+	}
+	prefixLen := 0
+	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
+		prefixLen++
+	}
+	bodyOff := prefixLen + delimLen
 	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
 	prevOff := 0
 	posOf := func(off int) (uint32, uint32) {
@@ -333,12 +340,10 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 			tokens = appendTextTokenPerLine(tokens, it.GetText(), absLine, absCol, *tt)
 		}
 	}
-	// bodyOff converts body offsets to text offsets (skip the leading backtick).
-	const bodyOff = 1
-	emit(0, 1, SemanticTokenTypeStringRaw)
+	emit(0, bodyOff, SemanticTokenTypeString)
 	for _, seg := range segs {
 		if !seg.IsPlaceholder {
-			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringRaw)
+			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeString)
 			continue
 		}
 		emit(seg.Start+bodyOff, seg.Start+bodyOff+1, SemanticTokenTypeStringPlaceholder)
@@ -352,6 +357,6 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 		}
 		emit(seg.End-1+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringPlaceholder)
 	}
-	emit(len(text)-1, len(text), SemanticTokenTypeStringRaw)
+	emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
 	return tokens
 }

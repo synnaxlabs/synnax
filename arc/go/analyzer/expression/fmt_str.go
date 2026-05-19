@@ -20,23 +20,43 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// AnalyzeFmtStrLiteral parses a STR_LITERAL_RAW token and analyzes its
-// placeholders. Bypasses literal.ParseRawString so body offsets map to source
-// bytes for per-placeholder diagnostic anchoring.
+// AnalyzeFmtStrLiteral parses a format-string token (STR_LITERAL or
+// STR_LITERAL_MULTI with f/rf prefix) and analyzes its placeholders. Body
+// offsets map to source bytes so per-placeholder diagnostics anchor on the
+// offending span.
 func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	rawStr antlr.TerminalNode,
+	strTerm antlr.TerminalNode,
 ) {
-	body, ok := literal.FmtStrStripDelimiters(rawStr.GetText())
+	text := strTerm.GetText()
+	body, flags, ok := literal.StripQuotes(text)
 	if !ok {
 		ctx.Diagnostics.Add(diagnostics.Error(
-			errors.Newf("invalid raw string literal: %s", rawStr.GetText()), ctx.AST,
+			errors.Newf("invalid string literal: %s", text), ctx.AST,
 		))
 		return
 	}
-	sym := rawStr.GetSymbol()
-	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + 1}
+	if !flags.Format {
+		return
+	}
+	sym := strTerm.GetSymbol()
+	bodyOff := bodyOffset(text, flags)
+	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + bodyOff}
 	AnalyzeFmtStrSegments(ctx, body, base, ctx.AST)
+}
+
+// bodyOffset returns the column offset from the start of a string token to the
+// first byte of its body: the prefix length plus the opening delimiter (1 for
+// "..." and 3 for """...""").
+func bodyOffset(text string, flags literal.StringFlags) int {
+	prefix := 0
+	for prefix < 2 && prefix < len(text) && (text[prefix] == 'r' || text[prefix] == 'f') {
+		prefix++
+	}
+	if flags.Multi {
+		return prefix + 3
+	}
+	return prefix + 1
 }
 
 // AnalyzeFmtStrSegments parses body and analyzes each placeholder expression
