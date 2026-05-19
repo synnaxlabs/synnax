@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("backtick format-string end-to-end runtime", func() {
+var _ = Describe("format-string end-to-end runtime", func() {
 	lastString := func(fr telem.Frame[uint32], key uint32) string {
 		ch := fr.Get(key)
 		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
@@ -416,6 +416,72 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			}
 			out, _ := h.Flush()
 			Expect(lastString(out, 101)).To(Equal("v=3.14 t=7"))
+		})
+
+		It("synthesizes a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor": {types.F32(), 100},
+				"t":      {types.I32(), 102},
+				"log":    {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				"sensor -> rf\"\"\"path\\to: {sensor}\nt={t}\"\"\" -> log", resolver,
+				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channel.Digest{Key: 102, DataType: telem.Int32T},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(102, telem.NewSeriesV[int32](7))
+			h.Ingest(100, telem.NewSeriesV[float32](3.14))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("path\\to: 3.14\nt=7"))
+		})
+
+		It("synthesizes a fmt$ function for an rf-prefixed format string preserving backslashes", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor": {types.F32(), 100},
+				"log":    {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`sensor -> rf"path\to: {sensor}" -> log`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[float32](3.14))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(`path\to: 3.14`))
+		})
+
+		It("synthesizes a fmt$ function for a multi-line format string with placeholders across newlines", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor": {types.F32(), 100},
+				"t":      {types.I32(), 102},
+				"log":    {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				"sensor -> f\"\"\"v={sensor}\nt={t}\"\"\" -> log", resolver,
+				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channel.Digest{Key: 102, DataType: telem.Int32T},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(102, telem.NewSeriesV[int32](7))
+			h.Ingest(100, telem.NewSeriesV[float32](3.14))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("v=3.14\nt=7"))
 		})
 
 		It("flows a literal raw string (no placeholders) without synthesizing a function", func(ctx SpecContext) {

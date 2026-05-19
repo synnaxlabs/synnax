@@ -262,6 +262,19 @@ trig -> f{}`
 		It("accepts an escaped open brace and bare close with no placeholder", func(specCtx SpecContext) {
 			expectSuccess(specCtx, wrap(`    log = `+`f"\\{ }"`))
 		})
+
+		It("accepts an rf-prefixed format string with a placeholder", func(specCtx SpecContext) {
+			expectSuccess(specCtx, wrap(`    log = `+`rf"v={chI32}"`))
+		})
+
+		It("rejects an invalid spec inside an rf-prefixed format string", func(specCtx SpecContext) {
+			expectError(specCtx, wrap(`    log = `+`rf"v={chStr:d}"`), "invalid format spec")
+		})
+
+		It("accepts an rf-prefixed multi-line format string with placeholders across newlines", func(specCtx SpecContext) {
+			code := "func f() {\n    log = rf\"\"\"v={chI32}\nt={chF64}\"\"\"\n}\ntrig -> f{}"
+			expectSuccess(specCtx, code)
+		})
 	})
 
 	Describe("Diagnostic position anchoring", func() {

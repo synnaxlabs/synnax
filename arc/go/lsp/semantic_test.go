@@ -181,6 +181,15 @@ var _ = Describe("Semantic Tokens", func() {
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(tokens, tokenTypeString)).To(BeEmpty())
 		})
+
+		It("routes raw triple-quoted literals to the string token type across newlines", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := r\"\"\"a\nb\"\"\"")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			str := filterByType(tokens, tokenTypeString)
+			Expect(str).To(HaveLen(2))
+			Expect(str[0].Line).To(Equal(uint32(0)))
+			Expect(str[1].Line).To(Equal(uint32(1)))
+		})
 	})
 
 	Describe("Format-string placeholders", func() {
@@ -277,6 +286,27 @@ var _ = Describe("Semantic Tokens", func() {
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+		})
+
+		It("classifies placeholders across newlines in a multi-line format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := f\"\"\"a={1}\nb={2}\"\"\"")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
+		})
+
+		It("classifies placeholders inside an rf-prefixed format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := rf"v={42}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+		})
+
+		It("classifies placeholders inside an rf-prefixed multi-line format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := rf\"\"\"a={1}\nb={2}\"\"\"")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
 		})
 	})
 

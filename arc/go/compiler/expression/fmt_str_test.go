@@ -22,7 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Backtick Format String Compilation", func() {
+var _ = Describe("Format String Compilation", func() {
 	Describe("Single Placeholder, No Spec", func() {
 		DescribeTable("compiles numeric literal placeholder via from_<type> conversion",
 			expectExpression,
@@ -144,6 +144,30 @@ var _ = Describe("Backtick Format String Compilation", func() {
 
 		It("compiles adjacent placeholders with no separator", func(bCtx SpecContext) {
 			bytecode, exprType := compileExpression(bCtx, `f"{1}{2}"`)
+			Expect(exprType).To(Equal(types.String()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+
+		It("compiles a multi-line format string with literal newlines around a placeholder", func(bCtx SpecContext) {
+			bytecode, exprType := compileExpression(bCtx, "f\"\"\"line1\n{42}\nline3\"\"\"")
+			Expect(exprType).To(Equal(types.String()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+
+		It("compiles a multi-line format string with multiple placeholders across lines", func(bCtx SpecContext) {
+			bytecode, exprType := compileExpression(bCtx, "f\"\"\"a={1}\nb={2}\"\"\"")
+			Expect(exprType).To(Equal(types.String()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+
+		It("compiles an rf-prefixed format string with placeholder and backslash literal", func(bCtx SpecContext) {
+			bytecode, exprType := compileExpression(bCtx, `rf"path\to\{42}"`)
+			Expect(exprType).To(Equal(types.String()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+
+		It("compiles an rf-prefixed multi-line format string with placeholder across newlines", func(bCtx SpecContext) {
+			bytecode, exprType := compileExpression(bCtx, "rf\"\"\"path\\to\n{42}\"\"\"")
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})

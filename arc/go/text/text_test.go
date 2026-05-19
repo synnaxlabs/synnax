@@ -283,6 +283,26 @@ var _ = Describe("Text", func() {
 					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10002}},
 					true, types.F64(),
 				),
+				Entry("string literal",
+					`"hello" -> output`,
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10004}},
+					true, types.String(),
+				),
+				Entry("multi-line string literal",
+					"\"\"\"hello\nworld\"\"\" -> output",
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10005}},
+					true, types.String(),
+				),
+				Entry("raw string literal",
+					`r"C:\path" -> output`,
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10006}},
+					true, types.String(),
+				),
+				Entry("raw multi-line string literal",
+					"r\"\"\"line1\\n\nline2\"\"\" -> output",
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10007}},
+					true, types.String(),
+				),
 				Entry("complex expression (should not generate constant)",
 					`1 + 2 -> output`,
 					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10003}},
@@ -2517,6 +2537,67 @@ var _ = Describe("Text", func() {
 				Expect(strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)).To(BeFalse(),
 					"unexpected fmt$ synthetic %q for placeholder-free literal", f.Key)
 			}
+		})
+
+		It("Registers a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "sensor -> rf\"\"\"path\\to: {sensor}\nt={t}\"\"\" -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			f := synth[0]
+			Expect(f.Body.Raw).To(Equal("path\\to: {sensor}\nt={t}"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
+		})
+
+		It("Registers a fmt$ function for an rf-prefixed format string preserving backslashes", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := `sensor -> rf"path\to: {sensor}" -> log`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			f := synth[0]
+			Expect(f.Body.Raw).To(Equal(`path\to: {sensor}`))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+		})
+
+		It("Registers a fmt$ function for a multi-line format string with placeholders across newlines", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "sensor -> f\"\"\"v={sensor}\nt={t}\"\"\" -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			f := synth[0]
+			Expect(f.Body.Raw).To(Equal("v={sensor}\nt={t}"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 		})
 
 		It("Surfaces analyzer diagnostics for an invalid format spec at this layer", func(ctx SpecContext) {

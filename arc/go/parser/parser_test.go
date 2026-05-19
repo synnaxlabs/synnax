@@ -995,6 +995,38 @@ raw: \n"""`))
 				Expect(tok.GetText()).To(Equal(`r"say \"hi\""`))
 				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
 			})
+
+			It("Should lex an f-prefixed triple-quoted string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression(`f"""v={x}
+t={t}"""`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("f\"\"\"v={x}\nt={t}\"\"\""))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex a triple-quoted raw string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression(`r"""line1
+line2"""`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("r\"\"\"line1\nline2\"\"\""))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex an rf-prefixed single-quoted string as STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`rf"path: {p}"`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`rf"path: {p}"`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
 		})
 	})
 

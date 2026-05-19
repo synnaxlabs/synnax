@@ -262,6 +262,9 @@ var _ = Describe("Formatter", func() {
 		Entry("embedded escaped quotes preserved", `x := "say \"hi\""`, "x := \"say \\\"hi\\\"\"\n"),
 		Entry("spacing format next to identifier", `x:=f"y"`, "x := f\"y\"\n"),
 		Entry("rf prefix preserved", `x := rf"path: {p}"`, "x := rf\"path: {p}\"\n"),
+		Entry("format multi-line with placeholder", "x := f\"\"\"a={p}\nb={q}\"\"\"", "x := f\"\"\"a={p}\nb={q}\"\"\"\n"),
+		Entry("raw multi-line preserved", "x := r\"\"\"a\\nb\nc\"\"\"", "x := r\"\"\"a\\nb\nc\"\"\"\n"),
+		Entry("rf multi-line preserved", "x := rf\"\"\"path\\to\n{p}\"\"\"", "x := rf\"\"\"path\\to\n{p}\"\"\"\n"),
 	)
 
 	DescribeTable("Global Constants",
