@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import overload
 
 from pydantic import BaseModel
 
@@ -26,7 +26,7 @@ class _ImportResponse(BaseModel):
 
 
 class Client:
-    """Imports and exports metadata resources to and from the cluster.
+    """Imports and exports metadata resources to and from the Core.
 
     Each call moves exactly one envelope. Large payloads are streamed: passing a path to
     ``import_`` streams the file from disk, and passing ``dest`` to ``export`` streams
@@ -44,15 +44,13 @@ class Client:
         self._upload = upload
         self._download = download
 
-    def import_(self, source: FilePath | Envelope | dict[str, Any]) -> str:
+    def import_(self, source: FilePath | Envelope) -> str:
         """Imports the resource described by source and returns its new key.
 
-        :param source: an ``Envelope`` or ``dict`` sent as a typed payload, or a file
-            path streamed from disk.
-        :returns: the new resource's key as stamped by the server.
+        :param source: an ``Envelope`` sent as a typed payload, or a file path streamed
+            from disk.
+        :returns: the new resource's key as stamped by the Core.
         """
-        if isinstance(source, dict):
-            source = Envelope.model_validate(source)
         if isinstance(source, Envelope):
             res, err = self._unary.send(_IMPORT_PATH, source, _ImportResponse)
         else:
@@ -62,6 +60,10 @@ class Client:
         assert res is not None
         return res.key
 
+    @overload
+    def export(self, id: ID) -> Envelope: ...
+    @overload
+    def export(self, id: ID, *, dest: FilePath) -> None: ...
     def export(self, id: ID, *, dest: FilePath | None = None) -> Envelope | None:
         """Exports the resource identified by id.
 

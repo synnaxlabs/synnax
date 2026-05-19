@@ -92,12 +92,6 @@ class TestImex:
         assert exported.name == name
         assert exported.version >= 1
 
-    def test_import_dict(self, client: sy.Synnax) -> None:
-        name = f"imex-dict-{uuid.uuid4()}"
-        key = client.imex.import_(_log_envelope(name).model_dump(by_alias=True))
-        exported = client.imex.export(ID(type="log", key=key))
-        assert exported is not None and exported.name == name
-
     def test_import_from_path(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Path source → streamed upload."""
         name = f"imex-path-{uuid.uuid4()}"
