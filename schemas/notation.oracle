@@ -7,8 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package base
+@ts output  "x/ts/src/notation"
+@go output  "x/go/notation"
+@py output  "x/py/x/notation"
+@cpp output "x/cpp/notation"
+@pb
 
-import "github.com/synnaxlabs/x/errors"
+Notation enum {
+    standard    = "standard"
+    scientific  = "scientific"
+    engineering = "engineering"
 
-var ErrAuth = errors.New("auth error")
+    @doc value "is the numeric notation used to render samples."
+    @py omit
+    @cpp omit
+}

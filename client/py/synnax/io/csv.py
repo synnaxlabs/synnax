@@ -29,7 +29,7 @@ class CSVReader(CSVMatcher):  # type: ignore
     channel_keys: list[str] | None
     chunk_size: int
 
-    __reader: TextFileReader | None
+    _cached_reader: TextFileReader | None
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
@@ -55,9 +55,9 @@ class CSVReader(CSVMatcher):  # type: ignore
         self._row_count = None
         self._skip_rows = 0
         self._calculated_skip_rows = False
-        self.__reader = None
+        self._cached_reader = None
 
-    def __detect_delimiter(self) -> str:
+    def _detect_delimiter(self) -> str:
         with open(self._path, "r") as file:
             sample = file.read(1024)
             dialect = csv.Sniffer().sniff(sample)
@@ -65,16 +65,16 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     def seek_first(self) -> None:
         self.close()
-        self.__reader = pd.read_csv(
+        self._cached_reader = pd.read_csv(
             self._path,
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
             header=0,
-            skiprows=self.__get_skip_rows(),
-            delimiter=self.__detect_delimiter(),
+            skiprows=self._get_skip_rows(),
+            delimiter=self._detect_delimiter(),
         )
 
-    def __get_skip_rows(self) -> int | tuple[int, int]:
+    def _get_skip_rows(self) -> int | tuple[int, int]:
         if self._calculated_skip_rows:
             return self._skip_rows
 
@@ -82,7 +82,7 @@ class CSVReader(CSVMatcher):  # type: ignore
             self._path,
             chunksize=1,
             usecols=self.channel_keys,
-            delimiter=self.__detect_delimiter(),
+            delimiter=self._detect_delimiter(),
         )
         self._skip_rows = 0
 
@@ -108,7 +108,7 @@ class CSVReader(CSVMatcher):  # type: ignore
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
             cols = pd.read_csv(
-                self._path, nrows=0, delimiter=self.__detect_delimiter()
+                self._path, nrows=0, delimiter=self._detect_delimiter()
             ).columns
             self._channels = [
                 ChannelMeta(name=name.strip(), meta_data=dict()) for name in cols
@@ -138,15 +138,15 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     @property
     def _reader(self) -> TextFileReader:
-        if self.__reader is None:
+        if self._cached_reader is None:
             self.seek_first()
-        assert self.__reader is not None
-        return self.__reader
+        assert self._cached_reader is not None
+        return self._cached_reader
 
     def close(self) -> None:
-        if self.__reader is not None:
-            self.__reader.close()
-        self.__reader = None
+        if self._cached_reader is not None:
+            self._cached_reader.close()
+        self._cached_reader = None
 
 
 def estimate_row_count(path: Path) -> int:

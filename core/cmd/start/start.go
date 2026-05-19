@@ -61,7 +61,7 @@ type CoreConfig struct {
 	alamos.Instrumentation
 	dataPath             string
 	verifier             string
-	rootCredentials      auth.InsecureCredentials
+	rootCredentials      auth.Credentials
 	listenAddress        address.Address
 	peers                []address.Address
 	disabledIntegrations []string

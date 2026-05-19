@@ -264,11 +264,11 @@ var _ = Describe("KeyCodec", func() {
 		Describe("[]byte keys", func() {
 			It("Should roundtrip", func(ctx SpecContext) {
 				e := prefixEntry{ID: 42, Data: "data"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().
+				Expect(gorp.NewCreate[string, prefixEntry]().
 					Entry(&e).Exec(ctx, tx)).To(Succeed())
 				var res prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
-					Where(gorp.MatchKeys[[]byte, prefixEntry](e.GorpKey())).Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
+					Where(gorp.MatchKeys[string, prefixEntry](e.GorpKey())).Entry(&res).Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(Equal(e))
 			})
 		})

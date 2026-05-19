@@ -20,9 +20,9 @@
 namespace x::json {
 
 /// @brief base error type for JSON errors.
-const errors::Error ERROR = errors::Error("x.json");
+const errors::Error BASE_ERROR = errors::Error("x.json");
 /// @brief error when conversion from JSON to a Synnax DataType fails.
-const errors::Error CONVERSION_ERROR = ERROR.sub("conversion");
+const errors::Error CONVERSION_ERROR = BASE_ERROR.sub("conversion");
 
 /// @brief time format for converting between `telem::TimeStamp`s and JSON values.
 enum class TimeFormat {

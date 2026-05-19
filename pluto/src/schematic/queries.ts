@@ -28,37 +28,10 @@ import { Theming } from "@/theming";
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
 
-const ACTION_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.scopedActionZ
-> = {
-  channel: "sy_schematic_set",
-  schema: schematic.scopedActionZ,
-  onChange: ({ changed, store, client }) => {
-    if (client != null && changed.sessionKey === client.key) return;
-    const current = store.schematics.get(changed.key);
-    if (current == null) return;
-    const next = schematic.reduceAll(current, changed.actions);
-    store.schematics.set(changed.key, next);
-    for (const action of changed.actions)
-      if (action.type === "rename")
-        Ontology.renameFluxResource(
-          store,
-          schematic.ontologyID(changed.key),
-          action.rename.name,
-        );
-  },
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
+export interface FluxStore extends Flux.UndoableUnaryStore<
   schematic.Key,
-  schematic.Schematic
-> = { listeners: [ACTION_LISTENER] };
-
-export interface FluxStore extends Flux.UnaryStore<
-  schematic.Key,
-  schematic.Schematic
+  schematic.Schematic,
+  schematic.Action
 > {}
 
 export interface FluxSubStore extends Flux.Store {
@@ -239,6 +212,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.schematics.delete(data);
+    rollbacks.push(store.schematics.delete(keys));
     return data;
   },
 });
@@ -314,11 +288,6 @@ export const { useUpdate: useSnapshot } = Flux.createUpdate<
   },
 });
 
-export interface DispatchParams {
-  key: schematic.Key;
-  actions: schematic.Action | schematic.Action[];
-}
-
 const augmentWithEdgeSegments = (
   current: schematic.Schematic,
   actions: schematic.Action[],
@@ -351,24 +320,48 @@ const augmentWithEdgeSegments = (
   return [...actions, ...extra];
 };
 
-export const { useUpdate: useDispatch } = Flux.createUpdate<
-  DispatchParams,
+const kindOfTransaction = (actions: schematic.Action[]): string => {
+  if (actions.length === 0) return "default";
+  // A drag dispatches a stream of `set_node_position` per frame, plus
+  // `set_config` companions synthesized by augmentWithEdgeSegments for any
+  // affected edges. Both shapes are part of one user gesture and must coalesce
+  // together — classify them all as "move" so the per-kind coalesce window
+  // collapses them into a single undoable.
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMoveOrSegment = actions.every(
+    (a) => a.type === "set_node_position" || a.type === "set_config",
+  );
+  if (hasMove && onlyMoveOrSegment) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};
+
+export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
+  schematic.Key,
+  schematic.Schematic,
+  schematic.Action,
+  typeof FLUX_STORE_KEY,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
-    const { key, actions } = data;
-    let actionArray = Array.isArray(actions) ? actions : [actions];
-    const current = store.schematics.get(key);
-    if (current != null) {
-      actionArray = augmentWithEdgeSegments(current, actionArray);
-      const next = schematic.reduceAll(current, actionArray);
-      rollbacks.push(store.schematics.set(key, next));
-    }
-    await client.schematics.dispatch(key, client.key, actionArray);
-    return data;
-  },
+  storeKey: FLUX_STORE_KEY,
+  reduce: schematic.reduceAll,
+  preprocess: augmentWithEdgeSegments,
+  channel: schematic.SET_CHANNEL_NAME,
+  schema: schematic.scopedActionZ,
+  isUndoable: schematic.isUndoable,
+  kindOf: kindOfTransaction,
+});
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  schematic.Key,
+  schematic.Schematic,
+  schematic.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, sessionKey }) =>
+    client.schematics.dispatch(key, sessionKey, actions),
 });
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
@@ -392,21 +385,18 @@ export interface AddNodeProps {
   variant: Node.Variant;
   position?: xy.XY;
   specKey?: string;
-  config?: record.Unknown;
+  config?: Node.Config;
 }
 
 export const useAddNode = (resourceKey: string) => {
   const store = Flux.useStore<Symbol.FluxSubStore>();
   const theme = Theming.use();
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
       const config = Node.resolveSpec(variant).defaultConfig(theme);
-      if (
-        (config.variant == "customActuator" || config.variant === "customStatic") &&
-        specKey != null
-      ) {
+      if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = store.schematicSymbols.get(specKey);
         if (config.label != null && sym != null) config.label.label = sym.name;

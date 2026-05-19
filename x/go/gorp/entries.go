@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"encoding/binary"
 	"reflect"
 	"slices"
@@ -25,11 +24,13 @@ type keyKind int
 const (
 	keyKindFixed keyKind = iota
 	keyKindString
-	keyKindBytes
 )
 
 // Key is a unique key for an entry of a particular type.
-type Key types.Primitive
+type Key interface {
+	types.Primitive
+	comparable
+}
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
@@ -224,12 +225,9 @@ func newKeyCodec[K Key, E Entry[K]](prefix []byte) keyCodec[K, E] {
 	}
 	c := keyCodec[K, E]{prefix: prefix}
 	var zero K
-	switch reflect.TypeOf(zero).Kind() {
-	case reflect.String:
+	if reflect.TypeOf(zero).Kind() == reflect.String {
 		c.kind = keyKindString
-	case reflect.Slice:
-		c.kind = keyKindBytes
-	default:
+	} else {
 		c.kind = keyKindFixed
 		c.keySize = int(unsafe.Sizeof(zero))
 		c.buf = make([]byte, len(c.prefix)+c.keySize)
@@ -254,12 +252,6 @@ func (k *keyCodec[K, E]) encode(key K) []byte {
 		copy(k.buf, k.prefix)
 		copy(k.buf[len(k.prefix):], s)
 		return k.buf
-	case keyKindBytes:
-		b := *(*[]byte)(unsafe.Pointer(&key))
-		k.buf = slices.Grow(k.buf[:0], len(k.prefix)+len(b))[:len(k.prefix)+len(b)]
-		copy(k.buf, k.prefix)
-		copy(k.buf[len(k.prefix):], b)
-		return k.buf
 	default:
 		panic("unreachable")
 	}
@@ -273,9 +265,6 @@ func (k *keyCodec[K, E]) decode(b []byte) K {
 	case keyKindString:
 		s := string(b)
 		return *(*K)(unsafe.Pointer(&s))
-	case keyKindBytes:
-		c := bytes.Clone(b)
-		return *(*K)(unsafe.Pointer(&c))
 	default:
 		panic("unreachable")
 	}
@@ -300,9 +289,6 @@ func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 	case keyKindString:
 		s := *(*string)(unsafe.Pointer(&key))
 		return len(s) >= len(prefix) && string(prefix) == s[:len(prefix)]
-	case keyKindBytes:
-		b := *(*[]byte)(unsafe.Pointer(&key))
-		return bytes.HasPrefix(b, prefix)
 	default:
 		panic("unreachable")
 	}
