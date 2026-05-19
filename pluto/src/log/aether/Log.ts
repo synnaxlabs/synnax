@@ -19,6 +19,7 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type LogEntry,
   type LogSource,
@@ -29,8 +30,6 @@ import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
-
-import { noopLogSourceSpec } from "./telem/noop";
 
 export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
