@@ -21,6 +21,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -357,20 +358,13 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 }
 
 // expandKeysForAutoIndexing returns a config whose Channels include any index channels
-// referenced by non-index channels in cfg.Channels that are not already present.
-// When per-channel authorities are supplied, each appended index inherits the maximum
+// referenced by non-index channels in cfg.Channels that are not already present. When
+// per-channel authorities are supplied, each appended index inherits the maximum
 // authority of the data channels that reference it, since writing to a data channel
 // requires successfully writing its index. When a single broadcast authority is
 // supplied, the appended index keys naturally inherit it.
-//
-// Channels not present in this DB (e.g. owned by a remote leaseholder in a distributed
-// setup) are passed through untouched — the caller is expected to expand them at a
-// higher layer with access to the cluster-wide channel registry.
 func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
-	existing := make(map[ChannelKey]struct{}, len(cfg.Channels))
-	for _, k := range cfg.Channels {
-		existing[k] = struct{}{}
-	}
+	existing := set.New(cfg.Channels...)
 	perChannelAuth := len(cfg.Authorities) > 1
 	var keyAuth map[ChannelKey]xcontrol.Authority
 	if perChannelAuth {
@@ -394,7 +388,7 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 		if idxKey == 0 {
 			continue
 		}
-		if _, present := existing[idxKey]; present {
+		if existing.Contains(idxKey) {
 			continue
 		}
 		if _, seen := indexAuth[idxKey]; !seen {

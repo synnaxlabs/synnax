@@ -117,8 +117,8 @@ type streamWriter struct {
 // autoIndexState scopes the auto-indexing maps for one streamWriter. dataToIndex maps
 // each non-index data channel that the writer is writing to to the key of its index
 // channel; dataAuth tracks the most recent authority for each such data channel and is
-// updated by SetAuthority calls so that implicit-index authorities can be recomputed
-// as the max across referencing data channels.
+// updated by SetAuthority calls so that implicit-index authorities can be recomputed as
+// the max across referencing data channels.
 type autoIndexState struct {
 	dataToIndex map[ChannelKey]ChannelKey
 	dataAuth    map[ChannelKey]xcontrol.Authority
@@ -329,13 +329,13 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 // are spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm
 // when the generated series is written.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
-	present := make(map[ChannelKey]struct{}, fr.Count())
+	present := make(set.Set[ChannelKey])
 	keyLens := make(map[ChannelKey]int64, fr.Count())
 	for i, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		present[k] = struct{}{}
+		present.Add(k)
 		keyLens[k] = fr.RawSeriesAt(i).Len()
 	}
 	now := telem.Now()
@@ -344,7 +344,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		if _, ok := present[idxKey]; ok {
+		if present.Contains(idxKey) {
 			continue
 		}
 		var n int64
@@ -373,10 +373,10 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 	return fr
 }
 
-// propagate synchronizes the autoIndexState's per-data-channel authority tracking
-// with the incoming SetAuthority config and augments cfg with an updated authority for
-// each implicit index whose referencing data channels' max may have changed. Broadcast
-// calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
+// propagate synchronizes the autoIndexState's per-data-channel authority tracking with
+// the incoming SetAuthority config and augments cfg with an updated authority for each
+// implicit index whose referencing data channels' max may have changed. Broadcast calls
+// (cfg.Channels empty) are forwarded unchanged — the caller already applies the
 // broadcast across every channel in the writer, including indexes — but the tracked
 // state is refreshed so the next per-channel call computes correctly. Indexes the
 // caller explicitly included in cfg.Channels are left untouched.
@@ -399,19 +399,16 @@ func (s *autoIndexState) propagate(cfg WriterConfig) WriterConfig {
 			s.dataAuth[k] = cfg.Authorities[i]
 		}
 	}
-	explicit := make(map[ChannelKey]struct{}, len(cfg.Channels))
-	for _, k := range cfg.Channels {
-		explicit[k] = struct{}{}
-	}
-	seen := make(map[ChannelKey]struct{})
+	explicit := set.New(cfg.Channels...)
+	seen := set.New[ChannelKey]()
 	for _, idxKey := range s.dataToIndex {
-		if _, ok := explicit[idxKey]; ok {
+		if explicit.Contains(idxKey) {
 			continue
 		}
-		if _, ok := seen[idxKey]; ok {
+		if seen.Contains(idxKey) {
 			continue
 		}
-		seen[idxKey] = struct{}{}
+		seen.Add(idxKey)
 		var maxAuth xcontrol.Authority
 		for dc, idx := range s.dataToIndex {
 			if idx != idxKey {
