@@ -17,7 +17,6 @@ from pydantic import BaseModel
 
 from freighter.context import Context
 
-
 FilePath: TypeAlias = str | os.PathLike[str]
 """A filesystem path accepted by the streaming-body transport Protocols.
 
