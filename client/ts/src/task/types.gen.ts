@@ -13,7 +13,6 @@ import { caseconv } from "@synnaxlabs/x/caseconv";
 import { type optional } from "@synnaxlabs/x/optional";
 import { record } from "@synnaxlabs/x/record";
 import { status } from "@synnaxlabs/x/status";
-import { telem } from "@synnaxlabs/x/telem";
 import { zod } from "@synnaxlabs/x/zod";
 import { z } from "zod";
 
