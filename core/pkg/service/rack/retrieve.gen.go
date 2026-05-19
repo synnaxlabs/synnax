@@ -65,6 +65,15 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
+// MatchKeys returns a filter for racks whose Key matches any of the provided values.
+func MatchKeys(vals ...Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
+			return lo.Contains(vals, e.Key), nil
+		})
+	}
+}
+
 // MatchNames returns a filter for racks whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Rack] {

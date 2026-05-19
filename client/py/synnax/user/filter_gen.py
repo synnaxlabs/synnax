@@ -14,12 +14,14 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from synnax.filter import (
+    BoolFilter,
     StringFilter,
 )
 
 
 class UserFilterNode(BaseModel):
     username: StringFilter | None = None
+    root_user: BoolFilter | None = None
     and_: list[UserFilterNode] | None = Field(default=None, alias="and")
     or_: list[UserFilterNode] | None = Field(default=None, alias="or")
     not_: UserFilterNode | None = Field(default=None, alias="not")

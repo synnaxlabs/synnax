@@ -16,6 +16,7 @@ import { userZ } from "@/user/types.gen";
 
 export interface UserFilterNode {
   username?: filter.StringFilter;
+  rootUser?: filter.BoolFilter;
   and?: UserFilterNode[];
   or?: UserFilterNode[];
   not?: UserFilterNode;
@@ -24,6 +25,7 @@ export interface UserFilterNode {
 export const userFilterNodeZ: z.ZodType<UserFilterNode> = z.lazy(() =>
   z.object({
     username: filter.stringFilterZ.optional(),
+    rootUser: filter.boolFilterZ.optional(),
     and: z.array(userFilterNodeZ).optional(),
     or: z.array(userFilterNodeZ).optional(),
     not: userFilterNodeZ.optional(),
@@ -32,6 +34,7 @@ export const userFilterNodeZ: z.ZodType<UserFilterNode> = z.lazy(() =>
 
 export interface UserFilter {
   username?: string | string[] | RegExp | filter.OpNode<string>;
+  rootUser?: boolean | filter.OpNode<boolean>;
 }
 
 export type UserFilterArg = UserFilter | filter.Node<"user">;
@@ -40,6 +43,7 @@ export const USER_FILTER_DESCRIPTOR: filter.Descriptor = {
   entity: "user",
   fields: {
     username: "string",
+    rootUser: "bool",
   },
   orderFields: {},
 };
