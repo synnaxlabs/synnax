@@ -29,7 +29,7 @@ class CSVReader(CSVMatcher):  # type: ignore
     channel_keys: list[str] | None
     chunk_size: int
 
-    _reader: TextFileReader | None
+    _cached_reader: TextFileReader | None
     _path: Path
     _channels: list[ChannelMeta] | None
     _row_count: int | None
@@ -55,7 +55,7 @@ class CSVReader(CSVMatcher):  # type: ignore
         self._row_count = None
         self._skip_rows = 0
         self._calculated_skip_rows = False
-        self._reader = None
+        self._cached_reader = None
 
     def _detect_delimiter(self) -> str:
         with open(self._path, "r") as file:
@@ -65,7 +65,7 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     def seek_first(self) -> None:
         self.close()
-        self._reader = pd.read_csv(
+        self._cached_reader = pd.read_csv(
             self._path,
             chunksize=self.chunk_size,
             usecols=self.channel_keys,
@@ -136,16 +136,17 @@ class CSVReader(CSVMatcher):  # type: ignore
             self._row_count = estimate_row_count(self._path)
         return self._row_count * len(self.channels())
 
-    def _ensure_reader(self) -> TextFileReader:
-        if self._reader is None:
+    @property
+    def _reader(self) -> TextFileReader:
+        if self._cached_reader is None:
             self.seek_first()
-        assert self._reader is not None
-        return self._reader
+        assert self._cached_reader is not None
+        return self._cached_reader
 
     def close(self) -> None:
-        if self._reader is not None:
-            self._reader.close()
-        self._reader = None
+        if self._cached_reader is not None:
+            self._cached_reader.close()
+        self._cached_reader = None
 
 
 def estimate_row_count(path: Path) -> int:

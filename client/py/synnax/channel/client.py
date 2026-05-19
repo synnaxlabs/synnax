@@ -49,7 +49,7 @@ class Channel(Payload):
     channels and how they work.
     """
 
-    _frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     _client: Client | None = PrivateAttr(None)
 
     def __init__(
@@ -114,7 +114,7 @@ class Channel(Payload):
             alias=alias,
             status=status,
         )
-        self._frame_client = _frame_client
+        self._cached_frame_client = _frame_client
         self._client = _client
 
     @overload
@@ -145,7 +145,7 @@ class Channel(Payload):
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start_or_range, end)
-        return self._get_frame_client().read(tr, self.key)
+        return self._frame_client.read(tr, self.key)
 
     def write(self, start: CrudeTimeStamp, data: CrudeSeries) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
@@ -154,7 +154,7 @@ class Channel(Payload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._get_frame_client().write(start, self.key, data)
+        self._frame_client.write(start, self.key, data)
 
     def rename(self, name: str) -> None:
         """Renames the channel.
@@ -170,12 +170,13 @@ class Channel(Payload):
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
-    def _get_frame_client(self) -> framer.Client:
-        if self._frame_client is None:
+    @property
+    def _frame_client(self) -> framer.Client:
+        if self._cached_frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
             )
-        return self._frame_client
+        return self._cached_frame_client
 
     def __hash__(self) -> int:
         return hash(self.key)

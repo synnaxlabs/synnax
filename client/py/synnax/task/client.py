@@ -139,7 +139,7 @@ class Task:
     config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
-    _frame_client: FrameClient | None = None
+    _cached_frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -163,14 +163,15 @@ class Task:
         self.internal = internal
         self.snapshot = snapshot
         self.status = status
-        self._frame_client = _frame_client
+        self._cached_frame_client = _frame_client
 
-    def _get_frame_client(self) -> FrameClient:
-        if self._frame_client is None:
+    @property
+    def _frame_client(self) -> FrameClient:
+        if self._cached_frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or retrieved from the cluster."
             )
-        return self._frame_client
+        return self._cached_frame_client
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -186,7 +187,7 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
-        self._frame_client = task._frame_client
+        self._cached_frame_client = task._cached_frame_client
 
     @property
     def ontology_id(self) -> ID:

@@ -240,9 +240,7 @@ class HTTPClient(MiddlewareCollector):
         ct = http_res.headers.get(_CONTENT_TYPE_HEADER_KEY, "")
         decoder = self._decoders_by_content_type.get(ct.split(";", 1)[0].strip())
         if decoder is None:
-            return ValueError(
-                f"no decoder registered for response Content-Type {ct!r}"
-            )
+            return ValueError(f"no decoder registered for response Content-Type {ct!r}")
         return decoder
 
     def _decode_error(self, http_res: BaseHTTPResponse, data: bytes) -> Exception:

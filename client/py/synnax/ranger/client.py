@@ -54,9 +54,9 @@ RANGE_SET_CHANNEL = "sy_range_set"
 
 
 class _InternalScopedChannel(channel.Payload):
-    _range: Range | None = PrivateAttr(None)
+    _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
-    _frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
     _aliaser: alias_.Client | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
@@ -79,16 +79,17 @@ class _InternalScopedChannel(channel.Payload):
         _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
-        self._range = rng
-        self._frame_client = frame_client
+        self._cached_range = rng
+        self._cached_frame_client = frame_client
         self._aliaser = _aliaser
         self._tasks = tasks
         self._ontology = ontology
 
-    def _get_range(self) -> Range:
-        if self._range is None:
+    @property
+    def _range(self) -> Range:
+        if self._cached_range is None:
             raise _RANGE_NOT_CREATED
-        return self._range
+        return self._cached_range
 
     @property
     def time_range(self) -> TimeRange:
@@ -108,14 +109,15 @@ class _InternalScopedChannel(channel.Payload):
         """
         return self.read().to_numpy()
 
-    def _get_frame_client(self) -> framer.Client:
-        if self._frame_client is None:
+    @property
+    def _frame_client(self) -> framer.Client:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self._frame_client
+        return self._cached_frame_client
 
     def read(self) -> MultiSeries:
         if self._cache is None:
-            self._cache = self._get_frame_client().read(self.time_range, self.key)
+            self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
 
     def set_alias(self, alias: str) -> None:
@@ -158,9 +160,11 @@ class ScopedChannel:
 
     def _guard(self) -> None:
         if len(self._internal) > 1:
-            raise QueryError(f"""Multiple channels found for query '{self._query}':
+            raise QueryError(
+                f"""Multiple channels found for query '{self._query}':
             {[str(ch) for ch in self._internal]}
-            """)
+            """
+            )
 
     def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
@@ -218,8 +222,10 @@ class ScopedChannel:
         return sum(len(ch) for ch in self._internal)
 
 
-_RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been created.
-Please call client.ranges.create(range) before attempting to read from a range.""")
+_RANGE_NOT_CREATED = QueryError(
+    """Cannot read from a range that has not been created.
+Please call client.ranges.create(range) before attempting to read from a range."""
+)
 
 
 class Range(Payload):
@@ -229,19 +235,19 @@ class Range(Payload):
     and how they work.
     """
 
-    _frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
     _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    _aliaser: alias_.Client | None = PrivateAttr(None)
+    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
-    _client: Client | None = PrivateAttr(None)
-    _tasks: TaskClient | None = PrivateAttr(None)
-    _ontology: OntologyClient | None = PrivateAttr(None)
+    _cached_client: Client | None = PrivateAttr(None)
+    _cached_tasks: TaskClient | None = PrivateAttr(None)
+    _cached_ontology: OntologyClient | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -278,13 +284,13 @@ class Range(Payload):
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
         super().__init__(name=name, time_range=time_range, key=key, color=color)
-        self._frame_client = _frame_client
+        self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self._aliaser = _aliaser
-        self._client = _client
-        self._tasks = _tasks
-        self._ontology = _ontology
+        self._cached_aliaser = _aliaser
+        self._cached_client = _client
+        self._cached_tasks = _tasks
+        self._cached_ontology = _ontology
 
     def _get_scoped_channel(
         self, channels: list[channel.Payload], query: str
@@ -338,30 +344,35 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._kv
 
-    def _get_aliaser(self) -> alias_.Client:
-        if self._aliaser is None:
+    @property
+    def _aliaser(self) -> alias_.Client:
+        if self._cached_aliaser is None:
             raise _RANGE_NOT_CREATED
-        return self._aliaser
+        return self._cached_aliaser
 
-    def _get_frame_client(self) -> framer.Client:
-        if self._frame_client is None:
+    @property
+    def _frame_client(self) -> framer.Client:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self._frame_client
+        return self._cached_frame_client
 
-    def _get_client(self) -> Client:
-        if self._client is None:
+    @property
+    def _client(self) -> Client:
+        if self._cached_client is None:
             raise _RANGE_NOT_CREATED
-        return self._client
+        return self._cached_client
 
-    def _get_tasks(self) -> TaskClient:
-        if self._tasks is None:
+    @property
+    def _tasks(self) -> TaskClient:
+        if self._cached_tasks is None:
             raise _RANGE_NOT_CREATED
-        return self._tasks
+        return self._cached_tasks
 
-    def _get_ontology(self) -> OntologyClient:
-        if self._ontology is None:
+    @property
+    def _ontology(self) -> OntologyClient:
+        if self._cached_ontology is None:
             raise _RANGE_NOT_CREATED
-        return self._ontology
+        return self._cached_ontology
 
     @property
     def _channel_retriever(self) -> ChannelRetriever:
@@ -604,17 +615,21 @@ class Client:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
                         passed to create. Synnax can't figure out which one you want!
-                        """)
+                        """
+                    )
                 if len(filtered) > 1:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
                     can't figure out which one you want!
-                    """)
+                    """
+                    )
                 res = [filtered[0]]
             existing_names = {r.name for r in res}
             to_create = [r for r in to_create if r.name not in existing_names]
