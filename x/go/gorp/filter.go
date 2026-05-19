@@ -47,28 +47,45 @@ type Filter[K Key, E Entry[K]] struct {
 	// directly. For a 12500-key filter participating in a composition
 	// where it is the walked side, the saving is ~150 KB per query.
 	membership *lazyMembership[K]
-	// resolve, if non-nil, computes keys and the membership build
-	// function at Retrieve.Exec time. Index-backed constructors set it
-	// to deliver read-your-own-writes against the open tx; And/Or
-	// composition propagates resolvers when any child has one (Not
-	// always drops resolve, since inverting a key set requires the
-	// universe).
+	// resolve, if non-nil, computes the effective candidate keys (and
+	// optionally an updated eval closure) at Retrieve.Exec time.
+	// Index-backed constructors set it to deliver read-your-own-writes
+	// against the open tx; And / Or composition propagates resolvers
+	// when any child has one. Not, even though it always produces an
+	// unbounded result, still carries a resolver when its child is
+	// resolver-backed so the per-call eval can close over the
+	// materialized child without sharing mutable state across Execs.
 	//
-	// A resolve return of (nil, nil, nil) means "no candidate keys" —
-	// the execKeys path treats this as an empty result, NOT as
-	// unbounded. An unbounded filter has no keys and no resolver.
-	resolve resolveFilter[K]
+	// A resolved value with nil keys means "no candidate keys" — the
+	// execKeys path treats this as an empty result, NOT as unbounded.
+	// An unbounded filter has no keys and no resolver.
+	resolve resolveFilter[K, E]
+}
+
+// evalFunc is the signature of Filter.eval. Kept as a named alias so
+// resolved (which threads an optional eval through the resolve
+// protocol) can reference it without restating the parameter list.
+type evalFunc[K Key, E Entry[K]] func(ctx Context, e *E, key, value []byte) (bool, error)
+
+// resolved is the payload returned by a Filter.resolve call. keys and
+// build follow the same semantics they did when resolve returned them
+// directly. eval, when non-nil, replaces the construction-time
+// Filter.eval for the duration of this Exec. The eval field lets
+// composers like Or and Not close over per-call materialized state
+// rather than mutating shared captured state.
+type resolved[K Key, E Entry[K]] struct {
+	keys  []K
+	build func([]K) keyMembership[K]
+	eval  evalFunc[K, E]
 }
 
 // resolveFilter is the signature for a deferred Filter resolver. It
-// returns the effective candidate keys for an indexed filter under the
-// given transaction (merging committed index state with any per-tx
-// delta) plus a build function for constructing an O(1) membership
-// predicate over the returned keys.
-type resolveFilter[K Key] func(
+// produces the per-Exec resolution payload by reading committed index
+// state and merging any per-tx delta staged against tx.
+type resolveFilter[K Key, E Entry[K]] func(
 	ctx context.Context,
 	tx Tx,
-) (keys []K, build func([]K) keyMembership[K], err error)
+) (resolved[K, E], error)
 
 // keyMembership is an O(1) membership predicate over a set of keys.
 type keyMembership[K Key] interface {
@@ -233,13 +250,13 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 
 	if anyHasResolver(filters) {
-		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			materialized, err := materializeFilters[K, E](ctx, tx, filters)
 			if err != nil {
-				return nil, nil, err
+				return resolved[K, E]{}, err
 			}
 			keys, build := intersectKeys[K, E](materialized)
-			return keys, build, nil
+			return resolved[K, E]{keys: keys, build: build}, nil
 		}
 		return f
 	}
@@ -269,24 +286,31 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
 
 	if anyHasResolver(filters) {
-		// Or's eval closure may probe child membership at match
-		// time after the resolver runs, so the resolver mutates
-		// each child in place. Copy the slice so the original
-		// caller is not affected.
-		filters = append([]Filter[K, E](nil), filters...)
-		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			if err := materializeFiltersMut[K, E](ctx, tx, filters); err != nil {
-				return nil, nil, err
+		// Resolver path: materialize the children fresh per Exec so
+		// concurrent Execs never share mutable child state. The
+		// resolver also produces the per-Exec eval closure, since the
+		// construction-time eval would close over the unmaterialized
+		// children and read keys / membership as nil for indexed
+		// children.
+		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+			materialized, err := materializeFilters[K, E](ctx, tx, filters)
+			if err != nil {
+				return resolved[K, E]{}, err
 			}
-			keys, build := unionKeys[K, E](filters)
-			return keys, build, nil
+			keys, build := unionKeys[K, E](materialized)
+			return resolved[K, E]{
+				keys:  keys,
+				build: build,
+				eval:  orEval[K, E](materialized),
+			}, nil
 		}
-	} else {
-		var build func([]K) keyMembership[K]
-		f.keys, build = unionKeys[K, E](filters)
-		if build != nil && f.keys != nil {
-			f.membership = newLazyMembership(f.keys, build)
-		}
+		return f
+	}
+
+	var build func([]K) keyMembership[K]
+	f.keys, build = unionKeys[K, E](filters)
+	if build != nil && f.keys != nil {
+		f.membership = newLazyMembership(f.keys, build)
 	}
 
 	// raw composition: pre-screen survives only when every child is
@@ -321,21 +345,30 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		}
 	}
 	if !allKeysOnly {
-		f.eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
-			entryKey := (*e).GorpKey()
-			for _, child := range filters {
-				ok, err := evalChild(ctx, child, e, entryKey, key, value)
-				if err != nil {
-					return false, err
-				}
-				if ok {
-					return true, nil
-				}
-			}
-			return false, nil
-		}
+		f.eval = orEval[K, E](filters)
 	}
 	return f
+}
+
+// orEval returns the per-call eval closure used by Or composition. It
+// runs each child's full predicate and ORs the results, short-circuiting
+// on the first match. Defined as a package-level generic so resolver-
+// path Or compositions can close over freshly materialized children
+// without smuggling them through Filter struct fields.
+func orEval[K Key, E Entry[K]](filters []Filter[K, E]) evalFunc[K, E] {
+	return func(ctx Context, e *E, key, value []byte) (bool, error) {
+		entryKey := (*e).GorpKey()
+		for _, child := range filters {
+			ok, err := evalChild(ctx, child, e, entryKey, key, value)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
 }
 
 // Not returns a filter that inverts the child. The result is always
@@ -343,37 +376,57 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // requires the universe of all keys. When the child is raw-only, Not
 // composes an inverted raw so the pre-decode skip survives.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
-	out := Filter[K, E]{
-		eval: func(ctx Context, e *E, key, value []byte) (bool, error) {
-			entryKey := (*e).GorpKey()
-			ok, err := evalChild(ctx, f, e, entryKey, key, value)
-			return !ok, err
-		},
-	}
+	// Raw-only child: inverting the raw predicate preserves the
+	// pre-decode skip. No eval, no resolve needed.
 	if f.raw != nil && f.eval == nil && f.keys == nil && f.resolve == nil {
 		raw := f.raw
-		out.raw = func(key, value []byte) (bool, error) {
-			ok, err := raw(key, value)
-			return !ok, err
+		return Filter[K, E]{
+			raw: func(key, value []byte) (bool, error) {
+				ok, err := raw(key, value)
+				return !ok, err
+			},
 		}
-		out.eval = nil
 	}
+	// Resolver-backed child: defer eval construction until Exec so it
+	// can close over a fresh materialized copy of f. Sharing the
+	// captured f across Execs would race resolve's writes against
+	// concurrent eval reads.
 	if f.resolve != nil {
-		out.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			keys, build, err := f.resolve(ctx, tx)
-			if err != nil {
-				return nil, nil, err
-			}
-			f.keys = keys
-			if build != nil && keys != nil {
-				f.membership = newLazyMembership(keys, build)
-			} else {
-				f.membership = nil
-			}
-			return nil, nil, nil
+		return Filter[K, E]{
+			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
+				res, err := f.resolve(ctx, tx)
+				if err != nil {
+					return resolved[K, E]{}, err
+				}
+				m := f
+				m.keys = res.keys
+				if res.build != nil && res.keys != nil {
+					m.membership = newLazyMembership(res.keys, res.build)
+				} else {
+					m.membership = nil
+				}
+				if res.eval != nil {
+					m.eval = res.eval
+				}
+				return resolved[K, E]{eval: notEval[K, E](m)}, nil
+			},
 		}
 	}
-	return out
+	// Eager child (no resolver). Capturing f directly is safe — there
+	// is no resolve writing to it.
+	return Filter[K, E]{eval: notEval[K, E](f)}
+}
+
+// notEval returns the per-call eval closure used by Not composition.
+// Defined as a package-level generic so Not's resolver path can close
+// over a freshly materialized child without smuggling it through
+// Filter struct fields.
+func notEval[K Key, E Entry[K]](f Filter[K, E]) evalFunc[K, E] {
+	return func(ctx Context, e *E, key, value []byte) (bool, error) {
+		entryKey := (*e).GorpKey()
+		ok, err := evalChild(ctx, f, e, entryKey, key, value)
+		return !ok, err
+	}
 }
 
 // evalChild evaluates a child's full predicate at decode time. Returns
@@ -423,7 +476,9 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 // materializeFilters returns a slice of filters with every resolver-child
 // materialized against the open tx. Eager children are copied through
 // unchanged. The returned slice is a fresh copy; the input is not
-// mutated.
+// mutated. Resolver-returned eval overrides are installed on the copy
+// so Or / Not's per-call eval closures see the right predicate for
+// each child.
 func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
 	tx Tx,
@@ -435,46 +490,22 @@ func materializeFilters[K Key, E Entry[K]](
 			out[i] = child
 			continue
 		}
-		keys, build, err := child.resolve(ctx, tx)
+		res, err := child.resolve(ctx, tx)
 		if err != nil {
 			return nil, err
 		}
 		out[i] = child
-		out[i].keys = keys
-		if build != nil && keys != nil {
-			out[i].membership = newLazyMembership(keys, build)
+		out[i].keys = res.keys
+		if res.build != nil && res.keys != nil {
+			out[i].membership = newLazyMembership(res.keys, res.build)
 		} else {
 			out[i].membership = nil
 		}
+		if res.eval != nil {
+			out[i].eval = res.eval
+		}
 	}
 	return out, nil
-}
-
-// materializeFiltersMut materializes every resolver-carrying child in
-// place so closures that captured the same slice observe the
-// post-resolution state. Callers must own the slice (copy before
-// calling) so the mutation isn't observed by the original caller.
-func materializeFiltersMut[K Key, E Entry[K]](
-	ctx context.Context,
-	tx Tx,
-	filters []Filter[K, E],
-) error {
-	for i := range filters {
-		if filters[i].resolve == nil {
-			continue
-		}
-		keys, build, err := filters[i].resolve(ctx, tx)
-		if err != nil {
-			return err
-		}
-		filters[i].keys = keys
-		if build != nil && keys != nil {
-			filters[i].membership = newLazyMembership(keys, build)
-		} else {
-			filters[i].membership = nil
-		}
-	}
-	return nil
 }
 
 // intersectKeys returns the intersection of every child filter's keys

@@ -324,15 +324,15 @@ func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			if err := l.waitPopulated(ctx); err != nil {
-				return nil, nil, err
+				return resolved[K, E]{}, err
 			}
 			keys, err := l.Get(tx, captured...)
 			if err != nil {
-				return nil, nil, err
+				return resolved[K, E]{}, err
 			}
-			return keys, indexedKeyMembership[K], nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, l.extract(e)), nil
@@ -580,12 +580,12 @@ func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			if err := s.waitPopulated(ctx); err != nil {
-				return nil, nil, err
+				return resolved[K, E]{}, err
 			}
 			keys, _ := s.Get(tx, captured...)
-			return keys, indexedKeyMembership[K], nil
+			return resolved[K, E]{keys: keys, build: indexedKeyMembership[K]}, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, s.extract(e)), nil

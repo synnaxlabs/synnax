@@ -345,26 +345,93 @@ var _ = Describe("Index", func() {
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
 				var wg sync.WaitGroup
-				wg.Add(2)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					for i := int32(0); i < 100; i++ {
 						_ = gorp.NewCreate[int32, indexedEntry]().
 							Entry(&indexedEntry{ID: i, Name: "shared"}).
 							Exec(ctx, idxDB)
 					}
-				}()
-				go func() {
-					defer wg.Done()
+				})
+				wg.Go(func() {
 					for i := 0; i < 200; i++ {
 						_, _ = nameIdx.Get(nil, "shared")
 					}
-				}()
+				})
 				wg.Wait()
 				Eventually(func() int {
 					keys, _ := nameIdx.Get(nil, "shared")
 					return len(keys)
 				}).Should(Equal(100))
+			})
+
+			It("Should be safe to Exec a shared Or filter from multiple goroutines", func(ctx SpecContext) {
+				// Or(indexed, indexed) builds a resolver that previously
+				// mutated a shared filters slice in place; concurrent
+				// Execs raced on the per-child keys / membership fields.
+				// The fix materializes children per Exec, so the race
+				// detector should stay quiet here.
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				categoryIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
+					"category", func(e *indexedEntry) string { return e.Category },
+				)
+				table := openIndexedTable[int32, indexedEntry](ctx, idxDB, nameIdx, categoryIdx)
+				defer func() { Expect(table.Close()).To(Succeed()) }()
+
+				Expect(gorp.NewCreate[int32, indexedEntry]().Entries(&[]indexedEntry{
+					{ID: 1, Name: "a", Category: "x"},
+					{ID: 2, Name: "b", Category: "y"},
+					{ID: 3, Name: "a", Category: "z"},
+				}).Exec(ctx, idxDB)).To(Succeed())
+
+				shared := gorp.Or(nameIdx.Filter("a"), categoryIdx.Filter("y"))
+				var wg sync.WaitGroup
+				for range 16 {
+					wg.Go(func() {
+						for range 32 {
+							var res []indexedEntry
+							Expect(table.NewRetrieve().
+								Where(shared).
+								Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+							Expect(idsOf(res)).To(ConsistOf(int32(1), int32(2), int32(3)))
+						}
+					})
+				}
+				wg.Wait()
+			})
+
+			It("Should be safe to Exec a shared Not filter from multiple goroutines", func(ctx SpecContext) {
+				// Not(indexed) previously wrote back into the captured
+				// child filter at resolve time; concurrent Execs raced
+				// on those writes. The fix uses a local materialized
+				// copy per resolve call.
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				table := openIndexedTable[int32, indexedEntry](ctx, idxDB, nameIdx)
+				defer func() { Expect(table.Close()).To(Succeed()) }()
+
+				Expect(gorp.NewCreate[int32, indexedEntry]().Entries(&[]indexedEntry{
+					{ID: 1, Name: "a"},
+					{ID: 2, Name: "b"},
+					{ID: 3, Name: "a"},
+				}).Exec(ctx, idxDB)).To(Succeed())
+
+				shared := gorp.Not(nameIdx.Filter("a"))
+				var wg sync.WaitGroup
+				for range 16 {
+					wg.Go(func() {
+						for range 32 {
+							var res []indexedEntry
+							Expect(table.NewRetrieve().
+								Where(shared).
+								Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+							Expect(idsOf(res)).To(ConsistOf(int32(2)))
+						}
+					})
+				}
+				wg.Wait()
 			})
 		})
 

@@ -247,7 +247,7 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	if r.filter.resolve == nil {
 		return nil
 	}
-	keys, build, err := r.filter.resolve(ctx, tx)
+	res, err := r.filter.resolve(ctx, tx)
 	if err != nil {
 		if errors.Is(err, ErrIndexInvalid) {
 			r.filter.keys = nil
@@ -256,11 +256,17 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 		}
 		return err
 	}
-	r.filter.keys = keys
-	if build != nil && keys != nil {
-		r.filter.membership = newLazyMembership(keys, build)
+	r.filter.keys = res.keys
+	if res.build != nil && res.keys != nil {
+		r.filter.membership = newLazyMembership(res.keys, res.build)
 	} else {
 		r.filter.membership = nil
+	}
+	// Or / Not return a per-Exec eval closed over freshly materialized
+	// children; installing it on the per-call r.filter avoids sharing
+	// mutable child state across concurrent Execs.
+	if res.eval != nil {
+		r.filter.eval = res.eval
 	}
 	return nil
 }

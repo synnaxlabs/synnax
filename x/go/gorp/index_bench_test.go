@@ -470,6 +470,39 @@ func BenchmarkComposeOrIndexed(b *testing.B) {
 	}
 }
 
+// BenchmarkComposeOrIndexedShared mirrors BenchmarkComposeOrIndexed but
+// constructs the Or filter once outside the loop. That isolates the per-
+// Exec cost the resolver path pays now that Or materializes children
+// fresh on every call (instead of mutating shared captured state).
+func BenchmarkComposeOrIndexedShared(b *testing.B) {
+	for _, size := range indexSizes {
+		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
+			db, table, nameIdx, _ := compositionFixture(b, size)
+			defer func() { _ = table.Close() }()
+			ctx := context.Background()
+			targetA := "name-" + strconv.Itoa(size/4)
+			targetB := "name-" + strconv.Itoa((3*size)/4)
+			shared := gorp.Or(
+				nameIdx.Filter(targetA),
+				nameIdx.Filter(targetB),
+			)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				var out []indexBenchEntry
+				if err := table.NewRetrieve().
+					Where(shared).
+					Entries(&out).Exec(ctx, db); err != nil {
+					b.Fatal(err)
+				}
+				if len(out) != 2 {
+					b.Fatalf("expected 2 results, got %d", len(out))
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkComposeNestedAnd exercises the membership-propagation path that
 // previously dropped every key: an inner And produces a Filter whose Keys
 // must be re-wrapped in a typed membership predicate so the outer And can
