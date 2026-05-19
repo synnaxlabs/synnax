@@ -59,9 +59,6 @@ class HTTPClient(MiddlewareCollector):
         self.__pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
-    def __(self) -> UnaryClient:
-        return self
-
     def send(
         self, target: str, req: RQ, res_t: type[RS]
     ) -> tuple[RS, None] | tuple[None, Exception]:

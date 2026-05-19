@@ -60,7 +60,7 @@ class Arc(Payload):
     - 'graph': Visual programming using a node-based editor
     """
 
-    __client: Client | None = PrivateAttr(None)
+    _client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -81,7 +81,7 @@ class Arc(Payload):
             version=version,
             mode=mode,
         )
-        self.__client = _client
+        self._client = _client
 
     @property
     def ontology_id(self) -> ID:
@@ -157,7 +157,7 @@ class Client:
             _CreateRequest(arcs=to_create),
             _CreateResponse,
         ).arcs
-        created = self.__sugar(res)
+        created = self._sugar(res)
         return created[0] if is_single else created
 
     @overload
@@ -207,7 +207,7 @@ class Client:
             _RetrieveResponse,
         )
 
-        arcs = self.__sugar(res.arcs or [])
+        arcs = self._sugar(res.arcs or [])
         if not is_single:
             return arcs
         if len(arcs) == 0:
@@ -226,7 +226,7 @@ class Client:
             Empty,
         )
 
-    def __sugar(self, payloads: list[Payload]) -> list[Arc]:
+    def _sugar(self, payloads: list[Payload]) -> list[Arc]:
         return [
             Arc(
                 key=p.key,

@@ -139,7 +139,7 @@ class Task:
     config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
-    __frame_client: FrameClient | None = None
+    _frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -163,15 +163,14 @@ class Task:
         self.internal = internal
         self.snapshot = snapshot
         self.status = status
-        self.__frame_client = _frame_client
+        self._frame_client = _frame_client
 
-    @property
-    def _frame_client(self) -> FrameClient:
-        if self.__frame_client is None:
+    def _get_frame_client(self) -> FrameClient:
+        if self._frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or retrieved from the cluster."
             )
-        return self.__frame_client
+        return self._frame_client
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -187,7 +186,7 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
-        self.__frame_client = task.__frame_client
+        self._frame_client = task._frame_client
 
     @property
     def ontology_id(self) -> ID:
@@ -213,7 +212,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._get_frame_client().open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
@@ -236,7 +235,7 @@ class Task:
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
+        with self._get_frame_client().open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
@@ -411,11 +410,11 @@ class Client:
         for pld in payloads:
             self.maybe_assign_def_rack(pld, rack)
         req = _CreateRequest(tasks=payloads)
-        created = self.__exec_create(req)
+        created = self._exec_create(req)
         sugared = self.sugar(created)
         return sugared[0] if is_single else sugared
 
-    def __exec_create(self, req: _CreateRequest) -> list[Payload]:
+    def _exec_create(self, req: _CreateRequest) -> list[Payload]:
         res = send_required(self._client, "/task/create", req, _CreateResponse)
         return res.tasks
 
@@ -438,7 +437,7 @@ class Client:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
-            tasks = self.__exec_create(req)
+            tasks = self._exec_create(req)
             task.set_internal(self.sugar(tasks)[0])
             while True:
                 frame = streamer.read(timeout)

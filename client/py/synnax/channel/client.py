@@ -49,8 +49,8 @@ class Channel(Payload):
     channels and how they work.
     """
 
-    ___frame_client: framer.Client | None = PrivateAttr(None)
-    __client: Client | None = PrivateAttr(None)
+    _frame_client: framer.Client | None = PrivateAttr(None)
+    _client: Client | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -114,8 +114,8 @@ class Channel(Payload):
             alias=alias,
             status=status,
         )
-        self.___frame_client = _frame_client
-        self.__client = _client
+        self._frame_client = _frame_client
+        self._client = _client
 
     @overload
     def read(
@@ -145,7 +145,7 @@ class Channel(Payload):
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start_or_range, end)
-        return self.__frame_client.read(tr, self.key)
+        return self._get_frame_client().read(tr, self.key)
 
     def write(self, start: CrudeTimeStamp, data: CrudeSeries) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
@@ -154,7 +154,7 @@ class Channel(Payload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self.__frame_client.write(start, self.key, data)
+        self._get_frame_client().write(start, self.key, data)
 
     def rename(self, name: str) -> None:
         """Renames the channel.
@@ -162,21 +162,20 @@ class Channel(Payload):
         :param name: The new name for the channel.
         :returns: None.
         """
-        if self.__client is None:
+        if self._client is None:
             raise ValidationError("Cannot rename a channel that has not been created.")
-        self.__client.rename(self.key, name)
+        self._client.rename(self.key, name)
 
     @property
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
-    @property
-    def __frame_client(self) -> framer.Client:
-        if self.___frame_client is None:
+    def _get_frame_client(self) -> framer.Client:
+        if self._frame_client is None:
             raise ValidationError(
                 "Cannot read from or write to channel that has not been created."
             )
-        return self.___frame_client
+        return self._frame_client
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -320,14 +319,14 @@ class Client:
 
         created = list()
         if retrieve_if_name_exists:
-            created = self.__sugar(
+            created = self._sugar(
                 self._retriever.retrieve([ch.name for ch in _channels])
             )
             _channels = [
                 c for c in _channels if c.name not in [ch.name for ch in created]
             ]
 
-        created.extend(self.__sugar(self._creator.create(_channels)))
+        created.extend(self._sugar(self._creator.create(_channels)))
         return created if isinstance(channels, list) else created[0]
 
     @overload
@@ -354,7 +353,7 @@ class Client:
         """
         normal = normalize_params(channel)
         res = self._retriever.retrieve(channel)
-        sug = self.__sugar(res)
+        sug = self._sugar(res)
         if not normal.single:
             return sug
         if len(res) == 1:
@@ -398,7 +397,7 @@ class Client:
         """
         self._creator.rename(normalize(keys), normalize(names))
 
-    def __sugar(self, channels: list[Payload]) -> list[Channel]:
+    def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [
             Channel(**c.model_dump(), _frame_client=self._frame_client)
             for c in channels
