@@ -56,7 +56,7 @@ RANGE_SET_CHANNEL = "sy_range_set"
 class _InternalScopedChannel(channel.Payload):
     _range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
-    _frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
     _aliaser: alias_.Client | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
@@ -80,7 +80,7 @@ class _InternalScopedChannel(channel.Payload):
     ):
         super().__init__(**payload.model_dump())
         self._range = rng
-        self._frame_client = frame_client
+        self._cached_frame_client = frame_client
         self._aliaser = _aliaser
         self._tasks = tasks
         self._ontology = ontology
@@ -108,14 +108,14 @@ class _InternalScopedChannel(channel.Payload):
         """
         return self.read().to_numpy()
 
-    def _get_frame_client(self) -> framer.Client:
-        if self._frame_client is None:
+    def _frame_client(self) -> framer.Client:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self._frame_client
+        return self._cached_frame_client
 
     def read(self) -> MultiSeries:
         if self._cache is None:
-            self._cache = self._get_frame_client().read(self.time_range, self.key)
+            self._cache = self._frame_client().read(self.time_range, self.key)
         return self._cache
 
     def set_alias(self, alias: str) -> None:
@@ -229,7 +229,7 @@ class Range(Payload):
     and how they work.
     """
 
-    _frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
     _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
@@ -278,7 +278,7 @@ class Range(Payload):
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
         super().__init__(name=name, time_range=time_range, key=key, color=color)
-        self._frame_client = _frame_client
+        self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
         self._aliaser = _aliaser
@@ -319,7 +319,7 @@ class Range(Payload):
             if cached is None:
                 cached = _InternalScopedChannel(
                     rng=self,
-                    frame_client=self._get_frame_client(),
+                    frame_client=self._frame_client(),
                     payload=pld,
                     tasks=self._get_tasks(),
                     ontology=self._get_ontology(),
@@ -343,10 +343,10 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._aliaser
 
-    def _get_frame_client(self) -> framer.Client:
-        if self._frame_client is None:
+    def _frame_client(self) -> framer.Client:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self._frame_client
+        return self._cached_frame_client
 
     def _get_client(self) -> Client:
         if self._client is None:
@@ -413,13 +413,13 @@ class Range(Payload):
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._get_frame_client().write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client().write(start, cast(framer.CrudeFrame, channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
                 "channels must be a channel key, name, or list when series is provided"
             )
-        self._get_frame_client().write(start, channels, series)
+        self._frame_client().write(start, channels, series)
 
     def create_child_range(
         self,
