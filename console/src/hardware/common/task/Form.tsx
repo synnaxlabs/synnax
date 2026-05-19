@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
@@ -18,7 +16,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Device } from "@synnaxlabs/pluto/device";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Task } from "@synnaxlabs/pluto/task";
-
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 import { type z } from "zod";

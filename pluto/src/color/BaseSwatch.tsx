@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
 import "@/color/Swatch.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Theming } from "@synnaxlabs/lyra/theming";
-
+import { color } from "@synnaxlabs/x/color";
 import { type ReactElement, useCallback } from "react";
 
 export const HAUL_TYPE = "color";

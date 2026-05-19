@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { errors } from "@synnaxlabs/x/errors";
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Device } from "@synnaxlabs/pluto/device";
+import { errors } from "@synnaxlabs/x/errors";
 
 import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";
 import { Modals } from "@/modals";

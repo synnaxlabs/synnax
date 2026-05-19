@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x/uuid";
+
 import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";

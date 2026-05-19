@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { color } from "@synnaxlabs/x/color";
-import { xy } from "@synnaxlabs/x/xy";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -18,7 +15,9 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Channel } from "@synnaxlabs/pluto/channel";
 import { Color } from "@synnaxlabs/pluto/color";
 import type { telem } from "@synnaxlabs/pluto/telem/aether";
-
+import { type bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { type xy } from "@synnaxlabs/x/xy";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

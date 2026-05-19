@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type schematic } from "@synnaxlabs/client";
-
+import { CSS } from "@synnaxlabs/lyra/css";
+import { type telem } from "@synnaxlabs/x/telem";
 import { type MouseEventHandler, type ReactElement, useRef, useState } from "react";
 
 import { Custom } from "@/schematic/node/common/custom";

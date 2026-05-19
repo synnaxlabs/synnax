@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
 import "@/lineplot/Controls.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -16,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Viewport } from "@synnaxlabs/pluto/viewport";
-
+import { location } from "@synnaxlabs/x/location";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

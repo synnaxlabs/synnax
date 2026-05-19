@@ -10,6 +10,7 @@
 import { migrate } from "@synnaxlabs/x/migrate";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { uuid } from "@synnaxlabs/x/uuid";
+
 import * as v2 from "@/cluster/types/v2";
 
 export const VERSION = "3.0.0";

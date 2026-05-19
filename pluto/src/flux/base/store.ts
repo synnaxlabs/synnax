@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { narrow } from "@synnaxlabs/x/narrow";
-import { observe } from "@synnaxlabs/x/observe";
-import { record } from "@synnaxlabs/x/record";
+import { type Synnax } from "@synnaxlabs/client";
 import { state } from "@synnaxlabs/lyra/state";
 import type { status } from "@synnaxlabs/lyra/status/aether";
-import { type Synnax } from "@synnaxlabs/client";
-
+import { array } from "@synnaxlabs/x/array";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type narrow } from "@synnaxlabs/x/narrow";
+import { type observe } from "@synnaxlabs/x/observe";
+import { type record } from "@synnaxlabs/x/record";
 import type z from "zod";
 
 interface ListenerScope<K extends record.Key> {

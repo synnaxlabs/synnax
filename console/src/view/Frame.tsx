@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x/caseconv";
-import { location } from "@synnaxlabs/x/location";
-import { uuid } from "@synnaxlabs/x/uuid";
 import "@/view/View.css";
 
 import { type ontology, UnexpectedError, view } from "@synnaxlabs/client";
@@ -24,7 +21,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { View as PView } from "@synnaxlabs/pluto/view";
-
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { location } from "@synnaxlabs/x/location";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { plural } from "pluralize";
 import {
   Fragment,

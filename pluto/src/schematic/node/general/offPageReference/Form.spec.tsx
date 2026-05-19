@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form } from "@synnaxlabs/lyra/form";
 import { deep } from "@synnaxlabs/x/deep";
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form } from "@synnaxlabs/lyra/form";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 

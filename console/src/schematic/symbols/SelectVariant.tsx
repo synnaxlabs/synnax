@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
 import { type schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x/deep";
 
 export interface SelectVariantProps extends Input.Control<string> {}
 

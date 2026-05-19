@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { direction } from "@synnaxlabs/x/direction";
 import "@/schematic/node/general/textBox/textBox.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { color } from "@synnaxlabs/x/color";
+import { direction } from "@synnaxlabs/x/direction";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";

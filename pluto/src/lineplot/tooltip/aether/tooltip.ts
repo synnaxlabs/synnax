@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 import { bounds } from "@synnaxlabs/x/bounds";
 import { box } from "@synnaxlabs/x/box";
 import { color } from "@synnaxlabs/x/color";
@@ -15,13 +17,10 @@ import { math } from "@synnaxlabs/x/math";
 import { scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { theming } from "@synnaxlabs/lyra/theming/aether";
-
 import { z } from "zod";
 
-import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/line/aether/line";
+import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);

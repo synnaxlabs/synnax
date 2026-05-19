@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x/box";
-import { direction } from "@synnaxlabs/x/direction";
+import { type direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
+
 import { type NodeLayout } from "@/diagram/util";
 
 /** Aligns nodes to a specific edge (left/right/top/bottom). */

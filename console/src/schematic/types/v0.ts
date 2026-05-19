@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { dimensions } from "@synnaxlabs/x/dimensions";
-import { direction } from "@synnaxlabs/x/direction";
-import { location } from "@synnaxlabs/x/location";
-import { xy } from "@synnaxlabs/x/xy";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto/schematic";
 import { control } from "@synnaxlabs/pluto/telem/control/aether";
 import { Value } from "@synnaxlabs/pluto/value";
 import { Viewport } from "@synnaxlabs/pluto/viewport";
-
+import { color } from "@synnaxlabs/x/color";
+import { dimensions } from "@synnaxlabs/x/dimensions";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";

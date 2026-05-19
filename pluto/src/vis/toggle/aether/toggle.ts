@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { status } from "@synnaxlabs/lyra/status/aether";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { z } from "zod";
 
-import { telem } from "@/telem/aether";
 import { type diagram } from "@/diagram/aether";
+import { telem } from "@/telem/aether";
 
 export const toggleStateZ = z.object({
   enabled: z.boolean(),

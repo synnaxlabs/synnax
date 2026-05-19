@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import type { record } from "@synnaxlabs/x/record";
-import { xy } from "@synnaxlabs/x/spatial/xy";
 import { uuid } from "@synnaxlabs/x/uuid";
+import { xy } from "@synnaxlabs/x/xy";
 import { useCallback } from "react";
 
-import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks";
-import { type FluxSubStore, useDispatch } from "@/schematic/queries";
 import { type DiagramClipboardHandler } from "@/diagram/Diagram";
+import { Flux } from "@/flux";
+import { type FluxSubStore, useDispatch } from "@/schematic/queries";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.

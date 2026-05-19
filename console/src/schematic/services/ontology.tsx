@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { strings } from "@synnaxlabs/x/strings";
 import { ontology, ranger, schematic, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -18,7 +16,8 @@ import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 import { Schematic as Base } from "@synnaxlabs/pluto/schematic";
-
+import { array } from "@synnaxlabs/x/array";
+import { strings } from "@synnaxlabs/x/strings";
 import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";

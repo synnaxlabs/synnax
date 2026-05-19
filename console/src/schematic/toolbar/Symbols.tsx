@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
-import { uuid } from "@synnaxlabs/x/uuid";
-import { Haul } from "@synnaxlabs/lyra/haul";
-import { Key } from "@synnaxlabs/lyra/key";
 import { group, type ontology, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Key } from "@synnaxlabs/lyra/key";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -26,7 +24,8 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Group } from "@synnaxlabs/pluto/group";
 import { Schematic } from "@synnaxlabs/pluto/schematic";
-
+import { id } from "@synnaxlabs/x/id";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 

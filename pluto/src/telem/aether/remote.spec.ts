@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import { bounds } from "@synnaxlabs/x/bounds";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
-import { channel, DataType, TimeRange } from "@synnaxlabs/client";
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {

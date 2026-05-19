@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { unique } from "@synnaxlabs/x/unique";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { Aether } from "@synnaxlabs/lyra/aether";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
-import { UnexpectedError } from "@synnaxlabs/client";
-
+import { type color } from "@synnaxlabs/x/color";
+import { unique } from "@synnaxlabs/x/unique";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Color } from "@/color";
+import { Legend as Base } from "@/legend";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Legend as Base } from "@/legend";
 
 const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;
 

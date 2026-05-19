@@ -22,7 +22,7 @@
  * @returns The converted series.
  */
 
-import { math } from "@synnaxlabs/x/math";
+import { type math } from "@synnaxlabs/x/math";
 import { telem } from "@synnaxlabs/x/telem";
 export const convertSeriesToSupportedGL = (
   series: telem.Series,

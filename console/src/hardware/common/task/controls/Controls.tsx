@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import type { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Status as BaseStatus } from "@synnaxlabs/lyra/status";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { status } from "@synnaxlabs/x/status";
 import { useCallback, useState } from "react";
 
 import { Actions } from "@/hardware/common/task/controls/Actions";

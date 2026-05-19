@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { type channel, createTestClient, Frame, type framer } from "@synnaxlabs/client";
 import { EOF } from "@synnaxlabs/freighter";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 

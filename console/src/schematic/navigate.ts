@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Flux } from "@synnaxlabs/pluto/flux";
 import type { Pluto } from "@synnaxlabs/pluto/pluto";
 import { Schematic } from "@synnaxlabs/pluto/schematic";
-import { Status } from "@synnaxlabs/pluto/status";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { useCallback, useMemo } from "react";
 import { useStore } from "react-redux";

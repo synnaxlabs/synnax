@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/telem/control/Indicator.css";
 
 import { Aether } from "@synnaxlabs/lyra/aether";
@@ -16,7 +14,8 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 

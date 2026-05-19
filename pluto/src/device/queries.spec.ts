@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x/id";
 import { status } from "@synnaxlabs/x/status";
-import { createTestClient, device, NotFoundError } from "@synnaxlabs/client";
-
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";

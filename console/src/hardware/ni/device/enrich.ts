@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
+
 import data from "@/hardware/ni/device/enriched.json";
 import { type Properties, ZERO_PROPERTIES } from "@/hardware/ni/device/types";
 

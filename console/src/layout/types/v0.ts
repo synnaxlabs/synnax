@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { Drift } from "@synnaxlabs/drift";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Mosaic } from "@synnaxlabs/pluto/mosaic";
-
+import { location } from "@synnaxlabs/x/location";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";

@@ -7,11 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x/compare";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { record } from "@synnaxlabs/x/record";
-import { telem } from "@synnaxlabs/x/telem";
 import {
   useCombinedStateAndRef,
   useDebouncedCallback,
@@ -20,7 +15,11 @@ import {
   useSyncedRef,
 } from "@synnaxlabs/lyra/hooks";
 import { state } from "@synnaxlabs/lyra/state";
-
+import { compare } from "@synnaxlabs/x/compare";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { type record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";

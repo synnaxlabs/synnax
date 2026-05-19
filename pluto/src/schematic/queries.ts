@@ -13,20 +13,20 @@ import {
   schematic,
   type workspace,
 } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { array } from "@synnaxlabs/x/array";
 import type { record } from "@synnaxlabs/x/record";
-import { xy } from "@synnaxlabs/x/spatial/xy";
 import { uuid } from "@synnaxlabs/x/uuid";
+import { xy } from "@synnaxlabs/x/xy";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { type Symbol } from "@/schematic/symbol";
-import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";

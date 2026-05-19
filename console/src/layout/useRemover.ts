@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x/compare";
-import { unique } from "@synnaxlabs/x/unique";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-
+import { compare } from "@synnaxlabs/x/compare";
+import { unique } from "@synnaxlabs/x/unique";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 

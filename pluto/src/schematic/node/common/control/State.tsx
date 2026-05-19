@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
-import { location } from "@synnaxlabs/x/location";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
-
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
 import { z } from "zod";
 
 import { Grid } from "@/schematic/node/common/grid";

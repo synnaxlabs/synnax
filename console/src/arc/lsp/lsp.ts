@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x/breaker";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { telem } from "@synnaxlabs/x/telem";
 import {
   ExtensionHostKind,
   registerExtension,
@@ -18,7 +15,9 @@ import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { type Stream } from "@synnaxlabs/freighter";
-
+import { breaker } from "@synnaxlabs/x/breaker";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {

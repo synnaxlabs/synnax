@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
 import type { Flux } from "@synnaxlabs/pluto/flux";
-
+import { type record } from "@synnaxlabs/x/record";
 import { useCallback } from "react";
 
 import { Ontology } from "@/ontology";

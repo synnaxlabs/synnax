@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { state } from "@synnaxlabs/lyra/state";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { status } from "@synnaxlabs/x/status";
-import type { state } from "@synnaxlabs/lyra/state";
-
 import type z from "zod";
 
 export type InitialStatusDetailsContainer<

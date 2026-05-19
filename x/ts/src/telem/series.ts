@@ -15,7 +15,7 @@ import { compare } from "@/compare";
 import { id } from "@/id";
 import { instance } from "@/instance";
 import { math } from "@/math";
-import { spatial } from "@/spatial";
+import { bounds } from "@/spatial/bounds";
 import {
   type GLBufferController,
   type GLBufferUsage,
@@ -35,7 +35,6 @@ import {
   type TypedArray,
 } from "@/telem/telem";
 import { uuid } from "@/uuid";
-import { bounds } from "@/spatial/bounds";
 
 interface GL {
   control: GLBufferController | null;

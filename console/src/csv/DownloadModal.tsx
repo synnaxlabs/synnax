@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime } from "@synnaxlabs/x/runtime";
-import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import type { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel } from "@synnaxlabs/pluto/channel";
-
+import { Input } from "@synnaxlabs/pluto/input";
+import { runtime } from "@synnaxlabs/x/runtime";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { useDownload } from "@/csv/useDownload";

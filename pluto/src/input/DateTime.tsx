@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/input/DateTime.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -19,16 +17,16 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { type record } from "@synnaxlabs/x/record";
+import { telem } from "@synnaxlabs/x/telem";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
-
-import { Nav } from "@synnaxlabs/lyra/nav";
 export interface DateTimeProps
   extends Omit<Input.TextProps, "type" | "value" | "onChange">, Input.Control<number> {}
 

@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { box } from "@synnaxlabs/x/box";
-import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { status } from "@synnaxlabs/lyra/status/aether";
-
+import { type bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";
+import { type FindResult } from "@/line/aether/line";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { tooltip } from "@/lineplot/tooltip/aether";
-import { grid } from "@/vis/grid";
-import { type FindResult } from "@/line/aether/line";
 import { measure } from "@/measure/aether";
+import { grid } from "@/vis/grid";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;

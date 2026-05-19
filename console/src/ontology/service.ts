@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
-import type { Haul } from "@synnaxlabs/lyra/haul";
 import { type ontology, type Synnax } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import type { List } from "@synnaxlabs/lyra/list";
 import type { Status } from "@synnaxlabs/lyra/status";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-
+import { type location } from "@synnaxlabs/x/location";
 import { type FC } from "react";
 
 import { type Layout } from "@/layout";

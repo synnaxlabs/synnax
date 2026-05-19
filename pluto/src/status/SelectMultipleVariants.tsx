@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-
+import { type status } from "@synnaxlabs/x/status";
 import { type ReactElement } from "react";
 
 import { VARIANT_DATA } from "@/status/variantData";

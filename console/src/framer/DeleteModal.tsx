@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import "@/framer/DeleteModal.css";
 
 import { channel, DisconnectedError } from "@synnaxlabs/client";
@@ -22,8 +21,9 @@ import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel } from "@synnaxlabs/pluto/channel";
+import { Input as PInput } from "@synnaxlabs/pluto/input";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
@@ -173,8 +173,8 @@ const channelSelectRenderProp = Component.renderProp(
   ),
 );
 
-const inputDateTimeRenderProp = Component.renderProp((p: Input.DateTimeProps) => (
-  <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
+const inputDateTimeRenderProp = Component.renderProp((p: PInput.DateTimeProps) => (
+  <PInput.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
 ));
 
 const formatTimeRange = (start: number, end: number): string => {

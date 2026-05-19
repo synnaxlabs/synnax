@@ -10,8 +10,8 @@
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { z } from "zod";
 
-import { telem } from "@/telem/aether";
 import { type diagram } from "@/diagram/aether";
+import { telem } from "@/telem/aether";
 
 export const stateZ = z.object({
   sink: telem.stringSinkSpecZ.default(telem.noopStringSinkSpec),

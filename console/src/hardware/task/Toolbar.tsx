@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { strings } from "@synnaxlabs/x/strings";
 import "@/hardware/task/Toolbar.css";
 
-import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { task, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,11 +18,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { Task } from "@synnaxlabs/pluto/task";
-
+import { array } from "@synnaxlabs/x/array";
+import { strings } from "@synnaxlabs/x/strings";
 import { useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

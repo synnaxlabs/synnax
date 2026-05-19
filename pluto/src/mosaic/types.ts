@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-
+import { direction } from "@synnaxlabs/x/direction";
 import { z } from "zod";
 /**
  * Base interface for a mosaic node in the tree. Used to make sure that

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
+import { type status } from "@synnaxlabs/x/status";
 
 export const VARIANT_DATA: Select.StaticEntry<status.Variant>[] = [
   { key: "success", name: "Success", icon: <Status.Indicator variant="success" /> },

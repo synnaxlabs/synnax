@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { notation } from "@synnaxlabs/x/notation";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
 import { type channel, log } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -24,7 +20,10 @@ import { Channel } from "@synnaxlabs/pluto/channel";
 import { Color } from "@synnaxlabs/pluto/color";
 import type { Log as PLog } from "@synnaxlabs/pluto/log";
 import { Notation } from "@synnaxlabs/pluto/notation";
-
+import { color } from "@synnaxlabs/x/color";
+import { type notation } from "@synnaxlabs/x/notation";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";

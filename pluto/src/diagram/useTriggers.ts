@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x/xy";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { type xy } from "@synnaxlabs/x/xy";
 import { useCallback } from "react";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 

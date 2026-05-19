@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-
 import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const Form = () => (

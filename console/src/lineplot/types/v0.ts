@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Text } from "@synnaxlabs/lyra/text";
+import { telem } from "@synnaxlabs/pluto/telem/aether";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 import { bounds } from "@synnaxlabs/x/bounds";
 import { box } from "@synnaxlabs/x/box";
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
-import { Text } from "@synnaxlabs/lyra/text";
-import { telem } from "@synnaxlabs/pluto/telem/aether";
-import { Viewport } from "@synnaxlabs/pluto/viewport";
-
 import { z } from "zod";
 
 import { axisKeyZ } from "@/lineplot/axis";

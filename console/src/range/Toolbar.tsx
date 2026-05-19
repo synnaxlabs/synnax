@@ -9,10 +9,10 @@
 
 import "@/range/Toolbar.css";
 
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as BaseList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";

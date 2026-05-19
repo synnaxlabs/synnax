@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import "@/channel/Calculated.css";
 
 import { channel, TimeSpan } from "@synnaxlabs/client";
@@ -20,7 +19,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel } from "@synnaxlabs/pluto/channel";
-
+import { status } from "@synnaxlabs/x/status";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Arc } from "@/arc";

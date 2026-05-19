@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import { scale } from "@synnaxlabs/x/scale";
+import { type scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
 import { type ScaleLinear, scaleLinear, type ScaleTime, scaleTime } from "d3-scale";
 import { z } from "zod";

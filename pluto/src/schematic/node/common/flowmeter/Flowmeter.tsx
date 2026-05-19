@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { xy } from "@synnaxlabs/x/xy";
+import { type xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useMemo } from "react";
 
 export interface LabelProps {

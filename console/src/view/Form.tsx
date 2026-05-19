@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
 import { type view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { View as PView } from "@synnaxlabs/pluto/view";
-
+import { type record } from "@synnaxlabs/x/record";
 import {
   type PropsWithChildren,
   type ReactElement,

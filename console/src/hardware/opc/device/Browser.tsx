@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { optional } from "@synnaxlabs/x/optional";
-import { status } from "@synnaxlabs/x/status";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/opc/device/Browser.css";
 
 import { type rack } from "@synnaxlabs/client";
@@ -28,6 +24,10 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import type { Device as PDevice } from "@synnaxlabs/pluto/device";
 import { Flux } from "@synnaxlabs/pluto/flux";
+import { array } from "@synnaxlabs/x/array";
+import { type optional } from "@synnaxlabs/x/optional";
+import { type status } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";

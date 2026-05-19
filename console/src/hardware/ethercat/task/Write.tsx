@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { primitive } from "@synnaxlabs/x/primitive";
 import { channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-
+import { primitive } from "@synnaxlabs/x/primitive";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";

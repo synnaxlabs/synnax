@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { observe } from "@synnaxlabs/x/observe";
-import { context } from "@synnaxlabs/lyra/context";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import {
   DisconnectedError,
   NotFoundError,
@@ -18,6 +14,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { context } from "@synnaxlabs/lyra/context";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import {
   useAsyncEffect,
   useCombinedStateAndRef,
@@ -33,7 +31,8 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Flux } from "@synnaxlabs/pluto/flux";
 import { Ontology } from "@synnaxlabs/pluto/ontology";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { array } from "@synnaxlabs/x/array";
+import { type observe } from "@synnaxlabs/x/observe";
 import {
   type DragEvent,
   type ReactElement,

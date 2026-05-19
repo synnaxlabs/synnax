@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@synnaxlabs/client";
+import { type status } from "@synnaxlabs/lyra/status/aether";
 import { compare } from "@synnaxlabs/x/compare";
 import type { destructor } from "@synnaxlabs/x/destructor";
 import { status as xstatus } from "@synnaxlabs/x/status";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import {
@@ -19,7 +20,6 @@ import {
   type LogSource,
   type LogSourceSpec,
 } from "@/log/aether/telem/types";
-import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { AbstractSource } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";

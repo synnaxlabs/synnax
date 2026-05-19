@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x/migrate";
+
 import * as v0 from "@/workspace/types/v0";
 import * as v1 from "@/workspace/types/v1";
 

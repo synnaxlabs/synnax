@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
+import { type channel, type framer } from "@synnaxlabs/client";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { sync } from "@synnaxlabs/x/sync";
 import { telem } from "@synnaxlabs/x/telem";
-import { alamos } from "@synnaxlabs/alamos";
-import { type channel, type framer } from "@synnaxlabs/client";
 
 import { type Cache } from "@/telem/client/cache/cache";
 import { type ReadClient } from "@/telem/client/client";

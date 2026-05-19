@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { observe } from "@synnaxlabs/x/observe";
-import { unique } from "@synnaxlabs/x/unique";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { status } from "@synnaxlabs/lyra/status/aether";
-import { theming } from "@synnaxlabs/lyra/theming/aether";
 import {
   type channel,
   control,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
+import { color } from "@synnaxlabs/x/color";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
+import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";

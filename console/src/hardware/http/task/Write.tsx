@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
-import { json } from "@synnaxlabs/x/json";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/http/task/Form.css";
 
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
@@ -24,9 +20,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { Telem } from "@synnaxlabs/pluto/telem";
+import { id } from "@synnaxlabs/x/id";
+import { json } from "@synnaxlabs/x/json";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { type FC, useCallback, useMemo, useState } from "react";
 
 import { EmptyAction } from "@/components";

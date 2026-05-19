@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
-import type { state } from "@synnaxlabs/lyra/state";
 import type { Component } from "@synnaxlabs/lyra/component";
 import type { List } from "@synnaxlabs/lyra/list";
+import type { state } from "@synnaxlabs/lyra/state";
+import { type record } from "@synnaxlabs/x/record";
 
 export interface RetrieveParams extends List.PagerParams {
   term?: string;

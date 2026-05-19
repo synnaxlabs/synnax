@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { strings } from "@synnaxlabs/x/strings";
 import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { strings } from "@synnaxlabs/x/strings";
 
 import { Arc } from "@/arc";
 import { translateGraphToConsole } from "@/arc/types/translate";

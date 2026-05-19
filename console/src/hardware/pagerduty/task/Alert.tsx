@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
 import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -22,7 +21,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Rack } from "@synnaxlabs/pluto/rack";
-
+import { Status as PStatus } from "@synnaxlabs/pluto/status";
+import { id } from "@synnaxlabs/x/id";
 import { type FC, useCallback, useState } from "react";
 
 import { ContextMenu, EmptyAction } from "@/components";
@@ -127,7 +127,7 @@ const GROUP_INPUT_PROPS = { placeholder: "engines" };
 const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 
 const selectStatusRenderProp = Component.renderProp(
-  (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
+  (p: Omit<PStatus.SelectProps, "variant">) => <PStatus.Select {...p} />,
 );
 
 const DETAILS_STYLE = { padding: "2rem", overflowY: "auto" } as const;
@@ -144,7 +144,7 @@ const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
-  const status = Status.useRetrieve(
+  const status = PStatus.useRetrieve(
     { key: statusKey },
     { addStatusOnFailure: false },
   ).data;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ranger } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { CSS } from "@synnaxlabs/lyra/css";
 import type { Dialog } from "@synnaxlabs/lyra/dialog";
@@ -16,7 +17,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";

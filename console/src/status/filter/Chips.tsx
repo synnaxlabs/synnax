@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x/caseconv";
-import { status } from "@synnaxlabs/x/status";
 import "@/status/filter/Chips.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +14,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { type status } from "@synnaxlabs/x/status";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

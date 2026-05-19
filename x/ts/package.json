@@ -28,6 +28,7 @@
     "./dist/zod.cjs"
   ],
   "exports": {
+    "./dist/*.d.ts": "./dist/*.d.ts",
     "./array": {
       "types": "./dist/src/array/index.d.ts",
       "import": "./dist/array.js",
@@ -277,6 +278,11 @@
       "types": "./dist/src/testutil/index.d.ts",
       "import": "./dist/testutil.js",
       "require": "./dist/testutil.cjs"
+    },
+    "./throttle": {
+      "types": "./dist/src/throttle/index.d.ts",
+      "import": "./dist/throttle.js",
+      "require": "./dist/throttle.cjs"
     },
     "./types": {
       "types": "./dist/src/types/index.d.ts",

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import type { Viewport } from "@synnaxlabs/pluto/viewport";
 import { type measure } from "@synnaxlabs/pluto/ether";
+import type { Viewport } from "@synnaxlabs/pluto/viewport";
+import { type bounds } from "@synnaxlabs/x/bounds";
 
 import { useMemoSelect } from "@/hooks";
 import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";

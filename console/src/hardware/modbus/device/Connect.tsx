@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import "@/hardware/modbus/device/Connect.css";
 
 import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
@@ -21,7 +20,7 @@ import { Device as PDevice } from "@synnaxlabs/pluto/device";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Rack } from "@synnaxlabs/pluto/rack";
 import { Task } from "@synnaxlabs/pluto/task";
-
+import { status as xstatus } from "@synnaxlabs/x/status";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";

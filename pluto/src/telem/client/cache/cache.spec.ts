@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { errors } from "@synnaxlabs/x/errors";
 import { alamos } from "@synnaxlabs/alamos";
 import { channel, DataType, UnexpectedError } from "@synnaxlabs/client";
+import { array } from "@synnaxlabs/x/array";
+import { errors } from "@synnaxlabs/x/errors";
 import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 

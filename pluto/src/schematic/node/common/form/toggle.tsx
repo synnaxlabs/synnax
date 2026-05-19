@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement, useCallback } from "react";
 
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { COMMON_TOGGLE_FORM_TABS } from "@/schematic/node/common/form/input";
 import { ScaleField } from "@/schematic/node/common/form/Scale";

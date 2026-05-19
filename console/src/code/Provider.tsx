@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
 import { context } from "@synnaxlabs/lyra/context";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 
 import { initializeMonaco, type Service } from "@/code/init/initialize";

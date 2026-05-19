@@ -9,8 +9,8 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Logo } from "@synnaxlabs/media";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Logo } from "@synnaxlabs/media";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";

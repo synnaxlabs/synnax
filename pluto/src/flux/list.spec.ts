@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
+import { createTestClient, type ranger } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
 import { testutil } from "@synnaxlabs/x/testutil";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { createTestClient, type ranger } from "@synnaxlabs/client";
-
 import { renderHook, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

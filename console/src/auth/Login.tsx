@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import "@/auth/Login.css";
 
 import { Synnax as Client } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -19,7 +17,8 @@ import type { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { Logo } from "@synnaxlabs/media";
+import { status } from "@synnaxlabs/x/status";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";

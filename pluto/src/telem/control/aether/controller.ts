@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { compare } from "@synnaxlabs/x/compare";
-import { control as xcontrol } from "@synnaxlabs/x/control";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { status as xstatus } from "@synnaxlabs/x/status";
-import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { status } from "@synnaxlabs/lyra/status/aether";
 import {
   channel,
-  control,
   DisconnectedError,
   type framer,
   type Synnax,
@@ -26,7 +17,14 @@ import {
   ValidationError,
 } from "@synnaxlabs/client";
 import { StreamClosed, Unreachable } from "@synnaxlabs/freighter";
-
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
+import { color } from "@synnaxlabs/x/color";
+import { compare } from "@synnaxlabs/x/compare";
+import { control as xcontrol } from "@synnaxlabs/x/control";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type status as xstatus } from "@synnaxlabs/x/status";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";

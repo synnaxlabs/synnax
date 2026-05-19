@@ -9,6 +9,7 @@
 
 import { math } from "@synnaxlabs/x/math";
 import { telem } from "@synnaxlabs/x/telem";
+
 import {
   convertSeriesToSupportedGL,
   resolveGLDataType,

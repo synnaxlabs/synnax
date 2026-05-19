@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { kv } from "@synnaxlabs/x/kv";
-import { link } from "@synnaxlabs/x/link";
 import { type ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
@@ -22,7 +20,8 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
-
+import { type kv } from "@synnaxlabs/x/kv";
+import { link } from "@synnaxlabs/x/link";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";

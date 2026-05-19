@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { color } from "@synnaxlabs/x/color";
-import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { mockRenderContext } from "@synnaxlabs/lyra/testutil";
 import { Theming } from "@synnaxlabs/lyra/theming";
-
+import { box } from "@synnaxlabs/x/box";
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { channelConfigZ, Log, logState } from "@/log/aether/Log";
@@ -724,14 +723,22 @@ describe("log/aether/Log", () => {
 
     it("should render continuation entries without name/timestamp but aligned to the value column", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "hello" },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
+          value: "hello",
+        },
+        {
+          channelKey: 1,
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "world",
           continuation: true,
         },
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
+        {
+          channelKey: 1,
+          timestamp: telem.TimeStamp.milliseconds(2000),
+          value: "again",
+        },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
         showChannelNames: true,
@@ -755,7 +762,7 @@ describe("log/aether/Log", () => {
 
     it("should render an entry with empty value but no continuation flag with its prefix intact", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
+        { channelKey: 1, timestamp: telem.TimeStamp.milliseconds(1000), value: "" },
       ];
       const { log } = setupWithContext(entries, REGION_500, {
         showChannelNames: true,
@@ -772,16 +779,20 @@ describe("log/aether/Log", () => {
 
     it("should render a three-line continuation group with consistent alignment", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "first" },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
+          value: "first",
+        },
+        {
+          channelKey: 1,
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "second",
           continuation: true,
         },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "third",
           continuation: true,
         },
@@ -807,10 +818,14 @@ describe("log/aether/Log", () => {
 
     it("should render continuation with both timestamp and channel name hidden", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "line1" },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
+          value: "line1",
+        },
+        {
+          channelKey: 1,
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "line2",
           continuation: true,
         },
@@ -830,17 +845,17 @@ describe("log/aether/Log", () => {
 
     it("should render continuation entries interleaved between different channels", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "a1" },
+        { channelKey: 1, timestamp: telem.TimeStamp.milliseconds(1000), value: "a1" },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "a2",
           continuation: true,
         },
-        { channelKey: 2, timestamp: TimeStamp.milliseconds(1000), value: "b1" },
+        { channelKey: 2, timestamp: telem.TimeStamp.milliseconds(1000), value: "b1" },
         {
           channelKey: 2,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "b2",
           continuation: true,
         },
@@ -867,10 +882,10 @@ describe("log/aether/Log", () => {
 
     it("should render a continuation entry with an empty value as a blank aligned line", () => {
       const entries: LogEntry[] = [
-        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "data" },
+        { channelKey: 1, timestamp: telem.TimeStamp.milliseconds(1000), value: "data" },
         {
           channelKey: 1,
-          timestamp: TimeStamp.milliseconds(1000),
+          timestamp: telem.TimeStamp.milliseconds(1000),
           value: "",
           continuation: true,
         },

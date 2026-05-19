@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type TimeRange } from "@synnaxlabs/client";
+import { telem } from "@synnaxlabs/x/telem";
 
 import { Dynamic, type DynamicProps } from "@/telem/client/cache/dynamic";
 import {

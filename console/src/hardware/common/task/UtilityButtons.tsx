@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary } from "@synnaxlabs/x/binary";
-import { primitive } from "@synnaxlabs/x/primitive";
 import { task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-
+import { binary } from "@synnaxlabs/x/binary";
+import { primitive } from "@synnaxlabs/x/primitive";
 import { useCallback } from "react";
 
 import { Cluster } from "@/cluster";

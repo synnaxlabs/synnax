@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import type { Icon } from "@synnaxlabs/lyra/icon";
-
+import { type telem } from "@synnaxlabs/x/telem";
 import { type ReactElement } from "react";
 
 import { getStage, STAGE_ICONS } from "@/ranger/stage";

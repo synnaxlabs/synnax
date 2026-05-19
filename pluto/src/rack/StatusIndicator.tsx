@@ -9,11 +9,11 @@
 
 import "@/rack/StatusIndicator.css";
 
+import { type rack } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { type rack } from "@synnaxlabs/client";
 import { useEffect, useRef } from "react";
 export interface StatusIndicatorProps {
   status?: rack.Status;

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x/deep";
+
 import { type Layout } from "@/layout";
 
 export const purgeExcludedLayouts = (

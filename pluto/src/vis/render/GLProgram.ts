@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { xy } from "@synnaxlabs/x/xy";
+
 import { type Context } from "@/vis/render/context";
 
 const errorCompile = (msg: string): Error =>

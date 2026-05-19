@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { record } from "@synnaxlabs/x/record";
 import { channel, type device } from "@synnaxlabs/client";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { type record } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";

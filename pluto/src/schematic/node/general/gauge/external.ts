@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
 import type { Theming } from "@synnaxlabs/lyra/theming";
+import { bounds } from "@synnaxlabs/x/bounds";
 
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/gauge/config";

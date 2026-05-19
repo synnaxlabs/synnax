@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { color } from "@synnaxlabs/x/color";
-import { direction } from "@synnaxlabs/x/direction";
-import { location as loc } from "@synnaxlabs/x/location";
-import { telem as xtelem } from "@synnaxlabs/x/telem";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/channel/LinePlot.css";
 
+import { type channel } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { usePrevious } from "@synnaxlabs/lyra/hooks";
 import type { Text } from "@synnaxlabs/lyra/text";
-import { type channel } from "@synnaxlabs/client";
-
+import { box } from "@synnaxlabs/x/box";
+import { type color } from "@synnaxlabs/x/color";
+import { type direction } from "@synnaxlabs/x/direction";
+import { location as loc } from "@synnaxlabs/x/location";
+import { type telem as xtelem } from "@synnaxlabs/x/telem";
+import { type xy } from "@synnaxlabs/x/xy";
 import {
   type ReactElement,
   type Ref,
@@ -34,11 +33,11 @@ import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { LinePlot as Base } from "@/lineplot";
 import { Range } from "@/lineplot/range";
 import { Tooltip } from "@/lineplot/tooltip";
-import { telem } from "@/telem/aether";
-import { type Viewport } from "@/viewport";
 import { Measure } from "@/measure";
 import { type measure } from "@/measure/aether";
 import { Rule } from "@/rule";
+import { telem } from "@/telem/aether";
+import { type Viewport } from "@/viewport";
 
 /** Props for an axis in {@link LinePlot} */
 export interface AxisProps extends Omit<Base.AxisProps, "axisKey"> {

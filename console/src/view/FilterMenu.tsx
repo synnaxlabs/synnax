@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-
+import { location } from "@synnaxlabs/x/location";
 import { type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
 
 import { useContext } from "@/view/context";

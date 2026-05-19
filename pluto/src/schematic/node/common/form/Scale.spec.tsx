@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { fireEvent, render } from "@testing-library/react";
 import {
   type PropsWithChildren,
@@ -17,7 +18,6 @@ import {
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({ scale: z.number() });

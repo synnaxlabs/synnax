@@ -12,10 +12,10 @@ import { location } from "@synnaxlabs/x/location";
 import { useReactFlow } from "@xyflow/react";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { type Diagram } from "@/diagram";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { type Diagram } from "@/diagram";
 
 const STYLE: CSSProperties = { strokeWidth: 2 };
 

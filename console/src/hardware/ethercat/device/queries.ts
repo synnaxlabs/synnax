@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { primitive } from "@synnaxlabs/x/primitive";
 import { type device } from "@synnaxlabs/client";
 import { Device } from "@synnaxlabs/pluto/device";
 import { Flux } from "@synnaxlabs/pluto/flux";
-
+import { array } from "@synnaxlabs/x/array";
+import { primitive } from "@synnaxlabs/x/primitive";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SLAVE_SCHEMAS } from "@/hardware/ethercat/device/types";

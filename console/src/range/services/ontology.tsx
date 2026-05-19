@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { strings } from "@synnaxlabs/x/strings";
-import { telem } from "@synnaxlabs/x/telem";
-import type { Haul } from "@synnaxlabs/lyra/haul";
 import { type ontology, type ranger } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
+import { strings } from "@synnaxlabs/x/strings";
+import { type telem } from "@synnaxlabs/x/telem";
 
 import { Ontology } from "@/ontology";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";

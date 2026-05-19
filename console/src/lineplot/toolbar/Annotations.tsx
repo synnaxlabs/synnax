@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { color } from "@synnaxlabs/x/color";
-import { id } from "@synnaxlabs/x/id";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -20,7 +17,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Color } from "@synnaxlabs/pluto/color";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

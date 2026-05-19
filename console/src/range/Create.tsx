@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { uuid } from "@synnaxlabs/x/uuid";
 import "@/range/Create.css";
 
 import { type ranger, TimeStamp } from "@synnaxlabs/client";
@@ -19,9 +17,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Input as PInput } from "@synnaxlabs/pluto/input";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { telem } from "@synnaxlabs/x/telem";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { type z } from "zod";
@@ -145,13 +145,13 @@ export const Create: Layout.Renderer = (props) => {
           </Form.Field>
           <Flex.Box x gap="large">
             <Form.Field<number> path="timeRange.start" label="From">
-              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+              {(p) => <PInput.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
             <Text.Text level="h4">
               <Icon.Arrow.Right />
             </Text.Text>
             <Form.Field<number> path="timeRange.end" label="To">
-              {(p) => <Input.DateTime level="h4" variant="text" {...p} />}
+              {(p) => <PInput.DateTime level="h4" variant="text" {...p} />}
             </Form.Field>
           </Flex.Box>
           <Flex.Box x>

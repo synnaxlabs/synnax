@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status as xstatus } from "@synnaxlabs/x/status";
 import { status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
-
+import { Status as PStatus } from "@synnaxlabs/pluto/status";
+import { status as xstatus } from "@synnaxlabs/x/status";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -25,7 +25,7 @@ import { useSelectFavoriteSet } from "@/status/selectors";
 import { addFavorites, removeFavorites } from "@/status/slice";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-  const q = Status.useRetrieveMultiple({ keys });
+  const q = PStatus.useRetrieveMultiple({ keys });
   const dispatch = useDispatch();
   const favoriteSet = useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
@@ -36,15 +36,15 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     type: "Status",
     description: "This action cannot be undone.",
   });
-  const { update: del } = Status.useDelete();
+  const { update: del } = PStatus.useDelete();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
-  const rename = Status.useRename({
+  const rename = PStatus.useRename({
     beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Status.RenameParams>) => {
+      async ({ data }: Flux.BeforeUpdateParams<PStatus.RenameParams>) => {
         const renamed = await renameModal(
           { initialValue: data.name },
-          { icon: "Status", name: "Status.Rename" },
+          { icon: "Status", name: "PStatus.Rename" },
         );
         if (renamed == null) return false;
         return { ...data, name: renamed };

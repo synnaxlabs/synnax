@@ -21,6 +21,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access } from "@synnaxlabs/pluto/access";
+import { Status as PStatus } from "@synnaxlabs/pluto/status";
 import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -70,7 +71,7 @@ const List = (): ReactElement => {
 
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
-  const q = Status.useRetrieve({ key: itemKey });
+  const q = PStatus.useRetrieve({ key: itemKey });
   const dispatch = useDispatch();
   useEffect(() => {
     if (q.variant === "error") dispatch(removeFavorites([itemKey]));

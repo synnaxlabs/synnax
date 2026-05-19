@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, table, type workspace } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { state } from "@synnaxlabs/lyra/state";
 import { array } from "@synnaxlabs/x/array";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,

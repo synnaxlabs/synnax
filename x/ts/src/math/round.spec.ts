@@ -12,8 +12,7 @@
 import { describe, expect, it } from "vitest";
 
 import { math } from "@/math";
-import { spatial } from "@/spatial";
-import { bounds } from "@/spatial/bounds";
+import { type bounds } from "@/spatial/bounds";
 
 interface SmartRoundTestCase {
   value: number;

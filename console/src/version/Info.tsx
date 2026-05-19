@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { Logo } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Logo } from "@synnaxlabs/media";
 import { Flux } from "@synnaxlabs/pluto/flux";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { z } from "zod";

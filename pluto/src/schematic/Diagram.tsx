@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Key } from "@synnaxlabs/lyra/key";
 import type { record } from "@synnaxlabs/x/record";
 import { type ReactElement, useCallback } from "react";
 
-import { Component } from "@/component";
-import { Key } from "@/key";
+import { Diagram as Base } from "@/diagram";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
-import { Diagram as Base } from "@/diagram";
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const { nodeKey } = rest;

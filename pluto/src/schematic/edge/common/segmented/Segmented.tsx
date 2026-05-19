@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { direction } from "@synnaxlabs/x/direction";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/schematic/edge/common/segmented/Segmented.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useCursorDrag } from "@synnaxlabs/lyra/hooks";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
+import { xy } from "@synnaxlabs/x/xy";
 import { useReactFlow } from "@xyflow/react";
 import {
   type DragEvent,
@@ -28,6 +27,7 @@ import {
   useState,
 } from "react";
 
+import { selectNodeBox } from "@/diagram/util";
 import { type Base } from "@/schematic/edge/common/base";
 import {
   type Config,
@@ -44,7 +44,6 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { selectNodeBox } from "@/diagram/util";
 
 interface CurrentlyDragging {
   segments: Segment[];

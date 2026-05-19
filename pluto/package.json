@@ -185,11 +185,6 @@
       "import": "./dist/measure.js",
       "require": "./dist/measure.cjs"
     },
-    "./mock": {
-      "types": "./dist/src/mock/index.d.ts",
-      "import": "./dist/mock.js",
-      "require": "./dist/mock.cjs"
-    },
     "./mosaic": {
       "types": "./dist/src/mosaic/index.d.ts",
       "import": "./dist/mosaic.js",
@@ -284,11 +279,6 @@
       "types": "./dist/src/telem/control/aether/index.d.ts",
       "import": "./dist/telem/control/aether.js",
       "require": "./dist/telem/control/aether.cjs"
-    },
-    "./testutil": {
-      "types": "./dist/src/testutil/index.d.ts",
-      "import": "./dist/testutil.js",
-      "require": "./dist/testutil.cjs"
     },
     "./user": {
       "types": "./dist/src/user/index.d.ts",

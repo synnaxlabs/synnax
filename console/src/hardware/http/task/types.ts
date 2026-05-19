@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { channel, type task } from "@synnaxlabs/client";
 import { json } from "@synnaxlabs/x/json";
 import { record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
-import { channel, type task } from "@synnaxlabs/client";
-
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";

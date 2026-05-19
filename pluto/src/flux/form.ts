@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
+import { Form } from "@synnaxlabs/lyra/form";
 import { useAsyncEffect, useDestructors } from "@synnaxlabs/lyra/hooks";
 import { Key } from "@synnaxlabs/lyra/key";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { state } from "@synnaxlabs/lyra/state";
 import { Status } from "@synnaxlabs/lyra/status";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
@@ -32,7 +32,6 @@ import {
   type RetrieveParams,
 } from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
-import { Form } from "@synnaxlabs/lyra/form";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<

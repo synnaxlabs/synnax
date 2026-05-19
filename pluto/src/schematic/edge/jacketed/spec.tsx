@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { xy } from "@synnaxlabs/x/xy";
+
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";

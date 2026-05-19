@@ -14,7 +14,7 @@ import { Schematic as Base } from "@synnaxlabs/pluto/schematic";
 import { Control } from "@synnaxlabs/pluto/telem/control";
 import { Viewport } from "@synnaxlabs/pluto/viewport";
 import type { color } from "@synnaxlabs/x/color";
-import type { sticky } from "@synnaxlabs/x/spatial/sticky";
+import type { sticky } from "@synnaxlabs/x/sticky";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 

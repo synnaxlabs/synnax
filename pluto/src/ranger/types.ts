@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { type ranger } from "@synnaxlabs/client";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { type telem } from "@synnaxlabs/x/telem";
 
 export const HAUL_TYPE = "range";
 

@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { type List } from "@synnaxlabs/lyra/list";
+import { state } from "@synnaxlabs/lyra/state";
 import { array } from "@synnaxlabs/x/array";
 import type { optional } from "@synnaxlabs/x/optional";
 import { primitive } from "@synnaxlabs/x/primitive";
@@ -15,12 +18,9 @@ import { useCallback, useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Label } from "@/label";
-import { type List } from "@/list";
 import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { state } from "@/state";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.kv.Pair> {}
 export interface AliasFluxStore extends Flux.UnaryStore<

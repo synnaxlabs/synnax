@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { type channel } from "@synnaxlabs/client";
-
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { resolveIcon } from "@/channel/resolveIcon";

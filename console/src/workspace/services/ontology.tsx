@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { deep } from "@synnaxlabs/x/deep";
-import { strings } from "@synnaxlabs/x/strings";
 import {
   lineplot,
   log,
@@ -26,7 +23,9 @@ import { Log as PLog } from "@synnaxlabs/pluto/log";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
 import { Table as PTable } from "@synnaxlabs/pluto/table";
 import { Workspace as Base } from "@synnaxlabs/pluto/workspace";
-
+import { array } from "@synnaxlabs/x/array";
+import { deep } from "@synnaxlabs/x/deep";
+import { strings } from "@synnaxlabs/x/strings";
 import { type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";

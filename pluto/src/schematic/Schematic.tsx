@@ -18,6 +18,8 @@ import { box } from "@synnaxlabs/x/box";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useRef } from "react";
+
+import { Diagram as BaseDiagram } from "@/diagram";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
@@ -32,7 +34,6 @@ import {
   useSelectAllEdges,
   useSelectAllNodes,
 } from "@/schematic/queries";
-import { Diagram as BaseDiagram } from "@/diagram";
 
 export interface SchematicProps extends Omit<
   BaseDiagram.DiagramProps,

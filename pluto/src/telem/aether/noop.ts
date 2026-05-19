@@ -10,7 +10,7 @@
 import { bounds } from "@synnaxlabs/x/bounds";
 import { color } from "@synnaxlabs/x/color";
 import { observe } from "@synnaxlabs/x/observe";
-import { status } from "@synnaxlabs/x/status";
+import { type status } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
 import { type z } from "zod";
 

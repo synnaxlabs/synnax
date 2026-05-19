@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { location } from "@synnaxlabs/x/location";
-import { strings } from "@synnaxlabs/x/strings";
 import "@/log/Log.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -20,11 +17,13 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { strings } from "@synnaxlabs/x/strings";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/canvas";
+import { use, type UseProps } from "@/log/use";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];

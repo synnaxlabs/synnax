@@ -7,28 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { box } from "@synnaxlabs/x/box";
-import { clamp } from "@synnaxlabs/x/clamp";
-import { color } from "@synnaxlabs/x/color";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { direction } from "@synnaxlabs/x/direction";
-import { math } from "@synnaxlabs/x/math";
-import { scale } from "@synnaxlabs/x/scale";
-import { telem as xtelem } from "@synnaxlabs/x/telem";
-import { xy } from "@synnaxlabs/x/xy";
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { status } from "@synnaxlabs/lyra/status/aether";
-import { UnexpectedError } from "@synnaxlabs/client";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { type box } from "@synnaxlabs/x/box";
+import { clamp } from "@synnaxlabs/x/clamp";
+import { color } from "@synnaxlabs/x/color";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type direction } from "@synnaxlabs/x/direction";
+import { math } from "@synnaxlabs/x/math";
+import { type scale } from "@synnaxlabs/x/scale";
+import { telem as xtelem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";
-import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/line/aether/vert_hybrid.glsl?raw";
+import { telem } from "@/telem/aether";
 import { render } from "@/vis/render";
 
 export const stateZ = z.object({

@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x/xy";
 import { Aether } from "@synnaxlabs/lyra/aether";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Key } from "@synnaxlabs/lyra/key";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import { LinePlot } from "@/lineplot";
-import { type Viewport } from "@/viewport";
 import { measure } from "@/measure/aether";
+import { type Viewport } from "@/viewport";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
   one: [["1"]],

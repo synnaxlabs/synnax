@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { color } from "@synnaxlabs/x/color";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { observe } from "@synnaxlabs/x/observe";
-import { status } from "@synnaxlabs/x/status";
-import { telem } from "@synnaxlabs/x/telem";
 import { ValidationError } from "@synnaxlabs/client";
-
+import { type bounds } from "@synnaxlabs/x/bounds";
+import { type color } from "@synnaxlabs/x/color";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
+import { type status } from "@synnaxlabs/x/status";
+import { type telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 const transferrable = z.instanceof(ArrayBuffer);

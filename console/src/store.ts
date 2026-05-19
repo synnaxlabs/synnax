@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
 import {
   combineReducers,
   type Dispatch,
@@ -18,6 +16,8 @@ import {
   Tuple,
 } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
+import { type deep } from "@synnaxlabs/x/deep";
+import { type record } from "@synnaxlabs/x/record";
 
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";

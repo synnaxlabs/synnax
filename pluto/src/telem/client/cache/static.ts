@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { bounds } from "@synnaxlabs/x/bounds";
 import { telem } from "@synnaxlabs/x/telem";
-import { alamos } from "@synnaxlabs/alamos";
 
 import { convertSeriesToSupportedGL } from "@/telem/aether/convertSeries";
 

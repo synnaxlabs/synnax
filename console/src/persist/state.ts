@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Action, type Middleware } from "@reduxjs/toolkit";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
-import { type Action, type Middleware } from "@reduxjs/toolkit";
 
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { Runtime } from "@/runtime";

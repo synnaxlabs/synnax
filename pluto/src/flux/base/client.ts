@@ -10,7 +10,7 @@
 import { type framer, type Synnax } from "@synnaxlabs/client";
 import { type state } from "@synnaxlabs/lyra/state";
 import { type status } from "@synnaxlabs/lyra/status/aether";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 
 import { QueryCache } from "@/flux/base/queryCache";
 import {

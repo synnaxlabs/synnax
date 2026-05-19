@@ -15,8 +15,8 @@ import { color } from "@synnaxlabs/x/color";
 import { control as xControl } from "@synnaxlabs/x/control";
 import { migrate } from "@synnaxlabs/x/migrate";
 import { record } from "@synnaxlabs/x/record";
-import { sticky } from "@synnaxlabs/x/spatial/sticky";
-import { xy } from "@synnaxlabs/x/spatial/xy";
+import { sticky } from "@synnaxlabs/x/sticky";
+import { xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";

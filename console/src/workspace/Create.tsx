@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { Workspace } from "@synnaxlabs/pluto/workspace";
-
+import { status } from "@synnaxlabs/x/status";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

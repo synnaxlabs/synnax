@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { color } from "@synnaxlabs/x/color";
-import { id } from "@synnaxlabs/x/id";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/schematic/symbols/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
@@ -24,7 +20,10 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Schematic } from "@synnaxlabs/pluto/schematic";
-
+import { type bounds } from "@synnaxlabs/x/bounds";
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
+import { type xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

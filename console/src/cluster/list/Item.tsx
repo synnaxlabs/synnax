@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x/caseconv";
 import "@/cluster/list/List.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -18,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Cluster as PCluster } from "@synnaxlabs/pluto/cluster";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { caseconv } from "@synnaxlabs/x/caseconv";
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

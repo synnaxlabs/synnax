@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
-import { status } from "@synnaxlabs/x/status";
-import { strings } from "@synnaxlabs/x/strings";
 import "@/hardware/common/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
@@ -22,7 +18,10 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as Base, Device } from "@synnaxlabs/pluto/device";
-
+import { deep } from "@synnaxlabs/x/deep";
+import { type record } from "@synnaxlabs/x/record";
+import { status } from "@synnaxlabs/x/status";
+import { strings } from "@synnaxlabs/x/strings";
 import { useCallback, useRef, useState } from "react";
 import { z } from "zod";
 

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
 import "@/viewport/Mask.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
-
+import { box } from "@synnaxlabs/x/box";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { type Mode, type UseReturn } from "@/viewport/use";

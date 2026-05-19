@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
+
 import { Form } from "@/arc/functions/stable/Form";
 import { StableFor } from "@/arc/functions/stable/StableFor";
 import { type types } from "@/arc/functions/types";

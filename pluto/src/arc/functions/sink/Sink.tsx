@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
+import { channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { channel } from "@synnaxlabs/client";
-
+import { color } from "@synnaxlabs/x/color";
 import z from "zod/v4";
 
 import { Base } from "@/arc/functions/Base";

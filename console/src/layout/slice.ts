@@ -20,9 +20,9 @@ import type { Tabs } from "@synnaxlabs/lyra/tabs";
 import type { Color } from "@synnaxlabs/pluto/color";
 import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 import type { deep } from "@synnaxlabs/x/deep";
+import type { direction } from "@synnaxlabs/x/direction";
 import { id } from "@synnaxlabs/x/id";
-import type { direction } from "@synnaxlabs/x/spatial/direction";
-import type { location } from "@synnaxlabs/x/spatial/location";
+import type { location } from "@synnaxlabs/x/location";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";

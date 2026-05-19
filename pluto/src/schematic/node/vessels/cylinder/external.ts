@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
 import type { Theming } from "@synnaxlabs/lyra/theming";
+import { color } from "@synnaxlabs/x/color";
 
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";

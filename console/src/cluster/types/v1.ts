@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x/migrate";
+
 import * as v0 from "@/cluster/types/v0";
 
 export const VERSION = "1.0.0";

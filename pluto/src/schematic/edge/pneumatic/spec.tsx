@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
-import { direction } from "@synnaxlabs/x/direction";
+import { type direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement } from "react";
 

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
 import { type access } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,7 +16,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { User } from "@synnaxlabs/pluto/user";
-
+import { status } from "@synnaxlabs/x/status";
 import { useCallback } from "react";
 
 import { type Layout } from "@/layout";

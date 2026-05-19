@@ -10,8 +10,7 @@
 import { z } from "zod";
 
 import { type Authority, type State, stateZ } from "@/control/types.gen";
-import { spatial } from "@/spatial";
-import { bounds } from "@/spatial/bounds";
+import { type bounds } from "@/spatial/bounds";
 
 export const ABSOLUTE_AUTHORITY: Authority = 255;
 export const ZERO_AUTHORITY: Authority = 0;

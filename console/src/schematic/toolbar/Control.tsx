@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/x/control";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-
+import { control } from "@synnaxlabs/x/control";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";

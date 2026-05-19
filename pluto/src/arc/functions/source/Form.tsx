@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@synnaxlabs/lyra/form";
 
 export const Form = (): ReactElement => (
   <Base.Field<channel.Key> path="channel">

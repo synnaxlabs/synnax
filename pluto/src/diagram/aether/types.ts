@@ -9,7 +9,7 @@
 
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { id } from "@synnaxlabs/x/id";
-import { location } from "@synnaxlabs/x/location";
+import { type location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";

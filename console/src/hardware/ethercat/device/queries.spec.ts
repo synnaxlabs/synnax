@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
 import { createTestClient, type device } from "@synnaxlabs/client";
 import type { Device } from "@synnaxlabs/pluto/device";
 import { Flux } from "@synnaxlabs/pluto/flux";
-
+import { id } from "@synnaxlabs/x/id";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

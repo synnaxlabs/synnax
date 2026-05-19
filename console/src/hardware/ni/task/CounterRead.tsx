@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { unique } from "@synnaxlabs/x/unique";
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { unique } from "@synnaxlabs/x/unique";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";

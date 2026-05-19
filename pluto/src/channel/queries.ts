@@ -7,14 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
-import { deep } from "@synnaxlabs/x/deep";
-import { optional } from "@synnaxlabs/x/optional";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
-import { control } from "@synnaxlabs/x/control";
-import { status } from "@synnaxlabs/x/status";
-import { state } from "@synnaxlabs/lyra/state";
 import {
   channel,
   DataType,
@@ -24,7 +16,12 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-
+import { state } from "@synnaxlabs/lyra/state";
+import { array } from "@synnaxlabs/x/array";
+import { deep } from "@synnaxlabs/x/deep";
+import { type optional } from "@synnaxlabs/x/optional";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { Flux } from "@/flux";

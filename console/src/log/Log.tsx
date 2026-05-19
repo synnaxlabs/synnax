@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { log } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Log as Base } from "@synnaxlabs/pluto/log";
 import { deep } from "@synnaxlabs/x/deep";
 import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { uuid } from "@synnaxlabs/x/uuid";
 import { useCallback } from "react";
 

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/lyra/select";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { telem } from "@synnaxlabs/x/telem";
-import { Select } from "@synnaxlabs/lyra/select";
-
 import { type ReactElement, useMemo } from "react";
 
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";

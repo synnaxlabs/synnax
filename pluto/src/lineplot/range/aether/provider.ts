@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ranger, type Synnax } from "@synnaxlabs/client";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 import { bounds } from "@synnaxlabs/x/bounds";
 import { box } from "@synnaxlabs/x/box";
 import { clamp } from "@synnaxlabs/x/clamp";
 import { color } from "@synnaxlabs/x/color";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { scale } from "@synnaxlabs/x/scale";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { status } from "@synnaxlabs/lyra/status/aether";
-import { theming } from "@synnaxlabs/lyra/theming/aether";
-import { ranger, type Synnax } from "@synnaxlabs/client";
-
 import { z } from "zod";
 
 import { flux } from "@/flux/aether";

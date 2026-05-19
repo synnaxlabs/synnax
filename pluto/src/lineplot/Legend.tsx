@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { optional } from "@synnaxlabs/x/optional";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Key } from "@synnaxlabs/lyra/key";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { type optional } from "@synnaxlabs/x/optional";
 import { memo, type ReactElement, useMemo } from "react";
 
-import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { Legend as Base } from "@/legend";
 import { Entries, type EntryData } from "@/legend/Entries";
+import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
 
 export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";

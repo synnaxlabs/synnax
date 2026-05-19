@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { telem } from "@synnaxlabs/x/telem";
 import { workspace } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Flux } from "@synnaxlabs/pluto/flux";
 import type { Pluto } from "@synnaxlabs/pluto/pluto";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { Workspace } from "@synnaxlabs/pluto/workspace";
-
+import { deep } from "@synnaxlabs/x/deep";
+import { telem } from "@synnaxlabs/x/telem";
 import { useCallback, useEffect, useRef } from "react";
 import { useStore } from "react-redux";
 

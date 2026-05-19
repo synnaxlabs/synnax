@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/x/status";
-import { uuid } from "@synnaxlabs/x/uuid";
 import {
   DisconnectedError,
   group,
@@ -19,7 +17,8 @@ import {
 import { Status } from "@synnaxlabs/lyra/status";
 import { Group } from "@synnaxlabs/pluto/group";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { status } from "@synnaxlabs/x/status";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";

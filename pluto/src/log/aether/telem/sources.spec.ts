@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
+import { channel, DataType } from "@synnaxlabs/client";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
-import { channel, DataType } from "@synnaxlabs/client";
-
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -149,12 +148,12 @@ describe("StreamMultiChannelLog", () => {
   it("should clean f64-widened FLOAT32 values to shortest decimal", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
+      timeSpan: telem.TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1.234]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    const series = new telem.Series({ data: new Float32Array([1.234]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
     const entries = log.value();
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe("1.234");
@@ -163,12 +162,12 @@ describe("StreamMultiChannelLog", () => {
   it("should stringify INT64 bigint values", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelInt.key],
-      timeSpan: TimeSpan.seconds(30),
+      timeSpan: telem.TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
-    const series = new Series({ data: new BigInt64Array([42n, -7n]) });
-    c.streamHandler?.(new Map([[c.channelInt.key, new MultiSeries([series])]]));
+    const series = new telem.Series({ data: new BigInt64Array([42n, -7n]) });
+    c.streamHandler?.(new Map([[c.channelInt.key, new telem.MultiSeries([series])]]));
     const entries = log.value();
     expect(entries).toHaveLength(2);
     expect(entries[0].value).toBe("42");
@@ -178,15 +177,15 @@ describe("StreamMultiChannelLog", () => {
   it("should stringify JSON values as their serialized form", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelJSON.key],
-      timeSpan: TimeSpan.seconds(30),
+      timeSpan: telem.TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
     await waitForResolve(log);
-    const series = new Series({
+    const series = new telem.Series({
       data: [{ name: "Alice", value: 30 }],
       dataType: DataType.JSON,
     });
-    c.streamHandler?.(new Map([[c.channelJSON.key, new MultiSeries([series])]]));
+    c.streamHandler?.(new Map([[c.channelJSON.key, new telem.MultiSeries([series])]]));
     const entries = log.value();
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe('{"name":"Alice","value":30}');
@@ -292,7 +291,9 @@ describe("StreamMultiChannelLog", () => {
     // Simulate a burst that crosses two buffer boundaries in one callback.
     const series1 = new telem.Series({ data: new Float32Array([1, 2, 3]) });
     const series2 = new telem.Series({ data: new Float32Array([4, 5]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series1, series2])]]));
+    c.streamHandler?.(
+      new Map([[c.channelA.key, new telem.MultiSeries([series1, series2])]]),
+    );
     const entries = log.value();
     expect(entries).toHaveLength(5);
     expect(entries.map((e) => e.value)).toEqual(["1", "2", "3", "4", "5"]);
@@ -436,12 +437,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: ["line1\nline2\n"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: ["line1\nline2\n"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(3);
       expect(entries.map((e) => e.value)).toEqual(["line1", "line2", ""]);
@@ -458,12 +459,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: ["line1\r\nline2"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: ["line1\r\nline2"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       expect(log.value().map((e) => e.value)).toEqual(["line1", "line2"]);
     });
 
@@ -474,12 +475,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: ["a\n\nb"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: ["a\n\nb"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       expect(log.value().map((e) => e.value)).toEqual(["a", "", "b"]);
     });
 
@@ -490,12 +491,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: ["hello world", ""] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: ["hello world", ""] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("hello world");
@@ -509,12 +510,12 @@ describe("StreamMultiChannelLog", () => {
     it("should not split numeric channel values", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: new Float32Array([1, 2, 3]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: new Float32Array([1, 2, 3]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(3);
       expect(entries.map((e) => e.value)).toEqual(["1", "2", "3"]);
@@ -527,12 +528,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: [{ msg: "hi\nthere" }] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: [{ msg: "hi\nthere" }] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
@@ -545,14 +546,14 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({
+      const series = new telem.Series({
         data: [{ user_id: 1, first_name: "alice" }],
       });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe('{"user_id":1,"first_name":"alice"}');
@@ -565,12 +566,12 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
-      const series = new Series({ data: [""] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: [""] });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe("");
@@ -584,7 +585,7 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
@@ -592,8 +593,8 @@ describe("StreamMultiChannelLog", () => {
       const buf = new ArrayBuffer(4 + payload.byteLength);
       new DataView(buf).setUint32(0, payload.byteLength, true);
       new Uint8Array(buf).set(payload, 4);
-      const series = new Series({ data: buf, dataType: DataType.BYTES });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data: buf, dataType: DataType.BYTES });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe("line1\nline2");
@@ -607,14 +608,14 @@ describe("StreamMultiChannelLog", () => {
       });
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
+        timeSpan: telem.TimeSpan.seconds(30),
       };
       const log = new StreamMultiChannelLog(c, props, undefined, undefined, 100);
       await waitForResolve(log);
       // 35 three-line samples = 105 entries; excess of 5 cuts mid-group.
       const data = new Array(35).fill("a\nb\nc");
-      const series = new Series({ data });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const series = new telem.Series({ data });
+      c.streamHandler?.(new Map([[c.channelA.key, new telem.MultiSeries([series])]]));
       const entries = log.value();
       expect(entries.length).toBeGreaterThan(0);
       expect(entries[0].continuation === true).toBe(false);

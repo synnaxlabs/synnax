@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
-import { location } from "@synnaxlabs/x/location";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
 import { text } from "@synnaxlabs/lyra/text/base";
-
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
 import {
   type CSSProperties,
   type FC,

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type state } from "@synnaxlabs/lyra/state";
 import type { destructor } from "@synnaxlabs/x/destructor";
 import { primitive } from "@synnaxlabs/x/primitive";
 
 import { type Query } from "@/flux/base/types";
 import { errorResult, type Result, successResult } from "@/flux/result";
-import { type state } from "@/state";
 
 /// Deterministically serializes a query to a stable string. Keys are sorted
 /// recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key.

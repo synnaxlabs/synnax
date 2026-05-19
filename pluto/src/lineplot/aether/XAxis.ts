@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import { scale } from "@synnaxlabs/x/scale";
+import { type scale } from "@synnaxlabs/x/scale";
 import { telem } from "@synnaxlabs/x/telem";
+
+import { type FindResult } from "@/line/aether/line";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type FindResult } from "@/line/aether/line";
 
 export const xAxisStateZ = baseAxisStateZ;
 

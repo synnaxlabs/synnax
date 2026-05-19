@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
 import "@/color/Picker.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -17,6 +16,7 @@ import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";

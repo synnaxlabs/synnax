@@ -9,7 +9,6 @@
 
 import "@/status/list/Item.css";
 
-import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type status } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -21,6 +20,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
+import { Status as PStatus } from "@synnaxlabs/pluto/status";
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -46,7 +47,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
       labels: item.labels?.map((l) => l.key) ?? [],
     };
   }, [item]);
-  const { form } = Status.useForm({
+  const { form } = PStatus.useForm({
     query: {},
     initialValues,
     autoSave: true,
@@ -65,7 +66,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
       selected={selected}
       rounded={!selected}
     >
-      <Form.Form<typeof Status.formSchema> {...form}>
+      <Form.Form<typeof PStatus.formSchema> {...form}>
         <Flex.Box x empty>
           <Input.Checkbox
             value={selected}

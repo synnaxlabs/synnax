@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { bounds } from "@synnaxlabs/x/bounds";
 import { color } from "@synnaxlabs/x/color";
 import { id } from "@synnaxlabs/x/id";
-import { math } from "@synnaxlabs/x/math";
+import { type math } from "@synnaxlabs/x/math";
 import { notation } from "@synnaxlabs/x/notation";
 import { scale } from "@synnaxlabs/x/scale";
 import { status } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
-import { UnexpectedError } from "@synnaxlabs/client";
-
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { telem } from "@synnaxlabs/x/telem";
 import { context } from "@synnaxlabs/lyra/context";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import type { state } from "@synnaxlabs/lyra/state";
-
+import { color } from "@synnaxlabs/x/color";
+import { telem } from "@synnaxlabs/x/telem";
 import React, {
   type PropsWithChildren,
   type ReactElement,

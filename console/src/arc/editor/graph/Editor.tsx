@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { arc } from "@synnaxlabs/client";
+import { Component } from "@synnaxlabs/lyra/component";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Arc as Base } from "@synnaxlabs/pluto/arc";
 import { Diagram } from "@synnaxlabs/pluto/diagram";
 import { Viewport } from "@synnaxlabs/pluto/viewport";
-import { Component } from "@synnaxlabs/lyra/component";
-import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
-import { Theming } from "@synnaxlabs/lyra/theming";
+import { box } from "@synnaxlabs/x/box";
 import { id } from "@synnaxlabs/x/id";
-import { box } from "@synnaxlabs/x/spatial/box";
-import { xy } from "@synnaxlabs/x/spatial/xy";
+import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useStore } from "react-redux";
 

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
 import { aetherTest } from "@synnaxlabs/lyra/aether/test";
 import { Status } from "@synnaxlabs/lyra/status";
 import { status } from "@synnaxlabs/lyra/status/aether";
-
+import { type record } from "@synnaxlabs/x/record";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -19,7 +18,6 @@ import { describe, expect, it, vi } from "vitest";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
-import { createSelector } from "@/flux/select";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 

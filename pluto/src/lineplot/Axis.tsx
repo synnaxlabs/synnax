@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { direction } from "@synnaxlabs/x/direction";
 import "@/lineplot/Axis.css";
 
 import { Aether } from "@synnaxlabs/lyra/aether";
@@ -18,7 +16,8 @@ import { Key } from "@synnaxlabs/lyra/key";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-
+import { type bounds } from "@synnaxlabs/x/bounds";
+import { direction } from "@synnaxlabs/x/direction";
 import {
   type FC,
   type PropsWithChildren,

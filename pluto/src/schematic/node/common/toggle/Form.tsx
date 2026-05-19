@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { Input } from "@synnaxlabs/lyra/input";
 import { type channel } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Control } from "@/schematic/node/common/control";
 import { ACTIVATION_DELAY_INPUT_PROPS } from "@/schematic/node/common/form/input";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";

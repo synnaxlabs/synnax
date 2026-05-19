@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { id } from "@synnaxlabs/x/id";
-import { primitive } from "@synnaxlabs/x/primitive";
 import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
@@ -19,9 +16,11 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { Telem } from "@synnaxlabs/pluto/telem";
+import { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
 import { type FC } from "react";
 
 import { ContextMenu } from "@/components";

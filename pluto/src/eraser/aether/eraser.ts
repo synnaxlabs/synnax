@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { box } from "@synnaxlabs/x/box";
 import { xy } from "@synnaxlabs/x/xy";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-
 import { z } from "zod";
 
 import { render } from "@/vis/render";

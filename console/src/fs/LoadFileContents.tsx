@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary } from "@synnaxlabs/x/binary";
 import "@/fs/LoadFileContents.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -15,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
-
+import { binary } from "@synnaxlabs/x/binary";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useEffect, useState } from "react";

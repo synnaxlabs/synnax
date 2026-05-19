@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy } from "@synnaxlabs/x/xy";
 import { arc } from "@synnaxlabs/client";
+import { xy } from "@synnaxlabs/x/xy";
 
 import { type GraphState } from "@/arc/types";
 

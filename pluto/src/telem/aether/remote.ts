@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { channel, NotFoundError } from "@synnaxlabs/client";
+import type { status } from "@synnaxlabs/lyra/status/aether";
 import { bounds } from "@synnaxlabs/x/bounds";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { status as xstatus } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
-import type { status } from "@synnaxlabs/lyra/status/aether";
-import { channel, NotFoundError } from "@synnaxlabs/client";
-
 import { z } from "zod";
 
 import { type CreateOptions } from "@/telem/aether/factory";

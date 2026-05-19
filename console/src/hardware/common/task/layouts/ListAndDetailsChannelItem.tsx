@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
-import { record } from "@synnaxlabs/x/record";
 import { type channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import type { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-
+import { type direction } from "@synnaxlabs/x/direction";
+import { type record } from "@synnaxlabs/x/record";
 import { cloneElement, type JSX } from "react";
 
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";

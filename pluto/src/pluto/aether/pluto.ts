@@ -8,38 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
+import { status } from "@synnaxlabs/lyra/status/aether";
+import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { access } from "@/access/aether";
-import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { canvas } from "@/canvas/aether";
+import { diagram } from "@/diagram/aether";
+import { eraser } from "@/eraser/aether";
 import { flux } from "@/flux/aether";
+import { line } from "@/line/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
+import { measure } from "@/measure/aether";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
-import { status } from "@/status/aether";
+import { rule } from "@/rule/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { theming } from "@/theming/aether";
+import { value } from "@/value/aether";
 import { button } from "@/vis/button/aether";
-import { canvas } from "@/canvas/aether";
-import { diagram } from "@/diagram/aether";
-import { eraser } from "@/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
-import { line } from "@/line/aether";
-import { measure } from "@/measure/aether";
-import { rule } from "@/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
-import { value } from "@/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;

@@ -71,6 +71,7 @@ export default defineConfig({
         sync: r("src/sync/index.ts"),
         telem: r("src/telem/index.ts"),
         testutil: r("src/testutil/index.ts"),
+        throttle: r("src/throttle/index.ts"),
         types: r("src/types/index.ts"),
         unique: r("src/unique/index.ts"),
         url: r("src/url/index.ts"),

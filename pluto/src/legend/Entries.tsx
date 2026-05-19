@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { optional } from "@synnaxlabs/x/optional";
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,7 +15,8 @@ import type { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-
+import { type color } from "@synnaxlabs/x/color";
+import { type optional } from "@synnaxlabs/x/optional";
 import { memo, type ReactElement } from "react";
 
 import { Color } from "@/color";

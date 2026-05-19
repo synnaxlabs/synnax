@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
 import "@/label/Edit.css";
 
 import { type label } from "@synnaxlabs/client";
@@ -25,7 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Color } from "@synnaxlabs/pluto/color";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Label } from "@synnaxlabs/pluto/label";
-
+import { color } from "@synnaxlabs/x/color";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";

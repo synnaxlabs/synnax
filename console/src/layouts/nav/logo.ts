@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { runtime } from "@synnaxlabs/x/runtime";
+
 import { Runtime } from "@/runtime";
 
 export const LOGO_LOCATION =

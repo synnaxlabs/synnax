@@ -14,7 +14,6 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { canDisable, type CanDisabledProps } from "@synnaxlabs/lyra/util";
-import { Worker } from "@synnaxlabs/lyra/worker";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";

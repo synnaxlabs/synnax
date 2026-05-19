@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
 import { type UnknownAction } from "@reduxjs/toolkit";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Theming } from "@synnaxlabs/lyra/theming";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type Dispatch } from "react";
 import { useDispatch } from "react-redux";

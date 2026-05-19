@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { location } from "@synnaxlabs/x/location";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/mosaic/Mosaic.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
+import { Errors } from "@synnaxlabs/lyra/errors";
 import type { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Portal } from "@synnaxlabs/lyra/portal";
+import { Resize } from "@synnaxlabs/lyra/resize";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-
+import { type box } from "@synnaxlabs/x/box";
+import { type location } from "@synnaxlabs/x/location";
+import { type xy } from "@synnaxlabs/x/xy";
 import {
   type DragEvent,
   memo,
@@ -28,10 +29,8 @@ import {
   useState,
 } from "react";
 
-import { Errors } from "@synnaxlabs/lyra/errors";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
-import { Resize } from "@synnaxlabs/lyra/resize";
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
   extends

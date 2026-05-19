@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
-import { status } from "@synnaxlabs/x/status";
 import { Component } from "@synnaxlabs/lyra/component";
 import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import type { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
-
+import { Status } from "@synnaxlabs/pluto/status";
+import { location } from "@synnaxlabs/x/location";
+import { type status } from "@synnaxlabs/x/status";
 import { type ReactElement } from "react";
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {

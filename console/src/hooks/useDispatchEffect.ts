@@ -9,7 +9,7 @@
 
 import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
-import { telem } from "@synnaxlabs/x/telem";
+import { type telem } from "@synnaxlabs/x/telem";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

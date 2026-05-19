@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,7 +17,7 @@ import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { array } from "@synnaxlabs/x/array";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

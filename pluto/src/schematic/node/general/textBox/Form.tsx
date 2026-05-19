@@ -9,13 +9,13 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import type { Text } from "@synnaxlabs/lyra/text";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {

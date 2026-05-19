@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
+
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/lineplot/selectors";
 import {

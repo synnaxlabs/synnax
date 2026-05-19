@@ -10,10 +10,9 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { useState } from "react";
-
-import { Nav } from "@synnaxlabs/lyra/nav";
 
 import { SubcategorySection } from "./SubcategorySection";
 

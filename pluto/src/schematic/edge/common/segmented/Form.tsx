@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { record } from "@synnaxlabs/x/record";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-
+import { type color } from "@synnaxlabs/x/color";
+import { type record } from "@synnaxlabs/x/record";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@synnaxlabs/lyra/form";
 
 const SELECT_DATA: record.KeyedNamed<string>[] = [
   { key: "pipe", name: "Pipe" },

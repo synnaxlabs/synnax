@@ -9,6 +9,7 @@
 
 import { deep } from "@synnaxlabs/x/deep";
 import { id } from "@synnaxlabs/x/id";
+
 import { Common } from "@/hardware/common";
 import {
   type AIChannel,

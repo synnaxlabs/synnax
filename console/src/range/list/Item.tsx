@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,8 +15,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
-
+import { type telem } from "@synnaxlabs/x/telem";
 import { memo, useMemo } from "react";
 
 import { CSS } from "@/css";

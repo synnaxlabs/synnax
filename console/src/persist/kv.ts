@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { kv } from "@synnaxlabs/x/kv";
+import { type kv } from "@synnaxlabs/x/kv";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
 import { Runtime } from "@/runtime";

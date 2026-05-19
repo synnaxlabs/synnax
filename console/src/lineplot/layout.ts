@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x/deep";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { lineplot } from "@synnaxlabs/client";
 
 import { type Layout } from "@/layout";
 import { internalCreate, type State, ZERO_STATE } from "@/lineplot/slice";

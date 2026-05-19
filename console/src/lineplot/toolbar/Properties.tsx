@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Input } from "@synnaxlabs/pluto/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { LinePlot as Base } from "@synnaxlabs/pluto/lineplot";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";

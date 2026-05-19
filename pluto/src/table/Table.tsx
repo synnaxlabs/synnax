@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { direction } from "@synnaxlabs/x/direction";
 import "@/table/Table.css";
 
 import { Aether } from "@synnaxlabs/lyra/aether";
@@ -17,7 +15,8 @@ import { useCursorDrag, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
 import {
   type ComponentPropsWithoutRef,
   type ComponentPropsWithRef,
@@ -28,8 +27,8 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { table } from "@/table/aether";
 import { Canvas } from "@/canvas";
+import { table } from "@/table/aether";
 
 export interface TableProps
   extends

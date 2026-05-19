@@ -9,8 +9,8 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 
-import { type Viewport } from "@/viewport";
 import { diagram } from "@/diagram/aether";
+import { type Viewport } from "@/viewport";
 
 export interface ContextValue {
   editable: boolean;

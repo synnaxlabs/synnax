@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
 import { TimeSpan } from "@synnaxlabs/client";
-
+import { array } from "@synnaxlabs/x/array";
 import { plural } from "pluralize";
 
 import { Modals } from "@/modals";

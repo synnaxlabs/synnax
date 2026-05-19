@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { xy } from "@synnaxlabs/x/xy";
 import { Aether } from "@synnaxlabs/lyra/aether";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Key } from "@synnaxlabs/lyra/key";
 import { Menu } from "@synnaxlabs/lyra/menu";
-
+import { box } from "@synnaxlabs/x/box";
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useEffect } from "react";
 
 import { useContext, useGridEntry } from "@/lineplot/LinePlot";

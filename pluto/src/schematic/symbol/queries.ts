@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/lyra/state";
 import { type group, ontology, schematic } from "@synnaxlabs/client";
+import { state } from "@synnaxlabs/lyra/state";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";

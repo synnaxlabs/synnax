@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
+import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import type { Status } from "@synnaxlabs/lyra/status";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { strings } from "@synnaxlabs/x/strings";
 import { telem } from "@synnaxlabs/x/telem";
 import { unique } from "@synnaxlabs/x/unique";
-import type { Status } from "@synnaxlabs/lyra/status";
-import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
-
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/base/store";

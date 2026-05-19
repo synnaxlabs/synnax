@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
-import { xy } from "@synnaxlabs/x/xy";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -18,6 +16,8 @@ import type { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { location } from "@synnaxlabs/x/location";
+import { xy } from "@synnaxlabs/x/xy";
 
 export const SelectHandleOrientation = (
   props: Omit<Select.ButtonsProps<location.Outer>, "keys">,

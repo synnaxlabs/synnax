@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
-import { telem } from "@synnaxlabs/x/telem";
 import { type alamos } from "@synnaxlabs/alamos";
 import {
   type channel,
@@ -17,6 +15,8 @@ import {
   QueryError,
   type Synnax,
 } from "@synnaxlabs/client";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { telem } from "@synnaxlabs/x/telem";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";

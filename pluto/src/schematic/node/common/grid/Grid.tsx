@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
 import "@/schematic/node/common/grid/grid.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
@@ -17,7 +16,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { triggerReflow } from "@synnaxlabs/lyra/util";
-
+import { location } from "@synnaxlabs/x/location";
 import {
   Children,
   cloneElement,

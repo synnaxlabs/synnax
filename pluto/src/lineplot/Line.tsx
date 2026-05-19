@@ -11,8 +11,8 @@ import type { Aether } from "@synnaxlabs/lyra/aether";
 import { Key } from "@synnaxlabs/lyra/key";
 import { type ReactElement, useEffect } from "react";
 
-import { useContext } from "@/lineplot/LinePlot";
 import { Line as Base } from "@/line";
+import { useContext } from "@/lineplot/LinePlot";
 
 export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
+import type { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { array } from "@synnaxlabs/x/array";
 import { deep } from "@synnaxlabs/x/deep";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { id } from "@synnaxlabs/x/id";
-import { observe } from "@synnaxlabs/x/observe";
-import type { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { type observe } from "@synnaxlabs/x/observe";
 
 import {
   CompoundFactory,

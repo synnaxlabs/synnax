@@ -7,33 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import "@/layouts/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
+import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Component } from "@synnaxlabs/lyra/component";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Menu } from "@synnaxlabs/lyra/menu";
+import { Nav as PNav } from "@synnaxlabs/lyra/nav";
+import { Portal } from "@synnaxlabs/lyra/portal";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { Logo } from "@synnaxlabs/media";
 import { Eraser } from "@synnaxlabs/pluto/eraser";
 import { Flux } from "@synnaxlabs/pluto/flux";
 import { Mosaic as Base } from "@synnaxlabs/pluto/mosaic";
 import { OS } from "@synnaxlabs/pluto/os";
 import type { Pluto } from "@synnaxlabs/pluto/pluto";
-import { Status } from "@synnaxlabs/pluto/status";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
-import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
-import type { Menu } from "@synnaxlabs/lyra/menu";
-import { Nav as PNav } from "@synnaxlabs/lyra/nav";
-import { Portal } from "@synnaxlabs/lyra/portal";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { caseconv } from "@synnaxlabs/x/caseconv";
-import type { location } from "@synnaxlabs/x/spatial/location";
+import type { location } from "@synnaxlabs/x/location";
+import { telem } from "@synnaxlabs/x/telem";
 import {
   type ComponentType,
   memo,

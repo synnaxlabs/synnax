@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x/compare";
-import { context } from "@synnaxlabs/lyra/context";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { context } from "@synnaxlabs/lyra/context";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -20,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Flux } from "@synnaxlabs/pluto/flux";
 import type { Pluto } from "@synnaxlabs/pluto/pluto";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
-
+import { type compare } from "@synnaxlabs/x/compare";
 import {
   type FC,
   type PropsWithChildren,

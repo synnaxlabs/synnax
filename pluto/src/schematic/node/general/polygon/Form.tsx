@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 export interface PolygonFormProps {

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { type Synnax } from "@synnaxlabs/client";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { status } from "@synnaxlabs/lyra/status/aether";
-import { type Synnax } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { alamos } from "@/alamos/aether";

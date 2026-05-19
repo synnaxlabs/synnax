@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds } from "@synnaxlabs/x/bounds";
-import { box } from "@synnaxlabs/x/box";
-import { throttle } from "@synnaxlabs/x/debounce";
-import { direction } from "@synnaxlabs/x/direction";
-import { scale } from "@synnaxlabs/x/scale";
-import { telem } from "@synnaxlabs/x/telem";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/lyra/theming/aether";
-
+import { bounds } from "@synnaxlabs/x/bounds";
+import { box } from "@synnaxlabs/x/box";
+import { direction } from "@synnaxlabs/x/direction";
+import { scale } from "@synnaxlabs/x/scale";
+import { telem } from "@synnaxlabs/x/telem";
+import { throttle } from "@synnaxlabs/x/throttle";
 import { z } from "zod";
 
 import { axis } from "@/axis";

@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Telem } from "@synnaxlabs/lyra/telem";
+import { Telem } from "@synnaxlabs/pluto/telem";
 import { type FC } from "react";
 
 import { type Common } from "@/hardware/common";

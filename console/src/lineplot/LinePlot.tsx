@@ -7,27 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
+import {
+  useAsyncEffect,
+  useDebouncedCallback,
+  usePrevious,
+} from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Access } from "@synnaxlabs/pluto/access";
 import type { axis } from "@synnaxlabs/pluto/axis";
 import { Channel } from "@synnaxlabs/pluto/channel";
+import { type measure } from "@synnaxlabs/pluto/ether";
 import { LinePlot as Base } from "@synnaxlabs/pluto/lineplot";
 import { Ranger } from "@synnaxlabs/pluto/ranger";
-import { Status } from "@synnaxlabs/pluto/status";
 import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { Viewport } from "@synnaxlabs/pluto/viewport";
-import { useAsyncEffect, useDebouncedCallback, usePrevious } from "@synnaxlabs/lyra/hooks";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { type measure } from "@synnaxlabs/pluto/ether";
+import { box } from "@synnaxlabs/x/box";
 import { color } from "@synnaxlabs/x/color";
+import { location } from "@synnaxlabs/x/location";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { record } from "@synnaxlabs/x/record";
-import { box } from "@synnaxlabs/x/spatial/box";
-import { location } from "@synnaxlabs/x/spatial/location";
-import { scale } from "@synnaxlabs/x/spatial/scale";
-import type { sticky } from "@synnaxlabs/x/spatial/sticky";
+import { scale } from "@synnaxlabs/x/scale";
+import type { sticky } from "@synnaxlabs/x/sticky";
+import { telem } from "@synnaxlabs/x/telem";
 import { unique } from "@synnaxlabs/x/unique";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
@@ -349,7 +353,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) throw new Error("No bounds available");
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-      return new telem.TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+      return new telem.TimeRange(
+        s.pos(box.left(selection)),
+        s.pos(box.right(selection)),
+      );
     }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();

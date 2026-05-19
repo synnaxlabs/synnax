@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
+import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { box } from "@synnaxlabs/x/box";
 import { runtime } from "@synnaxlabs/x/runtime";
-import { aether } from "@synnaxlabs/lyra/aether/runtime";
-import { UnexpectedError } from "@synnaxlabs/client";
-
 import { z } from "zod";
 
 import { line } from "@/line/aether";

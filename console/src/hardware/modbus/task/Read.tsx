@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { id } from "@synnaxlabs/x/id";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
 import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
@@ -19,8 +15,11 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/lyra/telem";
-
+import { Telem } from "@synnaxlabs/pluto/telem";
+import { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { telem } from "@synnaxlabs/x/telem";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -168,7 +167,7 @@ const readMapKey = (channel: InputChannel) => {
 const channelName = (deviceName: string, channel: InputChannel) => {
   let s = `${deviceName}_${channel.type}_${channel.address}`;
   if (isVariableDensityInputChannel(channel))
-    s += `_${new DataType(channel.dataType).toString(true)}`;
+    s += `_${new telem.DataType(channel.dataType).toString(true)}`;
   return s;
 };
 

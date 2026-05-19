@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { id } from "@synnaxlabs/x/id";
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-
+import { color } from "@synnaxlabs/x/color";
+import { id } from "@synnaxlabs/x/id";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
 interface StateMappingFormProps {
   path: string;

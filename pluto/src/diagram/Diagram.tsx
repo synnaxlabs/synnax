@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
@@ -22,7 +20,9 @@ import {
 } from "@synnaxlabs/lyra/hooks";
 import { useMemoCompare } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { box } from "@synnaxlabs/x/box";
 import { telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
@@ -56,7 +56,6 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/canvas";
 import { diagram } from "@/diagram/aether";
 import {
@@ -74,6 +73,7 @@ import {
 } from "@/diagram/aether/types";
 import { Context } from "@/diagram/Context";
 import { calculateCursorPosition } from "@/diagram/util";
+import { Viewport as BaseViewport } from "@/viewport";
 
 export interface NodeProps {
   nodeKey: string;

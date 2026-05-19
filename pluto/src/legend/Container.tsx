@@ -7,11 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { location } from "@synnaxlabs/x/location";
-import { scale } from "@synnaxlabs/x/scale";
-import { sticky } from "@synnaxlabs/x/sticky";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/legend/Container.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
@@ -20,7 +15,11 @@ import { useCursorDrag, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { state } from "@synnaxlabs/lyra/state";
 import { preventDefault } from "@synnaxlabs/lyra/util";
-
+import { box } from "@synnaxlabs/x/box";
+import { location } from "@synnaxlabs/x/location";
+import { scale } from "@synnaxlabs/x/scale";
+import { sticky } from "@synnaxlabs/x/sticky";
+import { xy } from "@synnaxlabs/x/xy";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {

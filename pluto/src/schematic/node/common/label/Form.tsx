@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as Base } from "@synnaxlabs/lyra/form";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import type { Text } from "@synnaxlabs/lyra/text";
-
+import { type direction } from "@synnaxlabs/x/direction";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { Form as Base } from "@synnaxlabs/lyra/form";
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };

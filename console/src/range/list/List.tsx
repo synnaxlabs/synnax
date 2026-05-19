@@ -9,7 +9,6 @@
 
 import "@/range/list/List.css";
 
-import type { state } from "@synnaxlabs/lyra/state";
 import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -19,6 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import type { state } from "@synnaxlabs/lyra/state";
 import { Access } from "@synnaxlabs/pluto/access";
 import type { Flux } from "@synnaxlabs/pluto/flux";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";

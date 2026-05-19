@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, schematic } from "@synnaxlabs/client";
-import { xy } from "@synnaxlabs/x/spatial/xy";
+import { Errors } from "@synnaxlabs/lyra/errors";
 import { uuid } from "@synnaxlabs/x/uuid";
+import { xy } from "@synnaxlabs/x/xy";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   type ClipboardEvent as ReactClipboardEvent,
@@ -19,7 +20,6 @@ import {
 } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { optional } from "@synnaxlabs/x/optional";
-import { record } from "@synnaxlabs/x/record";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-
+import { deep } from "@synnaxlabs/x/deep";
+import { type optional } from "@synnaxlabs/x/optional";
+import { type record } from "@synnaxlabs/x/record";
 import { type FC, useMemo } from "react";
 
 import { Device } from "@/hardware/labjack/device";

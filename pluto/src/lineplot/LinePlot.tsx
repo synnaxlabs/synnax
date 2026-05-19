@@ -7,13 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { color } from "@synnaxlabs/x/color";
-import { deep } from "@synnaxlabs/x/deep";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { direction } from "@synnaxlabs/x/direction";
-import { location } from "@synnaxlabs/x/location";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/lineplot/LinePlot.css";
 
 import { Aether } from "@synnaxlabs/lyra/aether";
@@ -21,7 +14,14 @@ import { context } from "@synnaxlabs/lyra/context";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { telem } from "@synnaxlabs/x/telem";
+import { box } from "@synnaxlabs/x/box";
+import { type color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { direction } from "@synnaxlabs/x/direction";
+import { location } from "@synnaxlabs/x/location";
+import { type telem } from "@synnaxlabs/x/telem";
+import { xy } from "@synnaxlabs/x/xy";
 import {
   type CSSProperties,
   type DetailedHTMLProps,
@@ -38,9 +38,9 @@ import {
 } from "react";
 import { type z } from "zod";
 
+import { Canvas } from "@/canvas";
 import { lineplot } from "@/lineplot/aether";
 import { type Viewport } from "@/viewport";
-import { Canvas } from "@/canvas";
 import { grid } from "@/vis/grid";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;

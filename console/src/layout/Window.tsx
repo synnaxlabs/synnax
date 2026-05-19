@@ -9,10 +9,10 @@
 
 import "@/layout/Window.css";
 
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto/os";
 import { getCurrentWindow } from "@tauri-apps/api/window";

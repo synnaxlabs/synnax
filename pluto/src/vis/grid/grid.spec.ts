@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x/box";
-import { xy } from "@synnaxlabs/x/xy";
+import { type xy } from "@synnaxlabs/x/xy";
 import { describe, expect, it } from "vitest";
 
 import { grid } from "@/vis/grid";

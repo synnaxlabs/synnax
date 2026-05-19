@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
 import { type label } from "@synnaxlabs/client";
 import type { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import type { Select } from "@synnaxlabs/lyra/select";
-
+import { location } from "@synnaxlabs/x/location";
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/label/Select";

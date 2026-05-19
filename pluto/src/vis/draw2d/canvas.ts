@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { text as textBase } from "@synnaxlabs/lyra/text/base";
 import { box } from "@synnaxlabs/x/box";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { dimensions } from "@synnaxlabs/x/dimensions";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { text as textBase } from "@synnaxlabs/lyra/text/base";
 
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";

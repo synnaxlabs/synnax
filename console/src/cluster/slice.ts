@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array } from "@synnaxlabs/x/array";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { array } from "@synnaxlabs/x/array";
 
 import * as latest from "@/cluster/types";
 

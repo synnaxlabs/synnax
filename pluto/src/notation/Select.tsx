@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { notation } from "@synnaxlabs/x/notation";
 import "@/notation/Select.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-
+import { notation } from "@synnaxlabs/x/notation";
 import { type ReactElement } from "react";
 
 export interface SelectNotationProps extends Omit<

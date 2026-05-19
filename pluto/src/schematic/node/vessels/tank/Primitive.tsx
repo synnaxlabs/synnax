@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
-import { dimensions } from "@synnaxlabs/x/dimensions";
 import "@/schematic/node/vessels/tank/tank.css";
 
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Theming } from "@synnaxlabs/lyra/theming";
-
+import { color } from "@synnaxlabs/x/color";
+import { type dimensions } from "@synnaxlabs/x/dimensions";
 import { type ReactElement, useMemo } from "react";
 
 import { Border } from "@/schematic/node/common/border";

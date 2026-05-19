@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { theming } from "@synnaxlabs/lyra/theming/aether";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { Draw2D } from "@/vis/draw2d";

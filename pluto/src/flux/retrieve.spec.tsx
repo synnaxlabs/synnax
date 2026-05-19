@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x/color";
 import { createTestClient, type label } from "@synnaxlabs/client";
+import { Errors } from "@synnaxlabs/lyra/errors";
+import { color } from "@synnaxlabs/x/color";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 

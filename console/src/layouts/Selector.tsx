@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x/uuid";
+
 import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";

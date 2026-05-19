@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x/migrate";
+
 import * as v0 from "@/range/types/v0";
 
 export type StaticRange = v0.StaticRange;

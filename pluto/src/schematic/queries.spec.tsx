@@ -13,12 +13,12 @@ import {
   schematic,
   type workspace,
 } from "@synnaxlabs/client";
+import { Errors } from "@synnaxlabs/lyra/errors";
 import { uuid } from "@synnaxlabs/x/uuid";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";

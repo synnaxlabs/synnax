@@ -12,9 +12,9 @@ import { box } from "@synnaxlabs/x/box";
 import { location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
-import { telem } from "@synnaxlabs/x/telem";
-import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
+
 import { line } from "@/line/aether";
+import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { rule } from "@/rule/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({

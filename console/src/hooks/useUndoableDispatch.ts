@@ -10,7 +10,7 @@
 import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { deep } from "@synnaxlabs/x/deep";
-import { telem } from "@synnaxlabs/x/telem";
+import { type telem } from "@synnaxlabs/x/telem";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 

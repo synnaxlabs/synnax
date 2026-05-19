@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { primitive } from "@synnaxlabs/x/primitive";
-import { status } from "@synnaxlabs/x/status";
-import type { Haul } from "@synnaxlabs/lyra/haul";
 import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
+import type { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -20,9 +18,11 @@ import { Tree } from "@synnaxlabs/lyra/tree";
 import { Access } from "@synnaxlabs/pluto/access";
 import { Channel as PChannel } from "@synnaxlabs/pluto/channel";
 import type { Flux } from "@synnaxlabs/pluto/flux";
-import type { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
 import { telem } from "@synnaxlabs/pluto/telem/aether";
 import { id } from "@synnaxlabs/x/id";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { status } from "@synnaxlabs/x/status";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";

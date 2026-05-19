@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary } from "@synnaxlabs/x/binary";
-import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
-import { state } from "@synnaxlabs/lyra/state";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-
+import { state } from "@synnaxlabs/lyra/state";
+import { binary } from "@synnaxlabs/x/binary";
+import { deep } from "@synnaxlabs/x/deep";
+import { type record } from "@synnaxlabs/x/record";
 import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";

@@ -9,11 +9,11 @@
 
 import "@/hardware/opc/task/Task.css";
 
-import { Haul } from "@synnaxlabs/lyra/haul";
 import { type channel } from "@synnaxlabs/client";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
