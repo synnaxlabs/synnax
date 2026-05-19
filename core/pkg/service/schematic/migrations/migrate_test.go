@@ -139,7 +139,7 @@ var _ = Describe("MigrateSchematic", func() {
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, schematic.Schematic] {
 			return MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
-				ctx, gorp.TableConfig[schematic.Schematic]{
+				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
 					DB: db,
 					Migrations: []migrate.Migration{
 						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, schematic.Schematic](
@@ -153,7 +153,7 @@ var _ = Describe("MigrateSchematic", func() {
 
 		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v55.Schematic {
 			t := MustOpen(gorp.OpenTable[uuid.UUID, v55.Schematic](
-				ctx, gorp.TableConfig[v55.Schematic]{DB: db},
+				ctx, gorp.TableConfig[uuid.UUID, v55.Schematic]{DB: db},
 			))
 			seed := v55.Schematic{Key: uuid.New(), Name: name, Data: jsonMap(body)}
 			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())

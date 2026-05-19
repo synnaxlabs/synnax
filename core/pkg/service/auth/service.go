@@ -77,7 +77,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, SecureCredentials]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {

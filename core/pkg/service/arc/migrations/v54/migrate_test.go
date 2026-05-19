@@ -35,7 +35,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
-			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
 		))
 		seed := v54.Arc{
 			Key:  uuid.New(),
@@ -66,7 +66,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
-			ctx, gorp.TableConfig[arc.Arc]{
+			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
@@ -103,7 +103,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
-			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
 		))
 		statusKey := uuid.New().String()
 		labelKey := uuid.New()
@@ -128,7 +128,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
-			ctx, gorp.TableConfig[arc.Arc]{
+			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](

@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -34,6 +35,11 @@ type Writer struct {
 	// signals subsystem can broadcast the action sequence on the schematic
 	// channels. Nil when the service is opened without a Signals provider.
 	actionObserver observe.Observer[ScopedAction]
+	// seq points at the service-level monotonic sequence counter. Each
+	// Dispatch increments it once and stamps the resulting value onto the
+	// emitted ScopedAction so clients can dedupe echoes by ordering rather
+	// than session identity.
+	seq *atomic.Uint64
 }
 
 // Create creates the given schematic within the workspace provided. If the
@@ -189,6 +195,7 @@ func (w Writer) Dispatch(
 		w.actionObserver.Notify(ctx, ScopedAction{
 			Key:        key,
 			SessionKey: sessionKey,
+			Seq:        w.seq.Add(1),
 			Actions:    actions,
 		})
 	}

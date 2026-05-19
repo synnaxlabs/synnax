@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Label]{
+	if s.table, err = gorp.OpenTable[Key, Label](ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Label]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,

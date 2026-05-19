@@ -137,7 +137,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		HostProvider: cfg.HostProvider,
 		Status:       cfg.Status,
 	})
-	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
+	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
