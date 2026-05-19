@@ -440,7 +440,7 @@ class Range(Payload):
         color: str = "",
         key: Key = UUID(int=0),
     ) -> Range:
-        return self._client().create(
+        return self._client.create(
             name=name,
             time_range=time_range,
             color=color,
@@ -476,19 +476,19 @@ class Range(Payload):
     @property
     def children(self) -> list[Range]:
         """Returns a list of child ranges of this range."""
-        res = self._ontology().retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.ontology_id)
         range_children = [r for r in res if r.id.type == "range"]
         if len(range_children) == 0:
             return []
         child_keys: list[Key] = [
             r.id.key for r in range_children if r.id.key is not None
         ]
-        return self._client().retrieve(keys=child_keys)
+        return self._client.retrieve(keys=child_keys)
 
     def snapshots(self) -> list[Task]:
-        res = self._ontology().retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.ontology_id)
         tasks = [t for t in res if t.id.type == "task"]
-        return self._tasks().retrieve(
+        return self._tasks.retrieve(
             keys=[int(t.id.key) for t in tasks if t.id.key is not None]
         )
 
