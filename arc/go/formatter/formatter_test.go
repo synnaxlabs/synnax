@@ -41,12 +41,22 @@ var _ = Describe("Formatter", func() {
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("single module", "import(time)", "import ( time )\n"),
-		Entry("multiple modules", "import (time math status)", "import ( time math status )\n"),
-		Entry("aliased", "import (time as t)", "import ( time as t )\n"),
-		Entry("hierarchical path", "import (math.trig)", "import ( math.trig )\n"),
-		Entry("authority keyword", "import (authority)", "import ( authority )\n"),
-		Entry("empty", "import ()", "import ()\n"),
+		Entry("single module collapses to bare form", "import(time)", "import time\n"),
+		Entry("bare form stays bare", "import time", "import time\n"),
+		Entry("aliased collapses to bare form", "import (time as t)", "import time as t\n"),
+		Entry("bare aliased stays bare", "import time as t", "import time as t\n"),
+		Entry("hierarchical path collapses to bare form", "import (math.trig)", "import math.trig\n"),
+		Entry("authority keyword collapses to bare form", "import (authority)", "import authority\n"),
+		Entry("multiple modules expand to multi-line block",
+			"import (time math status)",
+			"import (\n    time\n    math\n    status\n)\n"),
+		Entry("multiple modules with alias",
+			"import (time as t math)",
+			"import (\n    time as t\n    math\n)\n"),
+		Entry("multiple modules with hierarchical path",
+			"import (time math.trig)",
+			"import (\n    time\n    math.trig\n)\n"),
+		Entry("empty stays empty", "import ()", "import ()\n"),
 	)
 
 	DescribeTable("Unit Literals",

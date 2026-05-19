@@ -14,7 +14,7 @@ from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_BANG_BANG_SOURCE = """
-import ( authority )
+import authority
 authority (
     press_vlv_cmd 210
     vent_vlv_cmd 210

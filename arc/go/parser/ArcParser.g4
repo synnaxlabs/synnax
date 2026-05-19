@@ -27,7 +27,8 @@ topLevelItem
 // =============================================================================
 
 importStatement
-    : IMPORT LPAREN importItem* RPAREN
+    : IMPORT importItem
+    | IMPORT LPAREN importItem* RPAREN
     ;
 
 importItem

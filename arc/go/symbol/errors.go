@@ -57,5 +57,5 @@ func (e *ModuleNotImportedError) Error() string {
 
 // GetHint suggests the import statement that would make Name resolve.
 func (e *ModuleNotImportedError) GetHint() string {
-	return fmt.Sprintf("add `import ( %s )` at the top of the file", e.Alias)
+	return fmt.Sprintf("add `import %s` at the top of the file", e.Alias)
 }

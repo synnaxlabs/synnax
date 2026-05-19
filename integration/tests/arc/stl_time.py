@@ -12,7 +12,7 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_TIME_SOURCE = """
-import ( time )
+import time
 authority 200
 // ──────────────────────────── time.now ───────────────────────────────
 func write_now() {

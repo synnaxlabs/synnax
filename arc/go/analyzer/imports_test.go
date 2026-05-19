@@ -41,7 +41,7 @@ var _ = Describe("Import Pass", func() {
 
 	Describe("collectImports", func() {
 		It("Should populate the root scope's ImportSet", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`import ( time )`))
+			prog := MustSucceed(parser.Parse(`import time`))
 			ctx := context.CreateRoot(bCtx, prog, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Scope.Imports).ToNot(BeNil())
@@ -58,14 +58,14 @@ var _ = Describe("Import Pass", func() {
 		})
 
 		It("Should diagnose an unknown module", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`import ( banana )`))
+			prog := MustSucceed(parser.Parse(`import banana`))
 			ctx := context.CreateRoot(bCtx, prog, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(`unknown module "banana"`))
 		})
 
 		It("Should not double-report an unknown module as unused", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`import ( banana )`))
+			prog := MustSucceed(parser.Parse(`import banana`))
 			ctx := context.CreateRoot(bCtx, prog, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring(`imported module "banana" is unused`))
@@ -90,7 +90,7 @@ var _ = Describe("Import Pass", func() {
 	Describe("reportUnusedImports", func() {
 		It("Should flag an unused import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
+				import time
 				func f() {}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, resolver)
@@ -100,7 +100,7 @@ var _ = Describe("Import Pass", func() {
 
 		It("Should not flag a used import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
+				import time
 				func f() i64 { return time.now() }
 			`))
 			ctx := context.CreateRoot(bCtx, prog, resolver)

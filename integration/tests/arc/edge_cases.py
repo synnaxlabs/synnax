@@ -128,7 +128,7 @@ start_edge_case_cmd -> test_chan_fwd_ref{}
 # the empty keys list.
 
 ARC_READ_ONLY_MONITOR = """
-import ( status )
+import status
 start_read_only_monitor_cmd => main
 
 sequence main {
@@ -276,7 +276,7 @@ start_edge_case_cmd -> get_now{}
 
 # Module imported but never referenced.
 ARC_IMPORT_UNUSED = """
-import ( time )
+import time
 func passthrough() {
     ch1 = ch1 + 1.0
 }
@@ -285,7 +285,7 @@ start_edge_case_cmd -> passthrough{}
 
 # Import names a module the resolver does not expose.
 ARC_IMPORT_UNKNOWN = """
-import ( banana )
+import banana
 func passthrough() {
     ch1 = ch1 + 1.0
 }

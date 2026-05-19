@@ -185,7 +185,7 @@ var _ = Describe("ModuleNotImportedError", func() {
 
 	It("Should suggest the import statement in GetHint", func() {
 		err := &symbol.ModuleNotImportedError{Alias: "time", Name: "time.now"}
-		Expect(err.GetHint()).To(Equal("add `import ( time )` at the top of the file"))
+		Expect(err.GetHint()).To(Equal("add `import time` at the top of the file"))
 	})
 })
 

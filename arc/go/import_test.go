@@ -77,12 +77,12 @@ func get_now(t u8) i64 {
 `, chans)
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`module "time" is not imported`))
-			Expect(messages(d)).To(ContainSubstring(`add ` + "`import ( time )`"))
+			Expect(messages(d)).To(ContainSubstring(`add ` + "`import time`"))
 		})
 
-		It("Should accept time.now with import ( time )", func() {
+		It("Should accept time.now with import time", func() {
 			d := analyze(`
-import ( time )
+import time
 
 trig -> get_now{} -> now_out
 func get_now(t u8) i64 {
@@ -92,9 +92,9 @@ func get_now(t u8) i64 {
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
 
-		It("Should accept time.now as a flow node with import ( time )", func() {
+		It("Should accept time.now as a flow node with import time", func() {
 			d := analyze(`
-import ( time )
+import time
 
 trig -> time.now{} -> now_out
 `, chans)
@@ -111,9 +111,9 @@ func get_now() i64 { return time.now() }
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
 
-		It("Should accept authority.set with import ( authority )", func() {
+		It("Should accept authority.set with import authority", func() {
 			d := analyze(`
-import ( authority )
+import authority
 
 trig -> authority.set{value=200, channel=valve_cmd}
 `, chans)
@@ -124,7 +124,7 @@ trig -> authority.set{value=200, channel=valve_cmd}
 	Describe("aliases", func() {
 		It("Should bind the alias as the qualifier", func() {
 			d := analyze(`
-import ( time as t )
+import time as t
 
 trig -> t.now{} -> now_out
 `, chans)
@@ -133,7 +133,7 @@ trig -> t.now{} -> now_out
 
 		It("Should reject the original name when aliased", func() {
 			d := analyze(`
-import ( time as t )
+import time as t
 
 trig -> time.now{} -> now_out
 `, chans)
@@ -143,7 +143,7 @@ trig -> time.now{} -> now_out
 
 		It("Should rewrite the alias to the canonical module in IR node types", func() {
 			t, parseDiag := text.Parse(text.Text{Raw: `
-import ( time as t )
+import time as t
 
 trig -> t.now{} -> now_out
 `})
@@ -169,7 +169,7 @@ trig -> t.now{} -> now_out
 			// math.trig is grammatically valid but no module is registered
 			// under that path, so the analyzer rejects the import itself.
 			d := analyze(`
-import ( math.trig )
+import math.trig
 
 sensor -> trig.sin{} -> output
 `, chans)
@@ -181,7 +181,7 @@ sensor -> trig.sin{} -> output
 	Describe("diagnostics", func() {
 		It("Should report unused imports", func() {
 			d := analyze(`
-import ( time )
+import time
 
 trig -> set_authority{value=200, channel=valve_cmd}
 `, chans)
@@ -204,7 +204,7 @@ func get_now(t u8) i64 {
 
 		It("Should report unknown modules", func() {
 			d := analyze(`
-import ( banana )
+import banana
 
 sensor -> avg{} -> output
 `, chans)
@@ -214,7 +214,7 @@ sensor -> avg{} -> output
 
 		It("Should not double-report an unknown module as unused", func() {
 			d := analyze(`
-import ( banana )
+import banana
 
 sensor -> avg{} -> output
 `, chans)
@@ -223,7 +223,7 @@ sensor -> avg{} -> output
 
 		It("Should not flag a misspelled member as an unused import", func() {
 			d := analyze(`
-import ( time )
+import time
 
 trig -> time.doesnotexist{} -> now_out
 `, chans)
@@ -239,7 +239,7 @@ trig -> time.doesnotexist{} -> now_out
 				"valve_cmd":   {types.U8(), 101},
 			})
 			h := newRuntimeHarness(ctx, `
-				import ( authority )
+				import authority
 				authority 100
 				trigger_cmd -> authority.set{value=200, channel=valve_cmd}
 			`, resolver,

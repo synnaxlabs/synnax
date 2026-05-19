@@ -62,8 +62,11 @@ type printer struct {
 	// incremented indent (true) or emitted `{}` as a truly-empty body (false).
 	// The closer uses this to decide whether to de-indent. Pushed in
 	// handleOpenBrace, popped in handleCloseBrace.
-	reactiveBodyMultiline  []bool
-	multilineParens        set.Set[int] // tracks which paren depth levels are multiline
+	reactiveBodyMultiline []bool
+	multilineParens       set.Set[int] // tracks which paren depth levels are multiline
+	// importCollapseDepths tracks import paren depths whose LPAREN/RPAREN are
+	// suppressed because the block has exactly one item and is rendered bare.
+	importCollapseDepths   set.Set[int]
 	allComments            []antlr.Token
 	pendingTrailingComment string
 	pendingBreak           bool
@@ -77,9 +80,10 @@ func newPrinter() *printer {
 		cache[i] = strings.Repeat(" ", i*indentWidth)
 	}
 	return &printer{
-		atLineStart:     true,
-		indentCache:     cache,
-		multilineParens: make(set.Set[int]),
+		atLineStart:          true,
+		indentCache:          cache,
+		multilineParens:      make(set.Set[int]),
+		importCollapseDepths: make(set.Set[int]),
 	}
 }
 
@@ -661,6 +665,38 @@ func (p *printer) popBraceContext() braceContext {
 
 func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 	ctx := p.detectParenContext(idx, tokens)
+
+	// Import: 1 item collapses to bare form (no parens); 2+ items expand to
+	// a multi-line indented block; 0 items render as `()`.
+	if ctx == parenContextImport {
+		items := countImportItems(idx, tokens)
+		p.parenContextStack = append(p.parenContextStack, ctx)
+		depth := len(p.parenContextStack)
+		if items == 1 {
+			p.importCollapseDepths.Add(depth)
+			p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+			// The suppressed LPAREN would otherwise leave the next token
+			// looking like it follows `(`; force a space so the bare
+			// rendering reads `import time`.
+			p.needsSpace = true
+			return
+		}
+		if p.needsSpaceBeforeParen() {
+			p.writeSpace()
+		}
+		if items == 0 {
+			p.emitChar("(")
+			p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+			return
+		}
+		p.multilineParens.Add(depth)
+		p.emitChar("(")
+		p.writeNewline()
+		p.indentLevel++
+		p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+		return
+	}
+
 	p.parenContextStack = append(p.parenContextStack, ctx)
 
 	if p.prevToken != nil && p.isBinaryOperator(p.lastTokenType) {
@@ -677,17 +713,6 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 		if !p.isEmptyParenList(idx, tokens) {
 			p.writeNewline()
 			p.indentLevel++
-		}
-		p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
-		return
-	}
-
-	// Import blocks stay on one line with a space pad: `import ( a b c )`.
-	// Empty `import ()` renders without internal padding.
-	if ctx == parenContextImport {
-		p.emitChar("(")
-		if !p.isEmptyParenList(idx, tokens) {
-			p.writeSpace()
 		}
 		p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
 		return
@@ -717,11 +742,24 @@ func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	ctx := p.popParenContext()
 	depth := len(p.parenContextStack) + 1
 
-	// Trailing space pad for non-empty import blocks: `... b c )`.
 	if ctx == parenContextImport {
-		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
-		if !isEmptyList {
-			p.writeSpace()
+		if p.importCollapseDepths.Contains(depth) {
+			p.importCollapseDepths.Remove(depth)
+			return
+		}
+		if p.multilineParens.Contains(depth) {
+			p.multilineParens.Remove(depth)
+			p.flushPendingTrailingComment()
+			p.indentLevel--
+			if p.indentLevel < 0 {
+				p.indentLevel = 0
+			}
+			if !p.atLineStart {
+				p.writeNewline()
+			}
+			p.writeIndent()
+			p.emitChar(")")
+			return
 		}
 		p.emitChar(")")
 		return
@@ -879,6 +917,35 @@ func (p *printer) calculateParenListLength(idx int, tokens []antlr.Token) int {
 	return length
 }
 
+// countImportItems counts the import items between the LPAREN at idx and
+// its matching RPAREN.
+func countImportItems(idx int, tokens []antlr.Token) int {
+	count := 0
+	for i := idx + 1; i < len(tokens); i++ {
+		tokType := tokens[i].GetTokenType()
+		if tokType == parser.ArcLexerRPAREN {
+			return count
+		}
+		if tokType != parser.ArcLexerIDENTIFIER && tokType != parser.ArcLexerAUTHORITY {
+			continue
+		}
+		count++
+		// Skip through `.IDENT` segments and an optional `as IDENT`.
+		for i+2 < len(tokens) {
+			next := tokens[i+1].GetTokenType()
+			if next == parser.ArcLexerDOT && tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
+				i += 2
+				continue
+			}
+			if next == parser.ArcLexerAS && tokens[i+2].GetTokenType() == parser.ArcLexerIDENTIFIER {
+				i += 2
+			}
+			break
+		}
+	}
+	return count
+}
+
 func (p *printer) isEmptyParenList(idx int, tokens []antlr.Token) bool {
 	if idx+1 >= len(tokens) {
 		return false
@@ -965,6 +1032,17 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 		p.writeNewline()
 	}
 
+	// In a multi-line import paren context, break lines between items.
+	// An item ends with an IDENT; the next IDENT or AUTHORITY starts a
+	// new item (a `.` or `as` continuation keeps the current item).
+	if p.inImportParenContext() &&
+		p.multilineParens.Contains(len(p.parenContextStack)) &&
+		!p.atLineStart &&
+		p.lastTokenType == parser.ArcLexerIDENTIFIER &&
+		(tokType == parser.ArcLexerIDENTIFIER || tokType == parser.ArcLexerAUTHORITY) {
+		p.writeNewline()
+	}
+
 	if p.atLineStart {
 		p.writeIndent()
 	} else if p.needsSpaceBefore(tok) {
@@ -984,9 +1062,10 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 func (p *printer) needsNewlineBefore(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerAUTHORITY:
-		// AUTHORITY also names an importable module; an `import ( authority )`
-		// shouldn't break onto a new line.
-		if tokType == parser.ArcLexerAUTHORITY && p.inImportParenContext() {
+		// AUTHORITY also names an importable module; `import authority` or
+		// `import ( authority )` shouldn't break onto a new line.
+		if tokType == parser.ArcLexerAUTHORITY &&
+			(p.inImportParenContext() || p.lastTokenType == parser.ArcLexerIMPORT) {
 			return false
 		}
 		return p.prevToken != nil && p.lastTokenType != parser.ArcLexerRBRACE

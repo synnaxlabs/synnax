@@ -390,7 +390,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle negated time unit config value", func(ctx SpecContext) {
 				source := `
-				import ( time )
+				import time
 				time_trigger -> time.wait{duration=-3h} -> wait_out
 				`
 				resolver := symbol.CompoundResolver{
@@ -563,7 +563,7 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				import ( authority )
+				import authority
 				func source{} () u8 {
 					return 1
 				}
@@ -601,7 +601,7 @@ var _ = Describe("Text", func() {
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
 					},
 				}
-				source := `import ( math )
+				source := `import math
 sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
@@ -663,7 +663,7 @@ sensor -> math.avg{} -> output`
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `import ( stable )
+				source := `import stable
 sensor -> stable.for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
@@ -747,7 +747,7 @@ sensor -> stable.for{duration=1s} -> output`
 						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
 					},
 				}
-				source := `import ( status )
+				source := `import status
 sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, statusResolver)
@@ -795,7 +795,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `import ( time )
+				source := `import time
 time.interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
@@ -826,7 +826,7 @@ time.interval{period=100ms} -> output`
 						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 					},
 				}
-				source := `import ( time )
+				source := `import time
 time.wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
@@ -2829,7 +2829,7 @@ time.wait{duration=500ms} -> output`
 				stl.SymbolResolver,
 			}
 			source := `
-			import ( error )
+			import error
 			func print{} () {
 			}
 
@@ -2898,7 +2898,7 @@ time.wait{duration=500ms} -> output`
 				stl.SymbolResolver,
 			}
 			source := `
-			import ( time )
+			import time
 			interval{100ms} -> time.now{} -> ts_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -2914,7 +2914,7 @@ time.wait{duration=500ms} -> output`
 				stl.SymbolResolver,
 			}
 			source := `
-			import ( time )
+			import time
 			interval{100ms} -> time.now{} -> int_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

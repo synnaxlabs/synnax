@@ -189,7 +189,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should collect a single bare import", func() {
-			prog := MustSucceed(parser.Parse(`import ( time )`))
+			prog := MustSucceed(parser.Parse(`import time`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].Path).To(Equal("time"))
@@ -207,7 +207,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should record the alias when present", func() {
-			prog := MustSucceed(parser.Parse(`import ( time as t )`))
+			prog := MustSucceed(parser.Parse(`import time as t`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].Path).To(Equal("time"))
@@ -215,7 +215,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should treat AUTHORITY as a valid path head", func() {
-			prog := MustSucceed(parser.Parse(`import ( authority )`))
+			prog := MustSucceed(parser.Parse(`import authority`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].Path).To(Equal("authority"))
@@ -223,20 +223,20 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should join hierarchical path segments with dots", func() {
-			prog := MustSucceed(parser.Parse(`import ( math.trig )`))
+			prog := MustSucceed(parser.Parse(`import math.trig`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].Path).To(Equal("math.trig"))
 		})
 
 		It("Should default alias to the last path segment on hierarchical paths", func() {
-			prog := MustSucceed(parser.Parse(`import ( math.trig )`))
+			prog := MustSucceed(parser.Parse(`import math.trig`))
 			entries := parser.Imports(prog)
 			Expect(entries[0].Alias).To(Equal("trig"))
 		})
 
 		It("Should preserve a hierarchical alias when AS is present", func() {
-			prog := MustSucceed(parser.Parse(`import ( math.trig as t )`))
+			prog := MustSucceed(parser.Parse(`import math.trig as t`))
 			entries := parser.Imports(prog)
 			Expect(entries[0].Path).To(Equal("math.trig"))
 			Expect(entries[0].Alias).To(Equal("t"))
@@ -244,8 +244,8 @@ var _ = Describe("AST Utilities", func() {
 
 		It("Should collect items across multiple import statements", func() {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
-				import ( authority )
+				import time
+				import authority
 			`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(2))

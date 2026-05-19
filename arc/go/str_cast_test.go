@@ -229,7 +229,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 				"log_mem": {types.String(), 101},
 			})
 			h := newRuntimeHarness(ctx,
-				`import ( time )
+				`import time
 time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 				channel.Digest{Key: 101, DataType: telem.StringT},
 			)
@@ -284,7 +284,7 @@ time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 				"log_mem": {types.String(), 101},
 			})
 			h := newRuntimeHarness(ctx,
-				`import ( time )
+				`import time
 time.interval{50ms} -> `+expr+` -> log_mem`, resolver,
 				channel.Digest{Key: 101, DataType: telem.StringT},
 			)

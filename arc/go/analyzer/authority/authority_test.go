@@ -165,7 +165,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should allow an import block before the authority declaration", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
+				import time
 				authority 200
 			`))
 			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
@@ -177,8 +177,8 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should allow multiple imports before the authority declaration", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
-				import ( authority )
+				import time
+				import authority
 				authority 200
 			`))
 			ctx := acontext.CreateRoot(specCtx, prog, channelResolver)
@@ -190,7 +190,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should still reject authority appearing after a function even with imports first", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
-				import ( time )
+				import time
 				func test{} () {}
 				authority 200
 			`))
