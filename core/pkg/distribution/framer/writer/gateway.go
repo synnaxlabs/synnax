@@ -26,12 +26,7 @@ var (
 )
 
 // newGateway opens a new StreamWriter that writes to the store on the gateway node.
-// When cfg.AutoIndexing is enabled, the storage writer itself stamps missing index
-// channels and propagates SetAuthority calls — no additional pipeline segment runs.
-func (s *Service) newGateway(
-	ctx context.Context,
-	cfg Config,
-) (StreamWriter, error) {
+func (s *Service) newGateway(ctx context.Context, cfg Config) (StreamWriter, error) {
 	w, err := s.cfg.TS.NewStreamWriter(ctx, cfg.toStorage())
 	if err != nil {
 		return nil, err
