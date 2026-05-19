@@ -28,6 +28,12 @@ type PackageMapping struct {
 	PackageName string
 	// InternalPrefix is the in-package import alias prefix (e.g. "@/").
 	InternalPrefix string
+	// SubpathExports reports whether cross-package imports must target a
+	// subpath (e.g. "@synnaxlabs/x/telem") instead of the bare package name.
+	// True for multi-module packages whose package.json exports map omits the
+	// "." root entry; false for single-namespace packages that keep a root
+	// barrel.
+	SubpathExports bool
 }
 
 // KnownPackages enumerates the workspace packages the generator can target.
@@ -35,8 +41,9 @@ type PackageMapping struct {
 // tests; production code should treat it as constant.
 var KnownPackages = []PackageMapping{
 	{PathPrefix: "client/ts/src", PackageName: "@synnaxlabs/client", InternalPrefix: "@/"},
-	{PathPrefix: "x/ts/src", PackageName: "@synnaxlabs/x", InternalPrefix: "@/"},
-	{PathPrefix: "pluto/src", PackageName: "@synnaxlabs/pluto", InternalPrefix: "@/"},
+	{PathPrefix: "x/ts/src", PackageName: "@synnaxlabs/x", InternalPrefix: "@/", SubpathExports: true},
+	{PathPrefix: "pluto/src", PackageName: "@synnaxlabs/pluto", InternalPrefix: "@/", SubpathExports: true},
+	{PathPrefix: "lyra/src", PackageName: "@synnaxlabs/lyra", InternalPrefix: "@/", SubpathExports: true},
 	{PathPrefix: "freighter/ts/src", PackageName: "@synnaxlabs/freighter", InternalPrefix: "@/"},
 	{PathPrefix: "alamos/ts/src", PackageName: "@synnaxlabs/alamos", InternalPrefix: "@/"},
 	{PathPrefix: "drift/src", PackageName: "@synnaxlabs/drift", InternalPrefix: "@/"},
@@ -55,16 +62,20 @@ func FindPackage(outputPath string) *PackageMapping {
 
 // CalculateImport returns the TypeScript module specifier to import toPath from
 // fromPath. Same workspace yields an internal alias; different workspaces yield
-// the destination workspace's npm package name; unknown paths yield a relative
-// path.
+// the destination workspace's npm package name (with a subpath suffix when the
+// destination package opts out of a root barrel); unknown paths yield a
+// relative path.
 func CalculateImport(fromPath, toPath string) string {
 	fromPkg, toPkg := FindPackage(fromPath), FindPackage(toPath)
 	if fromPkg == nil || toPkg == nil {
 		return calculateRelative(fromPath, toPath)
 	}
+	relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.PathPrefix), "/")
 	if fromPkg.PackageName == toPkg.PackageName {
-		relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.PathPrefix), "/")
 		return toPkg.InternalPrefix + relativePath
+	}
+	if toPkg.SubpathExports && relativePath != "" {
+		return toPkg.PackageName + "/" + relativePath
 	}
 	return toPkg.PackageName
 }

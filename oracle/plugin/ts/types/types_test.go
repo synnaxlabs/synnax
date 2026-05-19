@@ -445,7 +445,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x/array"`))
 			// Required arrays use nullishToEmpty with element schema (not double-wrapped with z.array)
 			Expect(content).To(ContainSubstring(`objects: array.nullishToEmpty(z.uuid())`))
 			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
@@ -1080,7 +1080,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x/numeric"`))
 			Expect(content).To(ContainSubstring(`export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>`))
 			Expect(content).To(ContainSubstring(`lower: t ?? z.number()`))
 			Expect(content).To(ContainSubstring(`upper: t ?? z.number()`))
@@ -1604,7 +1604,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Array type aliases should use array.nullishToEmpty with element schema
-			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x/array"`))
 			Expect(content).To(ContainSubstring(`export const stagesZ = array.nullishToEmpty(stageZ)`))
 			Expect(content).To(ContainSubstring(`export const stratumZ = array.nullishToEmpty(z.string())`))
 			// Should NOT be plain z.array()
@@ -2250,7 +2250,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`import { telem } from "@synnaxlabs/x"`)
+					ToContain(`import { telem } from "@synnaxlabs/x/telem"`)
 			})
 		})
 

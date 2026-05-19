@@ -1365,10 +1365,8 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 	if resolution.IsPrimitive(typeRef.Name) {
 		if needsTypeImports {
 			switch typeRef.Name {
-			case "timestamp":
-				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-			case "timespan":
-				addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
+			case "timestamp", "timespan":
+				addXImport(data, xImport{name: "telem", submodule: "telem"})
 			}
 		}
 		return primitiveToTS(typeRef.Name)
@@ -1454,7 +1452,7 @@ var primitiveTSTypes = map[string]string{
 	"int8": "number", "int16": "number", "int32": "number", "int64": "number",
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
-	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
+	"timestamp": "telem.TimeStamp", "timespan": "telem.TimeSpan", "data_type": "telem.DataType",
 	"record": "unknown", "bytes": "Uint8Array",
 }
 
@@ -1491,11 +1489,11 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"uint64":             {schema: "z.uint64()"},
 	"float32":            {schema: "z.number()"},
 	"float64":            {schema: "z.number()"},
-	"timestamp":          {schema: "TimeStamp.z", xImports: []xImport{{name: "TimeStamp", submodule: "telem"}}},
-	"timespan":           {schema: "TimeSpan.z", xImports: []xImport{{name: "TimeSpan", submodule: "telem"}}},
-	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
-	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
-	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
+	"timestamp":          {schema: "telem.TimeStamp.z", xImports: []xImport{{name: "telem", submodule: "telem"}}},
+	"timespan":           {schema: "telem.TimeSpan.z", xImports: []xImport{{name: "telem", submodule: "telem"}}},
+	"time_range":         {schema: "telem.TimeRange.z", xImports: []xImport{{name: "telem", submodule: "telem"}}},
+	"time_range_bounded": {schema: "telem.TimeRange.boundedZ", xImports: []xImport{{name: "telem", submodule: "telem"}}},
+	"data_type":          {schema: "telem.DataType.z", xImports: []xImport{{name: "telem", submodule: "telem"}}},
 	"record":             {schema: "record.unknownZ().or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
@@ -1519,11 +1517,11 @@ var primitiveZodSchemaTypes = map[string]string{
 	"uint64":             "z.ZodBigInt",
 	"float32":            "z.ZodNumber",
 	"float64":            "z.ZodNumber",
-	"timestamp":          "typeof TimeStamp.z",
-	"timespan":           "typeof TimeSpan.z",
-	"time_range":         "typeof TimeRange.z",
-	"time_range_bounded": "typeof TimeRange.boundedZ",
-	"data_type":          "typeof DataType.z",
+	"timestamp":          "typeof telem.TimeStamp.z",
+	"timespan":           "typeof telem.TimeSpan.z",
+	"time_range":         "typeof telem.TimeRange.z",
+	"time_range_bounded": "typeof telem.TimeRange.boundedZ",
+	"data_type":          "typeof telem.DataType.z",
 	"record":             "z.ZodType",
 	"bytes":              "z.ZodType<Uint8Array>",
 }
@@ -1621,7 +1619,7 @@ func addXImport(data *templateData, imp xImport) {
 	if isInXPackage(data.OutputPath) {
 		data.AddImport("@/"+imp.submodule, imp.name)
 	} else {
-		data.AddImport(xPackageName, imp.name)
+		data.AddImport(xPackageName+"/"+imp.submodule, imp.name)
 	}
 }
 
@@ -1699,11 +1697,11 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			// Special handling for timestamp/timespan with default of 0
 			if rules.Default.IntValue == 0 {
 				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
-					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
+					addXImport(data, xImport{name: "telem", submodule: "telem"})
+					zodType = fmt.Sprintf("%s.default(telem.TimeStamp.ZERO)", zodType)
 				} else if typeRef.Name == "TimeSpan" || strings.HasSuffix(typeRef.Name, ".TimeSpan") {
-					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
+					addXImport(data, xImport{name: "telem", submodule: "telem"})
+					zodType = fmt.Sprintf("%s.default(telem.TimeSpan.ZERO)", zodType)
 				} else {
 					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
 				}
@@ -1717,8 +1715,8 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
 			if rules.Default.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
-				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+				addXImport(data, xImport{name: "telem", submodule: "telem"})
+				zodType = fmt.Sprintf("%s.default(() => telem.TimeStamp.now())", zodType)
 			}
 			// Handle "create" for auto-generating string keys
 			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`

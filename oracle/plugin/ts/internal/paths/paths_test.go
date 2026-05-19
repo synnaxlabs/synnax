@@ -46,12 +46,19 @@ var _ = Describe("CalculateImport", func() {
 		)
 		Expect(got).To(Equal("@/schematic/types.gen"))
 	})
-	It("Should produce a package name when the target is a different workspace", func() {
+	It("Should produce a subpath when the target opts out of a root barrel", func() {
 		got := paths.CalculateImport(
 			"client/ts/src/schematic",
 			"x/ts/src/spatial",
 		)
-		Expect(got).To(Equal("@synnaxlabs/x"))
+		Expect(got).To(Equal("@synnaxlabs/x/spatial"))
+	})
+	It("Should produce a bare package name when the target keeps a root barrel", func() {
+		got := paths.CalculateImport(
+			"client/ts/src/schematic",
+			"alamos/ts/src/log",
+		)
+		Expect(got).To(Equal("@synnaxlabs/alamos"))
 	})
 	It("Should fall back to a relative import when the source is unknown", func() {
 		got := paths.CalculateImport("vendor/foo", "vendor/bar")
