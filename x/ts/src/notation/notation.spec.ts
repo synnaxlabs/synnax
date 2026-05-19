@@ -301,6 +301,36 @@ const TEST_CASES: TestCase[] = [
       engineering: "0.00000000000ᴇ0",
     },
   },
+  // === Large-magnitude floats expressed with e-notation ===
+  // For values >= 10^21, JS's toFixed delegates to ToString, so standard output
+  // here is itself in e-notation. The scientific and engineering branches keep
+  // their canonical forms.
+  {
+    number: 9e124,
+    precision: 0,
+    expected: { standard: "9e+124", scientific: "9ᴇ124", engineering: "90ᴇ123" },
+  },
+  {
+    number: 9.99e124,
+    precision: 0,
+    expected: { standard: "9.99e+124", scientific: "1ᴇ125", engineering: "100ᴇ123" },
+  },
+  {
+    number: -3e10,
+    precision: 0,
+    expected: { standard: "-30000000000", scientific: "-3ᴇ10", engineering: "-30ᴇ9" },
+  },
+  // === Tiny-magnitude floats expressed with e-notation ===
+  {
+    number: 1e-200,
+    precision: 0,
+    expected: { standard: "0", scientific: "1ᴇ-200", engineering: "10ᴇ-201" },
+  },
+  {
+    number: 5e-50,
+    precision: 0,
+    expected: { standard: "0", scientific: "5ᴇ-50", engineering: "50ᴇ-51" },
+  },
 ];
 
 describe("stringifyNumber", () => {
