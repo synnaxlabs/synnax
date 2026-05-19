@@ -18,8 +18,14 @@ import (
 
 // Update is a query that updates Entries in the DB.
 type Update[K Key, E Entry[K]] struct {
+	// retrieve is the underlying scan used to resolve entries to update.
 	retrieve Retrieve[K, E]
-	changes  changes[K, E]
+	// changes is the chain of transformations applied to each matched
+	// entry before it is written back.
+	changes changes[K, E]
+	// indexes is the set of secondary indexes the query stages writes
+	// against. Nil means writes are not staged.
+	indexes []Index[K, E]
 }
 
 // NewUpdate opens a new Update query.
@@ -57,7 +63,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return wrapWriter[K, E](tx, u.retrieve.keyPrefix).Set(ctx, entries...)
+	return wrapWriter[K, E](tx, u.retrieve.keyPrefix, u.indexes).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

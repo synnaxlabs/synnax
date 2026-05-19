@@ -28,8 +28,8 @@ var _ = Describe("Observe", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		entryTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
-		grapeTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[grape]{DB: db}))
+		entryTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
+		grapeTable = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[int32, grape]{DB: db}))
 	})
 	It("Should correctly observe a change to the key value store", func(ctx SpecContext) {
 		tx := db.OpenTx()

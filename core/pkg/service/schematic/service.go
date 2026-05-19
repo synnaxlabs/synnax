@@ -115,7 +115,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Schematic]{
+	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, v55.Schematic]("msgpack_to_orc"),

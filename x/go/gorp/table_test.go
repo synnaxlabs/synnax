@@ -41,7 +41,7 @@ var _ = Describe("Table", func() {
 
 	Describe("OpenTable", func() {
 		It("Should open a table on an empty database", func(ctx SpecContext) {
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 		})
 
@@ -49,10 +49,10 @@ var _ = Describe("Table", func() {
 			e := entry{ID: 1, Data: "data"}
 			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
-			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
@@ -70,7 +70,7 @@ var _ = Describe("Table", func() {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
@@ -88,7 +88,7 @@ var _ = Describe("Table", func() {
 			Expect(gorp.NewCreate[uint64, uint64Entry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64Entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []uint64Entry
@@ -106,7 +106,7 @@ var _ = Describe("Table", func() {
 			Expect(gorp.NewCreate[string, stringEntry]().
 				Entries(&entries).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[stringEntry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, stringEntry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []stringEntry
@@ -123,7 +123,7 @@ var _ = Describe("Table", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entry](testDB)
 			Expect(w.Set(ctx, entry{ID: 1, Data: "no_migration"})).To(Succeed())
-			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
+			MustSucceed(gorp.OpenTable[int32, entry](ctx, gorp.TableConfig[int32, entry]{
 				DB: testDB,
 			}))
 			r := gorp.WrapReader[int32, entry](testDB)
@@ -139,7 +139,7 @@ var _ = Describe("Table", func() {
 				"noop",
 				func(_ context.Context, _ gorp.Tx, _ alamos.Instrumentation) error { return nil },
 			)
-			cfg := gorp.TableConfig[entry]{
+			cfg := gorp.TableConfig[int32, entry]{
 				DB:         testDB,
 				Migrations: []migrate.Migration{migration},
 			}
@@ -182,7 +182,7 @@ var _ = Describe("Table", func() {
 				},
 			)
 
-			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{
+			MustSucceed(gorp.OpenTable[int32, entry](ctx, gorp.TableConfig[int32, entry]{
 				DB:         testDB,
 				Migrations: []migrate.Migration{userMigration},
 			}))
@@ -211,7 +211,7 @@ var _ = Describe("Table", func() {
 			codec := msgpack.Codec
 			writeOldFormatEntry(ctx, codec, entry{ID: 42, Data: "old format"})
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res entry
@@ -230,7 +230,7 @@ var _ = Describe("Table", func() {
 			Expect(iter.Valid()).To(BeTrue())
 			Expect(iter.Close()).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			iter = MustSucceed(kvs.OpenIterator(kv.IterPrefix(oldPrefix)))
@@ -245,7 +245,7 @@ var _ = Describe("Table", func() {
 				writeOldFormatEntry(ctx, codec, entry{ID: int32(i), Data: "old"})
 			}
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
@@ -258,7 +258,7 @@ var _ = Describe("Table", func() {
 			e := entry{ID: 10, Data: "already new"}
 			Expect(gorp.NewCreate[int32, entry]().Entry(&e).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
@@ -276,7 +276,7 @@ var _ = Describe("Table", func() {
 			Expect(gorp.NewCreate[int32, entry]().
 				Entry(&newEntry).Exec(ctx, db)).To(Succeed())
 
-			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}))
 			Expect(table.Close()).To(Succeed())
 
 			var res []entry
@@ -292,7 +292,9 @@ var _ = Describe("Table", func() {
 			table *gorp.Table[int32, entry]
 		)
 		BeforeEach(func(ctx SpecContext) {
-			table = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[entry]{DB: db}))
+			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{
+				DB: db,
+			}))
 		})
 
 		Describe("NewCreate + NewRetrieve", func() {

@@ -230,6 +230,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	l.DB = gorp.Wrap(
 		aspenDB,
 		gorp.WithCodec(cfg.GorpCodec),
+		gorp.WithIndexObservable(aspenDB.NewObservable(aspen.IgnoreHostLeaseholder)),
 	)
 
 	if l.Ontology, err = ontology.Open(
