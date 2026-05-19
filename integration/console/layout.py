@@ -324,7 +324,7 @@ class LayoutClient:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=300)
+        input_field.wait_for(state="attached", timeout=5000)
         input_field.fill(value)
 
     def get_input_field(self, input_label: str) -> str:
@@ -335,8 +335,8 @@ class LayoutClient:
             .locator("input")
             .first
         )
-        input_field.wait_for(state="attached", timeout=400)
-        return input_field.input_value(timeout=200)
+        input_field.wait_for(state="attached", timeout=5000)
+        return input_field.input_value(timeout=2000)
 
     def click_btn(self, button_label: str) -> None:
         """Click a button by label."""

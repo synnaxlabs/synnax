@@ -19,82 +19,101 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// A Writer is used to create, update, and delete users in the key-value store.
+// A Writer is used to create, update, and delete user records. It does not touch
+// authentication credentials; callers that need to keep credentials in sync (the API
+// layer, the rbac root-user reconciler) coordinate user and auth writes themselves
+// within a single transaction.
 type Writer struct {
-	// svc is the service that the writer is associated with. The service is needed to
-	// check existing usernames in the key-value store.
-	svc *Service
-	// tx is the transaction that the writer will use to atomically interact with the
-	// key-value.
-	tx gorp.Tx
-	// otg is the ontology writer that the writer will use to create relationships
-	// between users and a user group.
-	otg ontology.Writer
-	// table is the gorp table for user entries.
+	svc   *Service
+	tx    gorp.Tx
+	otg   ontology.Writer
 	table *gorp.Table[Key, User]
 }
 
-// Create makes a new user in the key-value store. If the username of u already exists,
-// an error is thrown.
-func (w Writer) Create(ctx context.Context, u *User) error {
+// Create persists a new user record from u. If u.Key is the zero UUID, a new key is
+// assigned. The returned User has Key populated. Returns an error if u.RootUser is true
+// and [auth.ErrRepeatedUsername] if a user with u.Username already exists.
+func (w Writer) Create(ctx context.Context, u User) (User, error) {
+	if u.RootUser {
+		return User{}, errors.New("cannot create a root user; root users are provisioned at startup")
+	}
+	return w.create(ctx, u)
+}
+
+func (w Writer) create(ctx context.Context, u User) (User, error) {
 	if u.Key == uuid.Nil {
 		u.Key = uuid.New()
 	}
-	exists, err := w.svc.UsernameExists(ctx, u.Username)
+	exists, err := w.svc.
+		NewRetrieve().Where(MatchUsernames(u.Username)).Exists(ctx, w.tx)
+	if err != nil {
+		return User{}, err
+	}
+	if exists {
+		return User{}, auth.ErrRepeatedUsername
+	}
+	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
+		return User{}, err
+	}
+	if err := w.otg.DefineResource(ctx, OntologyID(u.Key)); err != nil {
+		return User{}, err
+	}
+	return u, nil
+}
+
+// ChangeUsername renames the user record identified by key to newUsername. No identity
+// check; callers must already have authorized the operation. Returns
+// [auth.ErrRepeatedUsername] if newUsername already belongs to a different user.
+func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
+	exists, err := w.svc.NewRetrieve().
+		Where(MatchUsernames(newUsername)).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
 	if exists {
-		return auth.RepeatedUsername
+		return auth.ErrRepeatedUsername
 	}
-	if err := w.table.NewCreate().Entry(u).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	otgID := OntologyID(u.Key)
-	return w.otg.DefineResource(ctx, otgID)
-}
-
-// ChangeUsername updates the username of the user with the given key. If a User with
-// the username newUsername already exists, an error is thrown.
-func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
-	usernameExists, err := w.svc.UsernameExists(ctx, newUsername)
-	if err != nil {
-		return err
-	}
-	if usernameExists {
-		return auth.RepeatedUsername
-	}
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).Change(func(_ gorp.Context, u User) User {
-		u.Username = newUsername
-		return u
-	}).Exec(ctx, w.tx)
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](key)).
+		Change(func(_ gorp.Context, u User) User {
+			u.Username = newUsername
+			return u
+		}).
+		Exec(ctx, w.tx)
 }
 
 // ChangeName updates the first and last name of the user with the given key. If either
-// first or last is an empty string, the corresponding field will not be updated.
-func (w Writer) ChangeName(ctx context.Context, key Key, first string, last string) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).Change(func(_ gorp.Context, u User) User {
-		if first != "" {
-			u.FirstName = first
-		}
-		if last != "" {
-			u.LastName = last
-		}
-		return u
-	}).Exec(ctx, w.tx)
+// first or last is empty, the corresponding field is left unchanged.
+func (w Writer) ChangeName(ctx context.Context, key Key, first, last string) error {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).
+		Change(func(_ gorp.Context, u User) User {
+			if first != "" {
+				u.FirstName = first
+			}
+			if last != "" {
+				u.LastName = last
+			}
+			return u
+		}).Exec(ctx, w.tx)
+}
+
+func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, User](key)).
+		Change(func(_ gorp.Context, u User) User { u.RootUser = root; return u }).
+		Exec(ctx, w.tx)
 }
 
 // Delete removes the users with the given keys from the key-value store.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).Guard(func(_ gorp.Context, u User) error {
-		if u.RootUser {
-			return errors.New("cannot delete root user")
-		}
-		return nil
-	}).Exec(ctx, w.tx); err != nil {
+// Deleting a root user is rejected.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).
+		Guard(func(_ gorp.Context, u User) error {
+			if u.RootUser {
+				return errors.New("cannot delete root user")
+			}
+			return nil
+		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))

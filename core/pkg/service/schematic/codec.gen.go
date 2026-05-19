@@ -14,8 +14,6 @@ package schematic
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -62,59 +60,6 @@ func (h *Handle) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (lv Legend) EncodeOrc(w *orc.Writer) error {
-	w.Bool(lv.Visible)
-	if err := lv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Bool(lv.Colors != nil)
-	if lv.Colors != nil {
-		w.Uint32(uint32(len(lv.Colors)))
-		for key, val := range lv.Colors {
-			w.String(key)
-			if err := val.EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (lv *Legend) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if lv.Visible, err = r.Bool(); err != nil {
-		return err
-	}
-	if err = lv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			lv.Colors = make(map[string]color.Color, n)
-			for range n {
-				var key string
-				var val color.Color
-				if key, err = r.String(); err != nil {
-					return err
-				}
-				if err = val.DecodeOrc(r); err != nil {
-					return err
-				}
-				lv.Colors[key] = val
-			}
-		}
-	}
-	return nil
-}
-
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	if err := nv.Position.EncodeOrc(w); err != nil {
@@ -148,10 +93,6 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
 	w.Bool(s.Snapshot)
-	w.Uint8(uint8(s.Authority))
-	if err := s.Legend.EncodeOrc(w); err != nil {
-		return err
-	}
 	w.Bool(s.Nodes != nil)
 	if s.Nodes != nil {
 		w.Uint32(uint32(len(s.Nodes)))
@@ -196,16 +137,6 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if s.Snapshot, err = r.Bool(); err != nil {
-		return err
-	}
-	{
-		v, err := r.Uint8()
-		if err != nil {
-			return err
-		}
-		s.Authority = control.Authority(v)
-	}
-	if err = s.Legend.DecodeOrc(r); err != nil {
 		return err
 	}
 	{

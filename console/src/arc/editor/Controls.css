@@ -47,3 +47,15 @@
         }
     }
 }
+
+@container (max-width: 600px) {
+    .console-arc .console-editor {
+        padding-bottom: 21rem;
+    }
+}
+
+.console-arc:has(.console-task-controls--expanded) {
+    .console-editor {
+        padding-bottom: 19rem;
+    }
+}

@@ -37,6 +37,7 @@ User struct {
             users cannot be deleted.
         """
         @validate default false
+        @filter
     }
 
     @doc value     """

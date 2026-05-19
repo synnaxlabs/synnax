@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -114,9 +113,9 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
-		rootCredentials: auth.InsecureCredentials{
+		rootCredentials: auth.Credentials{
 			Username: viper.GetString(FlagUsername),
-			Password: password.Raw(viper.GetString(FlagPassword)),
+			Password: viper.GetString(FlagPassword),
 		},
 		noDriver:             new(viper.GetBool(FlagNoDriver)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),

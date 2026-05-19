@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -39,51 +40,55 @@ func TestAPISchematic(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	rbacSvc  *rbac.Service
-	schemSvc *schematic.Service
-	apiSvc   *Service
-	ws       workspace.Workspace
-	author   user.User
+	db           *gorp.DB
+	otg          *ontology.Ontology
+	rbacSvc      *rbac.Service
+	schematicSvc *schematic.Service
+	apiSvc       *Service
+	ws           workspace.Workspace
+	author       user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.Open())
-	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
+	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    g,
-		Search:   searchIdx,
+		DB:              db,
+		Ontology:        otg,
+		Group:           groupSvc,
+		Search:          searchIdx,
+		Auth:            authSvc,
+		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
 	workspaceSvc := MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	schemSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
+	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	apiSvc = &Service{db: db, internal: schemSvc, access: rbacSvc}
-	author = user.User{Username: "test"}
-	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
+	apiSvc = &Service{db: db, internal: schematicSvc, access: rbacSvc}
+	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Username: "test",
+	}))
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 })

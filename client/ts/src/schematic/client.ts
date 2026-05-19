@@ -11,12 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ } from "@/schematic/actions.gen";
+import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
-  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -24,8 +23,6 @@ import {
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
-
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
@@ -100,13 +97,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
@@ -168,15 +159,8 @@ export class Client {
   }
 }
 
-export const ZERO_LEGEND: Legend = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
 export const ZERO_NEW: New = {
   name: "",
-  legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
   configs: {},

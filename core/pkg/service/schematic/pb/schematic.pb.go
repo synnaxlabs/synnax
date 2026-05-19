@@ -18,7 +18,6 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/x/color/pb"
 	pb "github.com/synnaxlabs/x/spatial/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -34,70 +33,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// Legend is the control legend overlay configuration.
-type Legend struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// visible is whether the legend is visible.
-	Visible bool `protobuf:"varint,1,opt,name=visible,proto3" json:"visible,omitempty"`
-	// position is the legend position within the schematic.
-	Position *pb.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
-	// colors maps control status keys to their display colors.
-	Colors        map[string]*pb1.Color `protobuf:"bytes,3,rep,name=colors,proto3" json:"colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Legend) Reset() {
-	*x = Legend{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Legend) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Legend) ProtoMessage() {}
-
-func (x *Legend) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Legend.ProtoReflect.Descriptor instead.
-func (*Legend) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Legend) GetVisible() bool {
-	if x != nil {
-		return x.Visible
-	}
-	return false
-}
-
-func (x *Legend) GetPosition() *pb.StickyXY {
-	if x != nil {
-		return x.Position
-	}
-	return nil
-}
-
-func (x *Legend) GetColors() map[string]*pb1.Color {
-	if x != nil {
-		return x.Colors
-	}
-	return nil
-}
 
 // Node is a diagram node representing a symbol in the schematic.
 type Node struct {
@@ -118,7 +53,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -130,7 +65,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -143,7 +78,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Node) GetKey() string {
@@ -188,7 +123,7 @@ type Handle struct {
 
 func (x *Handle) Reset() {
 	*x = Handle{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +135,7 @@ func (x *Handle) String() string {
 func (*Handle) ProtoMessage() {}
 
 func (x *Handle) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +148,7 @@ func (x *Handle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Handle.ProtoReflect.Descriptor instead.
 func (*Handle) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *Handle) GetNode() string {
@@ -245,7 +180,7 @@ type Edge struct {
 
 func (x *Edge) Reset() {
 	*x = Edge{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -257,7 +192,7 @@ func (x *Edge) String() string {
 func (*Edge) ProtoMessage() {}
 
 func (x *Edge) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -270,7 +205,7 @@ func (x *Edge) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edge.ProtoReflect.Descriptor instead.
 func (*Edge) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Edge) GetKey() string {
@@ -305,25 +240,21 @@ type Schematic struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	// authority is the control authority level for this schematic.
-	Authority uint32 `protobuf:"varint,4,opt,name=authority,proto3" json:"authority,omitempty"`
-	// legend is the control legend overlay configuration.
-	Legend *Legend `protobuf:"bytes,5,opt,name=legend,proto3" json:"legend,omitempty"`
 	// nodes contains all diagram nodes in the schematic.
-	Nodes []*Node `protobuf:"bytes,6,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Nodes []*Node `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains all connections between nodes.
-	Edges []*Edge `protobuf:"bytes,7,rep,name=edges,proto3" json:"edges,omitempty"`
+	Edges []*Edge `protobuf:"bytes,5,rep,name=edges,proto3" json:"edges,omitempty"`
 	// configs contains per-element configuration keyed by node or edge key. The shape of
 	// each value is determined by the element's variant; the wire format intentionally
 	// stores it as an opaque record.
-	Configs       map[string]*structpb.Struct `protobuf:"bytes,8,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Configs       map[string]*structpb.Struct `protobuf:"bytes,6,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Schematic) Reset() {
 	*x = Schematic{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -335,7 +266,7 @@ func (x *Schematic) String() string {
 func (*Schematic) ProtoMessage() {}
 
 func (x *Schematic) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -348,7 +279,7 @@ func (x *Schematic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schematic.ProtoReflect.Descriptor instead.
 func (*Schematic) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Schematic) GetKey() string {
@@ -370,20 +301,6 @@ func (x *Schematic) GetSnapshot() bool {
 		return x.Snapshot
 	}
 	return false
-}
-
-func (x *Schematic) GetAuthority() uint32 {
-	if x != nil {
-		return x.Authority
-	}
-	return 0
-}
-
-func (x *Schematic) GetLegend() *Legend {
-	if x != nil {
-		return x.Legend
-	}
-	return nil
 }
 
 func (x *Schematic) GetNodes() []*Node {
@@ -411,14 +328,7 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\xe6\x01\n" +
-	"\x06Legend\x12\x18\n" +
-	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
-	"\bposition\x18\x02 \x01(\v2\x16.x.spatial.pb.StickyXYR\bposition\x12@\n" +
-	"\x06colors\x18\x03 \x03(\v2(.service.schematic.pb.Legend.ColorsEntryR\x06colors\x1aL\n" +
-	"\vColorsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
-	"\x05value\x18\x02 \x01(\v2\x11.x.color.pb.ColorR\x05value:\x028\x01\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
@@ -430,16 +340,14 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x04Edge\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
-	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xa2\x03\n" +
+	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xce\x02\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x12\x1c\n" +
-	"\tauthority\x18\x04 \x01(\rR\tauthority\x124\n" +
-	"\x06legend\x18\x05 \x01(\v2\x1c.service.schematic.pb.LegendR\x06legend\x120\n" +
-	"\x05nodes\x18\x06 \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
-	"\x05edges\x18\a \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12F\n" +
-	"\aconfigs\x18\b \x03(\v2,.service.schematic.pb.Schematic.ConfigsEntryR\aconfigs\x1aS\n" +
+	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x120\n" +
+	"\x05nodes\x18\x04 \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
+	"\x05edges\x18\x05 \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12F\n" +
+	"\aconfigs\x18\x06 \x03(\v2,.service.schematic.pb.Schematic.ConfigsEntryR\aconfigs\x1aS\n" +
 	"\fConfigsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
 	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01B\xd3\x01\n" +
@@ -457,39 +365,31 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescData
 }
 
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
-	(*Legend)(nil),          // 0: service.schematic.pb.Legend
-	(*Node)(nil),            // 1: service.schematic.pb.Node
-	(*Handle)(nil),          // 2: service.schematic.pb.Handle
-	(*Edge)(nil),            // 3: service.schematic.pb.Edge
-	(*Schematic)(nil),       // 4: service.schematic.pb.Schematic
-	nil,                     // 5: service.schematic.pb.Legend.ColorsEntry
-	nil,                     // 6: service.schematic.pb.Schematic.ConfigsEntry
-	(*pb.StickyXY)(nil),     // 7: x.spatial.pb.StickyXY
-	(*pb.XY)(nil),           // 8: x.spatial.pb.XY
-	(*pb.Dimensions)(nil),   // 9: x.spatial.pb.Dimensions
-	(*pb1.Color)(nil),       // 10: x.color.pb.Color
-	(*structpb.Struct)(nil), // 11: google.protobuf.Struct
+	(*Node)(nil),            // 0: service.schematic.pb.Node
+	(*Handle)(nil),          // 1: service.schematic.pb.Handle
+	(*Edge)(nil),            // 2: service.schematic.pb.Edge
+	(*Schematic)(nil),       // 3: service.schematic.pb.Schematic
+	nil,                     // 4: service.schematic.pb.Schematic.ConfigsEntry
+	(*pb.XY)(nil),           // 5: x.spatial.pb.XY
+	(*pb.Dimensions)(nil),   // 6: x.spatial.pb.Dimensions
+	(*structpb.Struct)(nil), // 7: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	7,  // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
-	5,  // 1: service.schematic.pb.Legend.colors:type_name -> service.schematic.pb.Legend.ColorsEntry
-	8,  // 2: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	9,  // 3: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
-	2,  // 4: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
-	2,  // 5: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	0,  // 6: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
-	1,  // 7: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	3,  // 8: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	6,  // 9: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
-	10, // 10: service.schematic.pb.Legend.ColorsEntry.value:type_name -> x.color.pb.Color
-	11, // 11: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	5, // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	6, // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
+	1, // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	1, // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	0, // 4: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	2, // 5: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	4, // 6: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
+	7, // 7: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -503,7 +403,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -10,7 +10,15 @@
 import "@/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Key, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Breadcrumb,
+  Flex,
+  Icon,
+  Key,
+  Schematic as PSchematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -23,8 +31,8 @@ import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
-  useSelectIsSnapshot,
-  useSelectSelectedElementNames,
+  useSelectPendingUpload,
+  useSelectSelected,
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
@@ -44,7 +52,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const isEditable = hasUpdatePermission && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
@@ -69,15 +77,27 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  PSchematic.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar(layoutKey);
+  const activeTab = toolbar?.activeTab;
   const editMode = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
-  const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const selected = useSelectSelected(layoutKey);
+  const singleSelectedConfig = PSchematic.useSelectElementConfig({
+    key: layoutKey,
+    elKey: selected.length === 1 ? selected[0] : "",
+  });
+  const singleSelectedName =
+    selected.length === 1 &&
+    singleSelectedConfig != null &&
+    "label" in singleSelectedConfig
+      ? ((singleSelectedConfig.label as { label?: string } | undefined)?.label ?? null)
+      : null;
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const hasEditPermission = hasUpdatePermission && !isSnapshot;
   const canEdit = hasEditPermission && editMode;
   const content = useCallback(
@@ -103,11 +123,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const value = useMemo(
     () => ({
       tabs: TABS,
-      selected: toolbar?.activeTab,
+      selected: activeTab,
       onSelect: handleTabSelect,
       content,
     }),
-    [toolbar?.activeTab, content, handleTabSelect],
+    [activeTab, content, handleTabSelect],
   );
   return (
     <Tabs.Provider value={value}>
@@ -119,9 +139,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 <Icon.Schematic />
                 {name}
               </Breadcrumb.Segment>
-              {selectedNames.length === 1 && selectedNames[0] !== null && (
+              {singleSelectedName !== null && (
                 <Breadcrumb.Segment weight={400} color={8} level="small">
-                  {selectedNames[0]}
+                  {singleSelectedName}
                 </Breadcrumb.Segment>
               )}
             </Breadcrumb.Breadcrumb>
@@ -145,4 +165,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       </Key.Provider>
     </Tabs.Provider>
   );
+};
+
+export const Toolbar = (props: ToolbarProps) => {
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  return pendingUpload == null ? <Internal {...props} /> : null;
 };

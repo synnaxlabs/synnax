@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { type Flex, type Schematic as PSchematic, type Text } from "@synnaxlabs/pluto";
+import { type color, type direction, type location, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -18,15 +19,30 @@ import * as v4 from "@/schematic/types/v4";
 import * as v5 from "@/schematic/types/v5";
 import * as v6 from "@/schematic/types/v6";
 
-export type NodeConfig = v6.NodeConfig;
-export type EdgeConfig = v6.EdgeConfig;
-export type ElementConfig = v6.ElementConfig;
+export interface NodePropsLabel {
+  label?: string;
+  level?: Text.Level;
+  orientation?: location.Outer;
+  direction?: direction.Direction;
+  maxInlineSize?: number;
+  align?: Flex.Alignment;
+}
+
+export interface NodeProps {
+  variant: PSchematic.Node.Variant;
+  label?: NodePropsLabel;
+  orientation?: location.Outer;
+  color?: color.Crude;
+  [key: string]: unknown;
+}
+export type EdgeProps = PSchematic.Edge.Config;
+export type Props = NodeProps | EdgeProps;
 export type State = v6.State;
 export type SliceState = v6.SliceState;
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
 export type LegendState = v6.LegendState;
-export type CopyBuffer = v6.CopyBuffer;
+export type PendingUpload = v6.PendingUpload;
 export type AnyState =
   | v0.State
   | v1.State

@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package base
+import { ContextMenu as CContextMenu } from "@/components";
+import { Layout } from "@/layout";
 
-import "github.com/synnaxlabs/x/errors"
-
-var ErrAuth = errors.New("auth error")
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <CContextMenu.Menu>
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </CContextMenu.Menu>
+);

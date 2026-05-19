@@ -102,7 +102,7 @@ var _ = Describe("token", func() {
 			Expect(newToken).ToNot(BeEmpty())
 			time.Sleep(time.Second * 2)
 			Expect(svc.ValidateMaybeRefresh(tk)).Error().
-				To(MatchError(auth.ExpiredToken))
+				To(MatchError(auth.ErrExpiredToken))
 		})
 	})
 })
