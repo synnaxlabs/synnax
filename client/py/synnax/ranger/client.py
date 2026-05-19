@@ -54,7 +54,7 @@ RANGE_SET_CHANNEL = "sy_range_set"
 
 
 class _InternalScopedChannel(channel.Payload):
-    _range: Range | None = PrivateAttr(None)
+    _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
@@ -79,20 +79,21 @@ class _InternalScopedChannel(channel.Payload):
         _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
-        self._range = rng
+        self._cached_range = rng
         self._cached_frame_client = frame_client
         self._aliaser = _aliaser
         self._tasks = tasks
         self._ontology = ontology
 
-    def _get_range(self) -> Range:
-        if self._range is None:
+    @property
+    def range(self) -> Range:
+        if self._cached_range is None:
             raise _RANGE_NOT_CREATED
-        return self._range
+        return self._cached_range
 
     @property
     def time_range(self) -> TimeRange:
-        return self._get_range().time_range
+        return self.range.time_range
 
     def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
@@ -120,7 +121,7 @@ class _InternalScopedChannel(channel.Payload):
         return self._cache
 
     def set_alias(self, alias: str) -> None:
-        self._get_range().set_alias(self.key, alias)
+        self.range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"

@@ -139,7 +139,7 @@ class Task:
     config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
-    _frame_client: FrameClient | None = None
+    _cached_frame_client: FrameClient | None = None
 
     def __init__(
         self,
