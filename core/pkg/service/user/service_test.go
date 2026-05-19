@@ -13,256 +13,126 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("User", Ordered, func() {
-	var (
-		db    *gorp.DB
-		svc   *user.Service
-		otg   *ontology.Ontology
-		users []user.User
-		w     user.Writer
-	)
-	BeforeAll(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+var _ = Describe("ServiceConfig", func() {
+	// fullCfg returns a ServiceConfig with every required field populated. Override and
+	// Validate specs branch off this to test individual fields.
+	var cfg user.ServiceConfig
+	BeforeEach(func() {
+		cfg = user.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+			Group:    groupSvc,
 			Search:   searchIdx,
-		}))
-		svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		w = svc.NewWriter(nil)
+			Auth:     authSvc,
+		}
 	})
-	Describe("Create", func() {
-		It("Should create a new user", func(ctx SpecContext) {
-			newKey := uuid.New()
-			u := &user.User{Username: "test1", Key: newKey}
-			Expect(w.Create(ctx, u)).To(Succeed())
-			Expect(u.Key).To(Equal(newKey))
-			Expect(u.Username).To(Equal("test1"))
-			Expect(u.FirstName).To(Equal(""))
-			Expect(u.LastName).To(Equal(""))
-			Expect(u.RootUser).To(BeFalse())
-			users = append(users, *u)
+	Describe("Override", func() {
+		It("Should take each required field from the override when the base is zero", func() {
+			result := user.ServiceConfig{}.Override(cfg)
+			Expect(result.DB).To(Equal(db))
+			Expect(result.Ontology).To(Equal(otg))
+			Expect(result.Group).To(Equal(groupSvc))
+			Expect(result.Search).To(Equal(searchIdx))
+			Expect(result.Auth).To(Equal(authSvc))
 		})
-
-		It("Should create a new user without a key", func(ctx SpecContext) {
-			u := &user.User{Username: "test2"}
-			Expect(w.Create(ctx, u)).To(Succeed())
-			Expect(u.Key).ToNot(Equal(uuid.Nil))
-			Expect(u.Username).To(Equal("test2"))
-			Expect(u.FirstName).To(Equal(""))
-			Expect(u.LastName).To(Equal(""))
-			Expect(u.RootUser).To(BeFalse())
-			users = append(users, *u)
+		It("Should keep each required field from the base when the override is zero", func() {
+			result := cfg.Override(user.ServiceConfig{})
+			Expect(result.DB).To(Equal(db))
+			Expect(result.Ontology).To(Equal(otg))
+			Expect(result.Group).To(Equal(groupSvc))
+			Expect(result.Search).To(Equal(searchIdx))
+			Expect(result.Auth).To(Equal(authSvc))
 		})
-
-		It("Should create a user with a name", func(ctx SpecContext) {
-			u := &user.User{Username: "test3", FirstName: "Patrick", LastName: "Star"}
-			Expect(w.Create(ctx, u)).To(Succeed())
-			Expect(u.FirstName).To(Equal("Patrick"))
-			Expect(u.LastName).To(Equal("Star"))
-			Expect(u.Key).ToNot(Equal(uuid.Nil))
-			Expect(u.Username).To(Equal("test3"))
-			Expect(u.RootUser).To(BeFalse())
-			users = append(users, *u)
+		It("Should take RootCredentials from the override when set", func() {
+			creds := auth.Credentials{Username: "u", Password: "p"}
+			result := cfg.Override(user.ServiceConfig{RootCredentials: creds})
+			Expect(result.RootCredentials).To(Equal(creds))
 		})
-
-		It("Should return an error if the user with the username already exists", func(ctx SpecContext) {
-			u := &user.User{Username: "test1"}
-			Expect(errors.Is(w.Create(ctx, u), auth.RepeatedUsername)).To(BeTrue())
+		It("Should keep RootCredentials from the base when the override is zero", func() {
+			creds := auth.Credentials{Username: "u", Password: "p"}
+			cfg.RootCredentials = creds
+			result := cfg.Override(user.ServiceConfig{})
+			Expect(result.RootCredentials).To(Equal(creds))
 		})
 	})
-	Describe("Retrieve", func() {
-		It("Should retrieve a user by its key", func(ctx SpecContext) {
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
-			Expect(u).To(Equal(users[0]))
+	Describe("Validate", func() {
+		It("Should succeed when every required field is set", func() {
+			Expect(cfg.Validate()).To(Succeed())
 		})
-		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
-			var ret []user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key, users[1].Key)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
-			Expect(ret).To(ConsistOf(users[0], users[1]))
+		It("Should succeed without Auth when no root credentials are configured", func() {
+			cfg.Auth = nil
+			Expect(cfg.Validate()).To(Succeed())
 		})
-		It("Should return an error if the user does not exist", func(ctx SpecContext) {
-			err := svc.NewRetrieve().Where(user.MatchKeys(uuid.New())).Entry(nil).Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
+		It("Should require Auth when root credentials are configured", func() {
+			cfg.Auth = nil
+			cfg.RootCredentials = auth.Credentials{Username: "u", Password: "p"}
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("auth: must be non-nil")))
 		})
-		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames(users[0].Username)).Entry(&u).Exec(ctx, nil)).To(Succeed())
-			Expect(u).To(Equal(users[0]))
+		It("Should reject root credentials with an empty password", func() {
+			cfg.RootCredentials = auth.Credentials{Username: "u", Password: ""}
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("password")))
 		})
-		It("Should retrieve multiple users by usernames", func(ctx SpecContext) {
-			var ret []user.User
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames(users[0].Username, users[1].Username)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
-			Expect(ret).To(ConsistOf(users[0], users[1]))
-		})
-		It("Should return an error if the user does not exist", func(ctx SpecContext) {
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchUsernames("test5")).Entry(&u).Exec(ctx, nil)).
-				To(MatchError(query.ErrNotFound))
-		})
-	})
-	Describe("UsernameExists", func() {
-		It("Should return true if the username exists", func(ctx SpecContext) {
-			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeTrue())
-		})
-		It("Should return false if the username does not exist", func(ctx SpecContext) {
-			Expect(svc.UsernameExists(ctx, "This name does not exist")).To(BeFalse())
-		})
-	})
-	Describe("ChangeUsername", func() {
-		It("Should change the username of a user", func(ctx SpecContext) {
-			newUsername := "newUsername"
-			Expect(w.ChangeUsername(ctx, users[0].Key, newUsername)).To(Succeed())
-			Expect(svc.UsernameExists(ctx, newUsername)).To(BeTrue())
-			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeFalse())
-			users[0].Username = newUsername
-		})
-		It("Should return an error if the username already exists", func(ctx SpecContext) {
-			Expect(errors.Is(w.ChangeUsername(ctx, users[0].Key, users[1].Username), auth.RepeatedUsername)).To(BeTrue())
-		})
-	})
-	Describe("ChangeName", func() {
-		It("Should change the names of a user", func(ctx SpecContext) {
-			newFirstName := "Patrick"
-			newLastName := "Star"
-			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, newLastName)).To(Succeed())
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
-			Expect(u.FirstName).To(Equal(newFirstName))
-			Expect(u.LastName).To(Equal(newLastName))
-			Expect(u.Username).To(Equal(users[0].Username))
-			Expect(u.Key).To(Equal(users[0].Key))
-			users[0].FirstName = newFirstName
-			users[0].LastName = newLastName
-		})
-		It("Should only change one name if the other is blank", func(ctx SpecContext) {
-			newFirstName := "Spongebob"
-			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, "")).To(Succeed())
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
-			Expect(u.FirstName).To(Equal(newFirstName))
-			Expect(u.LastName).To(Equal(users[0].LastName))
-			Expect(u.Username).To(Equal(users[0].Username))
-			Expect(u.Key).To(Equal(users[0].Key))
-			users[0].FirstName = newFirstName
-		})
-	})
-	Describe("Delete", func() {
-		It("Should delete a single user", func(ctx SpecContext) {
-			Expect(w.Delete(ctx, users[0].Key)).To(Succeed())
-			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeFalse())
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
-		})
-		It("Should delete multiple users", func(ctx SpecContext) {
-			Expect(w.Delete(ctx, users[1].Key, users[2].Key)).To(Succeed())
-			Expect(svc.UsernameExists(ctx, users[1].Username)).To(BeFalse())
-			Expect(svc.UsernameExists(ctx, users[2].Username)).To(BeFalse())
-			var u user.User
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[1].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
-			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[2].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
-		})
-		It("Should not delete the root user", func(ctx SpecContext) {
-			u := &user.User{Username: "root", RootUser: true}
-			Expect(w.Create(ctx, u)).To(Succeed())
-			Expect(u.FirstName).To(Equal(""))
-			Expect(u.LastName).To(Equal(""))
-			Expect(u.Key).ToNot(Equal(uuid.Nil))
-			Expect(u.Username).To(Equal("root"))
-			Expect(u.RootUser).To(BeTrue())
-			Expect(errors.Is(w.Delete(ctx, u.Key), errors.New("cannot delete root user"))).To(BeTrue())
-		})
+		DescribeTable("Should return an error when a required field is missing",
+			func(mutate func(*user.ServiceConfig), errorMsg string) {
+				mutate(&cfg)
+				Expect(cfg.Validate()).To(MatchError(ContainSubstring(errorMsg)))
+			},
+			Entry("db", func(c *user.ServiceConfig) { c.DB = nil }, "db: must be non-nil"),
+			Entry("ontology", func(c *user.ServiceConfig) { c.Ontology = nil }, "ontology: must be non-nil"),
+			Entry("group", func(c *user.ServiceConfig) { c.Group = nil }, "group: must be non-nil"),
+			Entry("search", func(c *user.ServiceConfig) { c.Search = nil }, "search: must be non-nil"),
+		)
 	})
 })
 
-var _ = Describe("ProvisionRootUser", func() {
-	It("Should create the root user when Auth and credentials are provided", func(ctx SpecContext) {
-		testDB := DeferClose(gorp.Wrap(memkv.New()))
-		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		testSearch := MustOpen(search.Open())
-		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Search: testSearch,
-		}))
-		authKV := MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
-
-		svc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:              testDB,
-			Ontology:        testOtg,
-			Group:           testGroup,
-			Search:          testSearch,
-			Auth:            authKV,
-			RootCredentials: auth.InsecureCredentials{Username: "synnax", Password: "seldon"},
-		}))
-
-		var rootUser user.User
-		Expect(svc.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
-		Expect(rootUser.RootUser).To(BeTrue())
-		Expect(rootUser.Key).ToNot(Equal(uuid.Nil))
+var _ = Describe("Service", func() {
+	Describe("Open", func() {
+		It("Should return an error when the config is invalid", func(ctx SpecContext) {
+			Expect(user.OpenService(ctx, user.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
 	})
-
-	It("Should be idempotent across multiple opens", func(ctx SpecContext) {
-		testDB := DeferClose(gorp.Wrap(memkv.New()))
-		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		testSearch := MustOpen(search.Open())
-		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Search: testSearch,
-		}))
-		authKV := MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: testDB}))
-
-		creds := auth.InsecureCredentials{Username: "synnax", Password: "seldon"}
-		svc1 := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Group: testGroup, Search: testSearch,
-			Auth: authKV, RootCredentials: creds,
-		}))
-
-		var rootUser user.User
-		Expect(svc1.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
-		firstKey := rootUser.Key
-		Expect(svc1.Close()).To(Succeed())
-
-		svc2 := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Group: testGroup, Search: testSearch,
-			Auth: authKV, RootCredentials: creds,
-		}))
-
-		var rootUser2 user.User
-		Expect(svc2.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
-		Expect(rootUser2.Key).To(Equal(firstKey))
-	})
-
-	It("Should not create a root user when Auth is nil", func(ctx SpecContext) {
-		testDB := DeferClose(gorp.Wrap(memkv.New()))
-		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		testSearch := MustOpen(search.Open())
-		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Search: testSearch,
-		}))
-
-		svc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB: testDB, Ontology: testOtg, Group: testGroup, Search: testSearch,
-		}))
-
-		exists := MustSucceed(svc.UsernameExists(ctx, "synnax"))
-		Expect(exists).To(BeFalse())
+	Describe("Retrieve", func() {
+		var (
+			tx gorp.Tx
+			w  user.Writer
+		)
+		BeforeEach(func(ctx SpecContext) {
+			tx = DeferClose(db.OpenTx())
+			w = svc.NewWriter(tx)
+		})
+		It("Should retrieve a user by its key", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(u).To(Equal(created))
+		})
+		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
+			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			var ret []user.User
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(a.Key, b.Key)).Entries(&ret).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ret).To(ConsistOf(a, b))
+		})
+		It("Should retrieve a user by its username", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames(created.Username)).
+				Entry(&u).Exec(ctx, tx)).To(Succeed())
+			Expect(u).To(Equal(created))
+		})
+		It("Should return an error if the username does not exist", func(ctx SpecContext) {
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames("does-not-exist")).
+				Entry(&user.User{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		})
 	})
 })
