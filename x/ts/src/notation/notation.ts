@@ -62,10 +62,10 @@ export const stringifyNumber = (
   if (notation === "scientific") exp = Math.floor(Math.log10(Math.abs(value)));
   else exp = Math.floor(Math.log10(Math.abs(value)) / 3) * 3;
   let mantissaStr = (value / 10 ** exp).toFixed(precision);
-  // After rounding via toFixed, the mantissa may have crossed the canonical upper
-  // bound (>= 10 for scientific, >= 1000 for engineering). Bump the exponent so the
-  // mantissa stays in range — e.g., 9.999 at precision 1 in scientific becomes
-  // "1.0ᴇ1" rather than "10.0ᴇ0".
+  // After rounding via toFixed, the mantissa may have crossed the canonical upper bound
+  // (>= 10 for scientific, >= 1000 for engineering). Bump the exponent so the mantissa
+  // stays in range — e.g., 9.999 at precision 1 in scientific becomes "1.0ᴇ1" rather
+  // than "10.0ᴇ0".
   const upperBound = notation === "scientific" ? 10 : 1000;
   const expStep = notation === "scientific" ? 1 : 3;
   if (Math.abs(parseFloat(mantissaStr)) >= upperBound) {
