@@ -487,6 +487,48 @@ describe("Flux.createDispatch", () => {
       act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
+
+    it("restores state when undoing two coalesced setConfig dispatches", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      // Seed an existing config so the next two setConfigs hit the
+      // "existing != null" branch and capture non-empty inverses. setNode's
+      // kind differs from "set_config", so this entry won't coalesce with
+      // the burst that follows.
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNode({
+            node: { key: "n1", position: { x: 0, y: 0 } },
+            config: { label: "original" },
+          }),
+        });
+      });
+      const baseline = getDoc(result.current.store, key)?.configs;
+      // Two rapid same-kind dispatches → coalesce inside the 500ms window
+      // into a single entry whose merged inverse is [inv2, inv1]. Before the
+      // snapshot() fix in client/ts/src/schematic/actions.ts the second
+      // inverse action threw inside reduceAll ("current expects a draft")
+      // and undo silently did nothing.
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setConfig({ key: "n1", config: { label: "first" } }),
+        });
+      });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setConfig({ key: "n1", config: { label: "second" } }),
+        });
+      });
+      act(() => result.current.undo.undo());
+      await waitFor(() =>
+        expect(getDoc(result.current.store, key)?.configs).toEqual(baseline),
+      );
+    });
   });
 
   describe("transactions", () => {

@@ -669,4 +669,31 @@ describe("schematic reducer inverses", () => {
       ]);
     });
   });
+
+  describe("coalesced setConfig undo (regression)", () => {
+    it("should restore the original config after two rapid setConfig calls", () => {
+      const initial = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: { label: { level: "p" }, scale: 1, color: "red" } },
+      });
+      // Each dispatch carries the FULL form values, matching IndividualConfig's
+      // onChange: ({ values }) => dispatch(setConfig({ key, config: values })).
+      const r1 = reduceAll(initial, [
+        setConfig({
+          key: "n1",
+          config: { label: { level: "h2" }, scale: 1, color: "red" },
+        }),
+      ]);
+      const r2 = reduceAll(r1.next, [
+        setConfig({
+          key: "n1",
+          config: { label: { level: "h3" }, scale: 1, color: "red" },
+        }),
+      ]);
+      // Matches pushOnto's coalescing: inverse = [next.inverse, ...top.inverse]
+      const mergedInverse = [...r2.inverse, ...r1.inverse];
+      const restored = reduceAll(r2.next, mergedInverse).next;
+      expect(restored.configs.n1).toEqual(initial.configs.n1);
+    });
+  });
 });

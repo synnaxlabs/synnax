@@ -35,9 +35,15 @@ const dispatchReqZ = z.object({
   actions: actionZ.array(),
 });
 
+// The server emits this frame as snake_case JSON, but the framer's JSON codec
+// runs snakeToCamel before handing the value to the schema, so this stays in
+// camelCase. seq is the server's monotonic high-water mark used by the store
+// to drop stale echoes; it defaults to 0 to keep frames from servers that
+// predate the field parseable.
 export const scopedActionZ = z.object({
   key: keyZ,
   sessionKey: z.string(),
+  seq: z.number().int().nonnegative().default(0),
   actions: actionZ.array(),
 });
 

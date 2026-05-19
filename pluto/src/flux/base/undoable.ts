@@ -101,11 +101,14 @@ export type DispatchSend<Action> = (actions: Action[]) => Promise<void>;
 /**
  * The canonical wire shape for a broadcast action frame. The consumer's
  * `schema` must produce this shape (use a zod transform if the server emits
- * differently-named fields).
+ * differently-named fields). `seq` is a per-key monotonic sequence stamped by
+ * the originating server node and is used by the store to skip echoes that
+ * are stale relative to its high-water mark — see `applyRemote`.
  */
 export interface DispatchFrame<Key, Action> {
   key: Key;
   sessionKey: string;
+  seq: number;
   actions: Action[];
 }
 
@@ -161,8 +164,18 @@ export interface UndoableUnaryStore<
     send: DispatchSend<Action>,
     kind?: string,
   ): Transaction<Action>;
-  /** Apply a remote frame and stamp its targets as remote-touched. */
-  applyRemote(key: Key, actions: Action[]): void;
+  /**
+   * Apply a remote frame. The frame is dropped if its seq does not exceed the
+   * high-water mark previously applied for this key. Stamps the affected
+   * targets as remote-touched only when isOwnEcho is false, so a user's own
+   * confirming echo does not poison their own undo stack.
+   */
+  applyRemote(
+    key: Key,
+    seq: number,
+    actions: Action[],
+    opts?: { isOwnEcho?: boolean },
+  ): void;
   /** Mark internal keys as remote-touched at the given ts (default: now). */
   markRemoteTouched(
     key: Key,
@@ -193,6 +206,12 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   private readonly docs: ScopedUnaryStore<Key, State>;
   private readonly undos: ScopedUnaryStore<Key, UndoState<Action>>;
   private readonly config: Required<UndoableStoreConfig<Key, State, Action>>;
+  // lastAppliedSeq tracks the highest broadcast sequence number applied for
+  // each key. Echoes whose seq does not exceed this are stale (a fresher
+  // value already overwrote them on the server) and are dropped. A seq of 0
+  // is treated as "unstamped" and always applies — that covers frames from
+  // servers that predate the field.
+  private readonly lastAppliedSeq = new Map<Key, number>();
 
   constructor(opts: UndoableStoreConfig<Key, State, Action>) {
     this.config = {
@@ -376,12 +395,23 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     });
   }
 
-  applyRemote(scope: string, key: Key, actions: Action[]): void {
+  applyRemote(
+    scope: string,
+    key: Key,
+    seq: number,
+    actions: Action[],
+    opts: { isOwnEcho?: boolean } = {},
+  ): void {
+    if (seq !== 0) {
+      const last = this.lastAppliedSeq.get(key) ?? 0;
+      if (seq <= last) return;
+      this.lastAppliedSeq.set(key, seq);
+    }
     const current = this.docs.get(key);
     if (current == null) return;
     const { next, targets } = this.config.reduce(current, actions);
     this.docs.set(scope, key, next);
-    this.markRemoteTouched(scope, key, targets);
+    if (!opts.isOwnEcho) this.markRemoteTouched(scope, key, targets);
   }
 
   cascadeDelete(
@@ -443,7 +473,8 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
       prepareRedo: (key) => this.prepareRedo(scope, key),
       beginTransaction: (key, send, kind) =>
         this.beginTransaction(scope, key, send, kind),
-      applyRemote: (key, actions) => this.applyRemote(scope, key, actions),
+      applyRemote: (key, seq, actions, opts) =>
+        this.applyRemote(scope, key, seq, actions, opts),
       markRemoteTouched: (key, targets, ts) =>
         this.markRemoteTouched(scope, key, targets, ts),
       hasUndo: (key) => this.hasUndo(key),
@@ -489,8 +520,10 @@ export const createUndoableStore = <
     channel,
     schema,
     onChange: ({ changed, store, client }) => {
-      if (changed.sessionKey === client?.key) return;
-      store[storeKey].applyRemote(changed.key, changed.actions);
+      const isOwnEcho = changed.sessionKey === client?.key;
+      store[storeKey].applyRemote(changed.key, changed.seq, changed.actions, {
+        isOwnEcho,
+      });
     },
   };
   return {

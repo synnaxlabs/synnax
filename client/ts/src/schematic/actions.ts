@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, type record } from "@synnaxlabs/x";
-import { current } from "immer";
+import { current, isDraft } from "immer";
 
 import {
   type Action,
@@ -25,6 +25,13 @@ import {
 } from "@/schematic/actions.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
+
+// Snapshots a value out of an Immer draft so the result is safe to embed in an
+// action stored on the undo stack. When reduceAll applies multiple actions in
+// one produce(), an earlier action's wholesale assignment (e.g. state.configs[k]
+// = {...existing, ...payload.config}) leaves the slot as a plain object — the
+// next action would crash if it called current() unconditionally.
+const snapshot = <T>(v: T): T => (isDraft(v) ? (current(v)) : v);
 
 const handlers: Handlers = {
   rename: (state, payload) => {
@@ -66,9 +73,9 @@ const handlers: Handlers = {
         targets: [payload.node.key],
       };
     }
-    const oldNode = current(state.nodes[idx]);
+    const oldNode = snapshot(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.node.key];
-    const oldConfig = oldConfigRaw != null ? current(oldConfigRaw) : undefined;
+    const oldConfig = oldConfigRaw != null ? snapshot(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
     if (payload.config != null) state.configs[payload.node.key] = payload.config;
     return {
@@ -85,9 +92,9 @@ const handlers: Handlers = {
   removeNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return NO_OP;
-    const oldNode = current(state.nodes[idx]);
+    const oldNode = snapshot(state.nodes[idx]);
     const oldConfigRaw = state.configs[payload.key];
-    const oldConfig = oldConfigRaw != null ? current(oldConfigRaw) : undefined;
+    const oldConfig = oldConfigRaw != null ? snapshot(oldConfigRaw) : undefined;
     state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
     return {
@@ -113,7 +120,7 @@ const handlers: Handlers = {
   removeEdge: (state, payload) => {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return NO_OP;
-    const oldEdge = current(state.edges[idx]);
+    const oldEdge = snapshot(state.edges[idx]);
     state.edges.splice(idx, 1);
     return {
       inverse: [addEdge({ edge: oldEdge })],
@@ -129,7 +136,7 @@ const handlers: Handlers = {
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
-      const existing = current(existingRaw);
+      const existing = snapshot(existingRaw);
       const restoreFields: record.Unknown = {};
       for (const k of Object.keys(payload.config))
         if (existing[k] !== undefined) restoreFields[k] = existing[k];

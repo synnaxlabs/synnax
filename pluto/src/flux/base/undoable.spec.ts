@@ -55,6 +55,7 @@ interface SubStore extends base.Store {
 const frameZ = z.object({
   key: z.string(),
   sessionKey: z.string(),
+  seq: z.number().int().nonnegative(),
   actions: z.array(z.any()),
 }) as unknown as z.ZodType<DispatchFrame<string, Action>>;
 
@@ -608,15 +609,75 @@ describe("UndoableStore", () => {
       );
       // Force a strictly-after timestamp on the remote stamp.
       await sleep.sleep(TimeSpan.milliseconds(2));
-      store.applyRemote("k", [{ type: "set", key: "a", value: 99 }]);
+      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 99 }]);
       expect(store.get("k")).toEqual({ values: { a: 99 } });
       expect(store.prepareUndo("k")).toBeNull();
     });
 
     it("is a no-op when the doc is not cached", () => {
       const { store } = setupStore();
-      store.applyRemote("missing", [{ type: "set", key: "a", value: 1 }]);
+      store.applyRemote("missing", 1, [{ type: "set", key: "a", value: 1 }]);
       expect(store.get("missing")).toBeUndefined();
+    });
+
+    it("drops echoes whose seq does not exceed the high-water mark", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      store.applyRemote("k", 5, [{ type: "set", key: "a", value: 1 }]);
+      expect(store.get("k")).toEqual({ values: { a: 1 } });
+      // Same seq — a duplicate frame — must be dropped.
+      store.applyRemote("k", 5, [{ type: "set", key: "a", value: 99 }]);
+      expect(store.get("k")).toEqual({ values: { a: 1 } });
+      // Older seq — a reordered or replayed frame — must also be dropped.
+      store.applyRemote("k", 4, [{ type: "set", key: "a", value: 99 }]);
+      expect(store.get("k")).toEqual({ values: { a: 1 } });
+      // Fresher seq applies and advances the high-water mark.
+      store.applyRemote("k", 6, [{ type: "set", key: "a", value: 2 }]);
+      expect(store.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("treats seq=0 as unstamped and always applies for legacy-server compat", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      store.applyRemote("k", 0, [{ type: "set", key: "a", value: 1 }]);
+      store.applyRemote("k", 0, [{ type: "set", key: "a", value: 2 }]);
+      expect(store.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("skips markRemoteTouched on own echoes so they do not poison the local undo stack", async () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      store.recordEntry(
+        "k",
+        [{ type: "set", key: "a", value: 1 }],
+        [{ type: "set", key: "a", value: 0 }],
+        ["a"],
+      );
+      await sleep.sleep(TimeSpan.milliseconds(2));
+      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 1 }], {
+        isOwnEcho: true,
+      });
+      expect(store.get("k")).toEqual({ values: { a: 1 } });
+      // The local undo entry survives because the echo was own.
+      expect(store.prepareUndo("k")).not.toBeNull();
+    });
+
+    it("converges when a foreign action interleaves between own echoes (Alice/Bob)", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      // Alice (own) sets a=10 at seq=1 — but the broadcast arrives after Bob's.
+      // Bob (foreign) sets a=5 at seq=2.
+      // Alice (own) sets a=20 at seq=3 — final server state.
+      // Echoes arrive in seq order at this client.
+      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 10 }], {
+        isOwnEcho: true,
+      });
+      store.applyRemote("k", 2, [{ type: "set", key: "a", value: 5 }]);
+      store.applyRemote("k", 3, [{ type: "set", key: "a", value: 20 }], {
+        isOwnEcho: true,
+      });
+      // Converges to the server's last-applied value, not the foreign middle.
+      expect(store.get("k")).toEqual({ values: { a: 20 } });
     });
   });
 
