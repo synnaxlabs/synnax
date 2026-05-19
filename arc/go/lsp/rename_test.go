@@ -385,14 +385,13 @@ func main() {
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, channelContent)
 
-			_, err := server.Rename(ctx, &protocol.RenameParams{
+			Expect(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 14},
 				},
 				NewName: "renamed_sensor",
-			})
-			Expect(err).To(MatchError(renameErr))
+			})).Error().To(MatchError(renameErr))
 		})
 
 		It("should invoke OnRename for source-defined symbols too", func(ctx SpecContext) {
