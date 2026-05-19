@@ -77,19 +77,21 @@ UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  *
  * 1. A number representing the number of nanoseconds since the Unix epoch.
  * 2. A JavaScript Date object.
- * 3. An array of numbers satisfying the DateComponents type, where the first element is the
- *   year, the second is the month, and the third is the day. To increase resolution
- *   when using this method, use the add method. It's important to note that this initializes
- *   a timestamp at midnight UTC, regardless of the timezone specified.
- * 4. An ISO compliant date or date time string. The time zone component is ignored.
+ * 3. An array of numbers satisfying the DateComponents type, where the first element is
+ *    the year, the second is the month, and the third is the day. To increase
+ *    resolution when using this method, use the add method. It's important to note that
+ *    this initializes a timestamp at midnight UTC, regardless of the TimeZone
+ *    specified.
+ * 4. An ISO compliant date or date time string. The TimeZone component is ignored.
  *
- * @param timeZone - The timezone to use when parsing the timestamp. This can be either "UTC" or
- * "local". This parameter is ignored if the value is a Date object or a DateComponents array.
+ * @param timeZone - The TimeZone to use when parsing the TimeStamp. This can be either
+ * "UTC" or "local". This parameter is ignored if the value is a Date object or a
+ * DateComponents array.
  *
  * @example ts = new TimeStamp(1 * TimeSpan.HOUR) // 1 hour after the Unix epoch
- * @example ts = new TimeStamp([2021, 1, 1]) // 1/1/2021 at midnight UTC
- * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
- * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
+ * @example ts = new TimeStamp([2021, 1, 1]) // 1/1/2021 midnight UTC
+ * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 1am UTC
+ * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 12:30pm UTC
  */
 export class TimeStamp
   extends primitive.ValueExtension<bigint>
@@ -184,8 +186,8 @@ export class TimeStamp
     }
 
     const d = new Date(str);
-    // Essential to note that this makes the date midnight in UTC! Not local!
-    // As a result, we need to add the timeZone offset back in.
+    // Essential to note that this makes the date midnight in UTC! Not local! As a
+    // result, we need to add the timeZone offset back in.
     if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
       BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
@@ -645,7 +647,7 @@ export class TimeStamp
    * Returns a string representation of the TimeStamp.
    *
    * @param format - Optional format for the string representation. Defaults to "ISO".
-   * @param timeZone - Optional timezone info. Defaults to "UTC".
+   * @param timeZone - Optional TimeZone. Defaults to "UTC".
    * @returns A string representation of the TimeStamp.
    */
   toString(format: TimeStampStringFormat = "ISO", timeZone: TimeZone = "UTC"): string {

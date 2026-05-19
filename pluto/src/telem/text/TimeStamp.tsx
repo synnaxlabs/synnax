@@ -24,18 +24,18 @@ export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<
 > & {
   children: CrudeTimeStamp;
   format?: TimeStampStringFormat;
-  suppliedTZ?: TimeZone;
-  displayTZ?: TimeZone;
+  suppliedTimeZone?: TimeZone;
+  displayTimeZone?: TimeZone;
 };
 
 export const TimeStamp = <E extends Generic.ElementType = "p">({
   format = "dateTime",
-  suppliedTZ = "UTC",
-  displayTZ = "local",
+  suppliedTimeZone = "UTC",
+  displayTimeZone = "local",
   children,
   ...rest
 }: TimeStampProps<E>): ReactElement => (
   <Text.Text<E> {...(rest as Text.TextProps<E>)}>
-    {new XTimeStamp(children, suppliedTZ).toString(format, displayTZ)}
+    {new XTimeStamp(children, suppliedTimeZone).toString(format, displayTimeZone)}
   </Text.Text>
 );
