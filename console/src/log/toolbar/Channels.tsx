@@ -23,7 +23,13 @@ import {
   Telem,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive, type TimeZone } from "@synnaxlabs/x";
+import {
+  color,
+  DataType,
+  type notation,
+  primitive,
+  type TimeZone,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
