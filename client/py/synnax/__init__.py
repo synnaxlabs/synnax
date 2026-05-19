@@ -48,7 +48,6 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
-from synnax.imex import Envelope
 from synnax.options import Options
 from synnax.rack import Rack
 from synnax.ranger import Range
@@ -128,7 +127,6 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
-    "Envelope",
     "View",
     "elapsed_seconds",
     "ExpiredToken",

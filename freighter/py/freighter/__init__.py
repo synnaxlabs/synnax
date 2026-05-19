@@ -15,6 +15,7 @@ from freighter.alamos import (
 )
 from freighter.codec import Codec, JSONCodec, MessagePackCodec
 from freighter.context import Context, Role
+from freighter.download import DownloadClient
 from freighter.exceptions import EOF, StreamClosed, Unreachable
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
@@ -23,20 +24,15 @@ from freighter.transport import (
     AsyncMiddleware,
     AsyncNext,
     Empty,
+    FilePath,
     Finalizer,
     Middleware,
     MiddlewareCollector,
     Next,
     Transport,
 )
-from freighter.unary import (
-    AsyncUnaryClient,
-    DownloadClient,
-    FilePath,
-    UnaryClient,
-    UploadClient,
-    send_required,
-)
+from freighter.unary import AsyncUnaryClient, UnaryClient, send_required
+from freighter.upload import UploadClient
 from freighter.url import URL
 from freighter.websocket import (
     AsyncWebsocketClient,

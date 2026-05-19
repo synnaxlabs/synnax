@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -19,11 +19,6 @@ from synnax.ontology.payload import ID
 
 _IMPORT_PATH = "/import"
 _EXPORT_PATH = "/export"
-
-
-@runtime_checkable
-class _Transport(UnaryClient, UploadClient, DownloadClient, Protocol):
-    """The freighter capabilities the imex Client depends on."""
 
 
 class _ImportResponse(BaseModel):
@@ -38,10 +33,19 @@ class Client:
     ``export`` streams the response into it as it arrives.
     """
 
-    _client: _Transport
+    _unary: UnaryClient
+    _upload: UploadClient
+    _download: DownloadClient
 
-    def __init__(self, client: _Transport) -> None:
-        self._client = client
+    def __init__(
+        self,
+        unary: UnaryClient,
+        upload: UploadClient,
+        download: DownloadClient,
+    ) -> None:
+        self._unary = unary
+        self._upload = upload
+        self._download = download
 
     def import_(
         self,
@@ -56,9 +60,9 @@ class Client:
         if isinstance(source, dict):
             source = Envelope.model_validate(source)
         if isinstance(source, Envelope):
-            res, err = self._client.send(_IMPORT_PATH, source, _ImportResponse)
+            res, err = self._unary.send(_IMPORT_PATH, source, _ImportResponse)
         else:
-            res, err = self._client.upload(_IMPORT_PATH, source, _ImportResponse)
+            res, err = self._upload.upload(_IMPORT_PATH, source, _ImportResponse)
         if err is not None:
             raise err
         assert res is not None
@@ -82,12 +86,12 @@ class Client:
         :returns: the parsed Envelope when ``dest`` is None; otherwise None.
         """
         if dest is None:
-            res, err = self._client.send(_EXPORT_PATH, id, Envelope)
+            res, err = self._unary.send(_EXPORT_PATH, id, Envelope)
             if err is not None:
                 raise err
             assert res is not None
             return res
-        err = self._client.download(_EXPORT_PATH, id, dest)
+        err = self._download.download(_EXPORT_PATH, id, dest)
         if err is not None:
             raise err
         return None

@@ -15,10 +15,13 @@ from freighter import (
     AsyncMiddleware,
     AsyncStreamClient,
     AsyncWebsocketClient,
+    DownloadClient,
     HTTPClient,
     JSONCodec,
     Middleware,
     MessagePackCodec,
+    UnaryClient,
+    UploadClient,
     WebsocketClient,
     async_instrumentation_middleware,
     instrumentation_middleware,
@@ -30,7 +33,9 @@ class Transport:
     url: URL
     stream: WebsocketClient
     stream_async: AsyncStreamClient
-    unary: HTTPClient
+    unary: UnaryClient
+    upload: UploadClient
+    download: DownloadClient
     secure: bool
 
     def __init__(
@@ -53,13 +58,13 @@ class Transport:
             "close_timeout": read_timeout.seconds,
         }
         self.stream = WebsocketClient(**ws_args)
-        # We need to update these here because the websocket client doesn't support
-        # the same arguments as the async websocket client.
+        # We need to update these here because the WebSocket client doesn't support the
+        # same arguments as the async WebSocket client.
         ws_args["ping_interval"] = keep_alive.seconds
         ws_args["ping_timeout"] = 180
         self.stream_async = AsyncWebsocketClient(**ws_args)
         json_codec = JSONCodec()
-        self.unary = HTTPClient(
+        http = HTTPClient(
             url=self.url,
             encoder=json_codec,
             decoders=[json_codec],
@@ -67,6 +72,9 @@ class Transport:
             timeout=Timeout(connect=open_timeout.seconds, read=read_timeout.seconds),
             retries=Retry(total=max_retries),
         )
+        self.unary = http
+        self.upload = http
+        self.download = http
         self.use(instrumentation_middleware(instrumentation))
         self.use_async(async_instrumentation_middleware(instrumentation))
 
