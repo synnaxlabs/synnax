@@ -74,6 +74,13 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 	q.sorted.mu.RLock()
 	defer q.sorted.mu.RUnlock()
+	// Populate failure leaves entries unsorted (sortBulk runs only on
+	// success), so a binary search on q.cursor would give meaningless
+	// bounds. Treat the index as empty; execOrdered returns ErrNotFound
+	// for single-entry bindings and an empty slice otherwise.
+	if q.sorted.populateErrWrapped() != nil {
+		return nil
+	}
 	entries := q.sorted.entries
 	if len(entries) == 0 {
 		return nil
