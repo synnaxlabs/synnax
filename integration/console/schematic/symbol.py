@@ -144,7 +144,9 @@ class Symbol(ABC):
         selected_node = self.page.locator(".react-flow__node.selected")
         selected_node.wait_for(state="visible", timeout=5000)
         self.layout.show_visualization_toolbar()
-        self.layout.click("Style")
+        style_tab = self.page.get_by_text("Style", exact=True).first
+        style_tab.wait_for(state="visible", timeout=5000)
+        style_tab.click()
         self.layout.fill_input_field("Label", label)
         self.label = label
 

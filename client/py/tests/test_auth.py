@@ -60,9 +60,9 @@ class TestAuthRetry:
                 last_name="Labs",
             ),
         )
-        mock_login_client = MockUnaryClient[
-            sy.auth.InsecureCredentials, sy.auth.TokenResponse
-        ](responses=[res, res], response_errors=[None, None])
+        mock_login_client = MockUnaryClient[sy.auth.Credentials, sy.auth.TokenResponse](
+            responses=[res, res], response_errors=[None, None]
+        )
 
         # Create auth client
         auth = sy.auth.Client(mock_login_client, "synnax", "seldon")

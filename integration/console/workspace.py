@@ -618,9 +618,12 @@ class WorkspaceClient:
             """
             const [data, name, sliceName, icon] = args;
             const key = crypto.randomUUID();
+            const createPayload = sliceName === 'schematic'
+                ? { key, data }
+                : { ...data, key };
             store.dispatch({
                 type: sliceName + '/create',
-                payload: { ...data, key }
+                payload: createPayload,
             });
             store.dispatch({
                 type: 'layout/place',
@@ -677,9 +680,12 @@ class WorkspaceClient:
             for (const [key, component] of Object.entries(components)) {
                 const sliceName = sliceMap[component.type];
                 if (!sliceName) continue;
+                const createPayload = sliceName === 'schematic'
+                    ? { key, data: component }
+                    : { ...component, key };
                 store.dispatch({
                     type: sliceName + '/create',
-                    payload: { ...component, key },
+                    payload: createPayload,
                 });
             }
             """,
