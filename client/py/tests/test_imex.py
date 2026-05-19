@@ -75,10 +75,9 @@ class TestEnvelope:
 
 @pytest.mark.imex
 class TestImex:
-    """Round-trip imex against a live Synnax cluster.
+    """Round-trip imex against a live Synnax Core.
 
-    Uses the ``log`` resource type — the only one registered with the imex
-    service today (SY-3990 / RFC 0034).
+    Uses the ``log`` resource type.
     """
 
     def test_import_envelope_then_export(self, client: sy.Synnax) -> None:
