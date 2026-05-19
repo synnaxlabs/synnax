@@ -28,7 +28,7 @@ const Version imex.Version = 1
 // v1 captures it here for round-trip fidelity.
 type TimestampConfig struct {
 	Format telem.TimestampFormat `json:"format"`
-	Tz     telem.Timezone        `json:"tz"`
+	Tz     telem.TimeZone        `json:"tz"`
 }
 
 // ChannelEntry is a channel reference with display configuration. Fields are typed
@@ -56,7 +56,7 @@ type Data struct {
 
 // Parse marshals the imex map back to JSON and unmarshals it into a typed Data.
 // The typed fields (color.Color, notation.Notation, telem.TimestampFormat,
-// telem.Timezone) handle their own conversion via the standard library's
+// telem.TimeZone) handle their own conversion via the standard library's
 // json.Unmarshaler interface where applicable, so the wire format flows directly
 // into the typed shape without per-field parser helpers. An empty per-channel
 // color string is scrubbed pre-unmarshal so it doesn't trip
@@ -139,7 +139,7 @@ func Validate(d Data) error {
 		case "",
 			telem.TimestampFormatPreciseTime,
 			telem.TimestampFormatPreciseDate,
-			telem.TimestampFormatIso:
+			telem.TimestampFormatISO:
 		default:
 			return errors.Newf(
 				"channels[%d].timestamp.format: invalid value %q",
@@ -147,7 +147,7 @@ func Validate(d Data) error {
 			)
 		}
 		switch c.Timestamp.Tz {
-		case "", telem.TimezoneLocal, telem.TimezoneUtc:
+		case "", telem.TimeZoneLocal, telem.TimeZoneUTC:
 		default:
 			return errors.Newf(
 				"channels[%d].timestamp.tz: invalid value %q",

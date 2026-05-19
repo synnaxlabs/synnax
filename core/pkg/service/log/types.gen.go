@@ -26,8 +26,8 @@ type Key = uuid.UUID
 type TimestampConfig struct {
 	// Format controls how channel timestamps are rendered.
 	Format telem.TimestampFormat `json:"format" msgpack:"format"`
-	// Tz is the timezone used when rendering timestamps.
-	Tz telem.Timezone `json:"tz" msgpack:"tz"`
+	// Tz is the time zone used when rendering timestamps.
+	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
 // ChannelEntry is a per-channel display configuration entry within a log.

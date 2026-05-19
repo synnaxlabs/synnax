@@ -19,8 +19,8 @@ import { ontology } from "@/ontology";
 export const timestampConfigZ = z.object({
   /** format controls how channel timestamps are rendered. */
   format: telem.timestampFormatZ.default("preciseDate"),
-  /** tz is the timezone used when rendering timestamps. */
-  tz: telem.timezoneZ.default("local"),
+  /** tz is the time zone used when rendering timestamps. */
+  tz: telem.timeZoneZ.default("local"),
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
 

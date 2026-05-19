@@ -71,7 +71,7 @@ const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement 
 );
 
 interface TimestampTZSelectProps extends Omit<
-  Select.ButtonsProps<telem.Timezone>,
+  Select.ButtonsProps<telem.TimeZone>,
   "keys"
 > {}
 
@@ -199,7 +199,7 @@ const ChannelRow = ({
             <TimestampTZSelect
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
-              onChange={(v: telem.Timezone) =>
+              onChange={(v: telem.TimeZone) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, tz: v },
                 })

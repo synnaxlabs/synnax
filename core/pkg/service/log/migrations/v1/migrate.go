@@ -28,7 +28,7 @@ func Migrate(old v0.Data) Data {
 			Precision: -1,
 			Timestamp: TimestampConfig{
 				Format: telem.TimestampFormatPreciseDate,
-				Tz:     telem.TimezoneLocal,
+				Tz:     telem.TimeZoneLocal,
 			},
 		}
 	}

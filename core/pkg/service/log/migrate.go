@@ -89,7 +89,7 @@ func logFromV1(d v1.Data) Log {
 			Alias:     c.Alias,
 			Timestamp: TimestampConfig{
 				Format: defaultTimestampFormat(c.Timestamp.Format),
-				Tz:     defaultTimezone(c.Timestamp.Tz),
+				Tz:     defaultTimeZone(c.Timestamp.Tz),
 			},
 		}
 	}
@@ -116,16 +116,16 @@ func defaultTimestampFormat(f telem.TimestampFormat) telem.TimestampFormat {
 	switch f {
 	case telem.TimestampFormatPreciseTime,
 		telem.TimestampFormatPreciseDate,
-		telem.TimestampFormatIso:
+		telem.TimestampFormatISO:
 		return f
 	}
 	return telem.TimestampFormatPreciseDate
 }
 
-func defaultTimezone(tz telem.Timezone) telem.Timezone {
+func defaultTimeZone(tz telem.TimeZone) telem.TimeZone {
 	switch tz {
-	case telem.TimezoneLocal, telem.TimezoneUtc:
+	case telem.TimeZoneLocal, telem.TimeZoneUTC:
 		return tz
 	}
-	return telem.TimezoneLocal
+	return telem.TimeZoneLocal
 }

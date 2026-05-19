@@ -15,6 +15,6 @@ export const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
 export const timestampFormatZ = z.enum(TIMESTAMP_FORMATS);
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 
-export const TIMEZONES = ["local", "UTC"] as const;
-export const timezoneZ = z.enum(TIMEZONES);
-export type Timezone = z.infer<typeof timezoneZ>;
+export const TIME_ZONES = ["local", "UTC"] as const;
+export const timeZoneZ = z.enum(TIME_ZONES);
+export type TimeZone = z.infer<typeof timeZoneZ>;

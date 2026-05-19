@@ -45,15 +45,15 @@ type TimestampFormat string
 const (
 	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
 	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
-	TimestampFormatIso         TimestampFormat = "ISO"
+	TimestampFormatISO         TimestampFormat = "ISO"
 )
 
-// Timezone is the timezone used when rendering timestamps.
-type Timezone string
+// TimeZone is the time zone used when rendering timestamps.
+type TimeZone string
 
 const (
-	TimezoneLocal Timezone = "local"
-	TimezoneUtc   Timezone = "UTC"
+	TimeZoneLocal TimeZone = "local"
+	TimeZoneUTC   TimeZone = "UTC"
 )
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is

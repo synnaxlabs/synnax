@@ -142,7 +142,7 @@ func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		tc.Tz = telem.Timezone(v)
+		tc.Tz = telem.TimeZone(v)
 	}
 	return nil
 }

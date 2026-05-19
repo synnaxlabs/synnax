@@ -77,8 +77,8 @@ var _ = Describe("MigrateLog", func() {
 		}
 		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
 		Expect(out.Channels).To(HaveLen(1))
-		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatIso))
-		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimezoneUtc))
+		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatISO))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
 	})
 
 	It("Should default the per-channel timestamp when the source omits it", func(ctx SpecContext) {
@@ -94,7 +94,7 @@ var _ = Describe("MigrateLog", func() {
 		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
 		Expect(out.Channels).To(HaveLen(1))
 		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
-		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimezoneLocal))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
 	})
 
 	It("Should drop UI-only fields the console persisted alongside the typed body", func(ctx SpecContext) {
@@ -174,7 +174,7 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.Channels[0].Color).To(Equal(color.Color{}))
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
 		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
-		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimezoneLocal))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
 	})
 
 	It("Should drop the body and keep Key+Name when the data blob is unparseable", func(ctx SpecContext) {

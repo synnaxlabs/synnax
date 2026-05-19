@@ -12,10 +12,10 @@ export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
 export {
+  TIME_ZONES,
   TIMESTAMP_FORMATS,
   type TimestampFormat,
   timestampFormatZ,
-  type Timezone,
-  TIMEZONES,
-  timezoneZ,
+  type TimeZone,
+  timeZoneZ,
 } from "@/telem/types.gen";

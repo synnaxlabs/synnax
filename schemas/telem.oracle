@@ -106,11 +106,11 @@ TimestampFormat enum {
     @pb omit
 }
 
-Timezone enum {
+TimeZone enum {
     local = "local"
     utc   = "UTC"
 
-    @doc value "is the timezone used when rendering timestamps."
+    @doc value "is the time zone used when rendering timestamps."
     @py omit
     @cpp omit
     @pb omit

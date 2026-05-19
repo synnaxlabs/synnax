@@ -24,8 +24,8 @@ TimestampConfig struct {
         @doc value        "controls how channel timestamps are rendered."
         @validate default "preciseDate"
     }
-    tz     telem.Timezone        {
-        @doc value        "is the timezone used when rendering timestamps."
+    tz     telem.TimeZone        {
+        @doc value        "is the time zone used when rendering timestamps."
         @validate default "local"
     }
 

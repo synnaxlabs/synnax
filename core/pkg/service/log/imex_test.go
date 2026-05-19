@@ -141,8 +141,8 @@ var _ = Describe("ImportExport", func() {
 					Precision: 3,
 					Alias:     "temp",
 					Timestamp: log.TimestampConfig{
-						Format: telem.TimestampFormatIso,
-						Tz:     telem.TimezoneUtc,
+						Format: telem.TimestampFormatISO,
+						Tz:     telem.TimeZoneUTC,
 					},
 				}},
 			}
