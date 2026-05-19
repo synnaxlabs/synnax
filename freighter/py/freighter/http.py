@@ -31,10 +31,6 @@ from x.exceptions import ExceptionPayload, decode_exception
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
 
-def _path_extension(path: FilePath) -> str:
-    return pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
-
-
 class HTTPClient(MiddlewareCollector):
     """
     HTTPClient is a urllib3-backed unary transport implementing UnaryClient,
@@ -104,10 +100,10 @@ class HTTPClient(MiddlewareCollector):
         res_t: type[RS],
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
-        Streams the file at req to target and decodes the response into res_t.
-        urllib3 uses chunked transfer encoding so the body never has to fit in
-        memory; the Content-Type is inferred from the file extension via the
-        client's registered codecs.
+        Streams the file at req to target and decodes the response into res_t. urllib3
+        uses chunked transfer encoding so the body never has to fit in memory; the
+        Content-Type is inferred from the file extension via the client's registered
+        codecs.
         """
         codec = self._codec_for_path(req)
         if isinstance(codec, Exception):
@@ -129,9 +125,9 @@ class HTTPClient(MiddlewareCollector):
         """
         Sends req to target and streams the response body directly into dest, without
         buffering the full body in memory. The Accept header is derived from the dest
-        extension via the client's registered codecs (e.g., a .json destination
-        requests application/json), so the on-disk format and the negotiated wire
-        format are guaranteed to match.
+        extension via the client's registered codecs (e.g., a .json destination requests
+        application/json), so the on-disk format and the negotiated wire format are
+        guaranteed to match.
         """
         dest_codec = self._codec_for_path(dest)
         if isinstance(dest_codec, Exception):
@@ -179,7 +175,7 @@ class HTTPClient(MiddlewareCollector):
         return self._endpoint.child(target).stringify()
 
     def _codec_for_path(self, path: FilePath) -> Codec | Exception:
-        ext = _path_extension(path)
+        ext = pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
         codec = self._codecs_by_extension.get(ext)
         if codec is None:
             return ValueError(

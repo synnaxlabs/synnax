@@ -29,6 +29,14 @@ class PayloadWithAlias(BaseModel):
 
 
 class TestJSONCodec:
+    def test_content_type(self) -> None:
+        """Should report application/json as the content type."""
+        assert JSONCodec().content_type() == "application/json"
+
+    def test_file_extension(self) -> None:
+        """Should report json as the file extension."""
+        assert JSONCodec().file_extension() == "json"
+
     def test_encode_decode_basic(self) -> None:
         """Should encode and decode a basic payload."""
         codec = JSONCodec()
@@ -55,6 +63,14 @@ class TestJSONCodec:
 
 
 class TestMessagePackCodec:
+    def test_content_type(self) -> None:
+        """Should report application/msgpack as the content type."""
+        assert MessagePackCodec().content_type() == "application/msgpack"
+
+    def test_file_extension(self) -> None:
+        """Should report msgpack as the file extension."""
+        assert MessagePackCodec().file_extension() == "msgpack"
+
     def test_encode_decode_basic(self) -> None:
         """Should encode and decode a basic payload."""
         codec = MessagePackCodec()

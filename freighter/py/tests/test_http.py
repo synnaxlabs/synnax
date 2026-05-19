@@ -30,6 +30,14 @@ def client(endpoint: URL) -> HTTPClient:
 
 
 @pytest.mark.http
+class TestConstructor:
+    def test_empty_decoders_raises_value_error(self, endpoint: URL) -> None:
+        """Should reject construction when no decoders are provided."""
+        with pytest.raises(ValueError, match="at least one response decoder"):
+            HTTPClient(endpoint.child("unary"), JSONCodec(), [])
+
+
+@pytest.mark.http
 class TestSend:
     def test_echo(self, client: HTTPClient) -> None:
         """Should echo an incremented ID back to the caller."""
