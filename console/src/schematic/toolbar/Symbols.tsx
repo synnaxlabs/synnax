@@ -531,11 +531,6 @@ interface SearchSymbolListProps {
   searchTerm: string;
 }
 
-export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic"]);
-export const ALL_STATIC_SYMBOLS: Schematic.Node.Spec[] = Object.values(
-  Schematic.Node.REGISTRY,
-).filter((s) => !CUSTOM_VARIANTS.has(s.key)) as unknown as Schematic.Node.Spec[];
-
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<string, Schematic.Node.Spec | schematic.symbol.Symbol>(
@@ -554,7 +549,7 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
     initialQuery: { searchTerm },
   });
   const staticData = List.useStaticData<string, Schematic.Node.Spec>({
-    data: ALL_STATIC_SYMBOLS,
+    data: Schematic.Node.STATIC_SPECS,
   });
   const { data, getItem, subscribe } = List.useCombinedData<
     string,

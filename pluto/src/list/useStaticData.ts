@@ -32,7 +32,7 @@ export interface UseStaticDataArgs<
   K extends record.Key = record.Key,
   E extends record.Keyed<K> = record.Keyed<K>,
 > {
-  data: E[];
+  data: readonly E[];
   filter?: (item: E, params: RetrieveParams) => boolean;
   sort?: compare.Comparator<E>;
 }

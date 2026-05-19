@@ -162,6 +162,7 @@ export const StateOverrideForm = (): ReactElement => {
 
   useRetrieveEffect({
     query: { key: specKey },
+    addStatusOnFailure: false,
     onChange: useCallback(
       (res: Flux.Result<schematic.symbol.Symbol>) => {
         if (res.data?.data == null) return;
