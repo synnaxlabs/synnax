@@ -34,7 +34,7 @@ type Config struct {
 	alamos.Instrumentation
 	// Credentials are the authentication credentials the driver should use when
 	// connecting to the Core.
-	Credentials auth.InsecureCredentials
+	Credentials auth.Credentials
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already
 	// installed on the users' system.

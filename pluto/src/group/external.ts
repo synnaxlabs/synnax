@@ -7,8 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package base
-
-import "github.com/synnaxlabs/x/errors"
-
-var ErrAuth = errors.New("auth error")
+export * from "@/group/queries";
+export * from "@/group/Select";

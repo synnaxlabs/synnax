@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, ontology, schematic } from "@synnaxlabs/client";
+import { type group, NotFoundError, ontology, schematic } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
+
+/// isMissing reports whether a schematic symbol retrieve resolved to a missing
+/// reference. Lets canvas and property-panel call sites branch on the existing
+/// Flux Result without inventing a parallel state type.
+export const isMissing = (res: Flux.Result<schematic.symbol.Symbol>): boolean =>
+  res.variant === "error" && NotFoundError.matches(res.status.details.error);
 
 export const FLUX_STORE_KEY = "schematicSymbols";
 
