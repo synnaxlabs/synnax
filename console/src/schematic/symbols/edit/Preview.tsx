@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { FileDrop } from "@/schematic/symbols/edit/FileDrop";
@@ -178,14 +178,20 @@ export const Preview = ({
     Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  Schematic.Node.Custom.useRender({
-    container: containerRef.current,
+  const setRenderContainer = Schematic.Node.Custom.useRender({
     orientation: "left",
     activeState: selectedState,
     externalScale: 1,
     spec,
     onMount,
   });
+  const setContainer = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerRef.current = el;
+      setRenderContainer(el);
+    },
+    [setRenderContainer],
+  );
 
   const form = Form.useContext();
   const handleContentsChange = (contents: string, filename?: string) => {
@@ -291,7 +297,7 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div ref={containerRef} className={CSS.B("preview")} style={{}}></div>
+              <div ref={setContainer} className={CSS.B("preview")} style={{}}></div>
             </div>
           </Flex.Box>
         </Flex.Box>

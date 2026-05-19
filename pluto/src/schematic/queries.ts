@@ -403,10 +403,7 @@ export const useAddNode = (resourceKey: string) => {
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
       const config = Node.resolveSpec(variant).defaultConfig(theme);
-      if (
-        (config.variant == "customActuator" || config.variant === "customStatic") &&
-        specKey != null
-      ) {
+      if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = store.schematicSymbols.get(specKey);
         if (config.label != null && sym != null) config.label.label = sym.name;

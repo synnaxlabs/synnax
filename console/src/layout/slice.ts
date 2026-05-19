@@ -16,7 +16,7 @@ import {
 import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import { deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
@@ -275,6 +275,25 @@ const tabFromLayout = (layout: State): Tabs.Spec => ({
   tabKey: layout.key,
 });
 
+// Inserts a tab for every location:"mosaic" layout whose tab is missing
+// from its claimed mosaic, falling back to the main mosaic when the window
+// is gone. Persisted state can carry this shape of inconsistency, and
+// without reconciliation the next attempt to re-open the layout throws
+// "Tab not found" in place().
+const reconcileMosaicLayouts = (state: SliceState) => {
+  Object.values(state.layouts).forEach((layout) => {
+    if (layout.location !== "mosaic") return;
+    let target = state.mosaics[layout.windowKey];
+    if (target == null) {
+      layout.windowKey = MAIN_WINDOW;
+      target = state.mosaics[MAIN_WINDOW];
+      if (target == null) return;
+    }
+    if (Mosaic.findTabNode(target.root, layout.key) != null) return;
+    target.root = Mosaic.insertTab(target.root, tabFromLayout(layout));
+  });
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -285,7 +304,6 @@ export const { actions, reducer } = createSlice({
 
       const prev = select(state, key);
       const panelKey = ensureWindowPanels(state, layout.windowKey);
-      const mosaic = state.mosaics[panelKey];
       if (prev != null) {
         key = prev.key;
         layout.key = prev.key;
@@ -303,39 +321,47 @@ export const { actions, reducer } = createSlice({
         state.windowPanels[key] = { order: [key], active: key };
       }
 
-      // If we're moving from a mosaic, remove the tab.
-      if (prev != null && prev.location === "mosaic" && location !== "mosaic")
-        [mosaic.root] = Mosaic.removeTab(mosaic.root, key);
+      // Clean up the source mosaic when leaving the mosaic location or
+      // moving across windows. The source is keyed by prev.windowKey, not
+      // by the incoming layout.windowKey.
+      if (
+        prev != null &&
+        prev.location === "mosaic" &&
+        (location !== "mosaic" || prev.windowKey !== layout.windowKey)
+      ) {
+        const prevMosaic = state.mosaics[prev.windowKey];
+        if (prevMosaic != null)
+          [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, key);
+      }
 
+      const mosaic = state.mosaics[layout.windowKey];
       const mosaicTab = tabFromLayout(layout);
 
       let mosaicKey = tab?.mosaicKey;
       // If we didn't explicitly specify a mosaic node to put the new tab in, and
       // the user has selected an active tab, we'll put the new tab in the same node
       // that the user has selected.
-      if (mosaic.activeTab != null && mosaicKey == null)
+      if (mosaic?.activeTab != null && mosaicKey == null)
         mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
 
-      // If we're moving to a mosaic, insert a tab.
-      if (prev?.location !== "mosaic" && location === "mosaic") {
-        mosaic.root = Mosaic.insertTab(
-          mosaic.root,
-          mosaicTab,
-          tab?.location,
-          mosaicKey,
-        );
+      // Decide insert vs. select/update by mosaic membership: a layout can
+      // claim location "mosaic" without a matching mosaic node when
+      // persisted state is inconsistent.
+      if (location === "mosaic" && mosaic != null) {
+        if (Mosaic.findTabNode(mosaic.root, key) != null)
+          mosaic.root = Mosaic.updateTab(
+            Mosaic.selectTab(mosaic.root, key),
+            key,
+            () => mosaicTab,
+          );
+        else
+          mosaic.root = Mosaic.insertTab(
+            mosaic.root,
+            mosaicTab,
+            tab?.location,
+            mosaicKey,
+          );
         mosaic.activeTab = key;
-      }
-
-      // If the tab already exists and its in the mosaic, make it the active tab
-      // and select it. Also rename it.
-      if (prev?.location === "mosaic" && location === "mosaic") {
-        mosaic.activeTab = key;
-        mosaic.root = Mosaic.updateTab(
-          Mosaic.selectTab(mosaic.root, key),
-          key,
-          () => mosaicTab,
-        );
       }
 
       state.layouts[key] = layout;
@@ -572,19 +598,27 @@ export const { actions, reducer } = createSlice({
     setWorkspace: (
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
-    ) =>
-      migrateSlice({
-        ...slice,
-        layouts: {
-          ...layoutsToPreserve(state.layouts),
-          ...slice.layouts,
-          main: MAIN_LAYOUT,
-        },
-        hauling: state.hauling,
-        themes: state.themes,
-        activeTheme: state.activeTheme,
-        nav: keepNav ? state.nav : slice.nav,
-      }),
+    ) => {
+      // Mosaic.insertTab mutates tabs arrays in place; clone before
+      // reconciling so the helper does not fight frozen nested objects
+      // carried over from the previous store snapshot.
+      const next = deep.copy(
+        migrateSlice({
+          ...slice,
+          layouts: {
+            ...layoutsToPreserve(state.layouts),
+            ...slice.layouts,
+            main: MAIN_LAYOUT,
+          },
+          hauling: state.hauling,
+          themes: state.themes,
+          activeTheme: state.activeTheme,
+          nav: keepNav ? state.nav : slice.nav,
+        }),
+      );
+      reconcileMosaicLayouts(next);
+      return next;
+    },
     clearWorkspace: (state) => ({
       ...ZERO_SLICE_STATE,
       layouts: {
