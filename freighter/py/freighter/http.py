@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import pathlib
 from collections.abc import Iterable, Sequence
-from typing import IO, Any
+from typing import IO, Any, Protocol
 
 import urllib3
 from pydantic import BaseModel
@@ -30,6 +30,21 @@ from x.exceptions import ExceptionPayload, decode_exception
 _CONTENT_TYPE_HEADER_KEY = "Content-Type"
 
 
+class FileCodec(Codec, Protocol):
+    """A Codec that also has an on-disk file representation.
+
+    HTTPClient uses file_extension to negotiate a content type from a file path during
+    upload and download. Codecs that only exist on a wire (e.g., a WebSocket framer
+    codec) need only satisfy Codec.
+    """
+
+    def file_extension(self) -> str:
+        """:returns: the file extension (without leading dot) associated with the
+        Codec's on-disk format, e.g. "json" or "msgpack".
+        """
+        ...
+
+
 class HTTPClient(MiddlewareCollector):
     """
     HTTPClient is a urllib3-backed unary transport implementing UnaryClient,
@@ -45,17 +60,17 @@ class HTTPClient(MiddlewareCollector):
 
     _pool: PoolManager
     _endpoint: URL
-    _encoder: Codec
-    _decoders: tuple[Codec, ...]
-    _decoders_by_content_type: dict[str, Codec]
-    _codecs_by_extension: dict[str, Codec]
+    _encoder: FileCodec
+    _decoders: tuple[FileCodec, ...]
+    _decoders_by_content_type: dict[str, FileCodec]
+    _codecs_by_extension: dict[str, FileCodec]
     _accept_header: str
 
     def __init__(
         self,
         url: URL,
-        encoder: Codec,
-        decoders: Sequence[Codec],
+        encoder: FileCodec,
+        decoders: Sequence[FileCodec],
         secure: bool = False,
         **kwargs: Any,
     ) -> None:
@@ -173,7 +188,7 @@ class HTTPClient(MiddlewareCollector):
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
 
-    def _codec_for_path(self, path: FilePath) -> Codec | Exception:
+    def _codec_for_path(self, path: FilePath) -> FileCodec | Exception:
         ext = pathlib.Path(os.fspath(path)).suffix.lstrip(".").lower()
         codec = self._codecs_by_extension.get(ext)
         if codec is None:
@@ -231,7 +246,7 @@ class HTTPClient(MiddlewareCollector):
         assert res is not None
         return res, None
 
-    def _resolve_decoder(self, http_res: BaseHTTPResponse) -> Codec | Exception:
+    def _resolve_decoder(self, http_res: BaseHTTPResponse) -> FileCodec | Exception:
         ct = http_res.headers.get(_CONTENT_TYPE_HEADER_KEY, "")
         decoder = self._decoders_by_content_type.get(ct.split(";", 1)[0].strip())
         if decoder is None:

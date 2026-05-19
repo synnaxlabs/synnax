@@ -23,12 +23,6 @@ class Codec(Protocol):
         """:returns: the MIME content type of the Codec"""
         ...
 
-    def file_extension(self) -> str:
-        """:returns: the file extension (without leading dot) associated with the
-        Codec's on-disk format, e.g. "json" or "msgpack".
-        """
-        ...
-
     def encode(self, data: BaseModel) -> bytes:
         """
         Encodes the given data into a binary representation.

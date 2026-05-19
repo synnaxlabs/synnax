@@ -17,7 +17,7 @@ from freighter.codec import Codec, JSONCodec, MessagePackCodec
 from freighter.context import Context, Role
 from freighter.download import DownloadClient
 from freighter.exceptions import EOF, StreamClosed, Unreachable
-from freighter.http import HTTPClient
+from freighter.http import FileCodec, HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
 from freighter.transport import (
     AsyncFinalizer,
@@ -65,6 +65,7 @@ __all__ = [
     "EOF",
     "Empty",
     "ExceptionPayload",
+    "FileCodec",
     "FilePath",
     "Finalizer",
     "HTTPClient",
