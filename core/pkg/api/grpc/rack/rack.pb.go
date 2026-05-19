@@ -122,10 +122,11 @@ func (x *CreateResponse) GetRacks() []*pb.Rack {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
-	Integration   string                 `protobuf:"bytes,3,opt,name=integration,proto3" json:"integration,omitempty"`
-	IncludeStatus bool                   `protobuf:"varint,4,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	Where         []byte                 `protobuf:"bytes,1,opt,name=where,proto3" json:"where,omitempty"`
+	SearchTerm    string                 `protobuf:"bytes,2,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
+	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	IncludeStatus bool                   `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -160,25 +161,32 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_api_grpc_rack_rack_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RetrieveRequest) GetKeys() []uint32 {
+func (x *RetrieveRequest) GetWhere() []byte {
 	if x != nil {
-		return x.Keys
+		return x.Where
 	}
 	return nil
 }
 
-func (x *RetrieveRequest) GetNames() []string {
+func (x *RetrieveRequest) GetSearchTerm() string {
 	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetIntegration() string {
-	if x != nil {
-		return x.Integration
+		return x.SearchTerm
 	}
 	return ""
+}
+
+func (x *RetrieveRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *RetrieveRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
 }
 
 func (x *RetrieveRequest) GetIncludeStatus() bool {
@@ -284,12 +292,14 @@ const file_core_pkg_api_grpc_rack_rack_proto_rawDesc = "" +
 	"\rCreateRequest\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"\x84\x01\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\x12 \n" +
-	"\vintegration\x18\x03 \x01(\tR\vintegration\x12%\n" +
-	"\x0einclude_status\x18\x04 \x01(\bR\rincludeStatus\"?\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"\x9d\x01\n" +
+	"\x0fRetrieveRequest\x12\x14\n" +
+	"\x05where\x18\x01 \x01(\fR\x05where\x12\x1f\n" +
+	"\vsearch_term\x18\x02 \x01(\tR\n" +
+	"searchTerm\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\x12%\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

@@ -12,6 +12,17 @@
 import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export interface DeviceFilterNode {
+  rack?: filter.NumericFilter;
+  location?: filter.StringFilter;
+  make?: filter.StringFilter;
+  model?: filter.StringFilter;
+  name?: filter.StringFilter;
+  and?: DeviceFilterNode[];
+  or?: DeviceFilterNode[];
+  not?: DeviceFilterNode;
+}
+
 export const deviceFilterNodeZ: z.ZodType<DeviceFilterNode> = z.lazy(() =>
   z.object({
     rack: filter.numericFilterZ.optional(),
@@ -24,4 +35,81 @@ export const deviceFilterNodeZ: z.ZodType<DeviceFilterNode> = z.lazy(() =>
     not: deviceFilterNodeZ.optional(),
   }),
 );
-export interface DeviceFilterNode extends z.infer<typeof deviceFilterNodeZ> {}
+
+export interface DeviceFilter {
+  rack?: number | number[] | filter.OpNode<number>;
+  location?: string | string[] | RegExp | filter.OpNode<string>;
+  make?: string | string[] | RegExp | filter.OpNode<string>;
+  model?: string | string[] | RegExp | filter.OpNode<string>;
+  name?: string | string[] | RegExp | filter.OpNode<string>;
+}
+
+export type DeviceFilterArg = DeviceFilter | filter.Node<"device">;
+
+export const DEVICE_FILTER_DESCRIPTOR: filter.Descriptor = {
+  entity: "device",
+  fields: {
+    rack: "numeric",
+    location: "string",
+    make: "string",
+    model: "string",
+    name: "string",
+  },
+  orderFields: {},
+};
+
+export const IDENTIFYING_FIELDS: ReadonlySet<string> = new Set([]);
+
+type TwoOrMore = [DeviceFilterArg, DeviceFilterArg, ...DeviceFilterArg[]];
+
+export const or = (...args: TwoOrMore): filter.Node<"device"> => ({
+  kind: "or",
+  children: args,
+  [filter.NODE_TAG]: "device",
+});
+
+export const and = (...args: TwoOrMore): filter.Node<"device"> => ({
+  kind: "and",
+  children: args,
+  [filter.NODE_TAG]: "device",
+});
+
+export const not = (arg: DeviceFilterArg): filter.Node<"device"> => ({
+  kind: "not",
+  children: [arg],
+  [filter.NODE_TAG]: "device",
+});
+
+export const eq = <T>(value: T): filter.OpNode<T, "eq"> => ({
+  value,
+  [filter.OP_TAG]: "eq",
+});
+
+export const gt = <T>(value: T): filter.OpNode<T, "gt"> => ({
+  value,
+  [filter.OP_TAG]: "gt",
+});
+
+export const lt = <T>(value: T): filter.OpNode<T, "lt"> => ({
+  value,
+  [filter.OP_TAG]: "lt",
+});
+
+export const gte = <T>(value: T): filter.OpNode<T, "gte"> => ({
+  value,
+  [filter.OP_TAG]: "gte",
+});
+
+export const lte = <T>(value: T): filter.OpNode<T, "lte"> => ({
+  value,
+  [filter.OP_TAG]: "lte",
+});
+
+export const between = <T>(lo: T, hi: T): filter.OpNode<T, "between"> => ({
+  value: [lo, hi] as const,
+  [filter.OP_TAG]: "between",
+});
+
+export const toWire = (
+  args: readonly filter.FilterArg[],
+): filter.WireNode | undefined => filter.toWire(args, DEVICE_FILTER_DESCRIPTOR);

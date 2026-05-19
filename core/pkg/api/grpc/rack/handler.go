@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"encoding/json"
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/grpc"
@@ -18,6 +19,7 @@ import (
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackpb "github.com/synnaxlabs/synnax/pkg/service/rack/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -92,21 +94,38 @@ func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse)
 }
 
 func (retrieveRequestTranslator) Forward(_ context.Context, req apirack.RetrieveRequest) (*RetrieveRequest, error) {
+	var whereBytes []byte
+	if req.Where != nil {
+		b, err := json.Marshal(req.Where)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal rack where filter")
+		}
+		whereBytes = b
+	}
 	return &RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
+		Where:         whereBytes,
+		SearchTerm:    req.SearchTerm,
+		Limit:         int32(req.Limit),
+		Offset:        int32(req.Offset),
 		IncludeStatus: req.IncludeStatus,
 	}, nil
 }
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apirack.RetrieveRequest, error) {
-	return apirack.RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
+	out := apirack.RetrieveRequest{
+		SearchTerm:    req.SearchTerm,
+		Limit:         int(req.Limit),
+		Offset:        int(req.Offset),
 		IncludeStatus: req.IncludeStatus,
-	}, nil
+	}
+	if len(req.Where) > 0 {
+		var where apirack.RackFilterNode
+		if err := json.Unmarshal(req.Where, &where); err != nil {
+			return apirack.RetrieveRequest{}, errors.Wrap(err, "unmarshal rack where filter")
+		}
+		out.Where = &where
+	}
+	return out, nil
 }
 
 func (retrieveResponseTranslator) Forward(_ context.Context, res apirack.RetrieveResponse) (*RetrieveResponse, error) {

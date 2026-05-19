@@ -13,6 +13,15 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import {
+  IDENTIFYING_FIELDS,
+  RACK_FILTER_DESCRIPTOR,
+  type RackRetrieveArg,
+  type RackRetrieveByKey,
+  type RackRetrieveByName,
+  retrieveReqZ as rackRetrieveReqZ,
+  retrieveResZ as rackRetrieveResZ,
+} from "@/rack/filter.gen";
+import {
   type Key,
   keyZ,
   type New,
@@ -23,48 +32,22 @@ import {
   type Status,
 } from "@/rack/types.gen";
 import { type task } from "@/task";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { executeRetrieve, type RetrieveDescriptor } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_rack_set";
 export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  integration: z.string().optional(),
-  searchTerm: z.string().optional(),
-  embedded: z.boolean().optional(),
-  hostIsNode: z.boolean().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
-});
-const retrieveResZ = z.object({ racks: array.nullishToEmpty(payloadZ) });
 export const rackZ = payloadZ;
 
-const singleRetrieveArgsZ = z.union([
-  z
-    .object({
-      key: keyZ,
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
-  z
-    .object({
-      name: z.string(),
-      includeStatus: z.boolean().optional(),
-    })
-    .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
-]);
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
-
-const multiRetrieveArgsZ = retrieveReqZ;
-
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
-
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
-
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+const RETRIEVE: RetrieveDescriptor<Payload, "racks"> = {
+  path: "/rack/retrieve",
+  entityName: "Rack",
+  reqZ: rackRetrieveReqZ,
+  resZ: rackRetrieveResZ,
+  itemsKey: "racks",
+  filter: RACK_FILTER_DESCRIPTOR,
+  identifyingFields: IDENTIFYING_FIELDS,
+};
 
 const createReqZ = z.object({ racks: newZ.array() });
 const createResZ = z.object({ racks: payloadZ.array() });
@@ -106,20 +89,11 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Rack>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Rack[]>;
-  async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
-    const isSingle = "key" in args || "name" in args;
-    const res = await sendRequired(
-      this.client,
-      "/rack/retrieve",
-      args,
-      retrieveArgsZ,
-      retrieveResZ,
-    );
-    const sugared = this.sugar(res.racks);
-    checkForMultipleOrNoResults("Rack", args, sugared, isSingle);
-    return isSingle ? sugared[0] : sugared;
+  async retrieve(args: RackRetrieveByKey): Promise<Rack>;
+  async retrieve(args: RackRetrieveByName): Promise<Rack>;
+  async retrieve(...args: [RackRetrieveArg, ...RackRetrieveArg[]]): Promise<Rack[]>;
+  async retrieve(...args: RackRetrieveArg[]): Promise<Rack | Rack[]> {
+    return executeRetrieve(RETRIEVE, this.client, args, (p) => this.sugar(p));
   }
 
   sugar(payload: Payload): Rack;

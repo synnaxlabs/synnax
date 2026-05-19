@@ -29,15 +29,48 @@ var (
 // rack queries. Set any combination of field filters on a
 // single node (they are implicitly ANDed). Use And/Or/Not for boolean composition.
 type RackFilterNode struct {
-	Name     *filter.StringFilter `json:"name,omitempty" msgpack:"name,omitempty"`
-	Embedded *filter.BoolFilter   `json:"embedded,omitempty" msgpack:"embedded,omitempty"`
-	And      []RackFilterNode     `json:"and,omitempty" msgpack:"and,omitempty"`
-	Or       []RackFilterNode     `json:"or,omitempty" msgpack:"or,omitempty"`
-	Not      *RackFilterNode      `json:"not,omitempty" msgpack:"not,omitempty"`
+	Key          *filter.NumericFilter[uint32] `json:"key,omitempty" msgpack:"key,omitempty"`
+	Name         *filter.StringFilter          `json:"name,omitempty" msgpack:"name,omitempty"`
+	Embedded     *filter.BoolFilter            `json:"embedded,omitempty" msgpack:"embedded,omitempty"`
+	Integrations *filter.StringFilter          `json:"integrations,omitempty" msgpack:"integrations,omitempty"`
+	HostIsNode   *filter.BoolFilter            `json:"host_is_node,omitempty" msgpack:"host_is_node,omitempty"`
+	And          []RackFilterNode              `json:"and,omitempty" msgpack:"and,omitempty"`
+	Or           []RackFilterNode              `json:"or,omitempty" msgpack:"or,omitempty"`
+	Not          *RackFilterNode               `json:"not,omitempty" msgpack:"not,omitempty"`
 }
 
 func (n RackFilterNode) toFilter() servicerack.Filter {
 	var filters []servicerack.Filter
+	if n.Key != nil {
+		if n.Key.Eq != nil {
+			filters = append(filters, servicerack.MatchKeys(servicerack.Key(*n.Key.Eq)))
+		} else if len(n.Key.In) > 0 {
+			casted := make([]servicerack.Key, len(n.Key.In))
+			for i, v := range n.Key.In {
+				casted[i] = servicerack.Key(v)
+			}
+			filters = append(filters, servicerack.MatchKeys(casted...))
+		}
+		if n.Key.Gt != nil || n.Key.Lt != nil || n.Key.Gte != nil || n.Key.Lte != nil {
+			f := n.Key
+			filters = append(filters, servicerack.Match(func(_ gorp.Context, _ servicerack.Retrieve, e *servicerack.Rack) (bool, error) {
+				v := uint32(e.Key)
+				if f.Gt != nil && !(v > *f.Gt) {
+					return false, nil
+				}
+				if f.Lt != nil && !(v < *f.Lt) {
+					return false, nil
+				}
+				if f.Gte != nil && !(v >= *f.Gte) {
+					return false, nil
+				}
+				if f.Lte != nil && !(v <= *f.Lte) {
+					return false, nil
+				}
+				return true, nil
+			}))
+		}
+	}
 	if n.Name != nil {
 		if n.Name.Eq != nil {
 			filters = append(filters, servicerack.MatchNames(*n.Name.Eq))
@@ -62,6 +95,46 @@ func (n RackFilterNode) toFilter() servicerack.Filter {
 	if n.Embedded != nil {
 		if n.Embedded.Eq != nil {
 			filters = append(filters, servicerack.MatchEmbedded(*n.Embedded.Eq))
+		}
+	}
+	if n.Integrations != nil {
+		if n.Integrations.Eq != nil {
+			filters = append(filters, servicerack.MatchIntegration(*n.Integrations.Eq))
+		} else if len(n.Integrations.In) > 0 {
+			inFilters := make([]servicerack.Filter, len(n.Integrations.In))
+			for i, v := range n.Integrations.In {
+				inFilters[i] = servicerack.MatchIntegration(v)
+			}
+			filters = append(filters, servicerack.Or(inFilters...))
+		}
+		if n.Integrations.Contains != nil {
+			c := *n.Integrations.Contains
+			filters = append(filters, servicerack.Match(func(_ gorp.Context, _ servicerack.Retrieve, e *servicerack.Rack) (bool, error) {
+				for _, v := range e.Integrations {
+					if strings.Contains(string(v), c) {
+						return true, nil
+					}
+				}
+				return false, nil
+			}))
+		}
+		if n.Integrations.Regex != nil {
+			rx, err := regexp.Compile(*n.Integrations.Regex)
+			if err == nil {
+				filters = append(filters, servicerack.Match(func(_ gorp.Context, _ servicerack.Retrieve, e *servicerack.Rack) (bool, error) {
+					for _, v := range e.Integrations {
+						if rx.MatchString(string(v)) {
+							return true, nil
+						}
+					}
+					return false, nil
+				}))
+			}
+		}
+	}
+	if n.HostIsNode != nil {
+		if n.HostIsNode.Eq != nil {
+			filters = append(filters, servicerack.MatchHostIsNode(*n.HostIsNode.Eq))
 		}
 	}
 	for _, child := range n.And {

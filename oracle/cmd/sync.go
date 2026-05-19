@@ -27,19 +27,6 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
-	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
-	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
-	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
-	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
-	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
-	goapi "github.com/synnaxlabs/oracle/plugin/go/api"
-	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
-	pyfilter "github.com/synnaxlabs/oracle/plugin/py/filter"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
-	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
-	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
-	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
-	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -356,20 +343,3 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	return files, nil
 }
 
-func buildPluginRegistry() *plugin.Registry {
-	registry := plugin.NewRegistry()
-	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
-	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
-	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
-	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
-	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
-	_ = registry.Register(cppjson.New(cppjson.DefaultOptions()))
-	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
-	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
-	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
-	_ = registry.Register(goapi.New(goapi.DefaultOptions()))
-	_ = registry.Register(tsfilter.New(tsfilter.DefaultOptions()))
-	_ = registry.Register(pyfilter.New(pyfilter.DefaultOptions()))
-	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
-	return registry
-}

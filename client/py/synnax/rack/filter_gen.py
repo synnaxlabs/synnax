@@ -15,13 +15,17 @@ from pydantic import BaseModel, Field
 
 from synnax.filter import (
     BoolFilter,
+    NumericFilter,
     StringFilter,
 )
 
 
 class RackFilterNode(BaseModel):
+    key: NumericFilter | None = None
     name: StringFilter | None = None
     embedded: BoolFilter | None = None
+    integrations: StringFilter | None = None
+    host_is_node: BoolFilter | None = None
     and_: list[RackFilterNode] | None = Field(default=None, alias="and")
     or_: list[RackFilterNode] | None = Field(default=None, alias="or")
     not_: RackFilterNode | None = Field(default=None, alias="not")

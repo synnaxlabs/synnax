@@ -145,7 +145,26 @@ func hasFilterFields(typ resolution.Type, table *resolution.Table) bool {
 			return true
 		}
 	}
+	if d, ok := typ.Domains["filter"]; ok && len(d.Expressions) > 0 {
+		return true
+	}
 	return false
+}
+
+func pyVirtualFilters(typ resolution.Type) []filterFieldInfo {
+	d, ok := typ.Domains["filter"]
+	if !ok {
+		return nil
+	}
+	var out []filterFieldInfo
+	for _, expr := range d.Expressions {
+		if len(expr.Values) == 0 {
+			continue
+		}
+		primitive := expr.Values[0].IdentValue
+		out = append(out, classifyPyField(primitive, expr.Name))
+	}
+	return out
 }
 
 func generatePyFilterFile(
@@ -197,6 +216,8 @@ func extractPyFilterNode(typ resolution.Type, table *resolution.Table) *filterNo
 			orderFields = append(orderFields, oi)
 		}
 	}
+
+	fields = append(fields, pyVirtualFilters(typ)...)
 
 	if len(fields) == 0 && len(orderFields) == 0 {
 		return nil

@@ -91,16 +91,11 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Embedded      *bool            `json:"embedded" msgpack:"embedded"`
-		HostIsNode    *bool            `json:"host_is_node" msgpack:"host_is_node"`
-		SearchTerm    string           `json:"search_term" msgpack:"search_term"`
-		Keys          []rack.Key       `json:"keys" msgpack:"keys"`
-		Names         []string         `json:"names" msgpack:"names"`
-		Integration   string           `json:"integration" msgpack:"integration"`
-		Limit         int              `json:"limit" msgpack:"limit"`
-		Offset        int              `json:"offset" msgpack:"offset"`
-		IncludeStatus bool             `json:"include_status" msgpack:"include_status"`
-		Where         *RackFilterNode  `json:"where,omitempty" msgpack:"where,omitempty"`
+		Where         *RackFilterNode `json:"where,omitempty" msgpack:"where,omitempty"`
+		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
+		Limit         int             `json:"limit" msgpack:"limit"`
+		Offset        int             `json:"offset" msgpack:"offset"`
+		IncludeStatus bool            `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
 		Racks []rack.Rack `json:"racks" msgpack:"racks"`
@@ -111,43 +106,20 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		res            RetrieveResponse
-		hasSearch      = len(req.SearchTerm) > 0
-		hasKeys        = len(req.Keys) > 0
-		hasNames       = len(req.Names) > 0
-		hasLimit       = req.Limit > 0
-		hasOffset      = req.Offset > 0
-		hasIntegration = req.Integration != ""
-	)
-	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
+	var res RetrieveResponse
+	resRacks := make([]rack.Rack, 0)
 	q := s.rack.NewRetrieve()
-	if hasKeys {
-		q = q.Where(rack.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(rack.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if req.Embedded != nil {
-		q = q.Where(rack.MatchEmbedded(*req.Embedded))
-	}
-	if req.HostIsNode != nil {
-		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
-	}
-	if hasIntegration {
-		q = q.Where(rack.MatchIntegration(req.Integration))
-	}
 	if f := req.Where.ToFilter(); f != nil {
 		q = q.Where(f)
+	}
+	if req.SearchTerm != "" {
+		q = q.Search(req.SearchTerm)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err

@@ -37,10 +37,11 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated uint32 keys = 1;
-  repeated string names = 2;
-  string integration = 3;
-  bool include_status = 4;
+  bytes where = 1;
+  string search_term = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  bool include_status = 5;
 }
 
 message RetrieveResponse {

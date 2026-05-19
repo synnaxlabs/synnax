@@ -12,6 +12,16 @@
 import { filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+export interface TaskFilterNode {
+  name?: filter.StringFilter;
+  type?: filter.StringFilter;
+  internal?: filter.BoolFilter;
+  snapshot?: filter.BoolFilter;
+  and?: TaskFilterNode[];
+  or?: TaskFilterNode[];
+  not?: TaskFilterNode;
+}
+
 export const taskFilterNodeZ: z.ZodType<TaskFilterNode> = z.lazy(() =>
   z.object({
     name: filter.stringFilterZ.optional(),
@@ -23,4 +33,79 @@ export const taskFilterNodeZ: z.ZodType<TaskFilterNode> = z.lazy(() =>
     not: taskFilterNodeZ.optional(),
   }),
 );
-export interface TaskFilterNode extends z.infer<typeof taskFilterNodeZ> {}
+
+export interface TaskFilter {
+  name?: string | string[] | RegExp | filter.OpNode<string>;
+  type?: string | string[] | RegExp | filter.OpNode<string>;
+  internal?: boolean | filter.OpNode<boolean>;
+  snapshot?: boolean | filter.OpNode<boolean>;
+}
+
+export type TaskFilterArg = TaskFilter | filter.Node<"task">;
+
+export const TASK_FILTER_DESCRIPTOR: filter.Descriptor = {
+  entity: "task",
+  fields: {
+    name: "string",
+    type: "string",
+    internal: "bool",
+    snapshot: "bool",
+  },
+  orderFields: {},
+};
+
+export const IDENTIFYING_FIELDS: ReadonlySet<string> = new Set([]);
+
+type TwoOrMore = [TaskFilterArg, TaskFilterArg, ...TaskFilterArg[]];
+
+export const or = (...args: TwoOrMore): filter.Node<"task"> => ({
+  kind: "or",
+  children: args,
+  [filter.NODE_TAG]: "task",
+});
+
+export const and = (...args: TwoOrMore): filter.Node<"task"> => ({
+  kind: "and",
+  children: args,
+  [filter.NODE_TAG]: "task",
+});
+
+export const not = (arg: TaskFilterArg): filter.Node<"task"> => ({
+  kind: "not",
+  children: [arg],
+  [filter.NODE_TAG]: "task",
+});
+
+export const eq = <T>(value: T): filter.OpNode<T, "eq"> => ({
+  value,
+  [filter.OP_TAG]: "eq",
+});
+
+export const gt = <T>(value: T): filter.OpNode<T, "gt"> => ({
+  value,
+  [filter.OP_TAG]: "gt",
+});
+
+export const lt = <T>(value: T): filter.OpNode<T, "lt"> => ({
+  value,
+  [filter.OP_TAG]: "lt",
+});
+
+export const gte = <T>(value: T): filter.OpNode<T, "gte"> => ({
+  value,
+  [filter.OP_TAG]: "gte",
+});
+
+export const lte = <T>(value: T): filter.OpNode<T, "lte"> => ({
+  value,
+  [filter.OP_TAG]: "lte",
+});
+
+export const between = <T>(lo: T, hi: T): filter.OpNode<T, "between"> => ({
+  value: [lo, hi] as const,
+  [filter.OP_TAG]: "between",
+});
+
+export const toWire = (
+  args: readonly filter.FilterArg[],
+): filter.WireNode | undefined => filter.toWire(args, TASK_FILTER_DESCRIPTOR);
