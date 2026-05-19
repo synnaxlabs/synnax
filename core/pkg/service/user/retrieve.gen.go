@@ -75,6 +75,15 @@ func MatchUsernames(vals ...string) Filter {
 	}
 }
 
+// MatchRootUser returns a filter for users by their RootUser field.
+func MatchRootUser(v bool) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, User] {
+		return gorp.Match(func(_ gorp.Context, e *User) (bool, error) {
+			return e.RootUser == v, nil
+		})
+	}
+}
+
 // Where applies the provided filter to the query, binding it to the Retrieve
 // so service-bound filters can read from r.indexes, r.label, r.hostProvider,
 // etc. To compose multiple filters, chain Where calls or pass a combined

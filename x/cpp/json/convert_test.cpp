@@ -43,11 +43,11 @@ TEST(ParseTimeFormat, UnixNanosecond) {
 }
 
 TEST(ParseTimeFormat, InvalidFormat) {
-    ASSERT_OCCURRED_AS_P(x::json::parse_time_format("invalid"), x::json::ERROR);
+    ASSERT_OCCURRED_AS_P(x::json::parse_time_format("invalid"), x::json::BASE_ERROR);
 }
 
 TEST(ParseTimeFormat, EmptyString) {
-    ASSERT_OCCURRED_AS_P(x::json::parse_time_format(""), x::json::ERROR);
+    ASSERT_OCCURRED_AS_P(x::json::parse_time_format(""), x::json::BASE_ERROR);
 }
 
 // --- ToSampleValue (Number) ---

@@ -15,8 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
@@ -40,11 +39,11 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	db            *gorp.DB
-	authenticator svcauth.Authenticator
-	token         *token.Service
-	user          *user.Service
-	cluster       node.Cluster
+	db      *gorp.DB
+	token   *token.Service
+	auth    *auth.Service
+	user    *user.Service
+	cluster node.Cluster
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -53,11 +52,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:            cfg.Distribution.DB,
-		authenticator: cfg.Service.Auth,
-		token:         cfg.Service.Token,
-		user:          cfg.Service.User,
-		cluster:       cfg.Distribution.Cluster,
+		db:      cfg.Distribution.DB,
+		token:   cfg.Service.Token,
+		auth:    cfg.Service.Auth,
+		user:    cfg.Service.User,
+		cluster: cfg.Distribution.Cluster,
 	}, nil
 }
 
@@ -70,19 +69,20 @@ type LoginResponse struct {
 	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
-type LoginRequest struct {
-	svcauth.InsecureCredentials
-}
+type LoginRequest struct{ auth.Credentials }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
 func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, error) {
 	startTime := telem.Now()
-	if err := s.authenticator.Authenticate(ctx, req.InsecureCredentials); err != nil {
+	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
 		return LoginResponse{}, err
 	}
 	var u user.User
-	if err := s.user.NewRetrieve().Where(user.MatchUsernames(req.Username)).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.user.NewRetrieve().
+		Where(user.MatchUsernames(req.Username)).
+		Entry(&u).
+		Exec(ctx, nil); err != nil {
 		return LoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)
@@ -101,14 +101,19 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 }
 
 type ChangePasswordRequest struct {
-	svcauth.InsecureCredentials
-	NewPassword password.Raw `json:"new_password" msgpack:"new_password" validate:"required"`
+	auth.Credentials
+	NewPassword string `json:"new_password" msgpack:"new_password" validate:"required"`
 }
 
 // ChangePassword changes the password for the user with the provided credentials.
 func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.authenticator.NewWriter(tx).
-			UpdatePassword(ctx, req.InsecureCredentials, req.NewPassword)
+		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+			return err
+		}
+		return s.auth.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
+			Username: req.Username,
+			Password: req.NewPassword,
+		})
 	})
 }

@@ -62,9 +62,9 @@ var (
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		author.Username = "test"
-		Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
+		author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			Username: "test",
+		}))
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )
