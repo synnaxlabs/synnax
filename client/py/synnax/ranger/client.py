@@ -404,7 +404,7 @@ class Range(Payload):
                 corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
-        self._aliaser().set(corrected)
+        self._aliaser.set(corrected)
 
     def to_payload(self) -> Payload:
         return Payload(name=self.name, time_range=self.time_range, key=self.key)
