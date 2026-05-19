@@ -83,7 +83,7 @@ UTC timestamp. Synnax uses a nanosecond precision int64 timestamp.
  *   a timestamp at midnight UTC, regardless of the timezone specified.
  * 4. An ISO compliant date or date time string. The time zone component is ignored.
  *
- * @param tzInfo - The timezone to use when parsing the timestamp. This can be either "UTC" or
+ * @param timeZone - The timezone to use when parsing the timestamp. This can be either "UTC" or
  * "local". This parameter is ignored if the value is a Date object or a DateComponents array.
  *
  * @example ts = new TimeStamp(1 * TimeSpan.HOUR) // 1 hour after the Unix epoch
@@ -100,17 +100,17 @@ export class TimeStamp
     return this.value.toString();
   }
 
-  constructor(value?: CrudeTimeStamp, tzInfo: TimeZone = "UTC") {
+  constructor(value?: CrudeTimeStamp, timeZone: TimeZone = "UTC") {
     if (value == null) super(TimeStamp.now().valueOf());
     else if (value instanceof Date)
       super(BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf());
     else if (typeof value === "string")
-      super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
+      super(TimeStamp.parseDateTimeString(value, timeZone).valueOf());
     else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
     else {
       let offset = 0n;
       if (value instanceof Number) value = value.valueOf();
-      if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
+      if (timeZone === "local") offset = TimeStamp.utcOffset.valueOf();
       if (typeof value === "number")
         if (isFinite(value))
           if (value === math.MAX_INT64_NUMBER) value = math.MAX_INT64;
@@ -141,7 +141,7 @@ export class TimeStamp
     return this.value;
   }
 
-  private static parseTimeString(time: string, tzInfo: TimeZone = "UTC"): bigint {
+  private static parseTimeString(time: string, timeZone: TimeZone = "UTC"): bigint {
     const [hours, minutes, mbeSeconds] = time.split(":");
     let seconds = "00";
     let milliseconds: string | undefined = "00";
@@ -150,13 +150,13 @@ export class TimeStamp
       .add(TimeStamp.minutes(parseInt(minutes ?? "00", 10)))
       .add(TimeStamp.seconds(parseInt(seconds ?? "00", 10)))
       .add(TimeStamp.milliseconds(parseInt(milliseconds ?? "00", 10)));
-    if (tzInfo === "local") base = base.add(TimeStamp.utcOffset);
+    if (timeZone === "local") base = base.add(TimeStamp.utcOffset);
     return base.valueOf();
   }
 
-  private static parseDateTimeString(str: string, tzInfo: TimeZone = "UTC"): bigint {
+  private static parseDateTimeString(str: string, timeZone: TimeZone = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
-      return TimeStamp.parseTimeString(str, tzInfo);
+      return TimeStamp.parseTimeString(str, timeZone);
 
     const isDateTimeLocal =
       str.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?$/) != null;
@@ -173,7 +173,7 @@ export class TimeStamp
       }
 
       const d =
-        tzInfo === "local"
+        timeZone === "local"
           ? new Date(datePart.replace("T", " "))
           : new Date(`${datePart}Z`);
 
@@ -185,16 +185,16 @@ export class TimeStamp
 
     const d = new Date(str);
     // Essential to note that this makes the date midnight in UTC! Not local!
-    // As a result, we need to add the tzInfo offset back in.
+    // As a result, we need to add the timeZone offset back in.
     if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
       BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
-      tzInfo,
+      timeZone,
     ).valueOf();
   }
 
-  private toISOString(tzInfo: TimeZone = "UTC"): string {
-    if (tzInfo === "UTC") return this.date().toISOString();
+  private toISOString(timeZone: TimeZone = "UTC"): string {
+    if (timeZone === "UTC") return this.date().toISOString();
     const d = this.date();
     const offset = new TimeSpan(
       BigInt(d.getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
@@ -202,8 +202,8 @@ export class TimeStamp
     return this.sub(offset).date().toISOString();
   }
 
-  private timeString(milliseconds: boolean = false, tzInfo: TimeZone = "UTC"): string {
-    const iso = this.toISOString(tzInfo);
+  private timeString(milliseconds: boolean = false, timeZone: TimeZone = "UTC"): string {
+    const iso = this.toISOString(timeZone);
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
@@ -642,27 +642,27 @@ export class TimeStamp
    * Returns a string representation of the TimeStamp.
    *
    * @param format - Optional format for the string representation. Defaults to "ISO".
-   * @param tzInfo - Optional timezone info. Defaults to "UTC".
+   * @param timeZone - Optional timezone info. Defaults to "UTC".
    * @returns A string representation of the TimeStamp.
    */
-  toString(format: TimeStampStringFormat = "ISO", tzInfo: TimeZone = "UTC"): string {
+  toString(format: TimeStampStringFormat = "ISO", timeZone: TimeZone = "UTC"): string {
     switch (format) {
       case "ISODate":
-        return this.toISOString(tzInfo).slice(0, 10);
+        return this.toISOString(timeZone).slice(0, 10);
       case "ISOTime":
-        return this.toISOString(tzInfo).slice(11, 23);
+        return this.toISOString(timeZone).slice(11, 23);
       case "time":
-        return this.timeString(false, tzInfo);
+        return this.timeString(false, timeZone);
       case "preciseTime":
-        return this.timeString(true, tzInfo);
+        return this.timeString(true, timeZone);
       case "date":
         return this.dateString();
       case "preciseDate":
-        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(true, timeZone)}`;
       case "dateTime":
-        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(false, timeZone)}`;
       default:
-        return this.toISOString(tzInfo);
+        return this.toISOString(timeZone);
     }
   }
 
@@ -763,56 +763,56 @@ export class TimeStamp
    * @param value - The number of nanoseconds.
    * @returns A TimeStamp representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return new TimeStamp(value, tzInfo);
+  static nanoseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return new TimeStamp(value, timeZone);
   }
 
   /** One nanosecond after the unix epoch */
   static readonly NANOSECOND = TimeStamp.nanoseconds(1);
 
   /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static microseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.nanoseconds(value * 1000, tzInfo);
+  static microseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.nanoseconds(value * 1000, timeZone);
   }
 
   /** One microsecond after the unix epoch */
   static readonly MICROSECOND = TimeStamp.microseconds(1);
 
   /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static milliseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.microseconds(value * 1000, tzInfo);
+  static milliseconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.microseconds(value * 1000, timeZone);
   }
 
   /** One millisecond after the unix epoch */
   static readonly MILLISECOND = TimeStamp.milliseconds(1);
 
   /** @returns a new TimeStamp n seconds after the unix epoch */
-  static seconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.milliseconds(value * 1000, tzInfo);
+  static seconds(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.milliseconds(value * 1000, timeZone);
   }
 
   /** One second after the unix epoch */
   static readonly SECOND = TimeStamp.seconds(1);
 
   /** @returns a new TimeStamp n minutes after the unix epoch */
-  static minutes(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.seconds(value * 60, tzInfo);
+  static minutes(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.seconds(value * 60, timeZone);
   }
 
   /** One minute after the unix epoch */
   static readonly MINUTE = TimeStamp.minutes(1);
 
   /** @returns a new TimeStamp n hours after the unix epoch */
-  static hours(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.minutes(value * 60, tzInfo);
+  static hours(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.minutes(value * 60, timeZone);
   }
 
   /** One hour after the unix epoch */
   static readonly HOUR = TimeStamp.hours(1);
 
   /** @returns a new TimeStamp n days after the unix epoch */
-  static days(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
-    return TimeStamp.hours(value * 24, tzInfo);
+  static days(value: number, timeZone: TimeZone = "UTC"): TimeStamp {
+    return TimeStamp.hours(value * 24, timeZone);
   }
 
   /** One day after the unix epoch */
