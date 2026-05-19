@@ -9,7 +9,7 @@
 
 import "@/input/Time.css";
 
-import { type direction, TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
+import { type direction, TimeSpan, TimeStamp, type TimeZone } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -22,7 +22,7 @@ export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =
 
 export interface TimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {
-  tzInfo?: TZInfo;
+  tzInfo?: TimeZone;
   showDragHandle?: boolean;
   dragDirection?: direction.Direction;
 }

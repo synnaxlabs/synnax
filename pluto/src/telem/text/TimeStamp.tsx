@@ -11,7 +11,7 @@ import {
   type CrudeTimeStamp,
   TimeStamp as XTimeStamp,
   type TimeStampStringFormat,
-  type TZInfo,
+  type TimeZone,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -24,8 +24,8 @@ export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<
 > & {
   children: CrudeTimeStamp;
   format?: TimeStampStringFormat;
-  suppliedTZ?: TZInfo;
-  displayTZ?: TZInfo;
+  suppliedTZ?: TimeZone;
+  displayTZ?: TimeZone;
 };
 
 export const TimeStamp = <E extends Generic.ElementType = "p">({

@@ -12,9 +12,7 @@ import { z } from "zod";
 import { math } from "@/math";
 import { primitive } from "@/primitive";
 import { type bounds } from "@/spatial";
-
-/** Time zone specification when working with time stamps. */
-export type TZInfo = "UTC" | "local";
+import { type TimeZone } from "@/telem/types.gen";
 
 const SIMPLE_DAYS_IN_YEAR = 365;
 const SIMPLE_DAYS_IN_MONTH = 30;
@@ -102,7 +100,7 @@ export class TimeStamp
     return this.value.toString();
   }
 
-  constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
+  constructor(value?: CrudeTimeStamp, tzInfo: TimeZone = "UTC") {
     if (value == null) super(TimeStamp.now().valueOf());
     else if (value instanceof Date)
       super(BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf());
@@ -143,7 +141,7 @@ export class TimeStamp
     return this.value;
   }
 
-  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): bigint {
+  private static parseTimeString(time: string, tzInfo: TimeZone = "UTC"): bigint {
     const [hours, minutes, mbeSeconds] = time.split(":");
     let seconds = "00";
     let milliseconds: string | undefined = "00";
@@ -156,7 +154,7 @@ export class TimeStamp
     return base.valueOf();
   }
 
-  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): bigint {
+  private static parseDateTimeString(str: string, tzInfo: TimeZone = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
 
@@ -195,7 +193,7 @@ export class TimeStamp
     ).valueOf();
   }
 
-  private toISOString(tzInfo: TZInfo = "UTC"): string {
+  private toISOString(tzInfo: TimeZone = "UTC"): string {
     if (tzInfo === "UTC") return this.date().toISOString();
     const d = this.date();
     const offset = new TimeSpan(
@@ -204,7 +202,7 @@ export class TimeStamp
     return this.sub(offset).date().toISOString();
   }
 
-  private timeString(milliseconds: boolean = false, tzInfo: TZInfo = "UTC"): string {
+  private timeString(milliseconds: boolean = false, tzInfo: TimeZone = "UTC"): string {
     const iso = this.toISOString(tzInfo);
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
@@ -647,7 +645,7 @@ export class TimeStamp
    * @param tzInfo - Optional timezone info. Defaults to "UTC".
    * @returns A string representation of the TimeStamp.
    */
-  toString(format: TimeStampStringFormat = "ISO", tzInfo: TZInfo = "UTC"): string {
+  toString(format: TimeStampStringFormat = "ISO", tzInfo: TimeZone = "UTC"): string {
     switch (format) {
       case "ISODate":
         return this.toISOString(tzInfo).slice(0, 10);
@@ -765,7 +763,7 @@ export class TimeStamp
    * @param value - The number of nanoseconds.
    * @returns A TimeStamp representing the given number of nanoseconds.
    */
-  static nanoseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static nanoseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return new TimeStamp(value, tzInfo);
   }
 
@@ -773,7 +771,7 @@ export class TimeStamp
   static readonly NANOSECOND = TimeStamp.nanoseconds(1);
 
   /** @returns a new TimeStamp n microseconds after the unix epoch */
-  static microseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static microseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.nanoseconds(value * 1000, tzInfo);
   }
 
@@ -781,7 +779,7 @@ export class TimeStamp
   static readonly MICROSECOND = TimeStamp.microseconds(1);
 
   /** @returns a new TimeStamp n milliseconds after the unix epoch */
-  static milliseconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static milliseconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.microseconds(value * 1000, tzInfo);
   }
 
@@ -789,7 +787,7 @@ export class TimeStamp
   static readonly MILLISECOND = TimeStamp.milliseconds(1);
 
   /** @returns a new TimeStamp n seconds after the unix epoch */
-  static seconds(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static seconds(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.milliseconds(value * 1000, tzInfo);
   }
 
@@ -797,7 +795,7 @@ export class TimeStamp
   static readonly SECOND = TimeStamp.seconds(1);
 
   /** @returns a new TimeStamp n minutes after the unix epoch */
-  static minutes(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static minutes(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.seconds(value * 60, tzInfo);
   }
 
@@ -805,7 +803,7 @@ export class TimeStamp
   static readonly MINUTE = TimeStamp.minutes(1);
 
   /** @returns a new TimeStamp n hours after the unix epoch */
-  static hours(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static hours(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.minutes(value * 60, tzInfo);
   }
 
@@ -813,7 +811,7 @@ export class TimeStamp
   static readonly HOUR = TimeStamp.hours(1);
 
   /** @returns a new TimeStamp n days after the unix epoch */
-  static days(value: number, tzInfo: TZInfo = "UTC"): TimeStamp {
+  static days(value: number, tzInfo: TimeZone = "UTC"): TimeStamp {
     return TimeStamp.hours(value * 24, tzInfo);
   }
 

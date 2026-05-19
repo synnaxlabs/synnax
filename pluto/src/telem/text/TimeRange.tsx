@@ -12,7 +12,7 @@ import {
   TimeRange as XTimeRange,
   TimeSpan,
   TimeStamp,
-  type TZInfo,
+  type TimeZone,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -25,12 +25,12 @@ export interface TimeRangeProps
     Omit<Flex.BoxProps<"div">, "children">,
     Pick<Text.TextProps, "level" | "color" | "weight"> {
   children: CrudeTimeRange;
-  displayTZ?: TZInfo;
+  displayTZ?: TimeZone;
 }
 
 const formatTime = (
   timeRange: CrudeTimeRange,
-  displayTZ: TZInfo,
+  displayTZ: TimeZone,
 ): null | string | [string, string] => {
   const tr = new XTimeRange(timeRange).makeValid();
   if (tr.start.equals(TimeStamp.MAX)) return null;
