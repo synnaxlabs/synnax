@@ -10,7 +10,7 @@
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";

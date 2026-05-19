@@ -18,7 +18,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Arc } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Arc } from "@synnaxlabs/pluto/arc";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/arc/ContextMenu";

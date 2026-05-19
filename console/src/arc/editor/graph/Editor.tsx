@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { arc } from "@synnaxlabs/client";
-import {
-  Access,
-  Arc as Base,
-  Component,
-  Diagram,
-  Haul,
-  Theming,
-  useSyncedRef,
-  Viewport,
-} from "@synnaxlabs/pluto";
-import { box, id, TimeSpan, xy } from "@synnaxlabs/x";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Arc as Base } from "@synnaxlabs/pluto/arc";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
+import { Component } from "@synnaxlabs/lyra/component";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Theming } from "@synnaxlabs/lyra/theming";
+import { id } from "@synnaxlabs/x/id";
+import { box } from "@synnaxlabs/x/spatial/box";
+import { xy } from "@synnaxlabs/x/spatial/xy";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useStore } from "react-redux";
 
@@ -125,7 +126,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    TimeSpan.milliseconds(30),
+    telem.TimeSpan.milliseconds(30),
   );
 
   const theme = Theming.use();

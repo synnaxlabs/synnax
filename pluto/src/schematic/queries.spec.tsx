@@ -13,7 +13,7 @@ import {
   schematic,
   type workspace,
 } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeAll, describe, expect, it } from "vitest";

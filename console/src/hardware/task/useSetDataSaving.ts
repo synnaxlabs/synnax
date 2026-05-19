@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
-import { Flux, Task } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import { Task } from "@synnaxlabs/pluto/task";
 
 export interface SetDataSavingParams {
   key: task.Key;

@@ -12,7 +12,9 @@ import { narrow } from "@synnaxlabs/x/narrow";
 import { status } from "@synnaxlabs/x/status";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Flux, Pluto, Synnax } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import { Pluto } from "@synnaxlabs/pluto/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import type z from "zod";

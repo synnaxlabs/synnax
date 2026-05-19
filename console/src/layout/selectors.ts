@@ -11,7 +11,8 @@ import type { Haul } from "@synnaxlabs/lyra/haul";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Color, type Mosaic } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
+import type { Mosaic } from "@synnaxlabs/pluto/mosaic";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import {

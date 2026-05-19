@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { ContextMenu } from "@/components";
 import { Group } from "@/group";

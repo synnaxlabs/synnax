@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import type { TableCells } from "@synnaxlabs/pluto";
+import type { TableCells } from "@synnaxlabs/pluto/table/cells";
 
 import * as v0 from "@/table/types/v0";
 

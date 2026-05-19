@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
-import { redlineZ } from "@/vis/value/redline";
+import { redlineZ } from "@/value/redline";
 
 export const VARIANT = "value" as const;
 

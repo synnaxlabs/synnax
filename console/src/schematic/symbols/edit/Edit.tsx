@@ -23,7 +23,7 @@ import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
 
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, User } from "@synnaxlabs/pluto";
+import { Control } from "@synnaxlabs/pluto/telem/control";
+import { User } from "@synnaxlabs/pluto/user";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

@@ -17,7 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { memo, useMemo } from "react";
 

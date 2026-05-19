@@ -23,7 +23,9 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Group, Schematic } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Group } from "@synnaxlabs/pluto/group";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
 
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";

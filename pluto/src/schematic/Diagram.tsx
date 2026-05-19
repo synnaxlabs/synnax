@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
+import type { record } from "@synnaxlabs/x/record";
 import { type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
@@ -16,7 +16,7 @@ import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
-import { Diagram as Base } from "@/vis/diagram";
+import { Diagram as Base } from "@/diagram";
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const { nodeKey } = rest;

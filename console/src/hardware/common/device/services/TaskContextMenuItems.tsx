@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { Task } from "@/hardware/common/task";
 import { Layout } from "@/layout";

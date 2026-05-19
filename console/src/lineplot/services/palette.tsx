@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { LinePlot as PLinePlot } from "@synnaxlabs/pluto/lineplot";
 import { useCallback } from "react";
 
 import { LinePlot } from "@/lineplot";

@@ -14,7 +14,7 @@ import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { OS } from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto/os";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";

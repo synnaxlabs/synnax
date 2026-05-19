@@ -36,9 +36,9 @@ import { Range } from "@/lineplot/range";
 import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
-import { Measure } from "@/vis/measure";
-import { type measure } from "@/vis/measure/aether";
-import { Rule } from "@/vis/rule";
+import { Measure } from "@/measure";
+import { type measure } from "@/measure/aether";
+import { Rule } from "@/rule";
 
 /** Props for an axis in {@link LinePlot} */
 export interface AxisProps extends Omit<Base.AxisProps, "axisKey"> {

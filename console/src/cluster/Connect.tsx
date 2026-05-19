@@ -18,7 +18,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { useState } from "react";
 import { useDispatch } from "react-redux";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ontology, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";

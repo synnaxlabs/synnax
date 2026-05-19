@@ -13,7 +13,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { useCallback } from "react";
 

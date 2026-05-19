@@ -9,7 +9,7 @@
 
 import { type channel, DisconnectedError } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { useCallback } from "react";
 
 import { useIsRunning } from "@/hardware/common/task/Form";

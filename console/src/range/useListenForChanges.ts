@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 

@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Viewport } from "@synnaxlabs/pluto";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { type ReactElement, useMemo } from "react";
 import { useDispatch } from "react-redux";

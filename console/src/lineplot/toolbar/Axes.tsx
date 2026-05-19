@@ -15,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import type { Text } from "@synnaxlabs/lyra/text";
-import { Direction } from "@synnaxlabs/pluto";
+import { Direction } from "@synnaxlabs/pluto/direction";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 

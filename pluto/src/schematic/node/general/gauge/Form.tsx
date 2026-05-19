@@ -17,7 +17,7 @@ import { type ReactElement, useCallback } from "react";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Value } from "@/vis/value";
+import { Value } from "@/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
   min: 1,

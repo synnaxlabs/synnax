@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
-import { type record, uuid } from "@synnaxlabs/x";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { record } from "@synnaxlabs/x/record";
+import { uuid } from "@synnaxlabs/x/uuid";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/layout";

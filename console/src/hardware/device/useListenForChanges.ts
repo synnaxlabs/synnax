@@ -9,7 +9,7 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Device } from "@synnaxlabs/pluto";
+import { Device } from "@synnaxlabs/pluto/device";
 import { useCallback, useRef } from "react";
 
 export const useListenForChanges = () => {

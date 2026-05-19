@@ -13,7 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";

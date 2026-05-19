@@ -15,7 +15,7 @@ import { type CSSProperties, type ReactElement } from "react";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { type Diagram } from "@/vis/diagram";
+import { type Diagram } from "@/diagram";
 
 const STYLE: CSSProperties = { strokeWidth: 2 };
 

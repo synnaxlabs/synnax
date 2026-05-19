@@ -26,7 +26,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { type Device as PDevice, Flux } from "@synnaxlabs/pluto";
+import type { Device as PDevice } from "@synnaxlabs/pluto/device";
+import { Flux } from "@synnaxlabs/pluto/flux";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";

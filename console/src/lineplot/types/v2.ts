@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { migrate } from "@synnaxlabs/x/migrate";
-import { axis } from "@synnaxlabs/pluto";
+import { axis } from "@synnaxlabs/pluto/axis";
 
 import { z } from "zod";
 

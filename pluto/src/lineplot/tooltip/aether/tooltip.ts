@@ -21,7 +21,7 @@ import { theming } from "@synnaxlabs/lyra/theming/aether";
 import { z } from "zod";
 
 import { Draw2D } from "@/vis/draw2d";
-import { type FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/line/aether/line";
 import { render } from "@/vis/render";
 
 const TOOLTIP_LIST_OFFSET: xy.XY = xy.construct(12);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic, type workspace } from "@synnaxlabs/client";
-import { Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
 import { useCallback } from "react";
 
 import { Layout } from "@/layout";

@@ -21,7 +21,9 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Access, type Flux, Ranger } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 

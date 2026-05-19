@@ -32,7 +32,7 @@ import {
   useSelectAllEdges,
   useSelectAllNodes,
 } from "@/schematic/queries";
-import { Diagram as BaseDiagram } from "@/vis/diagram";
+import { Diagram as BaseDiagram } from "@/diagram";
 
 export interface SchematicProps extends Omit<
   BaseDiagram.DiagramProps,

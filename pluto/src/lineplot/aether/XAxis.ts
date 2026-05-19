@@ -13,7 +13,7 @@ import { telem } from "@synnaxlabs/x/telem";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type FindResult } from "@/vis/line/aether/line";
+import { type FindResult } from "@/line/aether/line";
 
 export const xAxisStateZ = baseAxisStateZ;
 

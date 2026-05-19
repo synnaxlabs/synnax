@@ -12,7 +12,8 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Flux, Ranger } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { useCallback, useState } from "react";
 
 import { useKey } from "@/hardware/common/task/useKey";

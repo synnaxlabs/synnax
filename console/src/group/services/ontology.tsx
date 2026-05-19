@@ -11,7 +11,9 @@ import { group, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Flux, Group } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import { Group } from "@synnaxlabs/pluto/group";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";

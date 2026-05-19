@@ -11,7 +11,8 @@ import { errors } from "@synnaxlabs/x/errors";
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Device } from "@synnaxlabs/pluto/device";
 
 import { useChangeIdentifier } from "@/hardware/common/device/services/useChangeIdentifier";
 import { Modals } from "@/modals";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { type Notifications } from "@/notifications";
 import { Version } from "@/version";

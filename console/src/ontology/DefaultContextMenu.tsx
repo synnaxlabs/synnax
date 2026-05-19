@@ -10,7 +10,7 @@
 import { group, type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/components";

@@ -11,7 +11,8 @@ import { location } from "@synnaxlabs/x/location";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Control, Diagram } from "@synnaxlabs/pluto";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
+import { Control } from "@synnaxlabs/pluto/telem/control";
 
 import { memo, type ReactElement, useCallback } from "react";
 

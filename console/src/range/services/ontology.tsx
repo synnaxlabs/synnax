@@ -16,7 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { Ontology } from "@/ontology";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";

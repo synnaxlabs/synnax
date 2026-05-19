@@ -22,7 +22,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Color, type Flux, Label } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Label } from "@synnaxlabs/pluto/label";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 

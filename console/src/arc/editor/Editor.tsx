@@ -11,7 +11,8 @@ import { deep } from "@synnaxlabs/x/deep";
 import { uuid } from "@synnaxlabs/x/uuid";
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Arc } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Arc } from "@synnaxlabs/pluto/arc";
 
 import { useCallback } from "react";
 

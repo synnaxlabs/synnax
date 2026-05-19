@@ -11,7 +11,9 @@ import { ontology, type user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, User } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { User } from "@synnaxlabs/pluto/user";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/components";

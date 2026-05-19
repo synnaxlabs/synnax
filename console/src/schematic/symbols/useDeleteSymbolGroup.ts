@@ -9,7 +9,7 @@
 
 import { DisconnectedError, group, type ontology } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { useCallback } from "react";
 
 import { useConfirmDelete } from "@/ontology/hooks";

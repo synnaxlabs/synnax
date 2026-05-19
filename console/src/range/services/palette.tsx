@@ -9,7 +9,8 @@
 
 import { ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { Palette } from "@/palette";
 import { Range } from "@/range";

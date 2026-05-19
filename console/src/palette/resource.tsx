@@ -13,7 +13,8 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology as POntology, Synnax } from "@synnaxlabs/pluto";
+import { Ontology as POntology } from "@synnaxlabs/pluto/ontology";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { isValidElement, useCallback } from "react";
 import { useStore } from "react-redux";
 

@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Label } from "@synnaxlabs/pluto";
+import { Label } from "@synnaxlabs/pluto/label";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

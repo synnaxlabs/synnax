@@ -9,7 +9,7 @@
 
 import "@/vis/Canvas.css";
 
-import { Canvas as Base } from "@synnaxlabs/pluto";
+import { Canvas as Base } from "@synnaxlabs/pluto/canvas";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";

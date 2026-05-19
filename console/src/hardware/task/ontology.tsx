@@ -10,7 +10,9 @@
 import { ontology, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Mosaic, Task as Base } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import { Task as Base } from "@synnaxlabs/pluto/task";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";

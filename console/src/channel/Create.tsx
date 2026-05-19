@@ -15,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
 import { useState } from "react";
 
 import { type Layout } from "@/layout";

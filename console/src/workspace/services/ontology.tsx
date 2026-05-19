@@ -20,14 +20,12 @@ import {
 } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import {
-  Access,
-  LinePlot as PLinePlot,
-  Log as PLog,
-  Schematic as PSchematic,
-  Table as PTable,
-  Workspace as Base,
-} from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { LinePlot as PLinePlot } from "@synnaxlabs/pluto/lineplot";
+import { Log as PLog } from "@synnaxlabs/pluto/log";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
+import { Table as PTable } from "@synnaxlabs/pluto/table";
+import { Workspace as Base } from "@synnaxlabs/pluto/workspace";
 
 import { type ReactElement, useCallback } from "react";
 

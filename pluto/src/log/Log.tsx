@@ -24,7 +24,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { use, type UseProps } from "@/log/use";
-import { Canvas } from "@/vis/canvas";
+import { Canvas } from "@/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];

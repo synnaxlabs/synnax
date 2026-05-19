@@ -11,7 +11,7 @@ import { group, ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { type ReactElement } from "react";
 
 export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {

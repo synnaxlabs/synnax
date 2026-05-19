@@ -336,7 +336,7 @@ describe("encoder", () => {
 
   describe("websocket iterator codec", () => {
     it("should JSON-encode an iterator request without a special char prefix", () => {
-      const baseCodec = new Codec([1], [DataType.INT32]);
+      const baseCodec = new Codec([1], [telem.DataType.INT32]);
       const codec = new WSIteratorCodec(baseCodec);
       const msg: WebsocketMessage<unknown> = {
         type: "data",
@@ -349,8 +349,8 @@ describe("encoder", () => {
     });
 
     it("should binary-decode a data variant response and synthesize variant=Data", () => {
-      const baseCodec = new Codec([1], [DataType.INT32]);
-      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const baseCodec = new Codec([1], [telem.DataType.INT32]);
+      const fr = new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))]);
       const codec = new WSIteratorCodec(baseCodec);
       const encoded = new Uint8Array(baseCodec.encode(fr.toPayload(), 1));
       encoded[0] = HIGH_PERF_SPECIAL_CHAR;
@@ -361,7 +361,7 @@ describe("encoder", () => {
     });
 
     it("should JSON-decode an ack variant response prefixed with the low-perf char", () => {
-      const baseCodec = new Codec([1], [DataType.INT32]);
+      const baseCodec = new Codec([1], [telem.DataType.INT32]);
       const codec = new WSIteratorCodec(baseCodec);
       const ackMsg: WebsocketMessage<IteratorResponse> = {
         type: "data",

@@ -9,7 +9,8 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex, Ranger } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";

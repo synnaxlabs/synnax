@@ -14,7 +14,8 @@ import { ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Ranger } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { useCallback } from "react";
 

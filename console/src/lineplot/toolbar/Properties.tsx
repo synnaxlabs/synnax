@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input, LinePlot as Base } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Input } from "@synnaxlabs/pluto/input";
+import { LinePlot as Base } from "@synnaxlabs/pluto/lineplot";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

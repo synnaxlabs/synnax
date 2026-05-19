@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Access, Table as PTable } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Table as PTable } from "@synnaxlabs/pluto/table";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";

@@ -15,7 +15,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Arc } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
 import { useMemo } from "react";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {

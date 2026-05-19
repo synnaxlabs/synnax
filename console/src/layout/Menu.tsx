@@ -13,7 +13,7 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Mosaic } from "@synnaxlabs/pluto";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 
 import { type FC, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";

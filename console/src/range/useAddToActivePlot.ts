@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Status } from "@synnaxlabs/lyra/status";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 

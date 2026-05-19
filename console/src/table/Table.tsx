@@ -10,16 +10,20 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Icon,
-  Menu,
-  Table as Base,
-  TableCells,
-  Triggers,
-} from "@synnaxlabs/pluto";
-import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Table as Base } from "@synnaxlabs/pluto/table";
+import { TableCells } from "@synnaxlabs/pluto/table/cells";
+import { Button } from "@synnaxlabs/lyra/button";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { clamp } from "@synnaxlabs/x/clamp";
+import type { record } from "@synnaxlabs/x/record";
+import { box } from "@synnaxlabs/x/spatial/box";
+import { dimensions } from "@synnaxlabs/x/spatial/dimensions";
+import { location } from "@synnaxlabs/x/spatial/location";
+import { xy } from "@synnaxlabs/x/spatial/xy";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 

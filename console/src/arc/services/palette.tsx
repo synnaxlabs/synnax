@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { useCallback } from "react";
 
 import { Arc } from "@/arc";

@@ -13,7 +13,7 @@ import { aether } from "@synnaxlabs/lyra/aether/runtime";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import { type diagram } from "@/diagram/aether";
 
 export const stateZ = z.object({
   value: z.number(),

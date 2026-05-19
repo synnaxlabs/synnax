@@ -35,7 +35,7 @@ import {
   useState,
 } from "react";
 
-import { selectNode } from "@/vis/diagram/util";
+import { selectNode } from "@/diagram/util";
 
 type DraggableElement = ReactElement<{
   style?: CSSProperties;

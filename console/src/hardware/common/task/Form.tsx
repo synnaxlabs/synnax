@@ -15,7 +15,9 @@ import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Device, type Flux, Task } from "@synnaxlabs/pluto";
+import { Device } from "@synnaxlabs/pluto/device";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Task } from "@synnaxlabs/pluto/task";
 
 import { type FC, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";

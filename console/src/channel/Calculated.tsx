@@ -19,7 +19,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
 
 import { type ReactElement, useRef, useState } from "react";
 

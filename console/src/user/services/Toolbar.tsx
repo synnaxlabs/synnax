@@ -9,7 +9,8 @@
 
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { User } from "@synnaxlabs/pluto/user";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";

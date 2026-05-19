@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { workspace } from "@synnaxlabs/client";
-import { Access, Workspace as PWorkspace } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Workspace as PWorkspace } from "@synnaxlabs/pluto/workspace";
 import { useCallback } from "react";
 
 import { useFileIngesters } from "@/import/FileIngestersProvider";

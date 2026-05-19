@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, type Pluto } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import type { Pluto } from "@synnaxlabs/pluto/pluto";
+
 import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
@@ -58,6 +60,6 @@ export const createSyncComponent = (
     }, [layoutKey, store]);
     const ws = useSelectActiveKey();
     useEffect(() => run(), [ws, run]);
-    return useDispatchEffect(run, TimeSpan.milliseconds(100), dispatch);
+    return useDispatchEffect(run, telem.TimeSpan.milliseconds(100), dispatch);
   };
 };

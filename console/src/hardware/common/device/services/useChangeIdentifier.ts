@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { Device } from "@synnaxlabs/pluto/device";
+import { Flux } from "@synnaxlabs/pluto/flux";
 
 export interface ChangeIdentifierParams {
   key: device.Key;

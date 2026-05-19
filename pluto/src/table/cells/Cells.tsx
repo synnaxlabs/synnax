@@ -23,7 +23,7 @@ import { z } from "zod";
 
 import { Cell as Base } from "@/table/Table";
 import { telem } from "@/telem/aether";
-import { Value as BaseValue } from "@/vis/value";
+import { Value as BaseValue } from "@/value";
 
 export const TEXT_TYPE = "text";
 export type TextType = typeof TEXT_TYPE;

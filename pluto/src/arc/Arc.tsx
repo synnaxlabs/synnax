@@ -12,7 +12,7 @@ import "@/arc/Arc.css";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { type FC, type ReactElement } from "react";
 
-import { Diagram } from "@/vis/diagram";
+import { Diagram } from "@/diagram";
 
 export type ArcProps = Diagram.DiagramProps;
 

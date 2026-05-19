@@ -12,7 +12,9 @@ import { strings } from "@synnaxlabs/x/strings";
 import { ontology, type Synnax, table } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Mosaic, Table as Base } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import { Table as Base } from "@synnaxlabs/pluto/table";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";

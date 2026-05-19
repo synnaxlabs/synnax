@@ -29,7 +29,7 @@ import {
 import { type z } from "zod";
 
 import { table } from "@/table/aether";
-import { Canvas } from "@/vis/canvas";
+import { Canvas } from "@/canvas";
 
 export interface TableProps
   extends

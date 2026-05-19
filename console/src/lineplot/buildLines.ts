@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Channel } from "@synnaxlabs/pluto";
+import type { Channel } from "@synnaxlabs/pluto/channel";
 
 import {
   type MultiXAxisRecord,

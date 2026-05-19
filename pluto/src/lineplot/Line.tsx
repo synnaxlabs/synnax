@@ -12,7 +12,7 @@ import { Key } from "@synnaxlabs/lyra/key";
 import { type ReactElement, useEffect } from "react";
 
 import { useContext } from "@/lineplot/LinePlot";
-import { Line as Base } from "@/vis/line";
+import { Line as Base } from "@/line";
 
 export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;

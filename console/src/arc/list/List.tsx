@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import type { Flux } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 import { useCallback, useState } from "react";
 
 import { ContextMenu } from "@/arc/ContextMenu";

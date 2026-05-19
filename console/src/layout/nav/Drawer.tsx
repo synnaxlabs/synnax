@@ -13,7 +13,7 @@ import { xy } from "@synnaxlabs/x/xy";
 import "@/layouts/nav/Nav.css";
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Eraser } from "@synnaxlabs/pluto";
+import { Eraser } from "@synnaxlabs/pluto/eraser";
 
 import { type ReactElement, useCallback } from "react";
 

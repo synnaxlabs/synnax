@@ -9,7 +9,7 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { READ_LAYOUT } from "@/hardware/ethercat/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/ethercat/task/Write";

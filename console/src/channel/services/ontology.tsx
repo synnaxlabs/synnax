@@ -17,13 +17,11 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import {
-  Access,
-  Channel as PChannel,
-  type Flux,
-  type Schematic as PSchematic,
-  telem,
-} from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Channel as PChannel } from "@synnaxlabs/pluto/channel";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import type { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
+import { telem } from "@synnaxlabs/pluto/telem/aether";
 import { id } from "@synnaxlabs/x/id";
 import { useCallback, useMemo } from "react";
 

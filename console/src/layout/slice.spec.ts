@@ -9,7 +9,9 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
+import type { Haul } from "@synnaxlabs/lyra/haul";
+import { Color } from "@synnaxlabs/pluto/color";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {

@@ -9,7 +9,7 @@
 
 import { DisconnectedError, task, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { useCallback } from "react";
 
 import { ANALOG_READ_LAYOUT } from "@/hardware/ni/task/AnalogRead";

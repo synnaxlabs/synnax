@@ -9,7 +9,11 @@
 
 import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { Aether } from "@synnaxlabs/lyra/aether";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import { Pluto } from "@synnaxlabs/pluto/pluto";
+import { Status } from "@synnaxlabs/pluto/status";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useMemo } from "react";

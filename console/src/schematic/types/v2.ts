@@ -9,7 +9,7 @@
 
 import { migrate } from "@synnaxlabs/x/migrate";
 import { uuid } from "@synnaxlabs/x/uuid";
-import { Viewport } from "@synnaxlabs/pluto";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { z } from "zod";
 

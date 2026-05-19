@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Log as PLog } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Log as PLog } from "@synnaxlabs/pluto/log";
 import { useCallback } from "react";
 
 import { Log } from "@/log";

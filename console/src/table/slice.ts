@@ -12,7 +12,7 @@ import { location } from "@synnaxlabs/x/location";
 import { record } from "@synnaxlabs/x/record";
 import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { TableCells } from "@synnaxlabs/pluto";
+import type { TableCells } from "@synnaxlabs/pluto/table/cells";
 
 import * as latest from "@/table/types";
 import { BASE_COL_SIZE, BASE_ROW_SIZE } from "@/table/types";

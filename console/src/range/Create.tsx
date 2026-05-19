@@ -19,7 +19,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";

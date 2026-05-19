@@ -10,7 +10,8 @@
 import { migrate } from "@synnaxlabs/x/migrate";
 import { xy } from "@synnaxlabs/x/xy";
 import { arc } from "@synnaxlabs/client";
-import { Diagram, Viewport } from "@synnaxlabs/pluto";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { z } from "zod";
 

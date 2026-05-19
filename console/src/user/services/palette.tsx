@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { user } from "@synnaxlabs/client";
-import { Access, User as PUser } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { User as PUser } from "@synnaxlabs/pluto/user";
 
 import { Palette } from "@/palette";
 import { User } from "@/user";

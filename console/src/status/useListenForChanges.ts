@@ -10,7 +10,7 @@
 import { type status } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { useCallback, useEffectEvent } from "react";
 import { useDispatch } from "react-redux";
 

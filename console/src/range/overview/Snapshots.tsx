@@ -21,7 +21,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ontology, Synnax } from "@synnaxlabs/pluto";
+import { Ontology } from "@synnaxlabs/pluto/ontology";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { type FC } from "react";
 
 import { CSS } from "@/css";

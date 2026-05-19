@@ -20,7 +20,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Flux, Ranger } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
 
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 

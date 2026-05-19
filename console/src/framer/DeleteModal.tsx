@@ -21,7 +21,8 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import type { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Synnax } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";

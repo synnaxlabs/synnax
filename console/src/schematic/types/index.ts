@@ -9,8 +9,11 @@
 
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { type Text } from "@synnaxlabs/lyra/text";
-import { type Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { type color, type direction, type location, migrate } from "@synnaxlabs/x";
+import type { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
+import type { color } from "@synnaxlabs/x/color";
+import { migrate } from "@synnaxlabs/x/migrate";
+import type { direction } from "@synnaxlabs/x/spatial/direction";
+import type { location } from "@synnaxlabs/x/spatial/location";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";

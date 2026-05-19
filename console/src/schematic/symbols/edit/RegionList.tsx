@@ -19,7 +19,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Color } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
 
 export interface RegionListProps extends Input.Control<string | undefined> {
   selectedState: string;

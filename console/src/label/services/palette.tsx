@@ -9,7 +9,7 @@
 
 import { label } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { Label } from "@/label";
 import { Palette } from "@/palette";

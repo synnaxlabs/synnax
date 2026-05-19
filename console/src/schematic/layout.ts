@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x/uuid";
 
 import { type Layout } from "@/layout";
 import { internalCreate, type State } from "@/schematic/slice";

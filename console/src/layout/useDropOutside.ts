@@ -14,7 +14,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Drift } from "@synnaxlabs/drift";
 import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Mosaic } from "@synnaxlabs/pluto";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";

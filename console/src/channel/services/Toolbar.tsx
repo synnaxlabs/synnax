@@ -9,7 +9,8 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Channel } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Channel } from "@synnaxlabs/pluto/channel";
 import { type ReactElement } from "react";
 
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";

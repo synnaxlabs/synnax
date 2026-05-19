@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type Diagram } from "@synnaxlabs/pluto";
-import { type control } from "@synnaxlabs/x";
+import type { Diagram } from "@synnaxlabs/pluto/diagram";
+import type { Control } from "@synnaxlabs/pluto/telem/control";
+import type { control } from "@synnaxlabs/x/control";
 
 import { useMemoSelect } from "@/hooks";
 import {

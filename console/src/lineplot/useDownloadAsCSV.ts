@@ -11,7 +11,7 @@ import { telem } from "@synnaxlabs/x/telem";
 import { unique } from "@synnaxlabs/x/unique";
 import { type channel } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import type { Channel } from "@synnaxlabs/pluto";
+import type { Channel } from "@synnaxlabs/pluto/channel";
 
 import { useCallback } from "react";
 import { useStore } from "react-redux";

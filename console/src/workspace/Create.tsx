@@ -14,7 +14,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Synnax, Workspace } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
+import { Workspace } from "@synnaxlabs/pluto/workspace";
 
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

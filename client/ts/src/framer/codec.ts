@@ -7,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
-import {
-  binary,
-  DataType,
-  type SeriesPayload,
-  TimeRange,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
 import { type z } from "zod";
 
 import { type channel } from "@/channel";
@@ -24,10 +19,10 @@ import { type StreamerResponse } from "@/framer/streamer";
 import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
-const seriesPldLength = (series: SeriesPayload): number =>
+const seriesPldLength = (series: telem.SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
-interface KeyedSeries extends SeriesPayload {
+interface KeyedSeries extends telem.SeriesPayload {
   key: number;
 }
 
@@ -49,7 +44,7 @@ const EQUAL_TIME_RANGES_FLAG_POS = 2;
 const TIME_RANGES_ZERO_FLAG_POS = 1;
 const ALL_CHANNELS_PRESENT_FLAG_POS = 0;
 
-const TIMESTAMP_SIZE = DataType.TIMESTAMP.density.valueOf();
+const TIMESTAMP_SIZE = telem.DataType.TIMESTAMP.density.valueOf();
 const ALIGNMENT_SIZE = 8;
 const DATA_LENGTH_SIZE = 4;
 const KEY_SIZE = 4;
@@ -58,7 +53,7 @@ const FLAGS_SIZE = 1;
 
 interface CodecState {
   keys: channel.Key[];
-  keyDataTypes: Map<channel.Key, DataType>;
+  keyDataTypes: Map<channel.Key, telem.DataType>;
   hasVariableDataTypes: boolean;
 }
 
@@ -68,11 +63,11 @@ export class Codec {
   private currState: CodecState | undefined;
   private seqNum: number = 0;
 
-  constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
+  constructor(keys: channel.Key[] = [], dataTypes: telem.DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
-  update(keys: channel.Key[], dataTypes: DataType[]): void {
+  update(keys: channel.Key[], dataTypes: telem.DataType[]): void {
     this.seqNum++;
     const state = {
       keys,
@@ -104,8 +99,8 @@ export class Codec {
       src = (payload as Frame).toPayload();
     sortFramePayloadByKey(src);
     let currDataSize = -1;
-    let startTime: TimeStamp | undefined;
-    let endTime: TimeStamp | undefined;
+    let startTime: telem.TimeStamp | undefined;
+    let endTime: telem.TimeStamp | undefined;
     let currAlignment: bigint | undefined;
     let byteArraySize = startOffset + FLAGS_SIZE + SEQ_NUM_SIZE;
     let equalLengthsFlag = !this.currState?.hasVariableDataTypes;
@@ -231,8 +226,8 @@ export class Codec {
     let index = offset;
     let sizeRepresentation = 0;
     let currSize = 0;
-    let startTime: TimeStamp | undefined;
-    let endTime: TimeStamp | undefined;
+    let startTime: telem.TimeStamp | undefined;
+    let endTime: telem.TimeStamp | undefined;
     let currAlignment: bigint | undefined;
 
     const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
@@ -257,9 +252,9 @@ export class Codec {
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
       if (index + TIMESTAMP_SIZE > view.byteLength) return returnFrame;
-      startTime = new TimeStamp(view.getBigUint64(index, true));
+      startTime = new telem.TimeStamp(view.getBigUint64(index, true));
       index += TIMESTAMP_SIZE;
-      endTime = new TimeStamp(view.getBigUint64(index, true));
+      endTime = new telem.TimeStamp(view.getBigUint64(index, true));
       index += TIMESTAMP_SIZE;
     }
 
@@ -282,7 +277,7 @@ export class Codec {
       let dataByteLength = currSize;
       if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
       if (index + dataByteLength > view.byteLength) return false;
-      const currSeries: SeriesPayload = {
+      const currSeries: telem.SeriesPayload = {
         dataType,
         data: src.slice(index, index + dataByteLength).buffer,
       };
@@ -293,13 +288,13 @@ export class Codec {
         index += TIMESTAMP_SIZE;
         const end = view.getBigUint64(index, true);
         index += TIMESTAMP_SIZE;
-        currSeries.timeRange = new TimeRange({ start, end });
+        currSeries.timeRange = new telem.TimeRange({ start, end });
       } else if (!timeRangesZeroFlag)
-        currSeries.timeRange = new TimeRange({
+        currSeries.timeRange = new telem.TimeRange({
           start: startTime?.valueOf() ?? 0n,
           end: endTime?.valueOf() ?? 0n,
         });
-      else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
+      else currSeries.timeRange = new telem.TimeRange({ start: 0n, end: 0n });
 
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
         if (index + ALIGNMENT_SIZE > view.byteLength) return false;

@@ -13,7 +13,8 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Access, Synnax } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { useCallback } from "react";
 

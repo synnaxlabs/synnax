@@ -22,7 +22,7 @@ import {
 } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
-import { Value as BaseValue } from "@/vis/value";
+import { Value as BaseValue } from "@/value";
 
 const VARIANTS = ["text", "value"] as const;
 

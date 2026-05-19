@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x/id";
 import { record } from "@synnaxlabs/x/record";
 import { xy } from "@synnaxlabs/x/xy";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { TableCells } from "@synnaxlabs/pluto";
+import { TableCells } from "@synnaxlabs/pluto/table/cells";
 
 import { z } from "zod";
 

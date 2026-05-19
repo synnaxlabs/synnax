@@ -9,7 +9,8 @@
 
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Device } from "@synnaxlabs/pluto/device";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";

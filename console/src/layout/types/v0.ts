@@ -12,7 +12,7 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Drift } from "@synnaxlabs/drift";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Mosaic } from "@synnaxlabs/pluto";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
 
 import { z } from "zod";
 

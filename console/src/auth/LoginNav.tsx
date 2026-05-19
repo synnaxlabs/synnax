@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { OS } from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto/os";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";

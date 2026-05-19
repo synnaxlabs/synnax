@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax } from "@synnaxlabs/client";
-import { Task } from "@synnaxlabs/pluto";
+import { Task } from "@synnaxlabs/pluto/task";
 
 import { SCAN_SCHEMAS, SCAN_TYPE } from "@/hardware/opc/task/types";
 

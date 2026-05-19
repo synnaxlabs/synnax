@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { ontology, type rack, task } from "@synnaxlabs/client";
-import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import type { optional } from "@synnaxlabs/x/optional";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -61,7 +63,7 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.comma
       const status: task.Status = {
         key: task.statusKey(changed.task),
         name: "Task Status",
-        time: TimeStamp.now(),
+        time: telem.TimeStamp.now(),
         variant: "loading",
         message: `Running ${changed.type} command...`,
         details: { task: changed.task, running: true, data: {} },

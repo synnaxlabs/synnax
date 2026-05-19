@@ -21,7 +21,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device as Base, Device } from "@synnaxlabs/pluto";
+import { Device as Base, Device } from "@synnaxlabs/pluto/device";
 
 import { useCallback, useRef, useState } from "react";
 import { z } from "zod";

@@ -20,7 +20,7 @@ import { type PropsWithChildren, useCallback } from "react";
 import { Color } from "@/color";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Variant } from "@/table/cells/registry";
-import { Value } from "@/vis/value";
+import { Value } from "@/value";
 
 export interface FormProps {
   onVariantChange: (variant: Variant) => void;

@@ -19,7 +19,8 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Access, type Flux } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";

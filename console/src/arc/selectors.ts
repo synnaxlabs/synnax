@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Arc, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
+import type { Diagram } from "@synnaxlabs/pluto/diagram";
+import type { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import {
   type NodeProps,

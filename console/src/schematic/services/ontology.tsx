@@ -14,7 +14,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Mosaic, Schematic as Base } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import { Schematic as Base } from "@synnaxlabs/pluto/schematic";
 
 import { useCallback } from "react";
 

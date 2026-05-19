@@ -11,7 +11,8 @@ import { uuid } from "@synnaxlabs/x/uuid";
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax, workspace } from "@synnaxlabs/client";
 import type { Status } from "@synnaxlabs/lyra/status";
-import { Access, type Pluto } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Pluto } from "@synnaxlabs/pluto/pluto";
 
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";

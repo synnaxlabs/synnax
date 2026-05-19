@@ -19,7 +19,9 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Synnax, Workspace } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
+import { Workspace } from "@synnaxlabs/pluto/workspace";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 

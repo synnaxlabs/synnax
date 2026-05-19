@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
-import { color, control as xControl, migrate, record, sticky, xy } from "@synnaxlabs/x";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
+import { control } from "@synnaxlabs/pluto/telem/control/aether";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
+import { color } from "@synnaxlabs/x/color";
+import { control as xControl } from "@synnaxlabs/x/control";
+import { migrate } from "@synnaxlabs/x/migrate";
+import { record } from "@synnaxlabs/x/record";
+import { sticky } from "@synnaxlabs/x/spatial/sticky";
+import { xy } from "@synnaxlabs/x/spatial/xy";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";

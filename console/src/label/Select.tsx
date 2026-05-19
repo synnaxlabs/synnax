@@ -10,7 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Label } from "@synnaxlabs/pluto";
+import { Label } from "@synnaxlabs/pluto/label";
 import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";

@@ -10,7 +10,8 @@
 import { array } from "@synnaxlabs/x/array";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { type device } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { Device } from "@synnaxlabs/pluto/device";
+import { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 

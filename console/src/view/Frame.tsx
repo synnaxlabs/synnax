@@ -21,7 +21,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, View as PView } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { View as PView } from "@synnaxlabs/pluto/view";
 
 import { plural } from "pluralize";
 import {

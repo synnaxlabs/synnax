@@ -13,7 +13,10 @@ import {
   schematic,
   type workspace,
 } from "@synnaxlabs/client";
-import { array, type record, uuid, xy } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import type { record } from "@synnaxlabs/x/record";
+import { xy } from "@synnaxlabs/x/spatial/xy";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";

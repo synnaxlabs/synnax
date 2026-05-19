@@ -13,7 +13,8 @@ import { dimensions } from "@synnaxlabs/x/dimensions";
 import { direction } from "@synnaxlabs/x/direction";
 import { xy } from "@synnaxlabs/x/xy";
 import { Text } from "@synnaxlabs/lyra/text";
-import { telem, Viewport } from "@synnaxlabs/pluto";
+import { telem } from "@synnaxlabs/pluto/telem/aether";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { z } from "zod";
 

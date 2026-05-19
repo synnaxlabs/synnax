@@ -9,7 +9,8 @@
 
 import { id } from "@synnaxlabs/x/id";
 import { createTestClient, type device } from "@synnaxlabs/client";
-import { type Device, Flux } from "@synnaxlabs/pluto";
+import type { Device } from "@synnaxlabs/pluto/device";
+import { Flux } from "@synnaxlabs/pluto/flux";
 
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";

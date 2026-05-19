@@ -17,7 +17,10 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Device as PDevice, type Flux, Rack, Task } from "@synnaxlabs/pluto";
+import { Device as PDevice } from "@synnaxlabs/pluto/device";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Rack } from "@synnaxlabs/pluto/rack";
+import { Task } from "@synnaxlabs/pluto/task";
 
 import { useCallback } from "react";
 

@@ -11,7 +11,7 @@ import { dimensions } from "@synnaxlabs/x/dimensions";
 import { migrate } from "@synnaxlabs/x/migrate";
 import { xy } from "@synnaxlabs/x/xy";
 import { arc } from "@synnaxlabs/client";
-import { Viewport } from "@synnaxlabs/pluto";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { z } from "zod";
 

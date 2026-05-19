@@ -17,7 +17,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
 
 import { type ReactElement, useEffect, useRef, useState } from "react";
 

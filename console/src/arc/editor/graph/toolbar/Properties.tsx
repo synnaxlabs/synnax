@@ -16,7 +16,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Arc, Diagram } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
 
 import { memo, type ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";

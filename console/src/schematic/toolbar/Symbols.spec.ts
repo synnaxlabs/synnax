@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Schematic } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
 import { describe, expect, it } from "vitest";
 
 import { ALL_STATIC_SYMBOLS, CUSTOM_VARIANTS } from "@/schematic/toolbar/Symbols";

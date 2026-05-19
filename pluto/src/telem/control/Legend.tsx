@@ -22,7 +22,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { Color } from "@/color";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Legend as Base } from "@/vis/legend";
+import { Legend as Base } from "@/legend";
 
 const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;
 

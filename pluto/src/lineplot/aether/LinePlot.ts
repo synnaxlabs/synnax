@@ -21,8 +21,8 @@ import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { grid } from "@/vis/grid";
-import { type FindResult } from "@/vis/line/aether/line";
-import { measure } from "@/vis/measure/aether";
+import { type FindResult } from "@/line/aether/line";
+import { measure } from "@/measure/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;

@@ -15,7 +15,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Key } from "@synnaxlabs/lyra/key";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Schematic as PSchematic } from "@synnaxlabs/pluto/schematic";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 

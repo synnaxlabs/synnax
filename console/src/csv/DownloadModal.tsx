@@ -18,7 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import type { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
 
 import { z } from "zod";
 

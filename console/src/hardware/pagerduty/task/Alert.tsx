@@ -21,7 +21,7 @@ import { Menu as PMenu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Rack } from "@synnaxlabs/pluto";
+import { Rack } from "@synnaxlabs/pluto/rack";
 
 import { type FC, useCallback, useState } from "react";
 

@@ -14,7 +14,7 @@ import { status } from "@synnaxlabs/lyra/status/aether";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
-import { type diagram } from "@/vis/diagram/aether";
+import { type diagram } from "@/diagram/aether";
 
 export const toggleStateZ = z.object({
   enabled: z.boolean(),

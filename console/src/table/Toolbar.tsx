@@ -16,7 +16,8 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Table, TableCells } from "@synnaxlabs/pluto";
+import { Table } from "@synnaxlabs/pluto/table";
+import { TableCells } from "@synnaxlabs/pluto/table/cells";
 
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";

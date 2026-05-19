@@ -11,7 +11,8 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import "@/arc/editor/Controls.css";
 
 import { type rack, task } from "@synnaxlabs/client";
-import { Arc, Rack } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
+import { Rack } from "@synnaxlabs/pluto/rack";
 
 import { useCallback, useEffect, useState } from "react";
 

@@ -9,7 +9,7 @@
 
 import { framer } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { DELETE_LAYOUT } from "@/framer/DeleteModal";
 import { Palette } from "@/palette";

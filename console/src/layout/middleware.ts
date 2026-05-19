@@ -9,8 +9,8 @@
 
 import { type Middleware } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
-import { Mosaic } from "@synnaxlabs/pluto";
-import { runtime } from "@synnaxlabs/x";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import { runtime } from "@synnaxlabs/x/runtime";
 
 import { select, selectSliceState } from "@/layout/selectors";
 import {

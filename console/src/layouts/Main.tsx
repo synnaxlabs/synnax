@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Flex } from "@synnaxlabs/pluto";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Access } from "@synnaxlabs/pluto/access";
 import { type ReactElement } from "react";
 
 import { ArcServices } from "@/arc/services";

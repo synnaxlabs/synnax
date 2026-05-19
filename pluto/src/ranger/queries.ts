@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
-import { array, type optional, primitive } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x/array";
+import type { optional } from "@synnaxlabs/x/optional";
+import { primitive } from "@synnaxlabs/x/primitive";
 import { useCallback, useEffect } from "react";
 import { z } from "zod";
 

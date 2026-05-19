@@ -12,7 +12,8 @@ import { type view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Flux, View as PView } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { View as PView } from "@synnaxlabs/pluto/view";
 
 import {
   type PropsWithChildren,

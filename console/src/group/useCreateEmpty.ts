@@ -11,7 +11,8 @@ import { uuid } from "@synnaxlabs/x/uuid";
 import { group, ontology } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { type Flux, Group } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Group } from "@synnaxlabs/pluto/group";
 
 import { useCallback } from "react";
 

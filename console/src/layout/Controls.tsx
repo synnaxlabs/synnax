@@ -13,7 +13,7 @@ import {
   setWindowMinimized,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
-import { OS } from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto/os";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 

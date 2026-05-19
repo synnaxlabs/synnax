@@ -10,7 +10,9 @@
 import { status } from "@synnaxlabs/x/status";
 import { type arc, type task, UnexpectedError } from "@synnaxlabs/client";
 import type { List } from "@synnaxlabs/lyra/list";
-import { Arc, type Flux, Task } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Task } from "@synnaxlabs/pluto/task";
 
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";

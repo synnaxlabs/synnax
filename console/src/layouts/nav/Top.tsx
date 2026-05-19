@@ -11,7 +11,7 @@ import "@/layouts/nav/Nav.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { OS } from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto/os";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";

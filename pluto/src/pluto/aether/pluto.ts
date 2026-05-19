@@ -27,19 +27,19 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
-import { canvas } from "@/vis/canvas/aether";
-import { diagram } from "@/vis/diagram/aether";
-import { eraser } from "@/vis/eraser/aether";
+import { canvas } from "@/canvas/aether";
+import { diagram } from "@/diagram/aether";
+import { eraser } from "@/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
-import { line } from "@/vis/line/aether";
-import { measure } from "@/vis/measure/aether";
-import { rule } from "@/vis/rule/aether";
+import { line } from "@/line/aether";
+import { measure } from "@/measure/aether";
+import { rule } from "@/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
-import { value } from "@/vis/value/aether";
+import { value } from "@/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;

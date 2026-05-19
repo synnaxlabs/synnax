@@ -16,7 +16,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
 
 import { useCallback, useEffect, useMemo } from "react";
 

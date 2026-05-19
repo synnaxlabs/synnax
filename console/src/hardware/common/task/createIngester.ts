@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { type z } from "zod";
 
 import { type Layout } from "@/hardware/common/task/Form";

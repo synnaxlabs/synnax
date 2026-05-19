@@ -19,7 +19,7 @@ import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Color } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
 
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

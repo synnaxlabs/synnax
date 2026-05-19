@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import type { Viewport } from "@synnaxlabs/pluto";
+import type { Viewport } from "@synnaxlabs/pluto/viewport";
 import { type measure } from "@synnaxlabs/pluto/ether";
 
 import { useMemoSelect } from "@/hooks";

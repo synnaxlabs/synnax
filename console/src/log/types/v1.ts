@@ -9,7 +9,7 @@
 
 import { migrate } from "@synnaxlabs/x/migrate";
 import { channel } from "@synnaxlabs/client";
-import { Log } from "@synnaxlabs/pluto";
+import { Log } from "@synnaxlabs/pluto/log";
 
 import { z } from "zod";
 

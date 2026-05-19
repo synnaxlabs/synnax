@@ -14,8 +14,8 @@ import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import { telem } from "@synnaxlabs/x/telem";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
-import { line } from "@/vis/line/aether";
-import { rule } from "@/vis/rule/aether";
+import { line } from "@/line/aether";
+import { rule } from "@/rule/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({
   location: location.xZ.default("left"),

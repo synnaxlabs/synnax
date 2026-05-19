@@ -19,8 +19,8 @@ import { theming } from "@synnaxlabs/lyra/theming/aether";
 
 import { z } from "zod";
 
-import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
+import { axis } from "@/axis";
+import { type TickType } from "@/axis/ticks";
 import { grid } from "@/vis/grid";
 import { render } from "@/vis/render";
 

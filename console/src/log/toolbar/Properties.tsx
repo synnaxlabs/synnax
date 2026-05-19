@@ -10,7 +10,7 @@
 import { log } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { type ReactElement, useCallback } from "react";
 
 import { useSyncComponent } from "@/log/Log";

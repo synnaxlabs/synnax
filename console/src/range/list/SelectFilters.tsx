@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Label as PLabel } from "@synnaxlabs/pluto";
+import { Label as PLabel } from "@synnaxlabs/pluto/label";
 
 import { Label } from "@/label";
 

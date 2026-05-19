@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { record } from "@synnaxlabs/x/record";
-import type { Flux } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback } from "react";
 

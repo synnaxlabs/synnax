@@ -14,7 +14,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, type Flux, Ranger, Synnax } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";

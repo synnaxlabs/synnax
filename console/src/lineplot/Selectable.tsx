@@ -9,7 +9,7 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 import { useCallback } from "react";
 
 import { create, LAYOUT_TYPE } from "@/lineplot/layout";

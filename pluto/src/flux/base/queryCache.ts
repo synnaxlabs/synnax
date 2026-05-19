@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, primitive } from "@synnaxlabs/x";
+import type { destructor } from "@synnaxlabs/x/destructor";
+import { primitive } from "@synnaxlabs/x/primitive";
 
 import { type Query } from "@/flux/base/types";
 import { errorResult, type Result, successResult } from "@/flux/result";

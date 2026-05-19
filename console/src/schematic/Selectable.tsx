@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto/access";
 import { useCallback } from "react";
 
 import { LAYOUT_TYPE } from "@/schematic/layout";

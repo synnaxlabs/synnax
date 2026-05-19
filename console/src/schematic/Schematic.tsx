@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import {
-  Access,
-  Control,
-  Diagram,
-  Schematic as Base,
-  Viewport,
-} from "@synnaxlabs/pluto";
-import { type color, type sticky } from "@synnaxlabs/x";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
+import { Schematic as Base } from "@synnaxlabs/pluto/schematic";
+import { Control } from "@synnaxlabs/pluto/telem/control";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
+import type { color } from "@synnaxlabs/x/color";
+import type { sticky } from "@synnaxlabs/x/spatial/sticky";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 

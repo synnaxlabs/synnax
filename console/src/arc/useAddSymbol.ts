@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x/id";
 import { xy } from "@synnaxlabs/x/xy";
 import { type Dispatch } from "@reduxjs/toolkit";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Arc } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto/arc";
 
 import { useCallback } from "react";
 

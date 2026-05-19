@@ -15,7 +15,8 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Device } from "@synnaxlabs/pluto/device";
 
 import { useMemo } from "react";
 

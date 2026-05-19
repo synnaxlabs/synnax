@@ -14,7 +14,8 @@ import { xy } from "@synnaxlabs/x/xy";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type arc } from "@synnaxlabs/client";
 import type { Theming } from "@synnaxlabs/lyra/theming";
-import type { Diagram, Viewport } from "@synnaxlabs/pluto";
+import type { Diagram } from "@synnaxlabs/pluto/diagram";
+import type { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import * as latest from "@/arc/types";
 

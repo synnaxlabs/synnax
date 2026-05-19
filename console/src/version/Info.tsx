@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Progress } from "@synnaxlabs/lyra/progress";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Flux } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
 
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";

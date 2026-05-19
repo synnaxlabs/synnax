@@ -14,7 +14,9 @@ import type { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Arc, type Flux } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Arc } from "@synnaxlabs/pluto/arc";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";

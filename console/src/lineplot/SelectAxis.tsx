@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
 import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/lineplot/axis";

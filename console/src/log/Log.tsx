@@ -7,9 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { log } from "@synnaxlabs/client";
-import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Log as Base } from "@synnaxlabs/pluto/log";
+import { deep } from "@synnaxlabs/x/deep";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { useCallback } from "react";
 
 import { ContextMenu, EmptyAction } from "@/components";
@@ -53,8 +58,8 @@ export const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const DEFAULT_RETENTION = TimeSpan.days(1);
-const PRELOAD = TimeSpan.seconds(30);
+const DEFAULT_RETENTION = telem.TimeSpan.days(1);
+const PRELOAD = telem.TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {

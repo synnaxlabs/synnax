@@ -44,7 +44,7 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { selectNodeBox } from "@/vis/diagram/util";
+import { selectNodeBox } from "@/diagram/util";
 
 interface CurrentlyDragging {
   segments: Segment[];

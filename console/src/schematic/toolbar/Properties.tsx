@@ -17,17 +17,18 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Color, Diagram, Direction, Schematic } from "@synnaxlabs/pluto";
-import {
-  box,
-  color,
-  deep,
-  type dimensions,
-  type direction,
-  location,
-  type record,
-  xy,
-} from "@synnaxlabs/x";
+import { Color } from "@synnaxlabs/pluto/color";
+import { Diagram } from "@synnaxlabs/pluto/diagram";
+import { Direction } from "@synnaxlabs/pluto/direction";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
+import { color } from "@synnaxlabs/x/color";
+import { deep } from "@synnaxlabs/x/deep";
+import type { record } from "@synnaxlabs/x/record";
+import { box } from "@synnaxlabs/x/spatial/box";
+import type { dimensions } from "@synnaxlabs/x/spatial/dimensions";
+import type { direction } from "@synnaxlabs/x/spatial/direction";
+import { location } from "@synnaxlabs/x/spatial/location";
+import { xy } from "@synnaxlabs/x/spatial/xy";
 import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useStore } from "react-redux";
 

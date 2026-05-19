@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, schematic } from "@synnaxlabs/client";
-import { uuid, xy } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x/spatial/xy";
+import { uuid } from "@synnaxlabs/x/uuid";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   type ClipboardEvent as ReactClipboardEvent,

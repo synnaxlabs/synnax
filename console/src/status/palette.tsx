@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";

@@ -18,7 +18,7 @@ import { Primitive } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Value as BaseValue } from "@/vis/value";
+import { Value as BaseValue } from "@/value";
 
 export * from "@/schematic/node/general/value/config";
 

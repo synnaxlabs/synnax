@@ -17,7 +17,8 @@ import { Errors } from "@synnaxlabs/lyra/errors";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { OS, Synnax } from "@synnaxlabs/pluto";
+import { OS } from "@synnaxlabs/pluto/os";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";

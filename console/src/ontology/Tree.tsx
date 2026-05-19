@@ -30,7 +30,9 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
-import { Flux, Ontology, Synnax } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import { Ontology } from "@synnaxlabs/pluto/ontology";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import {
   type DragEvent,

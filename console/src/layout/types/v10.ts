@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Mosaic } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import { migrate } from "@synnaxlabs/x/migrate";
 import { z } from "zod";
 
 import * as v1 from "@/layout/types/v1";

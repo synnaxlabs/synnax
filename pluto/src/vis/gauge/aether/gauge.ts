@@ -21,7 +21,7 @@ import { theming } from "@synnaxlabs/lyra/theming/aether";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import { type Element } from "@/diagram/aether/Diagram";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 

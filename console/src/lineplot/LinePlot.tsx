@@ -7,36 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  type axis,
-  Channel,
-  Icon,
-  LinePlot as Base,
-  Menu,
-  Ranger,
-  Status,
-  Synnax,
-  useAsyncEffect,
-  useDebouncedCallback,
-  usePrevious,
-  Viewport,
-} from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { axis } from "@synnaxlabs/pluto/axis";
+import { Channel } from "@synnaxlabs/pluto/channel";
+import { LinePlot as Base } from "@synnaxlabs/pluto/lineplot";
+import { Ranger } from "@synnaxlabs/pluto/ranger";
+import { Status } from "@synnaxlabs/pluto/status";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
+import { useAsyncEffect, useDebouncedCallback, usePrevious } from "@synnaxlabs/lyra/hooks";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { type measure } from "@synnaxlabs/pluto/ether";
-import {
-  box,
-  color,
-  DataType,
-  location,
-  primitive,
-  record,
-  scale,
-  type sticky,
-  TimeRange,
-  TimeSpan,
-  unique,
-} from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x/color";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { record } from "@synnaxlabs/x/record";
+import { box } from "@synnaxlabs/x/spatial/box";
+import { location } from "@synnaxlabs/x/spatial/location";
+import { scale } from "@synnaxlabs/x/spatial/scale";
+import type { sticky } from "@synnaxlabs/x/spatial/sticky";
+import { unique } from "@synnaxlabs/x/unique";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -228,7 +220,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     let newType: axis.TickType = "time";
     if (primitive.isNonZero(key)) {
       const ch = await client.channels.retrieve(key);
-      if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
+      if (!ch.dataType.equals(telem.DataType.TIMESTAMP)) newType = "linear";
     }
     if (axis.type === newType) return;
     syncDispatch(
@@ -281,7 +273,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
-    TimeSpan.milliseconds(100),
+    telem.TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 
@@ -290,7 +282,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const storeLegendPosition = useDebouncedCallback(
     (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
-    TimeSpan.milliseconds(100),
+    telem.TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 
@@ -353,11 +345,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const placeLayout = Layout.usePlacer();
     const handleError = Status.useErrorHandler();
 
-    const getTimeRange = useCallback(async (): Promise<TimeRange> => {
+    const getTimeRange = useCallback(async (): Promise<telem.TimeRange> => {
       const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) throw new Error("No bounds available");
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-      return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+      return new telem.TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
     }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
@@ -374,7 +366,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
     const getTypeScriptText = useCallback(async () => {
       const tr = await getTimeRange();
-      return `new TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
+      return `new telem.TimeRange(${tr.start.valueOf()}, ${tr.end.valueOf()})`;
     }, [getTimeRange]);
 
     const handleCreateRange = () =>

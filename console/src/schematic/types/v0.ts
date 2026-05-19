@@ -14,7 +14,10 @@ import { location } from "@synnaxlabs/x/location";
 import { xy } from "@synnaxlabs/x/xy";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { control, Schematic, Value, Viewport } from "@synnaxlabs/pluto";
+import { Schematic } from "@synnaxlabs/pluto/schematic";
+import { control } from "@synnaxlabs/pluto/telem/control/aether";
+import { Value } from "@synnaxlabs/pluto/value";
+import { Viewport } from "@synnaxlabs/pluto/viewport";
 
 import { z } from "zod";
 

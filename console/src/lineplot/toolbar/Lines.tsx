@@ -15,7 +15,9 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Channel, Color, type telem } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto/channel";
+import { Color } from "@synnaxlabs/pluto/color";
+import type { telem } from "@synnaxlabs/pluto/telem/aether";
 
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

@@ -16,7 +16,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Cluster as PCluster, Synnax } from "@synnaxlabs/pluto";
+import { Cluster as PCluster } from "@synnaxlabs/pluto/cluster";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { memo, type ReactElement } from "react";
 import { useDispatch } from "react-redux";

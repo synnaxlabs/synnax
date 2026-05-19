@@ -15,8 +15,14 @@ import {
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { type deep, type direction, id, type location } from "@synnaxlabs/x";
+import type { Haul } from "@synnaxlabs/lyra/haul";
+import type { Tabs } from "@synnaxlabs/lyra/tabs";
+import type { Color } from "@synnaxlabs/pluto/color";
+import { Mosaic } from "@synnaxlabs/pluto/mosaic";
+import type { deep } from "@synnaxlabs/x/deep";
+import { id } from "@synnaxlabs/x/id";
+import type { direction } from "@synnaxlabs/x/spatial/direction";
+import type { location } from "@synnaxlabs/x/spatial/location";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";

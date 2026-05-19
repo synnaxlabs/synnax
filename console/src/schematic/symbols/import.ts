@@ -17,7 +17,8 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Group, Synnax } from "@synnaxlabs/pluto";
+import { Group } from "@synnaxlabs/pluto/group";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";

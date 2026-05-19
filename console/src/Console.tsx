@@ -16,7 +16,9 @@ import type { state } from "@synnaxlabs/lyra/state";
 import { preventDefault } from "@synnaxlabs/lyra/util";
 import { Provider } from "@synnaxlabs/drift/react";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type Alamos, type Color, Pluto } from "@synnaxlabs/pluto";
+import type { Alamos } from "@synnaxlabs/pluto/alamos";
+import type { Color } from "@synnaxlabs/pluto/color";
+import { Pluto } from "@synnaxlabs/pluto/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 

@@ -12,7 +12,8 @@ import { status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Access, type Flux } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";

@@ -13,7 +13,7 @@ import { record } from "@synnaxlabs/x/record";
 import { unique } from "@synnaxlabs/x/unique";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
-import type { Viewport } from "@synnaxlabs/pluto";
+import type { Viewport } from "@synnaxlabs/pluto/viewport";
 import { type measure } from "@synnaxlabs/pluto/ether";
 
 import {

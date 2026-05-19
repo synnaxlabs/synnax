@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
 
 import { type Import } from "@/import";
 import { stateZ } from "@/table/slice";

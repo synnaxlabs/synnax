@@ -11,7 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Rack as PRack } from "@synnaxlabs/pluto";
+import { Rack as PRack } from "@synnaxlabs/pluto/rack";
 import { useEffect } from "react";
 
 import { CSS } from "@/css";

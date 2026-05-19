@@ -9,7 +9,7 @@
 
 import { record } from "@synnaxlabs/x/record";
 import { xy } from "@synnaxlabs/x/xy";
-import type { TableCells } from "@synnaxlabs/pluto";
+import type { TableCells } from "@synnaxlabs/pluto/table/cells";
 
 import { useMemoSelect } from "@/hooks";
 import {

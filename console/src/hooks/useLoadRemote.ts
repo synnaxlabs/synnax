@@ -12,7 +12,7 @@ import { type PayloadAction } from "@reduxjs/toolkit";
 import type { state } from "@synnaxlabs/lyra/state";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
-import type { Flux } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";

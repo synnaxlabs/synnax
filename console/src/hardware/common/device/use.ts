@@ -11,7 +11,7 @@ import { primitive } from "@synnaxlabs/x/primitive";
 import { record } from "@synnaxlabs/x/record";
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Device } from "@synnaxlabs/pluto";
+import { Device } from "@synnaxlabs/pluto/device";
 
 import { useEffect, useMemo } from "react";
 import { type z } from "zod";

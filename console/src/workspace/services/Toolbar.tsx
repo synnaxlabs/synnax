@@ -9,7 +9,8 @@
 
 import { workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Workspace } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Workspace } from "@synnaxlabs/pluto/workspace";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";

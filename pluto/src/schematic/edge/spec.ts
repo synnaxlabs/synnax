@@ -11,7 +11,7 @@ import { type FC } from "react";
 import { type z } from "zod";
 
 import { type FormProps } from "@/schematic/node/spec";
-import { type Diagram } from "@/vis/diagram";
+import { type Diagram } from "@/diagram";
 
 export interface EdgeProps<Config extends object = object> extends Diagram.EdgeProps {
   onChange: (p: Partial<Config>) => void;

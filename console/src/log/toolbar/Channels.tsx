@@ -19,7 +19,11 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Access, Channel, Color, type Log as PLog, Notation } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Channel } from "@synnaxlabs/pluto/channel";
+import { Color } from "@synnaxlabs/pluto/color";
+import type { Log as PLog } from "@synnaxlabs/pluto/log";
+import { Notation } from "@synnaxlabs/pluto/notation";
 
 import { type ReactElement, useCallback, useMemo } from "react";
 

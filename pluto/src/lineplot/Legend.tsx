@@ -15,8 +15,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
-import { Legend as Base } from "@/vis/legend";
-import { Entries, type EntryData } from "@/vis/legend/Entries";
+import { Legend as Base } from "@/legend";
+import { Entries, type EntryData } from "@/legend/Entries";
 
 export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";

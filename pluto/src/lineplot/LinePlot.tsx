@@ -40,7 +40,7 @@ import { type z } from "zod";
 
 import { lineplot } from "@/lineplot/aether";
 import { type Viewport } from "@/viewport";
-import { Canvas } from "@/vis/canvas";
+import { Canvas } from "@/canvas";
 import { grid } from "@/vis/grid";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;

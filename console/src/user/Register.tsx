@@ -14,7 +14,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
-import { Access, Synnax, User } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
+import { User } from "@synnaxlabs/pluto/user";
 
 import { useCallback } from "react";
 

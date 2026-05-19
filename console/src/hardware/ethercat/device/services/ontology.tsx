@@ -9,7 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { type Device as PlutoDevice, Flux } from "@synnaxlabs/pluto";
+import type { Device as PlutoDevice } from "@synnaxlabs/pluto/device";
+import { Flux } from "@synnaxlabs/pluto/flux";
 import { useCallback, useMemo } from "react";
 
 import { Common } from "@/hardware/common";

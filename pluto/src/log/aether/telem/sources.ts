@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { telem } from "@synnaxlabs/x/telem";
 import { channel } from "@synnaxlabs/client";
-import {
-  compare,
-  DataType,
-  type destructor,
-  type Series,
-  status as xstatus,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x/compare";
+import type { destructor } from "@synnaxlabs/x/destructor";
+import { status as xstatus } from "@synnaxlabs/x/status";
 import { z } from "zod";
 
 import {
@@ -33,16 +28,16 @@ const MAX_ENTRIES = 100_000;
 
 const streamMultiChannelLogPropsZ = z.object({
   channels: z.array(channel.keyZ.or(z.string())),
-  timeSpan: TimeSpan.z,
-  keepFor: TimeSpan.z.optional(),
+  timeSpan: telem.TimeSpan.z,
+  keepFor: telem.TimeSpan.z.optional(),
 });
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
 interface ChannelMeta {
   key: channel.Key;
-  dataType: DataType;
-  leadingBuffer: Series | null;
+  dataType: telem.DataType;
+  leadingBuffer: telem.Series | null;
   readCursor: number;
   skipSeed: boolean;
 }
@@ -56,7 +51,7 @@ export class StreamMultiChannelLog
 
   private readonly client: client.Client;
   private readonly onStatusChange?: status.Adder;
-  private readonly now: () => TimeStamp;
+  private readonly now: () => telem.TimeStamp;
   private readonly maxEntries: number;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
@@ -74,7 +69,7 @@ export class StreamMultiChannelLog
     client: client.Client,
     props: unknown,
     options?: CreateOptions,
-    now: () => TimeStamp = () => TimeStamp.now(),
+    now: () => telem.TimeStamp = () => telem.TimeStamp.now(),
     maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
@@ -138,7 +133,7 @@ export class StreamMultiChannelLog
           key: ch.key,
           leadingBuffer: null,
           readCursor: 0,
-          dataType: new DataType(ch.dataType),
+          dataType: new telem.DataType(ch.dataType),
           skipSeed: isRestart,
         });
 
@@ -148,8 +143,8 @@ export class StreamMultiChannelLog
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
           const allocated = res.get(key);
-          const isString = chMeta.dataType.equals(DataType.STRING);
-          const pushSamples = (buf: Series, start: number): void => {
+          const isString = chMeta.dataType.equals(telem.DataType.STRING);
+          const pushSamples = (buf: telem.Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
               const value = buf.asString(i, true);
               if (!isString || !value.includes("\n")) {

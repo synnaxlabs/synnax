@@ -17,7 +17,9 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Flux, type Pluto, Synnax } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import type { Pluto } from "@synnaxlabs/pluto/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 
 import {
   type FC,

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Access, Channel as PChannel } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Channel as PChannel } from "@synnaxlabs/pluto/channel";
 
 import { Channel } from "@/channel";
 import { Palette } from "@/palette";

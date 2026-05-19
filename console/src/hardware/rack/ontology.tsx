@@ -13,7 +13,8 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Access, Rack } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto/access";
+import { Rack } from "@synnaxlabs/pluto/rack";
 import { useMemo } from "react";
 
 import { Arc } from "@/arc";

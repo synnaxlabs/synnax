@@ -10,7 +10,7 @@
 import { record } from "@synnaxlabs/x/record";
 import { ontology } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { Flux } from "@synnaxlabs/pluto";
+import type { Flux } from "@synnaxlabs/pluto/flux";
 
 import { useCallback } from "react";
 

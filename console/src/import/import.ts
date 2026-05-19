@@ -10,7 +10,9 @@
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Flux, type Pluto, Synnax } from "@synnaxlabs/pluto";
+import { Flux } from "@synnaxlabs/pluto/flux";
+import type { Pluto } from "@synnaxlabs/pluto/pluto";
+import { Synnax } from "@synnaxlabs/pluto/synnax";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
