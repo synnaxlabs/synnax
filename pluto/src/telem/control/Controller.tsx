@@ -10,7 +10,7 @@
 import { type channel } from "@synnaxlabs/client";
 import { Aether } from "@synnaxlabs/lyra/aether";
 import { context } from "@synnaxlabs/lyra/context";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
@@ -47,7 +47,7 @@ export const Controller = ({
   onStatusChange,
   ...props
 }: ControllerProps): ReactElement => {
-  const memoProps = useMemoDeepEqual(props);
+  const memoProps = Memo.useDeepEqual(props);
   const [{ path }, { status, needsControlOf }, setState, methods] = Aether.use({
     type: control.Controller.TYPE,
     schema: control.controllerStateZ,

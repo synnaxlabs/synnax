@@ -11,7 +11,7 @@ import "@/telem/control/Indicator.css";
 
 import { Aether } from "@synnaxlabs/lyra/aether";
 import { CSS } from "@synnaxlabs/lyra/css";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { color } from "@synnaxlabs/x/color";
@@ -33,7 +33,7 @@ export const Indicator = ({
   colorSource,
   statusSource,
 }: IndicatorProps): ReactElement => {
-  const memoProps = useMemoDeepEqual({ colorSource, statusSource });
+  const memoProps = Memo.useDeepEqual({ colorSource, statusSource });
 
   const [, { color: colorVal, status }, setState] = Aether.use({
     type: control.Indicator.TYPE,

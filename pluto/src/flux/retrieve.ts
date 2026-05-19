@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { useAsyncEffect, useDestructors } from "@synnaxlabs/lyra/hooks";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { state } from "@synnaxlabs/lyra/state";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type destructor } from "@synnaxlabs/x/destructor";
@@ -319,7 +319,7 @@ const useDirect = <
     AllowDisconnected
   >): UseDirectRetrieveReturn<Data> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restParams);
-  const memoquery = useMemoDeepEqual(query);
+  const memoquery = Memo.useDeepEqual(query);
   useAsyncEffect(
     async (signal) => await retrieveAsync(memoquery, { signal }),
     [retrieveAsync, memoquery],
@@ -354,7 +354,7 @@ const useEffect = <
       [onChange],
     ),
   });
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = Memo.useDeepEqual(query);
   useAsyncEffect(
     async (signal) => {
       if (memoQuery != null) await retrieveAsync(memoQuery, { signal });
@@ -411,7 +411,7 @@ const useSuspended = <
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query> &
   CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>): Data => {
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = Memo.useDeepEqual(query);
   const client = Synnax.use();
   const store = useStore<ScopedStore>();
   const cache = useQueryCache<Query, Data>(cacheKey);
@@ -479,7 +479,7 @@ const useEnsure = <
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query> &
   CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>): void => {
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = Memo.useDeepEqual(query);
   const client = Synnax.use();
   const store = useStore<ScopedStore>();
   const cache = useQueryCache<Query, Data>(cacheKey);

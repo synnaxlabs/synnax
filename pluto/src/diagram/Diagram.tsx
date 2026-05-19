@@ -18,7 +18,7 @@ import {
   useDebouncedCallback,
   useSyncedRef,
 } from "@synnaxlabs/lyra/hooks";
-import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box } from "@synnaxlabs/x/box";
 import { telem } from "@synnaxlabs/x/telem";
@@ -308,7 +308,7 @@ export const create = ({
       ),
     );
 
-    const triggers = useMemoCompare(
+    const triggers = Memo.useCompare(
       () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
       Triggers.compareModeConfigs,
       [pTriggers],

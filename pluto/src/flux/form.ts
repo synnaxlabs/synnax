@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { useAsyncEffect, useDestructors } from "@synnaxlabs/lyra/hooks";
 import { Key } from "@synnaxlabs/lyra/key";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { state } from "@synnaxlabs/lyra/state";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type destructor } from "@synnaxlabs/x/destructor";
@@ -200,7 +200,7 @@ export const createForm =
       },
       [client, name, form, store, noNotifySet],
     );
-    const memoQuery = useMemoDeepEqual(query);
+    const memoQuery = Memo.useDeepEqual(query);
     useAsyncEffect(
       async (signal) => await retrieveAsync(memoQuery, { signal }),
       [retrieveAsync, memoQuery],

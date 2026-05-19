@@ -9,12 +9,12 @@
 
 import { box } from "@synnaxlabs/x/box";
 import { debounce as debounceF } from "@synnaxlabs/x/debounce";
-import { direction } from "@synnaxlabs/x/direction";
-import { telem } from "@synnaxlabs/x/telem";
+import { type direction } from "@synnaxlabs/x/direction";
+import { type telem } from "@synnaxlabs/x/telem";
 import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
-import { compareArrayDeps, useMemoCompare } from "@/memo";
+import { Memo } from "@/memo";
 
 export interface UseResizeOpts {
   /**
@@ -47,7 +47,7 @@ export const useResize = <E extends HTMLElement>(
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
-  const memoTriggers = useMemoCompare(() => triggers, compareArrayDeps, [
+  const memoTriggers = Memo.useCompare(() => triggers, Memo.compareArrayDeps, [
     triggers,
   ] as const);
 

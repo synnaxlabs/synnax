@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/lyra/hooks";
-import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { findParent } from "@synnaxlabs/lyra/util";
 import { box } from "@synnaxlabs/x/box";
@@ -172,7 +172,7 @@ export const use = ({
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
-    useMemoCompare(
+    Memo.useCompare(
       (): [UseTriggers, Triggers.Trigger[], UseTriggers, Triggers.Trigger[]] => {
         const config: UseTriggers = {
           ...DEFAULT_TRIGGERS[defaultMode],

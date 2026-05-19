@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { type destructor } from "@synnaxlabs/x/destructor";
 import { useCallback, useRef } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
@@ -37,7 +37,7 @@ export const createSelector =
   ): UseSelect<Args, Selected> =>
   (args: Args): Selected => {
     const store = useStore<ScopedStore>();
-    const memoArgs = useMemoDeepEqual(args);
+    const memoArgs = Memo.useDeepEqual(args);
     const versionRef = useRef(0);
 
     const subscribe = useCallback(

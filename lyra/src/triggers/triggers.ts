@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { compare } from "@synnaxlabs/x/compare";
-import { xy } from "@synnaxlabs/x/xy";
+import { type xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
-import { useMemoCompare } from "@/memo";
+import { Memo } from "@/memo";
 
 /** All the mouse keys that can be used in a trigger */
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;
@@ -377,7 +377,7 @@ export const determineMode = <K extends string | number | symbol>(
 };
 
 /**
- * A useMemoCompare function that compares two ModeConfigs.
+ * A Memo.useCompare function that compares two ModeConfigs.
  * @returns true if the two ModeConfigs are equal.
  */
 export const compareModeConfigs = <K extends string | number | symbol>(
@@ -414,7 +414,7 @@ export const flattenConfig = <K extends string | number | symbol>(
 export const useFlattenedMemoConfig = <K extends string | number | symbol>(
   config: ModeConfig<K>,
 ): Trigger[] =>
-  useMemoCompare(() => flattenConfig(config), compareModeConfigs, [config]);
+  Memo.useCompare(() => flattenConfig(config), compareModeConfigs, [config]);
 
 /** Purges all mouse keys from the given triggers. If the resulting trigger is empty,
  * it will be removed from the list of triggers. */

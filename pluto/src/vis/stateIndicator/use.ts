@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Aether } from "@synnaxlabs/lyra/aether";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -24,7 +24,7 @@ export interface UseProps extends Pick<
 export interface UseReturn extends Pick<z.infer<typeof stateIndicator.stateZ>, "key"> {}
 
 export const use = ({ aetherKey, source, options }: UseProps): UseReturn => {
-  const memoProps = useMemoDeepEqual({ source, options });
+  const memoProps = Memo.useDeepEqual({ source, options });
   const [, { key }, setState] = Aether.use({
     aetherKey,
     type: stateIndicator.StateIndicator.TYPE,

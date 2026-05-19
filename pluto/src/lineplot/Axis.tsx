@@ -13,7 +13,7 @@ import { Aether } from "@synnaxlabs/lyra/aether";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Key } from "@synnaxlabs/lyra/key";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type bounds } from "@synnaxlabs/x/bounds";
@@ -77,7 +77,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     const showLabel = (label?.length ?? 0) > 0;
     const cKey = Key.useUnique(aetherKey);
 
-    const aetherProps = useMemoDeepEqual({
+    const aetherProps = Memo.useDeepEqual({
       location,
       showGrid,
       type,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import { compare } from "@synnaxlabs/x/compare";
 import { unique } from "@synnaxlabs/x/unique";
@@ -38,7 +38,7 @@ export const useRemover = (...baseKeys: string[]): Remover => {
   const store = useStore<RootState>();
   const promptConfirm = useConfirm();
   const handleError = Status.useErrorHandler();
-  const memoKeys = useMemoCompare(
+  const memoKeys = Memo.useCompare(
     () => baseKeys,
     ([a], [b]) => compare.primitiveArrays(a, b) === compare.EQUAL,
     [baseKeys],

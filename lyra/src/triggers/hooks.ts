@@ -10,11 +10,11 @@
 import { box } from "@synnaxlabs/x/box";
 import { compare } from "@synnaxlabs/x/compare";
 import { unique } from "@synnaxlabs/x/unique";
-import { xy } from "@synnaxlabs/x/xy";
+import { type xy } from "@synnaxlabs/x/xy";
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
 import { useStateRef } from "@/hooks/ref";
-import { useMemoCompare } from "@/memo";
+import { Memo } from "@/memo";
 import { useContext } from "@/triggers/Provider";
 import {
   diff,
@@ -66,7 +66,7 @@ export const use = ({
   if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
     baseTriggers = [triggers as Trigger];
   else baseTriggers = triggers as Trigger[];
-  const memoTriggers = useMemoCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
+  const memoTriggers = Memo.useCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
     () => baseTriggers,
     ([a], [b]) => {
       if (a == null && b == null) return true;

@@ -13,7 +13,7 @@ import { Aether } from "@synnaxlabs/lyra/aether";
 import { context } from "@synnaxlabs/lyra/context";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { useEffectCompare } from "@synnaxlabs/lyra/hooks";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { box } from "@synnaxlabs/x/box";
 import { type color } from "@synnaxlabs/x/color";
 import { deep } from "@synnaxlabs/x/deep";
@@ -134,7 +134,7 @@ export const LinePlot = ({
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
-  const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
+  const memoProps = Memo.useDeepEqual({ clearOverScan, hold, visible });
 
   const [{ path }, { grid }, setState, methods] = Aether.use({
     aetherKey,

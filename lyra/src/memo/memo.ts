@@ -9,7 +9,7 @@
 
 import { compare } from "@synnaxlabs/x/compare";
 import { deep } from "@synnaxlabs/x/deep";
-import { primitive } from "@synnaxlabs/x/primitive";
+import { type primitive } from "@synnaxlabs/x/primitive";
 import { type DependencyList, useRef } from "react";
 
 const arraysEqual = <T>(a: readonly T[], b: readonly T[]): boolean => {
@@ -18,7 +18,7 @@ const arraysEqual = <T>(a: readonly T[], b: readonly T[]): boolean => {
   return true;
 };
 
-export const useMemoCompare = <V, D extends DependencyList>(
+export const useCompare = <V, D extends DependencyList>(
   factory: () => V,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
@@ -34,7 +34,7 @@ export const compareArrayDeps = <T extends primitive.Value>(
   [b]: readonly [T[]] | [T[]],
 ): boolean => compare.primitiveArrays(a, b) === 0;
 
-export const useMemoDeepEqual = <T>(value: T): T => {
+export const useDeepEqual = <T>(value: T): T => {
   const ref = useRef<T>(null);
   if (ref.current == null) ref.current = value;
   else if (!deep.equal(ref.current, value)) ref.current = value;
@@ -44,10 +44,10 @@ export const useMemoDeepEqual = <T>(value: T): T => {
 /**
  * Returns a referentially stable array as long as its contents are element-wise equal
  * (per `Object.is`, matching React's dep comparison) to the previous render's
- * contents. Faster than {@link useMemoDeepEqual} since it short-circuits on length
+ * contents. Faster than {@link useDeepEqual} since it short-circuits on length
  * and avoids structural traversal.
  */
-export const useMemoArray = <T>(value: readonly T[]): readonly T[] => {
+export const useArray = <T>(value: readonly T[]): readonly T[] => {
   const ref = useRef<readonly T[]>(null);
   if (ref.current == null || !arraysEqual(ref.current, value)) ref.current = value;
   return ref.current;

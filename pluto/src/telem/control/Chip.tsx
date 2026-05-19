@@ -12,7 +12,7 @@ import { Aether } from "@synnaxlabs/lyra/aether";
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type status } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
@@ -82,7 +82,7 @@ export const tooltipMessage = (
 };
 
 export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElement => {
-  const memoProps = useMemoDeepEqual({ source, sink });
+  const memoProps = Memo.useDeepEqual({ source, sink });
   const [, { status }, setState] = Aether.use({
     type: control.Chip.TYPE,
     schema: control.chipStateZ,

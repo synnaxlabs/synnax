@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Aether } from "@synnaxlabs/lyra/aether";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { text } from "@synnaxlabs/lyra/text/base";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -38,7 +38,7 @@ export const use = ({
   bounds,
   barWidth,
 }: UseProps): void => {
-  const memoProps = useMemoDeepEqual({
+  const memoProps = Memo.useDeepEqual({
     box,
     telem,
     color,

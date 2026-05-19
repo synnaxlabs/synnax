@@ -32,7 +32,7 @@ import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { Key } from "@/key";
-import { useMemoArray } from "@/memo";
+import { Memo } from "@/memo";
 import { type state } from "@/state";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
@@ -149,7 +149,7 @@ export const useLifecycle = <
 > => {
   const key = Key.useUnique(aetherKey);
   const ctx = useContext();
-  const path = useMemoArray([...ctx.path, key]);
+  const path = Memo.useArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);
   const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
   // Render-phase register: preserves parent-before-child ordering on the worker.

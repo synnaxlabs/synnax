@@ -10,14 +10,14 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useMemoArray } from "@/memo/useMemoCompare";
+import { Memo } from "@/memo";
 
 const setup = <T>(initial: T[]) =>
-  renderHook(({ value }) => useMemoArray(value), {
+  renderHook(({ value }) => Memo.useArray(value), {
     initialProps: { value: initial },
   });
 
-describe("useMemoArray", () => {
+describe("Memo.useArray", () => {
   it("returns the initial array on first render", () => {
     const initial = [1, 2, 3];
     const { result } = setup<number>(initial);

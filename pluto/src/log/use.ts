@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Aether } from "@synnaxlabs/lyra/aether";
-import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { box } from "@synnaxlabs/x/box";
 import { type optional } from "@synnaxlabs/x/optional";
 import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
@@ -82,7 +82,7 @@ export const use = ({
     return types;
   }, [retrievedChannels]);
 
-  const memoProps = useMemoDeepEqual({
+  const memoProps = Memo.useDeepEqual({
     font,
     color,
     telem,

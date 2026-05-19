@@ -11,7 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { compareArrayDeps, useMemoCompare } from "@synnaxlabs/lyra/memo";
+import { Memo } from "@synnaxlabs/lyra/memo";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import type { Text } from "@synnaxlabs/lyra/text";
@@ -34,13 +34,13 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
     .filter((a) => shouldDisplayAxis(a.key, vis))
     .map((a) => a.key);
 
-  const tabs = useMemoCompare(
+  const tabs = Memo.useCompare(
     () =>
       shouldShow.map((key) => ({
         tabKey: key,
         name: key.toUpperCase(),
       })),
-    compareArrayDeps,
+    Memo.compareArrayDeps,
     [shouldShow] as [string[]],
   );
 

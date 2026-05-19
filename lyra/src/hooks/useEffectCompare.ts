@@ -9,13 +9,13 @@
 
 import { type DependencyList, type EffectCallback, useEffect } from "react";
 
-import { useMemoCompare } from "@/memo";
+import { Memo } from "@/memo";
 
 export const useEffectCompare = <D extends DependencyList>(
   cbk: EffectCallback,
   areEqual: (prevDeps: D, nextDeps: D) => boolean,
   deps: D,
 ): void => {
-  const memoDeps = useMemoCompare(() => deps, areEqual, deps);
+  const memoDeps = Memo.useCompare(() => deps, areEqual, deps);
   useEffect(cbk, [memoDeps]);
 };
