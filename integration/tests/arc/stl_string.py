@@ -100,6 +100,35 @@ func fmt_fn() {
     fmt_chan_int_fn_out = f"chan: {fmt_int_in}"
     fmt_chan_float_fn_out = f"chan: {fmt_float_in:.2f}"
     fmt_chan_str_fn_out = f"chan: {fmt_str_in:q}"
+    // Verb coverage: every numeric verb supported by the analyzer.
+    fmt_bin_fn_out = f"{5:b}"
+    fmt_oct_fn_out = f"{8:o}"
+    fmt_goct_fn_out = f"{8:O}"
+    fmt_hex_upper_fn_out = f"{u8(255):X}"
+    fmt_rune_ascii_fn_out = f"{u32(65):c}"
+    fmt_rune_utf8_fn_out = f"{u32(9731):c}"
+    fmt_sci_lower_fn_out = f"{1000000.0:e}"
+    fmt_sci_upper_fn_out = f"{1000000.0:E}"
+    fmt_short_fn_out = f"{3.14:g}"
+    // Alt flag (#): parity with Go's prefix-on-zero rule.
+    // %#x on 0 emits "0x0"; %#o on 0 emits "0" (no prefix).
+    fmt_alt_hex_zero_fn_out = f"{u8(0):#x}"
+    fmt_alt_oct_zero_fn_out = f"{u8(0):#o}"
+    fmt_alt_bin_fn_out = f"{5:#b}"
+    // Width, precision, sign flags.
+    fmt_width_fn_out = f"{42:5d}"
+    fmt_left_fn_out = f"{42:-5d}"
+    fmt_zero_pad_fn_out = f"{42:05d}"
+    fmt_plus_fn_out = f"{42:+d}"
+    fmt_prec_int_fn_out = f"{42:.4d}"
+    // Negative ints with non-decimal verbs: Go preserves the sign on the
+    // magnitude, unlike C printf which treats as unsigned.
+    fmt_neg_hex_fn_out = f"{-255:x}"
+    fmt_neg_alt_hex_fn_out = f"{-255:#x}"
+    fmt_neg_bin_fn_out = f"{-5:b}"
+    // String width and precision count UTF-8 runes, not bytes.
+    fmt_utf8_width_fn_out = f"{fmt_utf8_in:6s}"
+    fmt_utf8_prec_fn_out = f"{fmt_utf8_in:.3s}"
 }
 fmt_trigger -> fmt_fn{}
 // ──────────────────────── format strings (flow) ───────────────────────
@@ -128,6 +157,7 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("fmt_int_in", sy.DataType.INT64),
     ("fmt_float_in", sy.DataType.FLOAT64),
     ("fmt_str_in", sy.DataType.STRING),
+    ("fmt_utf8_in", sy.DataType.STRING),
     ("fmt_const_int_fn_out", sy.DataType.STRING),
     ("fmt_const_hex_fn_out", sy.DataType.STRING),
     ("fmt_const_float_fn_out", sy.DataType.STRING),
@@ -137,6 +167,33 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("fmt_chan_int_fn_out", sy.DataType.STRING),
     ("fmt_chan_float_fn_out", sy.DataType.STRING),
     ("fmt_chan_str_fn_out", sy.DataType.STRING),
+    # Verb coverage outputs.
+    ("fmt_bin_fn_out", sy.DataType.STRING),
+    ("fmt_oct_fn_out", sy.DataType.STRING),
+    ("fmt_goct_fn_out", sy.DataType.STRING),
+    ("fmt_hex_upper_fn_out", sy.DataType.STRING),
+    ("fmt_rune_ascii_fn_out", sy.DataType.STRING),
+    ("fmt_rune_utf8_fn_out", sy.DataType.STRING),
+    ("fmt_sci_lower_fn_out", sy.DataType.STRING),
+    ("fmt_sci_upper_fn_out", sy.DataType.STRING),
+    ("fmt_short_fn_out", sy.DataType.STRING),
+    # Alt-flag (#) parity outputs.
+    ("fmt_alt_hex_zero_fn_out", sy.DataType.STRING),
+    ("fmt_alt_oct_zero_fn_out", sy.DataType.STRING),
+    ("fmt_alt_bin_fn_out", sy.DataType.STRING),
+    # Width, precision, sign flags.
+    ("fmt_width_fn_out", sy.DataType.STRING),
+    ("fmt_left_fn_out", sy.DataType.STRING),
+    ("fmt_zero_pad_fn_out", sy.DataType.STRING),
+    ("fmt_plus_fn_out", sy.DataType.STRING),
+    ("fmt_prec_int_fn_out", sy.DataType.STRING),
+    # Negative non-decimal parity outputs.
+    ("fmt_neg_hex_fn_out", sy.DataType.STRING),
+    ("fmt_neg_alt_hex_fn_out", sy.DataType.STRING),
+    ("fmt_neg_bin_fn_out", sy.DataType.STRING),
+    # UTF-8 rune-count parity outputs.
+    ("fmt_utf8_width_fn_out", sy.DataType.STRING),
+    ("fmt_utf8_prec_fn_out", sy.DataType.STRING),
     ("fmt_const_int_flow_out", sy.DataType.STRING),
     ("fmt_const_hex_flow_out", sy.DataType.STRING),
     ("fmt_const_float_flow_out", sy.DataType.STRING),
@@ -267,6 +324,8 @@ class StlString(ArcConsoleCase):
         self.writer.write("fmt_int_in", 42)
         self.writer.write("fmt_float_in", 2.71828)
         self.writer.write("fmt_str_in", "hello")
+        # 5 runes / 6 bytes — exercises Go's rune-count width and precision.
+        self.writer.write("fmt_utf8_in", "héllo")
         self.writer.write("fmt_trigger", 1)
 
         # Function context: constants
@@ -312,6 +371,61 @@ class StlString(ArcConsoleCase):
         # Flow context: multiple placeholders
         self.log("[fmt_multi_flow] Expecting 'i=42, f=2.7'")
         self.wait_for_eq("fmt_multi_flow_out", "i=42, f=2.7", is_virtual=True)
+
+        # Verb coverage: one case per verb supported by the analyzer.
+        self.log("[fmt_bin] Expecting '101'")
+        self.wait_for_eq("fmt_bin_fn_out", "101", is_virtual=True)
+        self.log("[fmt_oct] Expecting '10'")
+        self.wait_for_eq("fmt_oct_fn_out", "10", is_virtual=True)
+        self.log("[fmt_goct] Expecting '0o10'")
+        self.wait_for_eq("fmt_goct_fn_out", "0o10", is_virtual=True)
+        self.log("[fmt_hex_upper] Expecting 'FF'")
+        self.wait_for_eq("fmt_hex_upper_fn_out", "FF", is_virtual=True)
+        self.log("[fmt_rune_ascii] Expecting 'A'")
+        self.wait_for_eq("fmt_rune_ascii_fn_out", "A", is_virtual=True)
+        self.log("[fmt_rune_utf8] Expecting '☃'")
+        self.wait_for_eq("fmt_rune_utf8_fn_out", "☃", is_virtual=True)
+        self.log("[fmt_sci_lower] Expecting '1.000000e+06'")
+        self.wait_for_eq("fmt_sci_lower_fn_out", "1.000000e+06", is_virtual=True)
+        self.log("[fmt_sci_upper] Expecting '1.000000E+06'")
+        self.wait_for_eq("fmt_sci_upper_fn_out", "1.000000E+06", is_virtual=True)
+        self.log("[fmt_short] Expecting '3.14'")
+        self.wait_for_eq("fmt_short_fn_out", "3.14", is_virtual=True)
+
+        # Alt flag (#) on zero: Go emits "0x0"/"0b0" but suppresses for octal.
+        self.log("[fmt_alt_hex_zero] Expecting '0x0'")
+        self.wait_for_eq("fmt_alt_hex_zero_fn_out", "0x0", is_virtual=True)
+        self.log("[fmt_alt_oct_zero] Expecting '0'")
+        self.wait_for_eq("fmt_alt_oct_zero_fn_out", "0", is_virtual=True)
+        self.log("[fmt_alt_bin] Expecting '0b101'")
+        self.wait_for_eq("fmt_alt_bin_fn_out", "0b101", is_virtual=True)
+
+        # Width, precision, sign flags.
+        self.log("[fmt_width] Expecting '   42'")
+        self.wait_for_eq("fmt_width_fn_out", "   42", is_virtual=True)
+        self.log("[fmt_left] Expecting '42   '")
+        self.wait_for_eq("fmt_left_fn_out", "42   ", is_virtual=True)
+        self.log("[fmt_zero_pad] Expecting '00042'")
+        self.wait_for_eq("fmt_zero_pad_fn_out", "00042", is_virtual=True)
+        self.log("[fmt_plus] Expecting '+42'")
+        self.wait_for_eq("fmt_plus_fn_out", "+42", is_virtual=True)
+        self.log("[fmt_prec_int] Expecting '0042'")
+        self.wait_for_eq("fmt_prec_int_fn_out", "0042", is_virtual=True)
+
+        # Negative ints with non-decimal verbs: sign preserved per Go.
+        self.log("[fmt_neg_hex] Expecting '-ff'")
+        self.wait_for_eq("fmt_neg_hex_fn_out", "-ff", is_virtual=True)
+        self.log("[fmt_neg_alt_hex] Expecting '-0xff'")
+        self.wait_for_eq("fmt_neg_alt_hex_fn_out", "-0xff", is_virtual=True)
+        self.log("[fmt_neg_bin] Expecting '-101'")
+        self.wait_for_eq("fmt_neg_bin_fn_out", "-101", is_virtual=True)
+
+        # UTF-8 width and precision: Go counts code points, not bytes.
+        # "héllo" is 5 runes / 6 bytes; %6s pads to 6 runes, %.3s keeps 3.
+        self.log("[fmt_utf8_width] Expecting ' héllo'")
+        self.wait_for_eq("fmt_utf8_width_fn_out", " héllo", is_virtual=True)
+        self.log("[fmt_utf8_prec] Expecting 'hél'")
+        self.wait_for_eq("fmt_utf8_prec_fn_out", "hél", is_virtual=True)
 
     def verify_sequence_execution(self) -> None:
         self._test_len()
