@@ -48,7 +48,7 @@ type Relationship struct {
 	Type RelationshipType `json:"type" msgpack:"type"`
 }
 
-var _ gorp.Entry[[]byte] = Relationship{}
+var _ gorp.Entry[string] = Relationship{}
 
 // relationshipKeySep separates the From, Type, and To fields in an encoded
 // relationship gorp key. The four dagWriter delete helpers depend on this
@@ -56,15 +56,15 @@ var _ gorp.Entry[[]byte] = Relationship{}
 const relationshipKeySep = "->"
 
 // GorpKey implements the gorp.Entry interface.
-func (r Relationship) GorpKey() []byte {
-	return []byte(r.From.String() + relationshipKeySep + string(r.Type) + relationshipKeySep + r.To.String())
+func (r Relationship) GorpKey() string {
+	return r.From.String() + relationshipKeySep + string(r.Type) + relationshipKeySep + r.To.String()
 }
 
 // SetOptions implements the gorp.Entry interface.
 func (r Relationship) SetOptions() []any { return nil }
 
-func ParseRelationship(key []byte) (Relationship, error) {
-	split := strings.Split(string(key), "->")
+func ParseRelationship(key string) (Relationship, error) {
+	split := strings.Split(key, "->")
 	if len(split) != 3 {
 		return Relationship{}, errors.Wrapf(validate.ErrValidation, "invalid relationship key: %s", key)
 	}

@@ -52,7 +52,7 @@ func newObservable[K Key, E Entry[K]](
 // Observe returns an observable that notifies its caller whenever a change is made
 // to entries in this table.
 func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]] {
-	return newObservable[K, E](t.DB, t.DB)
+	return newObservable[K, E](t.db, t.db)
 }
 
 func wrapMatchedChanges[K Key, E Entry[K]](

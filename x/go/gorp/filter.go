@@ -10,9 +10,7 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
-	"reflect"
 	"slices"
 	"sync"
 
@@ -41,8 +39,8 @@ type Filter[K Key, E Entry[K]] struct {
 	// drops keys because inverting a key set requires the universe.
 	keys []K
 	// membership is a lazy O(1) mirror of keys. Nil when the filter has
-	// no keys or was constructed without an ComparableKey-constrained
-	// builder; containsKey gates on it being non-nil.
+	// no keys or was constructed without a membership builder;
+	// containsKey gates on it being non-nil.
 	//
 	// Lazy materialization avoids allocating an N-entry hashmap for a
 	// keys slice that intersectKeys / unionKeys may end up walking
@@ -111,28 +109,8 @@ func newLazyMembership[K Key](
 // of comparable keys. Defined as a package-level generic (rather than
 // a closure literal) so resolvers can return it without forcing a
 // per-construction heap allocation.
-func indexedKeyMembership[K ComparableKey](keys []K) keyMembership[K] {
+func indexedKeyMembership[K Key](keys []K) keyMembership[K] {
 	return set.New(keys...)
-}
-
-// bytesIndexedKeyMembership builds an O(1) membership predicate over a
-// set of []byte keys.
-func bytesIndexedKeyMembership(keys [][]byte) keyMembership[[]byte] {
-	m := make(bytesKeyMembership, len(keys))
-	for _, b := range keys {
-		m[string(b)] = struct{}{}
-	}
-	return m
-}
-
-// bytesKeyMembership is an O(1) membership predicate over a set of
-// []byte keys, keyed internally by string conversion.
-type bytesKeyMembership set.Set[string]
-
-// Contains implements keyMembership[[]byte].
-func (m bytesKeyMembership) Contains(k []byte) bool {
-	_, ok := m[string(k)]
-	return ok
 }
 
 // present reports whether the filter carries any active constraint. A
@@ -154,32 +132,7 @@ func (f Filter[K, E]) containsKey(k K) bool {
 	if f.keys == nil {
 		return false
 	}
-	return linearContainsKey(f.keys, k)
-}
-
-// linearContainsKey reports whether k is in keys via O(n) scan.
-// Handles []byte-shaped K via bytes.Equal since []byte is not ==
-// comparable; other K kinds dispatch through interface equality.
-func linearContainsKey[K Key](keys []K, k K) bool {
-	if len(keys) == 0 {
-		return false
-	}
-	if reflect.TypeOf(keys[0]).Kind() == reflect.Slice {
-		probe := reflect.ValueOf(k).Bytes()
-		for _, fk := range keys {
-			if bytes.Equal(reflect.ValueOf(fk).Bytes(), probe) {
-				return true
-			}
-		}
-		return false
-	}
-	probe := any(k)
-	for _, fk := range keys {
-		if any(fk) == probe {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(f.keys, k)
 }
 
 // Match wraps a decoded-entry predicate as a Filter.
@@ -307,7 +260,7 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 //     (no eval, no keys); otherwise the raw paths dispatch inside
 //     eval at decode time.
 //   - eval evaluates each child's full predicate (keys ∧ eval/raw)
-//     against the entry and OR's the results.
+//     against the entry and ORs the results.
 //
 // When every child is keys-only with a complete keys set, both f.eval
 // and f.raw are left nil and matching reduces to membership in the

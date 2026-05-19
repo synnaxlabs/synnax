@@ -95,9 +95,9 @@ func (r Retrieve[K, E]) HasNonKeyFilters() bool {
 
 // HasFilterKeys returns true if the resolved filter is bounded by a primary
 // key set — either set directly via Where(MatchKeys(...)) or carried by an
-// indexed filter (LookupIndex.Filter / SortedIndex.Filter / BytesLookup.Filter) whose
-// keys have already been resolved. Note that for filters carrying a deferred
-// resolver, this returns false until resolveFilter has populated keys.
+// indexed filter (LookupIndex.Filter / SortedIndex.Filter) whose keys have
+// already been resolved. Note that for filters carrying a deferred resolver,
+// this returns false until resolveFilter has populated keys.
 func (r Retrieve[K, E]) HasFilterKeys() bool {
 	return r.filter.keys != nil
 }
@@ -144,8 +144,8 @@ func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
 	return r
 }
 
-// HasOrderBy returns true if OrderBy was set on the query.
-func (r Retrieve[K, E]) HasOrderBy() bool { return r.orderBy != nil }
+// hasOrderBy returns true if OrderBy was set on the query.
+func (r Retrieve[K, E]) hasOrderBy() bool { return r.orderBy != nil }
 
 // Validate attaches a batch validator that runs once on the final bound
 // result set after Exec populates entries. A non-nil error from any validator
@@ -206,7 +206,7 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	if err := r.resolveFilter(ctx, tx); err != nil {
 		return err
 	}
-	if r.HasOrderBy() {
+	if r.hasOrderBy() {
 		return r.execOrdered(ctx, tx)
 	}
 	if r.HasFilterKeys() {

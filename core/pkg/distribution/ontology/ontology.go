@@ -48,12 +48,12 @@ import (
 type Ontology struct {
 	Config
 	ResourceObserver     observe.Observer[iter.Seq[Change]]
-	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
+	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
 	closer               io.MultiCloser
 	resourceTable        *gorp.Table[string, Resource]
-	relationshipTable    *gorp.Table[[]byte, Relationship]
+	relationshipTable    *gorp.Table[string, Relationship]
 	relIndexes           relationshipIndexes
 }
 
@@ -66,25 +66,25 @@ type Ontology struct {
 // index lets the traverse dispatcher pick the index uniformly without
 // special-casing direction.
 type relationshipIndexes struct {
-	byTo   *gorp.LookupIndex[[]byte, Relationship, ID]
-	byFrom *gorp.LookupIndex[[]byte, Relationship, ID]
+	byTo   *gorp.LookupIndex[string, Relationship, ID]
+	byFrom *gorp.LookupIndex[string, Relationship, ID]
 }
 
 func newRelationshipIndexes() relationshipIndexes {
 	return relationshipIndexes{
-		byTo: gorp.NewBytesLookup[Relationship, ID](
+		byTo: gorp.NewLookupIndex[string, Relationship, ID](
 			"relationship_by_to",
 			func(r *Relationship) ID { return r.To },
 		),
-		byFrom: gorp.NewBytesLookup[Relationship, ID](
+		byFrom: gorp.NewLookupIndex[string, Relationship, ID](
 			"relationship_by_from",
 			func(r *Relationship) ID { return r.From },
 		),
 	}
 }
 
-func (i relationshipIndexes) all() []gorp.Index[[]byte, Relationship] {
-	return []gorp.Index[[]byte, Relationship]{i.byTo, i.byFrom}
+func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
+	return []gorp.Index[string, Relationship]{i.byTo, i.byFrom}
 }
 
 type Config struct {
@@ -135,12 +135,12 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
-	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[[]byte, Relationship]{
+	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Relationship]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Indexes:         o.relIndexes.all(),
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[[]byte, Relationship]("msgpack_to_orc"),
+			gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
 		},
 	}); !ok(err, o.relationshipTable) {
 		return nil, err

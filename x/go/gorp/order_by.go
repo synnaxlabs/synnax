@@ -16,10 +16,10 @@ import "cmp"
 type Direction uint8
 
 const (
-	// Asc walks the sorted index from smallest to largest value.
-	Asc Direction = iota
-	// Desc walks the sorted index from largest to smallest value.
-	Desc
+	// DirectionAsc walks the sorted index from smallest to largest value.
+	DirectionAsc Direction = iota
+	// DirectionDesc walks the sorted index from largest to smallest value.
+	DirectionDesc
 )
 
 // OrderQuery is an opaque ordering handle produced by SortedIndex.Ordered and
@@ -31,7 +31,7 @@ type OrderQuery[K Key, E Entry[K]] interface {
 // SortedQuery is the handle returned by SortedIndex.Ordered. Pass it to
 // Retrieve.OrderBy to drive an ordered walk; chain After to set a
 // resume cursor for pagination.
-type SortedQuery[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
+type SortedQuery[K Key, E Entry[K], V cmp.Ordered] struct {
 	// sorted is the index being walked.
 	sorted *SortedIndex[K, E, V]
 	// dir is the walk direction.
@@ -80,13 +80,13 @@ func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 	}
 	var start int
 	switch q.dir {
-	case Asc:
+	case DirectionAsc:
 		if !q.hasCursor {
 			start = 0
 		} else {
 			start = q.sorted.storage.upperBound(q.cursor)
 		}
-	case Desc:
+	case DirectionDesc:
 		if !q.hasCursor {
 			start = len(entries) - 1
 		} else {
@@ -100,7 +100,7 @@ func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 // emitting up to limit keys. A limit of 0 means unbounded.
 //
 //nolint:unused
-func walkSorted[K ComparableKey, V cmp.Ordered](
+func walkSorted[K Key, V cmp.Ordered](
 	entries []sortedEntry[K, V],
 	start int,
 	dir Direction,
@@ -112,7 +112,7 @@ func walkSorted[K ComparableKey, V cmp.Ordered](
 	keys := make([]K, 0, limit)
 	emitted := 0
 	switch dir {
-	case Asc:
+	case DirectionAsc:
 		for i := start; i < len(entries); i++ {
 			if limit > 0 && emitted >= limit {
 				break
@@ -120,7 +120,7 @@ func walkSorted[K ComparableKey, V cmp.Ordered](
 			keys = append(keys, entries[i].key)
 			emitted++
 		}
-	case Desc:
+	case DirectionDesc:
 		for i := start; i >= 0; i-- {
 			if limit > 0 && emitted >= limit {
 				break

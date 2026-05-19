@@ -51,8 +51,8 @@ type TableConfig[K Key, E Entry[K]] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	// DB is the gorp DB the Table reads and writes through.
-	DB *DB
+	// db is the gorp DB the Table reads and writes through.
+	db *DB
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
 	// indexes is the set of secondary indexes registered on the Table.
@@ -60,14 +60,14 @@ type Table[K Key, E Entry[K]] struct {
 	// disconnectObserver releases the index observer subscription. Nil
 	// when no observer was installed.
 	disconnectObserver func()
-	// populateCtx hosts the background populate routine. Nil when the
-	// table has no indexes.
-	populateCtx signal.Context
-	// populateShutdown cancels populateCtx and waits for the populate
-	// routine to exit. Nil when the table has no indexes.
+	// populateDone is closed when the background populate routine exits.
+	// Nil when the table has no indexes.
+	populateDone <-chan struct{}
+	// populateShutdown cancels the populate context and waits for the
+	// populate routine to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
 	// populateErr is the terminal scan error, set by runPopulate before
-	// it returns. Read by WaitForIndexes after populateCtx.Stopped().
+	// it returns. Read by WaitForIndexes after populateDone is closed.
 	populateErr atomic.Pointer[error]
 }
 
@@ -98,11 +98,11 @@ func (t *Table[K, E]) Close() error {
 // that observe indexed state directly via Get / GetTx, and for service
 // startup paths that want to fail fast on populate failure.
 func (t *Table[K, E]) WaitForIndexes(ctx context.Context) error {
-	if t.populateCtx == nil {
+	if t.populateDone == nil {
 		return nil
 	}
 	select {
-	case <-t.populateCtx.Stopped():
+	case <-t.populateDone:
 		if e := t.populateErr.Load(); e != nil {
 			return *e
 		}
@@ -144,7 +144,7 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	t := &Table[K, E]{DB: cfg.DB, keyPrefix: newKeyPrefix[E](), indexes: cfg.Indexes}
+	t := &Table[K, E]{db: cfg.DB, keyPrefix: newKeyPrefix[E](), indexes: cfg.Indexes}
 	if len(cfg.Indexes) == 0 {
 		return t, nil
 	}
@@ -172,11 +172,12 @@ func OpenTable[K Key, E Entry[K]](
 	// populate must run for the Table's full lifetime. Termination flows
 	// through Table.Close().
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	t.populateCtx = sCtx
+	t.populateDone = sCtx.Stopped()
 	t.populateShutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(
 		func(ctx context.Context) error {
-			return t.runPopulate(ctx, cfg.Instrumentation, inserts, finishes)
+			t.runPopulate(ctx, cfg.Instrumentation, inserts, finishes)
+			return nil
 		},
 		signal.WithKey("gorp_index_populate"),
 	)
@@ -184,16 +185,15 @@ func OpenTable[K Key, E Entry[K]](
 }
 
 // runPopulate scans the table once and feeds every registered index
-// from the same scan. It always returns nil: populate failures are
-// recoverable (queries fall back to sequential scan) and must not be
-// treated as routine failures by signal. The terminal scan error is
-// stored on t.populateErr and passed to each index's finish closure.
+// from the same scan. Populate failures are recoverable: queries fall
+// back to sequential scan, and the terminal scan error is stored on
+// t.populateErr and passed to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	ins alamos.Instrumentation,
 	inserts []func(E),
 	finishes []func(error),
-) error {
+) {
 	var scanErr error
 	defer func() {
 		if scanErr != nil {
@@ -207,23 +207,22 @@ func (t *Table[K, E]) runPopulate(
 			f(scanErr)
 		}
 	}()
-	reader := wrapReader[K, E](t.DB, t.keyPrefix)
+	reader := wrapReader[K, E](t.db, t.keyPrefix)
 	nexter, closer, openErr := reader.OpenNexter(ctx)
 	if openErr != nil {
 		scanErr = openErr
-		return nil
+		return
 	}
 	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
 	for e := range nexter {
 		if ctx.Err() != nil {
 			scanErr = ctx.Err()
-			return nil
+			return
 		}
 		for _, insert := range inserts {
 			insert(e)
 		}
 	}
-	return nil
 }
 
 // attachIndexObserver subscribes to src and propagates every set and
@@ -291,7 +290,7 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.DB, t.keyPrefix).OpenNexter(ctx)
+	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
 }
 
 var normalizeKeysMigrationKey = "normalize_keys"

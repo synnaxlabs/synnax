@@ -25,7 +25,7 @@ type dagWriter struct {
 	tx                gorp.Tx
 	registrar         serviceRegistrar
 	resourceTable     *gorp.Table[string, Resource]
-	relationshipTable *gorp.Table[[]byte, Relationship]
+	relationshipTable *gorp.Table[string, Relationship]
 	relIndexes        relationshipIndexes
 }
 
@@ -135,7 +135,7 @@ func (d dagWriter) DeleteRelationship(
 	t RelationshipType,
 	to ID,
 ) error {
-	return d.relationshipTable.NewDelete().Where(gorp.MatchKeys[[]byte, Relationship](Relationship{From: from, To: to, Type: t}.GorpKey())).
+	return d.relationshipTable.NewDelete().Where(gorp.MatchKeys[string, Relationship](Relationship{From: from, To: to, Type: t}.GorpKey())).
 		Exec(ctx, d.tx)
 }
 
@@ -221,13 +221,13 @@ func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID,
 }
 
 func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship) (bool, error) {
-	exists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[[]byte, Relationship](rel.GorpKey())).
+	exists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[string, Relationship](rel.GorpKey())).
 		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err
 	}
 	reverseRel := Relationship{From: rel.To, To: rel.From, Type: rel.Type}
-	reverseExists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[[]byte, Relationship](reverseRel.GorpKey())).
+	reverseExists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[string, Relationship](reverseRel.GorpKey())).
 		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err

@@ -33,7 +33,7 @@ type Retrieve struct {
 	registrar         serviceRegistrar
 	tx                gorp.Tx
 	resourceTable     *gorp.Table[string, Resource]
-	relationshipTable *gorp.Table[[]byte, Relationship]
+	relationshipTable *gorp.Table[string, Relationship]
 	relIndexes        relationshipIndexes
 }
 
@@ -62,7 +62,7 @@ func newRetrieve(
 	registrar serviceRegistrar,
 	tx gorp.Tx,
 	resourceTable *gorp.Table[string, Resource],
-	relationshipTable *gorp.Table[[]byte, Relationship],
+	relationshipTable *gorp.Table[string, Relationship],
 	relIndexes relationshipIndexes,
 ) Retrieve {
 	r := Retrieve{
@@ -247,7 +247,7 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 	}
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
-		keys, err := idx.GetTx(tx, id)
+		keys, err := idx.Get(tx, id)
 		if err != nil {
 			return nil, err
 		}
