@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
 import { Triggers } from "@/triggers";
@@ -74,6 +74,74 @@ describe("Dialog", () => {
     fireEvent.click(c.getByText("Toggle"));
     fireEvent.keyDown(c.container, { code: "Escape" });
     expect(c.queryByText("Content")).toBeNull();
+  });
+
+  describe("escape propagation", () => {
+    const EscapeListener = ({ onEscape }: { onEscape: () => void }): null => {
+      Triggers.use({
+        triggers: [["Escape"]],
+        callback: ({ stage }) => {
+          if (stage === "start") onEscape();
+        },
+        loose: true,
+      });
+      return null;
+    };
+
+    it("should stop propagation to lower-priority Escape subscribers when a non-modal dialog closes", () => {
+      const onEscape = vi.fn();
+      const c = render(
+        <Triggers.Provider>
+          <EscapeListener onEscape={onEscape} />
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Toggle"));
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Content")).toBeNull();
+      expect(onEscape).not.toHaveBeenCalled();
+    });
+
+    it("should stop propagation to lower-priority Escape subscribers when a modal dialog closes", () => {
+      const onEscape = vi.fn();
+      const c = render(
+        <Triggers.Provider>
+          <EscapeListener onEscape={onEscape} />
+          <Dialog.Frame variant="modal">
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.click(c.getByText("Toggle"));
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(c.queryByText("Content")).toBeNull();
+      expect(onEscape).not.toHaveBeenCalled();
+    });
+
+    it("should let Escape propagate to lower-priority subscribers when no dialog is open", () => {
+      const onEscape = vi.fn();
+      const c = render(
+        <Triggers.Provider>
+          <EscapeListener onEscape={onEscape} />
+          <Dialog.Frame variant="floating">
+            <Dialog.Trigger>Toggle</Dialog.Trigger>
+            <Dialog.Dialog>
+              <p>Content</p>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Triggers.Provider>,
+      );
+      fireEvent.keyDown(c.container, { code: "Escape" });
+      expect(onEscape).toHaveBeenCalledOnce();
+    });
   });
 
   describe("variants", () => {
