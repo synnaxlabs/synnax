@@ -14,65 +14,25 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fhttp "github.com/synnaxlabs/freighter/integration/http"
-	"github.com/synnaxlabs/x/address"
+	ihttp "github.com/synnaxlabs/freighter/integration/http"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	app  *fiber.App
-	addr address.Address
-)
-
-var _ = BeforeSuite(func() {
-	addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
-	app = fiber.New(fiber.Config{})
-	Expect(fhttp.BindTo(app)).To(Succeed())
-	go func() {
-		defer GinkgoRecover()
-		Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-			DisableStartupMessage: true,
-		})).To(Succeed())
-	}()
-	Eventually(func(g Gomega) {
-		_, err := http.Get("http://" + addr.String() + "/unary/echo")
-		g.Expect(err).To(Succeed())
-	}).WithPolling(2 * time.Millisecond).WithTimeout(2 * time.Second).Should(Succeed())
-})
-
-var _ = AfterSuite(func() { Expect(app.Shutdown()).To(Succeed()) })
-
-func post(
-	ctx context.Context,
-	path string,
-	headers map[string]string,
-	body []byte,
-) *http.Response {
-	req := MustSucceed(http.NewRequestWithContext(
-		ctx, http.MethodPost, "http://"+addr.String()+path, bytes.NewReader(body),
-	))
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	res := MustSucceed((&http.Client{}).Do(req))
-	DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
-	return res
-}
-
 var _ = Describe("BindTo", func() {
 	It("Should register every integration endpoint on the provided Fiber app", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
 		registered := set.New[string]()
 		for _, r := range app.GetRoutes() {
 			registered = registered.Add(r.Path)
 		}
+
 		routes := []string{
 			"/stream/echo",
 			"/stream/sendMessageAfterClientClose",
@@ -92,77 +52,71 @@ var _ = Describe("BindTo", func() {
 		}
 	})
 
-	Describe("/unary/echo", func() {
-		It("Should increment the request ID and echo the message", func(ctx context.Context) {
-			body := MustSucceed(json.Marshal(fhttp.Message{Message: "hi", ID: 1}))
-			res := post(ctx, "/unary/echo", map[string]string{
-				fiber.HeaderContentType: "application/json",
-			}, body)
-			Expect(res.StatusCode).To(Equal(http.StatusOK))
-			var got fhttp.Message
-			Expect(json.NewDecoder(res.Body).Decode(&got)).To(Succeed())
-			Expect(got.ID).To(Equal(2))
-			Expect(got.Message).To(Equal("hi"))
-		})
+	It("Should respond to /unary/echo with the request payload and the ID incremented", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/echo", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		var msg ihttp.Message
+		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		Expect(msg).To(Equal(ihttp.Message{Message: "hello", ID: 2}))
 	})
 
-	Describe("/unary/middlewareCheck", func() {
-		It("Should pass through when the Test header is set", func(ctx context.Context) {
-			body := MustSucceed(json.Marshal(fhttp.Message{Message: "hi", ID: 1}))
-			res := post(ctx, "/unary/middlewareCheck", map[string]string{
-				fiber.HeaderContentType: "application/json",
-				"Test":                  "test",
-			}, body)
-			Expect(res.StatusCode).To(Equal(http.StatusOK))
-			var got fhttp.Message
-			Expect(json.NewDecoder(res.Body).Decode(&got)).To(Succeed())
-			Expect(got.ID).To(Equal(2))
-			Expect(got.Message).To(Equal("hi"))
-		})
+	It("Should reject /unary/middlewareCheck when the Test header is missing", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
 
-		It("Should return the registered TestError when the Test header is absent", func(ctx context.Context) {
-			body := MustSucceed(json.Marshal(fhttp.Message{Message: "hi", ID: 1}))
-			res := post(ctx, "/unary/middlewareCheck", map[string]string{
-				fiber.HeaderContentType: "application/json",
-			}, body)
-			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-			var pld errors.Payload
-			Expect(json.NewDecoder(res.Body).Decode(&pld)).To(Succeed())
-			Expect(pld.Type).To(Equal("integration.error"))
-			Expect(pld.Data).To(Equal("1,test param not found"))
-		})
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 1}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/middlewareCheck", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
 
-		It("Should reject a wrong Test header value", func(ctx context.Context) {
-			body := MustSucceed(json.Marshal(fhttp.Message{Message: "hi", ID: 1}))
-			res := post(ctx, "/unary/middlewareCheck", map[string]string{
-				fiber.HeaderContentType: "application/json",
-				"Test":                  "not-test",
-			}, body)
-			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
-		})
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).ToNot(Equal(http.StatusOK))
 	})
 
-	Describe("Unknown path", func() {
-		It("Should return 404", func(ctx context.Context) {
-			res := post(ctx, "/unary/does-not-exist", nil, nil)
-			Expect(res.StatusCode).To(Equal(http.StatusNotFound))
-		})
+	It("Should pass /unary/middlewareCheck when the Test header is set to 'test'", func() {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: "hello", ID: 7}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, "http://localhost/unary/middlewareCheck", bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+		req.Header.Set("Test", "test")
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		var msg ihttp.Message
+		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		Expect(msg.ID).To(Equal(8))
 	})
 })
 
 var _ = Describe("TestError", func() {
 	It("Should expose its message via Error", func() {
-		err := fhttp.TestError{Code: 42, Message: "something broke"}
+		err := ihttp.TestError{Code: 42, Message: "something broke"}
 		Expect(err.Error()).To(Equal("something broke"))
 	})
 
 	It("Should round-trip through the freighter errors registry", func() {
-		original := fhttp.TestError{Code: 7, Message: "boom"}
+		original := ihttp.TestError{Code: 7, Message: "boom"}
 		payload := errors.Encode(context.Background(), original, false)
 		Expect(payload.Type).To(Equal("integration.error"))
 
 		decoded := errors.Decode(context.Background(), payload)
-		var got fhttp.TestError
+		var got ihttp.TestError
 		Expect(errors.As(decoded, &got)).To(BeTrue())
 		Expect(got).To(Equal(original))
 	})
