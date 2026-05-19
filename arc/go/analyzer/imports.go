@@ -46,6 +46,7 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 				"unknown module %q",
 				entry.Path,
 			))
+			imports.MarkUsed(entry.Alias)
 		}
 	}
 }

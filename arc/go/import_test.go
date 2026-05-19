@@ -211,6 +211,25 @@ sensor -> avg{} -> output
 			Expect(d.Ok()).To(BeFalse())
 			Expect(messages(d)).To(ContainSubstring(`unknown module "banana"`))
 		})
+
+		It("Should not double-report an unknown module as unused", func() {
+			d := analyze(`
+import ( banana )
+
+sensor -> avg{} -> output
+`, chans)
+			Expect(messages(d)).ToNot(ContainSubstring(`imported module "banana" is unused`))
+		})
+
+		It("Should not flag a misspelled member as an unused import", func() {
+			d := analyze(`
+import ( time )
+
+trig -> time.doesnotexist{} -> now_out
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).ToNot(ContainSubstring(`imported module "time" is unused`))
+		})
 	})
 
 	Describe("authority block ordering", func() {

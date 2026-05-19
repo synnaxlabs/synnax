@@ -110,16 +110,16 @@ func chan_fwd_callee(ch chan f32) {
     ch = 66.0
 }
 
-start_edge_case_cmd ->test_same_channel_write{}
-start_edge_case_cmd ->test_diamond{}
-start_edge_case_cmd ->test_multi_callee{}
-start_edge_case_cmd ->test_chain{}
-start_edge_case_cmd ->test_fwd_ref{}
-start_edge_case_cmd ->test_chan_param_write{}
-start_edge_case_cmd ->test_chan_chain{}
-start_edge_case_cmd ->test_chan_diff_args{}
-start_edge_case_cmd ->test_chan_multi_param{}
-start_edge_case_cmd ->test_chan_fwd_ref{}
+start_edge_case_cmd -> test_same_channel_write{}
+start_edge_case_cmd -> test_diamond{}
+start_edge_case_cmd -> test_multi_callee{}
+start_edge_case_cmd -> test_chain{}
+start_edge_case_cmd -> test_fwd_ref{}
+start_edge_case_cmd -> test_chan_param_write{}
+start_edge_case_cmd -> test_chan_chain{}
+start_edge_case_cmd -> test_chan_diff_args{}
+start_edge_case_cmd -> test_chan_multi_param{}
+start_edge_case_cmd -> test_chan_fwd_ref{}
 """
 
 # ── Read-only monitor (no write channels, only set_status) ──
@@ -160,7 +160,7 @@ func self_rec() {
     ch1 = 1.0
     self_rec()
 }
-start_edge_case_cmd ->self_rec{}
+start_edge_case_cmd -> self_rec{}
 """
 
 # Callee called in ALL branches of if-else (no exit path)
@@ -176,7 +176,7 @@ func ping() {
 func pong() {
     ping()
 }
-start_edge_case_cmd ->ping{}
+start_edge_case_cmd -> ping{}
 """
 
 # Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
@@ -220,7 +220,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-start_edge_case_cmd ->init_seq{}
+start_edge_case_cmd -> init_seq{}
 """
 
 # ── ExecContext violations (invalid, caught at configure time) ──
@@ -231,7 +231,7 @@ func bad() {
     ch1 = 1.0
     interval(100)
 }
-start_edge_case_cmd ->bad{}
+start_edge_case_cmd -> bad{}
 """
 
 # WASM-only function used as a flow node
@@ -373,7 +373,7 @@ func self_rec() {
         self_rec()
     }
 }
-start_edge_case_cmd ->self_rec{}
+start_edge_case_cmd -> self_rec{}
 """
 
 # Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
@@ -418,7 +418,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-start_edge_case_cmd ->init_seq{}
+start_edge_case_cmd -> init_seq{}
 """
 
 CHANNEL_VIRTUAL = [

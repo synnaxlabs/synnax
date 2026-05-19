@@ -222,15 +222,15 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 		return child, nil
 	}
 	lookupName := name
-	var alias string
 	if dot := strings.IndexByte(name, '.'); dot > 0 {
-		alias = name[:dot]
+		alias := name[:dot]
 		root := s.Root()
 		if root.Imports != nil && !root.Imports.AutoAll() {
 			rec, ok := root.Imports.Lookup(alias)
 			if !ok {
 				return nil, &ModuleNotImportedError{Alias: alias, Name: name}
 			}
+			root.Imports.MarkUsed(alias)
 			if rec.Path != alias {
 				lookupName = rec.Path + name[dot:]
 			}
@@ -238,11 +238,6 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 	}
 	if s.GlobalResolver != nil {
 		if sym, err := s.GlobalResolver.Resolve(ctx, lookupName); err == nil && !sym.Internal {
-			if alias != "" {
-				if root := s.Root(); root.Imports != nil {
-					root.Imports.MarkUsed(alias)
-				}
-			}
 			return &Scope{Symbol: sym}, nil
 		}
 	}
