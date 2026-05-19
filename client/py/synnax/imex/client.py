@@ -17,8 +17,8 @@ from freighter import DownloadClient, FilePath, UnaryClient, UploadClient
 from synnax.imex.types import Envelope
 from synnax.ontology.payload import ID
 
-_IMPORT_PATH = "/import"
-_EXPORT_PATH = "/export"
+_IMPORT_PATH = "/imex/import"
+_EXPORT_PATH = "/imex/export"
 
 
 class _ImportResponse(BaseModel):
@@ -28,9 +28,9 @@ class _ImportResponse(BaseModel):
 class Client:
     """Imports and exports metadata resources to and from the cluster.
 
-    Each call moves exactly one envelope. Large payloads are streamed: passing
-    a path to ``import_`` streams the file from disk, and passing ``dest`` to
-    ``export`` streams the response into it as it arrives.
+    Each call moves exactly one envelope. Large payloads are streamed: passing a path to
+    ``import_`` streams the file from disk, and passing ``dest`` to ``export`` streams
+    the response into it as it arrives.
     """
 
     _unary: UnaryClient
@@ -38,23 +38,17 @@ class Client:
     _download: DownloadClient
 
     def __init__(
-        self,
-        unary: UnaryClient,
-        upload: UploadClient,
-        download: DownloadClient,
+        self, unary: UnaryClient, upload: UploadClient, download: DownloadClient
     ) -> None:
         self._unary = unary
         self._upload = upload
         self._download = download
 
-    def import_(
-        self,
-        source: FilePath | Envelope | dict[str, Any],
-    ) -> str:
+    def import_(self, source: FilePath | Envelope | dict[str, Any]) -> str:
         """Imports the resource described by source and returns its new key.
 
-        :param source: an ``Envelope`` or ``dict`` sent as a typed payload, or
-            a file path streamed from disk.
+        :param source: an ``Envelope`` or ``dict`` sent as a typed payload, or a file
+            path streamed from disk.
         :returns: the new resource's key as stamped by the server.
         """
         if isinstance(source, dict):
@@ -68,18 +62,13 @@ class Client:
         assert res is not None
         return res.key
 
-    def export(
-        self,
-        id: ID,
-        *,
-        dest: FilePath | None = None,
-    ) -> Envelope | None:
+    def export(self, id: ID, *, dest: FilePath | None = None) -> Envelope | None:
         """Exports the resource identified by id.
 
-        When ``dest`` is provided, the response body is streamed straight into
-        that file path and the call returns None — the on-disk format is
-        driven by the destination's extension. When ``dest`` is None, the
-        response is decoded into an in-memory ``Envelope``.
+        When ``dest`` is provided, the response body is streamed straight into that file
+        path and the call returns None — the on-disk format is driven by the
+        destination's extension. When ``dest`` is None, the response is decoded into an
+        in-memory ``Envelope``.
 
         :param id: the ontology id of the resource to export.
         :param dest: optional file path to stream into.

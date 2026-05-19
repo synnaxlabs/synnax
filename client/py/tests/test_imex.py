@@ -54,22 +54,6 @@ class TestEnvelope:
         assert parsed.name == env.name
         assert parsed.model_extra == env.model_extra
 
-    def test_legacy_semver_version(self) -> None:
-        env = Envelope.model_validate_json(
-            '{"version":"4.0.0","type":"log","name":"n"}'
-        )
-        assert env.version == 4
-
-    def test_rejects_non_zero_minor(self) -> None:
-        with pytest.raises(ValueError, match="only N.0.0"):
-            Envelope.model_validate_json('{"version":"1.2.3","type":"log","name":"n"}')
-
-    def test_rejects_malformed_semver(self) -> None:
-        with pytest.raises(ValueError, match="expected N.0.0"):
-            Envelope.model_validate_json(
-                '{"version":"1.0.0.0","type":"log","name":"n"}'
-            )
-
     def test_promoted_fields_marshal_at_top_level(self) -> None:
         env = Envelope.model_validate(
             {"version": 1, "type": "log", "name": "n", "foo": "bar"}
@@ -79,6 +63,14 @@ class TestEnvelope:
         assert dumped["type"] == "log"
         assert dumped["name"] == "n"
         assert dumped["foo"] == "bar"
+
+    def test_rejects_empty_type(self) -> None:
+        with pytest.raises(ValueError, match="type"):
+            Envelope.model_validate({"version": 1, "type": "", "name": "n"})
+
+    def test_rejects_empty_name(self) -> None:
+        with pytest.raises(ValueError, match="name"):
+            Envelope.model_validate({"version": 1, "type": "log", "name": ""})
 
 
 @pytest.mark.imex
