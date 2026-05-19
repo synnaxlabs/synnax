@@ -355,7 +355,7 @@ var _ = Describe("Scope", func() {
 			It("Should resolve a dotted lookup when the module is imported", func(bCtx SpecContext) {
 				rootScope := symbol.CreateRootScope(moduleResolver)
 				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
 				Expect(resolved.Name).To(Equal("time.now"))
 			})
@@ -363,27 +363,25 @@ var _ = Describe("Scope", func() {
 			It("Should mark the alias used after a successful gate check", func(bCtx SpecContext) {
 				rootScope := symbol.CreateRootScope(moduleResolver)
 				rootScope.Imports = symbol.NewImportSet()
-				rec := &symbol.ImportRecord{Path: "time", Alias: "time"}
-				rootScope.Imports.Add(rec)
+				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 				MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(rec.Used).To(BeTrue())
+				Expect(rootScope.Imports.Unused()).To(BeEmpty())
 			})
 
 			It("Should mark the alias used even when the member lookup fails", func(bCtx SpecContext) {
 				rootScope := symbol.CreateRootScope(moduleResolver)
 				rootScope.Imports = symbol.NewImportSet()
-				rec := &symbol.ImportRecord{Path: "time", Alias: "time"}
-				rootScope.Imports.Add(rec)
+				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 				Expect(rootScope.Resolve(bCtx, "time.doesnotexist")).Error().To(MatchError(
 					ContainSubstring("undefined symbol"),
 				))
-				Expect(rec.Used).To(BeTrue())
+				Expect(rootScope.Imports.Unused()).To(BeEmpty())
 			})
 
 			It("Should rewrite aliased prefixes before the GlobalResolver lookup", func(bCtx SpecContext) {
 				rootScope := symbol.CreateRootScope(moduleResolver)
 				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
 				resolved := MustSucceed(rootScope.Resolve(bCtx, "t.now"))
 				Expect(resolved.Name).To(Equal("time.now"))
 			})

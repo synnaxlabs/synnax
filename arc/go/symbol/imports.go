@@ -16,39 +16,58 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// ImportRecord is one imported module. Path is the source path
-// ("math", "math.trig"); Alias is the user-visible qualifier.
+// ImportRecord is the immutable metadata for one imported module. Path is
+// the source path ("math", "math.trig"); Alias is the user-visible
+// qualifier ("m" for `import math as m`, otherwise the last path segment).
+// AST is the parser node for diagnostic placement.
 type ImportRecord struct {
 	Path  string
 	Alias string
 	AST   antlr.ParserRuleContext
-	Used  bool
 }
 
-// ImportSet gates dotted-name lookups on the root Scope. AutoAll skips
-// the gate (graph mode, REPLs, anywhere without source-level imports).
+// ImportSet gates dotted-name lookups on the root Scope. It records every
+// imported module by alias and tracks which aliases have been consulted so
+// the analyzer can flag unused imports.
 type ImportSet struct {
-	aliases map[string]*ImportRecord
+	// aliases binds each user-visible qualifier to its source path and AST.
+	aliases map[string]ImportRecord
+	// used holds the aliases that resolution has consulted at least once.
+	used set.Set[string]
+	// autoAll skips the gate entirely (graph mode, REPLs, anywhere without
+	// source-level imports).
 	autoAll bool
 }
 
 // NewImportSet returns an empty set that gates dotted lookups.
 func NewImportSet() *ImportSet {
-	return &ImportSet{aliases: make(map[string]*ImportRecord)}
+	return &ImportSet{
+		aliases: make(map[string]ImportRecord),
+		used:    make(set.Set[string]),
+	}
 }
 
 // NewAutoImportSet returns a set that auto-imports every module.
 func NewAutoImportSet() *ImportSet {
-	return &ImportSet{aliases: make(map[string]*ImportRecord), autoAll: true}
+	return &ImportSet{
+		aliases: make(map[string]ImportRecord),
+		used:    make(set.Set[string]),
+		autoAll: true,
+	}
 }
 
 // AutoAll reports whether the set treats every module as imported.
-func (s *ImportSet) AutoAll() bool { return s.autoAll }
+func (s *ImportSet) AutoAll() bool {
+	if s == nil {
+		return false
+	}
+	return s.autoAll
+}
 
 // Lookup returns the record bound to alias, or false.
-func (s *ImportSet) Lookup(alias string) (*ImportRecord, bool) {
+func (s *ImportSet) Lookup(alias string) (ImportRecord, bool) {
 	if s == nil {
-		return nil, false
+		return ImportRecord{}, false
 	}
 	rec, ok := s.aliases[alias]
 	return rec, ok
@@ -77,14 +96,14 @@ func (s *ImportSet) MarkUsed(alias string) {
 	if s == nil {
 		return
 	}
-	if rec, ok := s.aliases[alias]; ok {
-		rec.Used = true
+	if _, ok := s.aliases[alias]; ok {
+		s.used.Add(alias)
 	}
 }
 
 // Add inserts rec. Returns true if its alias was already bound.
-func (s *ImportSet) Add(rec *ImportRecord) bool {
-	if s == nil || rec == nil {
+func (s *ImportSet) Add(rec ImportRecord) bool {
+	if s == nil {
 		return false
 	}
 	if _, exists := s.aliases[rec.Alias]; exists {
@@ -95,26 +114,26 @@ func (s *ImportSet) Add(rec *ImportRecord) bool {
 }
 
 // All returns every record (unordered).
-func (s *ImportSet) All() []*ImportRecord {
+func (s *ImportSet) All() []ImportRecord {
 	if s == nil {
 		return nil
 	}
-	out := make([]*ImportRecord, 0, len(s.aliases))
+	out := make([]ImportRecord, 0, len(s.aliases))
 	for _, rec := range s.aliases {
 		out = append(out, rec)
 	}
 	return out
 }
 
-// Unused returns records that were added but never marked used.
-// Returns nil for auto-import sets.
-func (s *ImportSet) Unused() []*ImportRecord {
+// Unused returns records that were added but never marked used. Returns
+// nil for auto-import sets.
+func (s *ImportSet) Unused() []ImportRecord {
 	if s == nil || s.autoAll {
 		return nil
 	}
-	var out []*ImportRecord
-	for _, rec := range s.aliases {
-		if !rec.Used {
+	var out []ImportRecord
+	for alias, rec := range s.aliases {
+		if !s.used.Contains(alias) {
 			out = append(out, rec)
 		}
 	}

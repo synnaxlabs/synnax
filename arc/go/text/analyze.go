@@ -473,10 +473,7 @@ func analyzeFunctionNode(
 	}
 	// Node.Type must be the canonical module path so factories find it;
 	// rewrite aliased prefixes (`t.now` → `time.now`).
-	nodeType := name
-	if root := ctx.Scope.Root(); root.Imports != nil {
-		nodeType = root.Imports.CanonicalName(nodeType)
-	}
+	nodeType := ctx.Scope.Root().Imports.CanonicalName(name)
 	freshType := types.Freshen(sym.Type, key)
 	n := ir.Node{
 		Key:      key,

@@ -559,7 +559,7 @@ var _ = Describe("Identifier Compilation", func() {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
 			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.SymbolResolver)
 			analyzerCtx.Scope.Imports = symbol.NewImportSet()
-			analyzerCtx.Scope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+			analyzerCtx.Scope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 

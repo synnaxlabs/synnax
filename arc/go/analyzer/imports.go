@@ -27,7 +27,7 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 	known := knownModuleSet(root.GlobalResolver)
 
 	for _, entry := range parser.Imports(ctx.AST) {
-		rec := &symbol.ImportRecord{
+		rec := symbol.ImportRecord{
 			Path:  entry.Path,
 			Alias: entry.Alias,
 			AST:   entry.AST,

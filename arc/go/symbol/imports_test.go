@@ -31,15 +31,22 @@ var _ = Describe("ImportSet", func() {
 
 		It("Should return nil from Unused regardless of unused records", func() {
 			s := symbol.NewAutoImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			Expect(s.Unused()).To(BeNil())
+		})
+	})
+
+	Describe("AutoAll", func() {
+		It("Should be nil-safe", func() {
+			var s *symbol.ImportSet
+			Expect(s.AutoAll()).To(BeFalse())
 		})
 	})
 
 	Describe("Lookup", func() {
 		It("Should return the record bound to an alias", func() {
 			s := symbol.NewImportSet()
-			rec := &symbol.ImportRecord{Path: "time", Alias: "t"}
+			rec := symbol.ImportRecord{Path: "time", Alias: "t"}
 			s.Add(rec)
 			got, ok := s.Lookup("t")
 			Expect(ok).To(BeTrue())
@@ -62,40 +69,36 @@ var _ = Describe("ImportSet", func() {
 	Describe("Add", func() {
 		It("Should insert a new record and return false", func() {
 			s := symbol.NewImportSet()
-			duplicate := s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+			duplicate := s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			Expect(duplicate).To(BeFalse())
 		})
 
 		It("Should return true when the alias is already bound", func() {
 			s := symbol.NewImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
-			duplicate := s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
+			duplicate := s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			Expect(duplicate).To(BeTrue())
 		})
 
 		It("Should be nil-safe", func() {
 			var s *symbol.ImportSet
-			Expect(s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})).To(BeFalse())
-		})
-
-		It("Should ignore a nil record", func() {
-			s := symbol.NewImportSet()
-			Expect(s.Add(nil)).To(BeFalse())
+			Expect(s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})).To(BeFalse())
 		})
 	})
 
 	Describe("MarkUsed", func() {
 		It("Should flag the record as used", func() {
 			s := symbol.NewImportSet()
-			rec := &symbol.ImportRecord{Path: "time", Alias: "time"}
-			s.Add(rec)
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			s.MarkUsed("time")
-			Expect(rec.Used).To(BeTrue())
+			Expect(s.Unused()).To(BeEmpty())
 		})
 
 		It("Should be a no-op for unknown aliases", func() {
 			s := symbol.NewImportSet()
-			Expect(func() { s.MarkUsed("nope") }).ToNot(Panic())
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
+			s.MarkUsed("nope")
+			Expect(s.Unused()).To(HaveLen(1))
 		})
 
 		It("Should be nil-safe", func() {
@@ -107,8 +110,8 @@ var _ = Describe("ImportSet", func() {
 	Describe("All", func() {
 		It("Should return every record", func() {
 			s := symbol.NewImportSet()
-			a := &symbol.ImportRecord{Path: "time", Alias: "time"}
-			b := &symbol.ImportRecord{Path: "math", Alias: "math"}
+			a := symbol.ImportRecord{Path: "time", Alias: "time"}
+			b := symbol.ImportRecord{Path: "math", Alias: "math"}
 			s.Add(a)
 			s.Add(b)
 			Expect(s.All()).To(ConsistOf(a, b))
@@ -123,8 +126,8 @@ var _ = Describe("ImportSet", func() {
 	Describe("Unused", func() {
 		It("Should return records that were never marked used", func() {
 			s := symbol.NewImportSet()
-			used := &symbol.ImportRecord{Path: "time", Alias: "time"}
-			unused := &symbol.ImportRecord{Path: "math", Alias: "math"}
+			used := symbol.ImportRecord{Path: "time", Alias: "time"}
+			unused := symbol.ImportRecord{Path: "math", Alias: "math"}
 			s.Add(used)
 			s.Add(unused)
 			s.MarkUsed("time")
@@ -133,7 +136,7 @@ var _ = Describe("ImportSet", func() {
 
 		It("Should return nil for an auto-import set", func() {
 			s := symbol.NewAutoImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			Expect(s.Unused()).To(BeNil())
 		})
 
@@ -146,19 +149,19 @@ var _ = Describe("ImportSet", func() {
 	Describe("CanonicalName", func() {
 		It("Should rewrite an aliased prefix to the module path", func() {
 			s := symbol.NewImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
 			Expect(s.CanonicalName("t.now")).To(Equal("time.now"))
 		})
 
 		It("Should leave an unaliased qualified name unchanged", func() {
 			s := symbol.NewImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
 			Expect(s.CanonicalName("time.now")).To(Equal("time.now"))
 		})
 
 		It("Should leave unqualified names unchanged", func() {
 			s := symbol.NewImportSet()
-			s.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+			s.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
 			Expect(s.CanonicalName("bare_name")).To(Equal("bare_name"))
 		})
 
