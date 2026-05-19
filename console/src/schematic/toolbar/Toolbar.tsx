@@ -92,7 +92,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     selected.length === 1 &&
     singleSelectedConfig != null &&
     "label" in singleSelectedConfig
-      ? ((singleSelectedConfig.label as { label?: string } | undefined)?.label ?? null)
+      ? (singleSelectedConfig.label?.label ?? null)
       : null;
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;

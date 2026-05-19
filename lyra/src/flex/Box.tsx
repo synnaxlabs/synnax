@@ -11,7 +11,7 @@ import "@/flex/Box.css";
 
 import { type color } from "@synnaxlabs/x/color";
 import { direction } from "@synnaxlabs/x/direction";
-import { type CSSProperties, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import z from "zod";
 
 import { type Component } from "@/component";
@@ -221,7 +221,7 @@ export const Box = <E extends Generic.ElementType = "div">({
     size != null && CSS.M("height", size),
     square === true && CSS.M("square"),
   ];
-  style = { borderWidth, ...style } as CSSProperties;
+  style = { borderWidth, ...style };
 
   if (typeof color === "number") classNames.push(CSS.M("color", color.toString()));
   else if (color != null && color !== false) style.color = CSS.colorVar(color);

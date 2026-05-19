@@ -254,7 +254,7 @@ const XAxis = ({
     <Base.XAxis
       {...axis}
       {...dropProps}
-      location={location as loc.Y}
+      location={location}
       axisKey={key}
       showGrid={showGrid ?? index === 0}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
@@ -324,7 +324,7 @@ const YAxis = ({
     <Base.YAxis
       {...props}
       {...dropProps}
-      location={loc as loc.X}
+      location={loc}
       axisKey={key}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}

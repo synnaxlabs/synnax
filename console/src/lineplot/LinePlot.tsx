@@ -231,7 +231,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       setAxis({
         key: layoutKey,
         axisKey,
-        axis: { ...(axis as AxisState), type: newType },
+        axis: { ...axis, type: newType },
         triggerRender: true,
       }),
     );

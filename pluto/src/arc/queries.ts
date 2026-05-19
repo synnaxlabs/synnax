@@ -150,7 +150,7 @@ export interface CreateParams extends arc.New {
 
 const TASK_TYPE = "arc";
 
-const taskStatusDataZ = z.null().or(z.undefined());
+const taskStatusDataZ = z.null().optional();
 
 const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
   status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
@@ -373,7 +373,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
           ).length > 0;
         if (isChild)
           onChange((prev) => {
-            if (prev == null) return tsk as task.Task;
+            if (prev == null) return tsk;
             return client.tasks.sugar({ ...tsk.payload, status: prev.status });
           });
       }),

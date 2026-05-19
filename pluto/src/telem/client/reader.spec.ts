@@ -32,7 +32,7 @@ export class MockRetriever implements channel.Retriever {
     return normalized.map(
       (key) =>
         new channel.Channel({
-          key: key as number,
+          key,
           name: `channel-${key}`,
           dataType: DataType.FLOAT32,
           isIndex: false,

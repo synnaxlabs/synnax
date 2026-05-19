@@ -165,14 +165,12 @@ export class WriteAdapter {
         throw new ValidationError(`
         Received a single channel name or key but no series.
         `);
-      if (Array.isArray(series)) {
+      if (Array.isArray(series))
         if (series.some((s) => s instanceof telem.Series || Array.isArray(s)))
           throw new ValidationError(`
           Received a single channel name or key but multiple series.
           `);
 
-        series = series as telem.CrudeSeries;
-      }
       const pld = await this.fetchChannel(columnsOrData);
       const s = new telem.Series({
         data: series as telem.CrudeSeries,

@@ -80,7 +80,7 @@ describe("tooltipMessage", () => {
   });
 
   it("should return error style for an unexpected variant", () => {
-    const result = tooltipMessage(makeStatus("info" as status.Variant));
+    const result = tooltipMessage(makeStatus("info"));
     expect(result).toEqual({
       message: "Unexpected status.",
       chipColor: "var(--pluto-error-z)",

@@ -578,7 +578,7 @@ describe("Arc queries", () => {
             });
           });
 
-          let originalTaskKey: task.Key = "" as task.Key;
+          let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
             const childrenBefore = await client.ontology.retrieveChildren(
@@ -652,7 +652,7 @@ describe("Arc queries", () => {
             });
           });
 
-          let originalTaskKey: task.Key = "" as task.Key;
+          let originalTaskKey: task.Key = "";
           await waitFor(async () => {
             expect(createResult.current.variant).toEqual("success");
             const childrenBefore = await client.ontology.retrieveChildren(

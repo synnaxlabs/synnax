@@ -59,7 +59,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
 }: ItemProps<K, E>): ReactElement => (
   <Button.Button
     // Cast needed because Button is wrapped by Tooltip.wrap which loses generic type info
-    el={el as Button.ElementType}
+    el={el}
     defaultEl="div"
     id={itemKey.toString()}
     variant="text"

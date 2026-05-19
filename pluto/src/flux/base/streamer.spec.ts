@@ -124,7 +124,7 @@ const createStreamerArgs = (
   handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
   client: createTestClient(),
-  store: {} as flux.Store,
+  store: {},
   openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,
 });

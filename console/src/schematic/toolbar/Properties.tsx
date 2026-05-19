@@ -139,17 +139,14 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
     dispatch({
       key: layoutKey,
-      actions: schematic.setConfig({
-        key: elKey,
-        config: { ...existing, ...next } as record.Unknown,
-      }),
+      actions: schematic.setConfig({ key: elKey, config: { ...existing, ...next } }),
     });
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
-    firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
+    firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
   }
 
@@ -302,7 +299,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
       if (!("orientation" in cfg) || cfg.orientation == null) return;
       onChange(key, {
         orientation: location.rotate(cfg.orientation, dir),
-      } as Partial<Schematic.ElementConfig>);
+      });
     });
   };
 
@@ -318,8 +315,8 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       onChange(elKey, {
-        label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
-      } as Partial<Schematic.ElementConfig>);
+        label: { ...cfg.label, [key]: value },
+      });
     });
   };
 
@@ -337,9 +334,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
               key={keys[0]}
               value={hex}
               onChange={(c: color.Color) => {
-                keys.forEach((key) =>
-                  onChange(key, { color: c } as Partial<Schematic.ElementConfig>),
-                );
+                keys.forEach((key) => onChange(key, { color: c }));
               }}
             />
           ))}
