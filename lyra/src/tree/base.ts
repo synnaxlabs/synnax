@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { compare } from "@synnaxlabs/x/compare";
-import { record } from "@synnaxlabs/x/record";
+import { type compare } from "@synnaxlabs/x/compare";
+import { type record } from "@synnaxlabs/x/record";
 import { unique } from "@synnaxlabs/x/unique";
 export interface Node<K extends record.Key = string> {
   key: K;

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { optional } from "@synnaxlabs/x/optional";
-import { record } from "@synnaxlabs/x/record";
+import { type optional } from "@synnaxlabs/x/optional";
+import { type record } from "@synnaxlabs/x/record";
 import { unique } from "@synnaxlabs/x/unique";
 import { useCallback, useEffect, useRef } from "react";
 

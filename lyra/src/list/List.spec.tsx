@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { observe } from "@synnaxlabs/x/observe";
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 import { render } from "@testing-library/react";
 import { act, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/resize/Base.css";
+
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
-import "@/resize/Base.css";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { preventDefault } from "@/util";
-
-import { type ReactElement } from "react";
 
 export type BaseProps = Omit<
   Flex.BoxProps<"div">,

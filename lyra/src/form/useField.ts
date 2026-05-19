@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { compare } from "@synnaxlabs/x/compare";
-import { record } from "@synnaxlabs/x/record";
+import { type compare } from "@synnaxlabs/x/compare";
+import { type record } from "@synnaxlabs/x/record";
 import { shallow } from "@synnaxlabs/x/shallow";
-import { status } from "@synnaxlabs/x/status";
-import { state } from "@/state";
-
+import { type status } from "@synnaxlabs/x/status";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
@@ -26,6 +24,7 @@ import {
   type OptionalGetOptions,
   type RequiredGetOptions,
 } from "@/form/state";
+import { state } from "@/state";
 
 export type ContextOptions<Z extends z.ZodType = z.ZodType> = {
   ctx?: ContextValue<Z>;

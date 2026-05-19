@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { record } from "@synnaxlabs/x/record";
 import "@/list/Items.css";
 
+import { type record } from "@synnaxlabs/x/record";
 import { memo, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";

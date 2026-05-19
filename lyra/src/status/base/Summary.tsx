@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { primitive } from "@synnaxlabs/x/primitive";
-import { status } from "@synnaxlabs/x/status";
+import { type status } from "@synnaxlabs/x/status";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 import {
   type PropsWithChildren,
   type ReactElement,

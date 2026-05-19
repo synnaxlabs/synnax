@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
+
 import { type Variant } from "@/button/Button";
 
 export const parseColor = (

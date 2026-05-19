@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
 import {
@@ -136,7 +136,8 @@ export const Provider = ({
       // This is considered a double press.
       if (
         prev.prev.includes(key) &&
-        telem.TimeStamp.since(prev.last).valueOf() < telem.TimeSpan.milliseconds(300).valueOf()
+        telem.TimeStamp.since(prev.last).valueOf() <
+          telem.TimeSpan.milliseconds(300).valueOf()
       )
         next.push(key);
       const nextState: RefState = {

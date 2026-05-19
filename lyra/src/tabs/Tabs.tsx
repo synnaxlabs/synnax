@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction } from "@synnaxlabs/x/direction";
 import "@/tabs/Tabs.css";
 
+import { direction } from "@synnaxlabs/x/direction";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
 import { type Component } from "@/component";

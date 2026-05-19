@@ -10,12 +10,11 @@
 import { box } from "@synnaxlabs/x/box";
 import { clamp } from "@synnaxlabs/x/clamp";
 import { location } from "@synnaxlabs/x/location";
-import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks";
-
 import { clsx } from "clsx";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
+import { CSS } from "@/css";
+import { useCursorDrag } from "@/hooks";
 import { Base, type BaseProps } from "@/resize/Base";
 
 /** Props for the {@link Single} component. */

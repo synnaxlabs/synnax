@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { color } from "@synnaxlabs/x/color";
+import { type color } from "@synnaxlabs/x/color";
 import { primitive } from "@synnaxlabs/x/primitive";
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 import { unique } from "@synnaxlabs/x/unique";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 

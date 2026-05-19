@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
-import { optional } from "@synnaxlabs/x/optional";
-import { record } from "@synnaxlabs/x/record";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/haul/Haul.css";
 
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type optional } from "@synnaxlabs/x/optional";
+import { type record } from "@synnaxlabs/x/record";
+import { xy } from "@synnaxlabs/x/xy";
 import React, {
   type DragEvent,
   type DragEventHandler,

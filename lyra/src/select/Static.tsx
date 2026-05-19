@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { optional } from "@synnaxlabs/x/optional";
-import { record } from "@synnaxlabs/x/record";
+import { type optional } from "@synnaxlabs/x/optional";
+import { type record } from "@synnaxlabs/x/record";
+
 import { Component } from "@/component";
 import type { Icon } from "@/icon";
 import { List } from "@/list";

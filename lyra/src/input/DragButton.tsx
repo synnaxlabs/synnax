@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { direction } from "@synnaxlabs/x/direction";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/input/DragButton.css";
 
+import { box } from "@synnaxlabs/x/box";
+import { type direction } from "@synnaxlabs/x/direction";
+import { xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Button } from "@/button";

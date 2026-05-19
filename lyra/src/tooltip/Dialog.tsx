@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/tooltip/Dialog.css";
+
 import { box } from "@synnaxlabs/x/box";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { dimensions } from "@synnaxlabs/x/dimensions";
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type dimensions } from "@synnaxlabs/x/dimensions";
 import { location } from "@synnaxlabs/x/location";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
-import "@/tooltip/Dialog.css";
-
 import {
   cloneElement,
   type ComponentPropsWithoutRef,

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x/color";
+
 import { createHexOpacityVariants, CSS, unitProperty } from "@/css";
 import { type theming } from "@/theming/base";
 const OPACITIES: readonly number[] = [

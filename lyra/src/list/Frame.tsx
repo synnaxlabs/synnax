@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import { location } from "@synnaxlabs/x/location";
-import { record } from "@synnaxlabs/x/record";
+import { type location } from "@synnaxlabs/x/location";
+import { type record } from "@synnaxlabs/x/record";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
   memo,

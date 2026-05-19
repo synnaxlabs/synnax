@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x/location";
 import "@/nav/Drawer.css";
 
-import { CSS } from "@/css";
-
+import { location } from "@synnaxlabs/x/location";
 import { type ReactElement, useCallback, useState } from "react";
 
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
@@ -40,8 +39,9 @@ export interface DrawerProps
   extends
     Omit<BarProps, "onSelect" | "onResize">,
     UseDrawerReturn,
-    Partial<Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">>
-{}
+    Partial<
+      Pick<Resize.SingleProps, "onResize" | "collapseThreshold" | "onCollapse">
+    > {}
 
 export const useDrawer = ({ items, initialKey }: UseDrawerProps): UseDrawerReturn => {
   const [activeKey, setActiveKey] = useState<string | undefined>(initialKey);

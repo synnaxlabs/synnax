@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/menu/ContextMenu.css";
+
 import { box } from "@synnaxlabs/x/box";
 import { location } from "@synnaxlabs/x/location";
 import { unique } from "@synnaxlabs/x/unique";
 import { xy } from "@synnaxlabs/x/xy";
-import "@/menu/ContextMenu.css";
-
 import { type ReactNode, type RefCallback, useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 

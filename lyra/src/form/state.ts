@@ -10,7 +10,7 @@
 import { deep } from "@synnaxlabs/x/deep";
 import { map } from "@synnaxlabs/x/map";
 import { observe } from "@synnaxlabs/x/observe";
-import { status } from "@synnaxlabs/x/status";
+import { type status } from "@synnaxlabs/x/status";
 import { zod } from "@synnaxlabs/x/zod";
 import { type z } from "zod";
 

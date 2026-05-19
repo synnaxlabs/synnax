@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/nav/Bar.css";
+
 import { direction } from "@synnaxlabs/x/direction";
 import { location } from "@synnaxlabs/x/location";
-import { spatial } from "@synnaxlabs/x/spatial";
-import "@/nav/Bar.css";
+import { type spatial } from "@synnaxlabs/x/spatial";
+import { type FunctionComponent, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-
-import { type FunctionComponent, type ReactElement } from "react";
 
 export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "ref"> {
   location?: location.Crude;

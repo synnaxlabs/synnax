@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotUndefined } from "@synnaxlabs/x/types";
+import { type NotUndefined } from "@synnaxlabs/x/types";
 import { createContext, use } from "react";
 
 export interface BaseCreateParams {

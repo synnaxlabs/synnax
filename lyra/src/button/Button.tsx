@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/button/Button.css";
+
 import { color } from "@synnaxlabs/x/color";
 import { record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
-import "@/button/Button.css";
-
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";

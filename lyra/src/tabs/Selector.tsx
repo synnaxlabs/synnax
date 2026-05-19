@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box } from "@synnaxlabs/x/box";
-import { location } from "@synnaxlabs/x/location";
+import { type location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import {

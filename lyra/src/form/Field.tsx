@@ -9,18 +9,17 @@
 
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { deep } from "@synnaxlabs/x/deep";
-import { optional } from "@synnaxlabs/x/optional";
-import { record } from "@synnaxlabs/x/record";
-import { Component } from "@/component";
-import { CSS } from "@/css";
-import { Input } from "@/input";
-import { Select } from "@/select";
-
+import { type optional } from "@synnaxlabs/x/optional";
+import { type record } from "@synnaxlabs/x/record";
 import { type FC, type ReactElement } from "react";
 
+import { Component } from "@/component";
+import { CSS } from "@/css";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
+import { Input } from "@/input";
+import { Select } from "@/select";
 
 interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "variant"> {}

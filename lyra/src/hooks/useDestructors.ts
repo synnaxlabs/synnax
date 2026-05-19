@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { destructor } from "@synnaxlabs/x/destructor";
+import { type destructor } from "@synnaxlabs/x/destructor";
 import { useEffect, useMemo, useRef } from "react";
 
 export interface UseDestructorsReturn {

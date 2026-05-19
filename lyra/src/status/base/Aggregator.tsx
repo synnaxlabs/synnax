@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x/id";
-import { status as xstatus } from "@synnaxlabs/x/status";
+import { type status as xstatus } from "@synnaxlabs/x/status";
 import { telem } from "@synnaxlabs/x/telem";
 import {
   type PropsWithChildren,

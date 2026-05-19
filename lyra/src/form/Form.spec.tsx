@@ -8,15 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x/deep";
-import { record } from "@synnaxlabs/x/record";
-import { Input } from "@/input";
-
+import { type record } from "@synnaxlabs/x/record";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { Input } from "@/input";
 
 const basicFormSchema = z
   .object({

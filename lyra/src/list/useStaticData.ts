@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x/compare";
-import { record } from "@synnaxlabs/x/record";
+import { type compare } from "@synnaxlabs/x/compare";
+import { type record } from "@synnaxlabs/x/record";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 

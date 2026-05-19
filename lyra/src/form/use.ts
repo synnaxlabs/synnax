@@ -8,11 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { deep } from "@synnaxlabs/x/deep";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { status } from "@synnaxlabs/x/status";
-import { useInitializerRef, useSyncedRef } from "@/hooks";
-import { Status } from "@/status";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type status } from "@synnaxlabs/x/status";
 import { useCallback, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
@@ -24,6 +21,8 @@ import {
   type SetFunc,
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
+import { useInitializerRef, useSyncedRef } from "@/hooks";
+import { Status } from "@/status";
 
 export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */

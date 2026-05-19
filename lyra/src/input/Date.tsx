@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
-import { xy } from "@synnaxlabs/x/xy";
 import "@/input/Date.css";
 
+import { telem } from "@synnaxlabs/x/telem";
+import { type xy } from "@synnaxlabs/x/xy";
 import { type ReactElement, useLayoutEffect } from "react";
 
 import { CSS } from "@/css";

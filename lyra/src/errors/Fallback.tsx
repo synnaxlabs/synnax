@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { primitive } from "@synnaxlabs/x/primitive";
-import { record } from "@synnaxlabs/x/record";
 import "@/errors/Fallback.css";
+
+import { Logo } from "@synnaxlabs/media";
+import { primitive } from "@synnaxlabs/x/primitive";
+import { type record } from "@synnaxlabs/x/record";
+import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
@@ -17,13 +20,9 @@ import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Text } from "@/text";
-import { Logo } from "@synnaxlabs/media";
-
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
-
 // NOTE: Import Bar directly to avoid circular dependency (Nav.Drawer -> Errors -> Fallback)
 import { Bar } from "@/nav/Bar";
+import { Text } from "@/text";
 /** Props for the error fallback component. */
 export interface FallbackProps extends PropsWithChildren {
   /** The error that was caught. */

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor } from "@synnaxlabs/x/destructor";
-import { status } from "@synnaxlabs/x/status";
-import { context } from "@/context";
-
+import { type destructor } from "@synnaxlabs/x/destructor";
+import { type status } from "@synnaxlabs/x/status";
 import { type z } from "zod";
 
+import { context } from "@/context";
 import { type State } from "@/form/state";
 
 export interface RemoveFunc {

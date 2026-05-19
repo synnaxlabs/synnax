@@ -10,10 +10,7 @@
 import { box } from "@synnaxlabs/x/box";
 import { direction } from "@synnaxlabs/x/direction";
 import { math } from "@synnaxlabs/x/math";
-import { xy } from "@synnaxlabs/x/xy";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-
+import { type xy } from "@synnaxlabs/x/xy";
 import {
   Children,
   type RefObject,
@@ -23,6 +20,8 @@ import {
   useState,
 } from "react";
 
+import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Base } from "@/resize/Base";
 
 /** Props for the {@link Resize.Multiple} component. */
