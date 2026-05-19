@@ -353,6 +353,6 @@ export const isCustomConfig = (config: Config): config is CustomConfig =>
 
 /// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
 /// variant. Used by the symbols toolbar to render the built-in catalog.
-export const STATIC_SPECS: ReadonlyArray<Spec<Variant, Config>> = (
-  Object.values(REGISTRY) as ReadonlyArray<Spec<Variant, Config>>
+export const STATIC_SPECS: readonly Spec[] = (
+  Object.values(REGISTRY) as ReadonlyArray<Spec>
 ).filter((s) => !isCustomVariant(s.key));
