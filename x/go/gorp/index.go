@@ -473,6 +473,8 @@ func (s *SortedIndex[K, E, V]) get(value V) []K {
 // sortBulk sorts entries by value. Used by populate to finalize a
 // bulk-loaded index in O(N log N) instead of inserting one entry at a
 // time at O(N²).
+//
+//nolint:unused
 func (s *SortedIndex[K, E, V]) sortBulk() {
 	slices.SortFunc(s.entries, func(a, b sortedEntry[K, V]) int {
 		return cmp.Compare(a.value, b.value)
