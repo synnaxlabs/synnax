@@ -9,7 +9,9 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { deep, dimensions, direction, type location } from "@synnaxlabs/x";
-import { useRef } from "react";
+import { type RefCallback, useCallback, useRef } from "react";
+
+import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
 
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
@@ -72,7 +74,6 @@ const applyState = (
 };
 
 export interface UseRenderArgs {
-  container: HTMLElement | null;
   orientation: location.Outer;
   activeState: string;
   externalScale: number;
@@ -81,39 +82,43 @@ export interface UseRenderArgs {
   stateOverrides?: schematic.symbol.State[];
 }
 
-export const useRender = ({
-  container,
-  orientation,
-  activeState,
-  externalScale,
-  spec,
-  onMount,
-  stateOverrides,
-}: UseRenderArgs) => {
-  const svgElementRef = useRef<SVGSVGElement>(null);
-  const baseDimsRef = useRef<dimensions.Dimensions>({ width: 0, height: 0 });
+interface RenderState {
+  svgElement: SVGSVGElement | null;
+  baseDims: dimensions.Dimensions;
+  prevExternalScale: number | undefined;
+  prevOrientation: location.Outer | undefined;
+  prevSpecData: schematic.symbol.Spec | undefined;
+  prevState: schematic.symbol.State | undefined;
+  prevStateOverrides: schematic.symbol.State[] | undefined;
+}
 
-  const prevExternalScaleRef = useRef<number | undefined>(undefined);
-  const prevOrientationRef = useRef<location.Outer | undefined>(undefined);
-  const prevSpecDataRef = useRef<schematic.symbol.Spec | undefined>(undefined);
-  const prevStateRef = useRef<schematic.symbol.State>(undefined);
-  const prevStateOverridesRef = useRef<typeof stateOverrides>(undefined);
+const createRenderState = (): RenderState => ({
+  svgElement: null,
+  baseDims: { width: 0, height: 0 },
+  prevExternalScale: undefined,
+  prevOrientation: undefined,
+  prevSpecData: undefined,
+  prevState: undefined,
+  prevStateOverrides: undefined,
+});
 
-  if (spec == null || spec.svg.length === 0 || container == null) return;
+const runRender = (container: HTMLElement, args: UseRenderArgs, state: RenderState) => {
+  const { orientation, activeState, externalScale, spec, onMount, stateOverrides } =
+    args;
+  if (spec == null || spec.svg.length === 0) return;
 
-  const externalScaleDiffers = prevExternalScaleRef.current !== externalScale;
-  const svgDiffers = prevSpecDataRef.current?.svg !== spec?.svg;
-  const orientationDiffers = prevOrientationRef.current !== orientation;
-  const internalScaleDiffers = prevSpecDataRef.current?.scale !== spec?.scale;
-  const scaleStrokeDiffers = prevSpecDataRef.current?.scaleStroke !== spec?.scaleStroke;
-  const specDiffers = prevSpecDataRef.current !== spec;
+  const externalScaleDiffers = state.prevExternalScale !== externalScale;
+  const svgDiffers = state.prevSpecData?.svg !== spec?.svg;
+  const orientationDiffers = state.prevOrientation !== orientation;
+  const internalScaleDiffers = state.prevSpecData?.scale !== spec?.scale;
+  const scaleStrokeDiffers = state.prevSpecData?.scaleStroke !== spec?.scaleStroke;
+  const specDiffers = state.prevSpecData !== spec;
 
   const stateIndex = activeState === "active" ? 1 : 0;
   const currState = stateOverrides?.[stateIndex] ?? spec.states[stateIndex];
 
-  const stateDiffers = prevStateRef.current !== currState;
-  const stateOverridesDiffers =
-    JSON.stringify(prevStateOverridesRef.current) !== JSON.stringify(stateOverrides);
+  const stateDiffers = state.prevState !== currState;
+  const stateOverridesDiffers = !deep.equal(state.prevStateOverrides, stateOverrides);
   const different =
     externalScaleDiffers ||
     svgDiffers ||
@@ -121,31 +126,31 @@ export const useRender = ({
     stateDiffers ||
     stateOverridesDiffers;
   if (!different) return;
-  if (externalScaleDiffers) prevExternalScaleRef.current = externalScale;
-  if (orientationDiffers) prevOrientationRef.current = orientation;
-  if (specDiffers) prevSpecDataRef.current = deep.copy(spec);
-  if (stateOverridesDiffers) prevStateOverridesRef.current = stateOverrides;
+  if (externalScaleDiffers) state.prevExternalScale = externalScale;
+  if (orientationDiffers) state.prevOrientation = orientation;
+  if (specDiffers) state.prevSpecData = spec;
+  if (stateOverridesDiffers) state.prevStateOverrides = stateOverrides;
   const { svg, scaleStroke, scale } = spec;
-  if (svgElementRef.current == null || svgDiffers) {
-    if (svgElementRef.current != null) {
-      svgElementRef.current.remove();
-      svgElementRef.current = null;
+  if (state.svgElement == null || svgDiffers) {
+    if (state.svgElement != null) {
+      state.svgElement.remove();
+      state.svgElement = null;
     }
     const parser = new DOMParser();
     const doc = parser.parseFromString(svg, "image/svg+xml");
     const svgElement = doc.documentElement;
-    svgElementRef.current = svgElement as unknown as SVGSVGElement;
+    state.svgElement = svgElement as unknown as SVGSVGElement;
 
-    const viewBoxAttr = svgElementRef.current.getAttribute("viewBox");
+    const viewBoxAttr = state.svgElement.getAttribute("viewBox");
     if (viewBoxAttr) {
       const [, , width, height] = viewBoxAttr.split(" ").map(Number);
-      baseDimsRef.current = { width, height };
-    } else if (svgElementRef.current.viewBox?.baseVal)
-      baseDimsRef.current = {
-        width: svgElementRef.current.viewBox.baseVal.width,
-        height: svgElementRef.current.viewBox.baseVal.height,
+      state.baseDims = { width, height };
+    } else if (state.svgElement.viewBox?.baseVal)
+      state.baseDims = {
+        width: state.svgElement.viewBox.baseVal.width,
+        height: state.svgElement.viewBox.baseVal.height,
       };
-    else baseDimsRef.current = { width: 100, height: 100 };
+    else state.baseDims = { width: 100, height: 100 };
 
     const existingG = svgElement.querySelector("g");
     if (!existingG) {
@@ -158,12 +163,12 @@ export const useRender = ({
       svgElement.appendChild(gElement);
     }
     container.appendChild(svgElement);
-    onMount?.(svgElementRef.current);
+    onMount?.(state.svgElement);
   }
 
   if (stateDiffers || stateOverridesDiffers) {
-    applyState(svgElementRef.current, currState, prevStateRef.current);
-    prevStateRef.current = deep.copy(currState);
+    applyState(state.svgElement, currState, state.prevState);
+    state.prevState = currState;
   }
 
   if (
@@ -172,20 +177,20 @@ export const useRender = ({
     orientationDiffers ||
     svgDiffers
   ) {
-    let preScaledDims = baseDimsRef.current;
+    let preScaledDims = state.baseDims;
     if (direction.construct(orientation) === "y")
       preScaledDims = dimensions.swap(preScaledDims);
     const scaledDims = dimensions.scale(preScaledDims, scale * externalScale);
-    svgElementRef.current.setAttribute("width", scaledDims.width.toString());
-    svgElementRef.current.setAttribute("height", scaledDims.height.toString());
-    svgElementRef.current.setAttribute(
+    state.svgElement.setAttribute("width", scaledDims.width.toString());
+    state.svgElement.setAttribute("height", scaledDims.height.toString());
+    state.svgElement.setAttribute(
       "viewBox",
       `0 0 ${preScaledDims.width} ${preScaledDims.height}`,
     );
   }
 
   if (scaleStrokeDiffers) {
-    const pathElements = svgElementRef.current.querySelectorAll(
+    const pathElements = state.svgElement.querySelectorAll(
       "path, circle, rect, line, ellipse, polygon, polyline",
     );
     if (!scaleStroke)
@@ -194,4 +199,32 @@ export const useRender = ({
       );
     else pathElements.forEach((el) => el.removeAttribute("vector-effect"));
   }
+};
+
+/// useRender returns a ref callback that drives the SVG mount/state/scale lifecycle
+/// for a custom symbol. The returned callback is stable across renders. When the
+/// container element attaches, the SVG is built and inserted; when it detaches, the
+/// SVG is removed and internal diff state is cleared so the next attach re-creates
+/// the SVG cleanly (including after a Missing→Resolved→Missing→Resolved cycle and
+/// under StrictMode's simulated remount). Subsequent args changes against an
+/// already-attached container are picked up via a render-phase pass.
+export const useRender = (args: UseRenderArgs): RefCallback<HTMLElement> => {
+  const containerRef = useRef<HTMLElement | null>(null);
+  const argsRef = useSyncedRef(args);
+  const stateRef = useInitializerRef<RenderState>(createRenderState);
+
+  if (containerRef.current != null)
+    runRender(containerRef.current, args, stateRef.current);
+
+  return useCallback<RefCallback<HTMLElement>>((el) => {
+    if (el == null) {
+      const { svgElement } = stateRef.current;
+      if (svgElement != null) svgElement.remove();
+      stateRef.current = createRenderState();
+      containerRef.current = null;
+      return;
+    }
+    containerRef.current = el;
+    runRender(el, argsRef.current, stateRef.current);
+  }, []);
 };
