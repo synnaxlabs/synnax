@@ -202,7 +202,10 @@ export class TimeStamp
     return this.sub(offset).date().toISOString();
   }
 
-  private timeString(milliseconds: boolean = false, timeZone: TimeZone = "UTC"): string {
+  private timeString(
+    milliseconds: boolean = false,
+    timeZone: TimeZone = "UTC",
+  ): string {
     const iso = this.toISOString(timeZone);
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
