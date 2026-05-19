@@ -24,8 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type record } from "@synnaxlabs/x/record";
 import { telem } from "@synnaxlabs/x/telem";
-import compromise from "compromise";
-import compromiseDates, { type DatesMethods } from "compromise-dates";
+import { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 export interface DateTimeProps
   extends Omit<Input.TextProps, "type" | "value" | "onChange">, Input.Control<number> {}
@@ -100,7 +99,17 @@ export const DateTime = ({
   );
 };
 
-const nlp = compromise.extend(compromiseDates);
+let nlpLoader: Promise<(text: string) => DatesMethods> | null = null;
+
+const loadNLP = (): Promise<(text: string) => DatesMethods> => {
+  nlpLoader ??= Promise.all([import("compromise"), import("compromise-dates")]).then(
+    ([compromise, compromiseDates]) => {
+      const extended = compromise.default.extend(compromiseDates.default);
+      return (text: string) => extended(text) as DatesMethods;
+    },
+  );
+  return nlpLoader;
+};
 
 interface DateTimeModalProps {
   value: telem.TimeStamp;
@@ -176,8 +185,10 @@ const AISelector = ({
   const [entries, setEntries] = useState<AISuggestion[]>([]);
   const { data, getItem } = List.useStaticData<string>({ data: entries });
 
-  const handleChange = (next: string): void => {
-    const processed = nlp(next) as DatesMethods;
+  const handleChange = async (next: string): Promise<void> => {
+    setValue(next);
+    const nlp = await loadNLP();
+    const processed = nlp(next);
     const dates = processed.dates().get() as DateInfo[];
     const entries: AISuggestion[] = [];
     entries.push(
@@ -214,7 +225,7 @@ const AISelector = ({
         };
       }),
     );
-    setValue(next);
+    setEntries(entries);
   };
   const handleSelect = (key: string | null): void => {
     const entry = entries.find((e) => e.key === key);

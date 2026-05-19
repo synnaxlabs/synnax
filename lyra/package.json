@@ -3,7 +3,7 @@
   "version": "0.55.0",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
@@ -200,10 +200,6 @@
       "types": "./dist/src/status/aether/index.d.ts",
       "import": "./dist/status-aether.js"
     },
-    "./status/base": {
-      "types": "./dist/src/status/base/index.d.ts",
-      "import": "./dist/status-base.js"
-    },
     "./store": {
       "types": "./dist/src/store/index.d.ts",
       "import": "./dist/store.js"
@@ -239,10 +235,6 @@
     "./theming/aether": {
       "types": "./dist/src/theming/aether/index.d.ts",
       "import": "./dist/theming-aether.js"
-    },
-    "./theming/base": {
-      "types": "./dist/src/theming/base/index.d.ts",
-      "import": "./dist/theming-base.js"
     },
     "./tooltip": {
       "types": "./dist/src/tooltip/index.d.ts",

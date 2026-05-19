@@ -13,7 +13,7 @@
     "control systems"
   ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
     "test": "vitest",
     "cov": "vitest --coverage",

@@ -16,7 +16,7 @@ export interface Options {
 }
 
 export const lib = ({ name }: Options): Plugin[] => {
-  const dtsPlugin = dts({});
+  const dtsPlugin = process.env.SYNNAX_NO_DTS === "true" ? [] : dts({});
   return [
     {
       name: "vite-plugin-lib",

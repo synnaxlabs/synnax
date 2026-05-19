@@ -42,6 +42,20 @@ export default defineConfig({
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN
     chunkSizeWarningLimit: 10000 /* kbs */,
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: "monaco", test: /[\\/]@codingame[\\/]/ },
+            { name: "xyflow", test: /[\\/]@xyflow[\\/]/ },
+            { name: "mathjs", test: /[\\/]mathjs[\\/]/ },
+            { name: "compromise", test: /[\\/]compromise(-dates)?[\\/]/ },
+            { name: "d3", test: /[\\/]d3-/ },
+            { name: "react-color", test: /[\\/]react-color[\\/]/ },
+          ],
+        },
+      },
+    },
   },
   define: { IS_DEV: isDev },
   worker: {

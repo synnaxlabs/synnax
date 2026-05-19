@@ -24,9 +24,9 @@
     "directory": "client/ts"
   },
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "check-types": "tsc --noEmit",
-    "watch": "tsc --noEmit && vite build --watch",
+    "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint",
