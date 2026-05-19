@@ -181,6 +181,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 		Sync:                     c.Sync,
+		AutoIndexing:             c.AutoIndexing,
 	}
 }
 
@@ -348,14 +349,6 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	if cfg.AutoIndexing != nil && *cfg.AutoIndexing {
-		cfg = expandKeysForAutoIndexing(cfg, channels)
-		channels, err = s.validateChannelKeys(ctx, cfg.Keys)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.BatchFactory[keyAuthority]{Host: hostKey}.Batch(cfg.keyAuthorities())
@@ -402,7 +395,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasGateway {
 		routeValidatorTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
-		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway), channelMap)
+		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
 		if err != nil {
 			return nil, err
 		}

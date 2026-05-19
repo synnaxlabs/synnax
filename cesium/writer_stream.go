@@ -107,7 +107,51 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
+	// autoIndex carries the state needed to auto-stamp missing index series and to
+	// propagate SetAuthority calls on data channels through to their implicit index
+	// channels. Nil when AutoIndexing is disabled.
+	autoIndex *autoIndexState
 	WriterConfig
+}
+
+// autoIndexState scopes the auto-indexing maps for one streamWriter. dataToIndex maps
+// each non-index data channel that the writer is writing to to the key of its index
+// channel; dataAuth tracks the most recent authority for each such data channel and is
+// updated by SetAuthority calls so that implicit-index authorities can be recomputed
+// as the max across referencing data channels.
+type autoIndexState struct {
+	dataToIndex map[ChannelKey]ChannelKey
+	dataAuth    map[ChannelKey]xcontrol.Authority
+}
+
+// initAutoIndexing populates the auto-indexing state from the writer's already-opened
+// idxWriters. Must be called after w.internal is fully populated.
+func (w *streamWriter) initAutoIndexing() {
+	state := &autoIndexState{
+		dataToIndex: make(map[ChannelKey]ChannelKey),
+		dataAuth:    make(map[ChannelKey]xcontrol.Authority),
+	}
+	for _, idx := range w.internal {
+		if !idx.writingToIdx {
+			continue
+		}
+		idxKey := idx.idx.ch.Key
+		for dataKey := range idx.internal {
+			if dataKey == idxKey {
+				continue
+			}
+			state.dataToIndex[dataKey] = idxKey
+		}
+	}
+	if len(w.Authorities) > 0 {
+		for i, k := range w.Channels {
+			if _, isData := state.dataToIndex[k]; !isData {
+				continue
+			}
+			state.dataAuth[k] = w.Authorities[i%len(w.Authorities)]
+		}
+	}
+	w.autoIndex = state
 }
 
 // Flow implements the confluence.Flow interface.
@@ -166,6 +210,9 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEn
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
 		return nil
+	}
+	if w.autoIndex != nil {
+		cfg = w.autoIndex.propagate(cfg)
 	}
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
@@ -231,6 +278,9 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
+	if w.autoIndex != nil {
+		req.Frame = w.autoStamp(req.Frame)
+	}
 	var (
 		accumulatedErr      error
 		err                 error
@@ -269,6 +319,112 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	return accumulatedErr
+}
+
+// autoStamp inspects fr, injects a TimeStamp series for each idxWriter whose index
+// channel is being written by this writer but is absent from fr, and returns the
+// updated frame. Each generated series is sized to match the length of a data channel
+// in the same idxWriter group. Generated timestamps start at max(now, hwm+1) where
+// hwm is the index's current high-water mark; subsequent samples within the same call
+// are spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm
+// when the generated series is written.
+func (w *streamWriter) autoStamp(fr Frame) Frame {
+	present := make(map[ChannelKey]struct{}, fr.Count())
+	keyLens := make(map[ChannelKey]int64, fr.Count())
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		present[k] = struct{}{}
+		keyLens[k] = fr.RawSeriesAt(i).Len()
+	}
+	now := telem.Now()
+	for _, idx := range w.internal {
+		if !idx.writingToIdx {
+			continue
+		}
+		idxKey := idx.idx.ch.Key
+		if _, ok := present[idxKey]; ok {
+			continue
+		}
+		var n int64
+		for k := range idx.internal {
+			if k == idxKey {
+				continue
+			}
+			if l, ok := keyLens[k]; ok && l > 0 {
+				n = l
+				break
+			}
+		}
+		if n == 0 {
+			continue
+		}
+		t0 := now
+		if hwm := idx.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
+			t0 = hwm + 1
+		}
+		stamps := make([]telem.TimeStamp, n)
+		for j := range stamps {
+			stamps[j] = t0 + telem.TimeStamp(j)
+		}
+		fr = fr.Append(idxKey, telem.NewSeriesV(stamps...))
+	}
+	return fr
+}
+
+// propagate synchronizes the autoIndexState's per-data-channel authority tracking
+// with the incoming SetAuthority config and augments cfg with an updated authority for
+// each implicit index whose referencing data channels' max may have changed. Broadcast
+// calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
+// broadcast across every channel in the writer, including indexes — but the tracked
+// state is refreshed so the next per-channel call computes correctly. Indexes the
+// caller explicitly included in cfg.Channels are left untouched.
+func (s *autoIndexState) propagate(cfg WriterConfig) WriterConfig {
+	if len(cfg.Channels) == 0 {
+		for k := range s.dataAuth {
+			s.dataAuth[k] = cfg.Authorities[0]
+		}
+		return cfg
+	}
+	if len(cfg.Authorities) == 1 {
+		auth := cfg.Authorities[0]
+		cfg.Authorities = make([]xcontrol.Authority, len(cfg.Channels))
+		for i := range cfg.Authorities {
+			cfg.Authorities[i] = auth
+		}
+	}
+	for i, k := range cfg.Channels {
+		if _, isData := s.dataToIndex[k]; isData {
+			s.dataAuth[k] = cfg.Authorities[i]
+		}
+	}
+	explicit := make(map[ChannelKey]struct{}, len(cfg.Channels))
+	for _, k := range cfg.Channels {
+		explicit[k] = struct{}{}
+	}
+	seen := make(map[ChannelKey]struct{})
+	for _, idxKey := range s.dataToIndex {
+		if _, ok := explicit[idxKey]; ok {
+			continue
+		}
+		if _, ok := seen[idxKey]; ok {
+			continue
+		}
+		seen[idxKey] = struct{}{}
+		var maxAuth xcontrol.Authority
+		for dc, idx := range s.dataToIndex {
+			if idx != idxKey {
+				continue
+			}
+			if s.dataAuth[dc] > maxAuth {
+				maxAuth = s.dataAuth[dc]
+			}
+		}
+		cfg.Channels = append(cfg.Channels, idxKey)
+		cfg.Authorities = append(cfg.Authorities, maxAuth)
+	}
+	return cfg
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {

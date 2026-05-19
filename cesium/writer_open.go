@@ -93,6 +93,21 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
+	// AutoIndexing causes the writer to generate timestamps for any index channel
+	// referenced by the writer's data channels whose series is omitted from a Write
+	// frame. The first sample in each Write call is stamped with telem.Now() on this
+	// node; remaining samples in the same call are spaced 1ns apart. Each index's
+	// high-water mark advances monotonically across Write calls, including across
+	// user-provided index timestamps, so subsequent auto-stamps always follow the most
+	// recent committed sample.
+	//
+	// When AutoIndexing is true, any index channel referenced by a data channel in
+	// Channels but not present in Channels itself is implicitly opened for writing.
+	// SetAuthority calls that name a data channel propagate to its index channel,
+	// taking the max authority across all data channels referencing that index.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndexing *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -110,6 +125,7 @@ func DefaultWriterConfig() WriterConfig {
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
+		AutoIndexing:             new(false),
 	}
 }
 
@@ -119,6 +135,7 @@ func (c WriterConfig) Validate() error {
 	validate.NotEmptySlice(v, "channels", c.Channels)
 	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorized)
 	validate.NotNil(v, "sync", c.Sync)
+	validate.NotNil(v, "auto_indexing", c.AutoIndexing)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",
@@ -139,6 +156,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.AutoIndexing = override.Nil(c.AutoIndexing, other.AutoIndexing)
 	return c
 }
 
@@ -177,6 +195,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	cfg, err := config.New(DefaultWriterConfig(), cfgs...)
 	if err != nil {
 		return nil, err
+	}
+	if *cfg.AutoIndexing {
+		cfg = db.expandKeysForAutoIndexing(cfg)
 	}
 	var (
 		domainWriters  map[ChannelKey]*idxWriter
@@ -329,7 +350,73 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
 	}
+	if *cfg.AutoIndexing {
+		w.initAutoIndexing()
+	}
 	return w, nil
+}
+
+// expandKeysForAutoIndexing returns a config whose Channels include any index channels
+// referenced by non-index channels in cfg.Channels that are not already present.
+// When per-channel authorities are supplied, each appended index inherits the maximum
+// authority of the data channels that reference it, since writing to a data channel
+// requires successfully writing its index. When a single broadcast authority is
+// supplied, the appended index keys naturally inherit it.
+//
+// Channels not present in this DB (e.g. owned by a remote leaseholder in a distributed
+// setup) are passed through untouched — the caller is expected to expand them at a
+// higher layer with access to the cluster-wide channel registry.
+func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
+	existing := make(map[ChannelKey]struct{}, len(cfg.Channels))
+	for _, k := range cfg.Channels {
+		existing[k] = struct{}{}
+	}
+	perChannelAuth := len(cfg.Authorities) > 1
+	var keyAuth map[ChannelKey]xcontrol.Authority
+	if perChannelAuth {
+		keyAuth = make(map[ChannelKey]xcontrol.Authority, len(cfg.Channels))
+		for i, k := range cfg.Channels {
+			keyAuth[k] = cfg.Authorities[i]
+		}
+	}
+	indexAuth := make(map[ChannelKey]xcontrol.Authority)
+	var implicit []ChannelKey
+	for _, k := range cfg.Channels {
+		u, ok := db.mu.dbs.unary[k]
+		if !ok {
+			continue
+		}
+		ch := u.Channel()
+		if ch.IsIndex {
+			continue
+		}
+		idxKey := ch.Index
+		if idxKey == 0 {
+			continue
+		}
+		if _, present := existing[idxKey]; present {
+			continue
+		}
+		if _, seen := indexAuth[idxKey]; !seen {
+			implicit = append(implicit, idxKey)
+			indexAuth[idxKey] = 0
+		}
+		if perChannelAuth {
+			if a := keyAuth[k]; a > indexAuth[idxKey] {
+				indexAuth[idxKey] = a
+			}
+		}
+	}
+	if len(implicit) == 0 {
+		return cfg
+	}
+	cfg.Channels = append(cfg.Channels, implicit...)
+	if perChannelAuth {
+		for _, idxKey := range implicit {
+			cfg.Authorities = append(cfg.Authorities, indexAuth[idxKey])
+		}
+	}
+	return cfg
 }
 
 func (db *DB) openDomainIdxWriter(

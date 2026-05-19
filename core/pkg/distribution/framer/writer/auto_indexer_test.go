@@ -428,16 +428,16 @@ var _ = Describe("AutoIndexing", func() {
 		})
 	})
 
-	Describe("Conflict between user-provided and auto-generated index timestamps", func() {
-		It("Should surface a storage conflict when a user-provided index timestamp is ahead of a subsequent auto-stamp", func(ctx SpecContext) {
+	Describe("Mixed user-provided and auto-generated index timestamps", func() {
+		It("Should resume auto-stamping after a user-provided index timestamp in the future", func(ctx SpecContext) {
 			s := openAutoIndexScenario(ctx)
 			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
 
 			// A user-provided index timestamp far enough in the future that telem.Now()
-			// at the next write is guaranteed to be less. The autoIndexer intentionally
-			// does not absorb the future user-provided value — mixing future user-TS
-			// with auto-stamping is not a supported pattern, so cesium rejects the
-			// conflicting write rather than silently coercing.
+			// at the next write is guaranteed to be less. Because auto-indexing now runs
+			// inside cesium, the index's high-water mark absorbs the user-provided value;
+			// subsequent auto-stamps follow it monotonically rather than conflicting at
+			// the storage layer.
 			future := telem.Now() + telem.HourTS
 			keys := []channel.Key{s.idx.Key(), s.data.Key()}
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -449,12 +449,28 @@ var _ = Describe("AutoIndexing", func() {
 				telem.NewSeriesV(future),
 				telem.NewSeriesV[float64](1),
 			})))
-			Expect(w.Write(frame.NewUnary(
+			MustSucceed(w.Write(frame.NewUnary(
 				s.data.Key(),
 				telem.NewSeriesV[float64](2),
-			))).Error().To(MatchError(
-				ContainSubstring("must not be less than the previous commit timestamp"),
-			))
+			)))
+			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
+
+			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   []channel.Key{s.idx.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			var all []telem.TimeStamp
+			for iter.Next(telem.TimeSpanMax) {
+				for _, ser := range iter.Value().RawSeries() {
+					all = append(all, telem.UnmarshalSeries[telem.TimeStamp](ser)...)
+				}
+			}
+			Expect(iter.Close()).To(Succeed())
+			Expect(all).To(HaveLen(2))
+			Expect(all[0]).To(Equal(future))
+			Expect(all[1]).To(BeNumerically(">", future))
 		})
 	})
 
