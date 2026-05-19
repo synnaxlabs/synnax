@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement, useRef } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -37,9 +37,7 @@ export const Primitive = ({
 }: Props): ReactElement => {
   const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
   const spec = result.variant === "success" ? result.data.data : undefined;
-  const containerRef = useRef<HTMLDivElement>(null);
-  Custom.useRender({
-    container: containerRef.current,
+  const setContainer = Custom.useRender({
     orientation,
     activeState: "base",
     externalScale: scale,
@@ -58,7 +56,7 @@ export const Primitive = ({
   const handles = spec?.handles ?? [];
   return (
     <Base.Div
-      ref={containerRef}
+      ref={setContainer}
       orientation={orientation}
       className={CSS(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
     >

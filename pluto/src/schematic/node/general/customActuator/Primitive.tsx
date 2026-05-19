@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
-import { type MouseEventHandler, type ReactElement, useRef } from "react";
+import { type MouseEventHandler, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
@@ -40,9 +40,7 @@ export const Primitive = ({
 }: Props): ReactElement => {
   const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
   const spec = result.variant === "success" ? result.data.data : undefined;
-  const containerRef = useRef<HTMLButtonElement>(null);
-  Custom.useRender({
-    container: containerRef.current,
+  const setContainer = Custom.useRender({
     orientation,
     activeState: enabled ? "active" : "base",
     externalScale: scale,
@@ -61,7 +59,7 @@ export const Primitive = ({
   const handles = spec?.handles ?? [];
   return (
     <Toggle.Button
-      ref={containerRef}
+      ref={setContainer}
       className={CSS(
         CSS.BM("symbol", "custom"),
         CSS.B("custom-actuator"),
