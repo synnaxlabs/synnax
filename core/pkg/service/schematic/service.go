@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	stdio "io"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -92,6 +93,15 @@ type Service struct {
 	// subscribers (notably the cluster signals translator). Nil when the
 	// service is opened without a Signals provider.
 	actionObserver observe.Observer[ScopedAction]
+	// seq is the monotonic sequence counter stamped onto each ScopedAction
+	// before broadcast. Clients dedupe echoes by comparing against the highest
+	// Seq they have applied for the same Key. The counter is in-memory and
+	// resets on process restart, which is acceptable because clients reload
+	// schematic state on reconnect and reset their per-key high-water marks
+	// alongside it. In multi-node deployments each node has its own counter,
+	// so cross-node ordering is best-effort: a cluster-coordinated primitive
+	// is left for the broader server-side undo work to address.
+	seq atomic.Uint64
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -185,6 +195,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otg:            s.Ontology,
 		table:          s.table,
 		actionObserver: s.actionObserver,
+		seq:            &s.seq,
 	}
 }
 
