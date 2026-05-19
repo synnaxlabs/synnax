@@ -13,6 +13,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -340,7 +341,7 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 }
 
 // SortedIndex is an ordered in-memory index on a field of type V extracted from
-// entries of type E. V is constrained to cmp.Ordered so the storage can
+// entries of type E. V is constrained to cmp.Ordered so the index can
 // compare values without a caller-supplied comparator. SortedIndex supports
 // exact-match lookups via Filter (same semantics as LookupIndex) and ordered
 // cursor-based pagination via Retrieve.OrderBy.
@@ -354,8 +355,11 @@ type SortedIndex[K Key, E Entry[K], V cmp.Ordered] struct {
 	baseIndex[K, E]
 	// extract reads the indexed field from an entry.
 	extract func(e *E) V
-	// storage holds entries in ascending V order.
-	storage *sortedStorage[K, V]
+	// entries holds the index contents in ascending V order. Within
+	// equal values, entries are kept in insertion order. Insertion is
+	// O(log n) binary search plus O(n) slice shift; at the target scale
+	// (<100k entries) this is acceptable.
+	entries []sortedEntry[K, V]
 	// reverse maps each primary key to its current indexed value; used
 	// to locate the old slot when an entry's value changes.
 	reverse map[K]V
@@ -374,7 +378,6 @@ func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	s := &SortedIndex[K, E, V]{
 		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
 		extract:   extract,
-		storage:   newSortedStorage[K, V](),
 		reverse:   make(map[K]V),
 	}
 	s.overlay.commitSet = func(key K, value V) {
@@ -397,8 +400,8 @@ func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	insert := func(entry E) {
 		key := entry.GorpKey()
 		value := s.extract(&entry)
-		s.storage.entries = append(
-			s.storage.entries,
+		s.entries = append(
+			s.entries,
 			sortedEntry[K, V]{value: value, key: key},
 		)
 		s.reverse[key] = value
@@ -407,12 +410,73 @@ func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 		if err != nil {
 			s.populateErr.Store(&err)
 		} else {
-			s.storage.sortBulk()
+			s.sortBulk()
 		}
 		close(s.populateDone)
 		s.mu.Unlock()
 	}
 	return insert, finish
+}
+
+// lowerBound returns the first index i such that entries[i].value >= value.
+// Caller must hold s.mu.
+func (s *SortedIndex[K, E, V]) lowerBound(value V) int {
+	return sort.Search(len(s.entries), func(i int) bool {
+		return s.entries[i].value >= value
+	})
+}
+
+// upperBound returns the first index i such that entries[i].value > value.
+// Caller must hold s.mu.
+func (s *SortedIndex[K, E, V]) upperBound(value V) int {
+	return sort.Search(len(s.entries), func(i int) bool {
+		return s.entries[i].value > value
+	})
+}
+
+// put inserts (key, value) into the sorted slice at the upper bound of
+// value, so entries with equal values stay in insertion order. Caller
+// must hold s.mu for writing.
+func (s *SortedIndex[K, E, V]) put(key K, value V) {
+	i := s.upperBound(value)
+	s.entries = slices.Insert(s.entries, i, sortedEntry[K, V]{value: value, key: key})
+}
+
+// remove deletes the (key, value) pair from the sorted slice. Caller
+// must hold s.mu for writing.
+func (s *SortedIndex[K, E, V]) remove(key K, value V) {
+	lo := s.lowerBound(value)
+	hi := s.upperBound(value)
+	for i := lo; i < hi; i++ {
+		if s.entries[i].key == key {
+			s.entries = slices.Delete(s.entries, i, i+1)
+			return
+		}
+	}
+}
+
+// get returns the primary keys whose indexed value equals value. Caller
+// must hold s.mu (read or write).
+func (s *SortedIndex[K, E, V]) get(value V) []K {
+	lo := s.lowerBound(value)
+	hi := s.upperBound(value)
+	if lo == hi {
+		return nil
+	}
+	out := make([]K, hi-lo)
+	for i := lo; i < hi; i++ {
+		out[i-lo] = s.entries[i].key
+	}
+	return out
+}
+
+// sortBulk sorts entries by value. Used by populate to finalize a
+// bulk-loaded index in O(N log N) instead of inserting one entry at a
+// time at O(N²).
+func (s *SortedIndex[K, E, V]) sortBulk() {
+	slices.SortFunc(s.entries, func(a, b sortedEntry[K, V]) int {
+		return cmp.Compare(a.value, b.value)
+	})
 }
 
 // setCommitted applies a write to committed state. Caller must hold s.mu.
@@ -421,9 +485,9 @@ func (s *SortedIndex[K, E, V]) setCommitted(key K, value V) {
 		if cmp.Compare(oldValue, value) == 0 {
 			return
 		}
-		s.storage.remove(key, oldValue)
+		s.remove(key, oldValue)
 	}
-	s.storage.put(key, value)
+	s.put(key, value)
 	s.reverse[key] = value
 }
 
@@ -433,7 +497,7 @@ func (s *SortedIndex[K, E, V]) deleteCommitted(key K) {
 	if !existed {
 		return
 	}
-	s.storage.remove(key, oldValue)
+	s.remove(key, oldValue)
 	delete(s.reverse, key)
 }
 
@@ -489,12 +553,12 @@ func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 	}
 	var committed []K
 	if len(values) == 1 {
-		src := s.storage.get(values[0])
+		src := s.get(values[0])
 		committed = make([]K, len(src))
 		copy(committed, src)
 	} else {
 		for _, v := range values {
-			committed = append(committed, s.storage.get(v)...)
+			committed = append(committed, s.get(v)...)
 		}
 	}
 	if tx == nil {

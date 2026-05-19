@@ -74,7 +74,7 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 	q.sorted.mu.RLock()
 	defer q.sorted.mu.RUnlock()
-	entries := q.sorted.storage.entries
+	entries := q.sorted.entries
 	if len(entries) == 0 {
 		return nil
 	}
@@ -84,13 +84,13 @@ func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 		if !q.hasCursor {
 			start = 0
 		} else {
-			start = q.sorted.storage.upperBound(q.cursor)
+			start = q.sorted.upperBound(q.cursor)
 		}
 	case DirectionDesc:
 		if !q.hasCursor {
 			start = len(entries) - 1
 		} else {
-			start = q.sorted.storage.lowerBound(q.cursor) - 1
+			start = q.sorted.lowerBound(q.cursor) - 1
 		}
 	}
 	return walkSorted(entries, start, q.dir, limit)
