@@ -145,7 +145,7 @@ class Channel(Payload):
         :raises ContiguityError: If the telemetry between start and end is non-contiguous.
         """
         tr = TimeRange(start_or_range, end)
-        return self._frame_client().read(tr, self.key)
+        return self._frame_client.read(tr, self.key)
 
     def write(self, start: CrudeTimeStamp, data: CrudeSeries) -> None:
         """Writes telemetry to the channel starting at the given timestamp.
@@ -154,7 +154,7 @@ class Channel(Payload):
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        self._frame_client().write(start, self.key, data)
+        self._frame_client.write(start, self.key, data)
 
     def rename(self, name: str) -> None:
         """Renames the channel.
@@ -170,6 +170,7 @@ class Channel(Payload):
     def ontology_id(self) -> ID:
         return ontology_id(self.key)
 
+    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise ValidationError(

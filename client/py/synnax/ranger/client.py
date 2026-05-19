@@ -108,6 +108,7 @@ class _InternalScopedChannel(channel.Payload):
         """
         return self.read().to_numpy()
 
+    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
@@ -115,7 +116,7 @@ class _InternalScopedChannel(channel.Payload):
 
     def read(self) -> MultiSeries:
         if self._cache is None:
-            self._cache = self._frame_client().read(self.time_range, self.key)
+            self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
 
     def set_alias(self, alias: str) -> None:
@@ -319,7 +320,7 @@ class Range(Payload):
             if cached is None:
                 cached = _InternalScopedChannel(
                     rng=self,
-                    frame_client=self._frame_client(),
+                    frame_client=self._frame_client,
                     payload=pld,
                     tasks=self._get_tasks(),
                     ontology=self._get_ontology(),
@@ -343,6 +344,7 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._aliaser
 
+    @property
     def _frame_client(self) -> framer.Client:
         if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
@@ -413,13 +415,13 @@ class Range(Payload):
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._frame_client().write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
                 "channels must be a channel key, name, or list when series is provided"
             )
-        self._frame_client().write(start, channels, series)
+        self._frame_client.write(start, channels, series)
 
     def create_child_range(
         self,
