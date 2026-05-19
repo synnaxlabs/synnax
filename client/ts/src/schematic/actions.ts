@@ -31,7 +31,7 @@ const NO_OP: HandlerResult = { inverse: [], targets: [] };
 // one produce(), an earlier action's wholesale assignment (e.g. state.configs[k]
 // = {...existing, ...payload.config}) leaves the slot as a plain object — the
 // next action would crash if it called current() unconditionally.
-const snapshot = <T>(v: T): T => (isDraft(v) ? (current(v)) : v);
+const snapshot = <T>(v: T): T => (isDraft(v) ? current(v) : v);
 
 const handlers: Handlers = {
   rename: (state, payload) => {

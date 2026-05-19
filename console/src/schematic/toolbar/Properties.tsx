@@ -53,7 +53,7 @@ export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement =>
   if (selected.length === 0 || configByKey.size === 0)
     return (
       <Text.Text status="disabled" center>
-        Select a Schematic element to configure its properties.
+        Select a schematic element to configure its properties.
       </Text.Text>
     );
   if (selected.length > 1)
