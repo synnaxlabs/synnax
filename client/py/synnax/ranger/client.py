@@ -160,9 +160,11 @@ class ScopedChannel:
 
     def _guard(self) -> None:
         if len(self._internal) > 1:
-            raise QueryError(f"""Multiple channels found for query '{self._query}':
+            raise QueryError(
+                f"""Multiple channels found for query '{self._query}':
             {[str(ch) for ch in self._internal]}
-            """)
+            """
+            )
 
     def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
@@ -220,8 +222,10 @@ class ScopedChannel:
         return sum(len(ch) for ch in self._internal)
 
 
-_RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been created.
-Please call client.ranges.create(range) before attempting to read from a range.""")
+_RANGE_NOT_CREATED = QueryError(
+    """Cannot read from a range that has not been created.
+Please call client.ranges.create(range) before attempting to read from a range."""
+)
 
 
 class Range(Payload):
@@ -237,13 +241,13 @@ class Range(Payload):
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    _aliaser: alias_.Client | None = PrivateAttr(None)
+    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
-    _client: Client | None = PrivateAttr(None)
-    _tasks: TaskClient | None = PrivateAttr(None)
-    _ontology: OntologyClient | None = PrivateAttr(None)
+    _cached_client: Client | None = PrivateAttr(None)
+    _cached_tasks: TaskClient | None = PrivateAttr(None)
+    _cached_ontology: OntologyClient | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -283,10 +287,10 @@ class Range(Payload):
         self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self._aliaser = _aliaser
-        self._client = _client
-        self._tasks = _tasks
-        self._ontology = _ontology
+        self._cached_aliaser = _aliaser
+        self._cached_client = _client
+        self._cached_tasks = _tasks
+        self._cached_ontology = _ontology
 
     def _get_scoped_channel(
         self, channels: list[channel.Payload], query: str
@@ -302,7 +306,7 @@ class Range(Payload):
         except AttributeError:
             pass
         channels = self._channel_retriever.retrieve(query)
-        aliases = self._get_aliaser().resolve([query])
+        aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         return self._get_scoped_channel(channels, query)
 
@@ -323,8 +327,8 @@ class Range(Payload):
                     rng=self,
                     frame_client=self._frame_client,
                     payload=pld,
-                    tasks=self._get_tasks(),
-                    ontology=self._get_ontology(),
+                    tasks=self._tasks,
+                    ontology=self._ontology,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
@@ -340,10 +344,11 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._kv
 
-    def _get_aliaser(self) -> alias_.Client:
-        if self._aliaser is None:
+    @property
+    def _aliaser(self) -> alias_.Client:
+        if self._cached_aliaser is None:
             raise _RANGE_NOT_CREATED
-        return self._aliaser
+        return self._cached_aliaser
 
     @property
     def _frame_client(self) -> framer.Client:
@@ -351,20 +356,23 @@ class Range(Payload):
             raise _RANGE_NOT_CREATED
         return self._cached_frame_client
 
-    def _get_client(self) -> Client:
-        if self._client is None:
+    @property
+    def _client(self) -> Client:
+        if self._cached_client is None:
             raise _RANGE_NOT_CREATED
-        return self._client
+        return self._cached_client
 
-    def _get_tasks(self) -> TaskClient:
-        if self._tasks is None:
+    @property
+    def _tasks(self) -> TaskClient:
+        if self._cached_tasks is None:
             raise _RANGE_NOT_CREATED
-        return self._tasks
+        return self._cached_tasks
 
-    def _get_ontology(self) -> OntologyClient:
-        if self._ontology is None:
+    @property
+    def _ontology(self) -> OntologyClient:
+        if self._cached_ontology is None:
             raise _RANGE_NOT_CREATED
-        return self._ontology
+        return self._cached_ontology
 
     @property
     def _channel_retriever(self) -> ChannelRetriever:
@@ -396,7 +404,7 @@ class Range(Payload):
                 corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
-        self._get_aliaser().set(corrected)
+        self._aliaser().set(corrected)
 
     def to_payload(self) -> Payload:
         return Payload(name=self.name, time_range=self.time_range, key=self.key)
@@ -432,7 +440,7 @@ class Range(Payload):
         color: str = "",
         key: Key = UUID(int=0),
     ) -> Range:
-        return self._get_client().create(
+        return self._client().create(
             name=name,
             time_range=time_range,
             color=color,
@@ -468,19 +476,19 @@ class Range(Payload):
     @property
     def children(self) -> list[Range]:
         """Returns a list of child ranges of this range."""
-        res = self._get_ontology().retrieve_children(self.ontology_id)
+        res = self._ontology().retrieve_children(self.ontology_id)
         range_children = [r for r in res if r.id.type == "range"]
         if len(range_children) == 0:
             return []
         child_keys: list[Key] = [
             r.id.key for r in range_children if r.id.key is not None
         ]
-        return self._get_client().retrieve(keys=child_keys)
+        return self._client().retrieve(keys=child_keys)
 
     def snapshots(self) -> list[Task]:
-        res = self._get_ontology().retrieve_children(self.ontology_id)
+        res = self._ontology().retrieve_children(self.ontology_id)
         tasks = [t for t in res if t.id.type == "task"]
-        return self._get_tasks().retrieve(
+        return self._tasks().retrieve(
             keys=[int(t.id.key) for t in tasks if t.id.key is not None]
         )
 
@@ -607,17 +615,21 @@ class Client:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
                         passed to create. Synnax can't figure out which one you want!
-                        """)
+                        """
+                    )
                 if len(filtered) > 1:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
                     can't figure out which one you want!
-                    """)
+                    """
+                    )
                 res = [filtered[0]]
             existing_names = {r.name for r in res}
             to_create = [r for r in to_create if r.name not in existing_names]
