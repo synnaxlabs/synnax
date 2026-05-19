@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { migrate } from "@synnaxlabs/x/migrate";
 import { telem } from "@synnaxlabs/x/telem";
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);

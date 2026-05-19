@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-
+import { type telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type CacheRetriever } from "@/channel/retriever";

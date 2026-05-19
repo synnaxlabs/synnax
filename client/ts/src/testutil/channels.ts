@@ -9,6 +9,7 @@
 
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
+
 import { type channel } from "@/channel";
 import type Synnax from "@/client";
 

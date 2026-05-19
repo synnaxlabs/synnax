@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/x/status";
-import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";

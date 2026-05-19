@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { change } from "@synnaxlabs/x/change";
+import { type change } from "@synnaxlabs/x/change";
+
 import { type channel } from "@/channel";
 import { type ontology } from "@/ontology";
 import { type Alias } from "@/ranger/alias/types.gen";

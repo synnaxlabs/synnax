@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { record } from "@synnaxlabs/x/record";
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-
 import { z } from "zod";
 
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";

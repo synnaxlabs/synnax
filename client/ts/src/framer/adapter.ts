@@ -9,6 +9,7 @@
 
 import { compare } from "@synnaxlabs/x/compare";
 import { telem } from "@synnaxlabs/x/telem";
+
 import { channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
@@ -173,7 +174,10 @@ export class WriteAdapter {
         series = series as telem.CrudeSeries;
       }
       const pld = await this.fetchChannel(columnsOrData);
-      const s = new telem.Series({ data: series as telem.CrudeSeries, dataType: pld.dataType });
+      const s = new telem.Series({
+        data: series as telem.CrudeSeries,
+        dataType: pld.dataType,
+      });
       return new Frame(pld.key, s);
     }
 

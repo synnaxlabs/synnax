@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { errors } from "@synnaxlabs/x/errors";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { channel } from "@/channel";

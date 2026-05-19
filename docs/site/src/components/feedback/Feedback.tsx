@@ -11,11 +11,11 @@ import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Text } from "@synnaxlabs/lyra/text";
-import { Form } from "@synnaxlabs/lyra/form";
 import { Nav } from "@synnaxlabs/lyra/nav";
+import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 

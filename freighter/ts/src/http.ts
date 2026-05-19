@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary } from "@synnaxlabs/x/binary";
+import { type binary } from "@synnaxlabs/x/binary";
 import { errors } from "@synnaxlabs/x/errors";
-import { URL } from "@synnaxlabs/x/url";
+import { type URL } from "@synnaxlabs/x/url";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";

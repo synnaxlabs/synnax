@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { telem } from "@synnaxlabs/x/telem";
+
 import Synnax, { type SynnaxParams } from "@/client";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {

@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
-
+import { telem } from "@synnaxlabs/x/telem";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -40,7 +39,11 @@ describe("encoder", () => {
       {
         name: "All Channels Present, In Order",
         channels: [1, 2, 3],
-        dataTypes: [telem.DataType.INT64, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
+        dataTypes: [
+          telem.DataType.INT64,
+          telem.DataType.FLOAT32,
+          telem.DataType.FLOAT64,
+        ],
         frame: new framer.Frame(
           [1, 2, 3],
           [
@@ -53,7 +56,11 @@ describe("encoder", () => {
       {
         name: "All Channels Present, Out of Order",
         channels: [3, 1, 2],
-        dataTypes: [telem.DataType.FLOAT64, telem.DataType.INT64, telem.DataType.FLOAT32],
+        dataTypes: [
+          telem.DataType.FLOAT64,
+          telem.DataType.INT64,
+          telem.DataType.FLOAT32,
+        ],
         frame: new framer.Frame(
           [2, 3, 1],
           [
@@ -66,7 +73,11 @@ describe("encoder", () => {
       {
         name: "Some Channels Present, In Order",
         channels: [1, 2, 3],
-        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
+        dataTypes: [
+          telem.DataType.UINT8,
+          telem.DataType.FLOAT32,
+          telem.DataType.FLOAT64,
+        ],
         frame: new framer.Frame(
           [1, 3],
           [
@@ -78,7 +89,11 @@ describe("encoder", () => {
       {
         name: "Some Channels Present, Out of Order",
         channels: [1, 2, 3],
-        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
+        dataTypes: [
+          telem.DataType.UINT8,
+          telem.DataType.FLOAT32,
+          telem.DataType.FLOAT64,
+        ],
         frame: new framer.Frame(
           [3, 1],
           [
@@ -97,7 +112,10 @@ describe("encoder", () => {
           telem.DataType.UINT8,
           telem.DataType.UINT8,
         ],
-        frame: new framer.Frame([3], [new telem.Series(new Uint8Array([1, 2, 3, 4, 5]))]),
+        frame: new framer.Frame(
+          [3],
+          [new telem.Series(new Uint8Array([1, 2, 3, 4, 5]))],
+        ),
       },
       {
         name: "All Same Time Range",
@@ -162,10 +180,17 @@ describe("encoder", () => {
       {
         name: "Partial Present, Different Lengths",
         channels: [1, 2, 3],
-        dataTypes: [telem.DataType.UINT8, telem.DataType.FLOAT32, telem.DataType.FLOAT64],
+        dataTypes: [
+          telem.DataType.UINT8,
+          telem.DataType.FLOAT32,
+          telem.DataType.FLOAT64,
+        ],
         frame: new framer.Frame(
           [1, 3],
-          [new telem.Series(new Uint8Array([1])), new telem.Series(new Float64Array([1, 2, 3, 4]))],
+          [
+            new telem.Series(new Uint8Array([1])),
+            new telem.Series(new Float64Array([1, 2, 3, 4])),
+          ],
         ),
       },
       {
@@ -269,7 +294,9 @@ describe("encoder", () => {
     it("should throw an error if the codec is not initialized", () => {
       const codec = new Codec();
       expect(() =>
-        codec.encode(new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))])),
+        codec.encode(
+          new framer.Frame([1], [new telem.Series(new Int32Array([1, 2, 3]))]),
+        ),
       ).toThrow(ValidationError);
     });
 
@@ -293,7 +320,10 @@ describe("encoder", () => {
 
       encoder.update([2], [telem.DataType.INT64]);
       expect(() => encoder.encode(fr)).toThrow(ValidationError);
-      const fr2 = new framer.Frame([2], [new telem.Series(new BigInt64Array([1n, 2n, 3n]))]);
+      const fr2 = new framer.Frame(
+        [2],
+        [new telem.Series(new BigInt64Array([1n, 2n, 3n]))],
+      );
       encoded = encoder.encode(fr2);
       decoded = new Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(2);

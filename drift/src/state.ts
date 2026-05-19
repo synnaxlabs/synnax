@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 import { box } from "@synnaxlabs/x/box";
 import { deep } from "@synnaxlabs/x/deep";
-import { dimensions } from "@synnaxlabs/x/dimensions";
+import { type dimensions } from "@synnaxlabs/x/dimensions";
 import { id } from "@synnaxlabs/x/id";
 import { telem } from "@synnaxlabs/x/telem";
 import { xy } from "@synnaxlabs/x/xy";
-import { createSlice, type PayloadAction, type Reducer } from "@reduxjs/toolkit";
 
 import { group, groupEnd, log } from "@/debug";
 import {

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { primitive } from "@synnaxlabs/x/primitive";
+import { type primitive } from "@synnaxlabs/x/primitive";
+
 import { MultipleFoundError, NotFoundError } from "@/errors";
 
 export type SingleParamAnalysisResult<

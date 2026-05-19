@@ -14,6 +14,6 @@
 // languages and platforms. Sometimes items have keys that are uuids, which have dashes,
 // and those get messed up. So we just use regular JSON for these items.
 
-import { record } from "@synnaxlabs/x/record";
+import { type record } from "@synnaxlabs/x/record";
 export const parseWithoutKeyConversion = (s: string): record.Unknown =>
   s ? JSON.parse(s) : {};

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x/array";
 import { color } from "@synnaxlabs/x/color";
 import { telem } from "@synnaxlabs/x/telem";
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -62,7 +61,14 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    { name, timeRange = telem.TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
+    {
+      name,
+      timeRange = telem.TimeRange.ZERO,
+      key,
+      color: color_,
+      parent,
+      labels,
+    }: Payload,
     {
       frameClient,
       kv,

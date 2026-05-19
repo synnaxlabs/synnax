@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x/bounds";
-import { direction } from "@synnaxlabs/x/direction";
-import { record } from "@synnaxlabs/x/record";
+import { type direction } from "@synnaxlabs/x/direction";
+import { type record } from "@synnaxlabs/x/record";
 import { type ReactElement } from "react";
 
 type Entry = record.Keyed<record.Key>;

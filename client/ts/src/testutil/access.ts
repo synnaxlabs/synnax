@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x/id";
+
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
 import type Synnax from "@/client";

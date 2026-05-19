@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import { control } from "@synnaxlabs/x/control";
 import { errors } from "@synnaxlabs/x/errors";
+import { telem } from "@synnaxlabs/x/telem";
 import { zod } from "@synnaxlabs/x/zod";
 import { z } from "zod";
 
@@ -27,7 +27,9 @@ export enum WriterMode {
   Stream = 3,
 }
 
-export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: telem.TimeSpan = new telem.TimeSpan(-1);
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: telem.TimeSpan = new telem.TimeSpan(
+  -1,
+);
 
 export class WriterClosedError extends SynnaxError.sub("writer_closed") {
   constructor() {
@@ -213,7 +215,10 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: channel.Key | channel.Name, data: telem.CrudeSeries): Promise<void>;
+  async write(
+    channel: channel.Key | channel.Name,
+    data: telem.CrudeSeries,
+  ): Promise<void>;
   async write(
     channel: channel.Key[] | channel.Name[],
     data: telem.CrudeSeries[],

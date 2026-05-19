@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem } from "@synnaxlabs/x/telem";
 import { type UnaryClient, type WebSocketClient } from "@synnaxlabs/freighter";
+import { telem } from "@synnaxlabs/x/telem";
 
 import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
@@ -209,7 +209,10 @@ export class Client {
     return frame;
   }
 
-  async delete(channels: channel.Params, timeRange: telem.CrudeTimeRange): Promise<void> {
+  async delete(
+    channels: channel.Params,
+    timeRange: telem.CrudeTimeRange,
+  ): Promise<void> {
     const { normalized, variant } = channel.analyzeParams(channels);
     const bounds = new telem.TimeRange(timeRange);
     if (variant === "keys")

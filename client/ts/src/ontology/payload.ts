@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { array } from "@synnaxlabs/x/array";
-import { change } from "@synnaxlabs/x/change";
+import { type change } from "@synnaxlabs/x/change";
 import { primitive } from "@synnaxlabs/x/primitive";
 import { record } from "@synnaxlabs/x/record";
 import { z } from "zod";
