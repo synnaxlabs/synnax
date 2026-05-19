@@ -15,8 +15,6 @@ require (
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	go.uber.org/zap v1.28.0
-	google.golang.org/grpc v1.81.1
-	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -24,7 +22,6 @@ require (
 	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58 // indirect
 	github.com/cockroachdb/errors v1.13.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506 // indirect
 	github.com/cockroachdb/redact v1.1.8 // indirect
@@ -86,4 +83,6 @@ require (
 	golang.org/x/tools v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260511170946-3700d4141b60 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260511170946-3700d4141b60 // indirect
+	google.golang.org/grpc v1.81.1 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 )
