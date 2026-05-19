@@ -25,12 +25,12 @@ import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const ingestComponent = (
+export const ingestComponent = async (
   data: unknown,
   fileName: string,
   fileIngesters: FileIngesters,
   ctx: FileIngesterContext,
-): void => {
+): Promise<void> => {
   let type: string | undefined;
   if (
     typeof data === "object" &&
@@ -41,12 +41,12 @@ export const ingestComponent = (
     type = data.type;
   if (type != null) {
     const ingest = fileIngesters[type];
-    ingest(data, ctx);
+    await ingest(data, ctx);
     return;
   }
   for (const ingest of Object.values(fileIngesters))
     try {
-      ingest(data, ctx);
+      await ingest(data, ctx);
       return;
     } catch (e) {
       if (e instanceof ZodError) continue;
@@ -101,17 +101,19 @@ const importComponent = ({
         }),
       );
     }
+    const activeWorkspaceKeyAfter = Workspace.selectActiveKey(store.getState());
     paths.forEach((path) =>
       handleError(async () => {
         const data = await readTextFile(path);
         const fileName = path.split(sep()).pop();
         if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
         const name = trimFileName(fileName);
-        ingestComponent(JSON.parse(data), name, fileIngesters, {
+        await ingestComponent(JSON.parse(data), name, fileIngesters, {
           layout: { name },
           placeLayout,
           store: fluxStore,
           client,
+          workspaceKey: activeWorkspaceKeyAfter ?? undefined,
         });
       }, `Failed to import ${path}`),
     );

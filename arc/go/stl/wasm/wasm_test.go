@@ -26,7 +26,6 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
@@ -57,6 +56,7 @@ var _ = Describe("ConvertConfigValue", func() {
 		Entry("float32", float32(1.5), uint64(math.Float32bits(1.5))),
 		Entry("float64", float64(2.5), math.Float64bits(2.5)),
 		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
+		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
 	)
 
 	DescribeTable("unsupported types return an error instead of panicking",
@@ -108,7 +108,7 @@ func newHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	_, _ = series.NewModule(ctx, seriesState, wasmRT)
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	_, _ = stlmath.NewModule(ctx, wasmRT)
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
 	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
@@ -125,7 +125,7 @@ func newHarness(
 			NodeKeySetter: statefulMod,
 		},
 		channelMod,
-		&stat.Module{},
+		mathMod,
 	}
 	return &testHarness{
 		graph:        g,
@@ -214,7 +214,7 @@ func newTextHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	_, _ = series.NewModule(ctx, seriesState, wasmRT)
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	_, _ = stlmath.NewModule(ctx, wasmRT)
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
 	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
@@ -231,7 +231,7 @@ func newTextHarness(
 			NodeKeySetter: statefulMod,
 		},
 		channelMod,
-		&stat.Module{},
+		mathMod,
 	}
 	return &testHarness{
 		prog:         prog,
@@ -614,6 +614,34 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("TimeSpan Config Values", func() {
+		It("Should thread duration literal config values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"trigger_ch": {
+					Name: "trigger_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+			source := `
+func emit_period{period i64 ns} (trigger f32) i64 {
+    return period
+}
+
+trigger_ch -> emit_period{period=1s}
+`
+			h := newTextHarness(ctx, source, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float32T},
+			)
+			defer h.Close(ctx)
+
+			h.SetInput("on_trigger_ch_0", 0, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "emit_period_0")
+			Expect(telem.UnmarshalSeries[int64](h.Output("emit_period_0", 0))).To(Equal([]int64{int64(telem.Second)}))
+		})
+	})
+
 	Describe("Alignment and TimeRange Propagation", func() {
 		It("Should sum alignments from multiple inputs and propagate to outputs", func(ctx SpecContext) {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
@@ -937,6 +965,30 @@ var _ = Describe("WASM", func() {
 		)
 	})
 
+	Describe("len() with series", func() {
+		DescribeTable("len() function",
+			expectOutput[int32],
+			Entry("empty series", "qslen_empty", types.I64(), `{
+				s series f64 := []
+				return len(s)
+			}`, stl.SymbolResolver, int32(0)),
+			Entry("single element", "qslen_one", types.I64(), `{
+				s series f64 := [1.0]
+				return len(s)
+			}`, stl.SymbolResolver, int32(1)),
+			Entry("five elements", "qslen_five", types.I64(), `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				return len(s)
+			}`, stl.SymbolResolver, int32(5)),
+			Entry("after operation", "qslen_after_op", types.I64(), `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [4.0, 5.0, 6.0]
+				c series f64 := a + b
+				return len(c)
+			}`, stl.SymbolResolver, int32(3)),
+		)
+	})
+
 	Describe("String Operations Extended", func() {
 		DescribeTable("string len() function",
 			expectOutput[int32],
@@ -959,64 +1011,29 @@ var _ = Describe("WASM", func() {
 			}`, stl.SymbolResolver, int32(11)),
 		)
 
-		DescribeTable("qualified string.len() calls",
-			expectOutput[int32],
-			Entry("simple string", "qlen_str", types.I64(), `{
-				return string.len("hello")
-			}`, stl.SymbolResolver, int32(5)),
-			Entry("empty string", "qlen_empty", types.I64(), `{
-				return string.len("")
-			}`, stl.SymbolResolver, int32(0)),
-			Entry("string variable", "qlen_var", types.I64(), `{
-				s str := "world"
-				return string.len(s)
-			}`, stl.SymbolResolver, int32(5)),
-		)
-
-		DescribeTable("qualified string.concat() calls",
-			expectOutput[int32],
-			Entry("two literals", "qconcat_lit", types.I64(), `{
-				return len(string.concat("ab", "cd"))
-			}`, stl.SymbolResolver, int32(4)),
-			Entry("variables", "qconcat_var", types.I64(), `{
-				a str := "hello"
-				b str := " world"
-				return string.len(string.concat(a, b))
-			}`, stl.SymbolResolver, int32(11)),
-		)
-
-		DescribeTable("qualified string.equal() calls",
-			expectOutput[int32],
-			Entry("equal strings", "qeq_true", types.I32(), `{
-				return string.equal("abc", "abc")
-			}`, stl.SymbolResolver, int32(1)),
-			Entry("unequal strings", "qeq_false", types.I32(), `{
-				return string.equal("abc", "def")
-			}`, stl.SymbolResolver, int32(0)),
-		)
 	})
 
-	Describe("Qualified math.pow()", func() {
+	Describe("^ Operator (math.pow)", func() {
 		DescribeTable("const, const (i64)",
 			expectOutput[int32],
 			Entry("i64 literals", "pow_ii", types.I64(), `{
-				return math.pow(2, 10)
+				return 2 ^ 10
 			}`, stl.SymbolResolver, int32(1024)),
 		)
 
 		DescribeTable("const, const (f64)",
 			expectOutput[float64],
 			Entry("f64 literals", "pow_ff64", types.F64(), `{
-				return math.pow(2.0, 3.0)
+				return 2.0 ^ 3.0
 			}`, stl.SymbolResolver, float64(8.0)),
 			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
-				return math.pow(9.0, 0.5)
+				return 9.0 ^ 0.5
 			}`, stl.SymbolResolver, float64(3.0)),
 		)
 
 		It("chan, const (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1032,7 +1049,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, const (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1048,7 +1065,7 @@ var _ = Describe("WASM", func() {
 
 		It("const, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1064,7 +1081,7 @@ var _ = Describe("WASM", func() {
 
 		It("const, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1080,7 +1097,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1096,7 +1113,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1113,23 +1130,85 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
-	Describe("String Function Type Safety", func() {
-		DescribeTable("Should reject non-string arguments to string functions",
-			func(ctx SpecContext, source string) {
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
-				Expect(diagnostics.Ok()).To(BeFalse())
-			},
-			Entry("string.len with integer", `
-				func bad() i64 { return string.len(123) }
-			`),
-			Entry("string.concat with integer", `
-				func bad() str { return string.concat(1, 2) }
-			`),
-			Entry("string.equal with integer", `
-				func bad() i32 { return string.equal(1, 2) }
-			`),
+	Describe("Unary minus", func() {
+		DescribeTable("const",
+			expectOutput[int64],
+			Entry("i64 literal", "neg_i", types.I64(), `{
+				return -5
+			}`, stl.SymbolResolver, int64(-5)),
 		)
+
+		DescribeTable("const (f64)",
+			expectOutput[float64],
+			Entry("f64 literal", "neg_f", types.F64(), `{
+				return -3.5
+			}`, stl.SymbolResolver, float64(-3.5)),
+		)
+
+		It("chan (i64)", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "neg_c",
+						Inputs:  types.Params{{Name: "val", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return -val }`},
+					},
+					{
+						Key:     "val_src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "val_src", Type: "val_src"},
+					{Key: "neg_c", Type: "neg_c"},
+				},
+				Edges: []graph.Edge{{
+					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "neg_c", Param: "val"},
+				}},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("val_src", 0, telem.NewSeriesV[int64](10, -20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "neg_c")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("neg_c", 0))).To(Equal([]int64{-10, 20, -30}))
+		})
+
+		It("chan (f64)", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "neg_cf",
+						Inputs:  types.Params{{Name: "val", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return -val }`},
+					},
+					{
+						Key:     "val_src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "val_src", Type: "val_src"},
+					{Key: "neg_cf", Type: "neg_cf"},
+				},
+				Edges: []graph.Edge{{
+					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "neg_cf", Param: "val"},
+				}},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("val_src", 0, telem.NewSeriesV[float64](1.5, -2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "neg_cf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[float64](h.Output("neg_cf", 0))).To(Equal([]float64{-1.5, 2.5, -3.5}))
+		})
+
 	})
 
 	Describe("String Channel Input", func() {
@@ -1181,7 +1260,7 @@ var _ = Describe("WASM", func() {
 						Key:     "qstr_len",
 						Inputs:  types.Params{{Name: "s", Type: types.String()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return string.len(s) }`},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
 					},
 					{
 						Key:     "source",
@@ -1215,7 +1294,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
 		})
 
-		It("Should convert string channel data to handles for qualified string.concat()", func(ctx SpecContext) {
+		It("Should convert string channel data to handles for + concatenation", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1225,7 +1304,7 @@ var _ = Describe("WASM", func() {
 							{Name: "b", Type: types.String()},
 						},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return string.len(string.concat(a, b)) }`},
+						Body:    ir.Body{Raw: `{ return len(a + b) }`},
 					},
 					{
 						Key:     "src_a",
@@ -1365,6 +1444,97 @@ var _ = Describe("WASM", func() {
 			)
 
 			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
+		})
+
+		It("Should accumulate string output values across multiple input samples", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "stringify",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.String()},
+						},
+						Body: ir.Body{Raw: `{ return str(x) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "stringify", Type: "stringify"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stringify", Param: "x"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[int64](1, 22, 333),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "stringify")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("stringify", 0)
+			Expect(telem.UnmarshalSeries[string](result)).To(Equal([]string{"1", "22", "333"}))
+		})
+
+		It("Should accumulate string and numeric outputs in lockstep", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "doubled", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = str(x)
+							doubled = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[int64](5, 10, 15),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "labeler")
+			Expect(changed.Contains("label")).To(BeTrue())
+			Expect(changed.Contains("doubled")).To(BeTrue())
+
+			Expect(telem.UnmarshalSeries[string](h.Output("labeler", 0))).To(Equal([]string{"5", "10", "15"}))
+			Expect(telem.UnmarshalSeries[int64](h.Output("labeler", 1))).To(Equal([]int64{10, 20, 30}))
 		})
 	})
 
@@ -1536,6 +1706,82 @@ var _ = Describe("WASM", func() {
 			output := h.Output("scale_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
+		})
+
+		It("Should handle negative i64 config parameter", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "offset_func",
+						Config:  types.Params{{Name: "offset", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return value + offset }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "offset_func", Type: "offset_func", Config: map[string]any{"offset": int64(-50)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[int64](100), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "offset_func")
+			changed := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+
+			output := h.Output("offset_func", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(50)))
+		})
+
+		It("Should handle negative f64 config parameter", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "scale_neg",
+						Config:  types.Params{{Name: "factor", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return value * factor }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "scale_neg", Type: "scale_neg", Config: map[string]any{"factor": -3.0}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "scale_neg")
+			changed := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+
+			output := h.Output("scale_neg", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(-30.0))
 		})
 	})
 

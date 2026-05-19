@@ -22,7 +22,7 @@ export interface SimpleProps extends Omit<
   onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
-  allowVisibleChange?: boolean;
+  allowEntryVisibleChange?: boolean;
   background?: Theming.Shade;
   highlightedSubGroupIndex?: number;
 }
@@ -32,7 +32,7 @@ export const Simple = ({
   onEntryChange,
   position,
   onPositionChange,
-  allowVisibleChange = true,
+  allowEntryVisibleChange = true,
   background = 1,
   highlightedSubGroupIndex,
   children,
@@ -54,7 +54,7 @@ export const Simple = ({
         onEntryChange={onEntryChange}
         colorPickerVisible={pickerVisible}
         onColorPickerVisibleChange={setPickerVisible}
-        allowVisibleChange={allowVisibleChange}
+        allowVisibleChange={allowEntryVisibleChange}
         background={background}
         entryProps={entryProps}
         highlightedSubGroupIndex={highlightedSubGroupIndex}

@@ -34,5 +34,4 @@ jobs:
     secrets: inherit
     with:
       directory: arc/go
-      ginkgo_flags: -p --randomize-all
       coverage_flag: arc-go

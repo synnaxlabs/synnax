@@ -32,10 +32,11 @@ var _ arc.SymbolResolver = (*channelResolver)(nil)
 
 func channelToSymbol(ch channel.Channel) symbol.Symbol {
 	return arc.Symbol{
-		Name: ch.Name,
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.FromTelem(ch.DataType)),
-		ID:   int(ch.Key()),
+		Name:       ch.Name,
+		Kind:       symbol.KindChannel,
+		Type:       types.Chan(types.FromTelem(ch.DataType)),
+		ID:         int(ch.Key()),
+		Renameable: !ch.Internal,
 	}
 }
 
@@ -44,9 +45,9 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	ch := channel.Channel{}
 	q := r.channelSvc.NewRetrieve().Entry(&ch)
 	if err == nil {
-		q = q.WhereKeys(channel.Key(key))
+		q = q.Where(channel.MatchKeys(channel.Key(key)))
 	} else {
-		q = q.WhereNames(name)
+		q = q.Where(channel.MatchNames(name))
 	}
 	if err = q.Exec(ctx, r.tx); err != nil {
 		return arc.Symbol{}, err
@@ -57,7 +58,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
 	if err := r.channelSvc.NewRetrieve().
-		WhereInternal(false).
+		Where(channel.MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err

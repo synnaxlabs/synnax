@@ -13,12 +13,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -41,13 +39,15 @@ type ObservablePublisherConfig struct {
 	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	Name string
-	// SetChannel is the channel used to propagate set operations. Only Name and SetDataType
+	// SetChannel is the channel used to propagate set operations. Only Name and DataType
 	// need to be provided. The config will automatically set Leaseholder to Free
-	// and Virtual to true.
+	// and Virtual to true. Leave Name empty to disable the set channel; in that case
+	// VariantSet events from the observable are dropped.
 	SetChannel channel.Channel
 	// DeleteChannel is the channel used to propagate delete operations. Only Name and
-	// SetDataType need to be provided. The config will automatically set Leaseholder
-	// to Free and Virtual to true.
+	// DataType need to be provided. The config will automatically set Leaseholder
+	// to Free and Virtual to true. Leave Name empty to disable the delete channel; in
+	// that case VariantDelete events from the observable are dropped.
 	DeleteChannel channel.Channel
 }
 
@@ -66,12 +66,19 @@ const (
 // Validate implements config.Config.
 func (c ObservablePublisherConfig) Validate() error {
 	v := validate.New("signals.observable_publisher_config")
-	validate.NotEmptyString(v, "set_channel.name", c.SetChannel.Name)
-	validate.NotEmptyString(v, "delete_channel.name", c.DeleteChannel.Name)
-	v.Ternaryf("set_channel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
-	v.Ternaryf("delete_channel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
-	v.Ternaryf("set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
-	v.Ternaryf("delete_channel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+	v.Ternary(
+		"channels",
+		c.SetChannel.Name == "" && c.DeleteChannel.Name == "",
+		"at least one of set_channel or delete_channel must be provided",
+	)
+	if c.SetChannel.Name != "" {
+		v.Ternaryf("set_channel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
+		v.Ternaryf("set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
+	}
+	if c.DeleteChannel.Name != "" {
+		v.Ternaryf("delete_channel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
+		v.Ternaryf("delete_channel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+	}
 	validate.NotNil(v, "observable", c.Observable)
 	return v.Error()
 }
@@ -82,10 +89,14 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
 	c.DeleteChannel = override.If(c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "")
 	c.Observable = override.Nil(c.Observable, other.Observable)
-	c.SetChannel.Virtual = true
-	c.DeleteChannel.Virtual = true
-	c.SetChannel.Leaseholder = cluster.NodeKeyFree
-	c.DeleteChannel.Leaseholder = cluster.NodeKeyFree
+	if c.SetChannel.Name != "" {
+		c.SetChannel.Virtual = true
+		c.SetChannel.Leaseholder = node.KeyFree
+	}
+	if c.DeleteChannel.Name != "" {
+		c.DeleteChannel.Virtual = true
+		c.DeleteChannel.Leaseholder = node.KeyFree
+	}
 	return c
 }
 
@@ -97,7 +108,15 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	if err != nil {
 		return nil, err
 	}
-	channels := []channel.Channel{cfg.SetChannel, cfg.DeleteChannel}
+	setEnabled := cfg.SetChannel.Name != ""
+	deleteEnabled := cfg.DeleteChannel.Name != ""
+	var channels []channel.Channel
+	if setEnabled {
+		channels = append(channels, cfg.SetChannel)
+	}
+	if deleteEnabled {
+		channels = append(channels, cfg.DeleteChannel)
+	}
 	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(), channel.OverwriteIfNameExistsAndDifferentProperties()); err != nil {
 		return nil, err
 	}
@@ -111,9 +130,10 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	for _, ch := range channels {
-		if ch.Name == cfg.SetChannel.Name {
+		switch ch.Name {
+		case cfg.SetChannel.Name:
 			cfg.SetChannel = ch
-		} else {
+		case cfg.DeleteChannel.Name:
 			cfg.DeleteChannel = ch
 		}
 	}
@@ -131,8 +151,14 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 			)
 			for _, c := range r {
 				if c.Variant == change.VariantDelete {
+					if !deleteEnabled {
+						continue
+					}
 					deletes.Data = append(deletes.Data, c.Key...)
 				} else {
+					if !setEnabled {
+						continue
+					}
 					sets.Data = append(sets.Data, c.Key...)
 				}
 			}
@@ -141,6 +167,9 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 			}
 			if len(deletes.Data) > 0 {
 				frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
+			}
+			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
+				return framer.WriterRequest{}, false, nil
 			}
 			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame}, true, nil
 		},
@@ -157,7 +186,15 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSink(p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
+	name := cfg.Name
+	if name == "" {
+		if setEnabled {
+			name = cfg.SetChannel.Name
+		} else {
+			name = cfg.DeleteChannel.Name
+		}
+	}
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Child(name)))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	return signal.NewHardShutdown(sCtx, cancel), nil
 }

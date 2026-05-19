@@ -12,28 +12,24 @@ package main
 import (
 	"context"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/logger"
-	igrpc "github.com/synnaxlabs/freighter/integration/grpc"
 	"github.com/synnaxlabs/freighter/integration/http"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 func main() {
 	app := fiber.New(fiber.Config{})
 	app.Use(logger.New())
-	http.BindTo(app)
+	if err := http.BindTo(app); err != nil {
+		log.Fatal(err)
+	}
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
-	g := grpc.NewServer()
-	s := igrpc.New()
-	s.BindTo(g)
 	configureInstrumentation()
 
 	err := func() error {
@@ -41,14 +37,7 @@ func main() {
 		sCtx.Go(func(context.Context) error {
 			return app.Listen(":8080", fiber.ListenConfig{DisableStartupMessage: true})
 		})
-
-		lis, err := net.Listen("tcp", ":8081")
-		if err != nil {
-			return err
-		}
-		sCtx.Go(func(context.Context) error { return g.Serve(lis) })
 		<-interruptC
-		g.Stop()
 		if err := app.Shutdown(); err != nil {
 			return err
 		}

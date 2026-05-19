@@ -18,7 +18,6 @@ const (
 	ResourceTypeArc             ResourceType = "arc"
 	ResourceTypeBuiltin         ResourceType = "builtin"
 	ResourceTypeChannel         ResourceType = "channel"
-	ResourceTypeCluster         ResourceType = "cluster"
 	ResourceTypeDevice          ResourceType = "device"
 	ResourceTypeFramer          ResourceType = "framer"
 	ResourceTypeGroup           ResourceType = "group"

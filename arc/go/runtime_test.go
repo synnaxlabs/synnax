@@ -17,16 +17,15 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -41,13 +40,13 @@ import (
 // runtimeHarness provides a full end-to-end test harness that compiles Arc source
 // code and executes it through the scheduler with real wasm nodes.
 type runtimeHarness struct {
-	scheduler    *scheduler.Scheduler
-	channelState *channel.ProgramState
-	controlState *control.ProgramState
-	nodeState    *node.ProgramState
-	wasmRT       wazero.Runtime
-	closers      []func(context.Context) error
-	alignment    telem.Alignment
+	scheduler      *scheduler.Scheduler
+	channelState   *channel.ProgramState
+	authorityState *authority.ProgramState
+	nodeState      *node.ProgramState
+	wasmRT         wazero.Runtime
+	closers        []func(context.Context) error
+	alignment      telem.Alignment
 }
 
 func newRuntimeHarness(
@@ -67,7 +66,7 @@ func newRuntimeHarness(
 	channelState := channel.NewProgramState(channelDigests)
 	seriesState := series.NewProgramState()
 	stringsState := stlstrings.NewProgramState()
-	controlState := &control.ProgramState{}
+	authorityState := &authority.ProgramState{}
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 
@@ -76,7 +75,7 @@ func newRuntimeHarness(
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	MustSucceed(series.NewModule(ctx, seriesState, wasmRT))
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	MustSucceed(stlmath.NewModule(ctx, wasmRT))
+	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 
 	factory := node.CompoundFactory{
@@ -87,15 +86,15 @@ func newRuntimeHarness(
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
-		control.NewModule(controlState),
-		&stat.Module{},
+		authority.NewModule(authorityState),
+		mathMod,
 	}
 
 	h := &runtimeHarness{
-		channelState: channelState,
-		controlState: controlState,
-		nodeState:    nodeState,
-		wasmRT:       wasmRT,
+		channelState:   channelState,
+		authorityState: authorityState,
+		nodeState:      nodeState,
+		wasmRT:         wasmRT,
 	}
 
 	if len(prog.WASM) > 0 {
@@ -176,8 +175,8 @@ func (h *runtimeHarness) OutputTime(nodeKey string, paramIdx int) telem.Series {
 // FlushAuthority drains and returns all authority changes buffered by
 // set_authority nodes this cycle. Tests assert on the returned slice to
 // verify authority semantics that aren't observable via channel writes.
-func (h *runtimeHarness) FlushAuthority() []control.AuthorityChange {
-	return h.controlState.Flush()
+func (h *runtimeHarness) FlushAuthority() []authority.AuthorityChange {
+	return h.authorityState.Flush()
 }
 
 type channelDef struct {

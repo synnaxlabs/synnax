@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -81,7 +82,7 @@ func (s *Service) CreatePolicy(
 type RetrievePolicyRequest struct {
 	Internal *bool         `json:"internal" msgpack:"internal"`
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
+	Keys     []policy.Key  `json:"keys" msgpack:"keys"`
 	Limit    int           `json:"limit" msgpack:"limit"`
 	Offset   int           `json:"offset" msgpack:"offset"`
 }
@@ -96,10 +97,16 @@ func (s *Service) RetrievePolicy(
 ) (res RetrievePolicyResponse, err error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
-		q = q.WhereSubjects(req.Subjects...)
-	}
-	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
+		if err != nil {
+			return RetrievePolicyResponse{}, err
+		}
+		if len(req.Keys) > 0 {
+			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+		}
+		q = q.Where(policy.MatchKeys(subjectKeys...))
+	} else if len(req.Keys) > 0 {
+		q = q.Where(policy.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -108,7 +115,7 @@ func (s *Service) RetrievePolicy(
 		q = q.Offset(req.Offset)
 	}
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
+		q = q.Where(policy.MatchInternal(*req.Internal))
 	}
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return RetrievePolicyResponse{}, err
@@ -124,7 +131,7 @@ func (s *Service) RetrievePolicy(
 }
 
 type DeletePolicyRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []policy.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) DeletePolicy(ctx context.Context, req DeletePolicyRequest) (types.Nil, error) {
@@ -182,10 +189,10 @@ func (s *Service) CreateRole(
 
 type (
 	RetrieveRoleRequest struct {
-		Internal *bool       `json:"internal" msgpack:"internal"`
-		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
-		Limit    int         `json:"limit" msgpack:"limit"`
-		Offset   int         `json:"offset" msgpack:"offset"`
+		Internal *bool      `json:"internal" msgpack:"internal"`
+		Keys     []role.Key `json:"keys" msgpack:"keys"`
+		Limit    int        `json:"limit" msgpack:"limit"`
+		Offset   int        `json:"offset" msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`
@@ -199,7 +206,7 @@ func (s *Service) RetrieveRole(
 	var res RetrieveRoleResponse
 	q := s.internal.Role.NewRetrieve()
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(role.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -208,7 +215,7 @@ func (s *Service) RetrieveRole(
 		q = q.Offset(req.Offset)
 	}
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
+		q = q.Where(role.MatchInternal(*req.Internal))
 	}
 	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return RetrieveRoleResponse{}, err
@@ -225,7 +232,7 @@ func (s *Service) RetrieveRole(
 }
 
 type DeleteRoleRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []role.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) DeleteRole(ctx context.Context, req DeleteRoleRequest) (types.Nil, error) {
@@ -252,8 +259,8 @@ func (s *Service) DeleteRole(ctx context.Context, req DeleteRoleRequest) (types.
 }
 
 type AssignRoleRequest struct {
-	User uuid.UUID `json:"user" msgpack:"user"`
-	Role uuid.UUID `json:"role" msgpack:"role"`
+	User user.Key `json:"user" msgpack:"user"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 func (s *Service) AssignRole(
@@ -274,8 +281,8 @@ func (s *Service) AssignRole(
 }
 
 type UnassignRoleRequest struct {
-	User uuid.UUID `json:"user" msgpack:"user"`
-	Role uuid.UUID `json:"role" msgpack:"role"`
+	User user.Key `json:"user" msgpack:"user"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 func (s *Service) UnassignRole(ctx context.Context, req UnassignRoleRequest) (types.Nil, error) {

@@ -450,9 +450,17 @@ func analyzeFunctionNode(
 ) (nodeResult, bool) {
 	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	sym, err := ctx.Resolve(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nodeResult{}, false
+	}
+	if sym.Exec == symbol.ExecWASM {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
+			name, name,
+		))
 		return nodeResult{}, false
 	}
 	if sym.Type.Kind != types.KindFunction {
@@ -957,11 +965,15 @@ func extractConfigValues(
 			return nil, false
 		}
 
+		negated := parser.IsNegatedLiteral(expr)
 		literalCtx := parser.GetLiteral(expr)
 		parsedValue, err := literal.Parse(literalCtx, paramType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return nil, false
+		}
+		if negated {
+			parsedValue.Value = literal.Negate(parsedValue.Value)
 		}
 		return parsedValue.Value, true
 	}

@@ -14,6 +14,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/selector/selector.h"
 
@@ -414,4 +415,5 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     EXPECT_EQ(checker.output_time(1)->alignment, x::telem::Alignment(3, 10));
     EXPECT_EQ(checker.output_time(1)->time_range, x::telem::TimeRange(1000, 2000));
 }
+
 }

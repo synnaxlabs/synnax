@@ -12,6 +12,7 @@ import "@/lineplot/LinePlot.css";
 import {
   box,
   type color,
+  type CrudeTimeSpan,
   deep,
   type destructor,
   direction,
@@ -124,7 +125,7 @@ export interface LinePlotProps
     >,
     Omit<HTMLDivProps, "ref">,
     Aether.ComponentProps {
-  resizeDebounce?: number;
+  resizeDebounce?: CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
   ref?: Ref<LinePlotRef>;
 }

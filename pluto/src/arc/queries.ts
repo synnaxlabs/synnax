@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, ontology, type rack, task } from "@synnaxlabs/client";
+import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
 import { primitive, status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import z from "zod";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
 import { state } from "@/state";
 import { type Status } from "@/status";
@@ -46,10 +48,10 @@ export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: arc.Key;
   includeStatus?: boolean;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -64,9 +66,9 @@ const retrieveSingle = async ({
   return a;
 };
 
-export interface ListQuery extends List.PagerParams {
+export type ListQuery = List.PagerParams & {
   keys?: arc.Key[];
-}
+};
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
@@ -200,8 +202,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     }
     const prog = await client.arcs.create(data);
     rollbacks.push(store.arcs.set(prog));
-    const { key, name } = prog;
     if (taskKey == null) return prog;
+    const { key, name } = prog;
     const newTsk = await client.tasks.create(
       {
         key: taskKey,
@@ -230,6 +232,22 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   },
 });
 
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, arc.Arc>, "onChange"> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success") return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
+
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
@@ -257,9 +275,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export interface RetrieveTaskParams {
+export type RetrieveTaskParams = {
   arcKey: arc.Key;
-}
+};
 
 export const retrieveTask = async ({
   client,
@@ -280,9 +298,16 @@ export const retrieveTask = async ({
   let taskKey = cachedChild?.to.key;
 
   if (taskKey == null) {
-    const children = await client.ontology.retrieveChildren(arcOntologyID, {
-      types: ["task"],
-    });
+    let children: ontology.Resource[];
+    try {
+      children = await client.ontology.retrieveChildren(arcOntologyID, {
+        types: ["task"],
+      });
+    } catch (e) {
+      // if the arc doesn't exist then it can't have a task.
+      if (NotFoundError.matches(e)) return undefined;
+      throw e;
+    }
     children.forEach((c) => {
       const rel: ontology.Relationship = {
         from: arcOntologyID,

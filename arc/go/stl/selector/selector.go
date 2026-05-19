@@ -43,6 +43,7 @@ var (
 	symbolSelect = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -59,14 +60,6 @@ var (
 type Module struct{}
 
 func NewModule() *Module { return &Module{} }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {

@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -101,7 +102,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 
 // New issues a new token for the given issuer. Returns the token as a string, and
 // any errors encountered during signing.
-func (s *Service) New(issuer uuid.UUID) (string, error) {
+func (s *Service) New(issuer user.Key) (string, error) {
 	method, key := s.signingMethodAndKey()
 	now := s.cfg.Now().UTC()
 	claims := jwt.NewWithClaims(method, jwt.RegisteredClaims{
@@ -111,21 +112,21 @@ func (s *Service) New(issuer uuid.UUID) (string, error) {
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
-		return v, auth.InvalidToken
+		return v, auth.ErrInvalidToken
 	}
 	return v, nil
 }
 
 // Validate validates the given token. Returns the UUID of the issuer along with any
 // errors encountered.
-func (s *Service) Validate(token string) (uuid.UUID, error) {
+func (s *Service) Validate(token string) (user.Key, error) {
 	id, _, err := s.validate(token)
 	return id, err
 }
 
 // ValidateMaybeRefresh validates the given token. If the token is close to expiration
 // (as defined by the RefreshThreshold), a new token will be issued and returned as well.
-func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) {
+func (s *Service) ValidateMaybeRefresh(token string) (user.Key, string, error) {
 	id, claims, err := s.validate(token)
 	if err != nil {
 		return id, "", err
@@ -137,23 +138,23 @@ func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) 
 	return id, "", nil
 }
 
-func (s *Service) validate(token string) (uuid.UUID, *jwt.RegisteredClaims, error) {
+func (s *Service) validate(token string) (user.Key, *jwt.RegisteredClaims, error) {
 	claims := &jwt.RegisteredClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
 		return s.publicKey(), nil
 	})
 	if err != nil {
 		if isVerificationError(err) {
-			return uuid.Nil, claims, auth.InvalidToken
+			return uuid.Nil, claims, auth.ErrInvalidToken
 		}
 		if isExpiredError(err) {
-			return uuid.Nil, claims, auth.ExpiredToken
+			return uuid.Nil, claims, auth.ErrExpiredToken
 		}
-		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
+		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
 	if err != nil {
-		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
+		return uuid.Nil, claims, errors.Wrap(auth.ErrAuth, err.Error())
 	}
 	return id, claims, nil
 }

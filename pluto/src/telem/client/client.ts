@@ -15,7 +15,7 @@ import {
   QueryError,
   type Synnax,
 } from "@synnaxlabs/client";
-import { type destructor, MultiSeries, type TimeRange } from "@synnaxlabs/x";
+import { type destructor, MultiSeries, type TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";
@@ -112,7 +112,9 @@ export class Core implements Client {
 
   constructor({ instrumentation, core }: CoreProps) {
     this.ins = instrumentation;
-    this.channelRetriever = core.channels.createDebouncedBatchRetriever(10);
+    this.channelRetriever = core.channels.createDebouncedBatchRetriever(
+      TimeSpan.milliseconds(10),
+    );
     this.cache = new cache.Cache({
       channelRetriever: this.channelRetriever,
       instrumentation: this.ins.child("cache"),

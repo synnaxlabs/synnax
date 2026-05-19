@@ -26,13 +26,13 @@ import (
 )
 
 // OntologyID returns unique identifier for the table within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeTable, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the tables within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(key Key, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
@@ -53,7 +53,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[uuid.UUID, Table]
+type change = xchange.Change[Key, Table]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTable }
 
@@ -67,7 +67,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, nil
 	}
 	var table Table
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&table).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&table).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(table), nil
@@ -83,7 +83,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Table]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Table]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

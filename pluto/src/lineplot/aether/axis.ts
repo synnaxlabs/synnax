@@ -29,7 +29,7 @@ import { render } from "@/vis/render";
 export const baseAxisStateZ = axis.axisStateZ
   .extend({
     axisKey: z.string().optional(),
-    bounds: bounds.boundsZ.optional(),
+    bounds: bounds.boundsZ().optional(),
     autoBounds: z
       .object({
         lower: z.boolean().default(true),
@@ -124,7 +124,7 @@ export class BaseAxis<
     render.request(ctx, "layout");
     i.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
-      autoBoundUpdateInterval.milliseconds,
+      autoBoundUpdateInterval,
     );
   }
 

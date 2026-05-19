@@ -141,6 +141,8 @@ export class ScopedUnaryStore<
     return () => rollbacks.reverse().forEach((r) => r());
   }
 
+  get(key: Key): Value | undefined;
+  get(keys: Key[] | ((value: Value) => boolean)): Value[];
   get(keys: Key | Key[] | ((value: Value) => boolean)): Value | Value[] | undefined {
     if (typeof keys === "function")
       return Array.from(this.entries.values()).filter(keys);
@@ -265,8 +267,7 @@ export class ScopedUnaryStore<
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
       ): (() => void) => this.set(scope, key, valueOrVariant, variant),
-      get: ((key: Key | Key[] | ((value: Value) => boolean)) =>
-        this.get(key)) as UnaryStore<Key, Value>["get"],
+      get: this.get.bind(this) as UnaryStore<Key, Value>["get"],
       list: () => this.list(),
       has: (key: Key | Key[]) => this.has(key),
       delete: (
@@ -317,6 +318,16 @@ export type ChannelListenerArgs<
 };
 
 /**
+ * Anything that can be scoped to a component's render lifetime. The default
+ * impl is ScopedUnaryStore; substrates that need extra state behind a single
+ * FluxStore key (e.g., undo/redo) supply their own subclass via
+ * UnaryStoreConfig.factory.
+ */
+export interface UnscopedStore {
+  scope(scope: string): unknown;
+}
+
+/**
  * Configuration for a single UnaryStore including its channel listeners.
  *
  * @template ScopedStore - The type of the scoped store
@@ -330,6 +341,14 @@ export interface UnaryStoreConfig<
   equal?: (a: Value, b: Value, key: Key) => boolean;
   /** Array of channel listeners to register for this store */
   listeners: ChannelListener<ScopedStore>[];
+  /**
+   * Optional custom factory for the un-scoped store instance. Called once per
+   * Flux Provider. Defaults to a plain ScopedUnaryStore. Substrates use this
+   * to slot in a subclass that adds extra accessors to the scoped store; if
+   * the substrate cares about equality, it manages its own `equal` callback
+   * via closure rather than going through the config's `equal` field.
+   */
+  factory?: (handleError: status.ErrorHandler) => UnscopedStore;
 }
 
 /**
@@ -386,7 +405,7 @@ export interface Store {
 }
 
 export interface InternalStore {
-  [key: string]: ScopedUnaryStore<string, state.State, string>;
+  [key: string]: UnscopedStore;
 }
 
 /**
@@ -402,9 +421,11 @@ export const createStore = <ScopedStore extends Store>(
   handleError: status.ErrorHandler,
 ): InternalStore =>
   Object.fromEntries(
-    Object.entries(config).map(([key, { equal }]) => [
+    Object.entries(config).map(([key, { equal, factory }]) => [
       key,
-      new ScopedUnaryStore<string, state.State, string>(handleError, equal),
+      factory != null
+        ? factory(handleError)
+        : new ScopedUnaryStore<string, state.State, string>(handleError, equal),
     ]),
   );
 
@@ -413,7 +434,7 @@ export const scopeStore = <ScopedStore extends Store>(
   scope: string,
 ): ScopedStore =>
   Object.fromEntries(
-    Object.entries(store).map(([key]): [string, UnaryStore<string, any, unknown>] => [
+    Object.entries(store).map(([key]): [string, unknown] => [
       key,
       store[key].scope(scope),
     ]),

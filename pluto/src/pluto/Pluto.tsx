@@ -41,7 +41,6 @@ import { Triggers } from "@/triggers";
 import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { View } from "@/view";
-import { Worker } from "@/worker";
 import { Workspace } from "@/workspace";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
@@ -127,25 +126,26 @@ export const Provider = ({
   <Triggers.Provider {...triggers}>
     <Tooltip.Config {...tooltip}>
       <Haul.Provider {...haul}>
-        <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
-          <CanDisableAether workerKey="vis">
-            <Alamos.Provider {...alamos}>
-              <StatusBase.Aggregator>
-                <Synnax.Provider connParams={connParams}>
-                  <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
-                    <Color.Provider {...color}>
-                      <Theming.Provider {...theming}>
-                        <CanDisableTelem {...telem}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </CanDisableTelem>
-                      </Theming.Provider>
-                    </Color.Provider>
-                  </Flux.Provider>
-                </Synnax.Provider>
-              </StatusBase.Aggregator>
-            </Alamos.Provider>
-          </CanDisableAether>
-        </Worker.Provider>
+        <CanDisableAether
+          workerURL={workerURL ?? DefaultWorkerURL}
+          workerEnabled={workerEnabled}
+        >
+          <Alamos.Provider {...alamos}>
+            <StatusBase.Aggregator>
+              <Synnax.Provider connParams={connParams}>
+                <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
+                  <Color.Provider {...color}>
+                    <Theming.Provider {...theming}>
+                      <CanDisableTelem {...telem}>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </CanDisableTelem>
+                    </Theming.Provider>
+                  </Color.Provider>
+                </Flux.Provider>
+              </Synnax.Provider>
+            </StatusBase.Aggregator>
+          </Alamos.Provider>
+        </CanDisableAether>
       </Haul.Provider>
     </Tooltip.Config>
   </Triggers.Provider>

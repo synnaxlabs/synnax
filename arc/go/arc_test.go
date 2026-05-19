@@ -493,10 +493,10 @@ func check() {
     a := 1
 }
 `}
-		_, err := arc.CompileText(ctx, t, arc.WithResolver(resolver))
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("functions in flow statements use {} not ()"))
-		Expect(err.Error()).To(ContainSubstring("did you mean: check{}?"))
+		Expect(arc.CompileText(ctx, t, arc.WithResolver(resolver))).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("functions in flow statements use {} not ()")),
+			MatchError(ContainSubstring("did you mean: check{}?")),
+		))
 	})
 
 	Describe("Stageless Sequences", func() {

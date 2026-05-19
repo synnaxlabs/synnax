@@ -1,0 +1,30 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output  "client/ts/src/arc/compiler"
+@go output  "arc/go/compiler"
+@cpp output "arc/cpp/compiler"
+@pb
+
+Output struct {
+    WASM              bytes               {
+        @doc value "is compiled WebAssembly bytecode for sandboxed execution."
+    }
+    OutputMemoryBases map<string, uint32> {
+        @doc value """
+            contains memory base addresses for multi-output functions, mapping
+            function keys to their base addresses.
+        """
+    }
+
+    @doc value """
+        is compiled output from the Arc compiler including WebAssembly bytecode
+        and memory layout.
+    """
+}

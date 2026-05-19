@@ -40,9 +40,9 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
 };
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: group.Key;
-}
+};
 
 export const retrieveSingle = async ({
   query: { key },
@@ -69,12 +69,12 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, FluxSubS
   },
 });
 
-export interface ListQuery {
+export type ListQuery = {
   parent?: ontology.ID;
   searchTerm?: string;
   offset?: number;
   limit?: number;
-}
+};
 
 export const useList = Flux.createList<ListQuery, group.Key, group.Group, FluxSubStore>(
   {

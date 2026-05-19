@@ -56,6 +56,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
 				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
 				Type: types.Function(types.FunctionProperties{
 					Config:  config,
 					Inputs:  inputs,

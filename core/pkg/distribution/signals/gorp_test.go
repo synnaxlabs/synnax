@@ -57,9 +57,9 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		uuidTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testUUIDEntry]{DB: db}))
-		numTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testNumericEntry]{DB: db}))
-		stringTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testStringEntry]{DB: db}))
+		uuidTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, testUUIDEntry]{DB: db}))
+		numTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, testNumericEntry]{DB: db}))
+		stringTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, testStringEntry]{DB: db}))
 	})
 
 	AfterEach(func() {
@@ -193,16 +193,40 @@ var _ = Describe("GorpPublisherConfig", func() {
 	})
 
 	Describe("GorpPublisherConfig validation", func() {
-		It("Should validate required fields", func() {
+		It("Should reject a config with no set or delete channel name", func() {
 			cfg := signals.GorpPublisherConfig[uuid.UUID, testUUIDEntry]{}
-			err := cfg.Validate()
-			Expect(err).To(HaveOccurred())
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("at least one of the set or delete channel must be enabled")))
+		})
+
+		It("Should reject a config with both channels disabled by flag", func() {
+			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableSet = true
+			cfg.DisableDelete = true
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("at least one of the set or delete channel must be enabled")))
 		})
 
 		It("Should pass validation with all required fields", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
+			Expect(cfg.Validate()).To(Succeed())
+		})
+
+		It("Should pass validation when only DisableSet is set, leaving the delete channel enabled", func() {
+			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableSet = true
+			Expect(cfg.Validate()).To(Succeed())
+		})
+
+		It("Should pass validation when only DisableDelete is set, leaving the set channel enabled", func() {
+			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableDelete = true
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})

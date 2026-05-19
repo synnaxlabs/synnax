@@ -10,14 +10,13 @@
 package policy
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Policy{}
+var _ gorp.Entry[Key] = Policy{}
 
 // GorpKey implements the gorp.Entry interface.
-func (p Policy) GorpKey() uuid.UUID { return p.Key }
+func (p Policy) GorpKey() Key { return p.Key }
 
 // SetOptions implements the gorp.Entry interface.
 func (p Policy) SetOptions() []any { return nil }

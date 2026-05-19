@@ -11,16 +11,18 @@ package schematic
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create, update, and delete logs within Synnax. The writer
+// Writer is used to create, update, and delete schematics within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
@@ -28,21 +30,30 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Schematic]
+	table     *gorp.Table[Key, Schematic]
+	// actionObserver is notified after a successful Dispatch so the cluster
+	// signals subsystem can broadcast the action sequence on the schematic
+	// channels. Nil when the service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
+	// seq points at the service-level monotonic sequence counter. Each
+	// Dispatch increments it once and stamps the resulting value onto the
+	// emitted ScopedAction so clients can dedupe echoes by ordering rather
+	// than session identity.
+	seq *atomic.Uint64
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given schematic within the workspace provided. If the
+// schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws uuid.UUID,
+	ws workspace.Key,
 	s *Schematic,
 ) (err error) {
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Schematic](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -57,6 +68,9 @@ func (w Writer) Create(
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
+	if ws == uuid.Nil {
+		return nil
+	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
@@ -65,7 +79,7 @@ func (w Writer) Create(
 	)
 }
 
-func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UUID, bool, error) {
+func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
@@ -82,32 +96,20 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	return k, true, err
 }
 
-// Rename renames the log with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key uuid.UUID,
-	name string,
-) error {
-	return w.table.NewUpdate().WhereKeys(key).
-		Change(func(_ gorp.Context, s Schematic) Schematic {
-			s.Name = name
-			return s
-		}).Exec(ctx, w.tx)
-}
-
-// Copy creates a copy of the log with the given key and name. If the snapshot flag is
-// set to true, the copy will be a snapshot and will no longer be editable. The copied
-// log will be bound into the result parameter.
+// Copy creates a copy of the schematic with the given key and name. If the
+// snapshot flag is set to true, the copy will be a snapshot and will no
+// longer be editable. The copied schematic will be bound into the result
+// parameter.
 func (w Writer) Copy(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 	snapshot bool,
 	result *Schematic,
 ) error {
 	newKey := uuid.New()
 	if err := w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[Key, Schematic](key)).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Key = newKey
 			s.Name = name
@@ -136,28 +138,76 @@ func (w Writer) Copy(
 	)
 }
 
-// SetData sets the data of the log with the given key to the provided data.
+// SetData replaces the body of the schematic with the given key with the
+// provided value. Key, Name, and Snapshot are preserved from the existing
+// entry; every other field on data overwrites the stored entry verbatim.
+// Returns validate.ErrValidation when the target schematic is a snapshot,
+// since snapshots are immutable.
 func (w Writer) SetData(
 	ctx context.Context,
-	key uuid.UUID,
-	data map[string]any,
+	key Key,
+	data Schematic,
 ) error {
-	return w.table.NewUpdate().WhereKeys(key).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
 			}
-			s.Data = data
-			return s, nil
+			data.Key = s.Key
+			data.Name = s.Name
+			data.Snapshot = s.Snapshot
+			return data, nil
 		}).Exec(ctx, w.tx)
 }
 
-// Delete deletes the logs with the given keys.
+// Dispatch applies a sequence of actions atomically to the schematic with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// sessionKey identifies the originating client so subscribers can self-dedup.
+// Snapshots are immutable except for Rename: returns validate.ErrValidation if
+// the target is a snapshot and any action other than Rename is included.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	sessionKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
+			if s.Snapshot {
+				for _, a := range actions {
+					if a.Type != ActionTypeRename {
+						return s, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							s.Name,
+						)
+					}
+				}
+			}
+			return Reduce(s, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver != nil {
+		w.actionObserver.Notify(ctx, ScopedAction{
+			Key:        key,
+			SessionKey: sessionKey,
+			Seq:        w.seq.Add(1),
+			Actions:    actions,
+		})
+	}
+	return nil
+}
+
+// Delete deletes the schematics with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Schematic](keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

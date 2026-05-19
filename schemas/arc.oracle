@@ -52,6 +52,7 @@ Arc struct {
     }
     name    string            {
         @doc value "is a human-readable name for the module."
+        @filter
     }
     mode    Mode              {
         @doc value """
@@ -84,6 +85,8 @@ Arc struct {
     @ontology type "arc"
     @go marshal
     @go migrate
+    @retrieve
+    @search
 }
 
 New struct {

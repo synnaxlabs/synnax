@@ -26,7 +26,7 @@ import {
 
 import { FormContext, useContext } from "@/view/context";
 
-export interface Query extends List.PagerParams, record.Unknown {}
+export type Query = List.PagerParams;
 
 export interface FormProps<
   K extends record.Key,

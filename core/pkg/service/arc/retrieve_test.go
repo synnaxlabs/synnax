@@ -29,7 +29,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
 			Expect(retrievedArc.Key).To(Equal(a.Key))
 			Expect(retrievedArc.Name).To(Equal(a.Name))
 		})
@@ -48,7 +48,7 @@ var _ = Describe("Retrieve", func() {
 			}
 
 			var retrievedArcs []arc.Arc
-			Expect(svc.NewRetrieve().WhereKeys(keys...).Entries(&retrievedArcs).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(keys...)).Entries(&retrievedArcs).Exec(ctx, tx)).To(Succeed())
 			Expect(retrievedArcs).To(HaveLen(3))
 		})
 
@@ -65,7 +65,7 @@ var _ = Describe("Retrieve", func() {
 			newTx := db.OpenTx()
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, newTx)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("tx-test-arc"))
 			Expect(newTx.Close()).To(Succeed())
 		})
@@ -81,7 +81,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			var retrievedArc arc.Arc
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, nil)).To(Succeed())
 			Expect(retrievedArc.Name).To(Equal("no-tx-arc"))
 		})
 	})

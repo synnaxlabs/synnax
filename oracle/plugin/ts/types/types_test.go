@@ -1021,6 +1021,76 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
 
+		It("Should preserve trailing acronyms in generated zod schema names", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				ClientXY struct {
+					clientX float64
+					clientY float64
+				}
+
+				StickyXY struct {
+					x float64
+					y float64
+				}
+
+				EntityID struct {
+					value string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const clientXYZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export const stickyXYZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export const entityIDZ = z.object({`))
+			Expect(content).To(ContainSubstring(`typeof clientXYZ`))
+			Expect(content).To(ContainSubstring(`typeof stickyXYZ`))
+			Expect(content).NotTo(ContainSubstring(`clientXyZ`))
+			Expect(content).NotTo(ContainSubstring(`stickyXyZ`))
+			Expect(content).NotTo(ContainSubstring(`entityIdZ`))
+		})
+
+		It("Should emit numeric-constrained generic as function with value-typed generic interface", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Bounds struct<T extends numeric = float64> {
+					lower T
+					upper T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>`))
+			Expect(content).To(ContainSubstring(`lower: t ?? z.number()`))
+			Expect(content).To(ContainSubstring(`upper: t ?? z.number()`))
+			Expect(content).To(ContainSubstring(`export interface Bounds<T extends numeric.Value = number> {`))
+			Expect(content).To(ContainSubstring(`lower: T;`))
+			Expect(content).To(ContainSubstring(`upper: T;`))
+			Expect(content).NotTo(ContainSubstring(`z.infer<T>`))
+			Expect(content).NotTo(ContainSubstring(`<T extends z.ZodType`))
+		})
+
 		It("Should generate fallback pattern for type param fields with concrete_types directive", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
@@ -1578,7 +1648,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("map types", func() {
-			It("Should handle map with primitive key and value types", func(ctx SpecContext) {
+			It("Should wrap required map fields with record.nullishToEmpty so a nil map serialized as null parses cleanly", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1589,11 +1659,11 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`settings: z.record(z.string(), z.string())`,
+						`settings: record.nullishToEmpty(z.string(), z.string())`,
 					)
 			})
 
-			It("Should handle map with different primitive types", func(ctx SpecContext) {
+			It("Should preserve typed value schemas when wrapping with record.nullishToEmpty", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1603,10 +1673,10 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`counts: z.record(z.string(), z.int64())`)
+					ToContain(`counts: record.nullishToEmpty(z.string(), z.int64())`)
 			})
 
-			It("Should handle map with struct value type", func(ctx SpecContext) {
+			It("Should reference struct value schemas inside record.nullishToEmpty", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1620,7 +1690,39 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`entries: z.record(z.string(), entryZ)`)
+					ToContain(`entries: record.nullishToEmpty(z.string(), entryZ)`)
+			})
+
+			It("Should wrap optional map fields with zod.nullToUndefined around z.record", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Config struct {
+						settings map<string, string>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`settings: zod.nullToUndefined(z.record(z.string(), z.string()))`,
+					)
+			})
+
+			It("Should compose record.nullishToEmpty inside caseconv.preserveCase for required map fields", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Schematic struct {
+						configs map<string, record> {
+							@ts preserve_case
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ()))`,
+					)
 			})
 		})
 

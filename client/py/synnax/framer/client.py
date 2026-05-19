@@ -41,11 +41,11 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    __stream_client: WebsocketClient
-    __async_client: AsyncStreamClient
-    __unary_client: UnaryClient
-    __channels: Retriever
-    __deleter: Deleter
+    _stream_client: WebsocketClient
+    _async_client: AsyncStreamClient
+    _unary_client: UnaryClient
+    _channels: Retriever
+    _deleter: Deleter
     instrumentation: Instrumentation
 
     def __init__(
@@ -57,11 +57,11 @@ class Client:
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self.__stream_client = stream_client
-        self.__async_client = async_client
-        self.__unary_client = unary_client
-        self.__channels = retriever
-        self.__deleter = deleter
+        self._stream_client = stream_client
+        self._async_client = async_client
+        self._unary_client = unary_client
+        self._channels = retriever
+        self._deleter = deleter
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -79,7 +79,6 @@ class Client:
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
-        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -111,7 +110,7 @@ class Client:
         auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
         adapter = WriteFrameAdapter(
-            retriever=self.__channels,
+            retriever=self._channels,
             err_on_extra_chans=err_on_extra_chans,
             strict_data_types=strict,
             suppress_warnings=suppress_warnings,
@@ -120,7 +119,7 @@ class Client:
         return Writer(
             start=start,
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             authorities=authorities,
             name=name,
             group=group,
@@ -128,7 +127,6 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
-            use_experimental_codec=use_experimental_codec,
         )
 
     def open_iterator(
@@ -150,12 +148,12 @@ class Client:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         return Iterator(
             tr=tr,
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             chunk_size=chunk_size,
             downsample_factor=downsample_factor,
             instrumentation=self.instrumentation,
@@ -302,7 +300,6 @@ class Client:
         channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
-        use_experimental_codec: bool = True,
         exclude_groups: list[int] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -316,14 +313,13 @@ class Client:
         :param exclude_groups: Writer group IDs whose frames should be filtered out by
         the Core. Used for telemetry bypass deduplication.
         """
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
-            use_experimental_codec=use_experimental_codec,
             exclude_groups=exclude_groups,
         )
 
@@ -334,11 +330,11 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
     ) -> AsyncStreamer:
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         s = AsyncStreamer(
             adapter=adapter,
-            client=self.__async_client,
+            client=self._async_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
@@ -355,7 +351,7 @@ class Client:
         :param channels: channels to delete data from.
         :param tr: time range to delete data from.
         """
-        self.__deleter.delete(channels, tr)
+        self._deleter.delete(channels, tr)
 
     def _read_frame(
         self,

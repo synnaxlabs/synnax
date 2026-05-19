@@ -13,7 +13,7 @@ package channel
 
 import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -33,7 +33,7 @@ type Channel struct {
 	Name distributionchannel.Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel. Mostly for
 	// internal use.
-	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`

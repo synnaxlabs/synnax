@@ -21,7 +21,7 @@ import (
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
-	table *gorp.Table[uuid.UUID, Label]
+	table *gorp.Table[Key, Label]
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
@@ -60,7 +60,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	k Key,
 ) (err error) {
-	if err = w.table.NewDelete().WhereKeys(k).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().Where(MatchKeys(k)).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))

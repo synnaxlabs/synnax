@@ -15,19 +15,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type (
 	loginServer = grpc.UnaryServer[
-		apiauth.LoginRequest,
+		auth.LoginRequest,
 		*LoginRequest,
-		apiauth.LoginResponse,
+		auth.LoginResponse,
 		*LoginResponse,
 	]
 )
@@ -38,13 +37,13 @@ type (
 )
 
 var (
-	_ grpc.Translator[apiauth.LoginRequest, *LoginRequest]   = (*loginRequestTranslator)(nil)
-	_ grpc.Translator[apiauth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
+	_ grpc.Translator[auth.LoginRequest, *LoginRequest]   = (*loginRequestTranslator)(nil)
+	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
 func (l loginRequestTranslator) Forward(
 	_ context.Context,
-	req apiauth.LoginRequest,
+	req auth.LoginRequest,
 ) (*LoginRequest, error) {
 	return &LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
 }
@@ -52,14 +51,14 @@ func (l loginRequestTranslator) Forward(
 func (l loginRequestTranslator) Backward(
 	_ context.Context,
 	req *LoginRequest,
-) (apiauth.LoginRequest, error) {
-	creds := svcauth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}
-	return apiauth.LoginRequest{InsecureCredentials: creds}, nil
+) (auth.LoginRequest, error) {
+	creds := svcauth.Credentials{Username: req.Username, Password: req.Password}
+	return auth.LoginRequest{Credentials: creds}, nil
 }
 
 func (l loginResponseTranslator) Forward(
 	_ context.Context,
-	r apiauth.LoginResponse,
+	r auth.LoginResponse,
 ) (*LoginResponse, error) {
 	return &LoginResponse{
 		Token: r.Token,
@@ -79,18 +78,18 @@ func (l loginResponseTranslator) Forward(
 func (l loginResponseTranslator) Backward(
 	_ context.Context,
 	r *LoginResponse,
-) (apiauth.LoginResponse, error) {
+) (auth.LoginResponse, error) {
 	key, err := uuid.Parse(r.User.Key)
-	return apiauth.LoginResponse{
+	return auth.LoginResponse{
 		Token: r.Token,
 		User: user.User{
 			Key:      key,
 			Username: r.User.Username,
 		},
-		ClusterInfo: apiauth.ClusterInfo{
+		ClusterInfo: auth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     cluster.NodeKey(r.ClusterInfo.NodeKey),
+			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, err

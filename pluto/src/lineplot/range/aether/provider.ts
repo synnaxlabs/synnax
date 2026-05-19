@@ -31,7 +31,7 @@ import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
 export const selectedStateZ = ranger.payloadZ.extend({
-  viewport: bounds.boundsZ,
+  viewport: bounds.boundsZ(),
 });
 
 export type SelectedState = z.infer<typeof selectedStateZ>;

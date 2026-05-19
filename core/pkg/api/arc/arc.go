@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/compiler"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
@@ -82,7 +81,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
@@ -100,13 +99,13 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil,
 
 type (
 	RetrieveRequest struct {
-		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
-		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
-		Names         []string    `json:"names" msgpack:"names"`
-		Limit         int         `json:"limit" msgpack:"limit"`
-		Offset        int         `json:"offset" msgpack:"offset"`
-		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
-		Compile       bool        `json:"compile" msgpack:"compile"`
+		SearchTerm    string    `json:"search_term" msgpack:"search_term"`
+		Keys          []arc.Key `json:"keys" msgpack:"keys"`
+		Names         []string  `json:"names" msgpack:"names"`
+		Limit         int       `json:"limit" msgpack:"limit"`
+		Offset        int       `json:"offset" msgpack:"offset"`
+		IncludeStatus bool      `json:"include_status" msgpack:"include_status"`
+		Compile       bool      `json:"compile" msgpack:"compile"`
 	}
 	RetrieveResponse struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
@@ -123,10 +122,10 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	)
 
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(arc.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(arc.MatchNames(req.Names...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)

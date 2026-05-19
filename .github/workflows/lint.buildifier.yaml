@@ -1,0 +1,48 @@
+name: Lint - Buildifier
+
+on:
+  pull_request:
+    paths:
+      - "**/BUILD"
+      - "**/BUILD.bazel"
+      - "**/*.bzl"
+      - .bazelrc
+      - .bazeliskrc
+      - .github/workflows/lint.buildifier.yaml
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - WORKSPACE
+      - WORKSPACE.bazel
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - "**/BUILD"
+      - "**/BUILD.bazel"
+      - "**/*.bzl"
+      - .bazelrc
+      - .bazeliskrc
+      - .github/workflows/lint.buildifier.yaml
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - WORKSPACE
+      - WORKSPACE.bazel
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Install Buildifier
+        run: go install github.com/bazelbuild/buildtools/buildifier@latest
+
+      - name: Run Buildifier
+        run: buildifier --lint=warn --mode=check -r .

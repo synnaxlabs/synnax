@@ -233,7 +233,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
 		}
 	}
-	q := s.cfg.Channel.NewRetrieve().WhereKeys(keys...)
+	q := s.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(keys...))
 	exists, err := q.Exists(ctx, nil)
 	if err != nil {
 		return err

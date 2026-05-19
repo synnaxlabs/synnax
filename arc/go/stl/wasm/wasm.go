@@ -84,6 +84,11 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringInputs[i] = inp.Type.Kind == types.KindString
 	}
 
+	stringOutputs := make([]bool, len(irFn.Outputs))
+	for i, out := range irFn.Outputs {
+		stringOutputs[i] = out.Type.Kind == types.KindString
+	}
+
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -99,6 +104,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		isEntryNode:   isEntryNode,
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
+		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 	}
 	return n, nil
@@ -128,6 +134,8 @@ func ConvertConfigValue(v any) (uint64, error) {
 	case float64:
 		return math.Float64bits(val), nil
 	case telem.TimeStamp:
+		return uint64(val), nil
+	case telem.TimeSpan:
 		return uint64(val), nil
 	default:
 		err := errors.Newf("unsupported config value type: %T", v)

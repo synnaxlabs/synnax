@@ -72,6 +72,8 @@ work
 # |||| DATA ||||
 
 **/data
+!pluto/src/schematic/edge/data
+!pluto/src/schematic/edge/data/**
 synnax-data
 synnax-data/**
 
@@ -270,3 +272,6 @@ core/synnax
 .bazelrc.user
 
 .claude
+
+# |||| ORACLE ||||
+.oracle/

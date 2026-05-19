@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -67,7 +66,7 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	group  group.Group
-	table  *gorp.Table[uuid.UUID, Role]
+	table  *gorp.Table[Key, Role]
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
@@ -80,9 +79,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Role]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Role]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Role]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Role]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -120,5 +119,5 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTx: s.cfg.DB, gorp: s.table.NewRetrieve()}
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }

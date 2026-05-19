@@ -24,7 +24,7 @@ namespace synnax::device {
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
         .rack = parser.field<::synnax::rack::Key>("rack"),
-        .device = parser.field<std::string>("device"),
+        .device = parser.field<Key>("device"),
     };
 }
 

@@ -18,7 +18,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -43,7 +43,7 @@ type Config struct {
 	Transport Transport
 	// HostResolver is used to retrieve information about the host node.
 	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
 	// channels are not leased to any node, and their data is not stored in the cluster
 	// and is propagated through the cluster using a separate mechanism. This is mostly

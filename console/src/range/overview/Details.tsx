@@ -90,15 +90,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const handleCopyLink = () =>
     handleLink({ name, ontologyID: ranger.ontologyID(rangeKey) });
 
-  const handleLayoutNameChange = useCallback(
-    (name: string) => {
-      if (status.variant !== "success") return;
-      form.set("name", name);
-    },
-    [form.set, status?.variant],
-  );
-  Layout.useSyncName(rangeKey, name, handleLayoutNameChange);
-
   const getPythonCode = useCallback(
     () =>
       `

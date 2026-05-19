@@ -13,10 +13,10 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/freighter/grpc"
-	fnoop "github.com/synnaxlabs/freighter/noop"
+	"github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
-	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
@@ -33,6 +33,7 @@ import (
 	statusgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/status"
 	taskgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/task"
 	viewgrpc "github.com/synnaxlabs/synnax/pkg/api/grpc/view"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -65,96 +66,100 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	}
 
 	// AUTH
-	a.AuthChangePassword = fnoop.UnaryServer[auth.ChangePasswordRequest, types.Nil]{}
+	a.AuthChangePassword = noop.UnaryServer[auth.ChangePasswordRequest, types.Nil]{}
 
 	// CHANNEL
-	a.ChannelRename = fnoop.UnaryServer[channel.RenameRequest, types.Nil]{}
-	a.ChannelRetrieveGroup = fnoop.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]{}
+	a.ChannelRename = noop.UnaryServer[channel.RenameRequest, types.Nil]{}
+	a.ChannelRetrieveGroup = noop.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]{}
 
 	// USER
-	a.UserRename = fnoop.UnaryServer[user.RenameRequest, types.Nil]{}
-	a.UserChangeUsername = fnoop.UnaryServer[user.ChangeUsernameRequest, types.Nil]{}
-	a.UserCreate = fnoop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
-	a.UserDelete = fnoop.UnaryServer[user.DeleteRequest, types.Nil]{}
-	a.UserRetrieve = fnoop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
+	a.UserRename = noop.UnaryServer[user.RenameRequest, types.Nil]{}
+	a.UserChangeUsername = noop.UnaryServer[user.ChangeUsernameRequest, types.Nil]{}
+	a.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
+	a.UserDelete = noop.UnaryServer[user.DeleteRequest, types.Nil]{}
+	a.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
 
 	// RANGE
-	a.RangeRename = fnoop.UnaryServer[ranger.RenameRequest, types.Nil]{}
-	a.AliasRetrieve = fnoop.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]{}
+	a.RangeRename = noop.UnaryServer[ranger.RenameRequest, types.Nil]{}
+	a.AliasRetrieve = noop.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]{}
 
 	// ONTOLOGY
-	a.OntologyRetrieve = fnoop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
-	a.OntologyAddChildren = fnoop.UnaryServer[ontology.AddChildrenRequest, types.Nil]{}
-	a.OntologyRemoveChildren = fnoop.UnaryServer[ontology.RemoveChildrenRequest, types.Nil]{}
-	a.OntologyMoveChildren = fnoop.UnaryServer[ontology.MoveChildrenRequest, types.Nil]{}
+	a.OntologyRetrieve = noop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
+	a.OntologyAddChildren = noop.UnaryServer[ontology.AddChildrenRequest, types.Nil]{}
+	a.OntologyRemoveChildren = noop.UnaryServer[ontology.RemoveChildrenRequest, types.Nil]{}
+	a.OntologyMoveChildren = noop.UnaryServer[ontology.MoveChildrenRequest, types.Nil]{}
 
 	// GROUP
-	a.GroupCreate = fnoop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
-	a.GroupDelete = fnoop.UnaryServer[group.DeleteRequest, types.Nil]{}
-	a.GroupRename = fnoop.UnaryServer[group.RenameRequest, types.Nil]{}
+	a.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
+	a.GroupDelete = noop.UnaryServer[group.DeleteRequest, types.Nil]{}
+	a.GroupRename = noop.UnaryServer[group.RenameRequest, types.Nil]{}
 
 	// WORKSPACE
-	a.WorkspaceCreate = fnoop.UnaryServer[workspace.CreateRequest, workspace.CreateResponse]{}
-	a.WorkspaceRetrieve = fnoop.UnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse]{}
-	a.WorkspaceDelete = fnoop.UnaryServer[workspace.DeleteRequest, types.Nil]{}
-	a.WorkspaceRename = fnoop.UnaryServer[workspace.RenameRequest, types.Nil]{}
-	a.WorkspaceSetLayout = fnoop.UnaryServer[workspace.SetLayoutRequest, types.Nil]{}
+	a.WorkspaceCreate = noop.UnaryServer[workspace.CreateRequest, workspace.CreateResponse]{}
+	a.WorkspaceRetrieve = noop.UnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse]{}
+	a.WorkspaceDelete = noop.UnaryServer[workspace.DeleteRequest, types.Nil]{}
+	a.WorkspaceRename = noop.UnaryServer[workspace.RenameRequest, types.Nil]{}
+	a.WorkspaceSetLayout = noop.UnaryServer[workspace.SetLayoutRequest, types.Nil]{}
 
 	// SCHEMATIC
-	a.SchematicCreate = fnoop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
-	a.SchematicDelete = fnoop.UnaryServer[schematic.DeleteRequest, types.Nil]{}
-	a.SchematicRetrieve = fnoop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	a.SchematicRename = fnoop.UnaryServer[schematic.RenameRequest, types.Nil]{}
-	a.SchematicSetData = fnoop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
-	a.SchematicCopy = fnoop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
+	a.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
+	a.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, types.Nil]{}
+	a.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
+	a.SchematicSetData = noop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
+	a.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, types.Nil]{}
+	a.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
-	a.SchematicCreateSymbol = fnoop.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]{}
-	a.SchematicRetrieveSymbol = fnoop.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse]{}
-	a.SchematicDeleteSymbol = fnoop.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]{}
-	a.SchematicRenameSymbol = fnoop.UnaryServer[schematic.RenameSymbolRequest, types.Nil]{}
-	a.SchematicRetrieveSymbolGroup = fnoop.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]{}
+	a.SchematicCreateSymbol = noop.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]{}
+	a.SchematicRetrieveSymbol = noop.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse]{}
+	a.SchematicDeleteSymbol = noop.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]{}
+	a.SchematicRenameSymbol = noop.UnaryServer[schematic.RenameSymbolRequest, types.Nil]{}
+	a.SchematicRetrieveSymbolGroup = noop.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]{}
 
 	// LINE PLOT
-	a.LinePlotCreate = fnoop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
-	a.LinePlotRetrieve = fnoop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
-	a.LinePlotDelete = fnoop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
-	a.LinePlotRename = fnoop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
-	a.LinePlotSetData = fnoop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
+	a.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
+	a.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
+	a.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
+	a.LinePlotRename = noop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
+	a.LinePlotSetData = noop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
 
 	// LOG
-	a.LogCreate = fnoop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
-	a.LogRetrieve = fnoop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
-	a.LogDelete = fnoop.UnaryServer[log.DeleteRequest, types.Nil]{}
-	a.LogRename = fnoop.UnaryServer[log.RenameRequest, types.Nil]{}
-	a.LogSetData = fnoop.UnaryServer[log.SetDataRequest, types.Nil]{}
+	a.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
+	a.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
+	a.LogDelete = noop.UnaryServer[log.DeleteRequest, types.Nil]{}
+	a.LogRename = noop.UnaryServer[log.RenameRequest, types.Nil]{}
+	a.LogSetData = noop.UnaryServer[log.SetDataRequest, types.Nil]{}
 
 	// TABLE
-	a.TableCreate = fnoop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
-	a.TableRetrieve = fnoop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
-	a.TableDelete = fnoop.UnaryServer[table.DeleteRequest, types.Nil]{}
-	a.TableRename = fnoop.UnaryServer[table.RenameRequest, types.Nil]{}
-	a.TableSetData = fnoop.UnaryServer[table.SetDataRequest, types.Nil]{}
+	a.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
+	a.TableRetrieve = noop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
+	a.TableDelete = noop.UnaryServer[table.DeleteRequest, types.Nil]{}
+	a.TableRename = noop.UnaryServer[table.RenameRequest, types.Nil]{}
+	a.TableSetData = noop.UnaryServer[table.SetDataRequest, types.Nil]{}
 
 	// LABEL
-	a.LabelCreate = fnoop.UnaryServer[label.CreateRequest, label.CreateResponse]{}
-	a.LabelRetrieve = fnoop.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]{}
-	a.LabelDelete = fnoop.UnaryServer[label.DeleteRequest, types.Nil]{}
-	a.LabelAdd = fnoop.UnaryServer[label.AddRequest, types.Nil]{}
-	a.LabelRemove = fnoop.UnaryServer[label.RemoveRequest, types.Nil]{}
+	a.LabelCreate = noop.UnaryServer[label.CreateRequest, label.CreateResponse]{}
+	a.LabelRetrieve = noop.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]{}
+	a.LabelDelete = noop.UnaryServer[label.DeleteRequest, types.Nil]{}
+	a.LabelAdd = noop.UnaryServer[label.AddRequest, types.Nil]{}
+	a.LabelRemove = noop.UnaryServer[label.RemoveRequest, types.Nil]{}
 
 	// ACCESS
-	a.AccessCreatePolicy = fnoop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}
-	a.AccessDeletePolicy = fnoop.UnaryServer[access.DeletePolicyRequest, types.Nil]{}
-	a.AccessRetrievePolicy = fnoop.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse]{}
-	a.AccessCreateRole = fnoop.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse]{}
-	a.AccessDeleteRole = fnoop.UnaryServer[access.DeleteRoleRequest, types.Nil]{}
-	a.AccessRetrieveRole = fnoop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
-	a.AccessAssignRole = fnoop.UnaryServer[access.AssignRoleRequest, types.Nil]{}
-	a.AccessUnassignRole = fnoop.UnaryServer[access.UnassignRoleRequest, types.Nil]{}
+	a.AccessCreatePolicy = noop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}
+	a.AccessDeletePolicy = noop.UnaryServer[access.DeletePolicyRequest, types.Nil]{}
+	a.AccessRetrievePolicy = noop.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse]{}
+	a.AccessCreateRole = noop.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse]{}
+	a.AccessDeleteRole = noop.UnaryServer[access.DeleteRoleRequest, types.Nil]{}
+	a.AccessRetrieveRole = noop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
+	a.AccessAssignRole = noop.UnaryServer[access.AssignRoleRequest, types.Nil]{}
+	a.AccessUnassignRole = noop.UnaryServer[access.UnassignRoleRequest, types.Nil]{}
+
+	// IMPORT/EXPORT
+	a.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
+	a.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
 	// ARC LSP
-	a.ArcLSP = fnoop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
+	a.ArcLSP = noop.StreamServer[arc.LSPMessage, arc.LSPMessage]{}
 
 	return a, transports
 }

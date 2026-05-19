@@ -266,7 +266,6 @@ var _ = Describe("StateConfig", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes).To(HaveLen(0))

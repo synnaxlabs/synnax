@@ -45,6 +45,17 @@ interface GL {
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
+/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+const stringifyFloat32 = (value: number): string => {
+  const f32 = Math.fround(value);
+  if (!Number.isFinite(f32)) return f32.toString();
+  for (let p = 1; p <= 9; p++) {
+    const parsed = parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return parsed.toString();
+  }
+  return f32.toString();
+};
+
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
   key: string;
@@ -694,7 +705,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
     this.cachedMax ??= this.calcRawMax();
-    return math.add(this.cachedMax, this.sampleOffset);
+    return this.applyOffset(this.cachedMax);
   }
 
   private calcRawMin(): math.Numeric {
@@ -720,7 +731,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
     this.cachedMin ??= this.calcRawMin();
-    return math.add(this.cachedMin, this.sampleOffset);
+    return this.applyOffset(this.cachedMin);
   }
 
   /** @returns the bounds of the series. */
@@ -777,7 +788,12 @@ export class Series<T extends TelemValue = TelemValue>
   at(index: number, required?: false): T | undefined;
 
   at(index: number, required: boolean = false): T | undefined {
-    if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
+    if (this.dataType.isVariable) {
+      const str = this.atVariable(index, required);
+      if (str == null) return undefined;
+      if (this.dataType.equals(DataType.STRING)) return str as T;
+      return caseconv.snakeToCamel(JSON.parse(str)) as T;
+    }
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
@@ -785,7 +801,16 @@ export class Series<T extends TelemValue = TelemValue>
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return math.add(v, this.sampleOffset) as T;
+    return this.applyOffset(v) as T;
+  }
+
+  // For huge bigint offsets (i64 timestamps narrowed to float32 for GL), math.add would
+  // coerce through Number() and lose precision above 2^53; do the addition in bigint
+  // space when the offset is a bigint.
+  private applyOffset(v: math.Numeric): math.Numeric {
+    if (typeof this.sampleOffset === "bigint" && typeof v === "number")
+      return BigInt(Math.round(v)) + this.sampleOffset;
+    return math.add(v, this.sampleOffset);
   }
 
   private atUUID(index: number, required: boolean): string | undefined {
@@ -800,7 +825,20 @@ export class Series<T extends TelemValue = TelemValue>
     return uuidString;
   }
 
-  private atVariable(index: number, required: boolean): T | undefined {
+  asString(index: number, required: true): string;
+
+  asString(index: number, required?: false): string | undefined;
+
+  asString(index: number, required: boolean = false): string | undefined {
+    if (this.dataType.isVariable) return this.atVariable(index, required);
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
+    const v = this.at(index, required as true);
+    if (v == null) return undefined;
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v as number);
+    return String(v);
+  }
+
+  private atVariable(index: number, required: boolean): string | undefined {
     let start = 0;
     let len = 0;
     const buf = this.buffer;
@@ -836,9 +874,7 @@ export class Series<T extends TelemValue = TelemValue>
       }
     }
     const slice = new Uint8Array(buf, start, len);
-    if (this.dataType.equals(DataType.STRING))
-      return new TextDecoder().decode(slice) as T;
-    return caseconv.snakeToCamel(JSON.parse(new TextDecoder().decode(slice))) as T;
+    return new TextDecoder().decode(slice);
   }
 
   /**
