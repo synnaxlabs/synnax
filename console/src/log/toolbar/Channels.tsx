@@ -22,7 +22,14 @@ import {
   Select,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
+import {
+  color,
+  DataType,
+  type notation,
+  primitive,
+  TIME_ZONES,
+  type TimeZone,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -45,7 +52,6 @@ const isTimestamp = (dt: DataType | undefined): boolean =>
   dt != null && dt.equals(DataType.TIMESTAMP);
 
 const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
-const TIMESTAMP_TZS = ["UTC", "local"] as const;
 
 interface TimestampFormatSelectProps extends Omit<
   Select.ButtonsProps<PLog.TimestampFormat>,
@@ -73,12 +79,12 @@ const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement 
 );
 
 interface TimestampTZSelectProps extends Omit<
-  Select.ButtonsProps<PLog.TimestampTZ>,
+  Select.ButtonsProps<TimeZone>,
   "keys"
 > {}
 
 const TimestampTZSelect = (props: TimestampTZSelectProps): ReactElement => (
-  <Select.Buttons {...props} keys={TIMESTAMP_TZS}>
+  <Select.Buttons {...props} keys={TIME_ZONES}>
     <Select.Button itemKey="UTC" tooltip="UTC">
       UTC
     </Select.Button>
@@ -198,7 +204,7 @@ const ChannelRow = ({
             <TimestampTZSelect
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
-              onChange={(v: PLog.TimestampTZ) =>
+              onChange={(v: TimeZone) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, tz: v },
                 })

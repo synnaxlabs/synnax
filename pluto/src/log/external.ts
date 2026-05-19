@@ -13,8 +13,6 @@ export {
   timestampConfigZ,
   type TimestampFormat,
   timestampFormatZ,
-  type TimestampTZ,
-  timestampTZZ,
 } from "@/log/aether/Log";
 export { streamMultiChannelLog } from "@/log/aether/telem/sources";
 export * from "@/log/Icons";

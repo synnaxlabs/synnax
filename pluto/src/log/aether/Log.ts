@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  type destructor,
+  notation,
+  TimeStamp,
+  timeZoneZ,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -27,12 +35,9 @@ import { noopLogSourceSpec } from "./telem/noop";
 export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 
-export const timestampTZZ = z.enum(["UTC", "local"]);
-export type TimestampTZ = z.infer<typeof timestampTZZ>;
-
 export const timestampConfigZ = z.object({
   format: timestampFormatZ.default("preciseDate"),
-  tz: timestampTZZ.default("local"),
+  tz: timeZoneZ.default("local"),
 });
 export type TimestampConfig = z.infer<typeof timestampConfigZ>;
 
