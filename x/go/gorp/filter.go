@@ -288,10 +288,17 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	if anyHasResolver(filters) {
 		// Resolver path: materialize the children fresh per Exec so
 		// concurrent Execs never share mutable child state. The
-		// resolver also produces the per-Exec eval closure, since the
-		// construction-time eval would close over the unmaterialized
-		// children and read keys / membership as nil for indexed
-		// children.
+		// resolver also produces the per-Exec eval closure, which
+		// overrides this construction-time fallback on the happy path.
+		// The fallback survives when resolveFilter swallows
+		// ErrIndexInvalid: keys / membership get cleared but the eval
+		// stays installed so the sequential-scan path still applies
+		// each child's predicate. Closing over the unmaterialized
+		// children is safe here because evalChild skips the keys
+		// check when keys is nil and dispatches to each child's
+		// scan-fallback eval (set by LookupIndex.Filter /
+		// SortedIndex.Filter).
+		f.eval = orEval[K, E](filters)
 		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 			materialized, err := materializeFilters[K, E](ctx, tx, filters)
 			if err != nil {
@@ -390,9 +397,13 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	// Resolver-backed child: defer eval construction until Exec so it
 	// can close over a fresh materialized copy of f. Sharing the
 	// captured f across Execs would race resolve's writes against
-	// concurrent eval reads.
+	// concurrent eval reads. The construction-time eval is the
+	// sequential-scan fallback used when resolveFilter swallows
+	// ErrIndexInvalid: f.keys / f.membership remain nil, so evalChild
+	// skips the keys check and dispatches to f's scan-fallback eval.
 	if f.resolve != nil {
 		return Filter[K, E]{
+			eval: notEval[K, E](f),
 			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
 				res, err := f.resolve(ctx, tx)
 				if err != nil {
