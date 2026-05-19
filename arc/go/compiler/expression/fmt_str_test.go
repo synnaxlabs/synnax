@@ -29,35 +29,35 @@ var _ = Describe("Backtick Format String Compilation", func() {
 
 			Entry(
 				"integer literal placeholder",
-				"`{42}`",
+				`f"{42}"`,
 				types.String(),
 				OpI64Const, int64(42),
 				OpCall, uint32(0),
 			),
 			Entry(
 				"float literal placeholder",
-				"`{3.14}`",
+				`f"{3.14}"`,
 				types.String(),
 				OpF64Const, float64(3.14),
 				OpCall, uint32(0),
 			),
 			Entry(
 				"explicit i32 cast placeholder",
-				"`{i32(7)}`",
+				`f"{i32(7)}"`,
 				types.String(),
 				OpI32Const, int32(7),
 				OpCall, uint32(0),
 			),
 			Entry(
 				"explicit u8 cast placeholder",
-				"`{u8(255)}`",
+				`f"{u8(255)}"`,
 				types.String(),
 				OpI32Const, int32(255),
 				OpCall, uint32(0),
 			),
 			Entry(
 				"explicit f32 cast placeholder",
-				"`{f32(2.5)}`",
+				`f"{f32(2.5)}"`,
 				types.String(),
 				OpF32Const, float32(2.5),
 				OpCall, uint32(0),
@@ -71,7 +71,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 
 			Entry(
 				"i32 with :05d",
-				"`{i32(7):05d}`",
+				`f"{i32(7):05d}"`,
 				types.String(),
 				OpI32Const, int32(7),
 				OpI32Const, int32(0),
@@ -80,7 +80,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 			),
 			Entry(
 				"f64 with :.2f",
-				"`{f64(3.14):.2f}`",
+				`f"{f64(3.14):.2f}"`,
 				types.String(),
 				OpF64Const, float64(3.14),
 				OpI32Const, int32(0),
@@ -89,7 +89,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 			),
 			Entry(
 				"u8 with :x",
-				"`{u8(255):x}`",
+				`f"{u8(255):x}"`,
 				types.String(),
 				OpI32Const, int32(255),
 				OpI32Const, int32(0),
@@ -101,7 +101,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 
 	Describe("String Variable Placeholder", func() {
 		It("compiles string variable placeholder with no spec as identity", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, "`{name}`", symbol.MapResolver{
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name}"`, symbol.MapResolver{
 				"name": scalarSymbol("name", types.String(), 0),
 			})
 			Expect(exprType).To(Equal(types.String()))
@@ -109,7 +109,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 		})
 
 		It("compiles string variable placeholder with spec via format_string", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, "`{name:s}`", symbol.MapResolver{
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name:s}"`, symbol.MapResolver{
 				"name": scalarSymbol("name", types.String(), 0),
 			})
 			Expect(exprType).To(Equal(types.String()))
@@ -119,31 +119,31 @@ var _ = Describe("Backtick Format String Compilation", func() {
 
 	Describe("Mixed Literal and Placeholder Segments", func() {
 		It("compiles literal + placeholder with concat", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`x={42}`")
+			bytecode, exprType := compileExpression(bCtx, `f"x={42}"`)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles placeholder + literal with concat", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`{42} done`")
+			bytecode, exprType := compileExpression(bCtx, `f"{42} done"`)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles two placeholders separated by literal with two concat ops", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`{1} and {2}`")
+			bytecode, exprType := compileExpression(bCtx, `f"{1} and {2}"`)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles three placeholders with mixed specs", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`{1}, {i32(2):05d}, {f64(3.14):.2f}`")
+			bytecode, exprType := compileExpression(bCtx, `f"{1}, {i32(2):05d}, {f64(3.14):.2f}"`)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles adjacent placeholders with no separator", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`{1}{2}`")
+			bytecode, exprType := compileExpression(bCtx, `f"{1}{2}"`)
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
@@ -154,7 +154,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 			// `{` parses as a raw-string token, but the body is malformed:
 			// literal.FmtStrParse rejects an unmatched '{', exercising the second
 			// error branch in compileRawStringLiteral.
-			expr := MustSucceed(parser.ParseExpression("`{`"))
+			expr := MustSucceed(parser.ParseExpression(`f"{"`))
 			ctx := NewContext(bCtx)
 			_, err := expression.Compile(ccontext.Child(ctx, expr))
 			Expect(err).To(HaveOccurred())

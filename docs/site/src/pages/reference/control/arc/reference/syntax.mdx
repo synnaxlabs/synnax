@@ -106,33 +106,59 @@ parameter that expects a time span.
 
 ### String Literals
 
-Strings are enclosed in double quotes. Escape sequences are supported.
+Strings are enclosed in double quotes. Two forms:
+
+- `"..."` — single-line. Cannot contain unescaped newlines.
+- `"""..."""` — multi-line. Newlines and single `"` characters are allowed in the body;
+  the string ends at the next `"""`.
 
 ```arc
 "hello"
-"line1\nline2" // newline
-"tab\there" // tab
-"quote: \"" // escaped quote
+"tab\there"
+"""line1
+line2"""
 ```
 
-| Escape | Meaning         |
-| ------ | --------------- |
-| `\n`   | newline         |
-| `\t`   | tab             |
-| `\r`   | carriage return |
-| `\\`   | backslash       |
-| `\"`   | double quote    |
+| Escape   | Meaning                |
+| -------- | ---------------------- |
+| `\b`     | backspace              |
+| `\t`     | tab                    |
+| `\n`     | newline                |
+| `\f`     | form feed              |
+| `\r`     | carriage return        |
+| `\"`     | double quote           |
+| `\\`     | backslash              |
+| `\uXXXX` | 4-digit Unicode escape |
+
+Any other backslash sequence (e.g., `\z`) is preserved as the two literal characters;
+only the escapes listed above are interpreted.
+
+### Raw Strings
+
+Prefix with `r` to disable escape processing. Every character in the body is verbatim —
+`\n` is the two characters `\` and `n`, not a newline:
+
+```arc
+r"C:\Users\path"
+r"""line one
+line two"""
+```
+
+In a single-line raw string, `\"` is accepted by the lexer so a `"` can appear in the
+body, but the backslash is preserved in the value (`r"a\"b"` yields `a\"b`, four
+characters). Triple-quoted raw strings have no need for this since `"""` is the only
+sequence that ends them.
 
 ### Format Strings
 
-Format strings are enclosed in backticks. They embed expressions inside `{...}`
-placeholders, with an optional format spec after `:`:
+Prefix with `f` to enable `{expr}` placeholders, with an optional format spec after `:`.
+Combine with `r` (as `rf` or `fr`) for raw + format.
 
 ```arc
-`Data: {pressure:.1f} psi` // "Data: 523.7 psi"
-`Code: {pump_err_code:#x}` // "0xFF00"
-`Math: {(2.0 + 4.0)/2.0}`  // "3"
-
+f"Data: {pressure:.1f} psi"      // "Data: 523.7 psi"
+f"Code: {pump_err_code:#x}"      // "Code: 0xff00"
+f"Math: {(2.0 + 4.0)/2.0}"       // "Math: 3"
+rf"C:\logs\{name}.txt"           // backslashes literal; {name} substituted
 ```
 
 Each placeholder is a regular Arc expression. Numeric values are converted to their
@@ -236,17 +262,19 @@ Flags, width, and precision compose in spec order:
 
 </Details>
 
-Only `{` and `` ` `` have syntactic weight inside a body, so they are the only
-characters that need escaping. A bare `}` is always a literal character.
+Inside a format string, `{` opens a placeholder. To write a literal `{`, escape it as
+`\{`. A bare `}` outside a placeholder is always a literal `}`.
 
-| Escape   | Meaning          |
-| -------- | ---------------- |
-| `` \` `` | Literal backtick |
-| `\{`     | Literal `{`      |
+| Escape | Meaning     |
+| ------ | ----------- |
+| `\{`   | Literal `{` |
 
 ```arc
-msg := `progress: \{50}` // "progress: {50}"
+msg := f"progress: \{50}" // "progress: {50}"
 ```
+
+The `\{` escape is recognized in `f` and `rf` strings. In non-format strings, `{` is
+already literal so no escape is needed.
 
 ### Series Literals
 

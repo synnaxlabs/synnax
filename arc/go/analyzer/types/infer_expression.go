@@ -280,7 +280,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
 		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
 	}
-	if ctx.AST.STR_LITERAL() != nil || ctx.AST.STR_LITERAL_MULTI() != nil {
+	if parser.StringTerminal(ctx.AST) != nil {
 		t := types.String()
 		ctx.TypeMap[ctx.AST] = t
 		return t

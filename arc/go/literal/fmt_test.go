@@ -248,37 +248,57 @@ var _ = Describe("Parse", func() {
 	)
 })
 
-var _ = Describe("StripDelimiters", func() {
-	DescribeTable("strips matching backtick delimiters",
-		func(input, expectedBody string) {
-			body, ok := literal.FmtStrStripDelimiters(input)
+var _ = Describe("StripQuotes", func() {
+	DescribeTable("strips quotes and peels prefix",
+		func(input, expectedBody string, expectedFlags literal.StringFlags) {
+			body, flags, ok := literal.StripQuotes(input)
 			Expect(ok).To(BeTrue())
 			Expect(body).To(Equal(expectedBody))
+			Expect(flags).To(Equal(expectedFlags))
 		},
-		Entry("empty body", "``", ""),
-		Entry("simple body", "`hello`", "hello"),
-		Entry("body with placeholder", "`{x}`", "{x}"),
-		Entry("body with embedded newline", "`a\nb`", "a\nb"),
-		Entry("body with escaped backtick", "`a\\`b`", "a\\`b"),
-		Entry("body ending with escaped backtick", "`a\\``", "a\\`"),
-		Entry("body ending with two backslashes", "`a\\\\`", "a\\\\"),
-		Entry("body ending with four backslashes", "`a\\\\\\\\`", "a\\\\\\\\"),
+		Entry("plain single-quoted", `"hello"`, "hello", literal.StringFlags{}),
+		Entry("empty single-quoted", `""`, "", literal.StringFlags{}),
+		Entry("plain triple-quoted", `"""hello"""`, "hello",
+			literal.StringFlags{Multi: true}),
+		Entry("empty triple-quoted", `""""""`, "",
+			literal.StringFlags{Multi: true}),
+		Entry("triple-quoted with newline", "\"\"\"a\nb\"\"\"", "a\nb",
+			literal.StringFlags{Multi: true}),
+		Entry("triple-quoted body containing single quote", `"""a"b"""`, `a"b`,
+			literal.StringFlags{Multi: true}),
+		Entry("raw single-quoted", `r"path"`, "path",
+			literal.StringFlags{Raw: true}),
+		Entry("raw triple-quoted", `r"""path"""`, "path",
+			literal.StringFlags{Raw: true, Multi: true}),
+		Entry("format single-quoted", `f"hi {x}"`, "hi {x}",
+			literal.StringFlags{Format: true}),
+		Entry("format triple-quoted", `f"""hi {x}"""`, "hi {x}",
+			literal.StringFlags{Format: true, Multi: true}),
+		Entry("rf single-quoted", `rf"hi"`, "hi",
+			literal.StringFlags{Raw: true, Format: true}),
+		Entry("fr single-quoted", `fr"hi"`, "hi",
+			literal.StringFlags{Raw: true, Format: true}),
+		Entry("rf triple-quoted", `rf"""hi"""`, "hi",
+			literal.StringFlags{Raw: true, Format: true, Multi: true}),
+		Entry("body with embedded escape sequence", `"a\nb"`, `a\nb`,
+			literal.StringFlags{}),
 	)
 
-	DescribeTable("rejects malformed delimiters",
+	DescribeTable("rejects malformed input",
 		func(input string) {
-			body, ok := literal.FmtStrStripDelimiters(input)
+			body, flags, ok := literal.StripQuotes(input)
 			Expect(ok).To(BeFalse())
 			Expect(body).To(BeEmpty())
+			Expect(flags).To(Equal(literal.StringFlags{}))
 		},
 		Entry("empty string", ""),
-		Entry("single backtick", "`"),
-		Entry("missing leading backtick", "hi`"),
-		Entry("missing trailing backtick", "`hi"),
-		Entry("double-quoted string", `"hi"`),
+		Entry("single quote", `"`),
+		Entry("missing leading quote", `hi"`),
+		Entry("missing trailing quote", `"hi`),
 		Entry("plain text no delimiters", "hello"),
-		Entry("trailing backtick escaped by single backslash", "`hello\\`"),
-		Entry("trailing backtick escaped by triple backslash", "`a\\\\\\`"),
+		Entry("backtick string", "`hi`"),
+		Entry("duplicate r prefix", `rr"hi"`),
+		Entry("duplicate f prefix", `ff"hi"`),
 	)
 })
 

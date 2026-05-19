@@ -41,10 +41,7 @@ func Parse(
 	if num := literal.NumericLiteral(); num != nil {
 		return ParseNumeric(num, targetType)
 	}
-	if str := literal.STR_LITERAL(); str != nil {
-		return ParseString(str.GetText(), targetType)
-	}
-	if str := literal.STR_LITERAL_MULTI(); str != nil {
+	if str := parser.StringTerminal(literal); str != nil {
 		return ParseString(str.GetText(), targetType)
 	}
 	if series := literal.SeriesLiteral(); series != nil {

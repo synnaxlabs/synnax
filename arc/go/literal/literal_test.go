@@ -325,70 +325,64 @@ var _ = Describe("Literal Parser", func() {
 		})
 	})
 
-	Describe("Raw string literals", func() {
-		DescribeTable("ParseRawString happy path",
+	Describe("Raw and multi-line string literals", func() {
+		DescribeTable("ParseString happy path",
 			func(input string, target types.Type, expected string) {
-				parsed := MustSucceed(literal.ParseRawString(input, target))
+				parsed := MustSucceed(literal.ParseString(input, target))
 				Expect(parsed.Value).To(Equal(expected))
 				Expect(parsed.Type).To(Equal(types.String()))
 			},
-			Entry("empty", "``", types.String(), ""),
-			Entry("simple", "`hello`", types.String(), "hello"),
-			Entry("with spaces", "`hello world`", types.String(), "hello world"),
-			Entry("double quotes inside", "`say \"hi\"`", types.String(), `say "hi"`),
-			Entry("backslash-n verbatim", "`a\\nb`", types.String(), `a\nb`),
-			Entry("backslash-t verbatim", "`col1\\tcol2`", types.String(), `col1\tcol2`),
-			Entry("backslash-quote verbatim", "`\\\"`", types.String(), `\"`),
-			Entry("real newline preserved", "`line1\nline2`", types.String(), "line1\nline2"),
-			Entry("three-line literal", "`a\nb\nc`", types.String(), "a\nb\nc"),
-			Entry("indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
-			Entry("tab char preserved", "`a\tb`", types.String(), "a\tb"),
-			Entry("unicode", "`°C`", types.String(), "°C"),
-			Entry("escaped backtick", "`say \\`hi\\``", types.String(), "say `hi`"),
-			Entry("escaped backtick at start", "`\\`hello`", types.String(), "`hello"),
-			Entry("escaped backtick at end", "`hello\\``", types.String(), "hello`"),
-			Entry("only escaped backtick", "`\\``", types.String(), "`"),
-			Entry("adjacent escaped backticks", "`\\`\\``", types.String(), "``"),
-			Entry("no target type infers string", "`hi`", types.Type{}, "hi"),
+			Entry("empty raw", `r""`, types.String(), ""),
+			Entry("simple raw", `r"hello"`, types.String(), "hello"),
+			Entry("raw with spaces", `r"hello world"`, types.String(), "hello world"),
+			Entry("raw backslash-n verbatim", `r"a\nb"`, types.String(), `a\nb`),
+			Entry("raw backslash-t verbatim", `r"col1\tcol2"`, types.String(), `col1\tcol2`),
+			Entry("raw escaped quote preserves backslash", `r"\""`, types.String(), `\"`),
+			Entry("raw windows path", `r"C:\Users\path"`, types.String(), `C:\Users\path`),
+			Entry("empty multi", `""""""`, types.String(), ""),
+			Entry("simple multi", `"""hello"""`, types.String(), "hello"),
+			Entry("multi with real newline", "\"\"\"line1\nline2\"\"\"", types.String(), "line1\nline2"),
+			Entry("multi three-line literal", "\"\"\"a\nb\nc\"\"\"", types.String(), "a\nb\nc"),
+			Entry("multi indentation preserved", "\"\"\"a\n    b\"\"\"", types.String(), "a\n    b"),
+			Entry("multi tab char preserved", "\"\"\"a\tb\"\"\"", types.String(), "a\tb"),
+			Entry("multi unicode", `"""°C"""`, types.String(), "°C"),
+			Entry("multi processes escape sequences", `"""a\nb"""`, types.String(), "a\nb"),
+			Entry("raw multi verbatim escapes", `r"""a\nb"""`, types.String(), `a\nb`),
+			Entry("raw multi with real newline", "r\"\"\"line1\nline2\"\"\"", types.String(), "line1\nline2"),
+			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
 		)
 
-		DescribeTable("ParseRawString errors",
+		DescribeTable("ParseString errors",
 			func(input string, target types.Type, errSubstring string) {
-				Expect(literal.ParseRawString(input, target)).
+				Expect(literal.ParseString(input, target)).
 					Error().To(MatchError(ContainSubstring(errSubstring)))
 			},
-			Entry("non-string target type", "`hi`", types.I32(), "cannot assign string to"),
-			Entry("missing leading backtick", "hi`", types.String(), "invalid raw string literal"),
-			Entry("missing trailing backtick", "`hi", types.String(), "invalid raw string literal"),
-			Entry("single backtick too short", "`", types.String(), "invalid raw string literal"),
-			Entry("empty text too short", "", types.String(), "invalid raw string literal"),
+			Entry("non-string target type", `r"hi"`, types.I32(), "cannot assign string to"),
+			Entry("missing leading quote", `hi"`, types.String(), "invalid string literal"),
+			Entry("missing trailing quote", `"hi`, types.String(), "invalid string literal"),
+			Entry("single quote too short", `"`, types.String(), "invalid string literal"),
+			Entry("empty text too short", "", types.String(), "invalid string literal"),
 		)
 
 		Describe("Parse AST routing", func() {
-			It("Should route backtick literal to ParseRawString", func() {
-				lit := getLiteral("`hello`")
+			It("Should route raw string literal through ParseString", func() {
+				lit := getLiteral(`r"hello"`)
 				parsed := MustSucceed(literal.Parse(lit, types.String()))
 				Expect(parsed.Value).To(Equal("hello"))
 				Expect(parsed.Type).To(Equal(types.String()))
 			})
 
-			It("Should preserve real newlines in multi-line backtick literal", func() {
-				lit := getLiteral("`a\nb`")
+			It("Should preserve real newlines in multi-line literal", func() {
+				lit := getLiteral("\"\"\"a\nb\"\"\"")
 				parsed := MustSucceed(literal.Parse(lit, types.String()))
 				Expect(parsed.Value).To(Equal("a\nb"))
 			})
 
 			It("Should infer string type when no target type specified", func() {
-				lit := getLiteral("`hi`")
+				lit := getLiteral(`r"hi"`)
 				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
 				Expect(parsed.Value).To(Equal("hi"))
 				Expect(parsed.Type).To(Equal(types.String()))
-			})
-
-			It("Should unescape backticks in raw string through Parse", func() {
-				lit := getLiteral("`say \\`hi\\``")
-				parsed := MustSucceed(literal.Parse(lit, types.String()))
-				Expect(parsed.Value).To(Equal("say `hi`"))
 			})
 
 			It("Should still route regular string literals to ParseString", func() {

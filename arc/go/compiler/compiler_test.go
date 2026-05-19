@@ -3132,7 +3132,7 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
-	Describe("Backtick Format String Synthetic Functions", func() {
+	Describe("Format String Synthetic Functions", func() {
 		var strMod *stlstrings.Module
 		var strState *stlstrings.ProgramState
 
@@ -3147,7 +3147,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `v={42}` -> log",
+				`trig -> f"v={42}" -> log`,
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -3170,7 +3170,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `v={f64(3.14159):.2f}` -> log",
+				`trig -> f"v={f64(3.14159):.2f}" -> log`,
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -3191,7 +3191,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `a={1} b={i32(2):05d} c={f64(3.14):.2f}` -> log",
+				`trig -> f"a={1} b={i32(2):05d} c={f64(3.14):.2f}" -> log`,
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -3212,7 +3212,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `{42}` -> log",
+				`trig -> f"{42}" -> log`,
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -3233,8 +3233,8 @@ var _ = Describe("Compiler", func() {
 				"log_b": {Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 102},
 			})
 			output := MustSucceed(compileWithHostImports(ctx, `
-			trig -> `+"`first={1}`"+` -> log_a
-			trig -> `+"`second={2}`"+` -> log_b
+			trig -> `+`f"first={1}"`+` -> log_a
+			trig -> `+`f"second={2}"`+` -> log_b
 			`, resolver))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			strMod.SetMemory(mod.Memory())

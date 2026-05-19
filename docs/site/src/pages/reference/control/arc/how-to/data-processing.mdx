@@ -398,7 +398,7 @@ accept any expression, and a `:spec` after the expression controls formatting:
 
 ```arc
 func fmt_pressure(value f64) str {
-    return `Pressure: {value:.2f} psi`
+    return f"Pressure: {value:.2f} psi"
 }
 
 pressure -> fmt_pressure{} -> pressure_status
@@ -413,9 +413,9 @@ Format strings are useful for writing diagnostic outputs:
 ```arc
 func alert(value f64) str {
     if value > 800.0 {
-        return `HIGH PRESSURE: {value:.1f} psi`
+        return f"HIGH PRESSURE: {value:.1f} psi"
     }
-    return `pressure nominal: {value:.1f} psi`
+    return f"pressure nominal: {value:.1f} psi"
 }
 
 pressure -> alert{} -> log

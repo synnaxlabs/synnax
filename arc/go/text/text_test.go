@@ -2455,12 +2455,12 @@ var _ = Describe("Text", func() {
 	})
 
 	Describe("Synthesized Format-String Functions", func() {
-		It("Registers a fmt$ function for a flow-form raw string with a single placeholder", func(ctx SpecContext) {
+		It("Registers a fmt$ function for a flow-form format string with a single placeholder", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "sensor -> `v={sensor}` -> log"
+			source := `sensor -> f"v={sensor}" -> log`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2488,7 +2488,7 @@ var _ = Describe("Text", func() {
 				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
 				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "sensor -> `v={sensor} t={t}` -> log"
+			source := `sensor -> f"v={sensor} t={t}" -> log`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2503,12 +2503,12 @@ var _ = Describe("Text", func() {
 			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 		})
 
-		It("Does not synthesize a fmt$ function for a literal raw string with no placeholders", func(ctx SpecContext) {
+		It("Does not synthesize a fmt$ function for a literal format string with no placeholders", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"trig": {Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
 				"log":  {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "trig -> `static` -> log"
+			source := `trig -> f"static" -> log`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2524,7 +2524,7 @@ var _ = Describe("Text", func() {
 				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "sensor -> `v={sensor:d}` -> log"
+			source := `sensor -> f"v={sensor:d}" -> log`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeFalse(),

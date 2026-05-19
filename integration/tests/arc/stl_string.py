@@ -91,28 +91,28 @@ str_trigger -> multi_add{}
 func fmt_fn() {
     a := 99
     b := 1.5
-    fmt_const_int_fn_out = `int: {42}`
-    fmt_const_hex_fn_out = `hex: {u8(255):x}`
-    fmt_const_float_fn_out = `pi: {3.14159:.2f}`
-    fmt_var_int_fn_out = `var int: {a}`
-    fmt_var_float_fn_out = `var float: {b:.1f}`
-    fmt_var_expr_fn_out = `expr: {a + 1}`
-    fmt_chan_int_fn_out = `chan: {fmt_int_in}`
-    fmt_chan_float_fn_out = `chan: {fmt_float_in:.2f}`
-    fmt_chan_str_fn_out = `chan: {fmt_str_in:q}`
+    fmt_const_int_fn_out = f"int: {42}"
+    fmt_const_hex_fn_out = f"hex: {u8(255):x}"
+    fmt_const_float_fn_out = f"pi: {3.14159:.2f}"
+    fmt_var_int_fn_out = f"var int: {a}"
+    fmt_var_float_fn_out = f"var float: {b:.1f}"
+    fmt_var_expr_fn_out = f"expr: {a + 1}"
+    fmt_chan_int_fn_out = f"chan: {fmt_int_in}"
+    fmt_chan_float_fn_out = f"chan: {fmt_float_in:.2f}"
+    fmt_chan_str_fn_out = f"chan: {fmt_str_in:q}"
 }
 fmt_trigger -> fmt_fn{}
 // ──────────────────────── format strings (flow) ───────────────────────
 // Constants in flow position.
-fmt_trigger -> `int: {42}` -> fmt_const_int_flow_out
-fmt_trigger -> `hex: {u8(255):x}` -> fmt_const_hex_flow_out
-fmt_trigger -> `pi: {3.14159:.2f}` -> fmt_const_float_flow_out
+fmt_trigger -> f"int: {42}" -> fmt_const_int_flow_out
+fmt_trigger -> f"hex: {u8(255):x}" -> fmt_const_hex_flow_out
+fmt_trigger -> f"pi: {3.14159:.2f}" -> fmt_const_float_flow_out
 // Channel references in flow position.
-fmt_trigger -> `chan: {fmt_int_in}` -> fmt_chan_int_flow_out
-fmt_trigger -> `chan: {fmt_float_in:.2f}` -> fmt_chan_float_flow_out
-fmt_trigger -> `chan: {fmt_str_in:q}` -> fmt_chan_str_flow_out
+fmt_trigger -> f"chan: {fmt_int_in}" -> fmt_chan_int_flow_out
+fmt_trigger -> f"chan: {fmt_float_in:.2f}" -> fmt_chan_float_flow_out
+fmt_trigger -> f"chan: {fmt_str_in:q}" -> fmt_chan_str_flow_out
 // Multiple placeholders in one flow expression.
-fmt_trigger -> `i={fmt_int_in}, f={fmt_float_in:.1f}` -> fmt_multi_flow_out
+fmt_trigger -> f"i={fmt_int_in}, f={fmt_float_in:.1f}" -> fmt_multi_flow_out
 """
 
 VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [

@@ -135,7 +135,7 @@ var _ = Describe("Literal Compilation", func() {
 
 		Entry(
 			"simple raw",
-			"`hi`",
+			`f"hi"`,
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(2),
@@ -143,7 +143,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"empty raw",
-			"``",
+			`f""`,
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(0),
@@ -151,7 +151,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"multi-line raw preserves newline",
-			"`a\nb`",
+			`f"a\nb"`,
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(3),
@@ -159,18 +159,10 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"escape chars verbatim",
-			"`\\n`",
+			`f"\\n"`,
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(2),
-			OpCall, uint32(0),
-		),
-		Entry(
-			"escaped backtick",
-			"`say \\`hi\\``",
-			types.String(),
-			OpI32Const, int32(0),
-			OpI32Const, int32(8),
 			OpCall, uint32(0),
 		),
 	)
