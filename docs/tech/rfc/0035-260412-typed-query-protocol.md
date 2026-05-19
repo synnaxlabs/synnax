@@ -77,9 +77,9 @@ at every layer.
 
 GraphQL provides exactly the filter tree model we want (Hasura's `_and`/`_or`/`_not`
 boolean expression types). But adopting GraphQL as the transport protocol requires
-replacing Freighter, adding a GraphQL schema layer, and adopting GraphQL codegen tooling.
-The protocol overhead (parsing, introspection, N+1 resolution) is unnecessary for our
-use case. We want the data model, not the protocol.
+replacing Freighter, adding a GraphQL schema layer, and adopting GraphQL codegen
+tooling. The protocol overhead (parsing, introspection, N+1 resolution) is unnecessary
+for our use case. We want the data model, not the protocol.
 
 ## 2.2 - Prior Art
 
@@ -91,17 +91,17 @@ GraphQL transport, we use Freighter with JSON/msgpack.
 
 Other systems examined:
 
-| System | Approach | Type Safety | Multi-Language |
-| ----------- | --------------------- | ---------------------- | -------------- |
-| Hasura | Recursive JSON tree | Codegen per language | Yes |
-| Prisma | Recursive TS objects | TS inference | No |
-| tRPC | Zod recursive schemas | TS inference only | No |
-| AIP-160 | String expression | None | Yes (string) |
-| OData | URL query string | With .NET LINQ only | Partial |
-| Ent (Go) | Typed closures | Go compiler | Via entgql only |
-| Ent + entgql | Ent closures + GraphQL | Codegen per language | Yes |
-| go-jet | Expression tree nodes | Go compiler | No |
-| Drizzle | Typed AST `SQL<T>` | TS compiler | No |
+| System       | Approach               | Type Safety          | Multi-Language  |
+| ------------ | ---------------------- | -------------------- | --------------- |
+| Hasura       | Recursive JSON tree    | Codegen per language | Yes             |
+| Prisma       | Recursive TS objects   | TS inference         | No              |
+| tRPC         | Zod recursive schemas  | TS inference only    | No              |
+| AIP-160      | String expression      | None                 | Yes (string)    |
+| OData        | URL query string       | With .NET LINQ only  | Partial         |
+| Ent (Go)     | Typed closures         | Go compiler          | Via entgql only |
+| Ent + entgql | Ent closures + GraphQL | Codegen per language | Yes             |
+| go-jet       | Expression tree nodes  | Go compiler          | No              |
+| Drizzle      | Typed AST `SQL<T>`     | TS compiler          | No              |
 
 Ent + entgql is the closest existing analog: typed predicate closures on the server,
 typed filter input objects on the wire, codegen for client types. We replace entgql with
@@ -145,29 +145,27 @@ Each node has one optional field per filterable attribute (leaf filters) plus `a
 {
   "where": {
     "or": [
-      {"name": {"in": ["sensor_a", "sensor_b"]}},
-      {"and": [
-        {"dataType": {"eq": "float64"}},
-        {"virtual": {"eq": false}}
-      ]}
+      { "name": { "in": ["sensor_a", "sensor_b"] } },
+      { "and": [{ "dataType": { "eq": "float64" } }, { "virtual": { "eq": false } }] }
     ]
   },
-  "orderBy": [{"field": "name", "direction": "asc"}],
+  "orderBy": [{ "field": "name", "direction": "asc" }],
   "limit": 10,
   "offset": 20
 }
 ```
 
-When `and`/`or`/`not` are absent, all present leaf fields on a single node are implicitly
-ANDed. This means `{"name": {"eq": "x"}, "virtual": {"eq": true}}` is equivalent to
-`{"and": [{"name": {"eq": "x"}}, {"virtual": {"eq": true}}]}`. This keeps simple queries
-compact while allowing full composition when needed.
+When `and`/`or`/`not` are absent, all present leaf fields on a single node are
+implicitly ANDed. This means `{"name": {"eq": "x"}, "virtual": {"eq": true}}` is
+equivalent to `{"and": [{"name": {"eq": "x"}}, {"virtual": {"eq": true}}]}`. This keeps
+simple queries compact while allowing full composition when needed.
 
 ### 3.1.1 - Comparison Operators
 
 Each scalar type gets a comparison struct with operators appropriate to its type:
 
 **StringFilter:**
+
 ```json
 {
   "eq": "exact_value",
@@ -178,11 +176,13 @@ Each scalar type gets a comparison struct with operators appropriate to its type
 ```
 
 **BoolFilter:**
+
 ```json
-{"eq": true}
+{ "eq": true }
 ```
 
 **NumericFilter** (for int, uint, float types):
+
 ```json
 {
   "eq": 42,
@@ -195,6 +195,7 @@ Each scalar type gets a comparison struct with operators appropriate to its type
 ```
 
 **TimeFilter** (for timestamps):
+
 ```json
 {
   "eq": 1700000000000000000,
@@ -203,29 +204,30 @@ Each scalar type gets a comparison struct with operators appropriate to its type
 }
 ```
 
-Multiple operators on the same comparison struct are ANDed (e.g., `{"gt": 10, "lt": 100}`
-means "between 10 and 100 exclusive").
+Multiple operators on the same comparison struct are ANDed (e.g.,
+`{"gt": 10, "lt": 100}` means "between 10 and 100 exclusive").
 
 ### 3.1.2 - Ordering
 
 The `orderBy` field is a per-field typed struct, mirroring the filter node design. Each
-sortable field gets its own typed slot containing direction and an optional typed cursor:
+sortable field gets its own typed slot containing direction and an optional typed
+cursor:
 
 ```json
-{"orderBy": {"name": {"direction": "asc", "after": "sensor_m"}}}
+{ "orderBy": { "name": { "direction": "asc", "after": "sensor_m" } } }
 ```
 
 or for a timestamp-sorted field:
 
 ```json
-{"orderBy": {"createdAt": {"direction": "desc", "after": 1700000000000000000}}}
+{ "orderBy": { "createdAt": { "direction": "desc", "after": 1700000000000000000 } } }
 ```
 
-Only one field may be set per request (single-field ordering). The `after` value provides
-cursor-based pagination: the walk skips entries whose sort value is less than or equal to
-(asc) or greater than or equal to (desc) the cursor. Because each field has its own typed
-struct, the cursor value is statically typed (string for name, int64 for timestamps) with
-no `any` or `json.RawMessage`.
+Only one field may be set per request (single-field ordering). The `after` value
+provides cursor-based pagination: the walk skips entries whose sort value is less than
+or equal to (asc) or greater than or equal to (desc) the cursor. Because each field has
+its own typed struct, the cursor value is statically typed (string for name, int64 for
+timestamps) with no `any` or `json.RawMessage`.
 
 This design is consistent with the filter node pattern: per-field typed slots, only one
 active at a time for ordering, oracle generates the struct and interpreter. Multi-field
@@ -241,7 +243,7 @@ with the explicit `where` tree if present. This allows incremental adoption:
 ```json
 {
   "keys": [1, 2, 3],
-  "where": {"virtual": {"eq": false}},
+  "where": { "virtual": { "eq": false } },
   "limit": 10
 }
 ```
@@ -283,8 +285,8 @@ type NumericFilter[T constraints.Integer | constraints.Float] struct {
 }
 ```
 
-The generic `NumericFilter[T]` avoids defining separate structs for int32, uint32, int64,
-float64, etc. The `T` parameter ensures comparison values are the correct type at
+The generic `NumericFilter[T]` avoids defining separate structs for int32, uint32,
+int64, float64, etc. The `T` parameter ensures comparison values are the correct type at
 deserialization time.
 
 ### 3.2.1 - Per-Entity Filter Node (Oracle-Generated)
@@ -314,8 +316,8 @@ No `any`. No `interface{}`. Every field is concrete.
 
 ### 3.2.2 - Per-Entity Interpreter (Oracle-Generated)
 
-Oracle generates a `toFilter()` method that walks the struct and produces the same
-typed `channel.Filter` values that hand-written API code produces today:
+Oracle generates a `toFilter()` method that walks the struct and produces the same typed
+`channel.Filter` values that hand-written API code produces today:
 
 ```go
 // Generated alongside ChannelFilterNode
@@ -453,10 +455,10 @@ func parseDirection(s string) gorp.Direction {
 }
 ```
 
-No `any`. No `json.RawMessage`. No string-to-field dispatch. The cursor value is typed at
-the struct level. The `After *string` on `StringOrderBy` and `After *telem.TimeStamp` on
-`TimestampOrderBy` are known at compile time. Oracle generates the correct OrderBy struct
-per field from the field's type in the `.oracle` schema.
+No `any`. No `json.RawMessage`. No string-to-field dispatch. The cursor value is typed
+at the struct level. The `After *string` on `StringOrderBy` and `After *telem.TimeStamp`
+on `TimestampOrderBy` are known at compile time. Oracle generates the correct OrderBy
+struct per field from the field's type in the `.oracle` schema.
 
 ### 3.2.4 - API Handler Simplification
 
@@ -600,10 +602,7 @@ const channels = await client.channels.retrieve({
   where: {
     or: [
       { name: { in: ["sensor_a", "sensor_b"] } },
-      { and: [
-        { dataType: { eq: "float64" } },
-        { virtual: { eq: false } },
-      ]},
+      { and: [{ dataType: { eq: "float64" } }, { virtual: { eq: false } }] },
     ],
   },
   orderBy: { name: { direction: "asc" } },
@@ -763,15 +762,16 @@ Channel struct {
 
 No new schema annotations are needed for the basic design. The `@filter` annotation
 already identifies filterable fields. The `@index sorted` annotation already identifies
-orderable fields. Oracle can derive comparison operators from the field's primitive type:
+orderable fields. Oracle can derive comparison operators from the field's primitive
+type:
 
-| Primitive | Comparison struct | Operators |
-| --------- | ----------------- | --------- |
-| `string` | `StringFilter` | `eq`, `in`, `contains`, `regex` |
-| `bool` | `BoolFilter` | `eq` |
-| integers | `NumericFilter` | `eq`, `in`, `gt`, `lt`, `gte`, `lte` |
-| floats | `NumericFilter` | `eq`, `in`, `gt`, `lt`, `gte`, `lte` |
-| timestamps | `TimeFilter` | `eq`, `gt`, `lt`, `gte`, `lte` |
+| Primitive  | Comparison struct | Operators                            |
+| ---------- | ----------------- | ------------------------------------ |
+| `string`   | `StringFilter`    | `eq`, `in`, `contains`, `regex`      |
+| `bool`     | `BoolFilter`      | `eq`                                 |
+| integers   | `NumericFilter`   | `eq`, `in`, `gt`, `lt`, `gte`, `lte` |
+| floats     | `NumericFilter`   | `eq`, `in`, `gt`, `lt`, `gte`, `lte` |
+| timestamps | `TimeFilter`      | `eq`, `gt`, `lt`, `gte`, `lte`       |
 
 If a field needs to restrict its operator set (e.g., a string field that should only
 support `eq` and `in`, not `contains`), a future `@filter ops "eq,in"` annotation can
@@ -793,14 +793,14 @@ natural extensions:
    field to the corresponding `OrderByX()` function (already generated by `go/query`).
 
 This code lives in the API package (e.g., `core/pkg/api/channel/`) alongside the
-request/response types, not in the service package. The service layer's `retrieve.gen.go`
-is unchanged.
+request/response types, not in the service package. The service layer's
+`retrieve.gen.go` is unchanged.
 
 ### 3.7.1 - Client-Side: New Plugins
 
 Oracle currently generates types for TypeScript (Zod), Python (Pydantic), and C++, but
-does not generate query builders for clients. New plugins (or extensions to existing type
-plugins) generate:
+does not generate query builders for clients. New plugins (or extensions to existing
+type plugins) generate:
 
 - **`ts/filter`**: Zod schemas for filter nodes and comparison structs.
 - **`py/filter`**: Pydantic models for filter nodes and comparison structs.
@@ -822,8 +822,8 @@ static library types; the per-entity filter nodes are generated per `@retrieve` 
   handles, which is not yet supported.
 
 - **Index intersection for OR.** When an OR combines two index-backed filters, gorp
-  already performs key-set union. The protocol does not need to do anything special here;
-  it falls out of the existing `gorp.Or` implementation.
+  already performs key-set union. The protocol does not need to do anything special
+  here; it falls out of the existing `gorp.Or` implementation.
 
 - **Aggregation queries.** Count, sum, min, max, and other aggregation operations are
   separate from filtering. They may be added to the protocol later but are out of scope
@@ -854,7 +854,8 @@ static library types; the per-entity filter nodes are generated per `@retrieve` 
 
 1. Extend the `go/query` plugin (or create a sibling `go/filter` plugin) to emit per-
    entity `FilterNode` structs from `@filter` annotations.
-2. Emit the `toFilter()` interpreter method that calls the existing `MatchX()` functions.
+2. Emit the `toFilter()` interpreter method that calls the existing `MatchX()`
+   functions.
 3. Emit the `OrderBySpec` struct and `toOrder()` interpreter from `@index sorted`
    annotations.
 4. Generate for a pilot entity (e.g., `rack`, which has few fields) and validate end-to-
@@ -865,8 +866,8 @@ static library types; the per-entity filter nodes are generated per `@retrieve` 
 1. Add `Where *FilterNode` and `OrderBy []OrderBySpec` fields to `RetrieveRequest` for
    the pilot entity.
 2. Update the API handler to call `toFilter()` and `toOrder()`.
-3. Write integration tests covering AND, OR, NOT, ordering, and cursor pagination through
-   the HTTP API.
+3. Write integration tests covering AND, OR, NOT, ordering, and cursor pagination
+   through the HTTP API.
 4. Roll out to remaining entities (channel, device, task, ranger, etc.).
 
 ## Phase 4: Oracle Client Plugins
@@ -887,29 +888,29 @@ static library types; the per-entity filter nodes are generated per `@retrieve` 
 # 6 - Resolved Decisions
 
 1. **Structural fields over tag discrimination.** Filter trees use `and`/`or`/`not` as
-   fields on the filter node struct, not a tagged union with `{"op": "and", "filters":
-   [...]}`. The structural approach maps directly to generated struct types in all
-   languages without requiring a discriminator enum. It matches the Hasura/Prisma pattern
-   that has proven ergonomic across large codebases.
+   fields on the filter node struct, not a tagged union with
+   `{"op": "and", "filters": [...]}`. The structural approach maps directly to generated
+   struct types in all languages without requiring a discriminator enum. It matches the
+   Hasura/Prisma pattern that has proven ergonomic across large codebases.
 
-2. **Per-field typed slots over `any`-based dispatch.** Each filterable field gets its own
-   typed optional field on the filter node (e.g., `Name *StringFilter`). The alternative
-   would be `Field string, Values []any` with runtime type assertion. The per-field
-   approach preserves compile-time safety, avoids `any`, and allows oracle to generate
-   exhaustive interpreters. The cost is more generated code per entity, but this code is
-   mechanical and produced by oracle.
+2. **Per-field typed slots over `any`-based dispatch.** Each filterable field gets its
+   own typed optional field on the filter node (e.g., `Name *StringFilter`). The
+   alternative would be `Field string, Values []any` with runtime type assertion. The
+   per-field approach preserves compile-time safety, avoids `any`, and allows oracle to
+   generate exhaustive interpreters. The cost is more generated code per entity, but
+   this code is mechanical and produced by oracle.
 
 3. **Shared comparison structs over per-entity comparison types.** `StringFilter`,
    `BoolFilter`, and `NumericFilter` are defined once and reused across all entities.
    Per-entity comparison types would allow custom operator sets per field but add
-   significant code volume for little benefit. The shared approach is extended later with
-   `@filter ops` annotations if needed.
+   significant code volume for little benefit. The shared approach is extended later
+   with `@filter ops` annotations if needed.
 
-4. **Interpreter calls existing `MatchX()` functions.** The generated `toFilter()` method
-   does not implement filter logic itself. It delegates to the same `channel.MatchNames`,
-   `channel.MatchVirtual`, etc. that the API handler calls today. This ensures index
-   optimizations from RFC 0034 are preserved without duplication, and existing tests of
-   `MatchX()` continue to provide coverage.
+4. **Interpreter calls existing `MatchX()` functions.** The generated `toFilter()`
+   method does not implement filter logic itself. It delegates to the same
+   `channel.MatchNames`, `channel.MatchVirtual`, etc. that the API handler calls today.
+   This ensures index optimizations from RFC 0034 are preserved without duplication, and
+   existing tests of `MatchX()` continue to provide coverage.
 
 5. **Flat fields preserved for backward compatibility.** `Keys`, `Names`, `SearchTerm`,
    `Limit`, `Offset`, and entity-specific flat fields remain on `RetrieveRequest`. They
@@ -942,14 +943,14 @@ static library types; the per-entity filter nodes are generated per `@retrieve` 
    `api/channel` imports `distribution/channel` for `MatchX()` functions), so no new
    dependency direction is introduced.
 
-10. **Custom filter logic behind leaf operators is acceptable.** Some `MatchX()` functions
-   have non-trivial logic (e.g., `MatchVirtual` excludes calculated channels). The wire
-   format exposes `{"virtual": {"eq": true}}`, which looks like a pure field comparison,
-   but the server-side behavior is a semantic filter. This is acceptable because the
-   interpreter delegates to the same `MatchX()` functions the API handler calls today.
-   The protocol is a transport layer for invoking named filters, not a promise about
-   their implementation. The `MatchX()` function is the contract, and it is tested
-   independently.
+10. **Custom filter logic behind leaf operators is acceptable.** Some `MatchX()`
+    functions have non-trivial logic (e.g., `MatchVirtual` excludes calculated
+    channels). The wire format exposes `{"virtual": {"eq": true}}`, which looks like a
+    pure field comparison, but the server-side behavior is a semantic filter. This is
+    acceptable because the interpreter delegates to the same `MatchX()` functions the
+    API handler calls today. The protocol is a transport layer for invoking named
+    filters, not a promise about their implementation. The `MatchX()` function is the
+    contract, and it is tested independently.
 
 # 7 - Open Questions
 

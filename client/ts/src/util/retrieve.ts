@@ -112,10 +112,7 @@ const isSingleShape = (
   return typeof v === "string" || typeof v === "number" || typeof v === "bigint";
 };
 
-const extractOptions = (
-  arg: object,
-  into: BaseRetrieveRequest,
-): void => {
+const extractOptions = (arg: object, into: BaseRetrieveRequest): void => {
   const source = arg as Record<string, unknown>;
   for (const k of filter.BASE_OPTION_KEYS) {
     const v = source[k];
