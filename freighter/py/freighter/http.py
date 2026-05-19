@@ -122,13 +122,16 @@ class HTTPClient(MiddlewareCollector):
         codec = self._codec_for_path(req)
         if isinstance(codec, Exception):
             return None, codec
-        with open(req, "rb") as f:
-            return self._typed_response_request(
-                target=target,
-                body=f,
-                content_type=codec.content_type(),
-                res_t=res_t,
-            )
+        try:
+            with open(req, "rb") as f:
+                return self._typed_response_request(
+                    target=target,
+                    body=f,
+                    content_type=codec.content_type(),
+                    res_t=res_t,
+                )
+        except OSError as e:
+            return None, e
 
     def download(
         self,
@@ -174,9 +177,12 @@ class HTTPClient(MiddlewareCollector):
                 out_ctx.params = http_res.headers
                 if http_res.status < 200 or http_res.status >= 300:
                     return out_ctx, self._decode_error(http_res, http_res.read())
-                with open(dest, "wb") as out:
-                    for chunk in http_res.stream():
-                        out.write(chunk)
+                try:
+                    with open(dest, "wb") as out:
+                        for chunk in http_res.stream():
+                            out.write(chunk)
+                except (HTTPError, OSError) as e:
+                    return out_ctx, e
                 return out_ctx, None
             finally:
                 http_res.release_conn()
@@ -232,7 +238,9 @@ class HTTPClient(MiddlewareCollector):
             if not 200 <= http_res.status < 300:
                 return out_ctx, self._decode_error(http_res, http_res.data)
             if http_res.data is None or len(http_res.data) == 0:
-                return out_ctx, None
+                return out_ctx, ValueError(
+                    f"expected a non-empty response body from {url!r}"
+                )
             decoder = self._resolve_decoder(http_res)
             if isinstance(decoder, Exception):
                 return out_ctx, decoder
