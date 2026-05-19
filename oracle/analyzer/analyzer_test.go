@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func contains(slice []string, item string) bool {
@@ -205,18 +206,14 @@ var _ = Describe("Analyzer", func() {
 
 			settings := table.MustGet("settings.Settings")
 			form := settings.Form.(resolution.StructForm)
-			field, found := form.Field("precision")
-			Expect(found).To(BeTrue())
+			field := MustBeOk(form.Field("precision"))
 			validateDomain := field.Domains["validate"]
 			Expect(validateDomain.Expressions).To(HaveLen(3))
-			defaultExpr, ok := validateDomain.Expressions.Find("default")
-			Expect(ok).To(BeTrue())
+			defaultExpr := MustBeOk(validateDomain.Expressions.Find("default"))
 			Expect(defaultExpr.Values[0].IntValue).To(Equal(int64(-1)))
-			minExpr, ok := validateDomain.Expressions.Find("min")
-			Expect(ok).To(BeTrue())
+			minExpr := MustBeOk(validateDomain.Expressions.Find("min"))
 			Expect(minExpr.Values[0].IntValue).To(Equal(int64(-1)))
-			maxExpr, ok := validateDomain.Expressions.Find("max")
-			Expect(ok).To(BeTrue())
+			maxExpr := MustBeOk(validateDomain.Expressions.Find("max"))
 			Expect(maxExpr.Values[0].IntValue).To(Equal(int64(17)))
 		})
 
