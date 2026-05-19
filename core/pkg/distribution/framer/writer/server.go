@@ -28,17 +28,22 @@ func startServer(cfg ServiceConfig) *server {
 	return s
 }
 
-// handle services a single peer writer stream. When AutoIndexing is enabled in the
-// open-time config, the storage writer itself stamps missing index channels and
-// propagates SetAuthority calls — no additional pipeline segment runs.
 func (sf *server) handle(ctx context.Context, server ServerStream) error {
 	sCtx, cancel := signal.WithCancel(ctx)
 	defer cancel()
 
+	// The first request provides the parameters for opening the toStorage writer
 	req, err := server.Receive()
 	if err != nil {
 		return err
 	}
+
+	// Senders and receivers must be set up to distribution requests and responses
+	// to their storage counterparts.
+	receiver := &freightfluence.TransformReceiver[ts.WriterRequest, Request]{Receiver: server}
+	receiver.Transform = newRequestTranslator()
+	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{Sender: freighter.SenderNopCloser[Response]{StreamSender: server}}
+	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
 
 	w, err := sf.TS.NewStreamWriter(ctx, req.Config.toStorage())
 	if err != nil {
@@ -47,22 +52,10 @@ func (sf *server) handle(ctx context.Context, server ServerStream) error {
 
 	pipe := plumber.New()
 	plumber.SetSegment(pipe, "toStorage", w)
-
-	sender := &freightfluence.TransformSender[ts.WriterResponse, Response]{
-		Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
-	}
-	sender.Transform = newResponseTranslator(sf.HostResolver.HostKey())
+	plumber.SetSource(pipe, "receiver", receiver)
 	plumber.SetSink(pipe, "sender", sender)
+	plumber.MustConnect[ts.WriterRequest](pipe, "receiver", "toStorage", 1)
 	plumber.MustConnect[ts.WriterResponse](pipe, "toStorage", "sender", 1)
-
-	rcv := &freightfluence.Receiver[Request]{Receiver: server}
-	plumber.SetSource(pipe, "receiver", rcv)
-	reqXform := &confluence.LinearTransform[Request, ts.WriterRequest]{}
-	reqXform.Transform = newRequestTranslator()
-	plumber.SetSegment(pipe, "request_translator", reqXform)
-	plumber.MustConnect[ts.WriterRequest](pipe, "request_translator", "toStorage", 1)
-	plumber.MustConnect[Request](pipe, "receiver", "request_translator", 1)
-
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 
 	err = sCtx.Wait()
