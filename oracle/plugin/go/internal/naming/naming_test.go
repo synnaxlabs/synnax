@@ -58,6 +58,8 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("uuid acronym", "my_uuid", "MyUUID"),
 		Entry("multiple acronyms", "http_url", "HTTPURL"),
 		Entry("acronym at start", "id", "ID"),
+		Entry("iso acronym", "iso", "ISO"),
+		Entry("utc acronym", "utc", "UTC"),
 		Entry("screaming case passthrough", "WASM", "WASM"),
 	)
 })
