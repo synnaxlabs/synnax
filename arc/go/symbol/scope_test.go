@@ -322,6 +322,72 @@ var _ = Describe("Scope", func() {
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "user_fn"))
 			Expect(resolved.Name).To(Equal("user_fn"))
 		})
+
+		Describe("Import gate", func() {
+			moduleResolver := &symbol.ModuleResolver{
+				Name: "time",
+				Members: symbol.MapResolver{
+					"now": {Name: "time.now", Kind: symbol.KindFunction, Type: types.F64()},
+				},
+			}
+
+			It("Should leave dotted lookups ungated when Imports is nil", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				Expect(resolved.Name).To(Equal("time.now"))
+			})
+
+			It("Should leave dotted lookups ungated when Imports has AutoAll", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewAutoImportSet()
+				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				Expect(resolved.Name).To(Equal("time.now"))
+			})
+
+			It("Should return ModuleNotImportedError when the alias is not in the set", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewImportSet()
+				Expect(rootScope.Resolve(bCtx, "time.now")).Error().To(MatchError(
+					`module "time" is not imported`,
+				))
+			})
+
+			It("Should resolve a dotted lookup when the module is imported", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewImportSet()
+				rootScope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "time"})
+				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				Expect(resolved.Name).To(Equal("time.now"))
+			})
+
+			It("Should mark the alias used after a successful gate check", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewImportSet()
+				rec := &symbol.ImportRecord{Path: "time", Alias: "time"}
+				rootScope.Imports.Add(rec)
+				MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				Expect(rec.Used).To(BeTrue())
+			})
+
+			It("Should mark the alias used even when the member lookup fails", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewImportSet()
+				rec := &symbol.ImportRecord{Path: "time", Alias: "time"}
+				rootScope.Imports.Add(rec)
+				Expect(rootScope.Resolve(bCtx, "time.doesnotexist")).Error().To(MatchError(
+					ContainSubstring("undefined symbol"),
+				))
+				Expect(rec.Used).To(BeTrue())
+			})
+
+			It("Should rewrite aliased prefixes before the GlobalResolver lookup", func(bCtx SpecContext) {
+				rootScope := symbol.CreateRootScope(moduleResolver)
+				rootScope.Imports = symbol.NewImportSet()
+				rootScope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+				resolved := MustSucceed(rootScope.Resolve(bCtx, "t.now"))
+				Expect(resolved.Name).To(Equal("time.now"))
+			})
+		})
 	})
 
 	Describe("Search", func() {

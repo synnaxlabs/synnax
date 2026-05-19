@@ -12,8 +12,11 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/context"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	aexpression "github.com/synnaxlabs/arc/analyzer/expression"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
@@ -45,7 +48,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(scopeB).ToNot(BeNil())
 			// Compile expression using both variables
 			expr := MustSucceed(parser.ParseExpression("a + b"))
-			exprType := MustSucceed(expression.Compile(context.Child(ctx, expr)))
+			exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
 			bytecode := ctx.Writer.Bytes()
 			Expect(bytecode).To(MatchOpcodes(
 				OpLocalGet, 0, // Resolve 'a'
@@ -550,6 +553,25 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(bytecode).To(MatchOpcodes(
 				OpCall, uint32(0),
 			))
+		})
+
+		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("t.now()"))
+			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.SymbolResolver)
+			analyzerCtx.Scope.Imports = symbol.NewImportSet()
+			analyzerCtx.Scope.Imports.Add(&symbol.ImportRecord{Path: "time", Alias: "t"})
+			aexpression.Analyze(analyzerCtx)
+			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
+
+			compilerCtx := ccontext.CreateRoot(
+				bCtx,
+				analyzerCtx.Scope,
+				analyzerCtx.TypeMap,
+				resolve.NewResolver(stl.SymbolResolver),
+			)
+			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
+			Expect(exprType).To(Equal(types.TimeStamp()))
+			Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
 		})
 
 		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
