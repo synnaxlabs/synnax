@@ -712,8 +712,7 @@ export const { actions, reducer } = createSlice({
         });
         tabKeys.forEach((tk) => {
           const layout = state.layouts[tk];
-          if (layout != null && !layout.excludeFromWorkspace)
-            delete state.layouts[tk];
+          if (layout != null && !layout.excludeFromWorkspace) delete state.layouts[tk];
         });
       }
       delete state.panels[key];

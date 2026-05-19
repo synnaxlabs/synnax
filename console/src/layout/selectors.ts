@@ -366,9 +366,7 @@ export const selectOrderedPanels = (
   const wp = selectWindowPanels(state, windowKey);
   if (wp == null) return [];
   const slice = selectSliceState(state);
-  return wp.order
-    .map((k) => slice.panels[k])
-    .filter((p): p is PanelMeta => p != null);
+  return wp.order.map((k) => slice.panels[k]).filter((p): p is PanelMeta => p != null);
 };
 
 export const useSelectOrderedPanels = (): PanelMeta[] =>

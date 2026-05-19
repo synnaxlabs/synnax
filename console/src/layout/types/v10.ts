@@ -36,13 +36,11 @@ export const windowPanelsStateZ = z.object({
 
 export interface WindowPanelsState extends z.infer<typeof windowPanelsStateZ> {}
 
-export const sliceStateZ = v9.sliceStateZ
-  .omit({ version: true })
-  .extend({
-    version: z.literal(VERSION),
-    panels: z.record(z.string(), panelMetaZ),
-    windowPanels: z.record(z.string(), windowPanelsStateZ),
-  });
+export const sliceStateZ = v9.sliceStateZ.omit({ version: true }).extend({
+  version: z.literal(VERSION),
+  panels: z.record(z.string(), panelMetaZ),
+  windowPanels: z.record(z.string(), windowPanelsStateZ),
+});
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
