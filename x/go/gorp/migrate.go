@@ -21,10 +21,17 @@ import (
 
 // migration is a versioned schema migration that transforms entries stored in gorp.
 type migration struct {
-	key          string
-	tx           Tx
+	// key is the migration's unique identifier, recorded in the
+	// applied-migrations set once the migration runs successfully.
+	key string
+	// tx is the gorp transaction the migration runs against. Bound by
+	// setMigrationTx just before Migrate executes.
+	tx Tx
+	// dependencies lists keys of other migrations that must run before
+	// this one.
 	dependencies set.Set[string]
-	fn           func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
+	// fn is the migration body.
+	fn func(ctx context.Context, tx Tx, ins alamos.Instrumentation) error
 }
 
 var _ migrate.Migration = (*migration)(nil)
@@ -42,9 +49,14 @@ func (m *migration) Run(ctx context.Context, ins alamos.Instrumentation) error {
 
 const migrationProgressMax = 1000
 
+// progressLogger emits periodic info-level progress messages during a
+// long-running migration.
 type progressLogger struct {
-	ins   alamos.Instrumentation
-	key   string
+	// ins is the instrumentation used to emit progress logs.
+	ins alamos.Instrumentation
+	// key identifies the migration the logger is reporting on.
+	key string
+	// count is the number of entries processed so far.
 	count int
 }
 
@@ -136,10 +148,18 @@ func setMigrationTx(mig migrate.Migration, tx Tx) {
 	}
 }
 
+// MigrateConfig configures a call to Migrate.
 type MigrateConfig struct {
+	// Instrumentation is used for migration logging.
 	alamos.Instrumentation
-	DB         *DB
-	Namespace  string
+	// DB is the gorp DB to migrate.
+	DB *DB
+	// Namespace scopes the applied-migrations record key. Must be
+	// stable across runs so previously applied migrations are not
+	// re-run.
+	Namespace string
+	// Migrations is the ordered set of migrations to consider.
+	// Migrations whose key is already in the applied set are skipped.
 	Migrations []migrate.Migration
 }
 

@@ -22,7 +22,7 @@ const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | nul
   const { nodeKey } = rest;
   const key = Key.use<string>("Schematic.Node.Renderer");
   const config = useSelectElementConfig({ key, elKey: nodeKey });
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const handleChange = useCallback(
     (config: Partial<Node.Config>) =>
       dispatch({ key, actions: schematic.setConfig({ key: nodeKey, config }) }),
@@ -46,7 +46,7 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
   const { edgeKey } = props;
   const key = Key.use<string>("Schematic.Edge.Renderer");
   const config = useSelectElementConfig({ key, elKey: edgeKey });
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const handleChange = useCallback(
     (config: Partial<Edge.Config>) =>
       dispatch({ key, actions: schematic.setConfig({ key: edgeKey, config }) }),

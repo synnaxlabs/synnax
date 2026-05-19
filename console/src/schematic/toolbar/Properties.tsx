@@ -47,21 +47,21 @@ export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = memo(
-  ({ layoutKey }: PropertiesProps): ReactElement => {
-    const selected = useSelectSelected(layoutKey);
-    if (selected.length === 0)
-      return (
-        <Text.Text status="disabled" center>
-          Select a Schematic element to configure its properties.
-        </Text.Text>
-      );
-    if (selected.length > 1) return <MultiConfig layoutKey={layoutKey} />;
-    const elKey = selected[0];
-    return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
-  },
-);
-PropertiesControls.displayName = "PropertiesControls";
+export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
+  const selected = useSelectSelected(layoutKey);
+  const configByKey = Schematic.useSelectConfigs({ key: layoutKey, keys: selected });
+  if (selected.length === 0 || configByKey.size === 0)
+    return (
+      <Text.Text status="disabled" center>
+        Select a schematic element to configure its properties.
+      </Text.Text>
+    );
+  if (selected.length > 1)
+    return <MultiConfig layoutKey={layoutKey} configByKey={configByKey} />;
+  const elKey = selected[0];
+  return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
+});
+Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
   layoutKey: string;
@@ -73,7 +73,7 @@ const IndividualConfig = ({
   elKey,
 }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useSelectElementConfig({ key: layoutKey, elKey });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
 
   const onChange = (key: string, next: Schematic.ElementConfig): void => {
     dispatch({
@@ -154,17 +154,17 @@ const CustomVariantForm = ({
 
 interface MultiElementPropertiesProps {
   layoutKey: string;
+  configByKey: Map<string, Schematic.ElementConfig>;
 }
 
-const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement => {
+const MultiConfig = ({
+  layoutKey,
+  configByKey,
+}: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
-  const configByKey = Schematic.useSelectConfigs({
-    key: layoutKey,
-    keys: selected,
-  });
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
 
   const nodesByKey = useMemo(() => {

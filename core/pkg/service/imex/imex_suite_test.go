@@ -55,7 +55,7 @@ type testService struct {
 }
 
 func openTestService(ctx context.Context, db *gorp.DB) *testService {
-	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testEntry]{DB: db}))
+	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, testEntry]{DB: db}))
 	return &testService{db: db, table: table}
 }
 

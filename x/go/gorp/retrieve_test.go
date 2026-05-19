@@ -148,6 +148,50 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 
+		Context("Composed with another filter", func() {
+			// When MatchKeys is layered with another filter (Match, MatchRaw,
+			// WherePrefix, etc.), Exec must treat missing keys as empty slots
+			// rather than fail with ErrNotFound. The ontology Retrieve
+			// pipeline depends on this: between clauses it injects
+			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
+			// transient miss (orphaned relationship, freshly-deleted
+			// resource) must not blow up the whole traversal.
+			DescribeTable("Should NOT return ErrNotFound when MatchKeys is combined with a filter and some keys are missing",
+				func(ctx SpecContext, build func() gorp.Retrieve[int32, entry], wantIndices []int) {
+					var res []entry
+					Expect(build().Entries(&res).Exec(ctx, tx)).To(Succeed())
+					want := make([]entry, len(wantIndices))
+					for i, idx := range wantIndices {
+						want[i] = entries[idx]
+					}
+					Expect(res).To(Equal(want))
+				},
+				Entry("Match filter passes every key", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+						Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return true, nil }))
+				}, []int{0, 1}),
+				Entry("Match filter further narrows the bound", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+						Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }))
+				}, []int{1}),
+				Entry("MatchRaw filter passes every key", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
+						WhereRaw(func(_, _ []byte) (bool, error) { return true, nil })
+				}, []int{0}),
+			)
+
+			It("Should still return ErrNotFound when a single-entry bound query has no matches", func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
+					Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return false, nil })).
+					Entry(&entry{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+		})
+
 		Context("Single Entry", func() {
 			It("Should retrieve the entry by key", func(ctx SpecContext) {
 				res := &entry{}
@@ -196,10 +240,10 @@ var _ = Describe("Retrieve", func() {
 			It("Should retrieve a single entry by exact prefix", func(ctx SpecContext) {
 				r := prefixEntry{ID: 123, Data: "data"}
 				r2 := prefixEntry{ID: 456, Data: "data"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 				var res []prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("prefix-123")).
 					Entries(&res).
 					Exec(ctx, tx),
@@ -211,11 +255,11 @@ var _ = Describe("Retrieve", func() {
 				r1 := prefixEntry{ID: 100, Data: "first"}
 				r2 := prefixEntry{ID: 101, Data: "second"}
 				r3 := prefixEntry{ID: 200, Data: "third"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r3).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r3).Exec(ctx, tx)).To(Succeed())
 				var res []prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("prefix-10")).
 					Entries(&res).
 					Exec(ctx, tx),
@@ -225,9 +269,9 @@ var _ = Describe("Retrieve", func() {
 
 			It("Should return empty results when prefix doesn't match any entries", func(ctx SpecContext) {
 				r := prefixEntry{ID: 123, Data: "data"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
 				var res []prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("nonexistent-")).
 					Entries(&res).
 					Exec(ctx, tx),
@@ -238,10 +282,10 @@ var _ = Describe("Retrieve", func() {
 			It("Should retrieve all entries with common base prefix", func(ctx SpecContext) {
 				r1 := prefixEntry{ID: 1, Data: "one"}
 				r2 := prefixEntry{ID: 2, Data: "two"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[string, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 				var res []prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("prefix-")).
 					Entries(&res).
 					Exec(ctx, tx),
@@ -403,7 +447,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, data []byte) (bool, error) {
 					return bytes.Contains(data, []byte("data")), nil
 				}).
 				Exec(ctx, tx),
@@ -415,7 +459,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return false, nil
 				}).
 				Exec(ctx, tx),
@@ -427,12 +471,24 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return true, errors.New("cat")
 				}).
 				Exec(ctx, tx),
 			).To(MatchError(ContainSubstring("cat")))
 			Expect(res).To(BeEmpty())
+		})
+
+		It("Should expose the pebble key to the filter", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereRaw(func(key, _ []byte) (bool, error) {
+					return len(key) > 0, nil
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(HaveLen(10))
 		})
 	})
 
@@ -527,31 +583,31 @@ var _ = Describe("Retrieve", func() {
 				r2 = prefixEntry{ID: 456, Data: "data"}
 			)
 			BeforeEach(func(ctx SpecContext) {
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().
+				Expect(gorp.NewCreate[string, prefixEntry]().
 					Entry(&r1).
 					Exec(ctx, tx)).
 					To(Succeed())
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().
+				Expect(gorp.NewCreate[string, prefixEntry]().
 					Entry(&r2).
 					Exec(ctx, tx)).
 					To(Succeed())
 			})
 
 			It("Should count entries matching a prefix", func(ctx SpecContext) {
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("prefix-123")).
 					Count(ctx, tx)).To(Equal(1))
 			})
 
 			It("Should return zero for non-matching prefix", func(ctx SpecContext) {
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
 					WherePrefix([]byte("nonexistent-prefix")).
 					Count(ctx, tx)).To(Equal(0))
 			})
 
 			It("Should work in combination with WhereKeys", func(ctx SpecContext) {
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
-					Where(gorp.MatchKeys[[]byte, prefixEntry](r1.GorpKey(), r2.GorpKey())).
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
+					Where(gorp.MatchKeys[string, prefixEntry](r1.GorpKey(), r2.GorpKey())).
 					WherePrefix([]byte("prefix-123")).
 					Count(ctx, tx)).To(Equal(1))
 			})

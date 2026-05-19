@@ -106,9 +106,10 @@ func (c ServiceConfig) Validate() error {
 
 // A Service is how [User]s are managed in the Synnax cluster.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, User]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, User]
+	indexes indexes
 }
 
 // OpenService opens a new [Service] with the given context and configurations.
@@ -120,14 +121,15 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg}
+	s := &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[User]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, User]("msgpack_to_orc"),
 		},
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -166,7 +168,11 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
+	return Retrieve{
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
+	}
 }
 
 // Close closes the [Service] and stops any signal publishing.

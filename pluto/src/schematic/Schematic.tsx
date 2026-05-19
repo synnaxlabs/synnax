@@ -28,8 +28,10 @@ import { Node } from "@/schematic/node";
 import {
   useAddNode,
   useDispatch,
+  useRedo,
   useSelectAllEdges,
   useSelectAllNodes,
+  useUndo,
 } from "@/schematic/queries";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -62,7 +64,7 @@ export const Schematic = ({
   const nodesRef = useSyncedRef(nodes);
   const edges = useSelectAllEdges({ key });
   const edgesRef = useSyncedRef(edges);
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
       const actions = nodeChangesToActions(changes);
@@ -119,6 +121,8 @@ export const Schematic = ({
       ...edgesRef.current.map((e) => e.key),
     ]);
   }, [onSelectionChange]);
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
 
   const { onCopy, onPaste } = useClipboard({
     key,
@@ -129,6 +133,8 @@ export const Schematic = ({
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
+    onUndo: undo,
+    onRedo: redo,
     enabled: enableTriggers,
   });
 

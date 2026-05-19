@@ -125,6 +125,7 @@ class SchematicLifecycle(ConsoleCase):
         self.test_view_writers_in_control(schematic)
         self.test_copy_link(schematic)
         self.test_export_json(schematic)
+        self.test_undo_redo(schematic)
 
         self.main_schematic_link = schematic.copy_link()
         self.main_schematic_name = schematic.page_name
@@ -183,6 +184,50 @@ class SchematicLifecycle(ConsoleCase):
 
         exported = schematic.export_json()
         assert_exported_json(exported)
+
+    def test_undo_redo(self, schematic: Schematic) -> None:
+        """Test undo/redo of a node deletion via keyboard shortcuts."""
+        self.log("Testing schematic undo/redo")
+
+        schematic.enable_edit()
+        schematic._click_canvas()
+        baseline = schematic.get_symbol_count()
+        assert baseline > 0, (
+            f"Expected at least one symbol on the schematic before undo/redo, "
+            f"got {baseline}"
+        )
+
+        button = schematic.find_symbol(
+            Button(label=self.cmd_name, channel_name=self.cmd_name)
+        )
+        button.delete()
+        after_delete = schematic.get_symbol_count()
+        assert after_delete == baseline - 1, (
+            f"Expected {baseline - 1} symbols after delete, got {after_delete}"
+        )
+
+        schematic._click_canvas()
+        self.console.layout.press_key("ControlOrMeta+Z")
+        sy.sleep(0.3)
+        after_undo = schematic.get_symbol_count()
+        assert after_undo == baseline, (
+            f"Expected {baseline} symbols after undo of delete, got {after_undo}"
+        )
+
+        self.console.layout.press_key("ControlOrMeta+Shift+Z")
+        sy.sleep(0.3)
+        after_redo = schematic.get_symbol_count()
+        assert after_redo == baseline - 1, (
+            f"Expected {baseline - 1} symbols after redo of delete, got {after_redo}"
+        )
+
+        schematic._click_canvas()
+        self.console.layout.press_key("ControlOrMeta+Z")
+        sy.sleep(0.3)
+        final = schematic.get_symbol_count()
+        assert final == baseline, (
+            f"Expected {baseline} symbols after restoring undo, got {final}"
+        )
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""

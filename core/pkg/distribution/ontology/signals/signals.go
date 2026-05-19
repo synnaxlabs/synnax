@@ -64,13 +64,13 @@ func Publish(
 	if err != nil {
 		return nil, err
 	}
-	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
+	relationshipObserver := observe.Translator[gorp.TxReader[string, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
-		Translate: func(ctx context.Context, nexter gorp.TxReader[[]byte, ontology.Relationship]) ([]change.Change[[]byte, struct{}], bool) {
+		Translate: func(ctx context.Context, nexter gorp.TxReader[string, ontology.Relationship]) ([]change.Change[[]byte, struct{}], bool) {
 			var out []change.Change[[]byte, struct{}]
 			for ch := range nexter {
 				out = append(out, change.Change[[]byte, struct{}]{
-					Key:     telem.MarshalVariableSample(ch.Key),
+					Key:     telem.MarshalVariableSample([]byte(ch.Key)),
 					Variant: ch.Variant,
 				})
 			}
@@ -103,7 +103,7 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
 	relationships := make([]ontology.Relationship, 0, len(samples))
 	for _, s := range samples {
-		relationship, err := ontology.ParseRelationship([]byte(s))
+		relationship, err := ontology.ParseRelationship(s)
 		if err != nil {
 			return nil, err
 		}

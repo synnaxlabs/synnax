@@ -239,9 +239,27 @@ var _ = Describe("Writer", func() {
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(s.Key))
 			Expect(seen[0].SessionKey).To(Equal("client-xyz"))
+			Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
 			Expect(seen[0].Actions).To(HaveLen(2))
 			Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeSetNode))
 			Expect(seen[0].Actions[1].Type).To(Equal(schematic.ActionTypeSetNodePosition))
+		})
+
+		It("Should stamp strictly increasing Seq values onto successive Dispatch broadcasts", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "seq-test"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			rec := &actionRecorder{}
+			DeferCleanup(svc.OnAction(rec.record))
+			action := []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
+				Node: schematic.Node{Key: "n1"},
+			})}
+			for range 3 {
+				Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "client-xyz", action)).To(Succeed())
+			}
+			seen := rec.snapshot()
+			Expect(seen).To(HaveLen(3))
+			Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
+			Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
 		})
 
 		It("Should not notify subscribers when Dispatch is rejected on a snapshot", func(ctx SpecContext) {
