@@ -28,6 +28,7 @@ const (
 	tokenTypeOperator          = uint32(2)
 	tokenTypeString            = uint32(4)
 	tokenTypeNumber            = uint32(5)
+	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
 	tokenTypeStringPlaceholder = uint32(21)
 )
@@ -173,7 +174,7 @@ var _ = Describe("Semantic Tokens", func() {
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			str := filterByType(tokens, tokenTypeString)
 			Expect(str).To(HaveLen(1))
-			Expect(str[0].Length).To(Equal(uint32(5)))
+			Expect(str[0].Length).To(Equal(uint32(4)))
 		})
 
 		It("does not emit a string token when no string literal is present", func(ctx SpecContext) {
@@ -193,7 +194,7 @@ var _ = Describe("Semantic Tokens", func() {
 	})
 
 	Describe("Format-string placeholders", func() {
-		It("splits f\"val: {42}\" into string segments, placeholder braces, and a number", func(ctx SpecContext) {
+		It("splits f\"val: {42}\" into prefix, string segments, placeholder braces, and a number", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, `x := f"val: {42}"`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			var inLit []decodedToken
@@ -202,13 +203,14 @@ var _ = Describe("Semantic Tokens", func() {
 					inLit = append(inLit, t)
 				}
 			}
-			Expect(inLit).To(HaveLen(6))
-			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 2, TokenType: tokenTypeString}))
-			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 7, Length: 5, TokenType: tokenTypeString}))
-			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 1, TokenType: tokenTypeStringPlaceholder}))
-			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 13, Length: 2, TokenType: tokenTypeNumber}))
-			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringPlaceholder}))
-			Expect(inLit[5]).To(Equal(decodedToken{Line: 0, StartChar: 16, Length: 1, TokenType: tokenTypeString}))
+			Expect(inLit).To(HaveLen(7))
+			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
+			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 6, Length: 1, TokenType: tokenTypeString}))
+			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 7, Length: 5, TokenType: tokenTypeString}))
+			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 13, Length: 2, TokenType: tokenTypeNumber}))
+			Expect(inLit[5]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[6]).To(Equal(decodedToken{Line: 0, StartChar: 16, Length: 1, TokenType: tokenTypeString}))
 		})
 
 		It("classifies a placeholder identifier through the global resolver", func(ctx SpecContext) {
@@ -242,12 +244,15 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
 		})
 
-		It("falls back to a single string token on a malformed placeholder", func(ctx SpecContext) {
+		It("falls back to prefix + string tokens on a malformed placeholder", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, `x := f"unterminated {x"`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			str := filterByType(all, tokenTypeString)
 			Expect(str).To(HaveLen(1))
-			Expect(str[0].Length).To(Equal(uint32(18)))
+			Expect(str[0]).To(Equal(decodedToken{Line: 0, StartChar: 6, Length: 17, TokenType: tokenTypeString}))
+			fn := filterByType(all, tokenTypeFunction)
+			Expect(fn).To(HaveLen(1))
+			Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
 			for _, op := range filterByType(all, tokenTypeOperator) {
 				Expect(op.StartChar < 5).To(BeTrue())
 			}
@@ -307,6 +312,29 @@ var _ = Describe("Semantic Tokens", func() {
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
+		})
+
+		DescribeTable("emits the r/f/rf/fr prefix as a function-typed token",
+			func(ctx SpecContext, source string, prefixLen uint32) {
+				OpenArcDocument(server, ctx, uri, source)
+				all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				fn := filterByType(all, tokenTypeFunction)
+				Expect(fn).To(HaveLen(1))
+				Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: prefixLen, TokenType: tokenTypeFunction}))
+			},
+			Entry("f-prefixed single-quoted", `x := f"hi {x}"`, uint32(1)),
+			Entry("r-prefixed single-quoted", `x := r"path"`, uint32(1)),
+			Entry("rf-prefixed single-quoted", `x := rf"hi {x}"`, uint32(2)),
+			Entry("fr-prefixed single-quoted", `x := fr"hi {x}"`, uint32(2)),
+			Entry("f-prefixed triple-quoted", `x := f"""hi"""`, uint32(1)),
+			Entry("r-prefixed triple-quoted", `x := r"""hi"""`, uint32(1)),
+			Entry("rf-prefixed triple-quoted", `x := rf"""hi {x}"""`, uint32(2)),
+		)
+
+		It("does not emit a function token for an unprefixed string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := "plain"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeFunction)).To(BeEmpty())
 		})
 	})
 

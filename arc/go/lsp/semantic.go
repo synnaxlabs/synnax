@@ -279,7 +279,20 @@ func mapLexerTokenType(antlrType int) *uint32 {
 func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
 	text := t.GetText()
 	body, flags, ok := literal.StripQuotes(text)
-	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeString) }
+	prefixLen := 0
+	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
+		prefixLen++
+	}
+	fallback := func() []lsp.Token {
+		var out []lsp.Token
+		line, col := uint32(t.GetLine()-1), uint32(t.GetColumn())
+		if prefixLen > 0 {
+			out = appendTextTokenPerLine(out, text[:prefixLen], line, col, SemanticTokenTypeFunction)
+			col += uint32(prefixLen)
+		}
+		out = appendTextTokenPerLine(out, text[prefixLen:], line, col, SemanticTokenTypeString)
+		return out
+	}
 	if !ok || !flags.Format {
 		return fallback()
 	}
@@ -293,10 +306,6 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	delimLen := 1
 	if flags.Multi {
 		delimLen = 3
-	}
-	prefixLen := 0
-	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
-		prefixLen++
 	}
 	bodyOff := prefixLen + delimLen
 	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
@@ -340,7 +349,8 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 			tokens = appendTextTokenPerLine(tokens, it.GetText(), absLine, absCol, *tt)
 		}
 	}
-	emit(0, bodyOff, SemanticTokenTypeString)
+	emit(0, prefixLen, SemanticTokenTypeFunction)
+	emit(prefixLen, bodyOff, SemanticTokenTypeString)
 	for _, seg := range segs {
 		if !seg.IsPlaceholder {
 			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeString)

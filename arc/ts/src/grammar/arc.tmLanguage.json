@@ -124,8 +124,11 @@
       "patterns": [
         {
           "name": "string.quoted.double.arc",
-          "begin": "(?:rf|fr|f|r)?(\"\"\"|\")",
-          "end": "\\1",
+          "begin": "(rf|fr|f|r)?(\"\"\"|\")",
+          "end": "\\2",
+          "beginCaptures": {
+            "1": { "name": "storage.type.string.arc" }
+          },
           "patterns": [
             {
               "name": "constant.character.escape.arc",

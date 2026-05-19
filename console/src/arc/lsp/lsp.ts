@@ -105,6 +105,7 @@ const TOKEN_CONFIG = {
       "entity.name.function.arc",
       "support.function.builtin.arc",
       "support.function.arc",
+      "storage.type.string.arc",
     ],
   },
   stage: {
