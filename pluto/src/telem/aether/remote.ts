@@ -129,7 +129,12 @@ const fetchChannelProperties = async (
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
   if (c.virtual && !isCalculated)
     throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: telem.DataType.TIMESTAMP, virtual: false, isCalculated };
+  return {
+    key: c.index,
+    dataType: telem.DataType.TIMESTAMP,
+    virtual: false,
+    isCalculated,
+  };
 };
 
 const channelDataSourcePropsZ = z.object({

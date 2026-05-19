@@ -15,19 +15,28 @@ import { Ranger } from "@/ranger";
 describe("getStage", () => {
   it("returns 'to_do' if now is before start", () => {
     const now = telem.TimeStamp.now();
-    const tr = { start: now.add(telem.TimeSpan.HOUR), end: now.add(telem.TimeSpan.HOUR.mult(2)) };
+    const tr = {
+      start: now.add(telem.TimeSpan.HOUR),
+      end: now.add(telem.TimeSpan.HOUR.mult(2)),
+    };
     expect(Ranger.getStage(tr)).toBe("to_do");
   });
 
   it("returns 'completed' if now is after end", () => {
     const now = telem.TimeStamp.now();
-    const tr = { start: now.sub(telem.TimeSpan.HOUR.mult(2)), end: now.sub(telem.TimeSpan.HOUR) };
+    const tr = {
+      start: now.sub(telem.TimeSpan.HOUR.mult(2)),
+      end: now.sub(telem.TimeSpan.HOUR),
+    };
     expect(Ranger.getStage(tr)).toBe("completed");
   });
 
   it("returns 'in_progress' if now is between start and end", () => {
     const now = telem.TimeStamp.now();
-    const tr = { start: now.sub(telem.TimeSpan.HOUR), end: now.add(telem.TimeSpan.HOUR) };
+    const tr = {
+      start: now.sub(telem.TimeSpan.HOUR),
+      end: now.add(telem.TimeSpan.HOUR),
+    };
     expect(Ranger.getStage(tr)).toBe("in_progress");
   });
 });
@@ -66,16 +75,18 @@ describe("wrapNumericTimeRangeToStage", () => {
     it("only moves start time to now when changing to 'in_progress'", () => {
       onStageChange("in_progress");
       expect(modified.end).toEqual(original.end);
-      expect(new telem.TimeStamp(modified.start).span(telem.TimeStamp.now()).seconds).toBeLessThan(
-        1,
-      );
+      expect(
+        new telem.TimeStamp(modified.start).span(telem.TimeStamp.now()).seconds,
+      ).toBeLessThan(1);
     });
     it("moves both start and end time to now when changing to 'completed'", () => {
       onStageChange("completed");
-      expect(new telem.TimeStamp(modified.start).span(telem.TimeStamp.now()).seconds).toBeLessThan(
-        1,
-      );
-      expect(new telem.TimeStamp(modified.end).span(telem.TimeStamp.now()).seconds).toBeLessThan(1);
+      expect(
+        new telem.TimeStamp(modified.start).span(telem.TimeStamp.now()).seconds,
+      ).toBeLessThan(1);
+      expect(
+        new telem.TimeStamp(modified.end).span(telem.TimeStamp.now()).seconds,
+      ).toBeLessThan(1);
     });
   });
   describe("when now is between start and end", () => {
@@ -104,7 +115,9 @@ describe("wrapNumericTimeRangeToStage", () => {
     it("moves end time to now when changing to 'completed'", () => {
       onStageChange("completed");
       expect(modified.start).toEqual(original.start);
-      expect(new telem.TimeStamp(modified.end).span(telem.TimeStamp.now()).seconds).toBeLessThan(1);
+      expect(
+        new telem.TimeStamp(modified.end).span(telem.TimeStamp.now()).seconds,
+      ).toBeLessThan(1);
     });
   });
   describe("when now is after end", () => {

@@ -234,7 +234,10 @@ export class Controller
     await this.withRetry(async () => this.writer?.write(await buildFrame()));
   }
 
-  async setAuthority(channels: channel.Key[], value: xcontrol.Authority): Promise<void> {
+  async setAuthority(
+    channels: channel.Key[],
+    value: xcontrol.Authority,
+  ): Promise<void> {
     await this.withRetry(async () =>
       this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );

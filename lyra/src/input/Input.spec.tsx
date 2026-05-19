@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -293,13 +293,13 @@ describe("Input", () => {
         expect(onChange).toHaveBeenCalledWith(42);
       });
 
-      it("should handle mathematical expressions", () => {
+      it("should handle mathematical expressions", async () => {
         const onChange = vi.fn();
         const c = render(<Input.Numeric value={0} onChange={onChange} />);
         const input = c.getByRole("textbox");
         fireEvent.change(input, { target: { value: "2 + 3" } });
         fireEvent.blur(input);
-        expect(onChange).toHaveBeenCalledWith(5);
+        await waitFor(() => expect(onChange).toHaveBeenCalledWith(5));
       });
 
       it("should reset to previous value on invalid input", () => {

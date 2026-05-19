@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { deep } from "@synnaxlabs/x/deep"
-import  {errors} from "@synnaxlabs/x/errors";
-import {type record } from "@synnaxlabs/x/record";
+import { deep } from "@synnaxlabs/x/deep";
+import { errors } from "@synnaxlabs/x/errors";
+import { type record } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
 import {

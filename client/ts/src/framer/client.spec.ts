@@ -30,10 +30,10 @@ describe("Client", () => {
       });
       const start = telem.TimeStamp.now();
       await client.write(start, { [time.key]: [start], [data.key]: [1] });
-      const frame = await client.read({ start, end: start.add(telem.TimeSpan.seconds(1)) }, [
-        time.key,
-        data.key,
-      ]);
+      const frame = await client.read(
+        { start, end: start.add(telem.TimeSpan.seconds(1)) },
+        [time.key, data.key],
+      );
       expect(Array.from(frame.get(time.key))).toEqual([start.valueOf()]);
       expect(Array.from(frame.get(data.key))).toEqual([1]);
     });

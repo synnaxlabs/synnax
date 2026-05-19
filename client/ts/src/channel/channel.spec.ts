@@ -83,8 +83,18 @@ describe("Channel", () => {
     test("create many", async () => {
       const names = [id.create(), id.create()];
       const channels = await client.channels.create([
-        { name: names[0], leaseholder: 1, virtual: true, dataType: telem.DataType.FLOAT32 },
-        { name: names[1], leaseholder: 1, virtual: true, dataType: telem.DataType.FLOAT32 },
+        {
+          name: names[0],
+          leaseholder: 1,
+          virtual: true,
+          dataType: telem.DataType.FLOAT32,
+        },
+        {
+          name: names[1],
+          leaseholder: 1,
+          virtual: true,
+          dataType: telem.DataType.FLOAT32,
+        },
       ]);
       expect(channels.length).toEqual(2);
       expect(channels[0].name).toEqual(names[0]);
@@ -231,7 +241,11 @@ describe("Channel", () => {
       const prefix = id.create();
       const names = [`${prefix}_1`, `${prefix}_2`];
       await client.channels.create(
-        names.map((name) => ({ name, virtual: true, dataType: telem.DataType.FLOAT32 })),
+        names.map((name) => ({
+          name,
+          virtual: true,
+          dataType: telem.DataType.FLOAT32,
+        })),
       );
       await expect
         .poll(async () => {
@@ -284,8 +298,18 @@ describe("Channel", () => {
     test("multiple rename", async () => {
       const names = [id.create(), id.create()];
       const channels = await client.channels.create([
-        { name: names[0], leaseholder: 1, virtual: true, dataType: telem.DataType.FLOAT32 },
-        { name: names[1], leaseholder: 1, virtual: true, dataType: telem.DataType.FLOAT32 },
+        {
+          name: names[0],
+          leaseholder: 1,
+          virtual: true,
+          dataType: telem.DataType.FLOAT32,
+        },
+        {
+          name: names[1],
+          leaseholder: 1,
+          virtual: true,
+          dataType: telem.DataType.FLOAT32,
+        },
       ]);
       // Retrieve channels here to ensure we check for cache invalidation
       const initial = await client.channels.retrieve(channels.map((c) => c.key));

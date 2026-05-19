@@ -432,7 +432,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = showReceiptTimestamp
-      ? new xtelem.TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
+      ? new xtelem.TimeStamp(entry.timestamp)
+          .toString("preciseTime", "local")
+          .slice(0, tsLen)
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";

@@ -98,7 +98,9 @@ export class PreciseTimeScale {
    */
   domain(): [telem.TimeStamp, telem.TimeStamp];
   domain(domain: [telem.CrudeTimeStamp, telem.CrudeTimeStamp]): this;
-  domain(domain?: [telem.CrudeTimeStamp, telem.CrudeTimeStamp]): [telem.TimeStamp, telem.TimeStamp] | this {
+  domain(
+    domain?: [telem.CrudeTimeStamp, telem.CrudeTimeStamp],
+  ): [telem.TimeStamp, telem.TimeStamp] | this {
     if (domain === undefined) return this._domain;
     this._domain = [new telem.TimeStamp(domain[0]), new telem.TimeStamp(domain[1])];
     this._span = this._domain[1].span(this._domain[0]);

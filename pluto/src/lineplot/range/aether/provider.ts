@@ -99,7 +99,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   private fetchInitial(timeRange: telem.TimeRange): void {
     const { internal: i } = this;
     const { client, runAsync } = i;
-    if (client == null || this.fetchedInitial.equals(timeRange, telem.TimeSpan.minutes(1)))
+    if (
+      client == null ||
+      this.fetchedInitial.equals(timeRange, telem.TimeSpan.minutes(1))
+    )
       return;
 
     this.fetchedInitial = timeRange;

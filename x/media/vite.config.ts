@@ -16,6 +16,7 @@ export default defineConfig({
     lib({ name: "media" }),
   ],
   build: {
+    lib: { formats: ["es"] },
     rolldownOptions: {
       external: ["react", "react-dom"],
       output: { globals: { react: "React", "react-dom": "ReactDOM" } },

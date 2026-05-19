@@ -98,7 +98,10 @@ describe("WriteFrameAdapter", () => {
 
   it("should not modify a frame keyed by key", async () => {
     const ts = telem.TimeStamp.now().valueOf();
-    const fr = new Frame({ [timeCh.key]: new telem.Series(ts), [dataCh.key]: new telem.Series(1) });
+    const fr = new Frame({
+      [timeCh.key]: new telem.Series(ts),
+      [dataCh.key]: new telem.Series(1),
+    });
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
@@ -142,7 +145,10 @@ describe("WriteFrameAdapter", () => {
     const adapter = await WriteAdapter.open(client.channels.retriever, [
       jsonChannel.key,
     ]);
-    const res = await adapter.adapt(jsonChannel.name, new telem.Series([{ dog: "blue" }]));
+    const res = await adapter.adapt(
+      jsonChannel.name,
+      new telem.Series([{ dog: "blue" }]),
+    );
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
     expect(res.get(jsonChannel.key)).toHaveLength(1);
@@ -268,8 +274,14 @@ describe("ReadFrameAdapter", () => {
         it("should preserve series data types in hot path", () => {
           const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new telem.Series({ data: [ts], dataType: telem.DataType.TIMESTAMP }),
-            [dataCh.key]: new telem.Series({ data: [1.5], dataType: telem.DataType.FLOAT32 }),
+            [timeCh.key]: new telem.Series({
+              data: [ts],
+              dataType: telem.DataType.TIMESTAMP,
+            }),
+            [dataCh.key]: new telem.Series({
+              data: [1.5],
+              dataType: telem.DataType.FLOAT32,
+            }),
           });
 
           const result = adapter.adapt(inputFrame);
@@ -379,8 +391,14 @@ describe("ReadFrameAdapter", () => {
         it("should preserve data types during name conversion", () => {
           const ts = telem.TimeStamp.now().valueOf();
           const inputFrame = new Frame({
-            [timeCh.key]: new telem.Series({ data: [ts], dataType: telem.DataType.TIMESTAMP }),
-            [dataCh.key]: new telem.Series({ data: [3.5], dataType: telem.DataType.FLOAT32 }),
+            [timeCh.key]: new telem.Series({
+              data: [ts],
+              dataType: telem.DataType.TIMESTAMP,
+            }),
+            [dataCh.key]: new telem.Series({
+              data: [3.5],
+              dataType: telem.DataType.FLOAT32,
+            }),
           });
 
           const result = nameAdapter.adapt(inputFrame);
@@ -457,8 +475,14 @@ describe("ReadFrameAdapter", () => {
 
       it("should handle frames with empty series", () => {
         const inputFrame = new Frame({
-          [timeCh.key]: new telem.Series({ data: [], dataType: telem.DataType.TIMESTAMP }),
-          [dataCh.key]: new telem.Series({ data: [], dataType: telem.DataType.FLOAT32 }),
+          [timeCh.key]: new telem.Series({
+            data: [],
+            dataType: telem.DataType.TIMESTAMP,
+          }),
+          [dataCh.key]: new telem.Series({
+            data: [],
+            dataType: telem.DataType.FLOAT32,
+          }),
         });
 
         const result = adapter.adapt(inputFrame);
@@ -521,7 +545,10 @@ describe("ReadFrameAdapter", () => {
         // Create frame with explicit column order
         const inputFrame = new Frame(
           [dataCh.key, timeCh.key],
-          [new telem.Series([1.0, 2.0, 3.0]), new telem.Series([ts, ts + 1000n, ts + 2000n])],
+          [
+            new telem.Series([1.0, 2.0, 3.0]),
+            new telem.Series([ts, ts + 1000n, ts + 2000n]),
+          ],
         );
 
         const result = adapter.adapt(inputFrame);

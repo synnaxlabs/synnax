@@ -223,7 +223,8 @@ describe("StaticReadCache", () => {
         ]),
       );
       const read = () =>
-        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3))).series;
+        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3)))
+          .series;
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read()).toHaveLength(1);
       await expect.poll(async () => c.gc().purgedSeries === 1).toBe(true);
@@ -243,7 +244,8 @@ describe("StaticReadCache", () => {
         ]),
       );
       const read = () =>
-        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3))).series;
+        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3)))
+          .series;
       read().series.forEach((s) => s.acquire());
       expect(c.gc().purgedSeries).toEqual(0);
       expect(read().series.length).toEqual(1);
@@ -268,7 +270,8 @@ describe("StaticReadCache", () => {
       );
       c.close();
       expect(
-        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3))).series,
+        c.dirtyRead(telem.TimeStamp.seconds(1).spanRange(telem.TimeSpan.seconds(3)))
+          .series,
       ).toHaveLength(0);
     });
   });

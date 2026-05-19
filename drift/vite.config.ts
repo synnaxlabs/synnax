@@ -21,6 +21,7 @@ export default defineConfig({
   ],
   build: {
     lib: {
+      formats: ["es"],
       entry: {
         index: path.resolve(".", "src/index.ts"),
         react: path.resolve(".", "src/react/index.ts"),

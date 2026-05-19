@@ -54,7 +54,9 @@ export class Streamer {
     this.props = {
       instrumentation: alamos.NOOP,
       ...props,
-      streamUpdateDelay: new telem.TimeSpan(props.streamUpdateDelay ?? telem.TimeSpan.seconds(5)),
+      streamUpdateDelay: new telem.TimeSpan(
+        props.streamUpdateDelay ?? telem.TimeSpan.seconds(5),
+      ),
     };
     this.debouncedUpdateStreamer = debounce(
       () => void this.updateStreamer(),
@@ -84,7 +86,10 @@ export class Streamer {
       const dynamicBuffers: Map<channel.Key, telem.MultiSeries> = new Map(
         keys.map((key) => {
           const unary = cache.get(key);
-          return [key, new telem.MultiSeries(array.toArray<telem.Series>(unary.leadingBuffer))];
+          return [
+            key,
+            new telem.MultiSeries(array.toArray<telem.Series>(unary.leadingBuffer)),
+          ];
         }),
       );
       handler(dynamicBuffers);

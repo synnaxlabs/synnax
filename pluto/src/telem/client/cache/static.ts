@@ -92,7 +92,10 @@ export class Static {
       })
       .filter((t) => !t.span.isZero && t.isValid);
     const leadingGap = new telem.TimeRange(tr.start, series[0].timeRange.start);
-    const trailingGap = new telem.TimeRange(series[series.length - 1].timeRange.end, tr.end);
+    const trailingGap = new telem.TimeRange(
+      series[series.length - 1].timeRange.end,
+      tr.end,
+    );
     if (leadingGap.isValid && !leadingGap.span.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.span.isZero) gaps.push(trailingGap);
     return { series: new telem.MultiSeries(series), gaps };
@@ -109,7 +112,8 @@ export class Static {
     const newData = this.data.filter((s) => {
       // Keep entries that have a ref count that is greater than 0 or were just read.
       const shouldKeep =
-        s.data.refCount > 0 || telem.TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
+        s.data.refCount > 0 ||
+        telem.TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
       return shouldKeep;
     });

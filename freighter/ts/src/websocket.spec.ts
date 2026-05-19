@@ -17,7 +17,7 @@ import { EOF } from "@/errors";
 import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
-const testURL = new URL({  host: "127.0.0.1",  port: 8080,});
+const testURL = new URL({ host: "127.0.0.1", port: 8080 });
 
 const MessageSchema = z.object({
   id: z.number().optional(),

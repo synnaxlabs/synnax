@@ -15,7 +15,8 @@ export const resolveDataTypeIcon = (d: telem.DataType): Icon.FC | undefined => {
   if (d.equals(telem.DataType.BYTES)) return Icon.Binary;
   if (d.isInteger) return Icon.Binary;
   if (d.isFloat) return Icon.Decimal;
-  if (d.equals(telem.DataType.STRING) || d.equals(telem.DataType.UUID)) return Icon.String;
+  if (d.equals(telem.DataType.STRING) || d.equals(telem.DataType.UUID))
+    return Icon.String;
   if (d.equals(telem.DataType.TIMESTAMP)) return Icon.Time;
   return undefined;
 };

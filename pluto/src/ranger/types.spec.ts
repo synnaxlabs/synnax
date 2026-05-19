@@ -23,7 +23,10 @@ import {
 const PAYLOAD: ranger.Payload = {
   key: "550e8400-e29b-41d4-a716-446655440000",
   name: "Test Range",
-  timeRange: new telem.TimeRange(telem.TimeStamp.now(), telem.TimeStamp.now().add(telem.TimeStamp.SECOND)),
+  timeRange: new telem.TimeRange(
+    telem.TimeStamp.now(),
+    telem.TimeStamp.now().add(telem.TimeStamp.SECOND),
+  ),
   labels: [],
 };
 

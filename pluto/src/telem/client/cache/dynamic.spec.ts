@@ -27,10 +27,12 @@ describe("DynamicCache", () => {
         const { flushed, allocated } = cache.write(new telem.MultiSeries([ser]));
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(3);
-        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
-          telem.TimeSpan.milliseconds(1).valueOf(),
+        expect(
+          allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf(),
+        ).toBeLessThan(telem.TimeSpan.milliseconds(1).valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(
+          telem.TimeStamp.MAX.valueOf(),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
         expect(cache.length).toEqual(ser.length);
       });
       it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
@@ -43,13 +45,18 @@ describe("DynamicCache", () => {
           dataType: telem.DataType.FLOAT32,
         });
         cache.write(new telem.MultiSeries([ser]));
-        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser.reAlign(3n)]));
+        const { flushed, allocated } = cache.write(
+          new telem.MultiSeries([ser.reAlign(3n)]),
+        );
         expect(flushed).toHaveLength(0);
         expect(allocated).toHaveLength(0);
         expect(cache.length).toEqual(ser.length * 2);
       });
       it("should correctly allocate a single new buffer when the current one is full", async () => {
-        const cache = new Dynamic({ dynamicBufferSize: 2, dataType: telem.DataType.FLOAT32 });
+        const cache = new Dynamic({
+          dynamicBufferSize: 2,
+          dataType: telem.DataType.FLOAT32,
+        });
         const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
           dataType: telem.DataType.FLOAT32,
@@ -61,7 +68,10 @@ describe("DynamicCache", () => {
         expect(cache.length).toEqual(1);
       });
       it("should correctly allocate multiple new buffers when the current one is full", () => {
-        const cache = new Dynamic({ dynamicBufferSize: 1, dataType: telem.DataType.FLOAT32 });
+        const cache = new Dynamic({
+          dynamicBufferSize: 1,
+          dataType: telem.DataType.FLOAT32,
+        });
         const ser = new telem.Series({
           data: new Float32Array([1, 2, 3]),
           dataType: telem.DataType.FLOAT32,
@@ -86,7 +96,9 @@ describe("DynamicCache", () => {
         expect(
           res1.allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf(),
         ).toBeLessThan(telem.TimeSpan.milliseconds(1).valueOf());
-        expect(res1.allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
+        expect(res1.allocated.timeRange.end.valueOf()).toEqual(
+          telem.TimeStamp.MAX.valueOf(),
+        );
         const res2 = cache.write(new telem.MultiSeries([ser.reAlign(3n)]));
         expect(res2.allocated).toHaveLength(0);
         expect(res2.flushed).toHaveLength(0);
@@ -95,12 +107,16 @@ describe("DynamicCache", () => {
         expect(res3.flushed).toHaveLength(0);
         const waitSpan = telem.TimeSpan.milliseconds(10);
         await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
-        const { flushed, allocated } = cache.write(new telem.MultiSeries([ser.reAlign(9n)]));
-        expect(allocated).toHaveLength(2);
-        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
-          telem.TimeSpan.milliseconds(3).valueOf(),
+        const { flushed, allocated } = cache.write(
+          new telem.MultiSeries([ser.reAlign(9n)]),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
+        expect(allocated).toHaveLength(2);
+        expect(
+          allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf(),
+        ).toBeLessThan(telem.TimeSpan.milliseconds(3).valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(
+          telem.TimeStamp.MAX.valueOf(),
+        );
         expect(flushed).toHaveLength(10);
         expect(flushed.timeRange.span.sub(waitSpan).valueOf()).toBeLessThanOrEqual(
           telem.TimeSpan.milliseconds(20).valueOf(),
@@ -139,10 +155,12 @@ describe("DynamicCache", () => {
         const s2 = s1.reAlign(5n);
         const { flushed, allocated } = cache.write(new telem.MultiSeries([s1, s2]));
         expect(flushed).toHaveLength(3);
-        expect(allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf()).toBeLessThan(
-          telem.TimeSpan.milliseconds(10).valueOf(),
+        expect(
+          allocated.timeRange.start.sub(telem.TimeStamp.now()).valueOf(),
+        ).toBeLessThan(telem.TimeSpan.milliseconds(10).valueOf());
+        expect(allocated.timeRange.end.valueOf()).toEqual(
+          telem.TimeStamp.MAX.valueOf(),
         );
-        expect(allocated.timeRange.end.valueOf()).toEqual(telem.TimeStamp.MAX.valueOf());
         expect(flushed.series[0]).toBe(allocated.series[0]);
         expect(allocated).toHaveLength(6);
       });
@@ -298,7 +316,10 @@ describe("DynamicCache", () => {
             });
             const first = cache.write(
               new telem.MultiSeries([
-                new telem.Series({ data: [1000n, 1001n], dataType: telem.DataType.INT64 }),
+                new telem.Series({
+                  data: [1000n, 1001n],
+                  dataType: telem.DataType.INT64,
+                }),
               ]),
             );
             const offset = first.allocated.series[0].sampleOffset;

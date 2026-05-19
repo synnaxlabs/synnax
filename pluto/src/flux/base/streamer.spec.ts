@@ -623,7 +623,10 @@ describe("openStreamer", () => {
       const frames = [
         new Frame(
           Object.fromEntries(
-            channels.map((channel, index) => [channel, new telem.Series([{ id: index }])]),
+            channels.map((channel, index) => [
+              channel,
+              new telem.Series([{ id: index }]),
+            ]),
           ),
         ),
       ];
@@ -834,7 +837,10 @@ describe("openStreamer", () => {
       const frames = [
         new Frame(
           Object.fromEntries(
-            channels.map((channel, index) => [channel, new telem.Series([{ id: index }])]),
+            channels.map((channel, index) => [
+              channel,
+              new telem.Series([{ id: index }]),
+            ]),
           ),
         ),
       ];
@@ -876,7 +882,9 @@ describe("openStreamer", () => {
       ];
 
       const frames = [
-        new Frame({ test: new telem.Series({ data: jsonData, dataType: telem.DataType.JSON }) }),
+        new Frame({
+          test: new telem.Series({ data: jsonData, dataType: telem.DataType.JSON }),
+        }),
       ];
 
       const closeStreamer = await flux.openStreamer(
@@ -907,7 +915,9 @@ describe("openStreamer", () => {
       const schema = z.number();
 
       const frames = [
-        new Frame({ test: new telem.Series({ data: [42, 84], dataType: telem.DataType.FLOAT64 }) }),
+        new Frame({
+          test: new telem.Series({ data: [42, 84], dataType: telem.DataType.FLOAT64 }),
+        }),
       ];
 
       const closeStreamer = await flux.openStreamer(

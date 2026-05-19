@@ -20,11 +20,13 @@ const PLAIN_NUMBER = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 let mathjsLoader: Promise<typeof import("mathjs/number")> | null = null;
 
-const tryEvaluate = async (raw: string): Promise<number | null> => {
-  if (PLAIN_NUMBER.test(raw)) {
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : null;
-  }
+const parsePlain = (raw: string): number | null => {
+  if (!PLAIN_NUMBER.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+};
+
+const evalExpression = async (raw: string): Promise<number | null> => {
   try {
     mathjsLoader ??= import("mathjs/number");
     const { evaluate } = await mathjsLoader;
@@ -112,7 +114,12 @@ export const Numeric = ({
       onChange?.(emptyValue);
       return;
     }
-    const v = await tryEvaluate(raw);
+    const plain = parsePlain(raw);
+    if (plain != null) {
+      onChange?.(bounds.clamp(propsBounds, plain));
+      return;
+    }
+    const v = await evalExpression(raw);
     if (v != null) onChange?.(bounds.clamp(propsBounds, v));
     else
       setInternalValue(

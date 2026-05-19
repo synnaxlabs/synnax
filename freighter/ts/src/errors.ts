@@ -75,7 +75,7 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
   }
 };
 
-errors.register({  
-  encode: freighterErrorEncoder,  
-  decode: freighterErrorDecoder
+errors.register({
+  encode: freighterErrorEncoder,
+  decode: freighterErrorDecoder,
 });

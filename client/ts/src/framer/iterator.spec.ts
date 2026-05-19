@@ -74,7 +74,9 @@ describe("Iterator", () => {
       [data_ch.key]: randomSeries(10, data_ch.dataType),
     });
     await writer.close();
-    const iter = await client.openIterator(telem.TimeRange.MAX, channels, { chunkSize: 4 });
+    const iter = await client.openIterator(telem.TimeRange.MAX, channels, {
+      chunkSize: 4,
+    });
 
     try {
       expect(await iter.seekFirst()).toBe(true);

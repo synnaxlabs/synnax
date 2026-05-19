@@ -121,7 +121,9 @@ describe("DeleteModal", () => {
         index: indexCh.key,
       });
 
-      const timestamps = Array.from({ length: 10 }, (_, i) => telem.TimeStamp.seconds(i + 1));
+      const timestamps = Array.from({ length: 10 }, (_, i) =>
+        telem.TimeStamp.seconds(i + 1),
+      );
       await client.write(telem.TimeStamp.seconds(1), {
         [indexCh.key]: timestamps,
         [dataCh.key]: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],

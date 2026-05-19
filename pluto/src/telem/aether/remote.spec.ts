@@ -179,12 +179,16 @@ describe("remote", () => {
         data: new Float32Array([4, 5, 6]),
       });
       // Call onChange to set the leading buffer
-      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([newSeriesOne])]]));
+      c.streamHandler?.(
+        new Map([[c.channel.key, new telem.MultiSeries([newSeriesOne])]]),
+      );
       await expect.poll(() => handleChange).toHaveBeenCalledTimes(2);
       // It should increment the reference count of the buffer
       expect(newSeriesOne.refCount).toBe(1);
       expect(scv.value()).toBe(3);
-      c.streamHandler?.(new Map([[c.channel.key, new telem.MultiSeries([newSeriesTwo])]]));
+      c.streamHandler?.(
+        new Map([[c.channel.key, new telem.MultiSeries([newSeriesTwo])]]),
+      );
       expect(newSeriesOne.refCount).toBe(0);
       await expect.poll(() => handleChange.mock.calls.length === 3).toBe(true);
       expect(scv.value()).toBe(6);

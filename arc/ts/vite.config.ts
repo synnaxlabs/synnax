@@ -12,4 +12,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [lib({ name: "arc" })],
+  build: {
+    lib: { formats: ["es"] },
+  },
 });

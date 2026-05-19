@@ -28,7 +28,10 @@ describe("Deleter", () => {
     });
     const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data.length).toEqual(10);
-    await client.delete(dataCh.key, telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)));
+    await client.delete(
+      dataCh.key,
+      telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)),
+    );
 
     const deletedRes = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(deletedRes.data.length).toEqual(8);
@@ -43,7 +46,10 @@ describe("Deleter", () => {
     });
     const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data.length).toEqual(10);
-    await client.delete(dataCh.name, telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)));
+    await client.delete(
+      dataCh.name,
+      telem.TimeStamp.seconds(5).range(telem.TimeStamp.seconds(7)),
+    );
 
     const deletedRes = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(deletedRes.data.length).toEqual(8);
@@ -57,9 +63,9 @@ describe("Deleter", () => {
       [dataCh.key]: data,
     });
 
-    await expect(client.delete([indexCh.key, 1232], telem.TimeRange.MAX)).rejects.toThrow(
-      NotFoundError,
-    );
+    await expect(
+      client.delete([indexCh.key, 1232], telem.TimeRange.MAX),
+    ).rejects.toThrow(NotFoundError);
 
     const res = await client.read(telem.TimeRange.MAX, dataCh.key);
     expect(res.data).toEqual(data);
@@ -74,7 +80,10 @@ describe("Deleter", () => {
     });
 
     await expect(
-      client.delete([indexCh.key], telem.TimeStamp.seconds(12).range(telem.TimeStamp.seconds(30))),
+      client.delete(
+        [indexCh.key],
+        telem.TimeStamp.seconds(12).range(telem.TimeStamp.seconds(30)),
+      ),
     ).rejects.toThrow(UnauthorizedError);
 
     await writer.close();

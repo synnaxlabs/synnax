@@ -13,11 +13,7 @@ import { location } from "@synnaxlabs/x/location";
 import { type xy } from "@synnaxlabs/x/xy";
 import { z } from "zod";
 
-import {
-  tickFactoryProps,
-  type TickFactoryRenderArgs,
-  tickType,
-} from "@/axis/ticks";
+import { tickFactoryProps, type TickFactoryRenderArgs, tickType } from "@/axis/ticks";
 
 export interface RenderResult {
   size: number;

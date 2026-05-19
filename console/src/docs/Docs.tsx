@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Logo } from "@synnaxlabs/media";
-import { buildQueryString,URL } from "@synnaxlabs/x/url";
+import { buildQueryString, URL } from "@synnaxlabs/x/url";
 import { memo, type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 

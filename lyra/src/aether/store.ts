@@ -443,7 +443,8 @@ export class Store {
       method: string,
       args: unknown[],
       signal: AbortSignal = AbortSignal.timeout(
-        new telem.TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+        new telem.TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT)
+          .milliseconds,
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {

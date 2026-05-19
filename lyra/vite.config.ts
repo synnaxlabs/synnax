@@ -36,6 +36,7 @@ export default defineConfig({
   ],
   build: {
     lib: {
+      formats: ["es"],
       entry: {
         aether: path.resolve(".", "src/aether/index.ts"),
         "aether-runtime": path.resolve(".", "src/aether/aether/index.ts"),

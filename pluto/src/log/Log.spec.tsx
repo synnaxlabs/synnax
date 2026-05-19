@@ -20,7 +20,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 // Type assertions below follow existing vi.mock patterns (vitest doesn't expose
 // module types from importOriginal without import() annotations, which lint forbids).
 const mockAetherUse = vi.hoisted(() => vi.fn());
-vi.mock("@/aether", async (importOriginal) => {
+vi.mock("@synnaxlabs/lyra/aether", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   const realAether = actual.Aether as Record<string, unknown>;
   return {

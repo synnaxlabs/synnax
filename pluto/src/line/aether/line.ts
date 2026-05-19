@@ -499,7 +499,11 @@ export const buildDrawOperations = (
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
   ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
 
-const seriesOverlap = (x: xtelem.Series, ys: xtelem.Series, overlapThreshold: xtelem.TimeSpan): boolean => {
+const seriesOverlap = (
+  x: xtelem.Series,
+  ys: xtelem.Series,
+  overlapThreshold: xtelem.TimeSpan,
+): boolean => {
   if (x.alignmentMultiple !== ys.alignmentMultiple) {
     console.warn(
       "encountered two series with different alignment multiples in draw operations",

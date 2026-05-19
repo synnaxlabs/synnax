@@ -69,7 +69,11 @@ describe("Reader", () => {
         channels: [index.key, data1.key, data2.key],
       });
       await writer.write({
-        [index.key]: [telem.TimeStamp.seconds(1), telem.TimeStamp.seconds(2), telem.TimeStamp.seconds(3)],
+        [index.key]: [
+          telem.TimeStamp.seconds(1),
+          telem.TimeStamp.seconds(2),
+          telem.TimeStamp.seconds(3),
+        ],
         [data1.key]: [10, 20, 30],
         [data2.key]: [100, 200, 300],
       });
@@ -77,7 +81,10 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [index.key, data1.key, data2.key],
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(10) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(10),
+        },
         channelNames: {
           [index.key]: "Time",
           [data1.key]: "Sensor1",
@@ -147,7 +154,10 @@ describe("Reader", () => {
       await writer2.close();
       const stream = await client.read({
         channels: [data1.key, data2.key], // Just data channels - indexes auto-included
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(10) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(10),
+        },
         channelNames: {
           [index1.key]: "Time1",
           [data1.key]: "Data1",
@@ -196,7 +206,10 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(10) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(10),
+        },
         responseType: "csv",
         iteratorConfig: { downsampleFactor: 2 },
       });
@@ -255,7 +268,10 @@ describe("Reader", () => {
         channels: [indexSlow.key, dataSlow.key],
       });
       await writerSlow.write({
-        [indexSlow.key]: [telem.TimeStamp.nanoseconds(0), telem.TimeStamp.nanoseconds(5)],
+        [indexSlow.key]: [
+          telem.TimeStamp.nanoseconds(0),
+          telem.TimeStamp.nanoseconds(5),
+        ],
         [dataSlow.key]: [2.0, 2.5],
       });
       await writerSlow.commit();
@@ -365,7 +381,10 @@ describe("Reader", () => {
 
       const stream = await client.read({
         channels: dataKeys,
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(20) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(20),
+        },
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
@@ -391,7 +410,10 @@ describe("Reader", () => {
       });
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(10) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(10),
+        },
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
@@ -424,7 +446,10 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: telem.TimeStamp.seconds(0), end: telem.TimeStamp.seconds(100000) },
+        timeRange: {
+          start: telem.TimeStamp.seconds(0),
+          end: telem.TimeStamp.seconds(100000),
+        },
         responseType: "csv",
       });
       const records = await streamToRecords(stream);
@@ -474,7 +499,10 @@ describe("Reader", () => {
       await writer.close();
       const stream = await client.read({
         channels: [data.key],
-        timeRange: { start: telem.TimeStamp.nanoseconds(3), end: telem.TimeStamp.nanoseconds(103) },
+        timeRange: {
+          start: telem.TimeStamp.nanoseconds(3),
+          end: telem.TimeStamp.nanoseconds(103),
+        },
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
@@ -543,7 +571,10 @@ describe("Reader", () => {
       await writer2.close();
       const stream = await client.read({
         channels: [data1.key, data2.key],
-        timeRange: { start: telem.TimeStamp.nanoseconds(0), end: telem.TimeStamp.nanoseconds(19) },
+        timeRange: {
+          start: telem.TimeStamp.nanoseconds(0),
+          end: telem.TimeStamp.nanoseconds(19),
+        },
         responseType: "csv",
       });
       const rows = await streamToRecords(stream);
@@ -597,7 +628,9 @@ describe("Reader", () => {
         }
 
         // Different base times and intervals to create interleaving
-        const baseTime = telem.TimeStamp.seconds(1000).add(telem.TimeSpan.milliseconds(g * 7));
+        const baseTime = telem.TimeStamp.seconds(1000).add(
+          telem.TimeSpan.milliseconds(g * 7),
+        );
         const intervalMs = 10 + g * 3; // 10ms, 13ms, 16ms, 19ms intervals
 
         groups.push({

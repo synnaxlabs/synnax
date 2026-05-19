@@ -32,7 +32,10 @@ export interface ConfigProps
 }
 
 const [Context, useConfig] = context.create<ContextValue>({
-  defaultValue: { delay: telem.TimeSpan.milliseconds(750), startAccelerating: () => {} },
+  defaultValue: {
+    delay: telem.TimeSpan.milliseconds(750),
+    startAccelerating: () => {},
+  },
   displayName: "Tooltip.Context",
 });
 export { useConfig };

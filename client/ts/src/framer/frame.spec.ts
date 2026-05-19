@@ -79,7 +79,9 @@ describe("framer.Frame", () => {
         it("should correctly parse a series payload", () => {
           const f = new framer.Frame({
             keys: [12],
-            series: [{ dataType: new telem.DataType("float32"), data: new ArrayBuffer(12) }],
+            series: [
+              { dataType: new telem.DataType("float32"), data: new ArrayBuffer(12) },
+            ],
           });
           expect(f.length.valueOf()).toEqual(3);
           expect(f.columns.length).toEqual(1);

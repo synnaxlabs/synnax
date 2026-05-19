@@ -106,19 +106,35 @@ describe("convertSeriesToSupportedGL", () => {
 
 describe("resolveGLDataType", () => {
   it("returns variable data types unchanged", () => {
-    expect(resolveGLDataType(telem.DataType.STRING).equals(telem.DataType.STRING)).toBe(true);
-    expect(resolveGLDataType(telem.DataType.JSON).equals(telem.DataType.JSON)).toBe(true);
+    expect(resolveGLDataType(telem.DataType.STRING).equals(telem.DataType.STRING)).toBe(
+      true,
+    );
+    expect(resolveGLDataType(telem.DataType.JSON).equals(telem.DataType.JSON)).toBe(
+      true,
+    );
   });
 
   it("returns UINT8 unchanged", () => {
-    expect(resolveGLDataType(telem.DataType.UINT8).equals(telem.DataType.UINT8)).toBe(true);
+    expect(resolveGLDataType(telem.DataType.UINT8).equals(telem.DataType.UINT8)).toBe(
+      true,
+    );
   });
 
   it("returns FLOAT32 for any other fixed-density data type", () => {
-    expect(resolveGLDataType(telem.DataType.FLOAT64).equals(telem.DataType.FLOAT32)).toBe(true);
-    expect(resolveGLDataType(telem.DataType.INT64).equals(telem.DataType.FLOAT32)).toBe(true);
-    expect(resolveGLDataType(telem.DataType.UINT64).equals(telem.DataType.FLOAT32)).toBe(true);
-    expect(resolveGLDataType(telem.DataType.TIMESTAMP).equals(telem.DataType.FLOAT32)).toBe(true);
-    expect(resolveGLDataType(telem.DataType.INT32).equals(telem.DataType.FLOAT32)).toBe(true);
+    expect(
+      resolveGLDataType(telem.DataType.FLOAT64).equals(telem.DataType.FLOAT32),
+    ).toBe(true);
+    expect(resolveGLDataType(telem.DataType.INT64).equals(telem.DataType.FLOAT32)).toBe(
+      true,
+    );
+    expect(
+      resolveGLDataType(telem.DataType.UINT64).equals(telem.DataType.FLOAT32),
+    ).toBe(true);
+    expect(
+      resolveGLDataType(telem.DataType.TIMESTAMP).equals(telem.DataType.FLOAT32),
+    ).toBe(true);
+    expect(resolveGLDataType(telem.DataType.INT32).equals(telem.DataType.FLOAT32)).toBe(
+      true,
+    );
   });
 });

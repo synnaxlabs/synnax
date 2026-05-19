@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker } from "@synnaxlabs/x/breaker"
-import { observe} from "@synnaxlabs/x/observe"
-import {telem } from "@synnaxlabs/x/telem";
+import { breaker } from "@synnaxlabs/x/breaker";
+import { observe } from "@synnaxlabs/x/observe";
+import { telem } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type channel } from "@/channel";

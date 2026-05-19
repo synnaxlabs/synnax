@@ -725,7 +725,9 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: telem.TimeStamp.now().spanRange(telem.TimeSpan.hours(1)),
       });
-      const childTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(30));
+      const childTimeRange = telem.TimeStamp.now().spanRange(
+        telem.TimeSpan.minutes(30),
+      );
 
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
@@ -989,7 +991,9 @@ describe("queries", () => {
         wrapper,
       });
 
-      const complexTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(45));
+      const complexTimeRange = telem.TimeStamp.now().spanRange(
+        telem.TimeSpan.minutes(45),
+      );
 
       act(() => {
         result.current.form.set("name", "complexRange");
@@ -1011,7 +1015,9 @@ describe("queries", () => {
     });
 
     it("should handle time range modifications", async () => {
-      const initialTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(10));
+      const initialTimeRange = telem.TimeStamp.now().spanRange(
+        telem.TimeSpan.minutes(10),
+      );
       const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
         wrapper,
       });
@@ -1026,7 +1032,9 @@ describe("queries", () => {
         expect(result.current.form.value().timeRange).toEqual(initialTimeRange.numeric);
       });
 
-      const modifiedTimeRange = telem.TimeStamp.now().spanRange(telem.TimeSpan.minutes(20));
+      const modifiedTimeRange = telem.TimeStamp.now().spanRange(
+        telem.TimeSpan.minutes(20),
+      );
       act(() => {
         result.current.form.set("timeRange", modifiedTimeRange.numeric);
         result.current.save({ signal: controller.signal });

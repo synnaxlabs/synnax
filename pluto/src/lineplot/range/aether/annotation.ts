@@ -15,7 +15,10 @@ import { z } from "zod";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const annotationStateZ = z.object({ start: telem.TimeStamp.z, end: telem.TimeStamp.z });
+export const annotationStateZ = z.object({
+  start: telem.TimeStamp.z,
+  end: telem.TimeStamp.z,
+});
 
 interface InternalState {
   render: render.Context;

@@ -23,6 +23,7 @@ export default defineConfig({
   ],
   build: {
     lib: {
+      formats: ["es"],
       entry: {
         access: path.resolve(".", "src/access/index.ts"),
         alamos: path.resolve(".", "src/alamos/index.ts"),

@@ -28,7 +28,9 @@ describe("TimeStamp", () => {
   });
   it("should render timestamp with time format", () => {
     const ts = new telem.TimeStamp(
-      telem.TimeSpan.hours(12).add(telem.TimeSpan.minutes(30)).add(telem.TimeSpan.seconds(45)),
+      telem.TimeSpan.hours(12)
+        .add(telem.TimeSpan.minutes(30))
+        .add(telem.TimeSpan.seconds(45)),
       "UTC",
     );
     const c = render(

@@ -107,7 +107,9 @@ export class Dynamic {
     const responses = series.series.flatMap((s) => this._write(s));
     return {
       flushed: new telem.MultiSeries(responses.flatMap((res) => res.flushed.series)),
-      allocated: new telem.MultiSeries(responses.flatMap((res) => res.allocated.series)),
+      allocated: new telem.MultiSeries(
+        responses.flatMap((res) => res.allocated.series),
+      ),
     };
   }
 

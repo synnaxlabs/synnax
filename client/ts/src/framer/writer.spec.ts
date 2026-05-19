@@ -41,7 +41,10 @@ describe("Writer", () => {
 
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
-      const writer = await client.openWriter({ start: telem.TimeStamp.now(), channels });
+      const writer = await client.openWriter({
+        start: telem.TimeStamp.now(),
+        channels,
+      });
       await expect(
         writer.write("nonexistent_channel", randomSeries(10, telem.DataType.FLOAT64)),
       ).rejects.toThrow('Channel "nonexistent_channel" not found');

@@ -11,8 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import { primitive } from "@/primitive";
-import {
-  telem } from "@/telem";
+import { telem } from "@/telem";
 
 describe("TimeStamp", () => {
   test("construct", () => {
@@ -61,22 +60,32 @@ describe("TimeStamp", () => {
 
   test("construct from local TimeZone", () => {
     const ts = new telem.TimeStamp(telem.TimeSpan.microseconds(10), "local");
-    expect(ts.equals(telem.TimeSpan.microseconds(10).add(telem.TimeStamp.utcOffset))).toBe(true);
+    expect(
+      ts.equals(telem.TimeSpan.microseconds(10).add(telem.TimeStamp.utcOffset)),
+    ).toBe(true);
   });
 
   test("constructing from MIN and MAX as numbers", () => {
-    expect(new telem.TimeStamp(telem.TimeStamp.MIN.nanoseconds).equals(telem.TimeStamp.MIN)).toBe(true);
-    expect(new telem.TimeStamp(telem.TimeStamp.MAX.nanoseconds).equals(telem.TimeStamp.MAX)).toBe(true);
+    expect(
+      new telem.TimeStamp(telem.TimeStamp.MIN.nanoseconds).equals(telem.TimeStamp.MIN),
+    ).toBe(true);
+    expect(
+      new telem.TimeStamp(telem.TimeStamp.MAX.nanoseconds).equals(telem.TimeStamp.MAX),
+    ).toBe(true);
   });
 
   test("construct from time string", () => {
     const ts = new telem.TimeStamp("12:30", "UTC");
     expect(ts.date().getUTCHours()).toEqual(12);
-    expect(ts.equals(telem.TimeSpan.hours(12).add(telem.TimeSpan.minutes(30)))).toBe(true);
+    expect(ts.equals(telem.TimeSpan.hours(12).add(telem.TimeSpan.minutes(30)))).toBe(
+      true,
+    );
     const ts2 = new telem.TimeStamp("12:30:00.22");
     expect(
       ts2.equals(
-        telem.TimeSpan.hours(12).add(telem.TimeSpan.minutes(30).add(telem.TimeSpan.milliseconds(22))),
+        telem.TimeSpan.hours(12).add(
+          telem.TimeSpan.minutes(30).add(telem.TimeSpan.milliseconds(22)),
+        ),
       ),
     ).toBe(true);
     const ts3 = new telem.TimeStamp("12:30:00.22", "local");
@@ -332,7 +341,9 @@ describe("TimeStamp", () => {
 
     it("should handle comparison with complex TimeSpan arithmetic", () => {
       const ts = new telem.TimeStamp(
-        telem.TimeSpan.hours(1).add(telem.TimeSpan.minutes(30)).add(telem.TimeSpan.seconds(45)),
+        telem.TimeSpan.hours(1)
+          .add(telem.TimeSpan.minutes(30))
+          .add(telem.TimeSpan.seconds(45)),
       );
       const equivalentSpan = telem.TimeSpan.seconds(5445); // 1h 30m 45s = 5445s
       expect(ts.equals(equivalentSpan)).toBe(true);
@@ -413,13 +424,17 @@ describe("TimeStamp", () => {
 
   test("span", () => {
     const ts = new telem.TimeStamp(0);
-    expect(ts.span(new telem.TimeStamp(1000)).equals(telem.TimeSpan.microseconds())).toBe(true);
+    expect(
+      ts.span(new telem.TimeStamp(1000)).equals(telem.TimeSpan.microseconds()),
+    ).toBe(true);
   });
 
   test("range", () => {
     const ts = new telem.TimeStamp(0);
     expect(
-      ts.range(new telem.TimeStamp(1000)).equals(new telem.TimeRange(ts, telem.TimeSpan.microseconds())),
+      ts
+        .range(new telem.TimeStamp(1000))
+        .equals(new telem.TimeRange(ts, telem.TimeSpan.microseconds())),
     ).toBe(true);
   });
 
@@ -472,13 +487,17 @@ describe("TimeStamp", () => {
   test("add", () => {
     const ts = new telem.TimeStamp(0);
     expect(
-      ts.add(telem.TimeSpan.microseconds()).equals(new telem.TimeStamp(telem.TimeSpan.microseconds(1))),
+      ts
+        .add(telem.TimeSpan.microseconds())
+        .equals(new telem.TimeStamp(telem.TimeSpan.microseconds(1))),
     ).toBe(true);
   });
 
   test("sub", () => {
     const ts = new telem.TimeStamp(telem.TimeSpan.microseconds());
-    expect(ts.sub(telem.TimeSpan.microseconds()).equals(new telem.TimeStamp(0))).toBe(true);
+    expect(ts.sub(telem.TimeSpan.microseconds()).equals(new telem.TimeStamp(0))).toBe(
+      true,
+    );
   });
 
   describe("arithmetic operations", () => {
@@ -554,35 +573,46 @@ describe("TimeStamp", () => {
       expect(telem.TimeStamp.hours(1).add(telem.TimeSpan.minutes(30)).hour).toEqual(1);
     });
     test("hours", () => {
-      expect(telem.TimeStamp.hours(1).add(telem.TimeSpan.minutes(30)).hours).toEqual(1.5);
-    });
-    test("minute", () => {
-      expect(telem.TimeStamp.minutes(1).add(telem.TimeStamp.seconds(20)).minute).toEqual(1);
-    });
-    test("minutes", () => {
-      expect(telem.TimeStamp.minutes(1).add(telem.TimeStamp.seconds(30)).minutes).toEqual(1.5);
-    });
-    test("second", () => {
-      expect(telem.TimeStamp.seconds(1).add(telem.TimeStamp.milliseconds(20)).second).toEqual(1);
-    });
-    test("seconds", () => {
-      expect(telem.TimeStamp.seconds(1).add(telem.TimeStamp.milliseconds(500)).seconds).toEqual(
+      expect(telem.TimeStamp.hours(1).add(telem.TimeSpan.minutes(30)).hours).toEqual(
         1.5,
       );
     });
+    test("minute", () => {
+      expect(
+        telem.TimeStamp.minutes(1).add(telem.TimeStamp.seconds(20)).minute,
+      ).toEqual(1);
+    });
+    test("minutes", () => {
+      expect(
+        telem.TimeStamp.minutes(1).add(telem.TimeStamp.seconds(30)).minutes,
+      ).toEqual(1.5);
+    });
+    test("second", () => {
+      expect(
+        telem.TimeStamp.seconds(1).add(telem.TimeStamp.milliseconds(20)).second,
+      ).toEqual(1);
+    });
+    test("seconds", () => {
+      expect(
+        telem.TimeStamp.seconds(1).add(telem.TimeStamp.milliseconds(500)).seconds,
+      ).toEqual(1.5);
+    });
     test("millisecond", () => {
       expect(
-        telem.TimeStamp.milliseconds(1).add(telem.TimeStamp.microseconds(20)).millisecond,
+        telem.TimeStamp.milliseconds(1).add(telem.TimeStamp.microseconds(20))
+          .millisecond,
       ).toEqual(1);
     });
     test("milliseconds", () => {
       expect(
-        telem.TimeStamp.milliseconds(1).add(telem.TimeStamp.microseconds(500)).milliseconds,
+        telem.TimeStamp.milliseconds(1).add(telem.TimeStamp.microseconds(500))
+          .milliseconds,
       ).toEqual(1.5);
     });
     test("microseconds", () => {
       expect(
-        telem.TimeStamp.microseconds(500).add(telem.TimeSpan.nanoseconds(20)).microseconds,
+        telem.TimeStamp.microseconds(500).add(telem.TimeSpan.nanoseconds(20))
+          .microseconds,
       ).toEqual(500.02);
     });
     test("nanoseconds", () => {
@@ -1130,8 +1160,16 @@ describe("TimeSpan", () => {
   });
 
   const TRUNCATE_TESTS = [
-    [telem.TimeSpan.days(1).add(telem.TimeSpan.nanoseconds(50)), telem.TimeSpan.DAY, telem.TimeSpan.days(1)],
-    [telem.TimeSpan.hours(1).add(telem.TimeSpan.minutes(30)), telem.TimeSpan.HOUR, telem.TimeSpan.hours(1)],
+    [
+      telem.TimeSpan.days(1).add(telem.TimeSpan.nanoseconds(50)),
+      telem.TimeSpan.DAY,
+      telem.TimeSpan.days(1),
+    ],
+    [
+      telem.TimeSpan.hours(1).add(telem.TimeSpan.minutes(30)),
+      telem.TimeSpan.HOUR,
+      telem.TimeSpan.hours(1),
+    ],
   ];
 
   test("truncate", () => {
@@ -1149,7 +1187,11 @@ describe("TimeSpan", () => {
       telem.TimeSpan.DAY,
       telem.TimeSpan.nanoseconds(50),
     ],
-    [telem.TimeSpan.hours(1).add(telem.TimeSpan.minutes(30)), telem.TimeSpan.HOUR, telem.TimeSpan.minutes(30)],
+    [
+      telem.TimeSpan.hours(1).add(telem.TimeSpan.minutes(30)),
+      telem.TimeSpan.HOUR,
+      telem.TimeSpan.minutes(30),
+    ],
   ];
 
   test("remainder", () => {
@@ -1307,7 +1349,9 @@ describe("TimeSpan", () => {
     });
 
     test("toString with full format", () => {
-      const ts = telem.TimeSpan.hours(25).add(telem.TimeSpan.minutes(30)).add(telem.TimeSpan.seconds(15));
+      const ts = telem.TimeSpan.hours(25)
+        .add(telem.TimeSpan.minutes(30))
+        .add(telem.TimeSpan.seconds(15));
       expect(ts.toString("full")).toEqual("1d 1h 30m 15s");
     });
   });
@@ -1387,23 +1431,30 @@ describe("TimeSpan", () => {
 describe("Rate", () => {
   test("construct", () => expect(new telem.Rate(1).equals(1)).toBe(true));
 
-  test("period", () => expect(new telem.Rate(1).period.equals(telem.TimeSpan.SECOND)).toBe(true));
+  test("period", () =>
+    expect(new telem.Rate(1).period.equals(telem.TimeSpan.SECOND)).toBe(true));
 
   test("period", () =>
-    expect(new telem.Rate(2).period.equals(telem.TimeSpan.milliseconds(500))).toBe(true));
+    expect(new telem.Rate(2).period.equals(telem.TimeSpan.milliseconds(500))).toBe(
+      true,
+    ));
 
   test("sampleCount", () =>
     expect(new telem.Rate(1).sampleCount(telem.TimeSpan.SECOND)).toEqual(1));
 
   test("byteCount", () =>
-    expect(new telem.Rate(1).byteCount(telem.TimeSpan.SECOND, telem.Density.BIT64)).toEqual(8));
+    expect(
+      new telem.Rate(1).byteCount(telem.TimeSpan.SECOND, telem.Density.BIT64),
+    ).toEqual(8));
 
   test("span", () =>
     expect(new telem.Rate(1).span(4).equals(telem.TimeSpan.seconds(4))).toBe(true));
 
   test("byteSpan", () =>
     expect(
-      new telem.Rate(1).byteSpan(new telem.Size(32), telem.Density.BIT64).equals(telem.TimeSpan.seconds(4)),
+      new telem.Rate(1)
+        .byteSpan(new telem.Size(32), telem.Density.BIT64)
+        .equals(telem.TimeSpan.seconds(4)),
     ).toBe(true));
 
   test("Hz", () => expect(telem.Rate.hz(1).equals(1)).toBe(true));
@@ -1551,9 +1602,11 @@ describe("TimeRange", () => {
 
   test("swap", () => {
     const tr = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(1000));
-    expect(tr.swap().equals(new telem.TimeRange(new telem.TimeStamp(1000), new telem.TimeStamp(0)))).toBe(
-      true,
-    );
+    expect(
+      tr
+        .swap()
+        .equals(new telem.TimeRange(new telem.TimeStamp(1000), new telem.TimeStamp(0))),
+    ).toBe(true);
   });
   describe("contains", () => {
     test("TimeStamp", () => {
@@ -1563,35 +1616,51 @@ describe("TimeRange", () => {
     });
     test("TimeRange", () => {
       const tr = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(1000));
-      expect(tr.contains(new telem.TimeRange(new telem.TimeStamp(500), new telem.TimeStamp(600)))).toBe(
-        true,
-      );
-      expect(tr.contains(new telem.TimeRange(new telem.TimeStamp(500), new telem.TimeStamp(1001)))).toBe(
-        false,
-      );
+      expect(
+        tr.contains(
+          new telem.TimeRange(new telem.TimeStamp(500), new telem.TimeStamp(600)),
+        ),
+      ).toBe(true);
+      expect(
+        tr.contains(
+          new telem.TimeRange(new telem.TimeStamp(500), new telem.TimeStamp(1001)),
+        ),
+      ).toBe(false);
     });
   });
   describe("overlapsWith", () => {
     it("should return true if the end of one time range is after the start of the next time range", () => {
       const tr = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(1000));
-      const one = new telem.TimeRange(new telem.TimeStamp(500), new telem.TimeStamp(600));
+      const one = new telem.TimeRange(
+        new telem.TimeStamp(500),
+        new telem.TimeStamp(600),
+      );
       expect(tr.overlapsWith(one)).toBe(true);
       expect(one.overlapsWith(tr)).toBe(true);
     });
     it("should return false if two time ranges are clearly separate", () => {
       const tr = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(1000));
-      const one = new telem.TimeRange(new telem.TimeStamp(1001), new telem.TimeStamp(2000));
+      const one = new telem.TimeRange(
+        new telem.TimeStamp(1001),
+        new telem.TimeStamp(2000),
+      );
       expect(tr.overlapsWith(one)).toBe(false);
       expect(one.overlapsWith(tr)).toBe(false);
     });
     it("should return false if the end of the first time range is the start of the next time range", () => {
       const tr = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(1000));
-      const one = new telem.TimeRange(new telem.TimeStamp(1000), new telem.TimeStamp(2000));
+      const one = new telem.TimeRange(
+        new telem.TimeStamp(1000),
+        new telem.TimeStamp(2000),
+      );
       expect(tr.overlapsWith(one)).toBe(false);
       expect(one.overlapsWith(tr)).toBe(false);
     });
     it("should return true only if the overlap is within a threshold", () => {
-      const tr = new telem.TimeRange(telem.TimeStamp.milliseconds(0), telem.TimeStamp.milliseconds(1000));
+      const tr = new telem.TimeRange(
+        telem.TimeStamp.milliseconds(0),
+        telem.TimeStamp.milliseconds(1000),
+      );
       const one = new telem.TimeRange(
         telem.TimeStamp.milliseconds(998),
         telem.TimeStamp.milliseconds(2000),
@@ -1608,24 +1677,45 @@ describe("TimeRange", () => {
 
   describe("boundBy", () => {
     it("should bound the time range to the provided constraints", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(4));
-      const bound = new telem.TimeRange(telem.TimeSpan.seconds(2), telem.TimeSpan.seconds(3));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(4),
+      );
+      const bound = new telem.TimeRange(
+        telem.TimeSpan.seconds(2),
+        telem.TimeSpan.seconds(3),
+      );
       const bounded = tr.boundBy(bound);
-      const expected = new telem.TimeRange(telem.TimeSpan.seconds(2), telem.TimeSpan.seconds(3));
+      const expected = new telem.TimeRange(
+        telem.TimeSpan.seconds(2),
+        telem.TimeSpan.seconds(3),
+      );
       expect(bounded.equals(expected)).toBe(true);
     });
     it("should bound the time range even if the start is after the end", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.seconds(4), telem.TimeSpan.seconds(1));
-      const bound = new telem.TimeRange(telem.TimeSpan.seconds(2), telem.TimeSpan.seconds(3));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.seconds(4),
+        telem.TimeSpan.seconds(1),
+      );
+      const bound = new telem.TimeRange(
+        telem.TimeSpan.seconds(2),
+        telem.TimeSpan.seconds(3),
+      );
       const bounded = tr.boundBy(bound);
-      const expected = new telem.TimeRange(telem.TimeSpan.seconds(3), telem.TimeSpan.seconds(2));
+      const expected = new telem.TimeRange(
+        telem.TimeSpan.seconds(3),
+        telem.TimeSpan.seconds(2),
+      );
       expect(bounded.equals(expected)).toBe(true);
     });
   });
 
   describe("roughlyEquals", () => {
     it("should return true if the two time ranges are within the provided threshold", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(4));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(4),
+      );
       const one = new telem.TimeRange(
         telem.TimeSpan.seconds(1),
         telem.TimeSpan.seconds(4).add(telem.TimeSpan.milliseconds(500)),
@@ -1679,7 +1769,10 @@ describe("TimeRange", () => {
         new telem.TimeRange(telem.TimeSpan.seconds(3), telem.TimeSpan.seconds(5)),
         new telem.TimeRange(telem.TimeSpan.seconds(6), telem.TimeSpan.seconds(7)),
       ];
-      const expected = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(7));
+      const expected = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(7),
+      );
       const merged = telem.TimeRange.merge(...trs);
       expect(merged).toEqual(expected);
     });
@@ -1688,7 +1781,10 @@ describe("TimeRange", () => {
         new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(4)),
         new telem.TimeRange(telem.TimeSpan.seconds(4), telem.TimeSpan.seconds(5)),
       ];
-      const expected = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(5));
+      const expected = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(5),
+      );
       const merged = telem.TimeRange.merge(...trs);
       expect(merged).toEqual(expected);
     });
@@ -1697,7 +1793,10 @@ describe("TimeRange", () => {
         new telem.TimeRange(telem.TimeSpan.seconds(4), telem.TimeSpan.seconds(1)),
         new telem.TimeRange(telem.TimeSpan.seconds(2), telem.TimeSpan.seconds(3)),
       ];
-      const expected = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(4));
+      const expected = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(4),
+      );
       const merged = telem.TimeRange.merge(...trs);
       expect(merged).toEqual(expected);
     });
@@ -1710,14 +1809,20 @@ describe("TimeRange", () => {
   });
   describe("numericBounds", () => {
     it("should return correct numeric bounds for a valid time range", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.seconds(1), telem.TimeSpan.seconds(4));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.seconds(1),
+        telem.TimeSpan.seconds(4),
+      );
       const bounds = tr.numericBounds;
       expect(bounds.lower).toBe(tr.start.nanoseconds);
       expect(bounds.upper).toBe(tr.end.nanoseconds);
     });
 
     it("should return correct numeric bounds for an invalid time range", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.seconds(4), telem.TimeSpan.seconds(1));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.seconds(4),
+        telem.TimeSpan.seconds(1),
+      );
       const bounds = tr.numericBounds;
       expect(bounds.lower).toBe(tr.start.nanoseconds);
       expect(bounds.upper).toBe(tr.end.nanoseconds);
@@ -1731,7 +1836,10 @@ describe("TimeRange", () => {
     });
 
     it("should handle large time values", () => {
-      const tr = new telem.TimeRange(telem.TimeSpan.days(365), telem.TimeSpan.days(730));
+      const tr = new telem.TimeRange(
+        telem.TimeSpan.days(365),
+        telem.TimeSpan.days(730),
+      );
       const bounds = tr.numericBounds;
       expect(bounds.lower).toBe(tr.start.nanoseconds);
       expect(bounds.upper).toBe(tr.end.nanoseconds);
@@ -1750,7 +1858,10 @@ describe("TimeRange", () => {
     });
 
     it("should pass through existing TimeRange instance", () => {
-      const original = new telem.TimeRange(new telem.TimeStamp(1000), new telem.TimeStamp(2000));
+      const original = new telem.TimeRange(
+        new telem.TimeStamp(1000),
+        new telem.TimeStamp(2000),
+      );
       const tr = telem.TimeRange.z.parse(original);
       expect(tr).toStrictEqual(original);
       expect(tr.start.valueOf()).toBe(1000n);
@@ -1792,7 +1903,10 @@ describe("TimeRange", () => {
 
   describe("hash", () => {
     it("composes the start and end hashes with a dash", () => {
-      const tr = new telem.TimeRange(new telem.TimeStamp(100n), new telem.TimeStamp(200n));
+      const tr = new telem.TimeRange(
+        new telem.TimeStamp(100n),
+        new telem.TimeStamp(200n),
+      );
       expect(tr.hash()).toBe("100-200");
     });
 
@@ -1803,7 +1917,10 @@ describe("TimeRange", () => {
     });
 
     it("differs when start or end differs", () => {
-      const base = new telem.TimeRange(new telem.TimeStamp(1n), new telem.TimeStamp(2n));
+      const base = new telem.TimeRange(
+        new telem.TimeStamp(1n),
+        new telem.TimeStamp(2n),
+      );
       expect(base.hash()).not.toBe(
         new telem.TimeRange(new telem.TimeStamp(1n), new telem.TimeStamp(3n)).hash(),
       );
@@ -2095,7 +2212,9 @@ describe("DataType", () => {
     });
 
     it("is stable across instances representing the same data type", () => {
-      expect(new telem.DataType("uint8").hash()).toBe(new telem.DataType("uint8").hash());
+      expect(new telem.DataType("uint8").hash()).toBe(
+        new telem.DataType("uint8").hash(),
+      );
     });
 
     it("differs across distinct data types", () => {
@@ -2141,10 +2260,20 @@ describe("Size", () => {
   });
 
   const TRUNCATE_TESTS = [
-    [telem.Size.bytes(1).add(telem.Size.kilobytes(1)), telem.Size.KILOBYTE, telem.Size.kilobytes(1)],
-    [telem.Size.megabytes(100).add(telem.Size.kilobytes(500)), telem.Size.MEGABYTE, telem.Size.megabytes(100)],
     [
-      telem.Size.gigabytes(1).add(telem.Size.megabytes(500)).add(telem.Size.kilobytes(500)),
+      telem.Size.bytes(1).add(telem.Size.kilobytes(1)),
+      telem.Size.KILOBYTE,
+      telem.Size.kilobytes(1),
+    ],
+    [
+      telem.Size.megabytes(100).add(telem.Size.kilobytes(500)),
+      telem.Size.MEGABYTE,
+      telem.Size.megabytes(100),
+    ],
+    [
+      telem.Size.gigabytes(1)
+        .add(telem.Size.megabytes(500))
+        .add(telem.Size.kilobytes(500)),
       telem.Size.MEGABYTE,
       telem.Size.gigabytes(1).add(telem.Size.megabytes(500)),
     ],
@@ -2252,24 +2381,44 @@ describe("convertDataType", () => {
   it("preserves precision when subtracting a bigint offset above 2^53 (INT64 -> FLOAT32)", () => {
     const offset = 1778020940471336960n;
     const value = 1778020940471336960n + 137438953472n;
-    const result = telem.convertDataType(telem.DataType.INT64, telem.DataType.FLOAT32, value, offset);
+    const result = telem.convertDataType(
+      telem.DataType.INT64,
+      telem.DataType.FLOAT32,
+      value,
+      offset,
+    );
     expect(result).toBe(137438953472);
   });
 
   it("preserves precision when subtracting a bigint offset above 2^53 (TIMESTAMP -> FLOAT32)", () => {
     const offset = 1778020940471336960n;
     const value = 1778020940471336960n + 1n;
-    const result = telem.convertDataType(telem.DataType.TIMESTAMP, telem.DataType.FLOAT32, value, offset);
+    const result = telem.convertDataType(
+      telem.DataType.TIMESTAMP,
+      telem.DataType.FLOAT32,
+      value,
+      offset,
+    );
     expect(result).toBe(1);
   });
 
   it("returns a bigint when target uses bigint and source does not", () => {
-    const result = telem.convertDataType(telem.DataType.FLOAT32, telem.DataType.INT64, 100, 10);
+    const result = telem.convertDataType(
+      telem.DataType.FLOAT32,
+      telem.DataType.INT64,
+      100,
+      10,
+    );
     expect(result).toBe(90n);
   });
 
   it("falls back to math.sub when neither source nor target use bigint", () => {
-    const result = telem.convertDataType(telem.DataType.FLOAT32, telem.DataType.FLOAT64, 5.5, 1.5);
+    const result = telem.convertDataType(
+      telem.DataType.FLOAT32,
+      telem.DataType.FLOAT64,
+      5.5,
+      1.5,
+    );
     expect(result).toBe(4);
   });
 });

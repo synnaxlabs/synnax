@@ -67,7 +67,10 @@ class TimeTickFactory implements TickFactory {
     this.normalScale = scaleTime();
     this.preciseScale = preciseTimeScale();
     this.prevScaleSize = 0;
-    this.prevDomain = new telem.TimeRange(new telem.TimeStamp(0), new telem.TimeStamp(0));
+    this.prevDomain = new telem.TimeRange(
+      new telem.TimeStamp(0),
+      new telem.TimeStamp(0),
+    );
     this.currTicks = [];
   }
 

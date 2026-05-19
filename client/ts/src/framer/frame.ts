@@ -17,7 +17,10 @@ import { UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
 
-export interface Digest extends Record<channel.Key | channel.Name, telem.SeriesDigest[]> {}
+export interface Digest extends Record<
+  channel.Key | channel.Name,
+  telem.SeriesDigest[]
+> {}
 
 const columnType = (columns: channel.PrimitiveParams): ColumnType => {
   const arrKeys = array.toArray(columns);
@@ -374,7 +377,9 @@ export class Frame {
    *
    * @param fn a function that takes a channel key and series.
    */
-  forEach(fn: (k: channel.Key | channel.Name, arr: telem.Series, i: number) => void): void {
+  forEach(
+    fn: (k: channel.Key | channel.Name, arr: telem.Series, i: number) => void,
+  ): void {
     this.columns.forEach((k, i) => {
       const a = this.series[i];
       fn(k, a, i);
@@ -391,7 +396,10 @@ export class Frame {
     this.uniqueColumns.forEach((k, i) => fn(k, this.get(k), i));
   }
 
-  at(index: number, required: true): Record<channel.Key | channel.Name, telem.TelemValue>;
+  at(
+    index: number,
+    required: true,
+  ): Record<channel.Key | channel.Name, telem.TelemValue>;
 
   at(
     index: number,
@@ -427,7 +435,9 @@ export class Frame {
 
   /** @returns the total number of bytes in the frame. */
   get byteLength(): telem.Size {
-    return new telem.Size(this.series.reduce((acc, v) => acc.add(v.byteLength), telem.Size.ZERO));
+    return new telem.Size(
+      this.series.reduce((acc, v) => acc.add(v.byteLength), telem.Size.ZERO),
+    );
   }
 
   /**
@@ -478,7 +488,13 @@ export interface CrudePayload extends z.input<typeof frameZ> {}
 
 export const seriesFromPayload = (series: telem.SeriesPayload): telem.Series => {
   const { dataType, data, timeRange, alignment } = series;
-  return new telem.Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
+  return new telem.Series({
+    data,
+    dataType,
+    timeRange,
+    glBufferUsage: "static",
+    alignment,
+  });
 };
 
 export const seriesToPayload = (series: telem.Series): telem.SeriesPayload => ({
