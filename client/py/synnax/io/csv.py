@@ -119,10 +119,10 @@ class CSVReader(CSVMatcher):  # type: ignore
         self.chunk_size = chunk_size
 
     def read(self) -> pd.DataFrame:
-        return convert_df(next(self._ensure_reader()))
+        return convert_df(next(self._reader))
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
-        return CSVReaderIterator(self._ensure_reader())
+        return CSVReaderIterator(self._reader)
 
     @classmethod
     def type(cls) -> ReaderType:

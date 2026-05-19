@@ -62,9 +62,7 @@ class TestEnvelope:
 
     def test_rejects_non_zero_minor(self) -> None:
         with pytest.raises(ValueError, match="only N.0.0"):
-            Envelope.model_validate_json(
-                '{"version":"1.2.3","type":"log","name":"n"}'
-            )
+            Envelope.model_validate_json('{"version":"1.2.3","type":"log","name":"n"}')
 
     def test_rejects_malformed_semver(self) -> None:
         with pytest.raises(ValueError, match="expected N.0.0"):
@@ -126,4 +124,3 @@ class TestImex:
         assert client.imex.export(ID(type="log", key=key), dest=out) is None
         parsed = Envelope.model_validate_json(out.read_bytes())
         assert parsed.name == name and parsed.type == "log"
-

@@ -93,7 +93,7 @@ class _InternalScopedChannel(channel.Payload):
 
     @property
     def time_range(self) -> TimeRange:
-        return self._get_range().time_range
+        return self._range.time_range
 
     def __array__(self, *args: Any, **kwargs: Any) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
@@ -121,7 +121,7 @@ class _InternalScopedChannel(channel.Payload):
         return self._cache
 
     def set_alias(self, alias: str) -> None:
-        self._get_range().set_alias(self.key, alias)
+        self._range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
         return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
@@ -306,7 +306,7 @@ class Range(Payload):
         except AttributeError:
             pass
         channels = self._channel_retriever.retrieve(query)
-        aliases = self._get_aliaser().resolve([query])
+        aliases = self._aliaser.resolve([query])
         channels.extend(self._channel_retriever.retrieve(list(aliases.values())))
         return self._get_scoped_channel(channels, query)
 
@@ -325,10 +325,10 @@ class Range(Payload):
             if cached is None:
                 cached = _InternalScopedChannel(
                     rng=self,
-                    frame_client=self._get_frame_client(),
+                    frame_client=self._frame_client,
                     payload=pld,
-                    tasks=self._get_tasks(),
-                    ontology=self._get_ontology(),
+                    tasks=self._tasks,
+                    ontology=self._ontology,
                 )
                 self._cache[pld.key] = cached
             results.append(cached)
@@ -404,7 +404,7 @@ class Range(Payload):
                 corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
-        self._get_aliaser().set(corrected)
+        self._aliaser.set(corrected)
 
     def to_payload(self) -> Payload:
         return Payload(name=self.name, time_range=self.time_range, key=self.key)
@@ -424,13 +424,13 @@ class Range(Payload):
     ) -> None:
         start = self.time_range.start
         if series is None:
-            self._get_frame_client().write(start, cast(framer.CrudeFrame, channels))
+            self._frame_client.write(start, cast(framer.CrudeFrame, channels))
             return
         if not isinstance(channels, (int, str, list, tuple, channel.Payload)):
             raise TypeError(
                 "channels must be a channel key, name, or list when series is provided"
             )
-        self._get_frame_client().write(start, channels, series)
+        self._frame_client.write(start, channels, series)
 
     def create_child_range(
         self,
@@ -440,7 +440,7 @@ class Range(Payload):
         color: str = "",
         key: Key = UUID(int=0),
     ) -> Range:
-        return self._get_client().create(
+        return self._client.create(
             name=name,
             time_range=time_range,
             color=color,
@@ -476,19 +476,19 @@ class Range(Payload):
     @property
     def children(self) -> list[Range]:
         """Returns a list of child ranges of this range."""
-        res = self._get_ontology().retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.ontology_id)
         range_children = [r for r in res if r.id.type == "range"]
         if len(range_children) == 0:
             return []
         child_keys: list[Key] = [
             r.id.key for r in range_children if r.id.key is not None
         ]
-        return self._get_client().retrieve(keys=child_keys)
+        return self._client.retrieve(keys=child_keys)
 
     def snapshots(self) -> list[Task]:
-        res = self._get_ontology().retrieve_children(self.ontology_id)
+        res = self._ontology.retrieve_children(self.ontology_id)
         tasks = [t for t in res if t.id.type == "task"]
-        return self._get_tasks().retrieve(
+        return self._tasks.retrieve(
             keys=[int(t.id.key) for t in tasks if t.id.key is not None]
         )
 

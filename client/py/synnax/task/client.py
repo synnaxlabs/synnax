@@ -213,7 +213,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._get_frame_client().open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
@@ -236,7 +236,7 @@ class Task:
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
-        with self._get_frame_client().open_streamer([_TASK_STATE_CHANNEL]) as s:
+        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
             key = self.execute_command(type_, args)
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
