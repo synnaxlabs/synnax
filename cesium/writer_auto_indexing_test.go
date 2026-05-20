@@ -125,7 +125,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					MustSucceed(w.Commit())
 					Expect(w.Close()).To(Succeed())
 
-					f := MustSucceed(db.Read(ctx, (100*telem.SecondTS).Range(103*telem.SecondTS), idx))
+					f := MustSucceed(db.Read(ctx, (100 * telem.SecondTS).Range(103*telem.SecondTS), idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
 					Expect(ts).To(Equal([]telem.TimeStamp{
 						100 * telem.SecondTS,
