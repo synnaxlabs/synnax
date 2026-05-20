@@ -12,22 +12,13 @@ import { z } from "zod";
 import { math } from "@/math";
 import { primitive } from "@/primitive";
 import { type bounds } from "@/spatial";
-import { type TimeZone } from "@/telem/types.gen";
+import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
 
 const SIMPLE_DAYS_IN_YEAR = 365;
 const SIMPLE_DAYS_IN_MONTH = 30;
 
 /** Different string formats for time stamps. */
-export type TimeStampStringFormat =
-  | "ISO"
-  | "ISODate"
-  | "ISOTime"
-  | "time"
-  | "preciseTime"
-  | "date"
-  | "preciseDate"
-  | "shortDate"
-  | "dateTime";
+export type TimeStampStringFormat = TimestampFormat;
 
 /** Different string formats for time spans. */
 export type TimeSpanStringFormat = "full" | "semantic";
@@ -654,13 +645,12 @@ export class TimeStamp
     switch (format) {
       case "ISODate":
         return this.toISOString(timeZone).slice(0, 10);
-      case "ISOTime":
-        return this.toISOString(timeZone).slice(11, 23);
       case "time":
         return this.timeString(false, timeZone);
       case "preciseTime":
         return this.timeString(true, timeZone);
       case "date":
+      case "shortDate":
         return this.dateString();
       case "preciseDate":
         return `${this.dateString()} ${this.timeString(true, timeZone)}`;
@@ -711,16 +701,13 @@ export class TimeStamp
    * - For spans >= 30 days: "shortDate" (e.g., "Nov 5")
    * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
    * - For spans >= 1 hour: "time" (e.g., "14:23:45")
-   * - For spans >= 1 second: "preciseTime" (e.g., "14:23:45.123")
-   * - For spans < 1 second: "ISOTime" (full precision time)
+   * - For spans < 1 hour: "preciseTime" (e.g., "14:23:45.123")
    */
   formatBySpan(span: TimeSpan): TimeStampStringFormat {
     if (span.greaterThanOrEqual(TimeSpan.days(30))) return "shortDate";
     if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
     if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
-    if (span.greaterThanOrEqual(TimeSpan.SECOND)) return "preciseTime";
-
-    return "ISOTime";
+    return "preciseTime";
   }
 
   /**

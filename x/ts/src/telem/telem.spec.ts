@@ -544,12 +544,12 @@ describe("TimeStamp", () => {
     const FORMAT_TESTS: [TimeStampStringFormat, string][] = [
       ["ISO", "2022-12-15T12:20:00.012Z"],
       ["ISODate", "2022-12-15"],
-      ["ISOTime", "12:20:00.012"],
       ["time", "12:20:00"],
       ["preciseTime", "12:20:00.012"],
       ["date", "Dec 15"],
       ["preciseDate", "Dec 15 12:20:00.012"],
       ["dateTime", "Dec 15 12:20:00"],
+      ["shortDate", "Dec 15"],
     ];
 
     FORMAT_TESTS.forEach(([format, expected]) => {
@@ -946,16 +946,16 @@ describe("TimeStamp", () => {
       expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
 
-    test("should return 'ISOTime' for spans < 1 second", () => {
+    test("should return 'preciseTime' for spans < 1 second", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.milliseconds(500);
-      expect(ts.formatBySpan(span)).toBe("ISOTime");
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
 
     test("should work with very small spans", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.microseconds(100);
-      expect(ts.formatBySpan(span)).toBe("ISOTime");
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
   });
 

@@ -106,6 +106,22 @@ Alignment uint64 {
     @py omit
 }
 
+TimestampFormat enum {
+    iso         = "ISO"
+    isoDate     = "ISODate"
+    time        = "time"
+    preciseTime = "preciseTime"
+    date        = "date"
+    preciseDate = "preciseDate"
+    dateTime    = "dateTime"
+    shortDate   = "shortDate"
+
+    @doc value "is the rendered form of a timestamp displayed alongside a sample."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
 TimeZone enum {
     local = "local"
     utc   = "UTC"
