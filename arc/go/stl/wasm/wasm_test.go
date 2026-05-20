@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
@@ -203,7 +202,7 @@ func newTextHarness(
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 	analyzed, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(compileResolver))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-	prog := MustSucceed(text.Compile(ctx, analyzed, compiler.WithHostScope(analyzed.Symbols)))
+	prog := MustSucceed(text.Compile(ctx, analyzed))
 	s := node.New(analyzed)
 
 	stringsState := stlstrings.NewProgramState()

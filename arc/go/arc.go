@@ -61,8 +61,7 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Program, error)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	compOpts := []compiler.Option{compiler.WithHostScope(inter.Symbols)}
-	output, cErr := compiler.Compile(ctx, inter, compOpts...)
+	output, cErr := compiler.Compile(ctx, inter)
 	if cErr != nil {
 		return Program{}, cErr
 	}
@@ -79,8 +78,7 @@ func CompileText(ctx context.Context, t Text, opts ...Option) (Program, error) {
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	compOpts := []compiler.Option{compiler.WithHostScope(inter.Symbols)}
-	output, cErr := compiler.Compile(ctx, inter, compOpts...)
+	output, cErr := compiler.Compile(ctx, inter)
 	if cErr != nil {
 		return Program{}, cErr
 	}

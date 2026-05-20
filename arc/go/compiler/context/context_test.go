@@ -42,7 +42,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("Should track the writer when a resolver is provided", func(ctx SpecContext) {
-			resolver := resolve.NewResolver(nil)
+			resolver := resolve.NewResolver()
 			root := ccontext.CreateRoot(ctx, scope, typeMap, resolver)
 			Expect(root.Resolver).To(Equal(resolver))
 			Expect(root.WriterID).To(Equal(0))
@@ -185,7 +185,7 @@ var _ = Describe("Context", func() {
 		})
 
 		It("Should track the new writer when a resolver is present", func(ctx SpecContext) {
-			resolver := resolve.NewResolver(nil)
+			resolver := resolve.NewResolver()
 			root := ccontext.CreateRoot(ctx, scope, typeMap, resolver)
 			Expect(root.WriterID).To(Equal(0))
 			withNew := root.WithNewWriter()

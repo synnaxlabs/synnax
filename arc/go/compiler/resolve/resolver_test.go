@@ -18,174 +18,109 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-var _ = Describe("Resolver", func() {
-	Describe("Resolve", func() {
-		It("Should return incrementing handles", func() {
-			r := resolve.NewResolver(symbol.CreateRoot(nil))
-			h0 := r.Resolve("foo", types.Function(types.FunctionProperties{}))
-			h1 := r.Resolve("bar", types.Function(types.FunctionProperties{}))
-			h2 := r.Resolve("baz", types.Function(types.FunctionProperties{}))
-			Expect(h0).To(Equal(uint32(0)))
-			Expect(h1).To(Equal(uint32(1)))
-			Expect(h2).To(Equal(uint32(2)))
-		})
+// mathModuleWithAbs returns a sealed math module with an abs(T) -> T entry
+// whose Type carries a numeric type variable. Used by EmitCall tests that
+// exercise polymorphic suffix derivation.
+func mathModuleWithAbs() *symbol.Symbol {
+	numConstraint := types.NumericConstraint()
+	return symbol.NewModule("math", symbol.Symbol{
+		Name: "abs",
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
+			Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
+		}),
 	})
+}
 
+// monoMathAbs returns a math module with a monomorphic f64 abs entry.
+func monoMathAbs() *symbol.Symbol {
+	return symbol.NewModule("math", symbol.Symbol{
+		Name: "abs",
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+			Outputs: types.Params{{Name: "result", Type: types.F64()}},
+		}),
+	})
+}
+
+var _ = Describe("Resolver", func() {
 	Describe("Finalize", func() {
-		It("Should assign import indices for uncompiled refs", func() {
-			symbols := symbol.MapResolver{
-				"math.abs": symbol.Symbol{
-					Name: "math.abs",
-					Type: types.Function(types.FunctionProperties{
-						Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-						Outputs: types.Params{{Name: "result", Type: types.F64()}},
-					}),
-				},
-			}
-			r := resolve.NewResolver(symbol.NewTestScope(symbols))
-			h0 := r.Resolve("math.abs", types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-				Outputs: types.Params{{Name: "result", Type: types.F64()}},
-			}))
+		It("Should assign an import index for a host-import reference", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			target := monoMathAbs().FindChildByName("abs")
+			r.EmitCall(w, wID, target, target.Type)
 
 			m := wasm.NewModule()
 			patches := r.Finalize(m)
-			Expect(patches[h0]).To(Equal(uint32(0)))
+			Expect(patches).To(HaveLen(1))
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
+			Expect(m.ImportNames()).To(ConsistOf("abs"))
 		})
 
-		It("Should assign importCount + bodyIndex for local refs", func() {
-			symbols := symbol.MapResolver{
-				"test.print": symbol.Symbol{
-					Name: "test.print",
-					Type: types.Function(types.FunctionProperties{
-						Inputs: types.Params{{Name: "x", Type: types.I32()}},
-					}),
-				},
-			}
-			r := resolve.NewResolver(symbol.NewTestScope(symbols))
-			hImport := r.Resolve("test.print", types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			}))
-			hLocal := r.Resolve("myFunc", types.Function(types.FunctionProperties{}))
+		It("Should map local refs to importCount + bodyIndex", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			absTarget := monoMathAbs().FindChildByName("abs")
+			r.EmitCall(w, wID, absTarget, absTarget.Type)
+			myFunc := &symbol.Symbol{Name: "myFunc", Kind: symbol.KindFunction}
+			r.EmitCall(w, wID, myFunc, types.Function(types.FunctionProperties{}))
 			r.RegisterLocal("myFunc", 0)
 
 			m := wasm.NewModule()
 			patches := r.Finalize(m)
-			Expect(patches[hImport]).To(Equal(uint32(0)))
-			Expect(patches[hLocal]).To(Equal(uint32(1)))
+			Expect(m.ImportCount()).To(Equal(uint32(1)))
+			values := []uint32{}
+			for _, v := range patches {
+				values = append(values, v)
+			}
+			Expect(values).To(ConsistOf(uint32(0), uint32(1)))
 		})
 
-		It("Should deduplicate imports with same WASM coordinates", func() {
-			symbols := symbol.MapResolver{
-				"math.abs": symbol.Symbol{
-					Name: "math.abs",
-					Type: types.Function(types.FunctionProperties{
-						Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-						Outputs: types.Params{{Name: "result", Type: types.F64()}},
-					}),
-				},
-			}
-			r := resolve.NewResolver(symbol.NewTestScope(symbols))
-			ft := types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-				Outputs: types.Params{{Name: "result", Type: types.F64()}},
-			})
-			h0 := r.Resolve("math.abs", ft)
-			h1 := r.Resolve("math.abs", ft)
+		It("Should deduplicate imports with identical WASM coordinates", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			target := monoMathAbs().FindChildByName("abs")
+			r.EmitCall(w, wID, target, target.Type)
+			r.EmitCall(w, wID, target, target.Type)
 
 			m := wasm.NewModule()
 			patches := r.Finalize(m)
-			Expect(patches[h0]).To(Equal(patches[h1]))
+			Expect(patches).To(HaveLen(2))
+			var first, second uint32
+			i := 0
+			for _, v := range patches {
+				if i == 0 {
+					first = v
+				} else {
+					second = v
+				}
+				i++
+			}
+			Expect(first).To(Equal(second))
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
 		})
 
-		It("Should correctly map handles to real indices with mixed refs", func() {
-			symbols := symbol.MapResolver{
-				"test.log": symbol.Symbol{
-					Name: "test.log",
-					Type: types.Function(types.FunctionProperties{
-						Inputs: types.Params{{Name: "x", Type: types.I32()}},
-					}),
-				},
-				"test.print": symbol.Symbol{
-					Name: "test.print",
-					Type: types.Function(types.FunctionProperties{
-						Inputs: types.Params{{Name: "x", Type: types.I32()}},
-					}),
-				},
-			}
-			r := resolve.NewResolver(symbol.NewTestScope(symbols))
-			hLog := r.Resolve("test.log", types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			}))
-			hLocal0 := r.Resolve("localA", types.Function(types.FunctionProperties{}))
-			hPrint := r.Resolve("test.print", types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			}))
-			hLocal1 := r.Resolve("localB", types.Function(types.FunctionProperties{}))
-
-			r.RegisterLocal("localA", 0)
-			r.RegisterLocal("localB", 1)
+		It("Should append a type suffix for polymorphic targets", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			target := mathModuleWithAbs().FindChildByName("abs")
+			concrete := types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+				Outputs: types.Params{{Name: "result", Type: types.F64()}},
+			})
+			r.EmitCall(w, wID, target, concrete)
 
 			m := wasm.NewModule()
-			patches := r.Finalize(m)
-			Expect(m.ImportCount()).To(Equal(uint32(2)))
-			Expect(patches[hLog]).To(Equal(uint32(0)))
-			Expect(patches[hPrint]).To(Equal(uint32(1)))
-			Expect(patches[hLocal0]).To(Equal(uint32(2)))
-			Expect(patches[hLocal1]).To(Equal(uint32(3)))
+			r.Finalize(m)
+			Expect(m.ImportNames()).To(ConsistOf("abs_f64"))
 		})
-	})
-})
-
-var _ = Describe("DeriveWASMCoordinates", func() {
-	It("Should produce per-module names for qualified symbols", func() {
-		symbols := symbol.MapResolver{
-			"math.abs": symbol.Symbol{
-				Name: "math.abs",
-				Type: types.Function(types.FunctionProperties{
-					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-					Outputs: types.Params{{Name: "result", Type: types.F64()}},
-				}),
-			},
-		}
-		r := resolve.NewResolver(symbol.NewTestScope(symbols))
-		h := r.Resolve("math.abs", types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-			Outputs: types.Params{{Name: "result", Type: types.F64()}},
-		}))
-		_ = h
-
-		m := wasm.NewModule()
-		r.Finalize(m)
-		names := m.ImportNames()
-		Expect(names).To(HaveLen(1))
-		Expect(names[0]).To(Equal("abs"))
-	})
-
-	It("Should append type suffix for polymorphic symbols", func() {
-		numConstraint := types.NumericConstraint()
-		symbols := symbol.MapResolver{
-			"math.abs": symbol.Symbol{
-				Name: "math.abs",
-				Type: types.Function(types.FunctionProperties{
-					Inputs:  types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
-					Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
-				}),
-			},
-		}
-		r := resolve.NewResolver(symbol.NewTestScope(symbols))
-		r.Resolve("math.abs", types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-			Outputs: types.Params{{Name: "result", Type: types.F64()}},
-		}))
-
-		m := wasm.NewModule()
-		r.Finalize(m)
-		names := m.ImportNames()
-		Expect(names).To(HaveLen(1))
-		Expect(names[0]).To(Equal("abs_f64"))
 	})
 })
 
@@ -216,7 +151,6 @@ var _ = Describe("DeriveTypeSuffix", func() {
 		original := types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "x", Type: types.Variable("T", &numConstraint)}},
 		})
-
 		cases := []struct {
 			concreteType types.Type
 			expected     string

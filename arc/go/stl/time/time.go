@@ -30,6 +30,7 @@ const (
 	nowSymbolName       = "now"
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
+	ModuleName          = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -68,21 +69,26 @@ var (
 	}
 )
 
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
-}
-
-var deprecatedBareResolver = symbol.MapResolver{
-	intervalSymbolName: deprecated(intervalSymbol, "time.interval"),
-	waitSymbolName:     deprecated(waitSymbol, "time.wait"),
-	nowSymbolName:      deprecated(nowSymbol, "time.now"),
-}
-
 var moduleMembers = symbol.MapResolver{
 	intervalSymbolName: intervalSymbol,
 	waitSymbolName:     waitSymbol,
 	nowSymbolName:      nowSymbol,
+}
+
+// module is the time module, built once at package init. Its children are
+// the canonical time.<name> functions and serve as Deprecated targets for
+// the bare globals below.
+var module = symbol.NewModule(ModuleName, moduleMembers.Values()...)
+
+func deprecated(sym symbol.Symbol, replacement *symbol.Symbol) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
+}
+
+var bareGlobals = []symbol.Symbol{
+	deprecated(intervalSymbol, module.FindChildByName(intervalSymbolName)),
+	deprecated(waitSymbol, module.FindChildByName(waitSymbolName)),
+	deprecated(nowSymbol, module.FindChildByName(nowSymbolName)),
 }
 
 type Module struct {
@@ -112,20 +118,25 @@ func NewModule(
 	return mod, nil
 }
 
-const ModuleName = "time"
-
 // BuildModule returns the time module with its sealed namespace populated.
-func BuildModule() *symbol.Symbol {
-	return symbol.NewModule(ModuleName, moduleMembers.Values()...)
-}
+func BuildModule() *symbol.Symbol { return module }
 
 // BareGlobals returns the deprecated bare names installed at the root scope
-// so legacy programs continue to resolve.
-func BareGlobals() []symbol.Symbol { return deprecatedBareResolver.Values() }
+// so legacy programs continue to resolve. Each wrapper's Deprecated field
+// points at the canonical member inside the time module.
+func BareGlobals() []symbol.Symbol { return bareGlobals }
 
 var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
+	bareGlobalsResolver(),
 	&symbol.ModuleResolver{Name: ModuleName, Members: moduleMembers},
+}
+
+func bareGlobalsResolver() symbol.MapResolver {
+	m := symbol.MapResolver{}
+	for _, s := range bareGlobals {
+		m[s.Name] = s
+	}
+	return m
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {

@@ -337,40 +337,59 @@ var _ = Describe("Scope", func() {
 				return root
 			}
 
-			It("Should fail dotted lookup when no alias exists for the module", func(bCtx SpecContext) {
+			// resolveQualified mirrors the caller-side pattern that AST walkers
+			// use after Resolve was narrowed to single names: look up the head,
+			// follow alias.Target if present, then look up the tail against
+			// the resulting symbol's children.
+			resolveQualified := func(
+				bCtx SpecContext,
+				scope *symbol.Symbol,
+				head, tail string,
+			) (*symbol.Symbol, error) {
+				sym, err := scope.Resolve(bCtx, head)
+				if err != nil {
+					return nil, err
+				}
+				container := sym
+				if container.Target != nil {
+					container = container.Target
+				}
+				return container.Resolve(bCtx, tail)
+			}
+
+			It("Should fail head lookup when no alias exists for the module", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
-				Expect(rootScope.Resolve(bCtx, "time.now")).Error().To(MatchError(
-					ContainSubstring("undefined symbol"),
-				))
+				Expect(resolveQualified(bCtx, rootScope, "time", "now")).Error().
+					To(MatchError(ContainSubstring("undefined symbol")))
 			})
 
-			It("Should resolve a dotted lookup through a same-name alias", func(bCtx SpecContext) {
+			It("Should resolve a qualified lookup through a same-name alias", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
 				timeMod := rootScope.Parent.FindChildByName("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				resolved := MustSucceed(resolveQualified(bCtx, rootScope, "time", "now"))
 				Expect(resolved.Name).To(Equal("now"))
 			})
 
-			It("Should resolve a dotted lookup through a renamed alias", func(bCtx SpecContext) {
+			It("Should resolve a qualified lookup through a renamed alias", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
 				timeMod := rootScope.Parent.FindChildByName("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "t.now"))
+				resolved := MustSucceed(resolveQualified(bCtx, rootScope, "t", "now"))
 				Expect(resolved.Name).To(Equal("now"))
 			})
 
-			It("Should mark the alias as used on successful resolution", func(bCtx SpecContext) {
+			It("Should mark the alias as used on head resolution", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
 				timeMod := rootScope.Parent.FindChildByName("time")
 				alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
-				MustSucceed(rootScope.Resolve(bCtx, "t.now"))
+				MustSucceed(rootScope.Resolve(bCtx, "t"))
 				Expect(alias.Used).To(BeTrue())
 			})
 
@@ -385,9 +404,8 @@ var _ = Describe("Scope", func() {
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "outer", Kind: symbol.KindFunction, Type: types.F64(),
 				}))
-				Expect(rootScope.Resolve(bCtx, "time.outer")).Error().To(MatchError(
-					ContainSubstring("undefined symbol"),
-				))
+				Expect(resolveQualified(bCtx, rootScope, "time", "outer")).Error().
+					To(MatchError(ContainSubstring("undefined symbol")))
 			})
 		})
 	})

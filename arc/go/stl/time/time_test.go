@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -918,20 +918,23 @@ var _ = Describe("Time", func() {
 		It("Should resolve now via module-qualified name", func(ctx SpecContext) {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "time.now"))
 			Expect(sym.Name).To(Equal("now"))
-			Expect(sym.Deprecated).To(Equal(""))
+			Expect(sym.Deprecated).To(BeNil())
 		})
 		It("Should resolve bare now symbol (deprecated)", func(ctx SpecContext) {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "now"))
 			Expect(sym.Name).To(Equal("now"))
-			Expect(sym.Deprecated).To(Equal("time.now"))
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.now"))
 		})
 		It("Should mark bare interval as deprecated", func(ctx SpecContext) {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "interval"))
-			Expect(sym.Deprecated).To(Equal("time.interval"))
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.interval"))
 		})
 		It("Should mark bare wait as deprecated", func(ctx SpecContext) {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
-			Expect(sym.Deprecated).To(Equal("time.wait"))
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
 	})
 	Describe("CalculateTolerance", func() {

@@ -672,23 +672,30 @@ sensor -> stable.for{duration=1s} -> output`
 			})
 
 			It("Should emit deprecation warning for bare set_status", func(ctx SpecContext) {
+				statusFnType := types.Function(types.FunctionProperties{
+					Config: types.Params{
+						{Name: "status_key", Type: types.String()},
+						{Name: "variant", Type: types.String()},
+						{Name: "message", Type: types.String()},
+					},
+					Inputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
+					},
+				})
+				statusModule := symbol.NewModule("status", symbol.Symbol{
+					Name: "set",
+					Kind: symbol.KindFunction,
+					Exec: symbol.ExecFlow,
+					Type: statusFnType,
+				})
 				statusResolver := symbol.CompoundResolver{
 					symbol.MapResolver{
 						"set_status": {
 							Name:       "set_status",
 							Kind:       symbol.KindFunction,
 							Exec:       symbol.ExecFlow,
-							Deprecated: "status.set",
-							Type: types.Function(types.FunctionProperties{
-								Config: types.Params{
-									{Name: "status_key", Type: types.String()},
-									{Name: "variant", Type: types.String()},
-									{Name: "message", Type: types.String()},
-								},
-								Inputs: types.Params{
-									{Name: ir.DefaultOutputParam, Type: types.U8()},
-								},
-							}),
+							Deprecated: statusModule.FindChildByName("set"),
+							Type:       statusFnType,
 						},
 					},
 					symbol.MapResolver{
@@ -705,53 +712,32 @@ sensor -> stable.for{duration=1s} -> output`
 			})
 
 			It("Should not emit deprecation warning for qualified status.set", func(ctx SpecContext) {
-				statusResolver := symbol.CompoundResolver{
-					symbol.MapResolver{
-						"set_status": {
-							Name: "set_status",
-							Kind: symbol.KindFunction,
-							Exec: symbol.ExecFlow,
-							Type: types.Function(types.FunctionProperties{
-								Config: types.Params{
-									{Name: "status_key", Type: types.String()},
-									{Name: "variant", Type: types.String()},
-									{Name: "message", Type: types.String()},
-								},
-								Inputs: types.Params{
-									{Name: ir.DefaultOutputParam, Type: types.U8()},
-								},
-							}),
-						},
+				statusFnType := types.Function(types.FunctionProperties{
+					Config: types.Params{
+						{Name: "status_key", Type: types.String()},
+						{Name: "variant", Type: types.String()},
+						{Name: "message", Type: types.String()},
 					},
-					&symbol.ModuleResolver{
-						Name: "status",
-						Members: symbol.MapResolver{
-							"set": {
-								Name: "set",
-								Kind: symbol.KindFunction,
-								Exec: symbol.ExecFlow,
-								Type: types.Function(types.FunctionProperties{
-									Config: types.Params{
-										{Name: "status_key", Type: types.String()},
-										{Name: "variant", Type: types.String()},
-										{Name: "message", Type: types.String()},
-									},
-									Inputs: types.Params{
-										{Name: ir.DefaultOutputParam, Type: types.U8()},
-									},
-								}),
-							},
-						},
+					Inputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-					},
-				}
+				})
+				statusModule := symbol.NewModule("status", symbol.Symbol{
+					Name: "set",
+					Kind: symbol.KindFunction,
+					Exec: symbol.ExecFlow,
+					Type: statusFnType,
+				})
+				root := stl.NewRoot(symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				})
+				// Attach the status module to the ambient prelude so import resolves.
+				root.Parent.AddChild(statusModule)
 				source := `import status
 sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(statusResolver))
-				Expect(diags.Ok()).To(BeTrue())
+				_, diags := text.Analyze(ctx, parsedText, root)
+				Expect(diags.Ok()).To(BeTrue(), diags.String())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 

@@ -125,25 +125,57 @@ func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	return c
 }
 
-// Resolve resolves a symbol by name and, if the resolved symbol is deprecated,
-// automatically adds a deprecation warning to diagnostics. Analyzer call sites
-// resolving user-named symbols should use Resolve so deprecation warnings fire
-// consistently. Use c.Scope.Resolve directly when raw resolution is needed
-// (inference passes, internal lookups) to avoid duplicate warnings.
+// Resolve resolves a single (unqualified) name in the current scope. If the
+// resolved symbol is deprecated, a warning is added to diagnostics. Use this
+// for bare identifier resolution. For qualified names (e.g., `math.abs`) use
+// ResolveQualified so the head and tail are resolved as separate symbols.
 func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
 	result, err := c.Scope.Resolve(c, name)
 	if err != nil {
 		return result, err
 	}
-	if result.Deprecated != "" {
-		c.Diagnostics.Add(diagnostics.Warningf(
-			c.AST,
-			"'%s' is deprecated, use '%s' instead",
-			name,
-			result.Deprecated,
-		))
-	}
+	c.warnIfDeprecated(name, result)
 	return result, nil
+}
+
+// ResolveQualified resolves a possibly-qualified name. head is the first
+// segment (always present); tail is the second segment, empty when the
+// reference is bare. When tail is non-empty, ResolveQualified follows
+// alias.Target on the head and then looks up tail among the resulting
+// symbol's children, mirroring the way the grammar produces member-access
+// expressions. Deprecation warnings fire on whichever segment resolved
+// to the deprecated symbol.
+func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Scope, error) {
+	headSym, err := c.Scope.Resolve(c, head)
+	if err != nil {
+		return nil, err
+	}
+	if tail == "" {
+		c.warnIfDeprecated(head, headSym)
+		return headSym, nil
+	}
+	container := headSym
+	if container.Target != nil {
+		container = container.Target
+	}
+	tailSym, err := container.Resolve(c, tail)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(head+"."+tail, tailSym)
+	return tailSym, nil
+}
+
+func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Scope) {
+	if sym == nil || sym.Deprecated == nil {
+		return
+	}
+	c.Diagnostics.Add(diagnostics.Warningf(
+		c.AST,
+		"'%s' is deprecated, use '%s' instead",
+		name,
+		sym.Deprecated.QualifiedName(),
+	))
 }
 
 // CreateRoot creates a new root context for program analysis. CreateRoot

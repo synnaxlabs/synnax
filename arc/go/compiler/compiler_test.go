@@ -38,14 +38,14 @@ func compile(ctx context.Context, source string, resolver symbol.Resolver) (comp
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, stl.NewRoot(resolver))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
+	return compiler.Compile(ctx, inter)
 }
 
 func compileWithHostImports(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, stl.NewRoot(resolver))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	return compiler.Compile(ctx, inter, compiler.WithHostScope(stl.NewRoot(nil)))
+	return compiler.Compile(ctx, inter)
 }
 
 func inferReturnType(expected any) string {

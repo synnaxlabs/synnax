@@ -454,9 +454,13 @@ func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	name := parser.FunctionName(ctx.AST)
+	head, tail := parser.FunctionNameParts(ctx.AST)
+	name := head
+	if tail != "" {
+		name = head + "." + tail
+	}
 	key := kg.generate(name, "")
-	sym, err := ctx.Resolve(name)
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
@@ -477,9 +481,10 @@ func analyzeFunctionNode(
 		))
 		return nodeResult{}, false
 	}
-	// Node.Type must be the canonical module path so factories find it;
-	// rewrite aliased prefixes (`t.now` → `time.now`).
-	nodeType := ctx.Scope.Root().CanonicalName(name)
+	// Node.Type is the canonical module path so factories find it. After
+	// alias indirection in Resolve, sym's tree position already points at
+	// the canonical module member; QualifiedName joins the parts.
+	nodeType := sym.QualifiedName()
 	freshType := types.Freshen(sym.Type, key)
 	n := ir.Node{
 		Key:      key,

@@ -569,7 +569,7 @@ var _ = Describe("Identifier Compilation", func() {
 				bCtx,
 				analyzerCtx.Scope,
 				analyzerCtx.TypeMap,
-				resolve.NewResolver(stl.NewRoot(nil)),
+				resolve.NewResolver(),
 			)
 			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 			Expect(exprType).To(Equal(types.TimeStamp()))

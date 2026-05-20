@@ -102,17 +102,7 @@ var (
 	}
 )
 
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
-}
-
-var deprecatedBareResolver = symbol.MapResolver{
-	avgSymbolName:        deprecated(avgSymbol, "math.avg"),
-	minSymbolName:        deprecated(minSymbol, "math.min"),
-	maxSymbolName:        deprecated(maxSymbol, "math.max"),
-	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
-}
+const ModuleName = "math"
 
 var moduleMembers = symbol.MapResolver{
 	powSymbolName:        powSymbol,
@@ -122,20 +112,43 @@ var moduleMembers = symbol.MapResolver{
 	derivativeSymbolName: derivativeSymbol,
 }
 
-const ModuleName = "math"
+// module is the math module, built once at package init. Its children are
+// the canonical math.<name> functions and are the targets of the deprecated
+// bare globals' Deprecated field.
+var module = symbol.NewModule(ModuleName, moduleMembers.Values()...)
 
-// BuildModule returns the math module with its sealed namespace populated.
-func BuildModule() *symbol.Symbol {
-	return symbol.NewModule(ModuleName, moduleMembers.Values()...)
+func deprecated(sym symbol.Symbol, replacement *symbol.Symbol) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
 }
 
+var bareGlobals = []symbol.Symbol{
+	deprecated(avgSymbol, module.FindChildByName(avgSymbolName)),
+	deprecated(minSymbol, module.FindChildByName(minSymbolName)),
+	deprecated(maxSymbol, module.FindChildByName(maxSymbolName)),
+	deprecated(derivativeSymbol, module.FindChildByName(derivativeSymbolName)),
+}
+
+// BuildModule returns the math module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol { return module }
+
 // BareGlobals returns the deprecated bare names (avg, min, max, derivative)
-// installed at the root scope so legacy programs continue to resolve.
-func BareGlobals() []symbol.Symbol { return deprecatedBareResolver.Values() }
+// installed at the root scope so legacy programs continue to resolve. Each
+// wrapper's Deprecated field points at the canonical member inside the
+// math module so warnings and compiler routing land on the right symbol.
+func BareGlobals() []symbol.Symbol { return bareGlobals }
 
 var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
+	bareGlobalsResolver(),
 	&symbol.ModuleResolver{Name: ModuleName, Members: moduleMembers},
+}
+
+func bareGlobalsResolver() symbol.MapResolver {
+	m := symbol.MapResolver{}
+	for _, s := range bareGlobals {
+		m[s.Name] = s
+	}
+	return m
 }
 
 type Module struct{}

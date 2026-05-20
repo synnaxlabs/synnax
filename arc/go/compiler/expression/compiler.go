@@ -133,6 +133,7 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 	primary := ctx.AST.PrimaryExpression()
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
+	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if len(funcCalls) > 0 && funcName != "" {
 		if funcName != "true" && funcName != "false" {
@@ -144,7 +145,14 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 				return compileBuiltinLen(ctx, funcCalls[0], funcName)
 			}
 
-			scope, err := ctx.Scope.Resolve(ctx, funcName)
+			scope, err := ctx.Scope.Resolve(ctx, head)
+			if err == nil && tail != "" {
+				container := scope
+				if container.Target != nil {
+					container = container.Target
+				}
+				scope, err = container.Resolve(ctx, tail)
+			}
 			if err == nil && scope.Kind == symbol.KindFunction {
 				if scope.Exec == symbol.ExecFlow {
 					return types.Type{}, errors.Newf(
@@ -248,12 +256,11 @@ func compileFunctionCallExpr(
 		Inputs:  concreteInputs,
 		Outputs: concreteOutputs,
 	})
-	emitName := funcName
-	if scope.Deprecated != "" {
-		emitName = scope.Deprecated
+	target := scope
+	if target.Deprecated != nil {
+		target = target.Deprecated
 	}
-	emitName = ctx.Scope.Root().CanonicalName(emitName)
-	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, emitName, concreteType)
+	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, target, concreteType)
 	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {
 		return defaultOutput.Type, nil
@@ -325,7 +332,8 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 		return compileLiteral(context.Child(ctx, lit))
 	}
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		return compileIdentifier(ctx, parser.QualifiedName(qid))
+		head, tail := parser.QualifiedNameParts(qid)
+		return compileIdentifier(ctx, head, tail)
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
@@ -337,7 +345,7 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 			ctx.Writer.WriteI32Const(0)
 			return types.U8(), nil
 		}
-		return compileIdentifier(ctx, text)
+		return compileIdentifier(ctx, text, "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))

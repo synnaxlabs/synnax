@@ -77,11 +77,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		opt(o)
 	}
 
-	hostScope := o.hostScope
-	if hostScope == nil && !o.disableHostImports {
-		hostScope = program.Symbols
-	}
-	resolver := resolve.NewResolver(hostScope)
+	resolver := resolve.NewResolver()
 
 	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
 

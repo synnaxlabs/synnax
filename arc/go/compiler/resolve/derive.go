@@ -11,34 +11,42 @@ package resolve
 
 import (
 	"context"
-	"strings"
 
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
-// DeriveWASMCoordinates maps a qualified Arc name to a per-module WASM import
-// coordinate. The qualified name is split on the last dot to produce the WASM
-// module name and function base name. If the original symbol has type variables,
-// a type suffix is appended based on the concrete type.
+// DeriveWASMCoordinates returns the per-module WASM import coordinate for a
+// host-import reference. wasmModule is ref.module verbatim; wasmFuncName is
+// ref.name, with a type suffix appended when the underlying symbol is
+// polymorphic (or when an explicit suffix was supplied via
+// ResolveImportWithSuffix). Panics on a local reference (ref.module == "")
+// since locals are not WASM imports.
 func DeriveWASMCoordinates(
+	ctx context.Context,
 	scope *symbol.Symbol,
 	ref pendingRef,
 ) (wasmModule string, wasmFuncName string) {
-	if idx := strings.LastIndex(ref.qualifiedName, "."); idx >= 0 {
-		wasmModule = ref.qualifiedName[:idx]
-		wasmFuncName = ref.qualifiedName[idx+1:]
-	} else {
-		panic("unqualified host function name: " + ref.qualifiedName)
+	if ref.module == "" {
+		panic("DeriveWASMCoordinates called on local reference: " + ref.name)
 	}
+	wasmModule = ref.module
+	wasmFuncName = ref.name
 	var suffix string
 	if ref.typeSuffix != "" {
 		suffix = ref.typeSuffix
 	} else if scope != nil {
-		original, err := scope.Lookup(context.Background(), ref.qualifiedName)
-		if err == nil && original.Type.Kind == types.KindFunction {
-			suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
+		modSym, err := scope.Resolve(ctx, ref.module, symbol.IncludeInternal)
+		if err == nil {
+			container := modSym
+			if container.Target != nil {
+				container = container.Target
+			}
+			original, err := container.Resolve(ctx, ref.name, symbol.IncludeInternal)
+			if err == nil && original.Type.Kind == types.KindFunction {
+				suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
+			}
 		}
 	}
 	if suffix != "" {

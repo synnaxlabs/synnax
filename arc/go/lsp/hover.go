@@ -80,7 +80,7 @@ func deprecatedDoc(old, replacement, example string) string {
 }
 
 func (s *Server) Hover(
-	_ context.Context,
+	ctx context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
 	d, ok := s.getDocument(params.TextDocument.URI)
@@ -131,6 +131,7 @@ func (s *Server) Hover(
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
 		contents = s.getUserSymbolHover(
+			ctx,
 			scopeAtCursor,
 			qualifiedWord,
 			displayContent,
@@ -506,8 +507,13 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content string) string {
-	sym, err := scope.Resolve(context.Background(), name)
+func (s *Server) getUserSymbolHover(
+	ctx context.Context,
+	scope *symbol.Scope,
+	name string,
+	content string,
+) string {
+	sym, err := scope.Resolve(ctx, name)
 	if err != nil {
 		return ""
 	}

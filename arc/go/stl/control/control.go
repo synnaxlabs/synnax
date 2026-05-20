@@ -29,8 +29,8 @@ const (
 
 // Two separate resolvers are needed because the bare top-level form
 // ("set_authority") and the qualified form ("control.set_authority") both
-// need to resolve to the same function. The bare form will be deprecated
-// and removed once users migrate to control.set_authority{}.
+// need to resolve to the same function. The bare form is deprecated;
+// its Deprecated field points at the canonical member inside the module.
 var (
 	symbolProps = types.Function(types.FunctionProperties{
 		Config: types.Params{
@@ -41,18 +41,19 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 		},
 	})
-	bareSymbol = symbol.Symbol{
-		Name:       bareSymbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Type:       symbolProps,
-		Deprecated: "control.set_authority",
-	}
 	memberSymbol = symbol.Symbol{
 		Name: qualifiedMemberName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: symbolProps,
+	}
+	module     = symbol.NewModule(moduleName, memberSymbol)
+	bareSymbol = symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       symbolProps,
+		Deprecated: module.FindChildByName(qualifiedMemberName),
 	}
 	bareResolver   = symbol.MapResolver{bareSymbolName: bareSymbol}
 	moduleResolver = &symbol.ModuleResolver{
@@ -63,10 +64,11 @@ var (
 )
 
 // BuildModule returns the control module with its sealed namespace populated.
-func BuildModule() *symbol.Symbol { return symbol.NewModule(moduleName, memberSymbol) }
+func BuildModule() *symbol.Symbol { return module }
 
 // BareGlobals returns the deprecated bare alias installed at the root scope
-// so legacy programs continue to resolve.
+// so legacy programs continue to resolve. Deprecated points at the
+// canonical control.set_authority member inside the module.
 func BareGlobals() []symbol.Symbol { return []symbol.Symbol{bareSymbol} }
 
 type Module struct {

@@ -87,7 +87,7 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbo
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
@@ -169,7 +169,7 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))

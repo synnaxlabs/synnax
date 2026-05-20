@@ -67,7 +67,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			ctx.Outputs = outputs
 			ctx.OutputMemoryBase = memBase
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
@@ -157,7 +157,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, stl.NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -174,7 +174,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, stl.NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -194,7 +194,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -221,7 +221,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -250,7 +250,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -282,7 +282,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, stmt, stl.NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -302,7 +302,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -330,7 +330,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -359,7 +359,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -718,7 +718,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx := acontext.CreateRoot(bCtx, block, stl.NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			sLit = uint64(0)
@@ -894,7 +894,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -920,7 +920,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -956,7 +956,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -993,7 +993,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1039,7 +1039,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
@@ -1615,7 +1615,7 @@ var _ = Describe("Statement Compiler", func() {
 			}))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
@@ -2193,7 +2193,7 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.NewRoot(nil)),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -2235,7 +2235,7 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.NewRoot(nil)),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -2274,7 +2274,7 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.NewRoot(nil)),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())

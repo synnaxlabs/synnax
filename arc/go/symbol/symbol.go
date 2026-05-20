@@ -155,16 +155,17 @@ type Symbol struct {
 	// WASM host function signatures used for type suffix derivation). Internal
 	// symbols are skipped during user-facing Resolve so user code cannot
 	// reference them, but remain visible to the compiler's resolve.Resolver
-	// which uses Lookup to bypass the filter.
+	// which passes IncludeInternal to bypass the filter.
 	Internal bool
 	// Exec indicates which execution context this symbol is valid in (WASM,
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
-	// Deprecated holds the qualified replacement name for deprecated symbols.
-	// Empty means not deprecated. When set, analysis helpers can automatically
-	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
-	Deprecated string
+	// Deprecated points at the canonical replacement Symbol for a deprecated
+	// reference. Nil means not deprecated. When non-nil, analysis helpers
+	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
+	// compiler routes the emitted call to Deprecated rather than s.
+	Deprecated *Symbol
 
 	// --- Tree structure (zero on leaf symbols, populated on containers) ---
 
@@ -191,7 +192,7 @@ type Symbol struct {
 	// Used to drive unused-import diagnostics on alias symbols.
 	Used bool
 	// GlobalResolver provides on-demand lookups for symbols not pre-materialized
-	// in the symbol tree (e.g., cluster-backed channels). Consulted by Resolve
+	// in the symbol tree (e.g., global channels). Consulted by Resolve
 	// when a name is not found among Children. Typically set on the root only.
 	GlobalResolver Resolver
 }
@@ -201,8 +202,8 @@ type Symbol struct {
 // misses. The root is a KindBlock symbol with an empty Name and an ID counter.
 func CreateRoot(dynamicResolver Resolver) *Symbol {
 	return &Symbol{
-		Kind:            KindBlock,
-		Counter:         new(int),
+		Kind:           KindBlock,
+		Counter:        new(int),
 		GlobalResolver: dynamicResolver,
 	}
 }
@@ -380,104 +381,89 @@ func (s *Symbol) Root() *Symbol {
 	}
 }
 
-// CanonicalName rewrites a dotted name's alias prefix to the underlying
-// module's canonical name. For `t.now` where `t` is a KindModuleAlias
-// child of s with Target pointing at module `time`, returns `time.now`.
-// Returns the input unchanged when the name is unqualified, the prefix
-// is not a known alias, or the alias already matches its canonical name.
-func (s *Symbol) CanonicalName(name string) string {
-	dot := strings.IndexByte(name, '.')
-	if dot < 0 {
-		return name
+// QualifiedName returns s's canonical dotted name. For a module member
+// (s.Parent.Kind == KindModule), returns "<module>.<name>". For a top-level
+// symbol, returns s.Name. This is the canonical string identifier used at
+// IR/emission boundaries that need a single name token; it never produces
+// an alias-prefixed form because the symbol tree itself has already
+// resolved aliases via Target indirection.
+func (s *Symbol) QualifiedName() string {
+	if s.Parent != nil && s.Parent.Kind == KindModule {
+		return s.Parent.Name + "." + s.Name
 	}
-	prefix := name[:dot]
-	alias := s.FindChildByName(prefix)
-	if alias == nil || alias.Kind != KindModuleAlias || alias.Target == nil {
-		return name
-	}
-	if alias.Target.Name == prefix {
-		return name
-	}
-	return alias.Target.Name + name[dot:]
+	return s.Name
 }
 
-// Resolve looks up a symbol by name using lexical scoping rules.
+// ResolveOption tunes Resolve's behavior. The zero set of options is the
+// user-code view: Internal symbols are hidden, bare module access is
+// blocked, and successful lookups mark the alias chain as Used. Options
+// flip those filters for callers that need a different view of the tree.
+type ResolveOption func(*resolveOpts)
+
+type resolveOpts struct {
+	// includeInternal disables the Internal-skipping filter and the bare
+	// KindModule filter. Used by the compiler to reach host-function
+	// shims and module members that user code is not allowed to see.
+	includeInternal bool
+}
+
+// IncludeInternal causes Resolve to walk past the user-visibility filters:
+// Internal symbols are returned, and bare module names resolve to their
+// module symbol. Aliases are still followed and Used is still recorded.
+// Use this from the compiler when resolving host-function shims; do not
+// use it from analysis paths that surface symbols to user code.
+func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
+
+// Resolve looks up a single name using lexical scoping rules: children →
+// GlobalResolver → parent. The walk stops at a KindModule scope — inside
+// a module, lookup cannot escape outward. That seal is what gives module
+// members their member-only semantics. By default the walk also skips
+// KindModule entries encountered along the way: bare module names are
+// not accessible from user code; modules are reached only through
+// KindModuleAlias children installed by `import`. Pass IncludeInternal
+// to disable both filters.
 //
-// Bare names walk: children → GlobalResolver → parent. The walk stops at
-// a KindModule scope — inside a module, lookup cannot escape outward.
-// That seal is what gives module members their member-only semantics:
-// `math.foo` cannot accidentally find an unrelated `foo` in a scope above
-// math. The walk also skips KindModule entries encountered along the way:
-// bare module names are not accessible from user code, modules are
-// reached only through KindModuleAlias children installed by `import`.
-//
-// Dotted names recurse: the head is resolved lexically (which finds an
-// alias in the user root or a module via the ambient prelude when one is
-// in scope through an alias), aliases indirect through Target, and the
-// tail is resolved against the resulting module. The module's seal
-// confines tail lookup to its own children.
-func (s *Symbol) Resolve(ctx context.Context, name string) (*Symbol, error) {
-	if dot := strings.IndexByte(name, '.'); dot > 0 {
-		head, tail := name[:dot], name[dot+1:]
-		container, err := s.Resolve(ctx, head)
-		if err != nil {
-			return nil, err
-		}
-		if container.Target != nil {
-			container.Used = true
-			container = container.Target
-		}
-		return container.Resolve(ctx, tail)
+// Resolve does not split dotted names. Member access (`math.abs`) is the
+// caller's job: resolve the head against the current scope, follow
+// alias.Target if the result is an alias, then resolve the tail against
+// the resulting symbol. The grammar already produces the head and tail
+// as separate tokens; reconstructing them as `"math.abs"` and splitting
+// here would throw that structure away.
+func (s *Symbol) Resolve(
+	ctx context.Context,
+	name string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	var opts resolveOpts
+	for _, o := range options {
+		o(&opts)
 	}
+	return s.resolve(ctx, name, opts)
+}
+
+func (s *Symbol) resolve(
+	ctx context.Context,
+	name string,
+	opts resolveOpts,
+) (*Symbol, error) {
 	if child := s.FindChildByName(name); child != nil {
-		if !child.Internal && child.Kind != KindModule {
+		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
 			child.Used = true
 			return child, nil
 		}
 	}
 	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil && !sym.Internal {
-			return sym, nil
-		}
-	}
-	if s.Kind == KindModule {
-		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
-	}
-	if s.Parent != nil {
-		return s.Parent.Resolve(ctx, name)
-	}
-	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
-}
-
-// Lookup is the unfiltered counterpart to Resolve. It finds a symbol by exact
-// name without skipping Internal entries and without recording Used. The
-// compiler's resolve package uses Lookup when it needs to reach host-function
-// shims that user code is not allowed to see.
-func (s *Symbol) Lookup(ctx context.Context, name string) (*Symbol, error) {
-	if dot := strings.IndexByte(name, '.'); dot > 0 {
-		head, tail := name[:dot], name[dot+1:]
-		container, err := s.Lookup(ctx, head)
-		if err != nil {
-			return nil, err
-		}
-		if container.Target != nil {
-			container = container.Target
-		}
-		return container.Lookup(ctx, tail)
-	}
-	if child := s.FindChildByName(name); child != nil {
-		return child, nil
-	}
-	if s.GlobalResolver != nil {
 		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
-			return sym, nil
+			if opts.includeInternal || !sym.Internal {
+				return sym, nil
+			}
 		}
 	}
 	if s.Kind == KindModule {
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 	}
 	if s.Parent != nil {
-		return s.Parent.Lookup(ctx, name)
+		return s.Parent.resolve(ctx, name, opts)
 	}
 	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 }

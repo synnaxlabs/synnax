@@ -236,11 +236,20 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) typ
 
 func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		name := parser.QualifiedName(qid)
-		if resolved, err := ctx.Scope.Resolve(ctx, name); err == nil {
-			return resolved.Type
+		head, tail := parser.QualifiedNameParts(qid)
+		headSym, err := ctx.Scope.Resolve(ctx, head)
+		if err != nil {
+			return types.Type{}
 		}
-		return types.Type{}
+		container := headSym
+		if container.Target != nil {
+			container = container.Target
+		}
+		resolved, err := container.Resolve(ctx, tail)
+		if err != nil {
+			return types.Type{}
+		}
+		return resolved.Type
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
