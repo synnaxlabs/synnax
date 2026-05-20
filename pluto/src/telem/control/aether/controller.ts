@@ -317,8 +317,7 @@ export class SetChannelValue
       if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
-      const ch = await client.channels.retrieve(this.props.channel);
-      await this.controller.set({ [ch.key]: values });
+      await this.controller.set({ [this.props.channel]: values });
     }, "Failed to command channel");
   }
 }
