@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
@@ -28,6 +27,7 @@ import (
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -36,28 +36,14 @@ import (
 
 func compile(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range resolver {
-			s := resolver[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}())
+	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter)
 }
 
 func compileWithHostImports(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range resolver {
-			s := resolver[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}())
+	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter)
 }

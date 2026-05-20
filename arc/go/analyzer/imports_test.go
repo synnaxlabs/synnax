@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -37,14 +36,7 @@ var _ = Describe("Import Pass", func() {
 		"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
 	}
 	newRoot := func() *symbol.Symbol {
-		root := func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stl.Symbols...)
-			for i := range dynChannels {
-				s := dynChannels[i]
-				root.Parent.AddChild(&s)
-			}
-			return root
-		}()
+		root := NewRoot(dynChannels)
 		root.Parent.AddChild(timeModule)
 		return root
 	}

@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,14 +28,7 @@ import (
 // returning the context for further assertions.
 func analyzeProgram(bCtx SpecContext, src string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range resolver {
-			s := resolver[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}())
+	ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }

@@ -18,10 +18,10 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -82,11 +82,7 @@ func openMath(
 	config types.Params,
 ) mathSetup {
 	g := makeMathGraph(nodeType, dt)
-	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		symbol.AutoImportModules(root)
-		return root
-	}())
+	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
@@ -106,11 +102,7 @@ func openMathWithReset(
 	config types.Params,
 ) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
-	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		symbol.AutoImportModules(root)
-		return root
-	}())
+	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
@@ -303,11 +295,7 @@ var _ = Describe("Math", func() {
 	Describe("Factory", func() {
 		It("Should create node for math.avg via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("avg", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			m := MustSucceed(stlmath.NewHost(ctx, nil))
@@ -322,11 +310,7 @@ var _ = Describe("Math", func() {
 		})
 		It("Should create node for math.derivative via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("derivative", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			m := MustSucceed(stlmath.NewHost(ctx, nil))
@@ -722,11 +706,7 @@ var _ = Describe("Derivative", func() {
 
 	openDeriv := func(ctx SpecContext, dt types.Type) mathSetup {
 		g := makeDerivGraph(dt)
-		analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stl.Symbols...)
-			symbol.AutoImportModules(root)
-			return root
-		}())
+		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := node.New(analyzed)
 		inputNode := s.Node("input")

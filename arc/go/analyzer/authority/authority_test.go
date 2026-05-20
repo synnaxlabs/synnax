@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,14 +26,7 @@ var _ = Describe("Authority Analyzer", func() {
 		{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 		{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 	}
-	newRoot := func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range channels {
-			s := channels[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}
+	newRoot := func() *symbol.Symbol { return NewRoot(nil, channels...) }
 
 	Describe("Simple Form", func() {
 		It("Should parse a simple authority declaration", func(specCtx SpecContext) {

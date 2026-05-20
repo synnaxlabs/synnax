@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -25,7 +24,7 @@ import (
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
-	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
@@ -108,10 +107,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	}
 
 	// Compile graph to WASM
-	mod, err := arc.CompileGraph(ctx, g, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		return root
-	}())
+	mod, err := arc.CompileGraph(ctx, g, NewRoot(nil))
 	if err != nil {
 		b.Fatalf("Failed to compile graph: %v", err)
 	}
@@ -270,10 +266,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 		},
 	}
 
-	mod, err := arc.CompileGraph(ctx, g, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		return root
-	}())
+	mod, err := arc.CompileGraph(ctx, g, NewRoot(nil))
 	if err != nil {
 		b.Fatalf("Failed to compile graph: %v", err)
 	}

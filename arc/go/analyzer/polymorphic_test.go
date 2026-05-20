@@ -16,8 +16,8 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,14 +46,7 @@ func newMockPolymorphicSymbols() []symbol.Symbol {
 
 var _ = Describe("Polymorphic func Analysis", func() {
 	extras := newMockPolymorphicSymbols()
-	newRoot := func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range extras {
-			s := extras[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}
+	newRoot := func() *symbol.Symbol { return NewRoot(nil, extras...) }
 
 	type polymorphicCase struct {
 		expectedType types.Type

@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -67,11 +67,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -127,11 +123,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -416,11 +408,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			compound := node.CompoundFactory{selector.NewHost()}
@@ -464,11 +452,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			factory := selector.NewHost()

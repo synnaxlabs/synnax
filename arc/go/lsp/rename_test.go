@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -30,10 +30,7 @@ var _ = Describe("Rename", func() {
 
 	BeforeEach(func() {
 		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-			return func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}()
+			return NewRoot(nil)
 		}}))
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
@@ -75,11 +72,9 @@ var _ = Describe("Rename", func() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable})
-				return root
 			}}))
 			server.SetClient(&MockClient{})
 
@@ -240,11 +235,9 @@ func main() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable})
-				return root
 			}}))
 			server.SetClient(&MockClient{})
 

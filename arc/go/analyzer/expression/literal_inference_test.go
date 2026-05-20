@@ -15,22 +15,15 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Literal Type Inference", func() {
 	var testExtras []symbol.Symbol
-	newRoot := func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range testExtras {
-			s := testExtras[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}
+	newRoot := func() *symbol.Symbol { return NewRoot(nil, testExtras...) }
 
 	BeforeEach(func() {
 		testExtras = []symbol.Symbol{

@@ -30,6 +30,7 @@ import (
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
@@ -88,20 +89,8 @@ func newHarness(
 	chans []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *testHarness {
-	buildRoot := func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range chans {
-			s := chans[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}
-	prog := MustSucceed(arc.CompileGraph(ctx, g, buildRoot()))
-	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-		root := buildRoot()
-		symbol.AutoImportModules(root)
-		return root
-	}())
+	prog := MustSucceed(arc.CompileGraph(ctx, g, NewRoot(nil, chans...)))
+	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, chans...))
 	Expect(diagnostics.Ok()).To(BeTrue())
 	s := node.New(analyzed)
 

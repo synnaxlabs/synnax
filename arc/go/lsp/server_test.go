@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -338,10 +337,7 @@ var _ = Describe("External Change Notifications", func() {
 		observer = observe.New[struct{}]()
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
 			NewRoot: func() *symbol.Symbol {
-				return func() *symbol.Symbol {
-					root := symbol.NewRoot(resolver, stl.Symbols...)
-					return root
-				}()
+				return NewRoot(resolver)
 			},
 			OnExternalChange: observer,
 		})

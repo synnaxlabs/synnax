@@ -16,11 +16,35 @@ import (
 	"context"
 	"strings"
 
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
+
+// NewRoot builds a test root with all STL symbols plus extras attached
+// to the ambient prelude. extras are passed by value (taken by reference
+// internally) so tests can pass their per-test []symbol.Symbol resolver
+// slices directly without a conversion loop.
+func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
+	syms := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(extras))
+	syms = append(syms, stl.Symbols...)
+	for i := range extras {
+		s := extras[i]
+		syms = append(syms, &s)
+	}
+	return symbol.NewRoot(resolver, syms...)
+}
+
+// NewGraphRoot is NewRoot plus symbol.AutoImportModules. Graph-mode tests
+// use this to install KindModuleAlias children on the root so qualified
+// names like "math.avg" resolve without an explicit import.
+func NewGraphRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
+	root := NewRoot(resolver, extras...)
+	symbol.AutoImportModules(root)
+	return root
+}
 
 // FirstChildOfKind returns the first direct child of s with the given kind.
 // Returns query.ErrNotFound when no matching child exists. Used by tests

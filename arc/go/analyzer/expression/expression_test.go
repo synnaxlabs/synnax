@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
@@ -34,10 +34,7 @@ func expectOperatorTypeError(
 	operator string,
 ) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		return root
-	}())
+	ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -608,10 +605,7 @@ var _ = Describe("Expressions", func() {
 					result := x + y * z
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
@@ -800,14 +794,7 @@ var _ = Describe("Expressions", func() {
 					callee()
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.CallEdges).To(HaveLen(1))
@@ -835,14 +822,7 @@ var _ = Describe("Expressions", func() {
 					stage done {}
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			ctx := context.CreateRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -918,10 +898,7 @@ var _ = Describe("Expressions", func() {
 					y := undefinedVar + 5
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -938,10 +915,7 @@ var _ = Describe("Expressions", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1023,14 +997,7 @@ var _ = Describe("Expressions", func() {
 				Type: types.Chan(types.I32()),
 				ID:   20002,
 			}}
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1052,14 +1019,7 @@ var _ = Describe("Expressions", func() {
 				Type: types.Chan(types.F32()),
 				ID:   20004,
 			}}
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1078,14 +1038,7 @@ var _ = Describe("Expressions", func() {
 				Type: types.Chan(types.I32()),
 				ID:   20005,
 			}}
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1480,10 +1433,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1495,10 +1445,7 @@ var _ = Describe("Expressions", func() {
 					y := x^-2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1510,10 +1457,7 @@ var _ = Describe("Expressions", func() {
 					y := x^0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1526,10 +1470,7 @@ var _ = Describe("Expressions", func() {
 					z := x^y
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1542,10 +1483,7 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1560,10 +1498,7 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1577,10 +1512,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2.0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1594,10 +1526,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2s
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			ctx := context.CreateRoot(specCtx, ast, NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))

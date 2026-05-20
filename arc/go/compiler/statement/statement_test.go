@@ -20,18 +20,15 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func compile(bCtx SpecContext, source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
-	aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		return root
-	}())
+	aCtx := acontext.CreateRoot(bCtx, stmt, NewRoot(nil))
 	analyzer.AnalyzeStatement(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -41,10 +38,7 @@ func compile(bCtx SpecContext, source string) []byte {
 
 func compileBlock(bCtx SpecContext, source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-	aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		return root
-	}())
+	aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 	analyzer.AnalyzeBlock(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -57,10 +51,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Named Output Assignment", func() {
 		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -163,10 +154,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Stateful Variables", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -183,10 +171,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -206,10 +191,7 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				count = 5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -236,10 +218,7 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				x i64 := count + 1
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -268,10 +247,7 @@ var _ = Describe("Statement Compiler", func() {
 				b i64 $= 20
 				c i64 := a + b
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -303,10 +279,7 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -326,10 +299,7 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 10
 				count += 5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -357,10 +327,7 @@ var _ = Describe("Statement Compiler", func() {
 				value f64 $= 100.0
 				value -= 25.5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -389,10 +356,7 @@ var _ = Describe("Statement Compiler", func() {
 				n *= 2
 				n *= 3
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -751,10 +715,7 @@ var _ = Describe("Statement Compiler", func() {
 		var sLit, sConcat uint64
 		compileStr := func(bCtx SpecContext, source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -919,10 +880,7 @@ var _ = Describe("Statement Compiler", func() {
 				data series i64 := [1, 2, 3]
 				data[0] = 42
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 
 			// Set up function scope BEFORE analysis (required for indexed assignment)
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -958,10 +916,7 @@ var _ = Describe("Statement Compiler", func() {
 				a := 5
 				x := [a, 12.0]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
@@ -997,10 +952,7 @@ var _ = Describe("Statement Compiler", func() {
 				a := 12.0
 				x := [a, 5]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
@@ -1037,10 +989,7 @@ var _ = Describe("Statement Compiler", func() {
 				b := 10
 				x := [a, b, 15.0]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
@@ -1079,14 +1028,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Channel Operations", func() {
 		compileWithChannels := func(bCtx SpecContext, source string, resolver []symbol.Symbol) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				for i := range resolver {
-					s := resolver[i]
-					root.Parent.AddChild(&s)
-				}
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil, resolver...))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -1657,10 +1599,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Chan-typed Input Parameter Operations", func() {
 		compileWithChanInput := func(bCtx SpecContext, source string, inputName string, inputType types.Type) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -1755,10 +1694,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -1808,10 +1744,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -1860,10 +1793,7 @@ var _ = Describe("Statement Compiler", func() {
 					running = 0
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -1898,10 +1828,7 @@ var _ = Describe("Statement Compiler", func() {
 					break
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -1932,10 +1859,7 @@ var _ = Describe("Statement Compiler", func() {
 					x = 0
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -1976,10 +1900,7 @@ var _ = Describe("Statement Compiler", func() {
 					continue
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2026,10 +1947,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2094,10 +2012,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2129,10 +2044,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2158,10 +2070,7 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2212,10 +2121,7 @@ var _ = Describe("Statement Compiler", func() {
 					x = x - 1
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2250,10 +2156,7 @@ var _ = Describe("Statement Compiler", func() {
 					}
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
@@ -2285,10 +2188,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration (single-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					return root
-				}())
+				aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
@@ -2330,10 +2230,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					return root
-				}())
+				aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
@@ -2372,10 +2269,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					return root
-				}())
+				aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 				ctx := context.CreateRoot(
@@ -2417,10 +2311,7 @@ var _ = Describe("Statement Compiler", func() {
 					}
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			aCtx := acontext.CreateRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)

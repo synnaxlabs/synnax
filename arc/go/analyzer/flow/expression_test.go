@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,14 +29,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 		{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 12},
 		{Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 13},
 	}
-	newRoot := func() *symbol.Symbol {
-		root := symbol.NewRoot(nil, stl.Symbols...)
-		for i := range testChannels {
-			s := testChannels[i]
-			root.Parent.AddChild(&s)
-		}
-		return root
-	}
+	newRoot := func() *symbol.Symbol { return NewRoot(nil, testChannels...) }
 
 	Describe("Pure Literals", func() {
 		It("should create KindConstant for integer literal", func(bCtx SpecContext) {

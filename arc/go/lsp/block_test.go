@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -40,14 +40,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			{Name: "temp_c", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 2},
 			{Name: "pressure", Type: types.Chan(types.F64()), Kind: symbol.KindChannel, ID: 3},
 		}
-		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stl.Symbols...)
-			for i := range channels {
-				s := channels[i]
-				root.Parent.AddChild(&s)
-			}
-			return root
-		}}))
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) }}))
 		server.SetClient(&MockClient{})
 	})
 

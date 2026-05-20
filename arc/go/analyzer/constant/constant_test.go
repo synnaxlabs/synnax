@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
@@ -31,10 +31,7 @@ func analyzeProgram(
 	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := acontext.CreateRoot(specCtx, prog, func() *symbol.Symbol {
-		root := symbol.NewRoot(resolver, stl.Symbols...)
-		return root
-	}())
+	ctx := acontext.CreateRoot(specCtx, prog, NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }

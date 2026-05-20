@@ -21,8 +21,8 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -557,10 +557,7 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				return root
-			}())
+			analyzerCtx := acontext.CreateRoot(bCtx, expr, NewRoot(nil))
 			timeMod := analyzerCtx.Scope.Parent.FindChild("time")
 			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
 				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,

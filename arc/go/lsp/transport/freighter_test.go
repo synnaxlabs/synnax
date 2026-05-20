@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/lsp/transport"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/freighter/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -82,10 +82,7 @@ var _ = Describe("Freighter Transport", func() {
 		server = MustSucceed(lsp.New(lsp.Config{
 			Instrumentation: alamos.New("test"),
 			NewRoot: func() *symbol.Symbol {
-				return func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					return root
-				}()
+				return NewRoot(nil)
 			},
 		}))
 		var serverStream *mock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]

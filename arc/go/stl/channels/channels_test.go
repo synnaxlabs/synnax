@@ -15,11 +15,10 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/testutil"
-	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -144,11 +143,7 @@ var _ = Describe("Channel", func() {
 				Nodes:     []graph.Node{{Key: "test", Type: "on"}},
 				Functions: []graph.Function{{Key: "on"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			rtState = rnode.New(analyzed)
 		})
@@ -257,11 +252,7 @@ var _ = Describe("Channel", func() {
 					},
 				}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 10, DataType: telem.Float32T, Index: 11},
@@ -506,11 +497,7 @@ var _ = Describe("Channel", func() {
 					}},
 				}
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
-				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					symbol.AutoImportModules(root)
-					return root
-				}())
+				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, NewGraphRoot(nil))
 				Expect(diagnostics2.Ok()).To(BeTrue())
 				s2 := rnode.New(analyzed2)
 				channelState := channels.NewProgramState([]channels.Digest{
@@ -572,11 +559,7 @@ var _ = Describe("Channel", func() {
 				{Key: 100, DataType: telem.Float32T, Index: 101},
 			})
 			mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
-			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.NewRoot(nil, stl.Symbols...)
-				symbol.AutoImportModules(root)
-				return root
-			}())
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			progState = rnode.New(analyzed)
 			factory = mod
@@ -710,11 +693,7 @@ var _ = Describe("Channel", func() {
 					{Key: 3, DataType: telem.Int32T, Index: 4},
 				})
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					symbol.AutoImportModules(root)
-					return root
-				}())
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
@@ -779,11 +758,7 @@ var _ = Describe("Channel", func() {
 					{Key: 40, DataType: telem.Float64T, Index: 41},
 				})
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.NewRoot(nil, stl.Symbols...)
-					symbol.AutoImportModules(root)
-					return root
-				}())
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 

@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -28,22 +28,12 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		block parser.IBlockContext,
 		resolver []symbol.Symbol,
 	) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stl.Symbols...)
-			for i := range resolver {
-				s := resolver[i]
-				root.Parent.AddChild(&s)
-			}
-			return root
-		}())
+		return context.CreateRoot(bCtx, block, NewRoot(nil, resolver...))
 	}
 
 	// Helper to create a context without a resolver
 	createContext := func(bCtx SpecContext, block parser.IBlockContext) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stl.Symbols...)
-			return root
-		}())
+		return context.CreateRoot(bCtx, block, NewRoot(nil))
 	}
 
 	// Helper to analyze function body and expect success
