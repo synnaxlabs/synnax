@@ -208,7 +208,7 @@ private:
         auto ch = this->channel;
         linker
             .func_wrap(
-                "channel",
+                "channels",
                 "read_" + suffix,
                 [ch](uint32_t channel_id) -> W {
                     auto [multi_series, ok] = ch->read_value(
@@ -223,7 +223,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "channel",
+                "channels",
                 "write_" + suffix,
                 [ch, dt](uint32_t channel_id, W value) {
                     ch->write_channel_typed(
@@ -241,7 +241,7 @@ private:
         auto ss = this->str_state;
         linker
             .func_wrap(
-                "channel",
+                "channels",
                 "read_str",
                 [ch, ss](uint32_t channel_id) -> uint32_t {
                     auto [multi_series, ok] = ch->read_value(channel_id);
@@ -254,7 +254,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "channel",
+                "channels",
                 "write_str",
                 [this, ch, ss](uint32_t channel_id, uint32_t str_handle) {
                     std::string str_value = ss->get(str_handle);
