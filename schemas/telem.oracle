@@ -106,16 +106,6 @@ TimestampFormat enum {
     @pb omit
 }
 
-TimeZone enum {
-    local = "local"
-    utc   = "UTC"
-
-    @doc value "is the time zone used when rendering timestamps."
-    @py omit
-    @cpp omit
-    @pb omit
-}
-
 Alignment uint64 {
     @doc value """
         is a 64-bit index for positioning samples within multi-array structures.
