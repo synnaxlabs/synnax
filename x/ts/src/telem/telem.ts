@@ -17,9 +17,6 @@ import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
 const SIMPLE_DAYS_IN_YEAR = 365;
 const SIMPLE_DAYS_IN_MONTH = 30;
 
-/** Different string formats for time stamps. */
-export type TimeStampStringFormat = TimestampFormat;
-
 /** Different string formats for time spans. */
 export type TimeSpanStringFormat = "full" | "semantic";
 
@@ -641,7 +638,7 @@ export class TimeStamp
    * @param timeZone - Optional TimeZone. Defaults to "UTC".
    * @returns A string representation of the TimeStamp.
    */
-  toString(format: TimeStampStringFormat = "ISO", timeZone: TimeZone = "UTC"): string {
+  toString(format: TimestampFormat = "ISO", timeZone: TimeZone = "UTC"): string {
     switch (format) {
       case "ISODate":
         return this.toISOString(timeZone).slice(0, 10);
@@ -694,7 +691,7 @@ export class TimeStamp
    * Determines the appropriate string format based on the span magnitude.
    *
    * @param span - The span that provides context for format selection
-   * @returns The appropriate TimeStampStringFormat
+   * @returns The appropriate TimestampFormat
    *
    * Rules:
    * - For spans >= 30 days: "date" (e.g., "Nov 5")
@@ -702,7 +699,7 @@ export class TimeStamp
    * - For spans >= 1 hour: "time" (e.g., "14:23:45")
    * - For spans < 1 hour: "preciseTime" (e.g., "14:23:45.123")
    */
-  formatBySpan(span: TimeSpan): TimeStampStringFormat {
+  formatBySpan(span: TimeSpan): TimestampFormat {
     if (span.greaterThanOrEqual(TimeSpan.days(30))) return "date";
     if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
     if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";

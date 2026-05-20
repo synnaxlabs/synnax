@@ -21,7 +21,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
 } from "@/telem";
 
 describe("TimeStamp", () => {
@@ -541,7 +541,7 @@ describe("TimeStamp", () => {
       .add(TimeSpan.minutes(20))
       .add(TimeSpan.milliseconds(12));
 
-    const FORMAT_TESTS: [TimeStampStringFormat, string][] = [
+    const FORMAT_TESTS: [TimestampFormat, string][] = [
       ["ISO", "2022-12-15T12:20:00.012Z"],
       ["ISODate", "2022-12-15"],
       ["time", "12:20:00"],
