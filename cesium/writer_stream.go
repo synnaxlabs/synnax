@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -108,42 +107,22 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
-	// autoIndex carries the state needed to auto-stamp missing index series and to
-	// propagate SetAuthority calls on data channels through to their implicit index
-	// channels. Nil when AutoIndexing is disabled.
-	autoIndex *autoIndexState
+	// propChans and propAuths are scratch buffers used by propagateAuthority to build
+	// the (possibly expanded) Channels/Authorities slices returned to setAuthority.
+	// Truncated to zero length at the start of each call so the steady state is
+	// allocation-free. Only used when AutoIndexing is true.
+	propChans []ChannelKey
+	propAuths []xcontrol.Authority
 	WriterConfig
 }
 
-// autoIndexState scopes the transient auto-indexing state for one streamWriter.
-// Data-channel-to-index relationships are read from w.internal as needed; this struct
-// holds only the maps and scratch buffers that must persist across calls.
-//   - dataAuth tracks the most recent authority for each data channel and is updated
-//     by SetAuthority calls so that implicit-index authorities can be recomputed as
-//     the max across referencing data channels.
-//   - keyLens holds the per-channel series length of the current Write frame. Reused
-//     across calls (via clear()) so the hot path does not allocate.
-//   - propChans and propAuths are scratch buffers used by propagateAuthority to build
-//     the (possibly expanded) Channels/Authorities slices returned to setAuthority.
-//     Truncated to zero length at the start of each call so the steady state is
-//     allocation-free.
-type autoIndexState struct {
-	dataAuth  map[ChannelKey]xcontrol.Authority
-	keyLens   map[ChannelKey]int64
-	propChans []ChannelKey
-	propAuths []xcontrol.Authority
-}
-
-// initAutoIndexing populates the auto-indexing state from the writer's already-opened
-// idxWriters. Must be called after w.internal is fully populated.
+// initAutoIndexing seeds each idxWriter's dataAuth map from the writer's open-time
+// per-channel authorities and allocates the streamWriter's propagateAuthority scratch
+// buffers. Must be called after w.internal is fully populated.
 func (w *streamWriter) initAutoIndexing() {
 	n := len(w.Channels)
-	state := &autoIndexState{
-		dataAuth:  make(map[ChannelKey]xcontrol.Authority),
-		keyLens:   make(map[ChannelKey]int64, n),
-		propChans: make([]ChannelKey, 0, n),
-		propAuths: make([]xcontrol.Authority, 0, n),
-	}
+	w.propChans = make([]ChannelKey, 0, n)
+	w.propAuths = make([]xcontrol.Authority, 0, n)
 	authByKey := make(map[ChannelKey]xcontrol.Authority, n)
 	for i, k := range w.Channels {
 		authByKey[k] = w.authority(i)
@@ -153,14 +132,14 @@ func (w *streamWriter) initAutoIndexing() {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
+		idx.dataAuth = make(map[ChannelKey]xcontrol.Authority, len(idx.internal))
 		for dataKey := range idx.internal {
 			if dataKey == idxKey {
 				continue
 			}
-			state.dataAuth[dataKey] = authByKey[dataKey]
+			idx.dataAuth[dataKey] = authByKey[dataKey]
 		}
 	}
-	w.autoIndex = state
 }
 
 // Flow implements the confluence.Flow interface.
@@ -220,7 +199,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	if w.autoIndex != nil {
+	if *w.AutoIndexing {
 		cfg = w.propagateAuthority(cfg)
 	}
 	var (
@@ -287,7 +266,7 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
-	if w.autoIndex != nil {
+	if *w.AutoIndexing {
 		req.Frame = w.autoStamp(req.Frame)
 	}
 	var (
@@ -330,110 +309,64 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 	return accumulatedErr
 }
 
-// autoStamp inspects fr, injects a TimeStamp series for each idxWriter whose index
-// channel is being written by this writer but is absent from fr, and returns the
-// updated frame. Each generated series is sized to match the length of a data channel
-// in the same idxWriter group. Generated timestamps start at max(now, hwm+1) where hwm
-// is the index's current high-water mark; subsequent samples within the same call are
-// spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm when the
-// generated series is written.
+// autoStamp injects a TimeStamp series for each idxWriter whose index channel is
+// referenced by the writer but absent from fr. It pre-reserves capacity on fr for the
+// upper bound of appended entries (one per idxWriter) so the per-idxWriter Appends do
+// not repeatedly grow the underlying slices.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
-	clear(w.autoIndex.keyLens)
-	for i, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		w.autoIndex.keyLens[k] = fr.RawSeriesAt(i).Len()
-	}
+	fr = fr.Grow(len(w.internal))
 	now := telem.Now()
 	for _, idx := range w.internal {
-		if !idx.writingToIdx {
-			continue
-		}
-		idxKey := idx.idx.ch.Key
-		if _, present := w.autoIndex.keyLens[idxKey]; present {
-			continue
-		}
-		var n int64
-		for k := range idx.internal {
-			if k == idxKey {
-				continue
-			}
-			if l, ok := w.autoIndex.keyLens[k]; ok && l > 0 {
-				n = l
-				break
-			}
-		}
-		if n == 0 {
-			continue
-		}
-		t0 := now
-		if hwm := idx.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
-			t0 = hwm + 1
-		}
-		series := telem.MakeSeries(telem.TimeStampT, int(n))
-		stamps := xunsafe.CastSlice[byte, telem.TimeStamp](series.Data)
-		for j := range stamps {
-			stamps[j] = t0 + telem.TimeStamp(j)
-		}
-		fr = fr.Append(idxKey, series)
+		fr = idx.autoStampInto(fr, now)
 	}
 	return fr
 }
 
-// propagateAuthority synchronizes the autoIndexState's per-data-channel authority
-// tracking with the incoming SetAuthority config and augments cfg with an updated
-// authority for each implicit index whose referencing data channels' max may have
-// changed. Broadcast calls (cfg.Channels empty) are forwarded unchanged — the caller
-// already applies the broadcast across every channel in the writer, including indexes —
-// but the tracked state is refreshed so the next per-channel call computes correctly.
-// Indexes the caller explicitly included in cfg.Channels are left untouched. The
-// returned WriterConfig's Channels and Authorities slices alias scratch buffers owned
-// by the autoIndexState and must not be retained across calls to propagateAuthority.
+// propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
+// with the incoming SetAuthority config and augments cfg with an updated authority for
+// each implicit index whose referencing data channels' max may have changed. Broadcast
+// calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
+// broadcast across every channel in the writer, including indexes — but the tracked
+// state is refreshed so the next per-channel call computes correctly. Indexes the
+// caller explicitly included in cfg.Channels are left untouched. The returned
+// WriterConfig's Channels and Authorities slices alias scratch buffers owned by the
+// streamWriter and must not be retained across calls to propagateAuthority.
 func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
-	s := w.autoIndex
 	if len(cfg.Channels) == 0 {
-		for k := range s.dataAuth {
-			s.dataAuth[k] = cfg.Authorities[0]
+		for _, idx := range w.internal {
+			idx.broadcastDataAuth(cfg.Authorities[0])
 		}
 		return cfg
 	}
-	s.propChans = append(s.propChans[:0], cfg.Channels...)
-	s.propAuths = s.propAuths[:0]
+	w.propChans = append(w.propChans[:0], cfg.Channels...)
+	w.propAuths = w.propAuths[:0]
 	for i := range cfg.Channels {
-		s.propAuths = append(s.propAuths, cfg.authority(i))
+		w.propAuths = append(w.propAuths, cfg.authority(i))
 	}
-	for i, k := range s.propChans {
-		if _, isData := s.dataAuth[k]; isData {
-			s.dataAuth[k] = s.propAuths[i]
+	for i, k := range w.propChans {
+		for _, idx := range w.internal {
+			if idx.setDataAuth(k, w.propAuths[i]) {
+				break
+			}
 		}
 	}
-	nExplicit := len(s.propChans)
+	nExplicit := len(w.propChans)
 indexLoop:
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		for _, ek := range s.propChans[:nExplicit] {
+		for _, ek := range w.propChans[:nExplicit] {
 			if ek == idxKey {
 				continue indexLoop
 			}
 		}
-		var maxAuth xcontrol.Authority
-		for dc := range idx.internal {
-			if dc == idxKey {
-				continue
-			}
-			if s.dataAuth[dc] > maxAuth {
-				maxAuth = s.dataAuth[dc]
-			}
-		}
-		s.propChans = append(s.propChans, idxKey)
-		s.propAuths = append(s.propAuths, maxAuth)
+		w.propChans = append(w.propChans, idxKey)
+		w.propAuths = append(w.propAuths, idx.maxDataAuth())
 	}
-	cfg.Channels = s.propChans
-	cfg.Authorities = s.propAuths
+	cfg.Channels = w.propChans
+	cfg.Authorities = w.propAuths
 	return cfg
 }
 
@@ -520,6 +453,88 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
+	// dataAuth tracks the most recent control authority for each data channel in this
+	// group (i.e. the keys of internal excluding the index itself). Populated only when
+	// the streamWriter has AutoIndexing enabled and writingToIdx is true; updated by
+	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
+	// authority as the max across its referencing data channels.
+	dataAuth map[ChannelKey]xcontrol.Authority
+}
+
+// autoStampInto appends a TimeStamp series for this idxWriter's index channel onto fr
+// if the writer is responsible for the index and the caller did not include the index
+// in fr. The generated series is sized to match the length of any data channel for
+// this group present in fr. Generated timestamps start at max(now, hwm+1), where hwm
+// is the index's current high-water mark, and are spaced 1ns apart. Returns fr
+// unchanged when no stamping is needed. The idxWriter's existing updateHighWater path
+// advances hwm when the generated series is written downstream.
+func (w *idxWriter) autoStampInto(fr Frame, now telem.TimeStamp) Frame {
+	if !w.writingToIdx {
+		return fr
+	}
+	idxKey := w.idx.ch.Key
+	var n int64
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		if _, mine := w.internal[k]; !mine {
+			continue
+		}
+		if k == idxKey {
+			return fr
+		}
+		if l := fr.RawSeriesAt(i).Len(); l > 0 && n == 0 {
+			n = l
+		}
+	}
+	if n == 0 {
+		return fr
+	}
+	t0 := now
+	if hwm := w.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
+		t0 = hwm + 1
+	}
+	stamps := make([]telem.TimeStamp, n)
+	for j := range stamps {
+		stamps[j] = t0 + telem.TimeStamp(j)
+	}
+	return fr.Append(idxKey, telem.NewSeriesV(stamps...))
+}
+
+// setDataAuth records auth as the authority for k if k is one of this group's data
+// channels and returns true. Returns false if k is not in this group (the streamWriter
+// is expected to try the next idxWriter in that case).
+func (w *idxWriter) setDataAuth(k ChannelKey, auth xcontrol.Authority) bool {
+	if _, isData := w.dataAuth[k]; !isData {
+		return false
+	}
+	w.dataAuth[k] = auth
+	return true
+}
+
+// broadcastDataAuth sets every data channel's authority in this group to auth. Used
+// when the caller issues a writer-wide SetAuthority (cfg.Channels empty), which the
+// downstream layer applies to every channel; this keeps the per-data-channel record
+// consistent so a subsequent per-channel SetAuthority computes the implicit index's
+// max correctly.
+func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
+	for k := range w.dataAuth {
+		w.dataAuth[k] = auth
+	}
+}
+
+// maxDataAuth returns the maximum recorded authority across this group's data
+// channels. Returns 0 when the group has no data channels (which cannot occur for a
+// writingToIdx idxWriter under AutoIndexing).
+func (w *idxWriter) maxDataAuth() xcontrol.Authority {
+	var max xcontrol.Authority
+	for _, a := range w.dataAuth {
+		if a > max {
+			max = a
+		}
+	}
+	return max
 }
 
 func (w *idxWriter) write(
