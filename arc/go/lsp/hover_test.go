@@ -112,11 +112,11 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("authority.set{}"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority{}"))
 		})
 
-		It("should provide hover for 'authority.set' function", func(ctx SpecContext) {
-			content := "authority.set{value=255}"
+		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
+			content := "control.set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -127,7 +127,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### authority.set"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### control.set_authority"))
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 

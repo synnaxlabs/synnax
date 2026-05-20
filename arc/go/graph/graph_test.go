@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/stl/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/symbol"
@@ -787,7 +787,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				authority.SymbolResolver,
+				control.SymbolResolver,
 				symbol.MapResolver{
 					"10057": symbol.Symbol{
 						Name: "f64_sensor",
@@ -802,7 +802,7 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
-		It("Should analyze authority.set with a non-uint8 channel", func(ctx SpecContext) {
+		It("Should analyze control.set_authority with a non-uint8 channel", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -823,7 +823,7 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key:  "set_auth",
-						Type: "authority.set",
+						Type: "control.set_authority",
 						Config: map[string]any{
 							"value":   200,
 							"channel": 10057,
@@ -832,7 +832,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				authority.SymbolResolver,
+				control.SymbolResolver,
 				symbol.MapResolver{
 					"10057": symbol.Symbol{
 						Name: "f64_sensor",
@@ -861,7 +861,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				authority.SymbolResolver,
+				control.SymbolResolver,
 				symbol.MapResolver{
 					"10058": symbol.Symbol{
 						Name: "f64_sensor",

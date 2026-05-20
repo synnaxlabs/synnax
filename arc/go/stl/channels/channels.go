@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel
+package channels
 
 import (
 	"context"
@@ -71,7 +71,7 @@ var hostSymbols = symbol.MapResolver{
 
 var SymbolResolver = symbol.CompoundResolver{
 	userSymbols,
-	&symbol.ModuleResolver{Name: "channel", Members: hostSymbols},
+	&symbol.ModuleResolver{Name: "channels", Members: hostSymbols},
 }
 
 type Module struct {
@@ -89,7 +89,7 @@ func NewModule(
 	if rat == nil {
 		return mod, nil
 	}
-	builder := rat.NewHostModuleBuilder("channel")
+	builder := rat.NewHostModuleBuilder("channels")
 	builder = bindI32[uint8](builder, cs, "u8")
 	builder = bindI32[uint16](builder, cs, "u16")
 	builder = bindI32[uint32](builder, cs, "u32")

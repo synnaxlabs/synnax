@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -74,20 +74,20 @@ type testHarness struct {
 	state        *node.ProgramState
 	wasmRT       wazero.Runtime
 	guest        api.Module
-	channelState *channel.ProgramState
+	channelState *channels.ProgramState
 	prog         program.Program
 	analyzed     ir.IR
 	graph        arc.Graph
 }
 
-func (h *testHarness) ChannelState() *channel.ProgramState { return h.channelState }
+func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
 
 // newHarness creates a new test harness from a graph definition.
 func newHarness(
 	ctx context.Context,
 	g arc.Graph,
 	resolver symbol.Resolver,
-	channelDigests ...channel.Digest,
+	channelDigests ...channels.Digest,
 ) *testHarness {
 	var compileResolver symbol.Resolver
 	if resolver != nil {
@@ -102,7 +102,7 @@ func newHarness(
 
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
-	channelState := channel.NewProgramState(channelDigests)
+	channelState := channels.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
@@ -111,7 +111,7 @@ func newHarness(
 	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channels.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
@@ -192,7 +192,7 @@ func newTextHarness(
 	ctx context.Context,
 	source string,
 	resolver symbol.Resolver,
-	channelDigests ...channel.Digest,
+	channelDigests ...channels.Digest,
 ) *testHarness {
 	var compileResolver symbol.Resolver
 	if resolver != nil {
@@ -208,7 +208,7 @@ func newTextHarness(
 
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
-	channelState := channel.NewProgramState(channelDigests)
+	channelState := channels.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
@@ -217,7 +217,7 @@ func newTextHarness(
 	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channels.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
@@ -632,7 +632,7 @@ func emit_period{period i64 ns} (trigger f32) i64 {
 trigger_ch -> emit_period{period=1s}
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -1802,7 +1802,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 100, DataType: telem.Int32T},
+					channels.Digest{Key: 100, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -1831,7 +1831,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 100, Index: 101, DataType: telem.Int32T},
+					channels.Digest{Key: 100, Index: 101, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -1862,7 +1862,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 200, Index: 201, DataType: telem.Int32T},
+					channels.Digest{Key: 200, Index: 201, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -1900,8 +1900,8 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 10, Index: 11, DataType: telem.Int32T},
-					channel.Digest{Key: 20, Index: 21, DataType: telem.Int32T},
+					channels.Digest{Key: 10, Index: 11, DataType: telem.Int32T},
+					channels.Digest{Key: 20, Index: 21, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -1936,7 +1936,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 300, Index: 301, DataType: telem.Int32T},
+					channels.Digest{Key: 300, Index: 301, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -1973,7 +1973,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 700, Index: 701, DataType: telem.Int32T},
+					channels.Digest{Key: 700, Index: 701, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -2001,7 +2001,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 800, Index: 801, DataType: telem.Uint8T},
+					channels.Digest{Key: 800, Index: 801, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
@@ -2031,7 +2031,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 1100, Index: 1101, DataType: telem.Float64T},
+					channels.Digest{Key: 1100, Index: 1101, DataType: telem.Float64T},
 				)
 				defer h.Close(ctx)
 
@@ -2059,7 +2059,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 1200, Index: 1201, DataType: telem.Float32T},
+					channels.Digest{Key: 1200, Index: 1201, DataType: telem.Float32T},
 				)
 				defer h.Close(ctx)
 
@@ -2101,7 +2101,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 900, Index: 0, DataType: telem.Int32T},
+					channels.Digest{Key: 900, Index: 0, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -2130,7 +2130,7 @@ trigger_ch -> emit_period{period=1s}
 				}`)
 
 				h := newHarness(ctx, g, resolver,
-					channel.Digest{Key: 1000, Index: 1001, DataType: telem.Int32T},
+					channels.Digest{Key: 1000, Index: 1001, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
 
@@ -2215,7 +2215,7 @@ trigger_ch -> emit_period{period=1s}
 					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
 				},
 			}
-			h := newHarness(ctx, g, resolver, channel.Digest{Key: 100, DataType: telem.Int32T})
+			h := newHarness(ctx, g, resolver, channels.Digest{Key: 100, DataType: telem.Int32T})
 			defer h.Close(ctx)
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
@@ -2337,7 +2337,7 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -2399,7 +2399,7 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -2510,9 +2510,9 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 101, DataType: telem.Float32T},
-				channel.Digest{Key: 102, DataType: telem.Float32T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.Float32T},
+				channels.Digest{Key: 102, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -2600,11 +2600,11 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 200, DataType: telem.Float64T},
-				channel.Digest{Key: 201, DataType: telem.Float64T},
-				channel.Digest{Key: 202, DataType: telem.Float64T},
-				channel.Digest{Key: 203, DataType: telem.Float64T},
-				channel.Digest{Key: 204, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 201, DataType: telem.Float64T},
+				channels.Digest{Key: 202, DataType: telem.Float64T},
+				channels.Digest{Key: 203, DataType: telem.Float64T},
+				channels.Digest{Key: 204, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -2674,8 +2674,8 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 300, DataType: telem.Float32T},
-				channel.Digest{Key: 301, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Float32T},
+				channels.Digest{Key: 301, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -2767,7 +2767,7 @@ trigger_ch -> emit_period{period=1s}
 			}
 
 			h := newHarness(ctx, g, resolver,
-				channel.Digest{Key: 400, DataType: telem.Float32T},
+				channels.Digest{Key: 400, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
 
@@ -2863,9 +2863,9 @@ func tolerance_alarm{
 input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -2970,9 +2970,9 @@ func writer{
 input_ch -> writer{output=write_target} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3026,9 +3026,9 @@ func writer{
 input_ch -> writer{output=write_target} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3078,9 +3078,9 @@ func writer{} (value f32) u8 {
 input_ch -> writer{} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3134,9 +3134,9 @@ func writer{} (value f32) u8 {
 input_ch -> writer{} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3189,9 +3189,9 @@ func writer{} (value f32) u8 {
 input_ch -> writer{} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3247,9 +3247,9 @@ func checker{} (value f32) u8 {
 input_ch -> checker{} -> output_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3325,12 +3325,12 @@ input_1 -> increment{counter=counter_1} -> sink_1
 input_2 -> increment{counter=counter_2} -> sink_2
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 101, DataType: telem.Uint8T},
-				channel.Digest{Key: 102, DataType: telem.Uint8T},
-				channel.Digest{Key: 201, DataType: telem.Float32T},
-				channel.Digest{Key: 202, DataType: telem.Float32T},
-				channel.Digest{Key: 301, DataType: telem.Uint8T},
-				channel.Digest{Key: 302, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 201, DataType: telem.Float32T},
+				channels.Digest{Key: 202, DataType: telem.Float32T},
+				channels.Digest{Key: 301, DataType: telem.Uint8T},
+				channels.Digest{Key: 302, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -3388,9 +3388,9 @@ func count_local (trigger u8) u8 {
 input_ch -> count_local{} -> sink_ch
 `
 			h := newTextHarness(ctx, source, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 200, DataType: telem.Float32T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 200, DataType: telem.Float32T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 

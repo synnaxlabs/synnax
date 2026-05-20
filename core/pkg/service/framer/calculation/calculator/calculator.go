@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
@@ -42,7 +42,7 @@ import (
 
 type calcState struct {
 	nodes   *node.ProgramState
-	channel *stlchannel.ProgramState
+	channel *stlchannels.ProgramState
 	series  *series.ProgramState
 	strings *stlstrings.ProgramState
 }
@@ -95,11 +95,11 @@ func Open(
 	}
 
 	var cs calcState
-	cs.channel = stlchannel.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
+	cs.channel = stlchannels.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
 
-	channelMod, err := stlchannel.NewModule(ctx, cs.channel, cs.strings, nil)
+	channelMod, err := stlchannels.NewModule(ctx, cs.channel, cs.strings, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@
 
 #include "arc/cpp/stl/channel/state.h"
 
-namespace arc::stl::channel {
+namespace arc::stl::channels {
 
 State::State(const std::vector<Digest> &digests) {
     for (const auto &digest: digests)

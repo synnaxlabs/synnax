@@ -759,6 +759,59 @@ var _ = Describe("Completion", func() {
 				"Flow function time.wait should not appear in func block")
 		})
 
+		It("Should return control.set_authority for 'control.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "control."
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 8)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "set_authority")).To(BeTrue())
+		})
+
+		It("Should return control.set_authority for 'control.set_a' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "control.set_a"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 13)
+			Expect(completions).ToNot(BeNil())
+			item, found := FindCompletion(completions.Items, "set_authority")
+			Expect(found).To(BeTrue())
+			Expect(item.FilterText).To(Equal("control.set_authority"))
+			Expect(item.TextEdit).ToNot(BeNil())
+			Expect(item.TextEdit.NewText).To(Equal("control.set_authority"))
+		})
+
+		It("Should suggest module names at top-level when typing a partial module name", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			OpenArcDocument(server, ctx, uri, "trig => contr")
+			completionsControl := Completion(server, ctx, uri, 0, 13)
+			Expect(completionsControl).ToNot(BeNil())
+
+			OpenArcDocument(server, ctx, uri, "trig => mat")
+			completionsMath := Completion(server, ctx, uri, 0, 11)
+			Expect(completionsMath).ToNot(BeNil())
+
+			controlHasModule := HasCompletion(completionsControl.Items, "control")
+			mathHasModule := HasCompletion(completionsMath.Items, "math")
+
+			Expect(controlHasModule).To(Equal(mathHasModule),
+				"control should be suggested as a top-level identifier iff math is (i.e., they should behave consistently)")
+		})
+
 		It("Should return error module members for 'error.' prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,

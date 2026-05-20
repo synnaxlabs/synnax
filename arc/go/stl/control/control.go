@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package authority
+package control
 
 import (
 	"context"
@@ -23,15 +23,14 @@ import (
 
 const (
 	bareSymbolName      = "set_authority"
-	qualifiedMemberName = "set"
-	moduleName          = "authority"
+	qualifiedMemberName = "set_authority"
+	moduleName          = "control"
 )
 
-// Two separate resolvers are needed because the bare name ("set_authority")
-// differs from the qualified member name ("set"). Most STL modules share a
-// single resolver for both forms (e.g. time uses "interval" for both bare
-// and time.interval). The bare form will be deprecated and removed once
-// users migrate to authority.set{}.
+// Two separate resolvers are needed because the bare top-level form
+// ("set_authority") and the qualified form ("control.set_authority") both
+// need to resolve to the same function. The bare form will be deprecated
+// and removed once users migrate to control.set_authority{}.
 var (
 	symbolProps = types.Function(types.FunctionProperties{
 		Config: types.Params{
@@ -48,7 +47,7 @@ var (
 			Kind:       symbol.KindFunction,
 			Exec:       symbol.ExecFlow,
 			Type:       symbolProps,
-			Deprecated: "authority.set",
+			Deprecated: "control.set_authority",
 		},
 	}
 	moduleResolver = &symbol.ModuleResolver{
@@ -79,7 +78,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-		return nil, errors.Wrap(err, "authority.set config")
+		return nil, errors.Wrap(err, "control.set_authority config")
 	}
 	var channelKey *uint32
 	if nodeCfg.Channel != 0 {

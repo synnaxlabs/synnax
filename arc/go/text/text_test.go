@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/authority"
+	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -478,7 +478,7 @@ var _ = Describe("Text", func() {
 
 			It("Should reject read channel for config param requiring write channel", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"read_sensor": {
 							Name: "read_sensor",
@@ -499,9 +499,9 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
-			It("Should reject read channel for qualified authority.set config param", func(ctx SpecContext) {
+			It("Should reject read channel for qualified control.set_authority config param", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"read_sensor": {
 							Name: "read_sensor",
@@ -516,7 +516,7 @@ var _ = Describe("Text", func() {
 					return 1
 				}
 
-				source{} -> authority.set{value=200, channel=read_sensor}
+				source{} -> control.set_authority{value=200, channel=read_sensor}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
@@ -525,7 +525,7 @@ var _ = Describe("Text", func() {
 
 			It("Should emit deprecation warning for deprecated bare function name", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"write_ch": {
 							Name: "write_ch",
@@ -547,12 +547,12 @@ var _ = Describe("Text", func() {
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("authority.set"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("control.set_authority"))
 			})
 
 			It("Should not emit deprecation warning for qualified function name", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
-					authority.SymbolResolver,
+					control.SymbolResolver,
 					symbol.MapResolver{
 						"write_ch": {
 							Name: "write_ch",
@@ -563,12 +563,12 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				import authority
+				import control
 				func source{} () u8 {
 					return 1
 				}
 
-				source{} -> authority.set{value=200, channel=write_ch}
+				source{} -> control.set_authority{value=200, channel=write_ch}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)

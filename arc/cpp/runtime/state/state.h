@@ -24,7 +24,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/str/state.h"
@@ -43,7 +43,7 @@ struct Value {
     Series time;
 };
 
-using ChannelDigest = stl::channel::Digest;
+using ChannelDigest = stl::channels::Digest;
 
 struct Config {
     ir::IR ir;
@@ -162,7 +162,7 @@ class State {
     std::vector<Value> values;
     std::unordered_map<ir::Handle, size_t> value_index;
     /// @brief Per-module state slices.
-    std::shared_ptr<stl::channel::State> channel;
+    std::shared_ptr<stl::channels::State> channel;
     std::shared_ptr<stl::str::State> strings;
     std::shared_ptr<stl::series::State> series;
     std::shared_ptr<stl::stateful::Variables> vars;
@@ -180,7 +180,7 @@ public:
     );
     State(
         const Config &cfg,
-        std::shared_ptr<stl::channel::State> channel,
+        std::shared_ptr<stl::channels::State> channel,
         std::shared_ptr<stl::str::State> strings,
         std::shared_ptr<stl::series::State> series,
         std::shared_ptr<stl::stateful::Variables> vars,

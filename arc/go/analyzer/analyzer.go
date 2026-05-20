@@ -31,6 +31,7 @@ import (
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
+	checkImportOrder(ctx)
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)

@@ -34,7 +34,7 @@ func (r *Resolver) EmitCall(
 // EmitFixedCall emits a call to a host function with a fixed signature
 // looked up from the SymbolResolver, so callers do not redeclare it. Use
 // for monomorphic host functions like string.from_i32; for polymorphic
-// ones (channel.read, state.load), use EmitCall with the concrete type.
+// ones (channels.read, state.load), use EmitCall with the concrete type.
 func (r *Resolver) EmitFixedCall(w *wasm.Writer, writerID int, name string) error {
 	if r.symbols == nil {
 		return errors.Newf("cannot resolve %s: no symbol resolver", name)
@@ -65,22 +65,22 @@ func (r *Resolver) emitCallWithSuffix(
 	r.RecordPlaceholder(writerID, handle, offset)
 }
 
-// EmitChannelRead emits a call to channel.read for the given channel type.
+// EmitChannelRead emits a call to channels.read for the given channel type.
 func (r *Resolver) EmitChannelRead(w *wasm.Writer, wID int, chanType types.Type) {
 	elemType := chanType.UnwrapChan()
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: elemType}},
 	})
-	r.EmitCall(w, wID, "channel.read", ct)
+	r.EmitCall(w, wID, "channels.read", ct)
 }
 
-// EmitChannelWrite emits a call to channel.write for the given element type.
+// EmitChannelWrite emits a call to channels.write for the given element type.
 func (r *Resolver) EmitChannelWrite(w *wasm.Writer, wID int, elemType types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: elemType}},
 	})
-	r.EmitCall(w, wID, "channel.write", ct)
+	r.EmitCall(w, wID, "channels.write", ct)
 }
 
 // EmitStateLoad emits a call to state.load for the given type.

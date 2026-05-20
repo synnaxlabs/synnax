@@ -89,6 +89,7 @@ func newPrinter() *printer {
 
 func (p *printer) print(tokens []antlr.Token) string {
 	visibleTokens, comments := p.separateTokens(tokens)
+	visibleTokens = dropEmptyImports(visibleTokens)
 	visibleTokens = reorderAuthorityEntries(visibleTokens)
 	p.allComments = comments
 	commentAttacher := newCommentAttacher(comments)
@@ -116,7 +117,11 @@ func (p *printer) print(tokens []antlr.Token) string {
 
 	p.flushPendingLineEnd()
 
-	return strings.TrimRight(p.output.String(), " \t") + "\n"
+	out := strings.TrimRight(p.output.String(), " \t\n")
+	if out == "" {
+		return ""
+	}
+	return out + "\n"
 }
 
 func (p *printer) isLastTokenOnLine(tok antlr.Token, idx int, tokens []antlr.Token) bool {
@@ -254,6 +259,10 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 		if p.inAuthorityParenContext() {
 			// Skip general newline handling inside authority blocks;
 			// entry formatting handles newlines independently.
+		} else if p.inCollapsedImportParen() {
+			// A collapsed single-item import renders on one logical line
+			// regardless of how the user wrote it; suppress source-line
+			// preservation for the inner item and the matching RPAREN.
 		} else if (p.inlineConfigBlock && p.inConfigBlockContext()) ||
 			(p.inlineConfigValues && p.inConfigValuesContext()) {
 			// Skip - inline contexts don't break on original line positions.
@@ -917,6 +926,24 @@ func (p *printer) calculateParenListLength(idx int, tokens []antlr.Token) int {
 	return length
 }
 
+// dropEmptyImports strips every `import ( )` triplet from tokens. An empty
+// import block is a no-op; formatting it away matches the formatter's pattern
+// of normalizing vacuous syntax.
+func dropEmptyImports(tokens []antlr.Token) []antlr.Token {
+	out := make([]antlr.Token, 0, len(tokens))
+	for i := 0; i < len(tokens); i++ {
+		if i+2 < len(tokens) &&
+			tokens[i].GetTokenType() == parser.ArcLexerIMPORT &&
+			tokens[i+1].GetTokenType() == parser.ArcLexerLPAREN &&
+			tokens[i+2].GetTokenType() == parser.ArcLexerRPAREN {
+			i += 2
+			continue
+		}
+		out = append(out, tokens[i])
+	}
+	return out
+}
+
 // countImportItems counts the import items between the LPAREN at idx and
 // its matching RPAREN.
 func countImportItems(idx int, tokens []antlr.Token) int {
@@ -1080,6 +1107,13 @@ func (p *printer) inImportParenContext() bool {
 		return false
 	}
 	return p.parenContextStack[len(p.parenContextStack)-1] == parenContextImport
+}
+
+// inCollapsedImportParen reports whether the current paren context is a
+// single-item import block whose LPAREN/RPAREN are being suppressed.
+func (p *printer) inCollapsedImportParen() bool {
+	return p.inImportParenContext() &&
+		p.importCollapseDepths.Contains(len(p.parenContextStack))
 }
 
 func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) bool {

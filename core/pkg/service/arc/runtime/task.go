@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	stlauthority "github.com/synnaxlabs/arc/stl/authority"
-	"github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
+	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
@@ -98,10 +98,10 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}
 
 	drt.state.nodes = node.New(stateCfg.IR)
-	drt.state.channel = channel.NewProgramState(stateCfg.ChannelDigests)
+	drt.state.channel = stlchannels.NewProgramState(stateCfg.ChannelDigests)
 	drt.state.series = series.NewProgramState()
 	drt.state.strings = stlstrings.NewProgramState()
-	drt.state.authority = &stlauthority.ProgramState{}
+	drt.state.authority = &stlcontrol.ProgramState{}
 
 	var closers xio.MultiCloser
 	defer func() {
@@ -123,7 +123,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	channelMod, err := channel.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
+	channelMod, err := stlchannels.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -162,7 +162,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		stlop.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		stlauthority.NewModule(drt.state.authority),
+		stlcontrol.NewModule(drt.state.authority),
 		mathMod,
 	}
 
@@ -368,10 +368,10 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 
 type state struct {
 	nodes     *node.ProgramState
-	channel   *channel.ProgramState
+	channel   *stlchannels.ProgramState
 	series    *series.ProgramState
 	strings   *stlstrings.ProgramState
-	authority *stlauthority.ProgramState
+	authority *stlcontrol.ProgramState
 }
 
 type dataRuntime struct {

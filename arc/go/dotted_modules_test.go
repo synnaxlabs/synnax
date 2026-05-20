@@ -12,7 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -49,8 +49,8 @@ var _ = Describe("Dotted modules", func() {
 			    return time.now()
 			}
 			trig -> get_now{} -> now_out`, resolver,
-			channel.Digest{Key: 100, DataType: telem.Uint8T},
-			channel.Digest{Key: 101, DataType: telem.Int64T},
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.Int64T},
 		)
 		defer h.Close(ctx)
 

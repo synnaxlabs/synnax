@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/x/set"
 )
 
 const (
@@ -42,6 +43,7 @@ const (
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeUnit
+	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 )
 
@@ -67,6 +69,7 @@ var semanticTokenTypes = []string{
 	"input",
 	"output",
 	"unit",
+	"namespace",
 	"stringRaw",
 }
 
@@ -81,8 +84,9 @@ func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.Semant
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
+	importIdents := importContextIdents(allTokens)
 	var tokens []lsp.Token
-	// Track prev/next token types so classifyToken can handle qualified names (e.g., authority.set).
+	// Track prev/next token types so classifyToken can handle qualified names (e.g., control.set_authority).
 	for i, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
@@ -94,13 +98,122 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if i+1 < len(allTokens) {
 			nextType = allTokens[i+1].GetTokenType()
 		}
-		tokenType := classifyToken(ctx, t, prevType, nextType, docIR)
+		tokenType := classifyToken(ctx, t, prevType, nextType, importIdents.Contains(i), docIR)
 		if tokenType == nil {
 			continue
 		}
 		tokens = appendTokenPerLine(tokens, t, *tokenType)
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// importContextIdents returns the token indexes that name modules inside an
+// `import` statement (path heads, dotted path tails, and aliases — in both
+// bare and parenthesized block form). The IMPORT keyword itself is excluded.
+// Indexes are into the original tokens slice; the scan skips hidden-channel
+// tokens (whitespace, comments) so it isn't fooled by the WS that separates
+// `import` from the first module name.
+func importContextIdents(tokens []antlr.Token) set.Set[int] {
+	out := make(set.Set[int])
+	type idxTok struct {
+		idx int
+		tt  int
+	}
+	visible := make([]idxTok, 0, len(tokens))
+	for i, t := range tokens {
+		if t.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		visible = append(visible, idxTok{i, t.GetTokenType()})
+	}
+	for vi := 0; vi < len(visible); vi++ {
+		if visible[vi].tt != parser.ArcLexerIMPORT {
+			continue
+		}
+		vi++
+		if vi >= len(visible) {
+			break
+		}
+		if visible[vi].tt == parser.ArcLexerLPAREN {
+			depth := 1
+			vi++
+			for vi < len(visible) && depth > 0 {
+				switch visible[vi].tt {
+				case parser.ArcLexerLPAREN:
+					depth++
+				case parser.ArcLexerRPAREN:
+					depth--
+				case parser.ArcLexerIDENTIFIER, parser.ArcLexerAUTHORITY:
+					out.Add(visible[vi].idx)
+				}
+				vi++
+			}
+			vi--
+			continue
+		}
+		// Bare form: IDENT|AUTHORITY (DOT IDENT)* (AS IDENT)?
+		const (
+			expectHead = iota
+			afterHead
+			expectTail
+			expectAlias
+		)
+		state := expectHead
+		for vi < len(visible) {
+			tt := visible[vi].tt
+			done := false
+			switch state {
+			case expectHead:
+				if tt == parser.ArcLexerIDENTIFIER || tt == parser.ArcLexerAUTHORITY {
+					out.Add(visible[vi].idx)
+					state = afterHead
+					vi++
+				} else {
+					done = true
+				}
+			case afterHead:
+				switch tt {
+				case parser.ArcLexerDOT:
+					state = expectTail
+					vi++
+				case parser.ArcLexerAS:
+					state = expectAlias
+					vi++
+				default:
+					done = true
+				}
+			case expectTail:
+				if tt == parser.ArcLexerIDENTIFIER {
+					out.Add(visible[vi].idx)
+					state = afterHead
+					vi++
+				} else {
+					done = true
+				}
+			case expectAlias:
+				if tt == parser.ArcLexerIDENTIFIER {
+					out.Add(visible[vi].idx)
+					vi++
+				}
+				done = true
+			}
+			if done {
+				break
+			}
+		}
+		vi--
+	}
+	return out
+}
+
+// isImportAlias reports whether name is bound as a module alias in the active
+// import set.
+func isImportAlias(docIR ir.IR, name string) bool {
+	if docIR.Symbols == nil || docIR.Symbols.Imports == nil {
+		return false
+	}
+	_, ok := docIR.Symbols.Imports.Lookup(name)
+	return ok
 }
 
 // appendTokenPerLine emits one LSP semantic token per source line covered by t.
@@ -141,19 +254,36 @@ func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []l
 	return tokens
 }
 
-func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenType int, docIR ir.IR) *uint32 {
+func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenType int, inImport bool, docIR ir.IR) *uint32 {
 	antlrType := t.GetTokenType()
+	// Identifiers (and AUTHORITY used as an importable name) inside an import
+	// statement are module references, not variables.
+	if inImport && (antlrType == parser.ArcLexerIDENTIFIER || antlrType == parser.ArcLexerAUTHORITY) {
+		tokenType := uint32(SemanticTokenTypeNamespace)
+		return &tokenType
+	}
 	// IDENTIFIER after DOT is the member part of a qualified name
-	// (e.g., "set" in "authority.set"). Color it as a function.
+	// (e.g., "set_authority" in "control.set_authority"). Color it as a function.
 	if antlrType == parser.ArcLexerIDENTIFIER && prevTokenType == parser.ArcLexerDOT {
 		tokenType := uint32(SemanticTokenTypeFunction)
+		return &tokenType
+	}
+	// IDENTIFIER followed by DOT is a qualifier; if it names an imported
+	// module (directly or via alias), color it as a namespace so callers can
+	// visually distinguish module-qualified uses from local variables.
+	if antlrType == parser.ArcLexerIDENTIFIER && nextTokenType == parser.ArcLexerDOT &&
+		isImportAlias(docIR, t.GetText()) {
+		tokenType := uint32(SemanticTokenTypeNamespace)
 		return &tokenType
 	}
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
 		return classifyIdentifier(ctx, t, docIR.Symbols)
 	}
-	// AUTHORITY followed by DOT is a module prefix (authority.set), not the
-	// authority keyword. Color it as a namespace/variable instead of a keyword.
+	// AUTHORITY followed by DOT is a leftover legacy use of the keyword as a
+	// module prefix; the analyzer no longer recognizes "authority" as a module
+	// (it has been renamed to "control") but the grammar still parses the form
+	// so users get an analyzer error rather than a parse error. Color it as a
+	// namespace/variable instead of a keyword for that case.
 	if antlrType == parser.ArcLexerAUTHORITY && nextTokenType == parser.ArcLexerDOT {
 		tokenType := uint32(SemanticTokenTypeVariable)
 		return &tokenType
@@ -215,7 +345,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerFOR, parser.ArcLexerBREAK, parser.ArcLexerCONTINUE,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerAND, parser.ArcLexerOR,
-		parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
+		parser.ArcLexerNOT, parser.ArcLexerAUTHORITY,
+		parser.ArcLexerIMPORT, parser.ArcLexerAS:
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,

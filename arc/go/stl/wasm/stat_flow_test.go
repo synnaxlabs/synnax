@@ -12,7 +12,7 @@ package wasm_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -46,8 +46,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `my_sensor -> avg{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -82,8 +82,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"avg_out": {types.I32(), 200},
 			})
 			h := newTextHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Int32T},
-				channel.Digest{Key: 200, DataType: telem.Int32T},
+				channels.Digest{Key: 100, DataType: telem.Int32T},
+				channels.Digest{Key: 200, DataType: telem.Int32T},
 			)
 			defer h.Close(ctx)
 
@@ -108,8 +108,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `my_sensor -> min{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -134,8 +134,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `my_sensor -> max{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -160,8 +160,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"rate_out":  {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `my_sensor -> derivative{} -> rate_out`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -190,8 +190,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `my_sensor -> avg{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -218,8 +218,8 @@ var _ = Describe("Stat Flow Chains", func() {
 				"min_psi":  {types.F64(), 200},
 			})
 			h := newTextHarness(ctx, `pressure -> min{} -> min_psi`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 

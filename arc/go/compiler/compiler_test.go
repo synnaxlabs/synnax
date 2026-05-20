@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -107,21 +107,21 @@ func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramSta
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
-	channelState := stlchannel.NewProgramState(nil)
+	channelState := stlchannels.NewProgramState(nil)
 	MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, r))
 	MustSucceed(series.NewModule(ctx, seriesState, r))
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, r, nil))
 	MustSucceed(stlmath.NewModule(ctx, r))
 	MustSucceed(stlerrors.NewModule(ctx, nil, r))
 	MustSucceed(stltime.NewModule(ctx, r))
-	MustSucceed(stlchannel.NewModule(ctx, channelState, stringsState, r))
+	MustSucceed(stlchannels.NewModule(ctx, channelState, stringsState, r))
 	return s, stringsMod, stringsState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
-// "channel" WASM module for test use.
+// "channels" WASM module for test use.
 func bindMockChannelModule(ctx context.Context, r wazero.Runtime, exports map[string]any) {
-	builder := r.NewHostModuleBuilder("channel")
+	builder := r.NewHostModuleBuilder("channels")
 	for name, impl := range exports {
 		builder = builder.NewFunctionBuilder().WithFunc(impl).Export(name)
 	}

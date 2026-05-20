@@ -23,7 +23,7 @@
 #include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 
-namespace arc::stl::channel {
+namespace arc::stl::channels {
 
 /// @brief Source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.

@@ -17,6 +17,26 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
+// checkImportOrder reports any import statement that appears after a
+// non-import top-level declaration. Imports must form a contiguous prefix
+// of the program.
+func checkImportOrder(ctx acontext.Context[parser.IProgramContext]) {
+	sawNonImport := false
+	for _, item := range ctx.AST.AllTopLevelItem() {
+		stmt := item.ImportStatement()
+		if stmt == nil {
+			sawNonImport = true
+			continue
+		}
+		if sawNonImport {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				stmt,
+				"import statements must appear before any other top-level declarations",
+			))
+		}
+	}
+}
+
 // collectImports populates the root scope's ImportSet and diagnoses
 // duplicates and unknown modules. Must run before any resolution pass.
 func collectImports(ctx acontext.Context[parser.IProgramContext]) {

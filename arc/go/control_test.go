@@ -12,7 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -41,8 +41,8 @@ var _ = Describe("Authority", func() {
 		})
 		h := newRuntimeHarness(ctx, `
 			trigger_cmd -> set_authority{value=200, channel=valve_cmd}`, resolver,
-			channel.Digest{Key: 100, DataType: telem.Uint8T},
-			channel.Digest{Key: 101, DataType: telem.Uint8T},
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.Uint8T},
 		)
 		defer h.Close(ctx)
 

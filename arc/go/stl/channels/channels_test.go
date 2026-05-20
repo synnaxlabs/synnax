@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package channels_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -28,21 +28,21 @@ var _ = Describe("Channel", func() {
 	Describe("WASM Bindings", func() {
 		var (
 			rt *testutil.Runtime
-			cs *channel.ProgramState
+			cs *channels.ProgramState
 			ss *strings.ProgramState
 		)
 
 		BeforeEach(func(ctx SpecContext) {
 			rt = testutil.NewRuntime(ctx)
-			cs = channel.NewProgramState([]channel.Digest{
+			cs = channels.NewProgramState([]channels.Digest{
 				{Key: 1, DataType: telem.Float64T},
 				{Key: 2, DataType: telem.Int32T},
 				{Key: 3, DataType: telem.StringT},
 			})
 			ss = strings.NewProgramState()
-			_, err := channel.NewModule(ctx, cs, ss, rt.Underlying())
+			_, err := channels.NewModule(ctx, cs, ss, rt.Underlying())
 			Expect(err).To(Succeed())
-			rt.Passthrough(ctx, "channel")
+			rt.Passthrough(ctx, "channels")
 		})
 
 		AfterEach(func(ctx SpecContext) {
@@ -51,60 +51,60 @@ var _ = Describe("Channel", func() {
 
 		Describe("i32 types", func() {
 			It("Should write and read back u8 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_u8", testutil.U32(2), testutil.U32(42))
+				rt.CallVoid(ctx, "channels", "write_u8", testutil.U32(2), testutil.U32(42))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_u8", testutil.U32(2))
+				result := rt.Call(ctx, "channels", "read_u8", testutil.U32(2))
 				Expect(testutil.AsU32(result[0])).To(Equal(uint32(42)))
 			})
 
 			It("Should write and read back i32 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_i32", testutil.U32(2), testutil.U32(100))
+				rt.CallVoid(ctx, "channels", "write_i32", testutil.U32(2), testutil.U32(100))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_i32", testutil.U32(2))
+				result := rt.Call(ctx, "channels", "read_i32", testutil.U32(2))
 				Expect(testutil.AsU32(result[0])).To(Equal(uint32(100)))
 			})
 		})
 
 		Describe("i64 types", func() {
 			It("Should write and read back u64 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_u64", testutil.U32(1), testutil.U64(12345))
+				rt.CallVoid(ctx, "channels", "write_u64", testutil.U32(1), testutil.U64(12345))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_u64", testutil.U32(1))
+				result := rt.Call(ctx, "channels", "read_u64", testutil.U32(1))
 				Expect(testutil.AsU64(result[0])).To(Equal(uint64(12345)))
 			})
 
 			It("Should write and read back i64 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_i64", testutil.U32(1), testutil.U64(99999))
+				rt.CallVoid(ctx, "channels", "write_i64", testutil.U32(1), testutil.U64(99999))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_i64", testutil.U32(1))
+				result := rt.Call(ctx, "channels", "read_i64", testutil.U32(1))
 				Expect(testutil.AsU64(result[0])).To(Equal(uint64(99999)))
 			})
 		})
 
 		Describe("float types", func() {
 			It("Should write and read back f32 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_f32", testutil.U32(1), testutil.F32(3.14))
+				rt.CallVoid(ctx, "channels", "write_f32", testutil.U32(1), testutil.F32(3.14))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_f32", testutil.U32(1))
+				result := rt.Call(ctx, "channels", "read_f32", testutil.U32(1))
 				Expect(testutil.AsF32(result[0])).To(BeNumerically("~", 3.14, 0.001))
 			})
 
 			It("Should write and read back f64 values", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channel", "write_f64", testutil.U32(1), testutil.F64(2.718281828))
+				rt.CallVoid(ctx, "channels", "write_f64", testutil.U32(1), testutil.F64(2.718281828))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_f64", testutil.U32(1))
+				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
 				Expect(testutil.AsF64(result[0])).To(BeNumerically("~", 2.718281828, 0.0001))
 			})
 		})
@@ -112,11 +112,11 @@ var _ = Describe("Channel", func() {
 		Describe("string type", func() {
 			It("Should write and read back string values via handles", func(ctx SpecContext) {
 				h := ss.Create("hello world")
-				rt.CallVoid(ctx, "channel", "write_str", testutil.U32(3), testutil.U32(h))
+				rt.CallVoid(ctx, "channels", "write_str", testutil.U32(3), testutil.U32(h))
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
-				result := rt.Call(ctx, "channel", "read_str", testutil.U32(3))
+				result := rt.Call(ctx, "channels", "read_str", testutil.U32(3))
 				rh := testutil.AsU32(result[0])
 				Expect(rh).ToNot(BeZero())
 				Expect(MustBeOk(ss.Get(rh))).To(Equal("hello world"))
@@ -125,7 +125,7 @@ var _ = Describe("Channel", func() {
 
 		Describe("read with no data", func() {
 			It("Should return 0 when no data has been ingested", func(ctx SpecContext) {
-				result := rt.Call(ctx, "channel", "read_f64", testutil.U32(1))
+				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
 				Expect(testutil.AsF64(result[0])).To(Equal(float64(0)))
 			})
 		})
@@ -137,12 +137,12 @@ var _ = Describe("Channel", func() {
 			rtState *rnode.ProgramState
 		)
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(channel.NewModule(ctx, nil, nil, nil))
+			factory = MustSucceed(channels.NewModule(ctx, nil, nil, nil))
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "test", Type: "on"}},
 				Functions: []graph.Function{{Key: "on"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			rtState = rnode.New(analyzed)
 		})
@@ -238,7 +238,7 @@ var _ = Describe("Channel", func() {
 	Describe("Source Node", func() {
 		var (
 			progState    *rnode.ProgramState
-			channelState *channel.ProgramState
+			channelState *channels.ProgramState
 			factory      rnode.Factory
 		)
 		BeforeEach(func(ctx SpecContext) {
@@ -251,14 +251,14 @@ var _ = Describe("Channel", func() {
 					},
 				}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
-			channelState = channel.NewProgramState([]channel.Digest{
+			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 10, DataType: telem.Float32T, Index: 11},
 				{Key: 20, DataType: telem.Int32T, Index: 0},
 			})
 			progState = rnode.New(inter)
-			factory = MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
+			factory = MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
 		})
 
 		Describe("Data Reading", func() {
@@ -495,11 +495,11 @@ var _ = Describe("Channel", func() {
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 					}},
 				}
-				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
-				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, channel.SymbolResolver)
+				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
+				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, channels.SymbolResolver)
 				Expect(diagnostics2.Ok()).To(BeTrue())
 				s2 := rnode.New(analyzed2)
-				channelState := channel.NewProgramState([]channel.Digest{
+				channelState := channels.NewProgramState([]channels.Digest{
 					{Key: 30, DataType: telem.Float64T, Index: 31},
 				})
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
@@ -527,7 +527,7 @@ var _ = Describe("Channel", func() {
 	Describe("Sink Node", func() {
 		var (
 			progState    *rnode.ProgramState
-			channelState *channel.ProgramState
+			channelState *channels.ProgramState
 			factory      rnode.Factory
 		)
 		BeforeEach(func(ctx SpecContext) {
@@ -554,11 +554,11 @@ var _ = Describe("Channel", func() {
 					},
 				},
 			}
-			channelState = channel.NewProgramState([]channel.Digest{
+			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 100, DataType: telem.Float32T, Index: 101},
 			})
-			mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
-			analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+			mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
+			analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			progState = rnode.New(analyzed)
 			factory = mod
@@ -687,12 +687,12 @@ var _ = Describe("Channel", func() {
 						},
 					},
 				}
-				channelState := channel.NewProgramState([]channel.Digest{
+				channelState := channels.NewProgramState([]channels.Digest{
 					{Key: 1, DataType: telem.Int32T, Index: 2},
 					{Key: 3, DataType: telem.Int32T, Index: 4},
 				})
-				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
+				analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
@@ -750,14 +750,14 @@ var _ = Describe("Channel", func() {
 							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
 					},
 				}
-				channelState := channel.NewProgramState([]channel.Digest{
+				channelState := channels.NewProgramState([]channels.Digest{
 					{Key: 10, DataType: telem.Float32T, Index: 11},
 					{Key: 20, DataType: telem.Float64T, Index: 21},
 					{Key: 30, DataType: telem.Float32T, Index: 31},
 					{Key: 40, DataType: telem.Float64T, Index: 41},
 				})
-				mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
+				analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 
@@ -802,7 +802,7 @@ var _ = Describe("Channel", func() {
 	Describe("NewModule nil-safety", func() {
 		It("Should not panic when channel state is nil", func(ctx SpecContext) {
 			Expect(func() {
-				MustSucceed(channel.NewModule(ctx, nil, nil, nil))
+				MustSucceed(channels.NewModule(ctx, nil, nil, nil))
 			}).ToNot(Panic())
 		})
 	})

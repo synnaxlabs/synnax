@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -40,8 +40,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 				    log = `+source+`
 				}
 				trig -> f{}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 
@@ -78,7 +78,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			    log_mem = str(3.1)
 			}
 			interval{1s} -> example_func{}`, resolver,
-			channel.Digest{Key: 101, DataType: telem.StringT},
+			channels.Digest{Key: 101, DataType: telem.StringT},
 		)
 		defer h.Close(ctx)
 
@@ -99,8 +99,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 				    log = str(val)
 				}
 				sensor -> emit{}`, resolver,
-				channel.Digest{Key: 100, DataType: telemDT},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telemDT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
@@ -148,8 +148,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 				    log = str(val) + "`+suffix+`"
 				}
 				sensor -> emit{}`, resolver,
-				channel.Digest{Key: 100, DataType: telemDT},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telemDT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
@@ -182,9 +182,9 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 				    log = str(p1) + " some_words " + str(p2)
 				}
 				interval{50ms} -> emit{}`, resolver,
-				channel.Digest{Key: 100, DataType: telemDT1},
-				channel.Digest{Key: 101, DataType: telemDT2},
-				channel.Digest{Key: 102, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telemDT1},
+				channels.Digest{Key: 101, DataType: telemDT2},
+				channels.Digest{Key: 102, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
@@ -231,7 +231,7 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			h := newRuntimeHarness(ctx,
 				`import time
 time.interval{50ms} -> `+source+` -> log_mem`, resolver,
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 
@@ -256,8 +256,8 @@ time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> str(sensor) -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telemDT},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telemDT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
@@ -286,7 +286,7 @@ time.interval{50ms} -> `+source+` -> log_mem`, resolver,
 			h := newRuntimeHarness(ctx,
 				`import time
 time.interval{50ms} -> `+expr+` -> log_mem`, resolver,
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Tick(ctx, 75*telem.Millisecond)
@@ -312,8 +312,8 @@ time.interval{50ms} -> `+expr+` -> log_mem`, resolver,
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> "prefix " + str(sensor) + " suffix" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telemDT},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telemDT},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			ingestFn(h)

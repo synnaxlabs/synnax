@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/authority"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
@@ -41,8 +41,8 @@ import (
 // code and executes it through the scheduler with real wasm nodes.
 type runtimeHarness struct {
 	scheduler      *scheduler.Scheduler
-	channelState   *channel.ProgramState
-	authorityState *authority.ProgramState
+	channelState   *channels.ProgramState
+	authorityState *control.ProgramState
 	nodeState      *node.ProgramState
 	wasmRT         wazero.Runtime
 	closers        []func(context.Context) error
@@ -53,7 +53,7 @@ func newRuntimeHarness(
 	ctx context.Context,
 	source string,
 	resolver symbol.Resolver,
-	channelDigests ...channel.Digest,
+	channelDigests ...channels.Digest,
 ) *runtimeHarness {
 	compileResolver := symbol.CompoundResolver{stl.SymbolResolver}
 	if resolver != nil {
@@ -63,15 +63,15 @@ func newRuntimeHarness(
 	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, arc.WithResolver(compileResolver)))
 
 	nodeState := node.New(prog.IR)
-	channelState := channel.NewProgramState(channelDigests)
+	channelState := channels.NewProgramState(channelDigests)
 	seriesState := series.NewProgramState()
 	stringsState := stlstrings.NewProgramState()
-	authorityState := &authority.ProgramState{}
+	authorityState := &control.ProgramState{}
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 
 	timeMod := MustSucceed(time.NewModule(ctx, wasmRT))
-	channelMod := MustSucceed(channel.NewModule(ctx, channelState, stringsState, wasmRT))
+	channelMod := MustSucceed(channels.NewModule(ctx, channelState, stringsState, wasmRT))
 	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
 	MustSucceed(series.NewModule(ctx, seriesState, wasmRT))
 	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
@@ -86,7 +86,7 @@ func newRuntimeHarness(
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
-		authority.NewModule(authorityState),
+		control.NewModule(authorityState),
 		mathMod,
 	}
 
@@ -175,7 +175,7 @@ func (h *runtimeHarness) OutputTime(nodeKey string, paramIdx int) telem.Series {
 // FlushAuthority drains and returns all authority changes buffered by
 // set_authority nodes this cycle. Tests assert on the returned slice to
 // verify authority semantics that aren't observable via channel writes.
-func (h *runtimeHarness) FlushAuthority() []authority.AuthorityChange {
+func (h *runtimeHarness) FlushAuthority() []control.AuthorityChange {
 	return h.authorityState.Flush()
 }
 

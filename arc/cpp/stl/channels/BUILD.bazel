@@ -18,8 +18,8 @@ cc_library(
 )
 
 cc_library(
-    name = "channel",
-    hdrs = ["channel.h"],
+    name = "channels",
+    hdrs = ["channels.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -29,7 +29,7 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
-        "//arc/cpp/stl/channel:state",
+        "//arc/cpp/stl/channels:state",
         "//arc/cpp/stl/str:state",
         "//x/cpp/errors",
         "//x/cpp/mem",
@@ -38,12 +38,12 @@ cc_library(
 )
 
 cc_test(
-    name = "channel_test",
-    srcs = ["channel_test.cpp"],
+    name = "channels_test",
+    srcs = ["channels_test.cpp"],
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/stl/channel",
+        "//arc/cpp/stl/channels",
         "//x/cpp/mem",
         "//x/cpp/telem",
         "//x/cpp/test",

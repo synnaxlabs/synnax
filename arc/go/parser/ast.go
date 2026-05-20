@@ -256,7 +256,7 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 }
 
 // QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.avg", "authority.set", "stable.for"). Reads the terminal
+// (e.g., "math.avg", "control.set_authority", "stable.for"). Reads the terminal
 // children directly so it works when either side is a lexer keyword
 // (AUTHORITY on the left, FOR on the right) and not just an IDENTIFIER.
 func QualifiedName(qid IQualifiedIdentifierContext) string {
