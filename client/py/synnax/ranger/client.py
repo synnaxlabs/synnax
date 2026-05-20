@@ -54,16 +54,16 @@ RANGE_SET_CHANNEL = "sy_range_set"
 
 
 class _InternalScopedChannel(channel.Payload):
-    __range: Range | None = PrivateAttr(None)
+    _cached_range: Range | None = PrivateAttr(None)
     """The range that this channel belongs to."""
-    __frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read operations."""
-    __aliaser: alias_.Client | None = PrivateAttr(None)
+    _aliaser: alias_.Client | None = PrivateAttr(None)
     """An aliaser for setting the channel's alias."""
-    __cache: MultiSeries | None = PrivateAttr(None)
+    _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
-    __tasks: TaskClient | None = PrivateAttr(None)
-    __ontology: OntologyClient | None = PrivateAttr(None)
+    _tasks: TaskClient | None = PrivateAttr(None)
+    _ontology: OntologyClient | None = PrivateAttr(None)
 
     def __new__(cls, *args: Any, **kwargs: Any) -> _InternalScopedChannel:
         cls = overload_comparison_operators(cls, "__array__")
@@ -79,17 +79,17 @@ class _InternalScopedChannel(channel.Payload):
         _aliaser: alias_.Client | None = None,
     ):
         super().__init__(**payload.model_dump())
-        self.__range = rng
-        self.__frame_client = frame_client
-        self.__aliaser = _aliaser
-        self.__tasks = tasks
-        self.__ontology = ontology
+        self._cached_range = rng
+        self._cached_frame_client = frame_client
+        self._aliaser = _aliaser
+        self._tasks = tasks
+        self._ontology = ontology
 
     @property
     def _range(self) -> Range:
-        if self.__range is None:
+        if self._cached_range is None:
             raise _RANGE_NOT_CREATED
-        return self.__range
+        return self._cached_range
 
     @property
     def time_range(self) -> TimeRange:
@@ -111,14 +111,14 @@ class _InternalScopedChannel(channel.Payload):
 
     @property
     def _frame_client(self) -> framer.Client:
-        if self.__frame_client is None:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self.__frame_client
+        return self._cached_frame_client
 
     def read(self) -> MultiSeries:
-        if self.__cache is None:
-            self.__cache = self._frame_client.read(self.time_range, self.key)
-        return self.__cache
+        if self._cache is None:
+            self._cache = self._frame_client.read(self.time_range, self.key)
+        return self._cache
 
     def set_alias(self, alias: str) -> None:
         self._range.set_alias(self.key, alias)
@@ -143,8 +143,8 @@ class ScopedChannel:
     multiple channels.
     """
 
-    __internal: list[_InternalScopedChannel]
-    __query: str
+    _internal: list[_InternalScopedChannel]
+    _query: str
 
     def __new__(cls, *args: Any, **kwargs: Any) -> ScopedChannel:
         cls = overload_comparison_operators(cls, "__array__")
@@ -155,24 +155,26 @@ class ScopedChannel:
         query: str,
         internal: list[_InternalScopedChannel],
     ):
-        self.__internal = internal
-        self.__query = query
+        self._internal = internal
+        self._query = query
 
-    def __guard(self) -> None:
-        if len(self.__internal) > 1:
-            raise QueryError(f"""Multiple channels found for query '{self.__query}':
-            {[str(ch) for ch in self.__internal]}
-            """)
+    def _guard(self) -> None:
+        if len(self._internal) > 1:
+            raise QueryError(
+                f"""Multiple channels found for query '{self._query}':
+            {[str(ch) for ch in self._internal]}
+            """
+            )
 
     def __array__(self, *args: object, **kwargs: object) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
         for numpy interop."""
-        self.__guard()
-        return self.__internal[0].__array__(*args, **kwargs)
+        self._guard()
+        return self._internal[0].__array__(*args, **kwargs)
 
     def __getitem__(self, index: int) -> SampleValue:
-        self.__guard()
-        return self.__internal[0].__getitem__(index)
+        self._guard()
+        return self._internal[0].__getitem__(index)
 
     def to_numpy(self) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary
@@ -181,47 +183,49 @@ class ScopedChannel:
 
     @property
     def key(self) -> channel.Key:
-        self.__guard()
-        return self.__internal[0].key
+        self._guard()
+        return self._internal[0].key
 
     @property
     def name(self) -> str:
-        self.__guard()
-        return self.__internal[0].name
+        self._guard()
+        return self._internal[0].name
 
     @property
     def data_type(self) -> DataType:
-        self.__guard()
-        return self.__internal[0].data_type
+        self._guard()
+        return self._internal[0].data_type
 
     @property
     def is_index(self) -> bool:
-        self.__guard()
-        return self.__internal[0].is_index
+        self._guard()
+        return self._internal[0].is_index
 
     @property
     def index(self) -> channel.Key:
-        self.__guard()
-        return self.__internal[0].index
+        self._guard()
+        return self._internal[0].index
 
     @property
     def leaseholder(self) -> int:
-        self.__guard()
-        return self.__internal[0].leaseholder
+        self._guard()
+        return self._internal[0].leaseholder
 
     def set_alias(self, alias: str) -> None:
-        self.__guard()
-        self.__internal[0].set_alias(alias)
+        self._guard()
+        self._internal[0].set_alias(alias)
 
     def __iter__(self) -> Iterator[_InternalScopedChannel]:
-        return iter(self.__internal)
+        return iter(self._internal)
 
     def __len__(self) -> int:
-        return sum(len(ch) for ch in self.__internal)
+        return sum(len(ch) for ch in self._internal)
 
 
-_RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been created.
-Please call client.ranges.create(range) before attempting to read from a range.""")
+_RANGE_NOT_CREATED = QueryError(
+    """Cannot read from a range that has not been created.
+Please call client.ranges.create(range) before attempting to read from a range."""
+)
 
 
 class Range(Payload):
@@ -231,19 +235,19 @@ class Range(Payload):
     and how they work.
     """
 
-    __frame_client: framer.Client | None = PrivateAttr(None)
+    _cached_frame_client: framer.Client | None = PrivateAttr(None)
     """The frame client for executing read and write operations."""
     _channels: ChannelRetriever | None = PrivateAttr(None)
     """For retrieving channels from the cluster."""
     _kv: kv.Client | None = PrivateAttr(None)
     """Key-value store for storing metadata about the range."""
-    __aliaser: alias_.Client | None = PrivateAttr(None)
+    _cached_aliaser: alias_.Client | None = PrivateAttr(None)
     """For setting and resolving aliases."""
     _cache: dict[channel.Key, _InternalScopedChannel] = PrivateAttr(dict())
     """A writer for creating child ranges"""
-    __client: Client | None = PrivateAttr(None)
-    __tasks: TaskClient | None = PrivateAttr(None)
-    __ontology: OntologyClient | None = PrivateAttr(None)
+    _cached_client: Client | None = PrivateAttr(None)
+    _cached_tasks: TaskClient | None = PrivateAttr(None)
+    _cached_ontology: OntologyClient | None = PrivateAttr(None)
 
     def __init__(
         self,
@@ -280,20 +284,20 @@ class Range(Payload):
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
         super().__init__(name=name, time_range=time_range, key=key, color=color)
-        self.__frame_client = _frame_client
+        self._cached_frame_client = _frame_client
         self._channels = _channel_retriever
         self._kv = _kv
-        self.__aliaser = _aliaser
-        self.__client = _client
-        self.__tasks = _tasks
-        self.__ontology = _ontology
+        self._cached_aliaser = _aliaser
+        self._cached_client = _client
+        self._cached_tasks = _tasks
+        self._cached_ontology = _ontology
 
     def _get_scoped_channel(
         self, channels: list[channel.Payload], query: str
     ) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
-        return ScopedChannel(query, self.__splice_cached(channels))
+        return ScopedChannel(query, self._splice_cached(channels))
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
@@ -312,7 +316,7 @@ class Range(Payload):
             return self._get_scoped_channel(channels, name.__str__())
         return self.__getattr__(name)
 
-    def __splice_cached(
+    def _splice_cached(
         self, channels: list[channel.Payload]
     ) -> list[_InternalScopedChannel]:
         results = list()
@@ -342,33 +346,33 @@ class Range(Payload):
 
     @property
     def _aliaser(self) -> alias_.Client:
-        if self.__aliaser is None:
+        if self._cached_aliaser is None:
             raise _RANGE_NOT_CREATED
-        return self.__aliaser
+        return self._cached_aliaser
 
     @property
     def _frame_client(self) -> framer.Client:
-        if self.__frame_client is None:
+        if self._cached_frame_client is None:
             raise _RANGE_NOT_CREATED
-        return self.__frame_client
+        return self._cached_frame_client
 
     @property
     def _client(self) -> Client:
-        if self.__client is None:
+        if self._cached_client is None:
             raise _RANGE_NOT_CREATED
-        return self.__client
+        return self._cached_client
 
     @property
     def _tasks(self) -> TaskClient:
-        if self.__tasks is None:
+        if self._cached_tasks is None:
             raise _RANGE_NOT_CREATED
-        return self.__tasks
+        return self._cached_tasks
 
     @property
     def _ontology(self) -> OntologyClient:
-        if self.__ontology is None:
+        if self._cached_ontology is None:
             raise _RANGE_NOT_CREATED
-        return self.__ontology
+        return self._cached_ontology
 
     @property
     def _channel_retriever(self) -> ChannelRetriever:
@@ -611,22 +615,26 @@ class Client:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
                         passed to create. Synnax can't figure out which one you want!
-                        """)
+                        """
+                    )
                 if len(filtered) > 1:
-                    raise QueryError(f"""
+                    raise QueryError(
+                        f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
                     can't figure out which one you want!
-                    """)
+                    """
+                    )
                 res = [filtered[0]]
             existing_names = {r.name for r in res}
             to_create = [r for r in to_create if r.name not in existing_names]
         if len(to_create) > 0:
-            res.extend(self.__sugar(self._writer.create(to_create, parent=parent)))
+            res.extend(self._sugar(self._writer.create(to_create, parent=parent)))
         return res if not is_single else res[0]
 
     @overload
@@ -658,7 +666,7 @@ class Client:
     ) -> Range | list[Range]:
         is_single = check_for_none(keys, names)
         _ranges = self._retriever.retrieve(key=key, name=name, names=names, keys=keys)
-        sug = self.__sugar(_ranges)
+        sug = self._sugar(_ranges)
         if not is_single:
             return sug
         if len(sug) == 0:
@@ -678,9 +686,9 @@ class Client:
         term: str,
     ) -> list[Range]:
         _ranges = self._retriever.search(term)
-        return self.__sugar(_ranges)
+        return self._sugar(_ranges)
 
-    def __sugar(self, ranges: list[Payload]) -> list[Range]:
+    def _sugar(self, ranges: list[Payload]) -> list[Range]:
         return [
             Range(
                 **r.model_dump(),

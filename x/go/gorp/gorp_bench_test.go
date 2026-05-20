@@ -65,15 +65,16 @@ func setupBenchDB(b *testing.B) *gorp.DB {
 
 // openBenchTable opens a Table for the given (K, E) on a fresh in-memory DB.
 // The Table caches the gorp key prefix so each query construction inside the
-// benchmark loop reuses it instead of rebuilding via reflection.
-func openBenchTable[K gorp.Key, E gorp.Entry[K]](b *testing.B) *gorp.Table[K, E] {
+// benchmark loop reuses it instead of rebuilding via reflection. The backing
+// DB is returned alongside the Table so benchmarks can pass it to Exec.
+func openBenchTable[K gorp.Key, E gorp.Entry[K]](b *testing.B) (*gorp.Table[K, E], *gorp.DB) {
 	b.Helper()
 	db := setupBenchDB(b)
-	t, err := gorp.OpenTable[K, E](b.Context(), gorp.TableConfig[E]{DB: db})
+	t, err := gorp.OpenTable[K, E](b.Context(), gorp.TableConfig[K, E]{DB: db})
 	if err != nil {
 		b.Fatal(err)
 	}
-	return t
+	return t, db
 }
 
 func makeBenchEntries(n int) []benchEntry {
@@ -270,9 +271,9 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 	b.Run("int32_key", func(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				t := openBenchTable[int32, benchEntry](b)
+				t, db := openBenchTable[int32, benchEntry](b)
 				ctx := b.Context()
-				keys := populateEntries(b, t.DB, size)
+				keys := populateEntries(b, db, size)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
@@ -280,7 +281,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 					if err := t.NewRetrieve().
 						Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 						Entries(&results).
-						Exec(ctx, t.DB); err != nil {
+						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -290,9 +291,9 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 	b.Run("string_key", func(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				t := openBenchTable[string, benchStringEntry](b)
+				t, db := openBenchTable[string, benchStringEntry](b)
 				ctx := b.Context()
-				keys := populateStringEntries(b, t.DB, size)
+				keys := populateStringEntries(b, db, size)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
@@ -300,7 +301,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 					if err := t.NewRetrieve().
 						Where(gorp.MatchKeys[string, benchStringEntry](keys...)).
 						Entries(&results).
-						Exec(ctx, t.DB); err != nil {
+						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -313,9 +314,9 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 // (.Entry(&out) instead of .Entries(&slice)). The key is pre-allocated and
 // spread into MatchKeys so the variadic call doesn't allocate.
 func BenchmarkRetrieveByKey(b *testing.B) {
-	t := openBenchTable[int32, benchEntry](b)
+	t, db := openBenchTable[int32, benchEntry](b)
 	ctx := b.Context()
-	populateEntries(b, t.DB, 1000)
+	populateEntries(b, db, 1000)
 	keys := []int32{500}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -324,7 +325,7 @@ func BenchmarkRetrieveByKey(b *testing.B) {
 		if err := t.NewRetrieve().
 			Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 			Entry(&result).
-			Exec(ctx, t.DB); err != nil {
+			Exec(ctx, db); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -333,9 +334,9 @@ func BenchmarkRetrieveByKey(b *testing.B) {
 func BenchmarkRetrieveByFilter(b *testing.B) {
 	for _, size := range []int{100, 1000, 10000} {
 		b.Run(fmt.Sprintf("dbSize=%d", size), func(b *testing.B) {
-			t := openBenchTable[int32, benchEntry](b)
+			t, db := openBenchTable[int32, benchEntry](b)
 			ctx := b.Context()
-			populateEntries(b, t.DB, size)
+			populateEntries(b, db, size)
 			half := int32(size / 2)
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -346,7 +347,7 @@ func BenchmarkRetrieveByFilter(b *testing.B) {
 						return e.ID < half, nil
 					})).
 					Entries(&results).
-					Exec(ctx, t.DB); err != nil {
+					Exec(ctx, db); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -356,29 +357,29 @@ func BenchmarkRetrieveByFilter(b *testing.B) {
 
 func BenchmarkRetrieveExists(b *testing.B) {
 	b.Run("present", func(b *testing.B) {
-		t := openBenchTable[int32, benchEntry](b)
+		t, db := openBenchTable[int32, benchEntry](b)
 		ctx := b.Context()
-		populateEntries(b, t.DB, 1000)
+		populateEntries(b, db, 1000)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if _, err := t.NewRetrieve().
 				Where(gorp.MatchKeys[int32, benchEntry](500)).
-				Exists(ctx, t.DB); err != nil {
+				Exists(ctx, db); err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
 	b.Run("absent", func(b *testing.B) {
-		t := openBenchTable[int32, benchEntry](b)
+		t, db := openBenchTable[int32, benchEntry](b)
 		ctx := b.Context()
-		populateEntries(b, t.DB, 1000)
+		populateEntries(b, db, 1000)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if _, err := t.NewRetrieve().
 				Where(gorp.MatchKeys[int32, benchEntry](9999)).
-				Exists(ctx, t.DB); err != nil {
+				Exists(ctx, db); err != nil {
 				b.Fatal(err)
 			}
 		}

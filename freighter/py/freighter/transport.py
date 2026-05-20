@@ -115,12 +115,12 @@ class MiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        def __next(ctx_: Context) -> tuple[Context, Exception | None]:
+        def _next(ctx_: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
                 return finalizer(ctx_)
-            return middleware.pop()(ctx_, __next)
+            return middleware.pop()(ctx_, _next)
 
-        return __next(ctx)
+        return _next(ctx)
 
 
 class AsyncMiddlewareCollector:
@@ -149,9 +149,9 @@ class AsyncMiddlewareCollector:
         """
         middleware = self._middleware.copy()
 
-        async def __next(_md: Context) -> tuple[Context, Exception | None]:
+        async def _next(_md: Context) -> tuple[Context, Exception | None]:
             if len(middleware) == 0:
                 return await finalizer(_md)
-            return await middleware.pop()(_md, __next)
+            return await middleware.pop()(_md, _next)
 
-        return await __next(md)
+        return await _next(md)

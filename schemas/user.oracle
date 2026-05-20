@@ -24,6 +24,7 @@ User struct {
         @doc value         "is the unique login name for the user."
         @validate required
         @filter
+        @index lookup
     }
     first_name string {
         @doc value "is the user's first name."

@@ -19,6 +19,7 @@ import {
   List,
   Notation,
   Select,
+  Telem,
   Theming,
 } from "@synnaxlabs/pluto";
 import { color, DataType, type notation, primitive, type telem } from "@synnaxlabs/x";
@@ -43,7 +44,6 @@ const isTimestamp = (dt: DataType | undefined): boolean =>
   dt != null && dt.equals(DataType.TIMESTAMP);
 
 const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
-const TIMESTAMP_TZS = ["UTC", "local"] as const;
 
 interface TimestampFormatSelectProps extends Omit<
   Select.ButtonsProps<telem.TimestampFormat>,
@@ -66,22 +66,6 @@ const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement 
     <Select.Button itemKey="ISO" tooltip="ISO 8601">
       <Icon.TimeOutline className={ICON_CLASS} />
       <span className={LABEL_CLASS}>ISO 8601</span>
-    </Select.Button>
-  </Select.Buttons>
-);
-
-interface TimestampTZSelectProps extends Omit<
-  Select.ButtonsProps<telem.TimeZone>,
-  "keys"
-> {}
-
-const TimestampTZSelect = (props: TimestampTZSelectProps): ReactElement => (
-  <Select.Buttons {...props} keys={TIMESTAMP_TZS}>
-    <Select.Button itemKey="UTC" tooltip="UTC">
-      UTC
-    </Select.Button>
-    <Select.Button itemKey="local" tooltip="Local timezone">
-      Local
     </Select.Button>
   </Select.Buttons>
 );
@@ -196,7 +180,7 @@ const ChannelRow = ({
                 })
               }
             />
-            <TimestampTZSelect
+            <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
               onChange={(v: telem.TimeZone) =>
@@ -211,7 +195,9 @@ const ChannelRow = ({
           value={hasCustomColor ? config.color : defaultColor}
           onChange={(c) => onConfigChange(channelKey, { color: c })}
           onDelete={
-            hasCustomColor ? () => onConfigChange(channelKey, { color: color.ZERO }) : undefined
+            hasCustomColor
+              ? () => onConfigChange(channelKey, { color: color.ZERO })
+              : undefined
           }
           size="small"
         />

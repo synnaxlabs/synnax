@@ -63,12 +63,12 @@ class Series(BaseModel):
     """The underlying buffer"""
     alignment: Alignment = Alignment(0, 0)
     """The alignment of the Series, representing the position within an array of arrays"""
-    __len_cache: int | None = PrivateAttr(None)
+    _len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
         if not self.data_type.is_variable:
             return self.data_type.density.sample_count(len(self.data))
-        if self.__len_cache is None:
+        if self._len_cache is None:
             count = 0
             offset = 0
             d = self.data
@@ -78,8 +78,8 @@ class Series(BaseModel):
                 )
                 offset += VARIABLE_LENGTH_PREFIX_SIZE + length
                 count += 1
-            self.__len_cache = count
-        return self.__len_cache
+            self._len_cache = count
+        return self._len_cache
 
     def __init__(
         self,
@@ -166,7 +166,7 @@ class Series(BaseModel):
             time_range=time_range,
             alignment=alignment,
         )
-        self.__len_cache = None
+        self._len_cache = None
 
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
@@ -234,15 +234,15 @@ class Series(BaseModel):
         if self.data_type == DataType.UUID:
             yield from [self[i] for i in range(len(self))]
         elif self.data_type == DataType.JSON:
-            for v in self.__iter__variable():
+            for v in self._iter_variable():
                 yield json.loads(v)
         elif self.data_type == DataType.STRING:
-            for v in self.__iter__variable():
+            for v in self._iter_variable():
                 yield v.decode("utf-8")
         else:
             yield from self.__array__()
 
-    def __iter__variable(self) -> Iterator[bytes]:
+    def _iter_variable(self) -> Iterator[bytes]:
         offset = 0
         d = self.data
         while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):

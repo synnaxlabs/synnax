@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[Key, Range](ctx, gorp.TableConfig[Range]{
+	if s.table, err = gorp.OpenTable[Key, Range](ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,

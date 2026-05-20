@@ -32,7 +32,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Task](
-			ctx, gorp.TableConfig[v54.Task]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Task]{DB: db},
 		))
 		seed := v54.Task{
 			Key:      v54.Key(0x0000_0001_0000_0042),
@@ -45,7 +45,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
-			ctx, gorp.TableConfig[task.Task]{
+			ctx, gorp.TableConfig[task.Key, task.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
@@ -72,7 +72,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Task](
-			ctx, gorp.TableConfig[v54.Task]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Task]{DB: db},
 		))
 		key := v54.Key(0x0000_0001_0000_00ab)
 		seed := v54.Task{
@@ -100,7 +100,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
-			ctx, gorp.TableConfig[task.Task]{
+			ctx, gorp.TableConfig[task.Key, task.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
