@@ -23,7 +23,9 @@ import { Label } from "@/label";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Ontology } from "@/ontology";
+import { Panel } from "@/panel";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Project } from "@/project";
 import { Rack } from "@/rack";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
@@ -41,7 +43,6 @@ import { Triggers } from "@/triggers";
 import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { View } from "@/view";
-import { Workspace } from "@/workspace";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
@@ -64,7 +65,8 @@ export interface FluxStore extends Flux.Store {
   [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
   [Device.FLUX_STORE_KEY]: Device.FluxStore;
   [Task.FLUX_STORE_KEY]: Task.FluxStore;
-  [Workspace.FLUX_STORE_KEY]: Workspace.FluxStore;
+  [Project.FLUX_STORE_KEY]: Project.FluxStore;
+  [Panel.FLUX_STORE_KEY]: Panel.FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -90,7 +92,8 @@ export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
   [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
   [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
   [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
-  [Workspace.FLUX_STORE_KEY]: Workspace.FLUX_STORE_CONFIG,
+  [Project.FLUX_STORE_KEY]: Project.FLUX_STORE_CONFIG,
+  [Panel.FLUX_STORE_KEY]: Panel.FLUX_STORE_CONFIG,
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_FLUX_STORE_CONFIG,
   [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,

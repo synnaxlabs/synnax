@@ -27,7 +27,7 @@ export const INFO_LAYOUT: Layout.BaseState = {
   icon: "Info",
   location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
-  excludeFromWorkspace: true,
+  excludeFromProject: true,
 };
 
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<

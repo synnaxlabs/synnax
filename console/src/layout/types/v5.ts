@@ -33,7 +33,7 @@ const ZERO_NAV_STATE: NavState = {
           "ontology",
           "channel",
           "range",
-          "workspace",
+          "project",
           "device",
           "task",
           "user",

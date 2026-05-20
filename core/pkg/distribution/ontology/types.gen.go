@@ -25,7 +25,9 @@ const (
 	ResourceTypeLineplot        ResourceType = "lineplot"
 	ResourceTypeLog             ResourceType = "log"
 	ResourceTypeNode            ResourceType = "node"
+	ResourceTypePanel           ResourceType = "panel"
 	ResourceTypePolicy          ResourceType = "policy"
+	ResourceTypeProject         ResourceType = "project"
 	ResourceTypeRack            ResourceType = "rack"
 	ResourceTypeRange           ResourceType = "range"
 	ResourceTypeRangeAlias      ResourceType = "range-alias"
@@ -37,7 +39,6 @@ const (
 	ResourceTypeTask            ResourceType = "task"
 	ResourceTypeUser            ResourceType = "user"
 	ResourceTypeView            ResourceType = "view"
-	ResourceTypeWorkspace       ResourceType = "workspace"
 )
 
 // ID ID is a unique identifier for a Resource. An example:

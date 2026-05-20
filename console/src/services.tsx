@@ -18,11 +18,12 @@ import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
+import { PanelServices } from "@/panel/services";
+import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { TableServices } from "@/table/services";
 import { UserServices } from "@/user/services";
-import { WorkspaceServices } from "@/workspace/services";
 
 const createEmptyService = (
   type: ontology.ResourceType,
@@ -41,7 +42,8 @@ export const SERVICES: Ontology.Services = {
   node: createEmptyService("node", <Icon.Node />),
   group: GroupServices.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
-  workspace: WorkspaceServices.ONTOLOGY_SERVICE,
+  project: ProjectServices.ONTOLOGY_SERVICE,
+  panel: PanelServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
   label: createEmptyService("label", <Icon.Label />),

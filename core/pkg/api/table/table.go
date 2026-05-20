@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -45,7 +45,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Tables    []table.Table `json:"tables" msgpack:"tables"`
-		Workspace workspace.Key `json:"workspace" msgpack:"workspace"`
+		Project project.Key `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -62,7 +62,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		for i, t := range req.Tables {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &t); err != nil {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Project, &t); err != nil {
 				return err
 			}
 			req.Tables[i] = t

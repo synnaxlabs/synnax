@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table" });
       const table = await client.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -30,7 +30,7 @@ describe("Table", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table" });
       const table = await client.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -42,7 +42,7 @@ describe("Table", () => {
   });
   describe("setData", () => {
     test("set data", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table" });
       const table = await client.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -54,7 +54,7 @@ describe("Table", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table" });
       const table = await client.tables.create(ws.key, {
         name: "Table",
         data: { one: 1 },
@@ -67,7 +67,7 @@ describe("Table", () => {
   });
   describe("case preservation", () => {
     test("should preserve key casing in data field on create/retrieve cycle", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const ws = await client.projects.create({ name: "CaseTest" });
       const table = await client.tables.create(ws.key, {
         name: "CaseTest",
         data: {

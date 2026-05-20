@@ -47,6 +47,7 @@ import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
+import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
@@ -58,7 +59,6 @@ import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
-import { Workspace } from "@/workspace";
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
@@ -78,7 +78,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...User.LAYOUTS,
   ...Version.LAYOUTS,
   ...Vis.LAYOUTS,
-  ...Workspace.LAYOUTS,
+  ...Project.LAYOUTS,
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
   ...Access.LAYOUTS,

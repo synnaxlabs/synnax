@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, table, type workspace } from "@synnaxlabs/client";
+import { ontology, type project,table } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -97,11 +97,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
 });
 
 export interface CreateParams extends table.New {
-  workspace: workspace.Key;
+  project: project.Key;
 }
 
 export interface CreateOutput extends table.Table {
-  workspace: workspace.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -112,10 +112,10 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
-    const { workspace, ...rest } = data;
-    const t = await client.tables.create(workspace, rest);
+    const { project, ...rest } = data;
+    const t = await client.tables.create(project, rest);
     store.tables.set(t.key, t);
-    return { ...t, workspace };
+    return { ...t, project };
   },
 });
 

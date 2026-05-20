@@ -25,13 +25,13 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Persist } from "@/persist";
+import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
 import { Version } from "@/version";
-import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
@@ -49,7 +49,7 @@ const ZERO_STATE: RootState = {
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-  [Workspace.SLICE_NAME]: Workspace.ZERO_SLICE_STATE,
+  [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
@@ -66,7 +66,7 @@ const reducer = combineReducers({
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
   [Version.SLICE_NAME]: Version.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
@@ -82,7 +82,7 @@ export interface RootState {
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
   [Version.SLICE_NAME]: Version.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
@@ -98,7 +98,7 @@ export type RootAction =
   | Status.Action
   | Table.Action
   | Version.Action
-  | Workspace.Action
+  | Project.Action
   | Arc.Action;
 
 export type RootStore = Store<RootState, RootAction>;
@@ -116,7 +116,7 @@ export const migrateState = (prev: RootState): RootState => {
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
   const version = Version.migrateSlice(prev.version);
-  const workspace = Workspace.migrateSlice(prev.workspace);
+  const project = Project.migrateSlice(prev.project);
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);
@@ -131,7 +131,7 @@ export const migrateState = (prev: RootState): RootState => {
     line,
     log,
     version,
-    workspace,
+    project,
     range,
     docs,
     cluster,

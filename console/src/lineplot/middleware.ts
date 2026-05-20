@@ -75,7 +75,7 @@ export const assignActiveRangeEffect: MiddlewareEffect<
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetWorkspacePayload,
+  Layout.RemovePayload | Layout.SetProjectPayload,
   RemovePayload
 > = ({ action, store }) => {
   const state = store.getState();
@@ -103,5 +103,5 @@ export const MIDDLEWARE = [
     [actions.create.type, setXChannel.type, setYChannels.type],
     [assignActiveRangeEffect],
   ),
-  effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
+  effectMiddleware([Layout.remove.type, Layout.setProject.type], [deleteEffect]),
 ];

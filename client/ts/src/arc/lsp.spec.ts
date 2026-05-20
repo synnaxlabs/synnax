@@ -248,7 +248,7 @@ describe("Arc LSP", () => {
       {
         jsonrpc: "2.0",
         id: 10,
-        method: "workspace/symbol",
+        method: "project/symbol",
         params: { query: "test" },
       },
       {

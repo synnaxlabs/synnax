@@ -26,11 +26,10 @@ describe("lineplot queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a line plot by key", async () => {
-      const workspace = await client.workspaces.create({
-        name: "test_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "test_project",
       });
-      const plot = await client.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(project.key, {
         name: "retrieve_test",
         data: {},
       });
@@ -46,11 +45,10 @@ describe("lineplot queries", () => {
     });
 
     it("should cache retrieved line plots", async () => {
-      const workspace = await client.workspaces.create({
-        name: "cache_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "cache_project",
       });
-      const plot = await client.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(project.key, {
         name: "cached_plot",
         data: {},
       });
@@ -72,9 +70,8 @@ describe("lineplot queries", () => {
 
   describe("useCreate", () => {
     it("should create a new line plot", async () => {
-      const workspace = await client.workspaces.create({
-        name: "create_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "create_project",
       });
 
       const { result } = renderHook(() => LinePlot.useCreate(), { wrapper });
@@ -83,7 +80,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "created_plot",
           data: {},
         });
@@ -91,16 +88,15 @@ describe("lineplot queries", () => {
 
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created_plot");
-      expect(result.current.data?.workspace).toEqual(workspace.key);
+      expect(result.current.data?.project).toEqual(project.key);
 
       const retrieved = await client.lineplots.retrieve({ key });
       expect(retrieved.name).toEqual("created_plot");
     });
 
     it("should store created line plot in flux store", async () => {
-      const workspace = await client.workspaces.create({
-        name: "store_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "store_project",
       });
 
       const { result: createResult } = renderHook(() => LinePlot.useCreate(), {
@@ -111,7 +107,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await createResult.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "stored_plot",
           data: {},
         });
@@ -128,11 +124,10 @@ describe("lineplot queries", () => {
 
   describe("useRename", () => {
     it("should rename a line plot", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "rename_project",
       });
-      const plot = await client.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(project.key, {
         name: "original_name",
         data: {},
       });
@@ -161,11 +156,10 @@ describe("lineplot queries", () => {
     });
 
     it("should update cached plot after rename", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_cache_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "rename_cache_project",
       });
-      const plot = await client.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(project.key, {
         name: "cache_original",
         data: {},
       });
@@ -194,11 +188,10 @@ describe("lineplot queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single line plot", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "delete_project",
       });
-      const plot = await client.lineplots.create(workspace.key, {
+      const plot = await client.lineplots.create(project.key, {
         name: "delete_single",
         data: {},
       });
@@ -215,15 +208,14 @@ describe("lineplot queries", () => {
     });
 
     it("should delete multiple line plots", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_multi_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "delete_multi_project",
       });
-      const plot1 = await client.lineplots.create(workspace.key, {
+      const plot1 = await client.lineplots.create(project.key, {
         name: "delete_multi_1",
         data: {},
       });
-      const plot2 = await client.lineplots.create(workspace.key, {
+      const plot2 = await client.lineplots.create(project.key, {
         name: "delete_multi_2",
         data: {},
       });

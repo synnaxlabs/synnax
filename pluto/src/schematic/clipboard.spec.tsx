@@ -49,9 +49,8 @@ const MIME = "web application/synnax-schematic+json";
 const client = createTestClient();
 
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
-  const ws = await client.workspaces.create({
+  const ws = await client.projects.create({
     name: `ws_${uuid.create()}`,
-    layout: {},
   });
   return await client.schematics.create(ws.key, {
     ...schematic.ZERO_NEW,

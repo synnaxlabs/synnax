@@ -14,7 +14,7 @@ import { remove, type RemovePayload, type StoreState } from "@/schematic/slice";
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetWorkspacePayload,
+  Layout.RemovePayload | Layout.SetProjectPayload,
   RemovePayload
 > = ({ action, store }) => {
   const state = store.getState();
@@ -28,5 +28,5 @@ export const deleteEffect: MiddlewareEffect<
 };
 
 export const MIDDLEWARE = [
-  effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
+  effectMiddleware([Layout.remove.type, Layout.setProject.type], [deleteEffect]),
 ];

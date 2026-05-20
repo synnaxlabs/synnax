@@ -25,14 +25,13 @@ import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
 import { LogServices } from "@/log/services";
+import { Project } from "@/project";
 import { Range } from "@/range";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 import { Version } from "@/version";
-import { Workspace } from "@/workspace";
-import { WorkspaceServices } from "@/workspace/services";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   arc: ArcServices.handleLink,
@@ -43,7 +42,6 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
   range: RangeServices.handleLink,
   schematic: SchematicServices.handleLink,
   table: TableServices.handleLink,
-  workspace: WorkspaceServices.handleLink,
 };
 
 const SideEffect = (): null => {
@@ -52,8 +50,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();
-  Workspace.useSyncLayout();
-  Workspace.useCheckCore();
+  Project.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();

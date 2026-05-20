@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, ontology, type workspace } from "@synnaxlabs/client";
+import { log, ontology, type project } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -96,11 +96,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
 });
 
 export interface CreateParams extends log.New {
-  workspace: workspace.Key;
+  project: project.Key;
 }
 
 export interface CreateOutput extends log.Log {
-  workspace: workspace.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -111,10 +111,10 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
-    const { workspace, ...rest } = data;
-    const l = await client.logs.create(workspace, rest);
+    const { project, ...rest } = data;
+    const l = await client.logs.create(project, rest);
     store.logs.set(l.key, l);
-    return { ...l, workspace };
+    return { ...l, project };
   },
 });
 

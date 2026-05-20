@@ -26,11 +26,10 @@ describe("table queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a table by key", async () => {
-      const workspace = await client.workspaces.create({
-        name: "test_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "test_project",
       });
-      const table = await client.tables.create(workspace.key, {
+      const table = await client.tables.create(project.key, {
         name: "retrieve_test",
         data: {},
       });
@@ -46,11 +45,10 @@ describe("table queries", () => {
     });
 
     it("should cache retrieved tables", async () => {
-      const workspace = await client.workspaces.create({
-        name: "cache_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "cache_project",
       });
-      const table = await client.tables.create(workspace.key, {
+      const table = await client.tables.create(project.key, {
         name: "cached_table",
         data: {},
       });
@@ -72,9 +70,8 @@ describe("table queries", () => {
 
   describe("useCreate", () => {
     it("should create a new table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "create_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "create_project",
       });
 
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
@@ -83,7 +80,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "created_table",
           data: {},
         });
@@ -91,16 +88,15 @@ describe("table queries", () => {
 
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created_table");
-      expect(result.current.data?.workspace).toEqual(workspace.key);
+      expect(result.current.data?.project).toEqual(project.key);
 
       const retrieved = await client.tables.retrieve({ key });
       expect(retrieved.name).toEqual("created_table");
     });
 
     it("should store created table in flux store", async () => {
-      const workspace = await client.workspaces.create({
-        name: "store_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "store_project",
       });
 
       const { result: createResult } = renderHook(() => Table.useCreate(), {
@@ -111,7 +107,7 @@ describe("table queries", () => {
       await act(async () => {
         await createResult.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "stored_table",
           data: {},
         });
@@ -127,11 +123,10 @@ describe("table queries", () => {
 
   describe("useRename", () => {
     it("should rename a table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "rename_project",
       });
-      const table = await client.tables.create(workspace.key, {
+      const table = await client.tables.create(project.key, {
         name: "original_name",
         data: {},
       });
@@ -160,11 +155,10 @@ describe("table queries", () => {
     });
 
     it("should update cached table after rename", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_cache_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "rename_cache_project",
       });
-      const table = await client.tables.create(workspace.key, {
+      const table = await client.tables.create(project.key, {
         name: "cache_original",
         data: {},
       });
@@ -193,11 +187,10 @@ describe("table queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "delete_project",
       });
-      const table = await client.tables.create(workspace.key, {
+      const table = await client.tables.create(project.key, {
         name: "delete_single",
         data: {},
       });
@@ -214,15 +207,14 @@ describe("table queries", () => {
     });
 
     it("should delete multiple tables", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_multi_workspace",
-        layout: {},
+      const project = await client.projects.create({
+        name: "delete_multi_project",
       });
-      const table1 = await client.tables.create(workspace.key, {
+      const table1 = await client.tables.create(project.key, {
         name: "delete_multi_1",
         data: {},
       });
-      const table2 = await client.tables.create(workspace.key, {
+      const table2 = await client.tables.create(project.key, {
         name: "delete_multi_2",
         data: {},
       });

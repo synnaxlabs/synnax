@@ -15,7 +15,6 @@ import { type ReactElement } from "react";
 import { Layout } from "@/layout";
 import { Menu } from "@/layouts/nav/Menu";
 import { Palette } from "@/palette";
-import { Workspace } from "@/workspace";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
   command: [["Control", "Shift", "P"]],
@@ -31,7 +30,6 @@ export const Left = (): ReactElement => (
   <Layout.Nav.Bar location="left" size="8rem">
     <Nav.Bar.Content align="center">
       <SearchAndCommandPalette />
-      <Workspace.Selector />
       <Menu location="left" />
     </Nav.Bar.Content>
     <Nav.Bar.End bordered>

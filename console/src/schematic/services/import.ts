@@ -33,13 +33,13 @@ const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, workspaceKey },
+  { layout, placeLayout, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import schematics");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.schematics.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const created = await client.schematics.create(projectKey ?? uuid.ZERO, newPayload);
   const { key, name } = created;
   store.schematics.set(key, created);
   placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));

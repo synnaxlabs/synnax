@@ -24,9 +24,8 @@ describe("lineplot", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLinePlot = await client.lineplots.create(ws.key, {
         name: "test",
@@ -43,9 +42,8 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLinePlot = await client.lineplots.create(ws.key, {
         name: "test",
@@ -64,9 +62,8 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await userClient.lineplots.create(ws.key, {
         name: "test",
@@ -80,9 +77,8 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(
         userClient.lineplots.create(ws.key, {
@@ -98,9 +94,8 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLinePlot = await client.lineplots.create(ws.key, {
         name: "test",
@@ -118,9 +113,8 @@ describe("lineplot", () => {
         objects: [lineplot.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLinePlot = await client.lineplots.create(ws.key, {
         name: "test",

@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("Log", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -30,7 +30,7 @@ describe("Log", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -42,7 +42,7 @@ describe("Log", () => {
   });
   describe("setData", () => {
     test("set data", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -54,7 +54,7 @@ describe("Log", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log" });
       const log = await client.logs.create(ws.key, {
         name: "Log",
         data: { one: 1 },
@@ -67,7 +67,7 @@ describe("Log", () => {
   });
   describe("case preservation", () => {
     test("should preserve key casing in data field on create/retrieve cycle", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const ws = await client.projects.create({ name: "CaseTest" });
       const log = await client.logs.create(ws.key, {
         name: "CaseTest",
         data: {

@@ -1,0 +1,116 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type Store } from "@reduxjs/toolkit";
+import { project,type Synnax } from "@synnaxlabs/client";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import { join, sep } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
+
+import { type Import } from "@/import";
+import { Layout } from "@/layout";
+import { Project } from "@/project";
+import { Runtime } from "@/runtime";
+
+export const ingest: Import.DirectoryIngester = async (
+  name,
+  files,
+  { client, fileIngesters, placeLayout, store, fluxStore },
+) => {
+  if (
+    !Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client })
+  )
+    throw new Error("You do not have permission to import projects");
+  const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
+  if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
+  // Parse the legacy workspace layout blob for child-resource ingest (each
+  // child layout points at a viz JSON to import). Project itself no longer
+  // holds layout; panel-level import will be a separate flow when the panel
+  // import format is defined.
+  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
+  const wsKey = uuid.create();
+  const wsName = name;
+  const p: project.Project = { key: wsKey, name: wsName };
+  const createdProject = await client?.projects.create(p);
+  store.dispatch(Project.setActive(createdProject ?? p));
+
+  for (const [key, childLayout] of Object.entries(layout.layouts)) {
+    const ingest = fileIngesters[childLayout.type];
+    if (ingest == null) continue;
+    const data = files.find(
+      (file) =>
+        file.name === `${childLayout.name}.json` ||
+        file.name === `${key}.json` ||
+        (typeof file.data === "object" &&
+          file.data != null &&
+          (("key" in file.data && file.data.key === key) ||
+            ("name" in file.data && file.data.name === childLayout.name))),
+    )?.data;
+    if (data == null) throw new Error(`Data for ${key} not found`);
+    await ingest(data, {
+      layout: childLayout,
+      placeLayout,
+      store: fluxStore,
+      client,
+      projectKey: wsKey,
+    });
+  }
+};
+
+export interface IngestContext {
+  handleError: Status.ErrorHandler;
+  client: Synnax | null;
+  fileIngesters: Import.FileIngesters;
+  placeLayout: Layout.Placer;
+  store: Store;
+  fluxStore: Pluto.FluxStore;
+}
+
+export const import_ = ({
+  handleError,
+  client,
+  fileIngesters,
+  placeLayout,
+  store,
+  fluxStore,
+}: IngestContext) => {
+  let name: string | undefined = "project";
+  handleError(async () => {
+    if (Runtime.ENGINE !== "tauri")
+      throw new Error(
+        "Cannot import items from a dialog when running Synnax in the browser.",
+      );
+    const path = await open({
+      title: "Import a Project",
+      multiple: false,
+      directory: true,
+    });
+    if (path == null) return;
+    name = path.split(sep()).at(-1);
+    if (name == null) throw new Error("Cannot read project");
+    const files = await readDir(path);
+    const fileData = await Promise.all(
+      files.map(
+        async (file): Promise<Import.File> => ({
+          name: file.name,
+          data: JSON.parse(await readTextFile(await join(path, file.name))),
+        }),
+      ),
+    );
+    await ingest(name, fileData, {
+      client,
+      fileIngesters,
+      placeLayout,
+      store,
+      fluxStore,
+    });
+  }, `Failed to import ${name}`);
+};

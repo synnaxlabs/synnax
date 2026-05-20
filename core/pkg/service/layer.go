@@ -41,7 +41,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
@@ -121,8 +122,10 @@ type Layer struct {
 	Alias *alias.Service
 	// KV is for working with key-value pairs on ranges.
 	KV *kv.Service
-	// Workspace is for working with Workspaces.
-	Workspace *workspace.Service
+	// Project is for working with Projects.
+	Project *project.Service
+	// Panel is for working with Panels.
+	Panel *panel.Service
 	// Schematic is for working with schematic visualizations.
 	Schematic *schematic.Service
 	// LinePlot is for working with line plot visualizations.
@@ -240,14 +243,24 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.KV) {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{
-		Instrumentation: cfg.Child("workspace"),
+	if l.Project, err = project.OpenService(ctx, project.ServiceConfig{
+		Instrumentation: cfg.Child("project"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
-	}); !ok(err, l.Workspace) {
+	}); !ok(err, l.Project) {
+		return nil, err
+	}
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.OpenService(ctx, schematic.ServiceConfig{

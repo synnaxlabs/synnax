@@ -24,9 +24,8 @@ describe("log", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLog = await client.logs.create(ws.key, {
         name: "test",
@@ -43,9 +42,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLog = await client.logs.create(ws.key, {
         name: "test",
@@ -64,9 +62,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await userClient.logs.create(ws.key, {
         name: "test",
@@ -80,9 +77,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(
         userClient.logs.create(ws.key, {
@@ -98,9 +94,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLog = await client.logs.create(ws.key, {
         name: "test",
@@ -118,9 +113,8 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomLog = await client.logs.create(ws.key, {
         name: "test",

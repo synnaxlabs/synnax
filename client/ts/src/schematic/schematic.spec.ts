@@ -14,8 +14,8 @@ import { NotFoundError, ValidationError } from "@/errors";
 import { schematic } from "@/schematic";
 import { createTestClient } from "@/testutil/client";
 
-const newWorkspaceSchematic = async (client: ReturnType<typeof createTestClient>) => {
-  const ws = await client.workspaces.create({ name: "dispatch", layout: {} });
+const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
+  const ws = await client.projects.create({ name: "dispatch" });
   const schem = await client.schematics.create(ws.key, {
     ...schematic.ZERO_NEW,
     name: "dispatch",
@@ -28,9 +28,8 @@ const client = createTestClient();
 describe("Schematic", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -45,9 +44,8 @@ describe("Schematic", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -61,9 +59,8 @@ describe("Schematic", () => {
 
   describe("setData", () => {
     test("set data replaces body fields while preserving key and name", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -84,9 +81,8 @@ describe("Schematic", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -101,7 +97,7 @@ describe("Schematic", () => {
 
   describe("config case preservation", () => {
     test("preserves arbitrary key casing within config values", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const ws = await client.projects.create({ name: "CaseTest" });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         configs: {
@@ -135,9 +131,8 @@ describe("Schematic", () => {
 
   describe("copy", () => {
     test("copy one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Schematic",
-        layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -154,9 +149,8 @@ describe("Schematic", () => {
 
     describe("snapshot", () => {
       it("should not allow the caller to edit the snapshot", async () => {
-        const ws = await client.workspaces.create({
+        const ws = await client.projects.create({
           name: "Schematic",
-          layout: { one: 1 },
         });
         const schem = await client.schematics.create(ws.key, {
           ...schematic.ZERO_NEW,
@@ -176,7 +170,7 @@ describe("Schematic", () => {
 
   describe("dispatch", () => {
     test("setNodePosition moves the matching node", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.setData(schem.key, {
         ...schematic.ZERO_NEW,
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
@@ -190,7 +184,7 @@ describe("Schematic", () => {
     });
 
     test("setNode inserts a node and writes its config", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
@@ -204,7 +198,7 @@ describe("Schematic", () => {
     });
 
     test("removeNode removes the node and drops its config", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.setData(schem.key, {
         ...schematic.ZERO_NEW,
         nodes: [
@@ -223,7 +217,7 @@ describe("Schematic", () => {
     });
 
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       const e = (
         key: string,
         srcNode: string,
@@ -252,7 +246,7 @@ describe("Schematic", () => {
     });
 
     test("removeEdge removes the matching edge", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.setData(schem.key, {
         ...schematic.ZERO_NEW,
         edges: [
@@ -271,7 +265,7 @@ describe("Schematic", () => {
     });
 
     test("setConfig upserts config under the given key", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({ key: "n1", config: { label: "Original" } }),
         schematic.setConfig({ key: "n1", config: { label: "Replaced" } }),
@@ -281,7 +275,7 @@ describe("Schematic", () => {
     });
 
     test("applies a multi-action sequence atomically", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
         schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
@@ -301,7 +295,7 @@ describe("Schematic", () => {
     });
 
     test("converges to the final position after a 30-action drag storm", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.setData(schem.key, {
         ...schematic.ZERO_NEW,
         nodes: [{ key: "pump", position: { x: 0, y: 0 } }],
@@ -315,7 +309,7 @@ describe("Schematic", () => {
     });
 
     test("preserves arbitrary key casing within config values through dispatch", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({
           key: "n1",

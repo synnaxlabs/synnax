@@ -37,7 +37,7 @@ export interface CreatePayload {
   editable?: boolean;
   // Optional legacy state used by the import pipeline. When present, it is
   // migrated forward via anyStateZ and the resulting pendingUpload is stored
-  // on the slice so useAutoUpload pushes the graph to the active workspace.
+  // on the slice so useAutoUpload pushes the graph to the active project.
   data?: unknown;
 }
 

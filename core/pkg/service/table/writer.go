@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -29,11 +29,11 @@ type Writer struct {
 	tbl       *gorp.Table[Key, Table]
 }
 
-// Create creates the given table within the workspace provided. If the table does not
+// Create creates the given table within the project provided. If the table does not
 // have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws workspace.Key,
+	ws project.Key,
 	s *Table,
 ) (err error) {
 	var exists bool
@@ -57,7 +57,7 @@ func (w Writer) Create(
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(ws),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)

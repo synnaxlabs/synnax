@@ -27,6 +27,7 @@ import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Selector } from "@/selector";
 import {
   select,
@@ -59,7 +60,6 @@ import {
   type State,
   ZERO_STATE,
 } from "@/table/slice";
-import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -83,9 +83,9 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
   return { key: tableKey, cellKey: keys[0], loc: loc as L };
 };
 
-export const useSyncComponent = Workspace.createSyncComponent(
+export const useSyncComponent = Project.createSyncComponent(
   "Table",
-  async ({ key, workspace, store, fluxStore, client }) => {
+  async ({ key, project, store, fluxStore, client }) => {
     const storeState = store.getState();
     if (!Access.updateGranted({ id: table.ontologyID(key), store: fluxStore, client }))
       return;
@@ -94,7 +94,7 @@ export const useSyncComponent = Workspace.createSyncComponent(
     const layout = Layout.selectRequired(storeState, key);
     const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.tables.create(workspace, {
+    await client.tables.create(project, {
       key,
       name: layout.name,
       data: setData,

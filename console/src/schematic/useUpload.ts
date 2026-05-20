@@ -12,14 +12,14 @@ import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { useSelectPendingUpload } from "@/schematic/selectors";
 import { clearPendingUpload } from "@/schematic/slice";
-import { Workspace } from "@/workspace";
 
 export const useAutoUpload = (key: string): boolean => {
   const pendingUpload = useSelectPendingUpload(key);
   const name = Layout.useSelectRequiredName(key);
-  const workspaceKey = Workspace.useSelectActiveKey();
+  const projectKey = Project.useSelectActiveKey();
   const dispatch = useDispatch();
   const { update: create } = Schematic.useCreate({
     afterSuccess: useCallback(
@@ -31,7 +31,7 @@ export const useAutoUpload = (key: string): boolean => {
   });
   useEffect(() => {
     if (pendingUpload == null) return;
-    create({ ...pendingUpload, workspace: workspaceKey ?? undefined, name });
-  }, [pendingUpload, workspaceKey, key, create, name]);
+    create({ ...pendingUpload, project: projectKey ?? undefined, name });
+  }, [pendingUpload, projectKey, key, create, name]);
   return pendingUpload == null;
 };

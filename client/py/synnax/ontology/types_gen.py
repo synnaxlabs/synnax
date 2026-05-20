@@ -33,7 +33,11 @@ RESOURCE_TYPE_LOG: Literal["log"] = "log"
 
 RESOURCE_TYPE_NODE: Literal["node"] = "node"
 
+RESOURCE_TYPE_PANEL: Literal["panel"] = "panel"
+
 RESOURCE_TYPE_POLICY: Literal["policy"] = "policy"
+
+RESOURCE_TYPE_PROJECT: Literal["project"] = "project"
 
 RESOURCE_TYPE_RACK: Literal["rack"] = "rack"
 
@@ -57,8 +61,6 @@ RESOURCE_TYPE_USER: Literal["user"] = "user"
 
 RESOURCE_TYPE_VIEW: Literal["view"] = "view"
 
-RESOURCE_TYPE_WORKSPACE: Literal["workspace"] = "workspace"
-
 
 ResourceType = Literal[
     "arc",
@@ -71,7 +73,9 @@ ResourceType = Literal[
     "lineplot",
     "log",
     "node",
+    "panel",
     "policy",
+    "project",
     "rack",
     "range",
     "range-alias",
@@ -83,5 +87,4 @@ ResourceType = Literal[
     "task",
     "user",
     "view",
-    "workspace",
 ]

@@ -11,11 +11,11 @@ import { type Dispatch } from "@reduxjs/toolkit";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
 export const logout = (dispatch: Dispatch) => {
   dispatch(Cluster.setActive(null));
-  dispatch(Workspace.setActive(null));
-  dispatch(Layout.clearWorkspace());
+  dispatch(Project.setActive(null));
+  dispatch(Layout.clearProject());
   dispatch(Layout.hideAllNavDrawers());
 };

@@ -24,7 +24,7 @@ const ZERO_NAV_STATE: NavState = {
         menuItems: [
           "channel",
           "range",
-          "workspace",
+          "project",
           "device",
           "task",
           "user",

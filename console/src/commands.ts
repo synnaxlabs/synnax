@@ -19,13 +19,13 @@ import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
 import { Persist } from "@/persist";
+import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
 import { Theme } from "@/theme";
 import { UserServices } from "@/user/services";
-import { WorkspaceServices } from "@/workspace/services";
 
 export const COMMANDS: Palette.Command[] = [
   ...ChannelServices.COMMANDS,
@@ -42,7 +42,7 @@ export const COMMANDS: Palette.Command[] = [
   ...SchematicServices.COMMANDS,
   ...TableServices.COMMANDS,
   ...UserServices.COMMANDS,
-  ...WorkspaceServices.COMMANDS,
+  ...ProjectServices.COMMANDS,
   ...ArcServices.COMMANDS,
   ...Status.COMMANDS,
   ...Theme.COMMANDS,

@@ -24,7 +24,9 @@ ResourceType enum {
     lineplot         = "lineplot"
     log              = "log"
     node             = "node"
+    panel            = "panel"
     policy           = "policy"
+    project          = "project"
     rack             = "rack"
     range            = "range"
     range_alias      = "range-alias"
@@ -36,7 +38,6 @@ ResourceType enum {
     task             = "task"
     user             = "user"
     view             = "view"
-    workspace        = "workspace"
 
     @doc value "is the type of the resource."
     @go output "core/pkg/distribution/ontology"

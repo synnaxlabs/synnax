@@ -14,7 +14,7 @@ import { runtime } from "@synnaxlabs/x";
 
 import { select, selectSliceState } from "@/layout/selectors";
 import {
-  clearWorkspace,
+  clearProject,
   MOSAIC_WINDOW_TYPE,
   moveMosaicTab,
   type MoveMosaicTabPayload,
@@ -23,8 +23,8 @@ import {
   remove,
   type RemovePayload,
   setNavDrawerVisible,
-  setWorkspace,
-  type SetWorkspacePayload,
+  setProject,
+  type SetProjectPayload,
   type StoreState,
   type WindowProps,
 } from "@/layout/slice";
@@ -112,9 +112,9 @@ export const closeWindowOnRemoveEffect: MiddlewareEffect<
   });
 };
 
-export const createWindowsOnSetWorkspaceEffect: MiddlewareEffect<
+export const createWindowsOnSetProjectEffect: MiddlewareEffect<
   StoreState & Drift.StoreState,
-  SetWorkspacePayload,
+  SetProjectPayload,
   Drift.CreateWindowPayload | Drift.CloseWindowPayload
 > = ({ store }) => {
   const state = store.getState();
@@ -161,11 +161,11 @@ const injectNavDrawerWindowKey: Middleware<{}, StoreState & Drift.StoreState> =
 export const MIDDLEWARE = [
   injectNavDrawerWindowKey,
   effectMiddleware(
-    [moveMosaicTab.type, remove.type, clearWorkspace.type, setWorkspace.type],
+    [moveMosaicTab.type, remove.type, clearProject.type, setProject.type],
     [closeWindowOnEmptyMosaicEffect],
   ),
   effectMiddleware([place.type], [createWindowOnPlaceEffect]),
   effectMiddleware([remove.type], [closeWindowOnRemoveEffect], true),
-  effectMiddleware([setWorkspace.type], [createWindowsOnSetWorkspaceEffect]),
+  effectMiddleware([setProject.type], [createWindowsOnSetProjectEffect]),
   effectMiddleware([Drift.closeWindow.type], [deleteLayoutsOnMosaicCloseEffect]),
 ];

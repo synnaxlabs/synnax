@@ -11,9 +11,9 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { project } from "@/project";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -35,7 +35,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
@@ -47,17 +47,14 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, table: New): Promise<Table>;
-  async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
-  async create(
-    workspace: workspace.Key,
-    tables: New | New[],
-  ): Promise<Table | Table[]> {
+  async create(project: project.Key, table: New): Promise<Table>;
+  async create(project: project.Key, tables: New[]): Promise<Table[]>;
+  async create(project: project.Key, tables: New | New[]): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const res = await sendRequired(
       this.client,
       "/table/create",
-      { workspace, tables: array.toArray(tables) },
+      { project, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
     );

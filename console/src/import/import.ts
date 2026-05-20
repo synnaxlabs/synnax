@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -21,9 +21,9 @@ import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
 
 export const ingestComponent = async (
   data: unknown,
@@ -62,7 +62,6 @@ interface ImportComponentArgs {
   client: Client | null;
   placeLayout: Layout.Placer;
   store: Store;
-  workspaceKey?: string;
   fluxStore: Pluto.FluxStore;
   fileIngesters: FileIngesters;
 }
@@ -72,7 +71,6 @@ const importComponent = ({
   client,
   placeLayout,
   handleError,
-  workspaceKey,
   fluxStore,
   fileIngesters,
 }: ImportComponentArgs): void => {
@@ -88,20 +86,10 @@ const importComponent = ({
       directory: false,
     });
     if (paths == null) return;
-    const storeState = store.getState();
-    const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
-    if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
-      if (client == null) throw new DisconnectedError();
-      const ws = await client.workspaces.retrieve(workspaceKey);
-      store.dispatch(Workspace.setActive(ws));
-      store.dispatch(
-        Layout.setWorkspace({
-          slice: ws.layout as Layout.SliceState,
-          keepNav: false,
-        }),
-      );
-    }
-    const activeWorkspaceKeyAfter = Workspace.selectActiveKey(store.getState());
+    // Importer no longer auto-switches projects on its own; under the new
+    // ownership model the active project is a session-state pointer set by
+    // explicit user action. Importers ingest into whatever project is active.
+    const activeProjectKeyAfter = Project.selectActiveKey(store.getState());
     paths.forEach((path) =>
       handleError(async () => {
         const data = await readTextFile(path);
@@ -113,14 +101,14 @@ const importComponent = ({
           placeLayout,
           store: fluxStore,
           client,
-          workspaceKey: activeWorkspaceKeyAfter ?? undefined,
+          projectKey: activeProjectKeyAfter ?? undefined,
         });
       }, `Failed to import ${path}`),
     );
   });
 };
 
-export const useImport = (): ((workspaceKey?: string) => void) => {
+export const useImport = (): (() => void) => {
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
   const client = Synnax.use();
@@ -128,13 +116,12 @@ export const useImport = (): ((workspaceKey?: string) => void) => {
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const fileIngesters = useFileIngesters();
   return useCallback(
-    (workspaceKey?: string) =>
+    () =>
       importComponent({
         store,
         placeLayout,
         client,
         handleError,
-        workspaceKey,
         fluxStore,
         fileIngesters,
       }),

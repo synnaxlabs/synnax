@@ -28,15 +28,15 @@ import {
   type State,
   ZERO_STATE,
 } from "@/log/slice";
+import { Project } from "@/project";
 import { Selector } from "@/selector";
-import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const useSyncComponent = Workspace.createSyncComponent(
+export const useSyncComponent = Project.createSyncComponent(
   "Log",
-  async ({ key, workspace, store, fluxStore, client }) => {
+  async ({ key, project, store, fluxStore, client }) => {
     const storeState = store.getState();
     if (!Access.updateGranted({ id: log.ontologyID(key), store: fluxStore, client }))
       return;
@@ -45,7 +45,7 @@ export const useSyncComponent = Workspace.createSyncComponent(
     const layout = Layout.selectRequired(storeState, key);
     const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.logs.create(workspace, {
+    await client.logs.create(project, {
       key,
       name: layout.name,
       data: setData,

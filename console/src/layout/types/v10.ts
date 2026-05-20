@@ -11,7 +11,6 @@ import { Mosaic } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/layout/types/v0";
 import * as v1 from "@/layout/types/v1";
 import * as v9 from "@/layout/types/v9";
 

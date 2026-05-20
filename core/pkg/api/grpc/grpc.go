@@ -38,12 +38,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 )
 
@@ -94,12 +95,18 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.GroupDelete = noop.UnaryServer[group.DeleteRequest, types.Nil]{}
 	a.GroupRename = noop.UnaryServer[group.RenameRequest, types.Nil]{}
 
-	// WORKSPACE
-	a.WorkspaceCreate = noop.UnaryServer[workspace.CreateRequest, workspace.CreateResponse]{}
-	a.WorkspaceRetrieve = noop.UnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse]{}
-	a.WorkspaceDelete = noop.UnaryServer[workspace.DeleteRequest, types.Nil]{}
-	a.WorkspaceRename = noop.UnaryServer[workspace.RenameRequest, types.Nil]{}
-	a.WorkspaceSetLayout = noop.UnaryServer[workspace.SetLayoutRequest, types.Nil]{}
+	// PROJECT
+	a.ProjectCreate = noop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
+	a.ProjectRetrieve = noop.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]{}
+	a.ProjectDelete = noop.UnaryServer[project.DeleteRequest, types.Nil]{}
+	a.ProjectRename = noop.UnaryServer[project.RenameRequest, types.Nil]{}
+
+	// PANEL
+	a.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
+	a.PanelRetrieve = noop.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]{}
+	a.PanelDelete = noop.UnaryServer[panel.DeleteRequest, types.Nil]{}
+	a.PanelRename = noop.UnaryServer[panel.RenameRequest, types.Nil]{}
+	a.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, types.Nil]{}
 
 	// SCHEMATIC
 	a.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}

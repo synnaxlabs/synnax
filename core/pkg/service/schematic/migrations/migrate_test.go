@@ -130,7 +130,7 @@ var _ = Describe("MigrateSchematic", func() {
 			Entry("v2 condensed", "v2_gse_condensed.json"),
 			Entry("v2 value-only", "v2_value_test.json"),
 			Entry("v4 empty", "v4_empty.json"),
-			Entry("v5 hardware workspace", "v5_hardware_workspace.json"),
+			Entry("v5 hardware project", "v5_hardware_project.json"),
 		)
 	})
 
@@ -376,8 +376,8 @@ var _ = Describe("legacy.MigrateData", func() {
 				"v2_value_test.json", 3, 0, 0),
 			Entry("v4 empty (version dispatch only)",
 				"v4_empty.json", 0, 0, 0),
-			Entry("v5 hardware workspace (real mode/toolbar/authority)",
-				"v5_hardware_workspace.json", 2, 0, 0),
+			Entry("v5 hardware project (real mode/toolbar/authority)",
+				"v5_hardware_project.json", 2, 0, 0),
 		)
 	})
 

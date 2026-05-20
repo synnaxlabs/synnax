@@ -123,7 +123,7 @@ export interface SetNavDrawerPayload extends NavDrawerEntryState {
   windowKey: string;
 }
 
-export interface SetWorkspacePayload {
+export interface SetProjectPayload {
   keepNav?: boolean;
   slice: SliceState;
 }
@@ -210,15 +210,14 @@ const ensureWindowPanels = (state: SliceState, windowKey: string): string => {
   let wp = state.windowPanels[windowKey];
   if (wp != null && wp.active != null) return wp.active;
   const panelKey = windowKey;
-  if (state.panels[panelKey] == null)
-    state.panels[panelKey] = {
-      key: panelKey,
-      windowKey,
-      name: "Default",
-      pinned: true,
-      ephemeral: false,
-    };
-  if (state.mosaics[panelKey] == null) state.mosaics[panelKey] = ZERO_MOSAIC_STATE;
+  state.panels[panelKey] ??= {
+    key: panelKey,
+    windowKey,
+    name: "Default",
+    pinned: true,
+    ephemeral: false,
+  };
+  state.mosaics[panelKey] ??= ZERO_MOSAIC_STATE;
   if (wp == null) {
     wp = { order: [panelKey], active: panelKey };
     state.windowPanels[windowKey] = wp;
@@ -595,9 +594,9 @@ export const { actions, reducer } = createSlice({
       drawerState.hover = false;
       drawerState.activeItem = null;
     },
-    setWorkspace: (
+    setProject: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
     ) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling so the helper does not fight frozen nested objects
@@ -619,7 +618,7 @@ export const { actions, reducer } = createSlice({
       reconcileMosaicLayouts(next);
       return next;
     },
-    clearWorkspace: (state) => ({
+    clearProject: (state) => ({
       ...ZERO_SLICE_STATE,
       layouts: {
         ...layoutsToPreserve(state.layouts),
@@ -712,7 +711,7 @@ export const { actions, reducer } = createSlice({
         });
         tabKeys.forEach((tk) => {
           const layout = state.layouts[tk];
-          if (layout != null && !layout.excludeFromWorkspace) delete state.layouts[tk];
+          if (layout != null && !layout.excludeFromProject) delete state.layouts[tk];
         });
       }
       delete state.panels[key];
@@ -794,9 +793,9 @@ export const {
   resizeNavDrawer,
   setNavDrawerVisible,
   setHauled,
-  setWorkspace,
+  setProject,
   setColorContext,
-  clearWorkspace,
+  clearProject,
   startNavHover,
   toggleNavHover,
   stopNavHover,

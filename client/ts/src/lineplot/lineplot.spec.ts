@@ -18,9 +18,8 @@ const client = createTestClient();
 describe("LinePlot", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(ws.key, {
         name: "Line Plot",
@@ -33,9 +32,8 @@ describe("LinePlot", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(ws.key, {
         name: "Line Plot",
@@ -48,9 +46,8 @@ describe("LinePlot", () => {
   });
   describe("setData", () => {
     test("set data", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(ws.key, {
         name: "Line Plot",
@@ -63,9 +60,8 @@ describe("LinePlot", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
-        layout: { one: 1 },
       });
       const linePlot = await client.lineplots.create(ws.key, {
         name: "Line Plot",
@@ -79,7 +75,7 @@ describe("LinePlot", () => {
   });
   describe("case preservation", () => {
     test("should preserve key casing in data field on create/retrieve cycle", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const ws = await client.projects.create({ name: "CaseTest" });
       const linePlot = await client.lineplots.create(ws.key, {
         name: "CaseTest",
         data: {

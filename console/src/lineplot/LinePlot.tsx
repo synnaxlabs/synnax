@@ -86,12 +86,12 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
+import { Project } from "@/project";
 import { Range } from "@/range";
-import { Workspace } from "@/workspace";
 
-const useSyncComponent = Workspace.createSyncComponent(
+const useSyncComponent = Project.createSyncComponent(
   "Line Plot",
-  async ({ key, workspace, store, fluxStore, client }) => {
+  async ({ key, project, store, fluxStore, client }) => {
     const s = store.getState();
     if (
       !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
@@ -101,7 +101,7 @@ const useSyncComponent = Workspace.createSyncComponent(
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.lineplots.create(workspace, { key, name: la.name, data });
+    await client.lineplots.create(project, { key, name: la.name, data });
   },
 );
 

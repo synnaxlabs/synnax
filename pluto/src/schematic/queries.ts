@@ -10,8 +10,8 @@
 import {
   NotFoundError,
   type ontology,
+  type project,
   schematic,
-  type workspace,
 } from "@synnaxlabs/client";
 import { array, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -234,11 +234,11 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateArgs extends schematic.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export interface UseCreateResult extends schematic.Schematic {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -250,11 +250,11 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     data.key ??= uuid.create();
-    const { workspace, ...rest } = data;
+    const { project, ...rest } = data;
     rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
-    const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
+    const s = await client.schematics.create(project ?? uuid.ZERO, rest);
     store.schematics.set(s);
-    return { ...s, workspace };
+    return { ...s, project };
   },
 });
 

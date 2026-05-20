@@ -108,6 +108,19 @@ top-level concept outside any project) or a _fleet project_ (aggregator project 
 references its instances)? This is genuinely out of scope for quick decision — **needs
 its own design exploration with trade studies between models.**
 
+**Candidate decisions from stress-walking (need confirmation in fleet design):**
+
+- **Propagation policy: additive = live; destructive = staged.** New resources added to
+  the template propagate automatically (live, no prompt). Resource _removals_ on the
+  template require staged review per instance (avoids silent capability loss).
+  Differentiation by change type, not a single global policy. Same pattern as Ignition.
+- **Override visibility model: Unity prefab variants / Figma component instances.**
+  Three states per resource and per property: _inherited_ (default styling),
+  _overridden_ (visual marker + revert affordance), _locally added_ (distinct icon or
+  prefix). Three UI surfaces need this treatment: resource tree, per-resource editor,
+  and a diff view comparing instance to current template version. Deep (non-parameter)
+  overrides are visually distinct from designated-parameter overrides.
+
 **Test director, analyst, ops director:** ❓ TBD
 
 ### Stress cases
@@ -325,12 +338,29 @@ triplet because:
 - Inheritance without override produces brittleness.
 - This triplet is the minimum sufficient model.
 
-**The mechanism:**
+**The mechanism — parameterized component model:**
 
 - Any resource can be designated as a Component (status flag — same data otherwise).
-- An Instance is a resource that points to its Component.
-- Overrides are per-property local changes on an Instance.
-- Edits to the Component propagate to all Instances except where overridden.
+- **A Component declares parameters** (slots): typed, optionally with defaults and
+  documentation. Like Figma component properties, React props, Helm chart values.
+- An Instance is a resource that points to its Component and provides values for the
+  Component's parameters.
+- Designated parameters are the first-class customization points; per-property overrides
+  on non-parameter properties exist with appropriate friction (deep customization).
+- Edits to the Component propagate to all Instances except where a parameter value or
+  property is overridden.
+
+**Channel aliases vs component parameters** (separate concerns):
+
+- **Parameters** — component-time binding mechanism. The Component declares "I need a
+  channel here"; the Instance fills the slot.
+- **Aliases** — operator-facing naming layer. Independent of the parameter mechanism.
+  Multi-level alias resolution (range → profile → project → cluster) stays as locked for
+  friendly display naming.
+
+**Status:** locked in shape; details (parameter type system, instance UI for override
+visibility, propagation semantics, version pinning, deep-override friction) need
+continued open resolution as part of the deferred fleet-management design.
 
 **What collapses into this primitive:**
 
@@ -425,9 +455,73 @@ Synnax drawer pattern). Two sections:
 **Lifecycle:** new viz → in-use; close last instance → moves to Drafts; after N days in
 Drafts → auto-deleted (no separate archive layer). Restoration = add back to a panel.
 
-**Status:** 🔧 — mental model, close semantics, sidebar shape, viz lifecycle locked.
-Still open: creation flows (drag/+/palette/right-click), cross-panel reuse, exact N for
-draft auto-delete, panel-draft promotion mechanic.
+**Status:** 🔧 — mental model, close semantics, sidebar shape, viz lifecycle,
+multi-window model, cross-panel viz drag, promotion mechanic, and creation flows all
+locked. Still open: exact N for draft auto-delete, tab groups detail, visual treatment
+of drafts.
+
+### Visualization creation flows ✅
+
+**Existing mechanics are inherited as-is.** All four standard paths continue to work in
+the new model:
+
+- Drag a channel from the sidebar drawer into the mosaic → creates a plot.
+- Right-click a channel → "Plot in this panel" (or equivalent).
+- "+" button on the mosaic → type picker → new viz.
+- Command palette → "Create a line plot" (etc.).
+
+Drag from sidebar is the de facto primary path; all four remain. The only difference
+from today: created vizes are project-owned (with a panel instance) rather than
+panel-owned. The user-facing UX is unchanged.
+
+Cross-panel reuse: drag from Visualizations drawer into the mosaic → adds an instance of
+the existing viz to the panel.
+
+### Multi-window coordination ✅
+
+**Default: all project panels visible in every window's tab strip.** Operators don't
+have to hunt for panels they don't currently see; they're always available for quick
+peek.
+
+**Subset emerges from drag operations**, not from configuration. An operator who wants
+to distribute panels across multiple monitors drag-moves tabs between their windows. The
+"subset" is the residue of operator action, not a project preference.
+
+**No explicit "add panel to my view" affordance needed** for 10–20 panel projects
+(typical case). Future grid view handles the very-large scale (50+ panels); deferred.
+
+**Per-window state** still exists in the implementation (which panels are in this
+window's strip, which is active), but it's manipulated by drag operations rather than by
+explicit add/remove actions. Drift handles cross-window state sync.
+
+Matches Chrome / VS Code multi-window mental model (windows have independent tab sets;
+drag tabs between).
+
+### Cross-panel visualization drag-drop ✅
+
+**Drag = move** (matches Chrome / VS Code conventions). Cmd/Ctrl + drag = copy (creates
+additional instance for "show in both panels"). Within-window drag uses standard mosaic
+tab drag-drop; cross-window drag uses Drift IPC for state transfer.
+
+**Detach to new window** is a separate explicit action (right-click on tab) — used for
+"I want this viz in its own dedicated window," distinct from drag.
+
+### Viz state split: session vs document ✅ (existing Synnax architecture)
+
+Every visualization has two layers of state, already implemented at the viz level today:
+
+- **Session state** — user/console-local. Zoom, pan, scrubber position, anything
+  ephemeral to one viewer's interaction. Not synchronized.
+- **Document state** — synchronized across all consoles. Channel selection, axis
+  configuration, persistent display settings.
+
+Per-instance overrides operate on _document state_. Session state is always per-console.
+If an operator wants to quickly explore channel selections or settings without affecting
+other operators, they create a draft (scratch) panel.
+
+This means in launch-control: two operators on the Propulsion panel see the same
+channels (document state synced) but each has their own zoom (session state local). No
+new architecture needed — inherited.
 
 ### Panel navigation and discovery ✅
 
@@ -471,10 +565,12 @@ inconsistent with the viz model and created a footgun for accumulated work.
 
 - States: **Draft** (labeled, transient, console-local) / unlabeled default state ("a
   panel in the project")
-- Actions: **Save to project** (Draft → Project), **Move to drafts** (Project → Draft,
-  rare), **Delete** (any → gone, explicit)
-- Promotion likely implicit via renaming a draft (Figma-style: "Untitled" stays draft
-  until you give it a name).
+- Actions: **Move to drafts** (Project → Draft, rare), **Delete** (any → gone,
+  explicit).
+- ✅ **Promotion is implicit via renaming a draft.** A draft starts "Untitled" and stays
+  a draft until you give it a name; naming it graduates it to a project panel. No
+  separate "Save to project" action — there's no use case for "named draft that doesn't
+  get saved."
 
 ### Save behavior ✅
 

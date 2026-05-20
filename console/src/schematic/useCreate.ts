@@ -7,28 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, type workspace } from "@synnaxlabs/client";
+import { type project, schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { create } from "@/schematic/layout";
-import { Workspace } from "@/workspace";
 
 export interface UseCreateProps {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
+// useCreate dispatches a schematic create against the active project (or an
+// override). The workspace-era "switch projects on creation" behavior is gone;
+// callers either operate on the active project or pass one explicitly.
 export const useCreate = ({
-  workspace,
+  project,
 }: UseCreateProps): ((schematic?: Partial<schematic.Schematic>) => void) => {
-  const activeWorkspace = Workspace.useSelectActiveKey();
-  const maybeChangeWorkspace = Workspace.useMaybeChange();
+  const activeProject = Project.useSelectActiveKey();
   const placeLayout = Layout.usePlacer();
   const { update } = Schematic.useCreate({
     afterSuccess: async ({ data }) => {
-      const { workspace, key, name } = data;
-      if (workspace != null) await maybeChangeWorkspace(workspace);
+      const { key, name } = data;
       placeLayout(create({ key, name, editable: true }));
     },
   });
@@ -38,8 +39,8 @@ export const useCreate = ({
         ...schematic.ZERO_NEW,
         name: "Schematic",
         ...schem,
-        workspace: workspace ?? activeWorkspace ?? undefined,
+        project: project ?? activeProject ?? undefined,
       }),
-    [workspace],
+    [project, activeProject, update],
   );
 };

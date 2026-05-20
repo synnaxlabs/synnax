@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -26,7 +26,7 @@ type Writer struct {
 
 func (w Writer) Create(
 	ctx context.Context,
-	ws workspace.Key,
+	ws project.Key,
 	p *LinePlot,
 ) (err error) {
 	var exists bool
@@ -50,7 +50,7 @@ func (w Writer) Create(
 	}
 	if err := w.otg.DefineRelationship(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(ws),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	); err != nil {

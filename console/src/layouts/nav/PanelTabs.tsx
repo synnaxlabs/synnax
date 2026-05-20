@@ -59,20 +59,23 @@ export const PanelTabs = (): ReactElement | null => {
     dispatch(Layout.createPanel({ windowKey, name: "Untitled" }));
   }, [dispatch, windowKey]);
 
+  const providerValue = useMemo(
+    () => ({
+      tabs,
+      selected: activeKey ?? undefined,
+      closable: true,
+      onSelect: handleSelect,
+      onClose: handleClose,
+      onRename: handleRename,
+      onCreate: handleCreate,
+    }),
+    [tabs, activeKey, handleSelect, handleClose, handleRename, handleCreate],
+  );
+
   if (windowKey == null) return null;
 
   return (
-    <Tabs.Provider
-      value={{
-        tabs,
-        selected: activeKey ?? undefined,
-        closable: true,
-        onSelect: handleSelect,
-        onClose: handleClose,
-        onRename: handleRename,
-        onCreate: handleCreate,
-      }}
-    >
+    <Tabs.Provider value={providerValue}>
       <Tabs.Selector size="medium" variant="pill" />
     </Tabs.Provider>
   );

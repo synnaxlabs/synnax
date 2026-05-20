@@ -24,9 +24,8 @@ describe("schematic", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -43,9 +42,8 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -64,9 +62,8 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await userClient.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -80,9 +77,8 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       await expect(
         userClient.schematics.create(ws.key, {
@@ -98,9 +94,8 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
@@ -118,9 +113,8 @@ describe("schematic", () => {
         objects: [schematic.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
-        layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,

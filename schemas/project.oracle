@@ -1,0 +1,50 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/project"
+@go output "core/pkg/service/project"
+@pb
+
+Key = uuid {
+    @doc value "is a unique identifier for a project, represented as a UUID."
+}
+
+Project struct {
+    key  Key    {
+        @doc value "is the unique identifier for this project."
+        @key
+    }
+    name string {
+        @doc value         "is a human-readable name for the project."
+        @validate required
+    }
+
+    @doc value     """
+        is a self-contained working context. Projects own the panels,
+        visualizations, tasks, and configuration that describe a system,
+        analysis, or library. Projects are long-lived and the unit of
+        identity, sharing, snapshots, and export.
+    """
+    @ontology type "project"
+    @retrieve
+    @search
+    @go marshal
+    @go migrate
+}
+
+New struct extends Project {
+    key Key? {
+        @doc value "is an optional key for the project. If not provided, one will be automatically assigned."
+    }
+
+    @doc value    "contains parameters for creating a new project."
+    @ts use_input
+    @go omit
+    @pb omit
+}

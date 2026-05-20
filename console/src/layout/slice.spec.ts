@@ -26,7 +26,7 @@ import {
   selectSliceState,
 } from "@/layout/selectors";
 import {
-  clearWorkspace,
+  clearProject,
   hideAllNavDrawers,
   moveMosaicTab,
   place,
@@ -44,8 +44,8 @@ import {
   setHauled,
   setNavDrawer,
   setNavDrawerVisible,
+  setProject,
   setUnsavedChanges,
-  setWorkspace,
   SLICE_NAME,
   splitMosaicNode,
   startNavHover,
@@ -563,20 +563,20 @@ describe("Layout Slice", () => {
     });
   });
 
-  describe("setWorkspace", () => {
-    it("should preserve window-located layouts when applying a workspace", () => {
+  describe("setProject", () => {
+    it("should preserve window-located layouts when applying a project", () => {
       store.dispatch(place(windowLayout("popup-1")));
       const ws = {
         ...ZERO_SLICE_STATE,
         layouts: { ...ZERO_SLICE_STATE.layouts, "ws-plot": mosaicLayout("ws-plot") },
       };
-      store.dispatch(setWorkspace({ slice: ws }));
+      store.dispatch(setProject({ slice: ws }));
       expect(select(state(), "popup-1")).toBeDefined();
       expect(select(state(), "ws-plot")).toBeDefined();
       expect(select(state(), "main")).toBeDefined();
     });
 
-    it("should resurrect orphan mosaic layouts that the workspace's mosaics map omits", () => {
+    it("should resurrect orphan mosaic layouts that the project's mosaics map omits", () => {
       const ws = {
         ...ZERO_SLICE_STATE,
         layouts: {
@@ -584,7 +584,7 @@ describe("Layout Slice", () => {
           "ws-orphan": mosaicLayout("ws-orphan"),
         },
       };
-      store.dispatch(setWorkspace({ slice: ws }));
+      store.dispatch(setProject({ slice: ws }));
       expect(select(state(), "ws-orphan")).toBeDefined();
       const [, root] = selectMosaic(state());
       expect(Mosaic.findTabNode(root!, "ws-orphan")).toBeDefined();
@@ -600,13 +600,13 @@ describe("Layout Slice", () => {
           }),
         },
       };
-      store.dispatch(setWorkspace({ slice: ws }));
+      store.dispatch(setProject({ slice: ws }));
       expect(select(state(), "stale-window-tab")?.windowKey).toBe(MAIN_WINDOW);
       const [, root] = selectMosaic(state());
       expect(Mosaic.findTabNode(root!, "stale-window-tab")).toBeDefined();
     });
 
-    it("should adopt the workspace's nav state when keepNav is false", () => {
+    it("should adopt the project's nav state when keepNav is false", () => {
       const ws = {
         ...ZERO_SLICE_STATE,
         nav: {
@@ -622,16 +622,16 @@ describe("Layout Slice", () => {
           },
         },
       };
-      store.dispatch(setWorkspace({ slice: ws, keepNav: false }));
+      store.dispatch(setProject({ slice: ws, keepNav: false }));
       expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });
 
-  describe("clearWorkspace", () => {
+  describe("clearProject", () => {
     it("should drop mosaic layouts but preserve window-located ones", () => {
       store.dispatch(place(mosaicLayout("plot-1")));
       store.dispatch(place(windowLayout("popup-1")));
-      store.dispatch(clearWorkspace());
+      store.dispatch(clearProject());
       expect(select(state(), "plot-1")).toBeUndefined();
       expect(select(state(), "popup-1")).toBeDefined();
       expect(select(state(), "main")).toBeDefined();

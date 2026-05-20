@@ -1,0 +1,179 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+import "schemas/ontology"
+
+@ts output "client/ts/src/panel"
+@go output "core/pkg/service/panel"
+@pb
+
+Tab struct {
+    key      uuid        {
+        @doc value "is the unique identifier of this tab within the panel."
+    }
+    resource ontology.ID {
+        @doc value "is the visualization resource displayed by this tab."
+    }
+
+    @doc value """
+        is a single tab in a leaf. Display attributes (name, icon,
+        closability) are resolved at render time from the referenced
+        resource. The same resource may be referenced by multiple tabs in
+        the same or other panels.
+    """
+}
+
+Leaf struct {
+    tabs Tab[] {
+        @doc value "is the ordered list of tabs in this leaf."
+    }
+
+    @doc value "is a leaf node in the panel tree displaying a tab strip."
+}
+
+Split struct {
+    direction spatial.Direction {
+        @doc value "is the axis along which this node is split."
+    }
+    size      float64           {
+        @doc value """
+            is the fraction in [0, 1] of the parent area allocated to first.
+            The remainder is allocated to last.
+        """
+    }
+    first     Node??            {
+        @doc value "is the first child (left for x, top for y). Always present at runtime; double-optional only for Go pointer indirection over the recursive type."
+    }
+    last      Node??            {
+        @doc value "is the second child (right for x, bottom for y). Always present at runtime; double-optional only for Go pointer indirection over the recursive type."
+    }
+
+    @doc value "is an interior split node dividing its area between two children."
+}
+
+Node struct {
+    leaf  Leaf??  {
+        @doc value "is set when this node is a leaf."
+    }
+    split Split?? {
+        @doc value "is set when this node is a split."
+    }
+
+    @doc value """
+        is a node in the panel tree. Exactly one of leaf or split is set
+        (the other is null); nodes are identified by path-derived numeric
+        keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
+    """
+}
+
+Key = uuid {
+    @doc value "is a unique identifier for a panel, represented as a UUID."
+}
+
+Panel struct {
+    key  Key    {
+        @doc value "is the unique identifier for this panel."
+        @key
+    }
+    name string {
+        @doc value         "is a human-readable name for the panel."
+        @validate required
+    }
+    root Node   {
+        @doc value "is the root of the panel tree."
+    }
+
+    action Rename {
+        name string
+
+        @doc value """
+            renames the panel. When the panel is owned by a user (draft),
+            the writer promotes it to project ownership in the same
+            transaction.
+        """
+    }
+
+    action InsertTab {
+        tab         Tab
+        target_leaf int32
+        index       int32??
+
+        @doc value """
+            inserts a tab into the leaf with the given path-derived key at
+            the given index. Appends when index is absent.
+        """
+    }
+
+    action RemoveTab {
+        key uuid
+
+        @doc value """
+            removes the tab with the given key. If the containing leaf
+            becomes empty and has a sibling, the reducer collapses the
+            parent split.
+        """
+    }
+
+    action MoveTab {
+        key         uuid
+        target_leaf int32
+        index       int32??
+
+        @doc value """
+            moves a tab to a position within the panel. Cross-panel moves
+            are RemoveTab on the source plus InsertTab on the destination
+            (two dispatches; not atomic).
+        """
+    }
+
+    action SplitLeaf {
+        leaf      int32
+        direction spatial.Direction
+        side      spatial.Order
+        size      float64??
+
+        @doc value """
+            splits the given leaf into a parent split with two children:
+            the original leaf and a new empty leaf. side determines which
+            side the new empty leaf occupies. size is the initial ratio in
+            [0, 1]; defaults to 0.5 when absent.
+        """
+    }
+
+    action ResizeSplit {
+        split int32
+        size  float64
+
+        @doc value "adjusts the size ratio of a split node. size in [0, 1]."
+    }
+
+    @doc value     """
+        is a tab in a project owning a tree of visualization tabs. A panel
+        is owned by a project (project panel) or by a user (draft);
+        renaming a draft promotes it to project ownership.
+    """
+    @ontology type "panel"
+    @retrieve
+    @search
+    @go marshal
+    @go migrate
+}
+
+New struct extends Panel {
+    -root
+    key Key? {
+        @doc value "is an optional key for the panel. If not provided, one will be automatically assigned."
+    }
+
+    @doc value    "contains parameters for creating a new panel."
+    @ts use_input
+    @go omit
+    @pb omit
+}
