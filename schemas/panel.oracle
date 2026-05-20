@@ -134,16 +134,16 @@ Panel struct {
     }
 
     action SplitLeaf {
-        leaf      int32
-        direction spatial.Direction
-        side      spatial.Order
-        size      float64??
+        leaf     int32
+        location spatial.Location
+        size     float64??
 
         @doc value """
             splits the given leaf into a parent split with two children:
-            the original leaf and a new empty leaf. side determines which
-            side the new empty leaf occupies. size is the initial ratio in
-            [0, 1]; defaults to 0.5 when absent.
+            the original leaf and a new empty leaf. location determines on
+            which side ("left", "right", "top", "bottom") the new empty leaf
+            sits. size is the initial ratio in [0, 1] for the original leaf;
+            defaults to 0.5 when absent.
         """
     }
 

@@ -35,9 +35,9 @@ type RenamePayload struct {
 // InsertTabPayload inserts a tab into the leaf with the given path-derived key at the
 // given index. Appends when index is absent.
 type InsertTabPayload struct {
-	Tab        Tab   `json:"tab" msgpack:"tab"`
-	TargetLeaf int32 `json:"target_leaf" msgpack:"target_leaf"`
-	Index      int32 `json:"index" msgpack:"index"`
+	Tab        Tab    `json:"tab" msgpack:"tab"`
+	TargetLeaf int32  `json:"target_leaf" msgpack:"target_leaf"`
+	Index      *int32 `json:"index,omitempty" msgpack:"index,omitempty"`
 }
 
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
@@ -52,17 +52,17 @@ type RemoveTabPayload struct {
 type MoveTabPayload struct {
 	Key        uuid.UUID `json:"key" msgpack:"key"`
 	TargetLeaf int32     `json:"target_leaf" msgpack:"target_leaf"`
-	Index      int32     `json:"index" msgpack:"index"`
+	Index      *int32    `json:"index,omitempty" msgpack:"index,omitempty"`
 }
 
 // SplitLeafPayload splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. side determines which side the new empty leaf
-// occupies. size is the initial ratio in [0, 1]; defaults to 0.5 when absent.
+// original leaf and a new empty leaf. location determines on which side ("left",
+// "right", "top", "bottom") the new empty leaf sits. size is the initial ratio in [0,
+// 1] for the original leaf; defaults to 0.5 when absent.
 type SplitLeafPayload struct {
-	Leaf      int32             `json:"leaf" msgpack:"leaf"`
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	Side      spatial.Order     `json:"side" msgpack:"side"`
-	Size      float64           `json:"size" msgpack:"size"`
+	Leaf     int32            `json:"leaf" msgpack:"leaf"`
+	Location spatial.Location `json:"location" msgpack:"location"`
+	Size     *float64         `json:"size,omitempty" msgpack:"size,omitempty"`
 }
 
 // ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].

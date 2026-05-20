@@ -38,7 +38,15 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 // error the returned state is the zero Panel; the dispatch substrate aborts the
 // transaction on error, so partial state would not be meaningful.
 func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
-	if err := insertTabAt(&state.Root, p.TargetLeaf, p.Tab, p.Index); err != nil {
+	leaf, err := walkLeaf(&state.Root, p.TargetLeaf)
+	if err != nil {
+		return Panel{}, err
+	}
+	index := int32(len(leaf.Tabs))
+	if p.Index != nil {
+		index = *p.Index
+	}
+	if err := insertTabAt(&state.Root, p.TargetLeaf, p.Tab, index); err != nil {
 		return Panel{}, err
 	}
 	return state, nil
@@ -73,7 +81,10 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 		return Panel{}, ErrTabNotFound
 	}
 	state.Root = *next
-	idx := int(p.Index)
+	idx := len(target.Tabs)
+	if p.Index != nil {
+		idx = int(*p.Index)
+	}
 	if idx < 0 || idx > len(target.Tabs) {
 		return Panel{}, ErrIndexOutOfRange
 	}
@@ -82,12 +93,17 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 }
 
 // Handle splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. side determines which side the new empty
-// leaf occupies. The caller is responsible for passing a valid size in [0, 1].
-// Returns ErrInvalidPath when the leaf path does not resolve, or ErrNotALeaf
-// when it resolves to a split.
+// original leaf and a new empty leaf. Location determines which side the new
+// empty leaf occupies. Size is the fraction allocated to the original leaf;
+// defaults to 0.5 when absent. Returns ErrInvalidPath when the leaf path does
+// not resolve, ErrNotALeaf when it resolves to a split, or
+// ErrInvalidSplitLocation when Location is not one of left/right/top/bottom.
 func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
-	if err := splitLeafAt(&state.Root, p.Leaf, p.Direction, p.Side, p.Size); err != nil {
+	size := 0.5
+	if p.Size != nil {
+		size = *p.Size
+	}
+	if err := splitLeafAt(&state.Root, p.Leaf, p.Location, size); err != nil {
 		return Panel{}, err
 	}
 	return state, nil

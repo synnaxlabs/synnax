@@ -211,17 +211,41 @@ func insertTabAt(root *Node, leafPath int32, tab Tab, index int32) error {
 	return nil
 }
 
+// ErrInvalidSplitLocation is returned when SplitLeaf is given a location that
+// cannot produce a binary split (e.g., "center").
+var ErrInvalidSplitLocation = errors.New("invalid split location")
+
+// directionAndSideForLocation maps a spatial.Location onto the (direction, side)
+// pair that places a new empty leaf on that side of the original. "left"/"right"
+// split along the x axis; "top"/"bottom" split along y. The original leaf
+// always takes the opposite side; size is the fraction allocated to the
+// original. Returns ErrInvalidSplitLocation for locations that do not divide
+// the area in two.
+func directionAndSideForLocation(loc spatial.Location) (spatial.Direction, spatial.Order, error) {
+	switch loc {
+	case spatial.LocationLeft:
+		return spatial.DirectionX, spatial.OrderFirst, nil
+	case spatial.LocationRight:
+		return spatial.DirectionX, spatial.OrderLast, nil
+	case spatial.LocationTop:
+		return spatial.DirectionY, spatial.OrderFirst, nil
+	case spatial.LocationBottom:
+		return spatial.DirectionY, spatial.OrderLast, nil
+	default:
+		return "", "", ErrInvalidSplitLocation
+	}
+}
+
 // splitLeafAt replaces the leaf at leafPath with a Split node containing the
-// original leaf and a new empty sibling leaf. side determines which side the new
-// empty leaf occupies. Mutates root in place; returns ErrInvalidPath when the
-// path does not resolve and ErrNotALeaf when it resolves to a split.
-func splitLeafAt(
-	root *Node,
-	leafPath int32,
-	direction spatial.Direction,
-	side spatial.Order,
-	size float64,
-) error {
+// original leaf and a new empty sibling leaf. loc determines which side the
+// new empty leaf occupies. Mutates root in place; returns ErrInvalidPath when
+// the path does not resolve, ErrNotALeaf when it resolves to a split, or
+// ErrInvalidSplitLocation when loc is not one of left/right/top/bottom.
+func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64) error {
+	direction, side, err := directionAndSideForLocation(loc)
+	if err != nil {
+		return err
+	}
 	node, err := walk(root, leafPath)
 	if err != nil {
 		return err
@@ -239,7 +263,6 @@ func splitLeafAt(
 		split.First = original
 		split.Last = empty
 	}
-	// Replace node in place: clear Leaf, set Split.
 	node.Leaf = nil
 	node.Split = split
 	return nil

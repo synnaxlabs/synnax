@@ -63,14 +63,14 @@ export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 
 /**
  * SplitLeaf splits the given leaf into a parent split with two children:
- * the original leaf and a new empty leaf. side determines which
- * side the new empty leaf occupies. size is the initial ratio in
- * [0, 1]; defaults to 0.5 when absent.
+ * the original leaf and a new empty leaf. location determines on
+ * which side ("left", "right", "top", "bottom") the new empty leaf
+ * sits. size is the initial ratio in [0, 1] for the original leaf;
+ * defaults to 0.5 when absent.
  */
 export const splitLeafPayloadZ = z.object({
   leaf: z.int32(),
-  direction: spatial.directionZ,
-  side: spatial.orderZ,
+  location: spatial.locationZ,
   size: z.number().optional(),
 });
 

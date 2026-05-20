@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import {
@@ -101,6 +102,26 @@ const collapseIfEmptySide = (n: Draft<Node>): void => {
   }
 };
 
+// directionAndSideForLocation maps a spatial.Location onto the (direction, side)
+// pair that places a new empty leaf on that side of the original. Returns null
+// for locations that do not divide the area in two (e.g., "center").
+const directionAndSideForLocation = (
+  loc: spatial.Location,
+): { direction: spatial.Direction; side: spatial.Order } | null => {
+  switch (loc) {
+    case "left":
+      return { direction: "x", side: "first" };
+    case "right":
+      return { direction: "x", side: "last" };
+    case "top":
+      return { direction: "y", side: "first" };
+    case "bottom":
+      return { direction: "y", side: "last" };
+    default:
+      return null;
+  }
+};
+
 const handlers: Handlers = {
   rename: (state, payload) => {
     state.name = payload.name;
@@ -143,14 +164,16 @@ const handlers: Handlers = {
     if (state.root == null) return NO_OP;
     const node = walk(state.root, payload.leaf);
     if (node == null || node.leaf == null) return NO_OP;
+    const ds = directionAndSideForLocation(payload.location);
+    if (ds == null) return NO_OP;
     const original = node.leaf;
     const empty: Leaf = { tabs: [] };
-    const firstLeaf = payload.side === "first" ? empty : original;
-    const lastLeaf = payload.side === "first" ? original : empty;
+    const firstLeaf = ds.side === "first" ? empty : original;
+    const lastLeaf = ds.side === "first" ? original : empty;
     const size = payload.size ?? 0.5;
     node.leaf = undefined;
     node.split = {
-      direction: payload.direction,
+      direction: ds.direction,
       size,
       first: { leaf: firstLeaf },
       last: { leaf: lastLeaf },

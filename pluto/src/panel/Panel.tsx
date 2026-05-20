@@ -97,6 +97,24 @@ const adaptToMosaic = (
   return { root: visit(root, 1), resources };
 };
 
+// directionAndSideFromLocation maps an edge-drop location to a (direction,
+// side) pair for SplitLeaf. A left/right drop splits along the x axis with
+// the new sibling on first/last; top/bottom splits along y.
+const directionAndSideFromLocation = (
+  loc: location.Location,
+): { direction: "x" | "y"; side: "first" | "last" } => {
+  switch (loc) {
+    case "left":
+      return { direction: "x", side: "first" };
+    case "right":
+      return { direction: "x", side: "last" };
+    case "top":
+      return { direction: "y", side: "first" };
+    default:
+      return { direction: "y", side: "last" };
+  }
+};
+
 // Mosaic renders a Flux-backed Panel as a Base.Mosaic. The architecture is a
 // direct parallel of the legacy console layout mosaic; the only material
 // difference is that gestures dispatch panel actions through the SY-3038
@@ -113,7 +131,7 @@ const adaptToMosaic = (
 // which Base.Mosaic invokes per tab. The default tab name on the underlying
 // Tabs.Tab is empty; consumers supply a Name component that resolves the
 // referenced resource via its Flux store.
-export const Mosaic = ({
+export const Panel = ({
   panelKey,
   activeTab,
   onSelect,
@@ -121,12 +139,12 @@ export const Mosaic = ({
   children,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  const { data: p } = useRetrieve({ key: panelKey });
+  const { data: doc } = useRetrieve({ key: panelKey });
   const { dispatch } = useDispatch();
 
   const { root, resources } = useMemo(
-    () => adaptToMosaic(p?.root, activeTab),
-    [p?.root, activeTab],
+    () => adaptToMosaic(doc?.root, activeTab),
+    [doc?.root, activeTab],
   );
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
@@ -135,7 +153,7 @@ export const Mosaic = ({
     (key: number, tabKey: string, _loc: location.Location, index?: number) => {
       dispatch({
         key: panelKey,
-        actions: [panel.moveTab({ key: tabKey, targetLeaf: key, index })],
+        actions: [panel.moveTab({ key: tabKey, targetLeaf: key, index: index ?? 0 })],
       });
     },
     [dispatch, panelKey],
@@ -165,15 +183,16 @@ export const Mosaic = ({
   //      parseable ID into the new sibling leaf in a single dispatch.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
+      const { direction, side } = directionAndSideFromLocation(loc);
       const actions: panel.Action[] = [
-        panel.splitLeaf({ leaf: key, location: loc }),
+        panel.splitLeaf({ leaf: key, direction, side, size: 0.5 }),
       ];
       if (tabKeys != null && tabKeys.length > 0) {
         // After splitLeaf the original leaf moves to the side opposite the
         // new sibling. The new sibling's path-derived key is the child slot
-        // that matches the drop location on the new parent split.
-        const newLeafKey =
-          loc === "left" || loc === "top" ? key * 2 : key * 2 + 1;
+        // that matches `side` on the new parent split, which itself takes
+        // the original leaf's path key.
+        const newLeafKey = side === "first" ? key * 2 : key * 2 + 1;
         for (const raw of tabKeys) {
           const parsed = ontology.idZ.safeParse(raw);
           if (!parsed.success) continue;
@@ -181,6 +200,7 @@ export const Mosaic = ({
             panel.insertTab({
               tab: { key: uuid.create(), resource: parsed.data },
               targetLeaf: newLeafKey,
+              index: 0,
             }),
           );
         }
@@ -218,7 +238,7 @@ export const Mosaic = ({
     [portalRef],
   );
 
-  if (p == null) return null;
+  if (doc == null) return null;
 
   return (
     <>
