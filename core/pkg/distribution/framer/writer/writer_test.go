@@ -42,9 +42,8 @@ var _ = Describe("Writer", func() {
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
+			BeforeAll(func(ctx SpecContext) { s = sF(ctx) })
 			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -145,7 +144,7 @@ var _ = Describe("Writer", func() {
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(20, 21, 22),
-					telem.NewSeriesV[float64](1.1, 2.2, 3.3),
+					telem.NewSeriesV(1.1, 2.2, 3.3),
 					telem.NewSeriesV("a", "b", "c"),
 				},
 			)))
@@ -497,9 +496,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Free Write Alignment", Ordered, func() {
 		It("Should correctly set alignments on indexed free channels", func(ctx SpecContext) {
-			var (
-				s = gatewayOnlyScenario(ctx)
-			)
+			var s = gatewayOnlyScenario(ctx)
+
 			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
 			var (
 				idxCh = channel.Channel{
