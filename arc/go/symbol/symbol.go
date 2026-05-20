@@ -192,8 +192,10 @@ type Symbol struct {
 	// Target is the aliased symbol for KindModuleAlias. Member resolution on
 	// an alias indirects through Target.
 	Target *Symbol
-	// Used reports whether this symbol has been consulted by a Resolve call.
-	// Used to drive unused-import diagnostics on alias symbols.
+	// Used reports whether this alias has been consulted by a Resolve call.
+	// Drives unused-import diagnostics. Only set on KindModuleAlias symbols;
+	// other Kinds leave it false because nothing reads it and writing to
+	// shared STL members would race across concurrent NewRoot calls.
 	Used bool
 	// GlobalResolver provides on-demand lookups for symbols not pre-materialized
 	// in the symbol tree (e.g., global channels). Consulted by Resolve
@@ -207,6 +209,15 @@ type Symbol struct {
 // channels) when local lookup misses. The ambientGlobals are added
 // directly to the ambient prelude as siblings of the root — this is
 // where STL symbols, test channels, and custom modules belong.
+//
+// Each ambient global is shallow-copied before being attached so the
+// per-root Parent assignment does not mutate the caller's symbol. STL
+// packages expose their modules as package-level singletons, and
+// concurrent NewRoot calls (e.g. an LSP server analyzing two documents
+// at once) would otherwise race on those shared Parent fields. Module
+// children stay shared across roots — they are read-only after
+// construction and the seal at KindModule means Parent-walks inside a
+// module never observe the per-root Parent of the wrapper.
 func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
@@ -216,7 +227,8 @@ func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
 	}
 	ambient.AddChild(root)
 	for _, sym := range ambientGlobals {
-		ambient.AddChild(sym)
+		clone := *sym
+		ambient.AddChild(&clone)
 	}
 	return root
 }
@@ -503,7 +515,9 @@ func (s *Symbol) resolve(
 	}
 	if child := s.findChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
-			child.Used = true
+			if child.Kind == KindModuleAlias {
+				child.Used = true
+			}
 			return child, nil
 		}
 	}
