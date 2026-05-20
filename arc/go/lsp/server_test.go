@@ -10,7 +10,6 @@
 package lsp_test
 
 import (
-	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,32 +18,12 @@ import (
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/query"
 )
-
-// liveResolver is a test-only mutable Resolver: tests add and remove
-// entries between assertions to simulate cluster channels appearing and
-// disappearing at runtime. The dynamic case is what GlobalResolver is
-// for; the static case (compile-time-known symbols) goes in the
-// ambient prelude via AttachToAmbient.
-type liveResolver map[string]symbol.Symbol
-
-func (r liveResolver) Resolve(_ context.Context, name string) (*symbol.Symbol, error) {
-	if s, ok := r[name]; ok {
-		sym := s
-		return &sym, nil
-	}
-	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
-}
-
-func (r liveResolver) Search(_ context.Context, _ string) ([]*symbol.Symbol, error) {
-	return nil, nil
-}
 
 var _ = Describe("Server Diagnostics", func() {
 	var (
@@ -350,12 +329,12 @@ var _ = Describe("External Change Notifications", func() {
 		server   *lsp.Server
 		uri      protocol.DocumentURI
 		client   *MockClient
-		resolver liveResolver
+		resolver StaticResolver
 		observer observe.Observer[struct{}]
 	)
 
 	BeforeEach(func() {
-		resolver = make(liveResolver)
+		resolver = make(StaticResolver)
 		observer = observe.New[struct{}]()
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
 			NewRoot: func() *symbol.Symbol {

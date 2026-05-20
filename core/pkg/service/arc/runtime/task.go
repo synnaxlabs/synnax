@@ -118,36 +118,36 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		}))
 	}
 
-	timeMod, err := time.NewModule(ctx, wasmRT)
+	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	channelMod, err := stlchannels.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
+	channelMod, err := stlchannels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	statefulMod, err := stateful.NewModule(ctx, drt.state.series, drt.state.strings, wasmRT)
+	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err = series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
+	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	stringsMod, err := stlstrings.NewModule(ctx, drt.state.strings, wasmRT, nil)
+	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	mathMod, err := stlmath.NewModule(ctx, wasmRT)
+	mathMod, err := stlmath.NewHost(ctx, wasmRT)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -157,12 +157,12 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		channelMod,
 		statefulMod,
 		timeMod,
-		selector.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		stable.NewModule(),
+		selector.NewHost(),
+		constant.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		stlcontrol.NewModule(drt.state.authority),
+		stlcontrol.NewHost(drt.state.authority),
 		mathMod,
 	}
 

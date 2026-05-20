@@ -18,7 +18,6 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -95,7 +94,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 	if err != nil {
 		return Result{}, err
 	}
-	aCtx := acontext.CreateRoot(ctx, t, stl.NewRoot(a.resolver))
+	aCtx := acontext.CreateRoot(ctx, t, arc.NewRoot(a.resolver))
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics

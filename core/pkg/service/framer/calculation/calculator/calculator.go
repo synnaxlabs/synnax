@@ -99,22 +99,22 @@ func Open(
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
 
-	channelMod, err := stlchannels.NewModule(ctx, cs.channel, cs.strings, nil)
+	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
 	if err != nil {
 		return nil, err
 	}
 
-	mathMod, err := stlmath.NewModule(ctx, nil)
+	mathMod, err := stlmath.NewHost(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	f := node.CompoundFactory{
 		channelMod,
-		selector.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		stable.NewModule(),
+		selector.NewHost(),
+		constant.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
 		mathMod,
 	}
 
@@ -126,26 +126,26 @@ func Open(
 	}()
 
 	if len(cfg.Module.WASM) > 0 {
-		var statefulMod *stateful.Module
-		var stringsMod *stlstrings.Module
-		var errorsMod *stlerrors.Module
+		var statefulMod *stateful.Host
+		var stringsMod *stlstrings.Host
+		var errorsMod *stlerrors.Host
 		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
-		if statefulMod, err = stateful.NewModule(ctx, cs.series, cs.strings, wasmRT); err != nil {
+		if statefulMod, err = stateful.NewHost(ctx, wasmRT, cs.series, cs.strings); err != nil {
 			return nil, err
 		}
-		if _, err = series.NewModule(ctx, cs.series, wasmRT); err != nil {
+		if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
 			return nil, err
 		}
-		if stringsMod, err = stlstrings.NewModule(ctx, cs.strings, wasmRT, nil); err != nil {
+		if stringsMod, err = stlstrings.NewHost(ctx, wasmRT, cs.strings, nil); err != nil {
 			return nil, err
 		}
-		if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
+		if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {
 			return nil, err
 		}
-		if errorsMod, err = stlerrors.NewModule(ctx, nil, wasmRT); err != nil {
+		if errorsMod, err = stlerrors.NewHost(ctx, wasmRT, nil); err != nil {
 			return nil, err
 		}
 

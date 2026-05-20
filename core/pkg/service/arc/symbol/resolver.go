@@ -14,23 +14,25 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type channelResolver struct {
+// ChannelResolver looks up cluster channels by name or numeric key. It is
+// the production dynamic resolver attached to a program root's
+// GlobalResolver: cluster channels can appear or disappear at runtime,
+// so we cannot snapshot them into the ambient prelude at analysis time.
+type ChannelResolver struct {
 	channelSvc *channel.Service
 	tx         gorp.Tx
 }
 
-var _ arc.SymbolResolver = (*channelResolver)(nil)
+var _ symbol.Resolver = (*ChannelResolver)(nil)
 
 func channelToSymbol(ch channel.Channel) *symbol.Symbol {
-	return &arc.Symbol{
+	return &symbol.Symbol{
 		Name: ch.Name,
 		Kind: symbol.KindChannel,
 		Type: types.Chan(types.FromTelem(ch.DataType)),
@@ -38,7 +40,7 @@ func channelToSymbol(ch channel.Channel) *symbol.Symbol {
 	}
 }
 
-func (r *channelResolver) Resolve(ctx context.Context, name string) (*arc.Symbol, error) {
+func (r *ChannelResolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	key, err := strconv.Atoi(name)
 	ch := channel.Channel{}
 	q := r.channelSvc.NewRetrieve().Entry(&ch)
@@ -53,7 +55,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (*arc.Symbol
 	return channelToSymbol(ch), nil
 }
 
-func (r *channelResolver) Search(ctx context.Context, name string) ([]*arc.Symbol, error) {
+func (r *ChannelResolver) Search(ctx context.Context, name string) ([]*symbol.Symbol, error) {
 	var results []channel.Channel
 	if err := r.channelSvc.NewRetrieve().
 		Where(channel.MatchInternal(false)).
@@ -61,18 +63,14 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]*arc.Symbo
 		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item channel.Channel, index int) *arc.Symbol {
+	return lo.Map(results, func(item channel.Channel, index int) *symbol.Symbol {
 		return channelToSymbol(item)
 	}), nil
 }
 
-// NewResolver returns the dynamic resolver that the analyzer consults for
-// symbols outside the user program. After STL became scope-graph builtins
-// (see stl.BuildRoot), this resolver only handles status types and
-// cluster-backed channel lookups; the STL itself is no longer chained in.
-func NewResolver(channelSvc *channel.Service, tx gorp.Tx) arc.SymbolResolver {
-	return symbol.CompoundResolver{
-		arcstatus.SymbolResolver,
-		&channelResolver{channelSvc: channelSvc, tx: tx},
-	}
+// NewChannelResolver constructs the production dynamic resolver that
+// reaches cluster channels by name or numeric key. The returned value
+// satisfies symbol.Resolver via Go's interface implementation rules.
+func NewChannelResolver(channelSvc *channel.Service, tx gorp.Tx) *ChannelResolver {
+	return &ChannelResolver{channelSvc: channelSvc, tx: tx}
 }

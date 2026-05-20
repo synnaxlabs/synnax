@@ -16,11 +16,14 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/stl"
+	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -99,14 +102,35 @@ type Service struct {
 	cfg    ServiceConfig
 }
 
+// NewChannelResolver returns the dynamic resolver that the analyzer
+// consults for cluster channels not statically known to the program.
+func (s *Service) NewChannelResolver(tx gorp.Tx) *symbol.ChannelResolver {
+	return symbol.NewChannelResolver(s.cfg.Channel, tx)
+}
+
+// NewSymbolResolver is the dynamic resolver attached to a program root's
+// GlobalResolver. It resolves cluster channels by name or numeric key.
+// Static prelude symbols (STL, status module) are attached to the
+// ambient by NewRoot rather than chained behind this resolver.
 func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return symbol.NewResolver(s.cfg.Channel, tx)
+	return s.NewChannelResolver(tx)
+}
+
+// NewRoot builds a program root populated with STL + status module +
+// the cluster channel resolver attached as the dynamic resolver. This
+// is the production analysis root: tx is consulted for channel lookups,
+// nil means "use the service DB directly."
+func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
+	root := arcsymbol.CreateRoot(s.NewChannelResolver(tx))
+	root.AttachToAmbient(stl.Symbols...)
+	root.AttachToAmbient(arcstatus.Symbols...)
+	return root
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
-		GlobalResolver:  s.NewSymbolResolver(nil),
+		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
@@ -129,12 +153,11 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	resolverOpt := arc.WithResolver(s.NewSymbolResolver(nil))
 	var prog arc.Program
 	if entry.Mode == "text" {
-		prog, err = arc.CompileText(ctx, entry.Text, resolverOpt)
+		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil))
 	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, resolverOpt)
+		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
 	}
 	if err != nil {
 		return Arc{}, err

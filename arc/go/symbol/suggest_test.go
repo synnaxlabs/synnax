@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
@@ -151,7 +152,7 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("Lazy suggestion performance", func() {
 		It("should not trigger Search on global resolver during Add", func(bCtx SpecContext) {
 			tracker := &searchTracker{
-				inner: staticResolver{
+				inner: StaticResolver{
 					"builtin_fn": {Name: "builtin_fn", Kind: symbol.KindFunction},
 				},
 			}

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -83,8 +84,10 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver)
+			root.AttachToAmbient(arcstatus.Symbols...)
+			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
@@ -94,8 +97,10 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver)
+			root.AttachToAmbient(arcstatus.Symbols...)
+			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}

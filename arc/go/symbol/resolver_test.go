@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -20,10 +21,10 @@ import (
 var _ = Describe("CompoundResolver", func() {
 	Describe("Resolve", func() {
 		It("Should resolve from first matching resolver", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := staticResolver{
+			resolver2 := StaticResolver{
 				"bar": symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -32,10 +33,10 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(sym.Type).To(Equal(types.String()))
 		})
 		It("Should prioritize first resolver when multiple match", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := staticResolver{
+			resolver2 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -43,7 +44,7 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(sym.Type).To(Equal(types.I32()))
 		})
 		It("Should return error when no resolver matches", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			compound := symbol.CompoundResolver{resolver1}
@@ -54,11 +55,11 @@ var _ = Describe("CompoundResolver", func() {
 
 	Describe("Search", func() {
 		It("Should resolve from all sub-resolvers", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo":    symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 				"foobar": symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := staticResolver{
+			resolver2 := StaticResolver{
 				"food": symbol.Symbol{Name: "food", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -71,10 +72,10 @@ var _ = Describe("CompoundResolver", func() {
 		})
 
 		It("Should deduplicate symbols by name (first wins)", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := staticResolver{
+			resolver2 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -85,7 +86,7 @@ var _ = Describe("CompoundResolver", func() {
 		})
 
 		It("Should return empty slice when no resolvers match", func(bCtx SpecContext) {
-			resolver1 := staticResolver{
+			resolver1 := StaticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			compound := symbol.CompoundResolver{resolver1}

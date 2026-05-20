@@ -21,21 +21,35 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
 
 type (
-	IR       = ir.IR
-	Node     = ir.Node
-	Edge     = ir.Edge
-	Handle   = ir.Handle
-	Function = ir.Function
-	Symbol   = symbol.Symbol
-	Graph    = graph.Graph
-	Text     = text.Text
-	Program  = program.Program
+	IR             = ir.IR
+	Node           = ir.Node
+	Edge           = ir.Edge
+	Handle         = ir.Handle
+	Function       = ir.Function
+	Symbol         = symbol.Symbol
+	SymbolResolver = symbol.Resolver
+	Graph          = graph.Graph
+	Text           = text.Text
+	Program        = program.Program
 )
+
+// NewRoot returns a program root with the standard library symbols
+// attached to the ambient prelude and resolver installed as the
+// GlobalResolver. This is the canonical entry point for production
+// compilation: callers that need additional static symbols (e.g.
+// status types) attach them via root.AttachToAmbient before passing
+// the root to CompileText or CompileGraph.
+func NewRoot(resolver SymbolResolver) *symbol.Symbol {
+	root := symbol.CreateRoot(resolver)
+	root.AttachToAmbient(stl.Symbols...)
+	return root
+}
 
 // CompileGraph parses, analyzes, and compiles a graph-mode program
 // against root. root must have its ambient prelude populated by the

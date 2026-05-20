@@ -10,8 +10,6 @@
 package analyzer_test
 
 import (
-	stdctx "context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -19,28 +17,10 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// staticResolver is a tiny test-only Resolver backed by a map of bare
-// names. Replaces the deleted []symbol.Symbol for analyzer tests that
-// need to provide cluster-like channels as dynamic globals.
-type staticResolver map[string]symbol.Symbol
-
-func (r staticResolver) Resolve(_ stdctx.Context, name string) (*symbol.Symbol, error) {
-	if s, ok := r[name]; ok {
-		sym := s
-		return &sym, nil
-	}
-	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
-}
-
-func (r staticResolver) Search(_ stdctx.Context, _ string) ([]*symbol.Symbol, error) {
-	return nil, nil
-}
 
 var _ = Describe("Import Pass", func() {
 	// timeModule is a sealed "time" module attached to each test's ambient
@@ -53,7 +33,7 @@ var _ = Describe("Import Pass", func() {
 			Outputs: types.Params{{Name: "result", Type: types.I64()}},
 		}),
 	})
-	dynChannels := staticResolver{
+	dynChannels := StaticResolver{
 		"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
 	}
 	newRoot := func() *symbol.Symbol {

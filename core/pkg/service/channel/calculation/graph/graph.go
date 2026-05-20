@@ -288,7 +288,7 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 }
 
 func (s *Graph) newAnalyzer(tx gorp.Tx) *channelanalyzer.Analyzer {
-	return channelanalyzer.New(symbol.NewResolver(s.distribution, tx))
+	return channelanalyzer.New(symbol.NewChannelResolver(s.distribution, tx))
 }
 
 func (s *Graph) inspectNode(
