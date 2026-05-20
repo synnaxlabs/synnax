@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -82,7 +83,11 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (c Config) Validate() error {
+	v := validate.New("arc.lsp")
+	validate.NotNil(v, "new_root", c.NewRoot)
+	return v.Error()
+}
 
 var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
 

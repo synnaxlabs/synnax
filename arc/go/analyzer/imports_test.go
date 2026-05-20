@@ -22,20 +22,21 @@ import (
 )
 
 var _ = Describe("Import Pass", func() {
-	// timeModule is a sealed "time" module attached to each test's ambient
-	// prelude so `import time` resolves. dynChannels is the per-test
-	// dynamic resolver, providing the bare channel symbol "ch".
-	timeModule := symbol.NewModule("time", symbol.Symbol{
-		Name: "now",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: "result", Type: types.I64()}},
-		}),
-	})
+	// dynChannels is the per-test dynamic resolver, providing the bare
+	// channel symbol "ch". A fresh "time" module is allocated inside
+	// newRoot() so each test's AddChild doesn't rewrite a shared module's
+	// Parent.
 	dynChannels := StaticResolver{
 		"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
 	}
 	newRoot := func() *symbol.Symbol {
+		timeModule := symbol.NewModule("time", symbol.Symbol{
+			Name: "now",
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: "result", Type: types.I64()}},
+			}),
+		})
 		root := NewRoot(dynChannels)
 		root.Parent.AddChild(timeModule)
 		return root
