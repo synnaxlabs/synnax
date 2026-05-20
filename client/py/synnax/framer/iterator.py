@@ -96,8 +96,8 @@ class Iterator:
     between two timestamps, see the segment Client read method instead.
     """
 
-    __stream: Stream[_Request, _Response]
-    __adapter: ReadFrameAdapter
+    _stream: Stream[_Request, _Response]
+    _adapter: ReadFrameAdapter
 
     open: bool
     tr: TimeRange
@@ -117,14 +117,14 @@ class Iterator:
     ) -> None:
         self.tr = tr
         self.instrumentation = instrumentation
-        self.__adapter = adapter
-        client = client.with_codec(WSIteratorCodec(self.__adapter.codec))
-        self.__stream = client.stream("/frame/iterate", _Request, _Response)
+        self._adapter = adapter
+        client = client.with_codec(WSIteratorCodec(self._adapter.codec))
+        self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._downsample_factor = downsample_factor
-        self.__open()
+        self._open()
 
-    def __open(self) -> None:
+    def _open(self) -> None:
         """Opens the iterator, configuring it to iterate over the telemetry in the
         channels with the given keys within the provided time range.
 
@@ -134,7 +134,7 @@ class Iterator:
         self._exec(
             command=_Command.OPEN,
             bounds=self.tr,
-            keys=self.__adapter.keys,
+            keys=self._adapter.keys,
             chunk_size=self._chunk_size,
             downsample_factor=self._downsample_factor,
         )
@@ -218,11 +218,11 @@ class Iterator:
         should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
         """
-        exc = self.__stream.close_send()
+        exc = self._stream.close_send()
         if exc is not None:
             raise exc
         while True:
-            r, exc = self.__stream.receive()
+            r, exc = self._stream.receive()
             if r is not None:
                 continue
             if exc is None:
@@ -252,16 +252,16 @@ class Iterator:
         self.close()
 
     def _exec(self, **kwargs: object) -> bool:
-        exc = self.__stream.send(_Request(**kwargs))
+        exc = self._stream.send(_Request(**kwargs))
         if exc is not None:
             raise exc
         self.value = Frame()
         while True:
-            r, exc = self.__stream.receive()
+            r, exc = self._stream.receive()
             if exc is not None:
                 raise exc
             assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
             fr = Frame(channels=r.frame.keys, series=r.frame.series)
-            self.value.append(self.__adapter.adapt(fr))
+            self.value.append(self._adapter.adapt(fr))

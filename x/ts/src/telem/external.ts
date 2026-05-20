@@ -11,3 +11,4 @@ export * from "@/telem/clockSkew";
 export { type GLBufferController } from "@/telem/gl";
 export * from "@/telem/series";
 export * from "@/telem/telem";
+export { TIME_ZONES, type TimeZone, timeZoneZ } from "@/telem/types.gen";

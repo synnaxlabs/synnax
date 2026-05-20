@@ -34,7 +34,7 @@ type prefixEntry struct {
 	Data string
 }
 
-func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(int(m.ID))) }
+func (m prefixEntry) GorpKey() string { return "prefix-" + strconv.Itoa(int(m.ID)) }
 
 func (m prefixEntry) SetOptions() []any { return nil }
 

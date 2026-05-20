@@ -213,6 +213,13 @@ var _ = Describe("View", func() {
 			It("Should search for views", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(tx.Commit(ctx)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					keys := make([]view.Key, len(views))
+					for i, v := range views {
+						keys[i] = v.Key
+					}
+					Expect(svc.NewWriter(nil).DeleteMany(ctx, keys...)).To(Succeed())
+				})
 				Expect(svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db)).To(Succeed())
 				Expect(len(resViews)).To(BeNumerically(">", 1))
 				Expect(resViews[0].Key).To(Equal(views[0].Key))

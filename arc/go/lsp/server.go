@@ -34,12 +34,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// OnRename is invoked by the LSP when a Rename request resolves to a known
+// symbol. It runs before the server computes source-text edits and lets the
+// caller propagate the rename to the resource the symbol refers to (e.g.,
+// the underlying Synnax channel). Returning an error aborts the rename and
+// surfaces the error to the client. Callbacks should return nil for symbols
+// they do not handle.
+type OnRename func(ctx context.Context, sym *symbol.Scope, oldName, newName string) error
+
 // Config defines the configuration for opening an arc LSP Server.
 type Config struct {
 	// GlobalResolver allows the caller to define custom globals that will appear in
 	// LSP auto-complete and type checking. Typically used to provide standard library
 	// variables and functions as well as channels.
 	GlobalResolver symbol.Resolver
+	// OnRename is invoked when a rename request targets a symbol the LSP itself
+	// cannot fully relocate by text edits alone (e.g., a channel). When nil,
+	// rename is restricted to source-defined symbols.
+	OnRename OnRename
 	// OnExternalChange is an observable that fires when external state (such as
 	// Synnax channels) changes. When this fires, the server will republish diagnostics
 	// for all open documents to ensure they reflect the current state.
@@ -70,6 +82,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
+	c.OnRename = override.Nil(c.OnRename, other.OnRename)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)

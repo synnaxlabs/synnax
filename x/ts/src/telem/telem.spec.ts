@@ -138,7 +138,7 @@ describe("TimeStamp", () => {
       expect(ts.millisecond).toBe(0);
     });
 
-    test("should round-trip when using local tzInfo", () => {
+    test("should round-trip when using local TimeZone", () => {
       const input = "2025-11-03T17:44:45.809";
       const ts1 = new TimeStamp(input, "local");
       const output = ts1.toString("ISO", "local").slice(0, -1);

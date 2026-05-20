@@ -31,7 +31,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Rack](
-			ctx, gorp.TableConfig[v54.Rack]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Rack]{DB: db},
 		))
 		seed := v54.Rack{
 			Key:          v54.Key(0x0001_0001),
@@ -43,7 +43,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
-			ctx, gorp.TableConfig[rack.Rack]{
+			ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[v54.Key, rack.Key, v54.Rack, rack.Rack](
@@ -69,7 +69,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Rack](
-			ctx, gorp.TableConfig[v54.Rack]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Rack]{DB: db},
 		))
 		key := v54.Key(0x0001_0002)
 		seed := v54.Rack{
@@ -92,7 +92,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
-			ctx, gorp.TableConfig[rack.Rack]{
+			ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[v54.Key, rack.Key, v54.Rack, rack.Rack](

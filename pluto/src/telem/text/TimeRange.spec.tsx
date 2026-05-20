@@ -19,7 +19,7 @@ describe("TimeRange", () => {
     const end = TimeSpan.hours(14);
     const range = new XTimeRange(start, end);
     const c = render(
-      <Telem.Text.TimeRange displayTZ="UTC">{range}</Telem.Text.TimeRange>,
+      <Telem.Text.TimeRange displayTimeZone="UTC">{range}</Telem.Text.TimeRange>,
     );
     expect(c.container.textContent).toContain("Jan 1 10:00:00");
     expect(c.container.textContent).toContain("14:00:00");
@@ -28,7 +28,7 @@ describe("TimeRange", () => {
     const start = TimeSpan.hours(10);
     const range = new XTimeRange(start, TimeStamp.MAX);
     const c = render(
-      <Telem.Text.TimeRange displayTZ="UTC">{range}</Telem.Text.TimeRange>,
+      <Telem.Text.TimeRange displayTimeZone="UTC">{range}</Telem.Text.TimeRange>,
     );
     expect(c.getByText("Started Jan 1 10:00:00")).toBeTruthy();
   });
