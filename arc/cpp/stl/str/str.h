@@ -380,15 +380,48 @@ inline std::string format_float_value(const std::string &spec_str, double v) {
         }
         return apply_width(sign, "", body, f);
     }
-    const std::string c_fmt = "%" + spec_str;
-    char buf[64];
-    const int n = std::snprintf(buf, sizeof(buf), c_fmt.c_str(), v);
-    if (n < 0) return "";
-    if (n < static_cast<int>(sizeof(buf))) return std::string(buf, n);
-    std::string out(static_cast<size_t>(n) + 1, '\0');
-    std::snprintf(out.data(), out.size(), c_fmt.c_str(), v);
-    out.resize(static_cast<size_t>(n));
-    return out;
+    char buf[128];
+    const int prec = f.precision >= 0 ? f.precision : 6;
+    int n = 0;
+    switch (f.verb) {
+        case 'f':
+        case 'F':
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*f", prec, v)
+                      : std::snprintf(buf, sizeof(buf), "%.*f", prec, v);
+            break;
+        case 'e':
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*e", prec, v)
+                      : std::snprintf(buf, sizeof(buf), "%.*e", prec, v);
+            break;
+        case 'E':
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*E", prec, v)
+                      : std::snprintf(buf, sizeof(buf), "%.*E", prec, v);
+            break;
+        case 'g':
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*g", prec, v)
+                      : std::snprintf(buf, sizeof(buf), "%.*g", prec, v);
+            break;
+        case 'G':
+            n = f.alt ? std::snprintf(buf, sizeof(buf), "%#.*G", prec, v)
+                      : std::snprintf(buf, sizeof(buf), "%.*G", prec, v);
+            break;
+        default:
+            return "";
+    }
+    if (n < 0 || n >= static_cast<int>(sizeof(buf))) return "";
+    std::string body(buf, n);
+    std::string sign;
+    if (!body.empty() && (body[0] == '-' || body[0] == '+')) {
+        sign = body.substr(0, 1);
+        body = body.substr(1);
+    } else if (f.plus) {
+        sign = "+";
+    } else if (f.space) {
+        sign = " ";
+    }
+    FormatSpec g = f;
+    g.precision = -1;
+    return apply_width(sign, "", body, g);
 }
 
 /// Quotes a string with Go's strconv.Quote semantics. Bytes >= 0x80 pass
