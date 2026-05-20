@@ -42,7 +42,7 @@ func FmtStrHasPlaceholder(segs []FmtStrSegment) bool {
 
 // StringFlags carries the optional r/f prefix and the quote style of a string
 // literal. Raw skips standard escape processing; Format opts into {expr}
-// placeholders; Multi means the literal was triple-quoted.
+// placeholders; Multi means the literal was backtick-delimited.
 type StringFlags struct {
 	Raw    bool
 	Format bool
@@ -69,9 +69,9 @@ func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
 		}
 		rest = rest[1:]
 	}
-	if len(rest) >= 6 && strings.HasPrefix(rest, `"""`) && strings.HasSuffix(rest, `"""`) {
+	if len(rest) >= 2 && rest[0] == '`' && rest[len(rest)-1] == '`' {
 		flags.Multi = true
-		return rest[3 : len(rest)-3], flags, true
+		return rest[1 : len(rest)-1], flags, true
 	}
 	if len(rest) >= 2 && rest[0] == '"' && rest[len(rest)-1] == '"' {
 		return rest[1 : len(rest)-1], flags, true
@@ -79,11 +79,12 @@ func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
 	return "", StringFlags{}, false
 }
 
-// UnescapeString applies the standard Arc escape table to body. Unrecognized
-// escapes pass through verbatim, so \{ in a non-format string stays as the two
-// characters \{ and in a format string survives for FmtStrParse to interpret.
+// UnescapeString applies the standard Arc escape table to body. The delimiter
+// escape is asymmetric: single-line strings recognize \", multi-line strings
+// recognize \`; the other passes through verbatim. Unrecognized escapes also
+// pass through, so \{ survives for FmtStrParse to interpret in format strings.
 // Errors only on a trailing backslash or an incomplete \uXXXX escape.
-func UnescapeString(body string) (string, error) {
+func UnescapeString(body string, multi bool) (string, error) {
 	var b strings.Builder
 	b.Grow(len(body))
 	for i := 0; i < len(body); {
@@ -97,22 +98,24 @@ func UnescapeString(body string) (string, error) {
 			return "", errors.New("trailing backslash in string literal")
 		}
 		next := body[i+1]
-		switch next {
-		case 'b':
+		switch {
+		case next == 'b':
 			b.WriteByte('\b')
-		case 't':
+		case next == 't':
 			b.WriteByte('\t')
-		case 'n':
+		case next == 'n':
 			b.WriteByte('\n')
-		case 'f':
+		case next == 'f':
 			b.WriteByte('\f')
-		case 'r':
+		case next == 'r':
 			b.WriteByte('\r')
-		case '"':
+		case next == '"' && !multi:
 			b.WriteByte('"')
-		case '\\':
+		case next == '`' && multi:
+			b.WriteByte('`')
+		case next == '\\':
 			b.WriteByte('\\')
-		case 'u':
+		case next == 'u':
 			if i+6 > len(body) {
 				return "", errors.New(`incomplete \u escape in string literal`)
 			}

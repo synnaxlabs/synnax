@@ -111,12 +111,12 @@ FLOAT_LITERAL
     | '.' DIGITS
     ;
 
-// Multi-line string literal. Triple-quoted; may span newlines. An optional
+// Multi-line string literal. Backtick-delimited; may span newlines. An optional
 // prefix selects raw and/or format semantics. The lexer is permissive: any
 // '\\' followed by any character is accepted, and the literal package
 // interprets escapes (or skips them for raw strings).
 STR_LITERAL_MULTI
-    : STR_PREFIX? '"""' .*? '"""'
+    : STR_PREFIX? '`' (~[`\\] | '\\' .)* '`'
     ;
 
 // Single-line string literal. An optional prefix selects raw and/or format

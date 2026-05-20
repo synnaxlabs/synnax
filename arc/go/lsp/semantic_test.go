@@ -109,54 +109,54 @@ var _ = Describe("Semantic Tokens", func() {
 		})
 
 		It("splits a multi-line literal with one mid-newline into two tokens", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := \"\"\"a\nb\"\"\"")
+			OpenArcDocument(server, ctx, uri, "x := `a\nb`")
 			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
-			Expect(tokens[0].Length).To(Equal(uint32(4)))
+			Expect(tokens[0].Length).To(Equal(uint32(2)))
 			Expect(tokens[1].Line).To(Equal(uint32(1)))
 			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
-			Expect(tokens[1].Length).To(Equal(uint32(4)))
+			Expect(tokens[1].Length).To(Equal(uint32(2)))
 		})
 
 		It("splits a three-line multi-line literal into three tokens", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := \"\"\"a\nb\nc\"\"\"")
+			OpenArcDocument(server, ctx, uri, "x := `a\nb\nc`")
 			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(3))
+			Expect(tokens[0].Line).To(Equal(uint32(0)))
+			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
+			Expect(tokens[0].Length).To(Equal(uint32(2)))
+			Expect(tokens[1].Line).To(Equal(uint32(1)))
+			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
+			Expect(tokens[1].Length).To(Equal(uint32(1)))
+			Expect(tokens[2].Line).To(Equal(uint32(2)))
+			Expect(tokens[2].StartChar).To(Equal(uint32(0)))
+			Expect(tokens[2].Length).To(Equal(uint32(2)))
+		})
+
+		It("emits a final token for a closing backtick on its own line", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `abc\n`")
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
+			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
 			Expect(tokens[0].Length).To(Equal(uint32(4)))
 			Expect(tokens[1].Line).To(Equal(uint32(1)))
 			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
 			Expect(tokens[1].Length).To(Equal(uint32(1)))
-			Expect(tokens[2].Line).To(Equal(uint32(2)))
-			Expect(tokens[2].StartChar).To(Equal(uint32(0)))
-			Expect(tokens[2].Length).To(Equal(uint32(4)))
-		})
-
-		It("emits a final token for a closing triple-quote on its own line", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := \"\"\"abc\n\"\"\"")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
-			Expect(tokens).To(HaveLen(2))
-			Expect(tokens[0].Line).To(Equal(uint32(0)))
-			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
-			Expect(tokens[0].Length).To(Equal(uint32(6)))
-			Expect(tokens[1].Line).To(Equal(uint32(1)))
-			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
-			Expect(tokens[1].Length).To(Equal(uint32(3)))
 		})
 
 		It("skips empty lines in a multi-line literal with consecutive newlines", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := \"\"\"a\n\nb\"\"\"")
+			OpenArcDocument(server, ctx, uri, "x := `a\n\nb`")
 			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
-			Expect(tokens[0].Length).To(Equal(uint32(4)))
+			Expect(tokens[0].Length).To(Equal(uint32(2)))
 			Expect(tokens[1].Line).To(Equal(uint32(2)))
 			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
-			Expect(tokens[1].Length).To(Equal(uint32(4)))
+			Expect(tokens[1].Length).To(Equal(uint32(2)))
 		})
 	})
 
@@ -294,7 +294,7 @@ var _ = Describe("Semantic Tokens", func() {
 		})
 
 		It("classifies placeholders across newlines in a multi-line format string", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := f\"\"\"a={1}\nb={2}\"\"\"")
+			OpenArcDocument(server, ctx, uri, "x := f`a={1}\nb={2}`")
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
@@ -308,7 +308,7 @@ var _ = Describe("Semantic Tokens", func() {
 		})
 
 		It("classifies placeholders inside an rf-prefixed multi-line format string", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := rf\"\"\"a={1}\nb={2}\"\"\"")
+			OpenArcDocument(server, ctx, uri, "x := rf`a={1}\nb={2}`")
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
@@ -326,9 +326,9 @@ var _ = Describe("Semantic Tokens", func() {
 			Entry("r-prefixed single-quoted", `x := r"path"`, uint32(1)),
 			Entry("rf-prefixed single-quoted", `x := rf"hi {x}"`, uint32(2)),
 			Entry("fr-prefixed single-quoted", `x := fr"hi {x}"`, uint32(2)),
-			Entry("f-prefixed triple-quoted", `x := f"""hi"""`, uint32(1)),
-			Entry("r-prefixed triple-quoted", `x := r"""hi"""`, uint32(1)),
-			Entry("rf-prefixed triple-quoted", `x := rf"""hi {x}"""`, uint32(2)),
+			Entry("f-prefixed backtick", "x := f`hi`", uint32(1)),
+			Entry("r-prefixed backtick", "x := r`hi`", uint32(1)),
+			Entry("rf-prefixed backtick", "x := rf`hi {x}`", uint32(2)),
 		)
 
 		It("does not emit a function token for an unprefixed string", func(ctx SpecContext) {

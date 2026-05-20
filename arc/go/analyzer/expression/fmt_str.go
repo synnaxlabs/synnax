@@ -46,15 +46,12 @@ func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 }
 
 // bodyOffset returns the column offset from the start of a string token to the
-// first byte of its body: the prefix length plus the opening delimiter (1 for
-// "..." and 3 for """...""").
-func bodyOffset(text string, flags literal.StringFlags) int {
+// first byte of its body: the prefix length plus the one-character opening
+// delimiter (either " or `).
+func bodyOffset(text string, _ literal.StringFlags) int {
 	prefix := 0
 	for prefix < 2 && prefix < len(text) && (text[prefix] == 'r' || text[prefix] == 'f') {
 		prefix++
-	}
-	if flags.Multi {
-		return prefix + 3
 	}
 	return prefix + 1
 }

@@ -339,24 +339,24 @@ var _ = Describe("Literal Parser", func() {
 			Entry("raw backslash-t verbatim", `r"col1\tcol2"`, types.String(), `col1\tcol2`),
 			Entry("raw escaped quote preserves backslash", `r"\""`, types.String(), `\"`),
 			Entry("raw windows path", `r"C:\Users\path"`, types.String(), `C:\Users\path`),
-			Entry("empty multi", `""""""`, types.String(), ""),
-			Entry("simple multi", `"""hello"""`, types.String(), "hello"),
-			Entry("multi with real newline", "\"\"\"line1\nline2\"\"\"", types.String(), "line1\nline2"),
-			Entry("multi three-line literal", "\"\"\"a\nb\nc\"\"\"", types.String(), "a\nb\nc"),
-			Entry("multi indentation preserved", "\"\"\"a\n    b\"\"\"", types.String(), "a\n    b"),
-			Entry("multi tab char preserved", "\"\"\"a\tb\"\"\"", types.String(), "a\tb"),
-			Entry("multi unicode", `"""°C"""`, types.String(), "°C"),
-			Entry("multi processes escape sequences", `"""a\nb"""`, types.String(), "a\nb"),
-			Entry("raw multi verbatim escapes", `r"""a\nb"""`, types.String(), `a\nb`),
-			Entry("raw multi with real newline", "r\"\"\"line1\nline2\"\"\"", types.String(), "line1\nline2"),
+			Entry("empty multi", "``", types.String(), ""),
+			Entry("simple multi", "`hello`", types.String(), "hello"),
+			Entry("multi with real newline", "`line1\nline2`", types.String(), "line1\nline2"),
+			Entry("multi three-line literal", "`a\nb\nc`", types.String(), "a\nb\nc"),
+			Entry("multi indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
+			Entry("multi tab char preserved", "`a\tb`", types.String(), "a\tb"),
+			Entry("multi unicode", "`°C`", types.String(), "°C"),
+			Entry("multi processes escape sequences", "`a\\nb`", types.String(), "a\nb"),
+			Entry("raw multi verbatim escapes", "r`a\\nb`", types.String(), `a\nb`),
+			Entry("raw multi with real newline", "r`line1\nline2`", types.String(), "line1\nline2"),
 			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
 			Entry("format single preserves placeholders in body", `f"hi {x}"`, types.String(), "hi {x}"),
 			Entry("format single processes standard escapes", `f"a\nb {x}"`, types.String(), "a\nb {x}"),
-			Entry("format multi preserves placeholders in body", "f\"\"\"v={x}\nt={t}\"\"\"", types.String(), "v={x}\nt={t}"),
-			Entry("format multi processes escapes outside placeholders", `f"""a\tb {x}"""`, types.String(), "a\tb {x}"),
+			Entry("format multi preserves placeholders in body", "f`v={x}\nt={t}`", types.String(), "v={x}\nt={t}"),
+			Entry("format multi processes escapes outside placeholders", "f`a\\tb {x}`", types.String(), "a\tb {x}"),
 			Entry("rf preserves placeholder and backslash verbatim", `rf"C:\path\{x}"`, types.String(), `C:\path\{x}`),
 			Entry("fr (order-flipped) behaves identically to rf", `fr"hi {x}"`, types.String(), `hi {x}`),
-			Entry("rf multi preserves placeholder, real newline, and backslash", "rf\"\"\"v={x}\nraw=\\n\"\"\"", types.String(), "v={x}\nraw=\\n"),
+			Entry("rf multi preserves placeholder, real newline, and backslash", "rf`v={x}\nraw=\\n`", types.String(), "v={x}\nraw=\\n"),
 		)
 
 		DescribeTable("ParseString errors",
@@ -380,7 +380,7 @@ var _ = Describe("Literal Parser", func() {
 			})
 
 			It("Should preserve real newlines in multi-line literal", func() {
-				lit := getLiteral("\"\"\"a\nb\"\"\"")
+				lit := getLiteral("`a\nb`")
 				parsed := MustSucceed(literal.Parse(lit, types.String()))
 				Expect(parsed.Value).To(Equal("a\nb"))
 			})

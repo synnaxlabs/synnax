@@ -272,7 +272,7 @@ trig -> f{}`
 		})
 
 		It("accepts an rf-prefixed multi-line format string with placeholders across newlines", func(specCtx SpecContext) {
-			code := "func f() {\n    log = rf\"\"\"v={chI32}\nt={chF64}\"\"\"\n}\ntrig -> f{}"
+			code := "func f() {\n    log = rf`v={chI32}\nt={chF64}`\n}\ntrig -> f{}"
 			expectSuccess(specCtx, code)
 		})
 	})
@@ -291,7 +291,7 @@ trig -> f{}`
 		})
 
 		It("anchors a placeholder spec error on a later line for a multi-line format string", func(specCtx SpecContext) {
-			code := "func f() {\n    log = f\"\"\"line1\nline2\n{chStr:d}\"\"\"\n}\ntrig -> f{}"
+			code := "func f() {\n    log = f`line1\nline2\n{chStr:d}`\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(4),
 				"expected diagnostic on line 4 (third line of literal), got line %d col %d",

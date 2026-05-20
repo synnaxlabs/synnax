@@ -50,7 +50,7 @@ func Parse(
 	return ParsedValue{}, errors.New("unknown literal type")
 }
 
-// ParseString parses any of the eight string literal forms ("..." / """..."""
+// ParseString parses any of the eight string literal forms ("..." / `...`
 // crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
 // format-prefixed strings the body is returned with \{ and \} preserved so the
 // format-string parser can interpret them; placeholder analysis happens in
@@ -66,7 +66,7 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if flags.Raw {
 		return ParsedValue{Value: body, Type: types.String()}, nil
 	}
-	value, err := UnescapeString(body)
+	value, err := UnescapeString(body, flags.Multi)
 	if err != nil {
 		return ParsedValue{}, errors.Wrapf(err, "invalid string literal %s", text)
 	}

@@ -425,7 +425,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"log":    {types.String(), 101},
 			})
 			h := newRuntimeHarness(ctx,
-				"sensor -> rf\"\"\"path\\to: {sensor}\nt={t}\"\"\" -> log", resolver,
+				"sensor -> rf`path\\to: {sensor}\nt={t}` -> log", resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 102, DataType: telem.Int32T},
 				channel.Digest{Key: 101, DataType: telem.StringT},
@@ -468,7 +468,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				"log":    {types.String(), 101},
 			})
 			h := newRuntimeHarness(ctx,
-				"sensor -> f\"\"\"v={sensor}\nt={t}\"\"\" -> log", resolver,
+				"sensor -> f`v={sensor}\nt={t}` -> log", resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 102, DataType: telem.Int32T},
 				channel.Digest{Key: 101, DataType: telem.StringT},

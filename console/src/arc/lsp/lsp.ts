@@ -69,9 +69,9 @@ const TOKEN_CONFIG = {
     scopes: ["keyword.operator.flow.arc"],
   },
   string: {
-    dark: "#CE9178",
-    light: "#A31515",
-    scopes: ["string.quoted.double.arc"],
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["string.quoted.arc"],
   },
   stringPlaceholder: {
     dark: "#CC255F",

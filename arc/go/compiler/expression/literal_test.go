@@ -175,7 +175,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"multi-line string preserves real newline",
-			"\"\"\"a\nb\"\"\"",
+			"`a\nb`",
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(3),
@@ -183,7 +183,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"multi-line string with three lines",
-			"\"\"\"a\nb\nc\"\"\"",
+			"`a\nb\nc`",
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(5),
@@ -191,7 +191,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"multi-line format string, no placeholders",
-			"f\"\"\"hello\nworld\"\"\"",
+			"f`hello\nworld`",
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(11),
@@ -215,7 +215,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"raw multi-line preserves backslash and real newline",
-			"r\"\"\"a\\nb\nc\"\"\"",
+			"r`a\\nb\nc`",
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(6),
@@ -231,7 +231,7 @@ var _ = Describe("Literal Compilation", func() {
 		),
 		Entry(
 			"rf multi-line with no placeholders preserves backslash and real newline",
-			"rf\"\"\"a\\nb\nc\"\"\"",
+			"rf`a\\nb\nc`",
 			types.String(),
 			OpI32Const, int32(0),
 			OpI32Const, int32(6),

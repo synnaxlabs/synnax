@@ -43,7 +43,7 @@ func compileStringLiteral(
 	value := body
 	if !flags.Raw {
 		var err error
-		value, err = literal.UnescapeString(body)
+		value, err = literal.UnescapeString(body, flags.Multi)
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "invalid string literal %s", text)
 		}

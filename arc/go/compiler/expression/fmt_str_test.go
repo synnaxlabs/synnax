@@ -149,13 +149,13 @@ var _ = Describe("Format String Compilation", func() {
 		})
 
 		It("compiles a multi-line format string with literal newlines around a placeholder", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "f\"\"\"line1\n{42}\nline3\"\"\"")
+			bytecode, exprType := compileExpression(bCtx, "f`line1\n{42}\nline3`")
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("compiles a multi-line format string with multiple placeholders across lines", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "f\"\"\"a={1}\nb={2}\"\"\"")
+			bytecode, exprType := compileExpression(bCtx, "f`a={1}\nb={2}`")
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
@@ -167,7 +167,7 @@ var _ = Describe("Format String Compilation", func() {
 		})
 
 		It("compiles an rf-prefixed multi-line format string with placeholder across newlines", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "rf\"\"\"path\\to\n{42}\"\"\"")
+			bytecode, exprType := compileExpression(bCtx, "rf`path\\to\n{42}`")
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})

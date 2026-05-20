@@ -303,10 +303,7 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	if !literal.FmtStrHasPlaceholder(segs) {
 		return fallback()
 	}
-	delimLen := 1
-	if flags.Multi {
-		delimLen = 3
-	}
+	const delimLen = 1
 	bodyOff := prefixLen + delimLen
 	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
 	prevOff := 0

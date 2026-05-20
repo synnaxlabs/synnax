@@ -289,7 +289,7 @@ var _ = Describe("Text", func() {
 					true, types.String(),
 				),
 				Entry("multi-line string literal",
-					"\"\"\"hello\nworld\"\"\" -> output",
+					"`hello\nworld` -> output",
 					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10005}},
 					true, types.String(),
 				),
@@ -299,7 +299,7 @@ var _ = Describe("Text", func() {
 					true, types.String(),
 				),
 				Entry("raw multi-line string literal",
-					"r\"\"\"line1\\n\nline2\"\"\" -> output",
+					"r`line1\\n\nline2` -> output",
 					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10007}},
 					true, types.String(),
 				),
@@ -2545,7 +2545,7 @@ var _ = Describe("Text", func() {
 				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
 				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "sensor -> rf\"\"\"path\\to: {sensor}\nt={t}\"\"\" -> log"
+			source := "sensor -> rf`path\\to: {sensor}\nt={t}` -> log"
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2585,7 +2585,7 @@ var _ = Describe("Text", func() {
 				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
 				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
 			}
-			source := "sensor -> f\"\"\"v={sensor}\nt={t}\"\"\" -> log"
+			source := "sensor -> f`v={sensor}\nt={t}` -> log"
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())

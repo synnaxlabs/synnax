@@ -106,32 +106,35 @@ parameter that expects a time span.
 
 ### String Literals
 
-Strings are enclosed in double quotes. Two forms:
+Two forms, distinguished by delimiter:
 
-- `"..."` — single-line. Cannot contain unescaped newlines.
-- `"""..."""` — multi-line. Newlines and single `"` characters are allowed in the body;
-  the string ends at the next `"""`.
+- `"..."` — single-line, double-quoted. Cannot contain unescaped newlines.
+- `` `...` `` — multi-line, backtick-delimited. Newlines and `"` characters are allowed
+  verbatim in the body; the string ends at the next `` ` ``.
 
 ```arc
 "hello"
 "tab\there"
-"""line1
-line2"""
+`line1
+line2`
 ```
 
-| Escape   | Meaning                |
-| -------- | ---------------------- |
-| `\b`     | backspace              |
-| `\t`     | tab                    |
-| `\n`     | newline                |
-| `\f`     | form feed              |
-| `\r`     | carriage return        |
-| `\"`     | double quote           |
-| `\\`     | backslash              |
-| `\uXXXX` | 4-digit Unicode escape |
+| Escape    | Meaning                                  |
+| --------- | ---------------------------------------- |
+| `\b`      | backspace                                |
+| `\t`      | tab                                      |
+| `\n`      | newline                                  |
+| `\f`      | form feed                                |
+| `\r`      | carriage return                          |
+| `\"`      | double quote (single-line only)          |
+| `` \` ``  | backtick (multi-line only)               |
+| `\\`      | backslash                                |
+| `\uXXXX`  | 4-digit Unicode escape                   |
 
-Any other backslash sequence (e.g., `\z`) is preserved as the two literal characters;
-only the escapes listed above are interpreted.
+The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and `` \` ``
+only inside `` `...` ``. The other character is a literal everywhere it is not the
+delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
+preserved as the two literal characters.
 
 ### Raw Strings
 
@@ -140,14 +143,13 @@ Prefix with `r` to disable escape processing. Every character in the body is ver
 
 ```arc
 r"C:\Users\path"
-r"""line one
-line two"""
+r`line one
+line two`
 ```
 
-In a single-line raw string, `\"` is accepted by the lexer so a `"` can appear in the
-body, but the backslash is preserved in the value (`r"a\"b"` yields `a\"b`, four
-characters). Triple-quoted raw strings have no need for this since `"""` is the only
-sequence that ends them.
+In a raw string, the delimiter escape is still accepted by the lexer so the delimiter
+character can appear in the body, but the backslash is preserved in the value
+(`r"a\"b"` yields `a\"b`, four characters; `` r`a\`b` `` yields `` a\`b ``).
 
 ### Format Strings
 
