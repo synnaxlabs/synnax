@@ -63,6 +63,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         []channel.Key{s.data.Key()},
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewUnary(
 				s.data.Key(),
@@ -95,6 +96,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         []channel.Key{s.data.Key()},
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewUnary(
 				s.data.Key(),
@@ -142,6 +144,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         keys,
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[float64](1, 2, 3),
@@ -183,6 +186,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         keys,
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[float64](1, 2, 3),
@@ -242,6 +246,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         keys,
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[float64](1, 2, 3),
@@ -307,6 +312,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         keys,
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewUnary(
 				s.data.Key(),
@@ -363,6 +369,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         []channel.Key{data.Key()},
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewUnary(
 				data.Key(),
@@ -436,6 +443,7 @@ var _ = Describe("AutoIndexing", func() {
 				Keys:         keys,
 				Sync:         new(true),
 				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV(future),
@@ -533,6 +541,7 @@ var _ = Describe("AutoIndexing", func() {
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -574,6 +583,7 @@ var _ = Describe("AutoIndexing", func() {
 				},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -623,6 +633,7 @@ var _ = Describe("AutoIndexing", func() {
 				},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -657,6 +668,7 @@ var _ = Describe("AutoIndexing", func() {
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -698,6 +710,7 @@ var _ = Describe("AutoIndexing", func() {
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -739,6 +752,7 @@ var _ = Describe("AutoIndexing", func() {
 				Authorities:  []control.Authority{control.Authority(150)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			wLower := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -782,6 +796,7 @@ var _ = Describe("AutoIndexing", func() {
 				},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			// If the implicit index had inherited min(50, 200) = 50, this writer
@@ -835,6 +850,7 @@ var _ = Describe("AutoIndexing", func() {
 				},
 				AutoIndexing: new(true),
 				Sync:         new(true),
+				Start:        1 * telem.SecondTS,
 			}))
 
 			// idx1 should have inherited 80; a writer at 100 outranks it.
