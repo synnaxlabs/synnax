@@ -113,21 +113,31 @@ type streamWriter struct {
 	// allocation-free. Only used when AutoIndexing is true.
 	propChans []ChannelKey
 	propAuths []xcontrol.Authority
+	// keyToIdx maps every channel key the writer is responsible for to its owning
+	// idxWriter. Populated at open time when AutoIndexing is true and used by autoStamp
+	// to resolve fr.RawKeys() to their idxWriter group in O(1) per key, so the per-Write
+	// scan runs in O(KeysInFrame) rather than O(IndexGroups × KeysInFrame).
+	keyToIdx map[ChannelKey]*idxWriter
 	WriterConfig
 }
 
 // initAutoIndexing seeds each idxWriter's dataAuth map from the writer's open-time
-// per-channel authorities and allocates the streamWriter's propagateAuthority scratch
-// buffers. Must be called after w.internal is fully populated.
+// per-channel authorities, builds the streamWriter's key→idxWriter lookup, and
+// allocates the streamWriter's propagateAuthority scratch buffers. Must be called
+// after w.internal is fully populated.
 func (w *streamWriter) initAutoIndexing() {
 	n := len(w.Channels)
 	w.propChans = make([]ChannelKey, 0, n)
 	w.propAuths = make([]xcontrol.Authority, 0, n)
+	w.keyToIdx = make(map[ChannelKey]*idxWriter, n)
 	authByKey := make(map[ChannelKey]xcontrol.Authority, n)
 	for i, k := range w.Channels {
 		authByKey[k] = w.authority(i)
 	}
 	for _, idx := range w.internal {
+		for k := range idx.internal {
+			w.keyToIdx[k] = idx
+		}
 		if !idx.writingToIdx {
 			continue
 		}
@@ -310,14 +320,49 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 }
 
 // autoStamp injects a TimeStamp series for each idxWriter whose index channel is
-// referenced by the writer but absent from fr. It pre-reserves capacity on fr for the
-// upper bound of appended entries (one per idxWriter) so the per-idxWriter Appends do
-// not repeatedly grow the underlying slices.
+// referenced by the writer but absent from fr. It runs in O(KeysInFrame + IndexGroups):
+// a single pass over fr's keys uses keyToIdx to resolve each key's idxWriter group
+// in O(1) and records whether that group's index is present and the length of any
+// data channel for the group. A subsequent pass over idxWriters counts how many
+// stamps are needed, grows fr by exactly that amount, and performs the appends.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
-	fr = fr.Grow(len(w.internal))
+	for _, idx := range w.internal {
+		idx.resetAutoStampScan()
+	}
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		idx, ok := w.keyToIdx[k]
+		if !ok {
+			continue
+		}
+		if k == idx.idx.ch.Key {
+			idx.scanIdxPresent = true
+			continue
+		}
+		if idx.scanDataLen == 0 {
+			if l := fr.RawSeriesAt(i).Len(); l > 0 {
+				idx.scanDataLen = l
+			}
+		}
+	}
+	var toAdd int
+	for _, idx := range w.internal {
+		if idx.shouldAutoStamp() {
+			toAdd++
+		}
+	}
+	if toAdd == 0 {
+		return fr
+	}
+	fr = fr.Grow(toAdd)
 	now := telem.Now()
 	for _, idx := range w.internal {
-		fr = idx.autoStampInto(fr, now)
+		if !idx.shouldAutoStamp() {
+			continue
+		}
+		fr = idx.appendAutoStamp(fr, now)
 	}
 	return fr
 }
@@ -459,47 +504,49 @@ type idxWriter struct {
 	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
 	// authority as the max across its referencing data channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
+	// scanIdxPresent and scanDataLen are transient scratch fields set during the single
+	// frame scan in streamWriter.autoStamp. scanIdxPresent is true when the caller's
+	// frame already contains this idxWriter's index key (in which case no stamping is
+	// needed). scanDataLen is the length of the first non-empty data channel for this
+	// group observed in the frame (the size of the auto-stamped series). Both are
+	// reset to their zero values at the start of every autoStamp call.
+	scanIdxPresent bool
+	scanDataLen    int64
 }
 
-// autoStampInto appends a TimeStamp series for this idxWriter's index channel onto fr
-// if the writer is responsible for the index and the caller did not include the index
-// in fr. The generated series is sized to match the length of any data channel for
-// this group present in fr. Generated timestamps start at max(now, hwm+1), where hwm
-// is the index's current high-water mark, and are spaced 1ns apart. Returns fr
-// unchanged when no stamping is needed. The idxWriter's existing updateHighWater path
-// advances hwm when the generated series is written downstream.
-func (w *idxWriter) autoStampInto(fr Frame, now telem.TimeStamp) Frame {
-	if !w.writingToIdx {
-		return fr
-	}
-	idxKey := w.idx.ch.Key
-	var n int64
-	for i, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		if _, mine := w.internal[k]; !mine {
-			continue
-		}
-		if k == idxKey {
-			return fr
-		}
-		if l := fr.RawSeriesAt(i).Len(); l > 0 && n == 0 {
-			n = l
-		}
-	}
-	if n == 0 {
-		return fr
-	}
+// resetAutoStampScan clears the transient fields populated by streamWriter.autoStamp's
+// single-pass frame scan. Must be called before the scan so state from a previous
+// Write does not leak into the current one.
+func (w *idxWriter) resetAutoStampScan() {
+	w.scanIdxPresent = false
+	w.scanDataLen = 0
+}
+
+// shouldAutoStamp reports whether this idxWriter should have a TimeStamp series
+// appended to the frame for the current Write, based on the state recorded during the
+// preceding frame scan. Returns true when the idxWriter is responsible for the index,
+// its key is not already in the frame, and at least one of its data channels is
+// present with non-empty data.
+func (w *idxWriter) shouldAutoStamp() bool {
+	return w.writingToIdx && !w.scanIdxPresent && w.scanDataLen > 0
+}
+
+// appendAutoStamp appends a TimeStamp series for this idxWriter's index channel onto
+// fr, sized to scanDataLen (set during the preceding frame scan). Generated timestamps
+// start at max(now, hwm+1), where hwm is the index's current high-water mark, and are
+// spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm when
+// the generated series is written downstream. Must only be called when
+// shouldAutoStamp returns true.
+func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	t0 := now
 	if hwm := w.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
 		t0 = hwm + 1
 	}
-	stamps := make([]telem.TimeStamp, n)
+	stamps := make([]telem.TimeStamp, w.scanDataLen)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
 	}
-	return fr.Append(idxKey, telem.NewSeriesV(stamps...))
+	return fr.Append(w.idx.ch.Key, telem.NewSeriesV(stamps...))
 }
 
 // setDataAuth records auth as the authority for k if k is one of this group's data

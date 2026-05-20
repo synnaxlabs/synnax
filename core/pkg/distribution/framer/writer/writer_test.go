@@ -503,7 +503,7 @@ var _ = Describe("Writer", func() {
 			}).Should(Succeed())
 
 			before := telem.Now()
-			w := MustOpen(gw.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{data.Key()},
 				Sync:         new(true),
 				AutoIndexing: new(true),
@@ -514,15 +514,17 @@ var _ = Describe("Writer", func() {
 				telem.NewSeriesV(1.1, 2.2, 3.3),
 			)))).To(BeTrue())
 			MustSucceed(w.Commit())
+			Expect(w.Close()).To(Succeed())
 			after := telem.Now()
 
-			iter := MustOpen(gw.Framer.OpenIterator(ctx, iterator.Config{
+			iter := MustSucceed(gw.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{idx.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+			Expect(iter.Close()).To(Succeed())
 
 			Expect(ts).To(HaveLen(3))
 			Expect(ts[0]).To(BeNumerically(">=", before))
