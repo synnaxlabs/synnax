@@ -97,7 +97,9 @@ export const { actions, reducer } = createSlice({
     },
     setChannelEntry: (state, { payload }: PayloadAction<SetChannelEntryPayload>) => {
       const logState = state.logs[payload.key];
-      const existing = logState.channels.find((e) => e.channel === payload.entry.channel);
+      const existing = logState.channels.find(
+        (e) => e.channel === payload.entry.channel,
+      );
       if (existing != null) Object.assign(existing, payload.entry);
     },
     setShowChannelNames: (

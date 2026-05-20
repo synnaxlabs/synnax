@@ -51,7 +51,7 @@ var _ = Describe("Codec", func() {
 				Precision: 9,
 				Alias:     "test_9",
 				Timestamp: log.TimestampConfig{
-					Format: telem.TimestampFormat("preciseTime"),
+					Format: telem.TimestampFormat("ISO"),
 					Tz:     telem.TimeZone("local"),
 				},
 			}),
@@ -97,7 +97,7 @@ var _ = Describe("Codec", func() {
 						Precision: 12,
 						Alias:     "test_12",
 						Timestamp: log.TimestampConfig{
-							Format: telem.TimestampFormat("preciseTime"),
+							Format: telem.TimestampFormat("ISO"),
 							Tz:     telem.TimeZone("local"),
 						},
 					},
@@ -139,7 +139,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", log.TimestampConfig{
-				Format: telem.TimestampFormat("preciseTime"),
+				Format: telem.TimestampFormat("ISO"),
 				Tz:     telem.TimeZone("local"),
 			}),
 			Entry("zero values", log.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")}),
@@ -160,7 +160,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 		Precision: 9,
 		Alias:     "test_9",
 		Timestamp: log.TimestampConfig{
-			Format: telem.TimestampFormat("preciseTime"),
+			Format: telem.TimestampFormat("ISO"),
 			Tz:     telem.TimeZone("local"),
 		},
 	}
@@ -196,7 +196,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 				Precision: 12,
 				Alias:     "test_12",
 				Timestamp: log.TimestampConfig{
-					Format: telem.TimestampFormat("preciseTime"),
+					Format: telem.TimestampFormat("ISO"),
 					Tz:     telem.TimeZone("local"),
 				},
 			},
@@ -223,7 +223,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 
 func BenchmarkEncodeDecodeTimestampConfig(b *testing.B) {
 	tc := log.TimestampConfig{
-		Format: telem.TimestampFormat("preciseTime"),
+		Format: telem.TimestampFormat("ISO"),
 		Tz:     telem.TimeZone("local"),
 	}
 	w := orc.NewWriter(0)
@@ -255,7 +255,7 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 			Precision: 9,
 			Alias:     "test_9",
 			Timestamp: log.TimestampConfig{
-				Format: telem.TimestampFormat("preciseTime"),
+				Format: telem.TimestampFormat("ISO"),
 				Tz:     telem.TimeZone("local"),
 			},
 		}
@@ -332,7 +332,7 @@ func FuzzDecodeLog(f *testing.F) {
 					Precision: 12,
 					Alias:     "test_12",
 					Timestamp: log.TimestampConfig{
-						Format: telem.TimestampFormat("preciseTime"),
+						Format: telem.TimestampFormat("ISO"),
 						Tz:     telem.TimeZone("local"),
 					},
 				},
@@ -412,7 +412,7 @@ func FuzzDecodeLog(f *testing.F) {
 func FuzzDecodeTimestampConfig(f *testing.F) {
 	{
 		seed := log.TimestampConfig{
-			Format: telem.TimestampFormat("preciseTime"),
+			Format: telem.TimestampFormat("ISO"),
 			Tz:     telem.TimeZone("local"),
 		}
 		w := orc.NewWriter(0)
