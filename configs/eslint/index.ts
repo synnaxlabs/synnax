@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fixupPluginRules, includeIgnoreFile } from "@eslint/compat";
+import { fixupPluginRules } from "@eslint/compat";
 import pluginJs from "@eslint/js";
 import pluginReact2 from "@eslint-react/eslint-plugin";
 import type { Linter } from "eslint";
+import { includeIgnoreFile } from "eslint/config";
 import pluginReact from "eslint-plugin-react";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";

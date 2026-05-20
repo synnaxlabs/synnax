@@ -1626,7 +1626,8 @@ export const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
 
 export const analogReadStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .nullish();
+  .nullish()
+  .optional();
 
 export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 
@@ -1680,7 +1681,7 @@ export const COUNTER_READ_TYPE = `${PREFIX}_counter_read`;
 export const COUNTER_READ_SCHEMAS = {
   type: z.literal(COUNTER_READ_TYPE),
   config: counterReadConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
@@ -1710,7 +1711,7 @@ export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
 export const ANALOG_WRITE_SCHEMAS = {
   type: z.literal(ANALOG_WRITE_TYPE),
   config: analogWriteConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
@@ -1742,7 +1743,7 @@ export const DIGITAL_READ_TYPE = `${PREFIX}_digital_read`;
 export const DIGITAL_READ_SCHEMAS = {
   type: z.literal(DIGITAL_READ_TYPE),
   config: digitalReadConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
@@ -1772,7 +1773,7 @@ export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;
 export const DIGITAL_WRITE_SCHEMAS = {
   type: z.literal(DIGITAL_WRITE_TYPE),
   config: digitalWriteConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
@@ -1790,7 +1791,7 @@ export const SCAN_TYPE = `${PREFIX}_scanner`;
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: z.object({ enabled: z.boolean() }),
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type ScanSchemas = typeof SCAN_SCHEMAS;

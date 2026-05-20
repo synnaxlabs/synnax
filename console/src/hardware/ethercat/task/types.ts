@@ -150,7 +150,8 @@ const readStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .nullish();
+  .nullish()
+  .optional();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -192,7 +193,8 @@ const writeStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .nullish();
+  .nullish()
+  .optional();
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
