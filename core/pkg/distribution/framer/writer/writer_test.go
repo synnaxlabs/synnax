@@ -43,10 +43,9 @@ var _ = Describe("Writer", func() {
 		}
 		for i, sF := range scenarios {
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = sF(ctx) })
-			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+			BeforeAll(func(ctx SpecContext) { s = DeferClose(sF(ctx)) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
-				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 					Sync:  new(true),
@@ -69,7 +68,6 @@ var _ = Describe("Writer", func() {
 					},
 				)))
 				MustSucceed(writer.Commit())
-				Expect(writer.Close()).To(Succeed())
 			})
 		}
 	})
@@ -95,16 +93,15 @@ var _ = Describe("Writer", func() {
 				LocalIndex: idxCh.LocalKey,
 			}
 			Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
-			s = scenario{
+			s = DeferClose(scenario{
 				dist:   dist,
 				closer: builder,
 				name:   "Variable",
 				keys:   []channel.Key{idxCh.Key(), strCh.Key()},
-			}
+			})
 		})
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		It("Should write and read persisted string data", func(ctx SpecContext) {
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -117,15 +114,13 @@ var _ = Describe("Writer", func() {
 				},
 			)))
 			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
-			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: telem.TimeRangeMax,
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[string](iter.Value().SeriesAt(0))).To(Equal([]string{"hello", "world", "foo"}))
-			Expect(iter.Close()).To(Succeed())
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
 			floatCh := channel.Channel{
@@ -135,7 +130,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &floatCh)).To(Succeed())
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 20 * telem.SecondTS,
 				Sync:  new(true),
@@ -149,22 +144,19 @@ var _ = Describe("Writer", func() {
 				},
 			)))
 			MustSucceed(w.Commit())
-			Expect(w.Close()).To(Succeed())
-			iter := MustSucceed(s.dist.Framer.OpenIterator(ctx, iterator.Config{
+			iter := MustOpen(s.dist.Framer.OpenIterator(ctx, iterator.Config{
 				Keys:   []channel.Key{strCh.Key()},
 				Bounds: (20 * telem.SecondTS).Range(23 * telem.SecondTS),
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[string](iter.Value().SeriesAt(0))).To(Equal([]string{"a", "b", "c"}))
-			Expect(iter.Close()).To(Succeed())
 		})
 	})
 
 	Describe("Open Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = gatewayOnlyScenario(ctx) })
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+		BeforeAll(func(ctx SpecContext) { s = DeferClose(gatewayOnlyScenario(ctx)) })
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
@@ -187,8 +179,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Frame Errors", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = peerOnlyScenario(ctx) })
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+		BeforeAll(func(ctx SpecContext) { s = DeferClose(peerOnlyScenario(ctx)) })
 		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func(ctx SpecContext) {
 			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
@@ -211,8 +202,7 @@ var _ = Describe("Writer", func() {
 	Describe("Series Validation", func() {
 		Describe("Misaligned Fixed Density", func() {
 			It("Should return an error when series data is not aligned to density", func(ctx SpecContext) {
-				s := gatewayOnlyScenario(ctx)
-				defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+				s := DeferClose(gatewayOnlyScenario(ctx))
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -232,8 +222,7 @@ var _ = Describe("Writer", func() {
 
 		Describe("Wrong Data Type", func() {
 			It("Should return an error when series data type does not match channel", func(ctx SpecContext) {
-				s := gatewayOnlyScenario(ctx)
-				defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+				s := DeferClose(gatewayOnlyScenario(ctx))
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
@@ -268,13 +257,12 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idxCh.LocalKey,
 				}
 				Expect(dist.Channel.Create(ctx, &jsonCh)).To(Succeed())
-				s = scenario{
+				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
 					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
-				}
+				})
 			})
-			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
@@ -310,13 +298,12 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idxCh.LocalKey,
 				}
 				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
-				s = scenario{
+				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
-				}
+				})
 			})
-			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
@@ -352,13 +339,12 @@ var _ = Describe("Writer", func() {
 					LocalIndex: idxCh.LocalKey,
 				}
 				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
-				s = scenario{
+				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
 					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
-				}
+				})
 			})
-			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
 				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  s.keys,
@@ -381,8 +367,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
-			s := freeWriterScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(freeWriterScenario(ctx))
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
@@ -393,7 +378,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -409,11 +394,9 @@ var _ = Describe("Writer", func() {
 			))).To(BeTrue())
 			Eventually(out.Outlet()).Should(Receive(&res))
 			Expect(res.Group).To(Equal(uint32(42)))
-			Expect(w.Close()).To(Succeed())
 		})
 		It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
-			s := freeWriterScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(freeWriterScenario(ctx))
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
@@ -424,7 +407,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  s.keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -439,14 +422,12 @@ var _ = Describe("Writer", func() {
 			))).To(BeTrue())
 			Eventually(out.Outlet()).Should(Receive(&res))
 			Expect(res.Group).To(Equal(uint32(0)))
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 
 	Describe("Free Write Group Isolation", func() {
 		It("Should propagate distinct groups from different writers", func(ctx SpecContext) {
-			s := freeWriterScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(freeWriterScenario(ctx))
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
@@ -457,13 +438,13 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			w1 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w1 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
 				ControlSubject: control.Subject{Group: 10},
 			}))
-			w2 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			w2 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           s.keys,
 				Start:          10 * telem.SecondTS,
 				Sync:           new(true),
@@ -496,9 +477,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("Free Write Alignment", Ordered, func() {
 		It("Should correctly set alignments on indexed free channels", func(ctx SpecContext) {
-			var s = gatewayOnlyScenario(ctx)
-
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			var s = DeferClose(gatewayOnlyScenario(ctx))
 			var (
 				idxCh = channel.Channel{
 					Name:        "free_time",
@@ -529,7 +508,7 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
-			writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -566,7 +545,6 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(2))
-			Expect(writer.Close()).To(Succeed())
 		})
 	})
 })
@@ -577,6 +555,8 @@ type scenario struct {
 	name   string
 	keys   channel.Keys
 }
+
+func (s scenario) Close() error { return s.closer.Close() }
 
 func newChannelSet() []channel.Channel {
 	return []channel.Channel{
