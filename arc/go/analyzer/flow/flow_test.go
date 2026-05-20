@@ -1004,6 +1004,78 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
+		It("Should infer channel value type for a channel in a non-terminal chain position", func(bCtx SpecContext) {
+			customResolver := symbol.MapResolver{
+				"source_chan": symbol.Symbol{
+					Name: "source_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"feed_chan": symbol.Symbol{
+					Name: "feed_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"log_num": symbol.Symbol{
+					Name: "log_num",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			func pass{} (value f64) f64 {
+			    return value
+			}
+
+			source_chan -> demux{} -> {
+			    high: feed_chan -> pass{} -> log_num,
+			    low: 1 -> log_num
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should report undefined symbol for an unresolved func in a chain", func(bCtx SpecContext) {
+			customResolver := symbol.MapResolver{
+				"source_chan": symbol.Symbol{
+					Name: "source_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"log_num": symbol.Symbol{
+					Name: "log_num",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			source_chan -> demux{} -> {
+			    high: unknown_fn{} -> log_num,
+			    low: 1 -> log_num
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown_fn"))
+		})
+
 		It("Should route to channels in routing table", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func demux{} (value f64) (high f64, low f64) {
