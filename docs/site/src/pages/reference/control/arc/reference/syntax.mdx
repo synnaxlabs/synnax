@@ -119,21 +119,21 @@ Two forms, distinguished by delimiter:
 line2`
 ```
 
-| Escape    | Meaning                                  |
-| --------- | ---------------------------------------- |
-| `\b`      | backspace                                |
-| `\t`      | tab                                      |
-| `\n`      | newline                                  |
-| `\f`      | form feed                                |
-| `\r`      | carriage return                          |
-| `\"`      | double quote (single-line only)          |
-| `` \` ``  | backtick (multi-line only)               |
-| `\\`      | backslash                                |
-| `\uXXXX`  | 4-digit Unicode escape                   |
+| Escape   | Meaning                         |
+| -------- | ------------------------------- |
+| `\b`     | backspace                       |
+| `\t`     | tab                             |
+| `\n`     | newline                         |
+| `\f`     | form feed                       |
+| `\r`     | carriage return                 |
+| `\"`     | double quote (single-line only) |
+| `` \` `` | backtick (multi-line only)      |
+| `\\`     | backslash                       |
+| `\uXXXX` | 4-digit Unicode escape          |
 
-The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and `` \` ``
-only inside `` `...` ``. The other character is a literal everywhere it is not the
-delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
+The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and
+`` \` `` only inside `` `...` ``. The other character is a literal everywhere it is not
+the delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
 preserved as the two literal characters.
 
 ### Raw Strings
@@ -148,8 +148,8 @@ line two`
 ```
 
 In a raw string, the delimiter escape is still accepted by the lexer so the delimiter
-character can appear in the body, but the backslash is preserved in the value
-(`r"a\"b"` yields `a\"b`, four characters; `` r`a\`b` `` yields `` a\`b ``).
+character can appear in the body, but the backslash is preserved in the value (`r"a\"b"`
+yields `a\"b`, four characters; `` r`a\`b` `` yields ``a\`b``).
 
 ### Format Strings
 

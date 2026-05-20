@@ -83,7 +83,7 @@ const TEST_CASES: TestCase[] = [
   },
   {
     name: "caret on second line inside placeholder",
-    buffer: 'x = f"""hi\n{na',
+    buffer: "x = f`hi\n{na",
     typed: "m",
     expected: true,
   },
@@ -118,8 +118,8 @@ const TEST_CASES: TestCase[] = [
     expected: true,
   },
   {
-    name: "triple-quoted f-string triggers",
-    buffer: 'f"""report:\n  {va',
+    name: "backtick f-string triggers",
+    buffer: "f`report:\n  {va",
     typed: "l",
     expected: true,
   },
