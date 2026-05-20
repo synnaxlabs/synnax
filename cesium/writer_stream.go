@@ -114,22 +114,31 @@ type streamWriter struct {
 	WriterConfig
 }
 
-// autoIndexState scopes the auto-indexing maps for one streamWriter. dataToIndex maps
-// each non-index data channel that the writer is writing to to the key of its index
-// channel; dataAuth tracks the most recent authority for each such data channel and is
-// updated by SetAuthority calls so that implicit-index authorities can be recomputed as
-// the max across referencing data channels.
+// autoIndexState scopes the transient auto-indexing state for one streamWriter.
+// Data-channel-to-index relationships are read from w.internal as needed; this struct
+// holds only the maps that must persist across calls.
+//   - dataAuth tracks the most recent authority for each data channel and is updated
+//     by SetAuthority calls so that implicit-index authorities can be recomputed as
+//     the max across referencing data channels.
+//   - keyLens holds the per-channel series length of the current Write frame. Reused
+//     across calls (via clear()) so the hot path does not allocate.
 type autoIndexState struct {
-	dataToIndex map[ChannelKey]ChannelKey
-	dataAuth    map[ChannelKey]xcontrol.Authority
+	dataAuth map[ChannelKey]xcontrol.Authority
+	keyLens  map[ChannelKey]int64
 }
 
 // initAutoIndexing populates the auto-indexing state from the writer's already-opened
 // idxWriters. Must be called after w.internal is fully populated.
 func (w *streamWriter) initAutoIndexing() {
 	state := &autoIndexState{
-		dataToIndex: make(map[ChannelKey]ChannelKey),
-		dataAuth:    make(map[ChannelKey]xcontrol.Authority),
+		dataAuth: make(map[ChannelKey]xcontrol.Authority),
+		keyLens:  make(map[ChannelKey]int64, len(w.Channels)),
+	}
+	authByKey := make(map[ChannelKey]xcontrol.Authority, len(w.Channels))
+	if len(w.Authorities) > 0 {
+		for i, k := range w.Channels {
+			authByKey[k] = w.Authorities[i%len(w.Authorities)]
+		}
 	}
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
@@ -140,15 +149,7 @@ func (w *streamWriter) initAutoIndexing() {
 			if dataKey == idxKey {
 				continue
 			}
-			state.dataToIndex[dataKey] = idxKey
-		}
-	}
-	if len(w.Authorities) > 0 {
-		for i, k := range w.Channels {
-			if _, isData := state.dataToIndex[k]; !isData {
-				continue
-			}
-			state.dataAuth[k] = w.Authorities[i%len(w.Authorities)]
+			state.dataAuth[dataKey] = authByKey[dataKey]
 		}
 	}
 	w.autoIndex = state
@@ -212,7 +213,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 		return nil
 	}
 	if w.autoIndex != nil {
-		cfg = w.autoIndex.propagate(cfg)
+		cfg = w.propagateAuthority(cfg)
 	}
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
@@ -329,14 +330,12 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 // spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm when the
 // generated series is written.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
-	present := make(set.Set[ChannelKey])
-	keyLens := make(map[ChannelKey]int64, fr.Count())
+	clear(w.autoIndex.keyLens)
 	for i, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		present.Add(k)
-		keyLens[k] = fr.RawSeriesAt(i).Len()
+		w.autoIndex.keyLens[k] = fr.RawSeriesAt(i).Len()
 	}
 	now := telem.Now()
 	for _, idx := range w.internal {
@@ -344,7 +343,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		if present.Contains(idxKey) {
+		if _, present := w.autoIndex.keyLens[idxKey]; present {
 			continue
 		}
 		var n int64
@@ -352,7 +351,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 			if k == idxKey {
 				continue
 			}
-			if l, ok := keyLens[k]; ok && l > 0 {
+			if l, ok := w.autoIndex.keyLens[k]; ok && l > 0 {
 				n = l
 				break
 			}
@@ -373,14 +372,16 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 	return fr
 }
 
-// propagate synchronizes the autoIndexState's per-data-channel authority tracking with
-// the incoming SetAuthority config and augments cfg with an updated authority for each
-// implicit index whose referencing data channels' max may have changed. Broadcast calls
-// (cfg.Channels empty) are forwarded unchanged — the caller already applies the
-// broadcast across every channel in the writer, including indexes — but the tracked
-// state is refreshed so the next per-channel call computes correctly. Indexes the
-// caller explicitly included in cfg.Channels are left untouched.
-func (s *autoIndexState) propagate(cfg WriterConfig) WriterConfig {
+// propagateAuthority synchronizes the autoIndexState's per-data-channel authority
+// tracking with the incoming SetAuthority config and augments cfg with an updated
+// authority for each implicit index whose referencing data channels' max may have
+// changed. Broadcast calls (cfg.Channels empty) are forwarded unchanged — the caller
+// already applies the broadcast across every channel in the writer, including indexes
+// — but the tracked state is refreshed so the next per-channel call computes
+// correctly. Indexes the caller explicitly included in cfg.Channels are left
+// untouched.
+func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
+	s := w.autoIndex
 	if len(cfg.Channels) == 0 {
 		for k := range s.dataAuth {
 			s.dataAuth[k] = cfg.Authorities[0]
@@ -395,23 +396,22 @@ func (s *autoIndexState) propagate(cfg WriterConfig) WriterConfig {
 		}
 	}
 	for i, k := range cfg.Channels {
-		if _, isData := s.dataToIndex[k]; isData {
+		if _, isData := s.dataAuth[k]; isData {
 			s.dataAuth[k] = cfg.Authorities[i]
 		}
 	}
 	explicit := set.New(cfg.Channels...)
-	seen := set.New[ChannelKey]()
-	for _, idxKey := range s.dataToIndex {
+	for _, idx := range w.internal {
+		if !idx.writingToIdx {
+			continue
+		}
+		idxKey := idx.idx.ch.Key
 		if explicit.Contains(idxKey) {
 			continue
 		}
-		if seen.Contains(idxKey) {
-			continue
-		}
-		seen.Add(idxKey)
 		var maxAuth xcontrol.Authority
-		for dc, idx := range s.dataToIndex {
-			if idx != idxKey {
+		for dc := range idx.internal {
+			if dc == idxKey {
 				continue
 			}
 			if s.dataAuth[dc] > maxAuth {
