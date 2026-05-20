@@ -144,11 +144,9 @@ func (w *streamWriter) initAutoIndexing() {
 		propChans: make([]ChannelKey, 0, n),
 		propAuths: make([]xcontrol.Authority, 0, n),
 	}
-	authByKey := make(map[ChannelKey]xcontrol.Authority, len(w.Channels))
-	if len(w.Authorities) > 0 {
-		for i, k := range w.Channels {
-			authByKey[k] = w.Authorities[i%len(w.Authorities)]
-		}
+	authByKey := make(map[ChannelKey]xcontrol.Authority, n)
+	for i, k := range w.Channels {
+		authByKey[k] = w.WriterConfig.authority(i)
 	}
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
