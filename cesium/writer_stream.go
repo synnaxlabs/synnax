@@ -116,23 +116,32 @@ type streamWriter struct {
 
 // autoIndexState scopes the transient auto-indexing state for one streamWriter.
 // Data-channel-to-index relationships are read from w.internal as needed; this struct
-// holds only the maps that must persist across calls.
+// holds only the maps and scratch buffers that must persist across calls.
 //   - dataAuth tracks the most recent authority for each data channel and is updated
 //     by SetAuthority calls so that implicit-index authorities can be recomputed as
 //     the max across referencing data channels.
 //   - keyLens holds the per-channel series length of the current Write frame. Reused
 //     across calls (via clear()) so the hot path does not allocate.
+//   - propChans and propAuths are scratch buffers used by propagateAuthority to build
+//     the (possibly expanded) Channels/Authorities slices returned to setAuthority.
+//     Truncated to zero length at the start of each call so the steady state is
+//     allocation-free.
 type autoIndexState struct {
-	dataAuth map[ChannelKey]xcontrol.Authority
-	keyLens  map[ChannelKey]int64
+	dataAuth  map[ChannelKey]xcontrol.Authority
+	keyLens   map[ChannelKey]int64
+	propChans []ChannelKey
+	propAuths []xcontrol.Authority
 }
 
 // initAutoIndexing populates the auto-indexing state from the writer's already-opened
 // idxWriters. Must be called after w.internal is fully populated.
 func (w *streamWriter) initAutoIndexing() {
+	n := len(w.Channels)
 	state := &autoIndexState{
-		dataAuth: make(map[ChannelKey]xcontrol.Authority),
-		keyLens:  make(map[ChannelKey]int64, len(w.Channels)),
+		dataAuth:  make(map[ChannelKey]xcontrol.Authority),
+		keyLens:   make(map[ChannelKey]int64, n),
+		propChans: make([]ChannelKey, 0, n),
+		propAuths: make([]xcontrol.Authority, 0, n),
 	}
 	authByKey := make(map[ChannelKey]xcontrol.Authority, len(w.Channels))
 	if len(w.Authorities) > 0 {
@@ -376,10 +385,11 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 // tracking with the incoming SetAuthority config and augments cfg with an updated
 // authority for each implicit index whose referencing data channels' max may have
 // changed. Broadcast calls (cfg.Channels empty) are forwarded unchanged — the caller
-// already applies the broadcast across every channel in the writer, including indexes
-// — but the tracked state is refreshed so the next per-channel call computes
-// correctly. Indexes the caller explicitly included in cfg.Channels are left
-// untouched.
+// already applies the broadcast across every channel in the writer, including indexes —
+// but the tracked state is refreshed so the next per-channel call computes correctly.
+// Indexes the caller explicitly included in cfg.Channels are left untouched. The
+// returned WriterConfig's Channels and Authorities slices alias scratch buffers owned
+// by the autoIndexState and must not be retained across calls to propagateAuthority.
 func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	s := w.autoIndex
 	if len(cfg.Channels) == 0 {
@@ -388,26 +398,27 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		}
 		return cfg
 	}
-	if len(cfg.Authorities) == 1 {
-		auth := cfg.Authorities[0]
-		cfg.Authorities = make([]xcontrol.Authority, len(cfg.Channels))
-		for i := range cfg.Authorities {
-			cfg.Authorities[i] = auth
-		}
+	s.propChans = append(s.propChans[:0], cfg.Channels...)
+	s.propAuths = s.propAuths[:0]
+	for i := range cfg.Channels {
+		s.propAuths = append(s.propAuths, cfg.authority(i))
 	}
-	for i, k := range cfg.Channels {
+	for i, k := range s.propChans {
 		if _, isData := s.dataAuth[k]; isData {
-			s.dataAuth[k] = cfg.Authorities[i]
+			s.dataAuth[k] = s.propAuths[i]
 		}
 	}
-	explicit := set.New(cfg.Channels...)
+	nExplicit := len(s.propChans)
+indexLoop:
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		if explicit.Contains(idxKey) {
-			continue
+		for _, ek := range s.propChans[:nExplicit] {
+			if ek == idxKey {
+				continue indexLoop
+			}
 		}
 		var maxAuth xcontrol.Authority
 		for dc := range idx.internal {
@@ -418,9 +429,11 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 				maxAuth = s.dataAuth[dc]
 			}
 		}
-		cfg.Channels = append(cfg.Channels, idxKey)
-		cfg.Authorities = append(cfg.Authorities, maxAuth)
+		s.propChans = append(s.propChans, idxKey)
+		s.propAuths = append(s.propAuths, maxAuth)
 	}
+	cfg.Channels = s.propChans
+	cfg.Authorities = s.propAuths
 	return cfg
 }
 

@@ -314,6 +314,51 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)))).To(BeFalse())
 				})
 
+				It("Broadcasts a single authority across multiple data channels and propagates to the implicit index", func(ctx SpecContext) {
+					var (
+						idx   = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "auth_bcast_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "auth_bcast_data1", Index: idx, DataType: telem.Float64T},
+						cesium.Channel{Key: data2, Name: "auth_bcast_data2", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{data1, data2},
+						Authorities: []control.Authority{
+							control.Authority(50),
+							control.Authority(50),
+						},
+						AutoIndexing:   new(true),
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "wA_bcast"},
+					}))
+
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{idx},
+						Authorities:    []control.Authority{control.Authority(100)},
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "wB_bcast"},
+					}))
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(10),
+					)))).To(BeTrue())
+
+					Expect(wA.SetAuthority(cesium.WriterConfig{
+						Channels:    []cesium.ChannelKey{data1, data2},
+						Authorities: []control.Authority{control.Authority(200)},
+					})).To(Succeed())
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(11),
+					)))).To(BeFalse())
+				})
+
 				It("Leaves the index alone when explicitly named in SetAuthority", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
