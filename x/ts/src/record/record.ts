@@ -163,12 +163,10 @@ export interface NullishToEmpty {
  */
 export const nullishToEmpty = ((key?: z.ZodType, value?: z.ZodType) => {
   if (key === undefined || value === undefined)
-    return z.union([
-      z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
-      unknownZ(),
-    ]);
-  return z.union([
-    z.union([z.null(), z.undefined()]).transform(() => ({})),
-    z.record(key as z.ZodType<Key>, value),
-  ]);
+    return z
+      .union([z.null().transform<Unknown>(() => ({})), unknownZ()])
+      .default(() => ({}));
+  return z
+    .union([z.null().transform(() => ({})), z.record(key as z.ZodType<Key>, value)])
+    .default(() => ({}));
 }) as NullishToEmpty;

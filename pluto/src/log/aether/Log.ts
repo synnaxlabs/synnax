@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
 import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -23,6 +22,7 @@ import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
+import { log } from "@synnaxlabs/client";
 
 export const logStateZ = log.logZ
   .pick({

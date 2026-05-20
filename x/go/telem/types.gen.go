@@ -43,9 +43,13 @@ type Alignment uint64
 type TimestampFormat string
 
 const (
-	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
-	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
 	TimestampFormatISO         TimestampFormat = "ISO"
+	TimestampFormatISODate     TimestampFormat = "ISODate"
+	TimestampFormatTime        TimestampFormat = "time"
+	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
+	TimestampFormatDate        TimestampFormat = "date"
+	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
+	TimestampFormatDateTime    TimestampFormat = "dateTime"
 )
 
 // TimeZone is the time zone used when rendering timestamps.

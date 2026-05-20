@@ -103,7 +103,8 @@ const ZERO_READ_CONFIG = {
 
 const readStatusDataZ = z
   .object({ running: z.boolean(), message: z.string() })
-  .nullish();
+  .nullish()
+  .optional();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -264,7 +265,7 @@ const ZERO_WRITE_CONFIG = {
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;

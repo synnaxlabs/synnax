@@ -11,7 +11,15 @@
 
 import { z } from "zod";
 
-export const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
+export const TIMESTAMP_FORMATS = [
+  "ISO",
+  "ISODate",
+  "time",
+  "preciseTime",
+  "date",
+  "preciseDate",
+  "dateTime",
+] as const;
 export const timestampFormatZ = z.enum(TIMESTAMP_FORMATS);
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 

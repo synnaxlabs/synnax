@@ -38,14 +38,19 @@ export const Buttons = <K extends record.Key = record.Key>({
   ...rest
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
+  // Type assertion here because there are weird unions from these being widened to
+  // their full types and then TS not being able to prove that they are compatible.
+  const selectionProps = {
+    allowNone,
+    multiple,
+    value,
+    onChange,
+  } as FrameProps<K, record.Keyed<K>>;
   return (
     <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
       {...listProps}
-      allowNone={allowNone}
-      multiple={multiple}
-      value={value as any}
-      onChange={onChange as any}
+      {...selectionProps}
     >
       <Flex.Box pack {...rest} />
     </Frame>
