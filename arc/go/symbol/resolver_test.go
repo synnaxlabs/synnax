@@ -14,185 +14,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var _ = Describe("MapResolver", func() {
-	Describe("Resolve", func() {
-		It("Should resolve existing symbol", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
-			}
-			sym := MustSucceed(resolver.Resolve(bCtx, "pi"))
-			Expect(sym.Name).To(Equal("pi"))
-			Expect(sym.Kind).To(Equal(symbol.KindConfig))
-			Expect(sym.Type).To(Equal(types.F64()))
-		})
-
-		It("Should return error for non-existent symbol", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"x": symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
-			}
-			Expect(resolver.Resolve(bCtx, "y")).Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should work with empty resolver", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{}
-			Expect(resolver.Resolve(bCtx, "anything")).Error().To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Search", func() {
-		It("Should resolve all symbols matching prefix", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"pi":      symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				"count":   symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
-				"counter": symbol.Symbol{Name: "counter", Kind: symbol.KindVariable, Type: types.I32()},
-				"max":     symbol.Symbol{Name: "max", Kind: symbol.KindFunction, Type: types.F64()},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "count"))
-			Expect(symbols).To(HaveLen(2))
-
-			names := []string{symbols[0].Name, symbols[1].Name}
-			Expect(names).To(ContainElements("count", "counter"))
-		})
-
-		It("Should return empty slice for non-matching search", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "completely_different_name"))
-			Expect(symbols).To(BeEmpty())
-		})
-
-		It("Should return all symbols for empty prefix", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, ""))
-			Expect(symbols).To(HaveLen(2))
-		})
-
-		It("Should work with empty resolver", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{}
-			symbols := MustSucceed(resolver.Search(bCtx, "anything"))
-			Expect(symbols).To(BeEmpty())
-		})
-	})
-})
-
-var _ = Describe("ModuleResolver", func() {
-	Describe("Resolve", func() {
-		It("Should resolve a qualified name by stripping the module prefix", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
-				},
-			}
-			sym := MustSucceed(resolver.Resolve(bCtx, "math.pi"))
-			Expect(sym.Name).To(Equal("pi"))
-			Expect(sym.Kind).To(Equal(symbol.KindConfig))
-		})
-
-		It("Should return error when name doesn't have the module prefix", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			Expect(resolver.Resolve(bCtx, "pi")).Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should return error when member doesn't exist in module", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			Expect(resolver.Resolve(bCtx, "math.nonexistent")).Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should return error when prefix is a different module", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			Expect(resolver.Resolve(bCtx, "str.pi")).Error().To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Search", func() {
-		It("Should search members when term has the module prefix", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"abs":  symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
-					"acos": symbol.Symbol{Name: "acos", Kind: symbol.KindFunction, Type: types.F64()},
-					"pi":   symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "math.a"))
-			Expect(symbols).To(HaveLen(2))
-			names := []string{symbols[0].Name, symbols[1].Name}
-			Expect(names).To(ContainElements("abs", "acos"))
-		})
-
-		It("Should return all members when term is a prefix of the module name", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
-					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "ma"))
-			Expect(symbols).To(HaveLen(2))
-		})
-
-		It("Should return all members when term is the exact module name", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
-					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "math"))
-			Expect(symbols).To(HaveLen(2))
-		})
-
-		It("Should delegate with raw term for non-matching prefix", func(bCtx SpecContext) {
-			resolver := &symbol.ModuleResolver{
-				Name: "math",
-				Members: symbol.MapResolver{
-					"abs": symbol.Symbol{Name: "abs", Kind: symbol.KindFunction, Type: types.F64()},
-					"pi":  symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-				},
-			}
-			symbols := MustSucceed(resolver.Search(bCtx, "abs"))
-			Expect(symbols).To(HaveLen(1))
-			Expect(symbols[0].Name).To(Equal("abs"))
-		})
-	})
-})
 
 var _ = Describe("CompoundResolver", func() {
 	Describe("Resolve", func() {
 		It("Should resolve from first matching resolver", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := symbol.MapResolver{
+			resolver2 := staticResolver{
 				"bar": symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -201,10 +32,10 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(sym.Type).To(Equal(types.String()))
 		})
 		It("Should prioritize first resolver when multiple match", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := symbol.MapResolver{
+			resolver2 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -212,7 +43,7 @@ var _ = Describe("CompoundResolver", func() {
 			Expect(sym.Type).To(Equal(types.I32()))
 		})
 		It("Should return error when no resolver matches", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			compound := symbol.CompoundResolver{resolver1}
@@ -223,11 +54,11 @@ var _ = Describe("CompoundResolver", func() {
 
 	Describe("Search", func() {
 		It("Should resolve from all sub-resolvers", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo":    symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 				"foobar": symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := symbol.MapResolver{
+			resolver2 := staticResolver{
 				"food": symbol.Symbol{Name: "food", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -240,10 +71,10 @@ var _ = Describe("CompoundResolver", func() {
 		})
 
 		It("Should deduplicate symbols by name (first wins)", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			resolver2 := symbol.MapResolver{
+			resolver2 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
@@ -254,7 +85,7 @@ var _ = Describe("CompoundResolver", func() {
 		})
 
 		It("Should return empty slice when no resolvers match", func(bCtx SpecContext) {
-			resolver1 := symbol.MapResolver{
+			resolver1 := staticResolver{
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
 			}
 			compound := symbol.CompoundResolver{resolver1}

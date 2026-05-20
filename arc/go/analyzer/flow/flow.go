@@ -447,11 +447,7 @@ func analyzeOutputRoutingTable(
 			head, tail := parser.FunctionNameParts(nextFunc)
 			nextFuncScope, err := ctx.Scope.Resolve(ctx, head)
 			if err == nil && tail != "" {
-				container := nextFuncScope
-				if container.Target != nil {
-					container = container.Target
-				}
-				nextFuncScope, err = container.Resolve(ctx, tail)
+				nextFuncScope, err = nextFuncScope.Resolve(ctx, tail)
 			}
 			if err == nil && nextFuncScope.Kind == symbol.KindFunction {
 				nextFuncType = nextFuncScope.Type

@@ -34,7 +34,11 @@ func expectOperatorTypeError(
 	operator string,
 ) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+	ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		return root
+	}())
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -605,7 +609,11 @@ var _ = Describe("Expressions", func() {
 					result := x + y * z
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
@@ -785,9 +793,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		It("Should record a call edge when a function calls another function", func(specCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-			}
+			resolver := []symbol.Symbol{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10}}
 			ast := MustSucceed(parser.Parse(`
 				func callee() {
 					ch = 1.0
@@ -796,7 +802,15 @@ var _ = Describe("Expressions", func() {
 					callee()
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.CallEdges).To(HaveLen(1))
@@ -805,17 +819,14 @@ var _ = Describe("Expressions", func() {
 		})
 
 		It("Should not record a call edge when no enclosing function exists", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				"tick": {
-					Name: "tick",
-					Kind: symbol.KindFunction,
-					Type: types.Function(types.FunctionProperties{
-						Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
-						Outputs: types.Params{{Name: "output", Type: types.U8()}},
-					}),
-				},
-			}
+			resolver := []symbol.Symbol{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10}, {
+				Name: "tick",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+					Outputs: types.Params{{Name: "output", Type: types.U8()}},
+				}),
+			}}
 			ast := MustSucceed(parser.Parse(`
 				func helper() {
 					ch = 1.0
@@ -827,7 +838,15 @@ var _ = Describe("Expressions", func() {
 					stage done {}
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -903,7 +922,11 @@ var _ = Describe("Expressions", func() {
 					y := undefinedVar + 5
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -920,7 +943,11 @@ var _ = Describe("Expressions", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -991,21 +1018,26 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "ox_pt_1",
-					Type: types.Chan(types.I32()),
-					ID:   20001,
-				},
-				"ox_pt_2": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "ox_pt_2",
-					Type: types.Chan(types.I32()),
-					ID:   20002,
-				},
-			}
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+			resolver := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "ox_pt_1",
+				Type: types.Chan(types.I32()),
+				ID:   20001,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "ox_pt_2",
+				Type: types.Chan(types.I32()),
+				ID:   20002,
+			}}
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1016,21 +1048,26 @@ var _ = Describe("Expressions", func() {
 					return (ox_pt_1 + ox_pt_2) / 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "ox_pt_1",
-					Type: types.Chan(types.I32()),
-					ID:   20003,
-				},
-				"ox_pt_2": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "ox_pt_2",
-					Type: types.Chan(types.F32()),
-					ID:   20004,
-				},
-			}
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+			resolver := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "ox_pt_1",
+				Type: types.Chan(types.I32()),
+				ID:   20003,
+			}, {
+				Kind: symbol.KindChannel,
+				Name: "ox_pt_2",
+				Type: types.Chan(types.F32()),
+				ID:   20004,
+			}}
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1043,15 +1080,21 @@ var _ = Describe("Expressions", func() {
 					return ox_pt_1 + 2
 				}
 			`))
-			resolver := symbol.MapResolver{
-				"ox_pt_1": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "ox_pt_1",
-					Type: types.Chan(types.I32()),
-					ID:   20005,
-				},
-			}
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+			resolver := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "ox_pt_1",
+				Type: types.Chan(types.I32()),
+				ID:   20005,
+			}}
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1062,46 +1105,36 @@ var _ = Describe("Expressions", func() {
 				func testFunc() f32 {
 					return -sensor
 				}
-			`, symbol.MapResolver{
-				"sensor": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "sensor",
-					Type: types.Chan(types.F32()),
-					ID:   20006,
-				},
-			}),
+			`, []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F32()),
+				ID:   20006,
+			}}),
 			Entry("comparison", `
 				func testFunc() u8 {
 					return sensor > 100
 				}
-			`, symbol.MapResolver{
-				"sensor": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "sensor",
-					Type: types.Chan(types.F32()),
-					ID:   20007,
-				},
-			}),
+			`, []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F32()),
+				ID:   20007,
+			}}),
 			Entry("multiple channels in expression", `
 				func testFunc() f64 {
 					return (temp1 + temp2 + temp3) / 3
 				}
-			`, symbol.MapResolver{
-				"temp1": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp1", Type: types.Chan(types.F64()), ID: 20008},
-				"temp2": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp2", Type: types.Chan(types.F64()), ID: 20009},
-				"temp3": symbol.Symbol{Kind: symbol.KindChannel, Name: "temp3", Type: types.Chan(types.F64()), ID: 20010},
-			}),
+			`, []symbol.Symbol{{Kind: symbol.KindChannel, Name: "temp1", Type: types.Chan(types.F64()), ID: 20008}, {Kind: symbol.KindChannel, Name: "temp2", Type: types.Chan(types.F64()), ID: 20009}, {Kind: symbol.KindChannel, Name: "temp3", Type: types.Chan(types.F64()), ID: 20010}}),
 		)
 
 		It("Should reject channel type mismatch in logical operation", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"sensor": symbol.Symbol{
-					Kind: symbol.KindChannel,
-					Name: "sensor",
-					Type: types.Chan(types.F32()),
-					ID:   20011,
-				},
-			}
+			resolver := []symbol.Symbol{{
+				Kind: symbol.KindChannel,
+				Name: "sensor",
+				Type: types.Chan(types.F32()),
+				ID:   20011,
+			}}
 			expectFailure(ctx, `
 				func testFunc() u8 {
 					return sensor and 1
@@ -1456,7 +1489,11 @@ var _ = Describe("Expressions", func() {
 					y := x^2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1468,7 +1505,11 @@ var _ = Describe("Expressions", func() {
 					y := x^-2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1480,7 +1521,11 @@ var _ = Describe("Expressions", func() {
 					y := x^0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1493,7 +1538,11 @@ var _ = Describe("Expressions", func() {
 					z := x^y
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1506,7 +1555,11 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1521,7 +1574,11 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1535,7 +1592,11 @@ var _ = Describe("Expressions", func() {
 					y := x^2.0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1549,7 +1610,11 @@ var _ = Describe("Expressions", func() {
 					y := x^2s
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
+			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1559,7 +1624,7 @@ var _ = Describe("Expressions", func() {
 
 	Describe("Qualified Identifier Analysis", func() {
 		DescribeTable("valid qualified function calls",
-			func(ctx SpecContext, code string) { expectSuccess(ctx, code, stl.SymbolResolver) },
+			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
 			Entry("time.now()", `
 				import time
 				func testFunc() i64 { return time.now() }
@@ -1571,7 +1636,7 @@ var _ = Describe("Expressions", func() {
 
 		DescribeTable("invalid qualified calls",
 			func(ctx SpecContext, code string, expectedMsg string) {
-				expectFailure(ctx, code, stl.SymbolResolver, expectedMsg)
+				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("undefined module without import", `
 				func testFunc() { x := fake.thing() }

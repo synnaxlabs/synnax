@@ -22,30 +22,23 @@ import (
 )
 
 var _ = Describe("Literal Type Inference", func() {
-	var testResolver symbol.MapResolver
+	var testExtras []symbol.Symbol
+	newRoot := func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		for i := range testExtras {
+			s := testExtras[i]
+			root.Parent.AddChild(&s)
+		}
+		return root
+	}
 
 	BeforeEach(func() {
-		testResolver = symbol.MapResolver{
-			"abc": symbol.Symbol{
-				Name: "abc",
-				Kind: symbol.KindVariable,
-				Type: types.F32(),
-			},
-			"xyz": symbol.Symbol{
-				Name: "xyz",
-				Kind: symbol.KindVariable,
-				Type: types.I32(),
-			},
-			"sensor": symbol.Symbol{
-				Name: "sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-			},
-			"integer_sensor": symbol.Symbol{
-				Name: "integer_sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I8()),
-			},
+		testExtras = []symbol.Symbol{
+			{Name: "abc", Kind: symbol.KindVariable, Type: types.F32()},
+			{Name: "xyz", Kind: symbol.KindVariable, Type: types.I32()},
+			{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			{Name: "integer_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I8())},
 		}
 	})
 
@@ -82,7 +75,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 2 + abc
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("should allow abc + 2 where abc is f32", func(ctx SpecContext) {
@@ -90,7 +83,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return abc + 2
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("should allow 2.5 + abc where abc is f32", func(ctx SpecContext) {
@@ -98,7 +91,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 2.5 + abc
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("should allow 5 + xyz where xyz is i32", func(ctx SpecContext) {
@@ -106,7 +99,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () i32 {
 					return 5 + xyz
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("should infer correct type for expressions with multiple literals", func(ctx SpecContext) {
@@ -114,7 +107,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 2 + abc + 3
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should infer the correct type for channel and literal operations", func(ctx SpecContext) {
@@ -122,7 +115,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func cat() f64 {
 					return 2 * sensor
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should infer the correct type for channel and literal operations in power expressions", func(ctx SpecContext) {
@@ -130,7 +123,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func cat() f64 {
 					return sensor ^ 2
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should infer the correct type for channel and several literal operations", func(ctx SpecContext) {
@@ -138,7 +131,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func cat() f64 {
 					return 2 * sensor * 3.0 * sensor
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should reject float literal with incompatible integer channel type", func(specCtx SpecContext) {
@@ -147,7 +140,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 2.2 * integer_sensor
 				}
 			`))
-			ctx := acontext.CreateRoot(specCtx, program, stl.NewRoot(testResolver))
+			ctx := acontext.CreateRoot(specCtx, program, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
@@ -162,22 +155,16 @@ var _ = Describe("Literal Type Inference", func() {
 				func cat() i8 {
 					return integer_sensor
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 	})
 
 	Describe("Literal-left expression regression tests", func() {
 		BeforeEach(func() {
-			testResolver["f32_ch"] = symbol.Symbol{
-				Name: "f32_ch",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F32()),
-			}
-			testResolver["f64_ch"] = symbol.Symbol{
-				Name: "f64_ch",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-			}
+			testExtras = append(testExtras,
+				symbol.Symbol{Name: "f32_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+				symbol.Symbol{Name: "f64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			)
 		})
 
 		It("Should accept integer literal minus f32 channel with f32 return type", func(ctx SpecContext) {
@@ -185,7 +172,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 1000 - f32_ch
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should accept float literal divided by f32 channel with f32 return type", func(ctx SpecContext) {
@@ -193,7 +180,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 1000.0 / f32_ch
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should accept integer literal divided by f32 channel with f32 return type", func(ctx SpecContext) {
@@ -201,7 +188,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 1000 / f32_ch
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should accept float literal minus f32 channel with f32 return type", func(ctx SpecContext) {
@@ -209,7 +196,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 1000.0 - f32_ch
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should accept float literal divided by expression of f32 channels", func(ctx SpecContext) {
@@ -217,7 +204,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f32 {
 					return 1000.0 / (f32_ch + abc)
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should reject mixed f32 and f64 channels with literal on left", func(ctx SpecContext) {
@@ -225,7 +212,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test{} () f64 {
 					return 1000.0 - f32_ch + f64_ch
 				}
-			`, testResolver, "type mismatch")
+			`, testExtras, "type mismatch")
 		})
 
 		It("Should infer f32 return type for literal-left expression in type inference mode", func(ctx SpecContext) {
@@ -234,7 +221,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 1000 - f32_ch
 				}
 			`))
-			aCtx := acontext.CreateRoot(ctx, program, stl.NewRoot(testResolver))
+			aCtx := acontext.CreateRoot(ctx, program, newRoot())
 			analyzer.AnalyzeProgram(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 		})
@@ -242,21 +229,11 @@ var _ = Describe("Literal Type Inference", func() {
 
 	Describe("Power operator regression tests (SY-3207)", func() {
 		BeforeEach(func() {
-			testResolver["f32_sensor"] = symbol.Symbol{
-				Name: "f32_sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F32()),
-			}
-			testResolver["f64_sensor"] = symbol.Symbol{
-				Name: "f64_sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.F64()),
-			}
-			testResolver["i32_sensor"] = symbol.Symbol{
-				Name: "i32_sensor",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I32()),
-			}
+			testExtras = append(testExtras,
+				symbol.Symbol{Name: "f32_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+				symbol.Symbol{Name: "f64_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+				symbol.Symbol{Name: "i32_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
+			)
 		})
 
 		It("Should infer integer literal as f32 in power expression with f32 channel", func(ctx SpecContext) {
@@ -264,7 +241,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() f32 {
 					return f32_sensor ^ 2
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should infer integer literal as f64 in power expression with f64 channel", func(ctx SpecContext) {
@@ -272,7 +249,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() f64 {
 					return f64_sensor ^ 3
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should infer integer literal as i32 in power expression with i32 channel", func(ctx SpecContext) {
@@ -280,7 +257,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() i32 {
 					return i32_sensor ^ 2
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should handle float literal as exponent with float channel", func(ctx SpecContext) {
@@ -288,7 +265,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() f64 {
 					return f64_sensor ^ 2.5
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should handle chained power operations with literals", func(ctx SpecContext) {
@@ -296,7 +273,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() f32 {
 					return f32_sensor ^ 2 ^ 3
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 
 		It("Should handle power in complex expression with literals", func(ctx SpecContext) {
@@ -304,7 +281,7 @@ var _ = Describe("Literal Type Inference", func() {
 				func test() f32 {
 					return 2 * f32_sensor ^ 2 + 3
 				}
-			`, testResolver)
+			`, testExtras)
 		})
 	})
 })

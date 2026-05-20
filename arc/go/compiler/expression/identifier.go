@@ -27,11 +27,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	}
 	name := head
 	if tail != "" {
-		container := scope
-		if container.Target != nil {
-			container = container.Target
-		}
-		scope, err = container.Resolve(ctx, tail)
+		scope, err = scope.Resolve(ctx, tail)
 		if err != nil {
 			return types.Type{}, err
 		}

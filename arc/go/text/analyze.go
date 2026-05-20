@@ -578,7 +578,7 @@ func Analyze(
 		return i, aCtx.Diagnostics
 	}
 
-	for _, c := range i.Symbols.Children {
+	for _, c := range i.Symbols.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}

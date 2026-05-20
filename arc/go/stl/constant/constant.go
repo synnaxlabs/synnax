@@ -33,18 +33,20 @@ var (
 			Config:  types.Params{{Name: "value", Type: typeVar}},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symName: sym}
 )
 
-// BareGlobals returns the `constant` symbol installed at the root scope so
-// graph-mode programs can reference it without an import.
-func BareGlobals() []symbol.Symbol { return []symbol.Symbol{sym} }
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the `constant` builtin installed at root scope.
+var Symbols = []*symbol.Symbol{&sym}
 
-type Module struct{}
+// Host is the runtime host-side support for the constant builtin: a node
+// factory only. No WASM bindings, no per-program state.
+type Host struct{}
 
-func NewModule() *Module { return &Module{} }
+// NewHost constructs a constant Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
 		return nil, query.ErrNotFound
 	}

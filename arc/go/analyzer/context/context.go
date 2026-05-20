@@ -141,10 +141,9 @@ func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
 // ResolveQualified resolves a possibly-qualified name. head is the first
 // segment (always present); tail is the second segment, empty when the
 // reference is bare. When tail is non-empty, ResolveQualified follows
-// alias.Target on the head and then looks up tail among the resulting
-// symbol's children, mirroring the way the grammar produces member-access
-// expressions. Deprecation warnings fire on whichever segment resolved
-// to the deprecated symbol.
+// the head and then resolves tail through it; an alias head transparently
+// dispatches to its Target inside Resolve. Deprecation warnings fire on
+// whichever segment resolved to the deprecated symbol.
 func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Scope, error) {
 	headSym, err := c.Scope.Resolve(c, head)
 	if err != nil {
@@ -154,11 +153,7 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Scope, error)
 		c.warnIfDeprecated(head, headSym)
 		return headSym, nil
 	}
-	container := headSym
-	if container.Target != nil {
-		container = container.Target
-	}
-	tailSym, err := container.Resolve(c, tail)
+	tailSym, err := headSym.Resolve(c, tail)
 	if err != nil {
 		return nil, err
 	}
@@ -183,9 +178,10 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Scope) {
 // the supplied root symbol as the lexical scope.
 //
 // The root parameter is the pre-built program root. Callers in the consumer
-// layer (LSP, compiler, graph mode, services) build it via stl.BuildRoot()
-// and attach any external (DynamicResolver / channel) resolution before
-// passing it in. The analyzer does not know about STL or external services;
+// layer (LSP, compiler, graph mode, services) build it via symbol.CreateRoot
+// and symbol.AttachToAmbient and attach any external (DynamicResolver /
+// channel) resolution before passing it in. The analyzer does not know
+// about STL or external services;
 // it only walks the scope tree it is given.
 //
 // When root is nil, an empty root is created. This is suitable for tests

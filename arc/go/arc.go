@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package arc is the top-level Arc compiler entry point. CompileText and
+// CompileGraph orchestrate parse → analyze → compile against a caller-
+// supplied root scope. Callers are responsible for building the root
+// (STL symbols, cluster channels, dynamic resolvers) via symbol.CreateRoot
+// and symbol.AttachToAmbient.
 package arc
 
 import (
@@ -16,48 +21,34 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
 
 type (
-	IR             = ir.IR
-	Node           = ir.Node
-	Edge           = ir.Edge
-	Handle         = ir.Handle
-	Function       = ir.Function
-	SymbolResolver = symbol.Resolver
-	Symbol         = symbol.Symbol
-	Graph          = graph.Graph
-	Text           = text.Text
-	Program        = program.Program
+	IR       = ir.IR
+	Node     = ir.Node
+	Edge     = ir.Edge
+	Handle   = ir.Handle
+	Function = ir.Function
+	Symbol   = symbol.Symbol
+	Graph    = graph.Graph
+	Text     = text.Text
+	Program  = program.Program
 )
-type options struct {
-	resolver SymbolResolver
-}
 
-type Option func(*options)
-
-func WithResolver(resolver SymbolResolver) Option {
-	return func(o *options) { o.resolver = resolver }
-}
-
-func newOptions(opts []Option) *options {
-	o := &options{}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Program, error) {
-	o := newOptions(opts)
+// CompileGraph parses, analyzes, and compiles a graph-mode program
+// against root. root must have its ambient prelude populated by the
+// caller (typically with stl.Symbols and any cluster channels). Graph
+// mode auto-imports modules; callers do not need to call
+// symbol.AutoImportModules themselves — CompileGraph does it.
+func CompileGraph(ctx context.Context, g Graph, root *symbol.Symbol) (Program, error) {
 	graphWithAST, err := graph.Parse(g)
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := graph.Analyze(ctx, graphWithAST, stl.NewAutoImportRoot(o.resolver))
+	symbol.AutoImportModules(root)
+	inter, diagnostics := graph.Analyze(ctx, graphWithAST, root)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
@@ -68,13 +59,15 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Program, error)
 	return Program{IR: inter, Output: output}, nil
 }
 
-func CompileText(ctx context.Context, t Text, opts ...Option) (Program, error) {
-	o := newOptions(opts)
+// CompileText parses, analyzes, and compiles a text-mode program against
+// root. root must have its ambient prelude populated by the caller
+// (typically with stl.Symbols and any cluster channels).
+func CompileText(ctx context.Context, t Text, root *symbol.Symbol) (Program, error) {
 	textWithAST, err := text.Parse(t)
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := text.Analyze(ctx, textWithAST, stl.NewRoot(o.resolver))
+	inter, diagnostics := text.Analyze(ctx, textWithAST, root)
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}

@@ -147,11 +147,7 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 
 			scope, err := ctx.Scope.Resolve(ctx, head)
 			if err == nil && tail != "" {
-				container := scope
-				if container.Target != nil {
-					container = container.Target
-				}
-				scope, err = container.Resolve(ctx, tail)
+				scope, err = scope.Resolve(ctx, tail)
 			}
 			if err == nil && scope.Kind == symbol.KindFunction {
 				if scope.Exec == symbol.ExecFlow {

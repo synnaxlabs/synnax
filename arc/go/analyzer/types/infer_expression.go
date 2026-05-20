@@ -241,11 +241,7 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 		if err != nil {
 			return types.Type{}
 		}
-		container := headSym
-		if container.Target != nil {
-			container = container.Target
-		}
-		resolved, err := container.Resolve(ctx, tail)
+		resolved, err := headSym.Resolve(ctx, tail)
 		if err != nil {
 			return types.Type{}
 		}

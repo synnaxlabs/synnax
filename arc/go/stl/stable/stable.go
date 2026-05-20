@@ -24,7 +24,7 @@ import (
 const (
 	bareSymbolName      = "stable_for"
 	qualifiedMemberName = "for"
-	moduleName          = "stable"
+	name                = "stable"
 )
 
 var (
@@ -45,7 +45,7 @@ var (
 		Exec: symbol.ExecFlow,
 		Type: symbolType,
 	}
-	module     = symbol.NewModule(moduleName, memberSymbol)
+	module     = symbol.NewModule(name, memberSymbol)
 	bareSymbol = symbol.Symbol{
 		Name:       bareSymbolName,
 		Kind:       symbol.KindFunction,
@@ -53,41 +53,36 @@ var (
 		Type:       symbolType,
 		Deprecated: module.FindChildByName(qualifiedMemberName),
 	}
-	bareResolver   = symbol.MapResolver{bareSymbolName: bareSymbol}
-	moduleResolver = &symbol.ModuleResolver{
-		Name:    moduleName,
-		Members: symbol.MapResolver{qualifiedMemberName: memberSymbol},
-	}
-	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
-// BuildModule returns the stable module with its sealed namespace populated.
-func BuildModule() *symbol.Symbol { return module }
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the stable module plus the deprecated `stable_for` bare alias
+// whose Deprecated field points at the canonical stable.for member.
+var Symbols = []*symbol.Symbol{module, &bareSymbol}
 
-// BareGlobals returns the deprecated `stable_for` bare alias installed at
-// the root scope so legacy programs continue to resolve. Deprecated points
-// at the canonical stable.for member inside the module.
-func BareGlobals() []symbol.Symbol { return []symbol.Symbol{bareSymbol} }
-
-type Module struct {
+// Host is the runtime host-side support for the stable module: a node
+// factory for stable.for. Stable has no WASM host bindings.
+type Host struct {
 	now func() telem.TimeStamp
 }
 
-func NewModule(opts ...func(*Module)) *Module {
-	m := &Module{now: telem.Now}
+// NewHost constructs a stable Host. By default uses telem.Now; pass
+// WithNow(fn) to override (used by tests for deterministic timestamps).
+func NewHost(opts ...func(*Host)) *Host {
+	h := &Host{now: telem.Now}
 	for _, opt := range opts {
-		opt(m)
+		opt(h)
 	}
-	return m
+	return h
 }
 
-func WithNow(fn func() telem.TimeStamp) func(*Module) {
-	return func(m *Module) { m.now = fn }
+// WithNow overrides the clock used by stable nodes. Tests pass a
+// deterministic clock here.
+func WithNow(fn func() telem.TimeStamp) func(*Host) {
+	return func(h *Host) { h.now = fn }
 }
 
-func (m *Module) ModuleName() string { return moduleName }
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
@@ -95,7 +90,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
+	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: h.now}, nil
 }
 
 type config struct {

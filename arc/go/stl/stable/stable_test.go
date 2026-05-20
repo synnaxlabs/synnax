@@ -27,13 +27,13 @@ import (
 
 var _ = Describe("StableFor", func() {
 	var (
-		module      *stable.Module
+		module      *stable.Host
 		s           *node.ProgramState
 		irNode      ir.Node
 		currentTime telem.TimeStamp
 	)
 	BeforeEach(func(ctx SpecContext) {
-		module = stable.NewModule(stable.WithNow(func() telem.TimeStamp {
+		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
 			return currentTime
 		}))
 		irNode = ir.Node{
@@ -78,7 +78,12 @@ var _ = Describe("StableFor", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stable.SymbolResolver))
+		analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			symbol.AutoImportModules(root)
+			return root
+		}())
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s = node.New(analyzed)
 	})
@@ -376,14 +381,19 @@ var _ = Describe("StableFor", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve bare stable_for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable_for"))
+	Describe("Symbols", func() {
+		newRoot := func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stable.Symbols...)
+			return root
+		}
+		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
+			sym := MustSucceed(symbol.ResolveQualified(ctx, newRoot(), "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified stable.for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable.for"))
+		It("Should expose qualified stable.for symbol", func(ctx SpecContext) {
+			sym := MustSucceed(symbol.ResolveQualified(ctx, newRoot(), "stable.for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
@@ -424,10 +434,15 @@ var _ = Describe("StableFor", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stable.SymbolResolver))
+			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := node.New(analyzed)
-			compound := node.CompoundFactory{stable.NewModule()}
+			compound := node.CompoundFactory{stable.NewHost()}
 			irNode := analyzed.Nodes[1]
 			irNode.Type = "stable.for"
 			n := MustSucceed(compound.Create(ctx, node.Config{

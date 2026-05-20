@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/constant"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -26,7 +27,7 @@ import (
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
 		It("Should create module", func(ctx SpecContext) {
-			factory := constant.NewModule()
+			factory := constant.NewHost()
 			Expect(factory).ToNot(BeNil())
 		})
 	})
@@ -37,7 +38,7 @@ var _ = Describe("Constant", func() {
 			s       *node.ProgramState
 		)
 		BeforeEach(func(ctx SpecContext) {
-			factory = constant.NewModule()
+			factory = constant.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
 				Functions: []graph.Function{{
@@ -47,7 +48,12 @@ var _ = Describe("Constant", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
+			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -114,7 +120,7 @@ var _ = Describe("Constant", func() {
 			marked  []int
 		)
 		BeforeEach(func(ctx SpecContext) {
-			factory = constant.NewModule()
+			factory = constant.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
 				Functions: []graph.Function{{
@@ -124,7 +130,12 @@ var _ = Describe("Constant", func() {
 					},
 				}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
+			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
 			marked = nil
@@ -238,7 +249,12 @@ var _ = Describe("Constant", func() {
 					},
 				},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
+			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
 			cfg := node.Config{
@@ -323,10 +339,16 @@ var _ = Describe("Constant", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve constant symbol", func(ctx SpecContext) {
-			sym, ok := constant.SymbolResolver["constant"]
-			Expect(ok).To(BeTrue())
+	Describe("Symbols", func() {
+		It("Should expose constant symbol", func() {
+			var sym *symbol.Symbol
+			for _, s := range constant.Symbols {
+				if s.Name == "constant" {
+					sym = s
+					break
+				}
+			}
+			Expect(sym).ToNot(BeNil())
 			Expect(sym.Name).To(Equal("constant"))
 		})
 	})

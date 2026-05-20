@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -157,7 +156,11 @@ var _ = Describe("Text", func() {
 			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(3))
 			Expect(inter.Nodes).To(HaveLen(2))
@@ -186,15 +189,23 @@ var _ = Describe("Text", func() {
 
 		Context("Channel Flow Analysis", func() {
 			It("Should analyze flow with channel identifier", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 				}
 				source := `
 				func print{} () {}
 
 				sensor -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -221,7 +232,11 @@ var _ = Describe("Text", func() {
 
 				unknown_channel -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("unknown_channel"))
 			})
@@ -238,7 +253,11 @@ var _ = Describe("Text", func() {
 
 				add(1, 2) -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -256,9 +275,15 @@ var _ = Describe("Text", func() {
 			})
 
 			DescribeTable("Literal constant generation",
-				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectConstant bool, expectedType types.Type) {
+				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range chans {
+						s := chans[i]
+						root.Parent.AddChild(&s)
+					}
+					inter, diagnostics := text.Analyze(ctx, parsedText, root)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 					constantCount := countNodesByType(inter.Nodes, "constant")
@@ -274,17 +299,23 @@ var _ = Describe("Text", func() {
 				},
 				Entry("integer literal",
 					`1 -> output`,
-					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10001}},
+					[]symbol.Symbol{
+						{Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10001},
+					},
 					true, types.F32(),
 				),
 				Entry("float literal",
 					`3.14 -> output`,
-					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10002}},
+					[]symbol.Symbol{
+						{Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10002},
+					},
 					true, types.F64(),
 				),
 				Entry("complex expression (should not generate constant)",
 					`1 + 2 -> output`,
-					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10003}},
+					[]symbol.Symbol{
+						{Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10003},
+					},
 					false, types.Type{}, // Type ignored when expectConstant is false
 				),
 			)
@@ -301,7 +332,11 @@ var _ = Describe("Text", func() {
 
 				processor{threshold=100, scale=2.5} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -326,7 +361,11 @@ var _ = Describe("Text", func() {
 
 				calculator{a=10, b=20, c=30} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
@@ -356,7 +395,11 @@ var _ = Describe("Text", func() {
 				processor{threshold=-100} -> print{}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "processor_0")
@@ -379,7 +422,11 @@ var _ = Describe("Text", func() {
 				scaler{factor=-2.5} -> print{}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "scaler_0")
@@ -393,15 +440,20 @@ var _ = Describe("Text", func() {
 				import time
 				time_trigger -> time.wait{duration=-3h} -> wait_out
 				`
-				resolver := symbol.CompoundResolver{
-					symbol.MapResolver{
-						"time_trigger": {Name: "time_trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-						"wait_out":     {Name: "wait_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10043},
-					},
-					stl.SymbolResolver,
+				resolver := []symbol.Symbol{
+					{Name: "time_trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+					{Name: "wait_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10043},
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				waitNode := findNodeByType(inter.Nodes, "time.wait")
@@ -413,8 +465,8 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
+				resolver := []symbol.Symbol{
+					{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
 				}
 				source := `
 				func reader{channel chan f64} () f64 {
@@ -425,7 +477,15 @@ var _ = Describe("Text", func() {
 
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				readerNode := findNodeByKey(inter.Nodes, "reader_0")
@@ -437,8 +497,8 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should produce diagnostic error when channel config type mismatches", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10043},
+				resolver := []symbol.Symbol{
+					{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10043},
 				}
 				source := `
 				func reader{channel chan f64} () f64 {
@@ -449,7 +509,15 @@ var _ = Describe("Text", func() {
 
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("type mismatch"))
@@ -459,7 +527,7 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should produce diagnostic error when channel name is not found in resolver", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{}
+				resolver := []symbol.Symbol{}
 				source := `
 				func reader{channel chan f64} () f64 {
 				    return channel
@@ -469,7 +537,15 @@ var _ = Describe("Text", func() {
 
 				reader{channel=unknown_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("undefined symbol"))
@@ -477,15 +553,12 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should reject read channel for config param requiring write channel", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					control.SymbolResolver,
-					symbol.MapResolver{
-						"read_sensor": {
-							Name: "read_sensor",
-							Kind: symbol.KindChannel,
-							Type: types.ReadChan(types.F64()),
-							ID:   10056,
-						},
+				resolver := []symbol.Symbol{
+					{
+						Name: "read_sensor",
+						Kind: symbol.KindChannel,
+						Type: types.ReadChan(types.F64()),
+						ID:   10056,
 					},
 				}
 				source := `
@@ -495,20 +568,25 @@ var _ = Describe("Text", func() {
 
 				source{} -> set_authority{value=200, channel=read_sensor}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
 			It("Should reject read channel for qualified control.set_authority config param", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					control.SymbolResolver,
-					symbol.MapResolver{
-						"read_sensor": {
-							Name: "read_sensor",
-							Kind: symbol.KindChannel,
-							Type: types.ReadChan(types.F64()),
-							ID:   10056,
-						},
+				resolver := []symbol.Symbol{
+					{
+						Name: "read_sensor",
+						Kind: symbol.KindChannel,
+						Type: types.ReadChan(types.F64()),
+						ID:   10056,
 					},
 				}
 				source := `
@@ -519,20 +597,25 @@ var _ = Describe("Text", func() {
 				source{} -> control.set_authority{value=200, channel=read_sensor}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
 			It("Should emit deprecation warning for deprecated bare function name", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					control.SymbolResolver,
-					symbol.MapResolver{
-						"write_ch": {
-							Name: "write_ch",
-							Kind: symbol.KindChannel,
-							Type: types.WriteChan(types.U8()),
-							ID:   10060,
-						},
+				resolver := []symbol.Symbol{
+					{
+						Name: "write_ch",
+						Kind: symbol.KindChannel,
+						Type: types.WriteChan(types.U8()),
+						ID:   10060,
 					},
 				}
 				source := `
@@ -543,7 +626,15 @@ var _ = Describe("Text", func() {
 				source{} -> set_authority{value=200, channel=write_ch}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -551,15 +642,12 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should not emit deprecation warning for qualified function name", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					control.SymbolResolver,
-					symbol.MapResolver{
-						"write_ch": {
-							Name: "write_ch",
-							Kind: symbol.KindChannel,
-							Type: types.WriteChan(types.U8()),
-							ID:   10060,
-						},
+				resolver := []symbol.Symbol{
+					{
+						Name: "write_ch",
+						Kind: symbol.KindChannel,
+						Type: types.WriteChan(types.U8()),
+						ID:   10060,
 					},
 				}
 				source := `
@@ -571,22 +659,35 @@ var _ = Describe("Text", func() {
 				source{} -> control.set_authority{value=200, channel=write_ch}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should emit deprecation warning for bare avg", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
 				}
 				source := `sensor -> avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -594,61 +695,81 @@ var _ = Describe("Text", func() {
 			})
 
 			It("Should not emit deprecation warning for qualified math.avg", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
 				}
 				source := `import math
 sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should not emit deprecation warning for bare select", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"flag":   {Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `flag -> select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should not resolve qualified selector.select", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"flag":   {Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `flag -> selector.select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeFalse())
 			})
 
 			It("Should emit deprecation warning for bare stable_for", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `sensor -> stable_for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -656,17 +777,22 @@ sensor -> math.avg{} -> output`
 			})
 
 			It("Should not emit deprecation warning for qualified stable.for", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `import stable
 sensor -> stable.for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -688,23 +814,27 @@ sensor -> stable.for{duration=1s} -> output`
 					Exec: symbol.ExecFlow,
 					Type: statusFnType,
 				})
-				statusResolver := symbol.CompoundResolver{
-					symbol.MapResolver{
-						"set_status": {
-							Name:       "set_status",
-							Kind:       symbol.KindFunction,
-							Exec:       symbol.ExecFlow,
-							Deprecated: statusModule.FindChildByName("set"),
-							Type:       statusFnType,
-						},
+				statusResolver := []symbol.Symbol{
+					{
+						Name:       "set_status",
+						Kind:       symbol.KindFunction,
+						Exec:       symbol.ExecFlow,
+						Deprecated: statusModule.FindChildByName("set"),
+						Type:       statusFnType,
 					},
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-					},
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
 				}
 				source := `sensor -> set_status{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(statusResolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range statusResolver {
+						s := statusResolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -728,9 +858,19 @@ sensor -> stable.for{duration=1s} -> output`
 					Exec: symbol.ExecFlow,
 					Type: statusFnType,
 				})
-				root := stl.NewRoot(symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
-				})
+				root := func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range []symbol.Symbol{
+						{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					} {
+						s := []symbol.Symbol{
+							{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+						}[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}()
 				// Attach the status module to the ambient prelude so import resolves.
 				root.Parent.AddChild(statusModule)
 				source := `import status
@@ -742,16 +882,21 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 			})
 
 			It("Should emit deprecation warning for bare derivative", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
 				}
 				source := `sensor -> derivative{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -759,15 +904,20 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 			})
 
 			It("Should emit deprecation warning for bare interval", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -775,30 +925,40 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 			})
 
 			It("Should not emit deprecation warning for qualified time.interval", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `import time
 time.interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should emit deprecation warning for bare wait", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -806,23 +966,28 @@ time.interval{period=100ms} -> output`
 			})
 
 			It("Should not emit deprecation warning for qualified time.wait", func(ctx SpecContext) {
-				resolver := symbol.CompoundResolver{
-					stl.SymbolResolver,
-					symbol.MapResolver{
-						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
-					},
+				resolver := []symbol.Symbol{
+					{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
 				}
 				source := `import time
 time.wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should resolve channel name for write operations and add to Channels.Write", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},
+				resolver := []symbol.Symbol{
+					{Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},
 				}
 				source := `
 				func writer{channel chan f64} (value f64) {
@@ -835,7 +1000,15 @@ time.wait{duration=500ms} -> output`
 
 				source{} -> writer{channel=output_channel}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				writerNode := findNodeByKey(inter.Nodes, "writer_0")
@@ -848,11 +1021,11 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should register separate write channels when function with channel config is used multiple times", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"toggle_1":  {Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10011},
-					"toggle_2":  {Name: "toggle_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10012},
-					"counter_1": {Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10013},
-					"counter_2": {Name: "counter_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10014},
+				resolver := []symbol.Symbol{
+					{Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10011},
+					{Name: "toggle_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10012},
+					{Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10013},
+					{Name: "counter_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10014},
 				}
 				source := `
 				func count_rising{counter chan f32} (input u8) {
@@ -866,7 +1039,15 @@ time.wait{duration=500ms} -> output`
 				toggle_1 -> count_rising{counter=counter_1}
 				toggle_2 -> count_rising{counter=counter_2}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Find the two count_rising nodes
@@ -882,9 +1063,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should not add stateful variable to write channels when initialized from global channel", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"toggle_1":  {Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10101},
-					"counter_1": {Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10102},
+				resolver := []symbol.Symbol{
+					{Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10101},
+					{Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10102},
 				}
 				source := `
 				func count_rising(input u8) {
@@ -898,7 +1079,15 @@ time.wait{duration=500ms} -> output`
 
 				toggle_1 -> count_rising{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Find the count_rising node
@@ -911,10 +1100,10 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should resolve read-only config param channel in Channels.Read", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
-					"do_0_counter":     {Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
-					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
+				resolver := []symbol.Symbol{
+					{Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
+					{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
+					{Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
 				}
 				source := `
 				func count_rising_test{counter_ch chan f32, max_ch chan f32} (input u8) {
@@ -936,7 +1125,15 @@ time.wait{duration=500ms} -> output`
 
 				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
@@ -961,7 +1158,11 @@ time.wait{duration=500ms} -> output`
 
 				calculator{a=A, b=B, c=C} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
@@ -990,7 +1191,11 @@ time.wait{duration=500ms} -> output`
 
 				transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
@@ -1017,7 +1222,11 @@ time.wait{duration=500ms} -> output`
 
 				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "filter_0")
@@ -1045,7 +1254,11 @@ time.wait{duration=500ms} -> output`
 
 				clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "clamp_0")
@@ -1065,7 +1278,11 @@ time.wait{duration=500ms} -> output`
 
 				transform{2.5, 0.1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
@@ -1086,7 +1303,11 @@ time.wait{duration=500ms} -> output`
 
 				controller{100.0} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
@@ -1098,8 +1319,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should resolve channel identifier as anonymous config into IR", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
+				resolver := []symbol.Symbol{
+					{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
 				}
 				source := `
 				func controller{sensor chan f64, setpoint f64} () {
@@ -1108,7 +1329,15 @@ time.wait{duration=500ms} -> output`
 
 				sensor_chan -> controller{sensor_chan, 100.0}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
@@ -1119,8 +1348,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle global constant as flow source to channel", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"my_channel": {Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				resolver := []symbol.Symbol{
+					{Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				SETPOINT := 42
@@ -1128,7 +1357,15 @@ time.wait{duration=500ms} -> output`
 				SETPOINT => my_channel
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
@@ -1144,8 +1381,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle global constant as flow source in a sequence stage", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"drive_speed_sp": {Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				resolver := []symbol.Symbol{
+					{Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				DRIVE_SP := 2500
@@ -1156,7 +1393,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				for _, n := range inter.Nodes {
@@ -1172,8 +1417,8 @@ time.wait{duration=500ms} -> output`
 
 		Context("Edge Parameter Validation", func() {
 			It("Should create edges with parameters that exist in node definitions", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				func filter{} (data i64) i64 {
@@ -1186,7 +1431,15 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1231,7 +1484,11 @@ time.wait{duration=500ms} -> output`
 
 				generator{} -> processor{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Edges).To(HaveLen(1))
@@ -1247,15 +1504,23 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should verify channel node outputs are defined", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"temp": {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10044},
+				resolver := []symbol.Symbol{
+					{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10044},
 				}
 				source := `
 				func display{} (value f64) {}
 
 				temp -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				channelNode := findNodeByKey(inter.Nodes, "on_temp_0")
@@ -1278,7 +1543,11 @@ time.wait{duration=500ms} -> output`
 
 				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				edge := inter.Edges[0]
@@ -1317,7 +1586,11 @@ time.wait{duration=500ms} -> output`
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1362,7 +1635,11 @@ time.wait{duration=500ms} -> output`
 				    high: amplify{} -> display{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1379,8 +1656,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should not create phantom output edges for void functions in routing branches", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
+				resolver := []symbol.Symbol{
+					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -1401,7 +1678,15 @@ time.wait{duration=500ms} -> output`
 				    high: increment{ch=counter} -> alarm{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				outputSet := make(set.Set[ir.Handle])
@@ -1428,7 +1713,11 @@ time.wait{duration=500ms} -> output`
 				    nonexistent: display{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("nonexistent"))
 			})
@@ -1436,8 +1725,8 @@ time.wait{duration=500ms} -> output`
 
 		Context("Stratification", func() {
 			It("Should calculate strata for simple flow chain", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				func filter{} (data i64) i64 {
@@ -1450,7 +1739,15 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Root.Strata).To(HaveLen(3))
@@ -1478,7 +1775,11 @@ time.wait{duration=500ms} -> output`
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Root.Strata).To(HaveLen(2))
@@ -1492,9 +1793,9 @@ time.wait{duration=500ms} -> output`
 
 		Context("Channel Sink Detection", func() {
 			It("Should create write node for channel at end of flow", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"input_chan":  {Name: "input_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10021},
-					"output_chan": {Name: "output_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10022},
+				resolver := []symbol.Symbol{
+					{Name: "input_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10021},
+					{Name: "output_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10022},
 				}
 				source := `
 				func double{} (x f32) f32 {
@@ -1503,7 +1804,15 @@ time.wait{duration=500ms} -> output`
 
 				input_chan -> double{} -> output_chan`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1523,13 +1832,21 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle channel-to-channel flow", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"chan1": {Name: "chan1", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10031},
-					"chan2": {Name: "chan2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10032},
+				resolver := []symbol.Symbol{
+					{Name: "chan1", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10031},
+					{Name: "chan2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10032},
 				}
 				source := `chan1 -> chan2`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -1540,9 +1857,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle channel sinks in routing tables", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10041},
-					"low_chan":  {Name: "low_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10045},
+				resolver := []symbol.Symbol{
+					{Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10041},
+					{Name: "low_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10045},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -1558,7 +1875,15 @@ time.wait{duration=500ms} -> output`
 				    low: low_chan
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1591,8 +1916,8 @@ time.wait{duration=500ms} -> output`
 
 		Context("Sequence Targeting", func() {
 			It("Should connect one-shot edge to sequence's first stage entry node", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
 				sequence main {
@@ -1601,7 +1926,15 @@ time.wait{duration=500ms} -> output`
 
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The channel read is the only node; the scope activation is
@@ -1628,8 +1961,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle continuous flow to sequence", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10061},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10061},
 				}
 				source := `
 				sequence main {
@@ -1638,7 +1971,15 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Continuous flow into a sequence activates the sequence
@@ -1651,8 +1992,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle sequence with multiple stages - activates first stage", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
 				sequence main {
@@ -1662,7 +2003,15 @@ time.wait{duration=500ms} -> output`
 
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Only the trigger read exists; stages are Scope members,
@@ -1678,22 +2027,30 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should error when targeting empty sequence (no stages)", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
 				sequence empty {}
 
 				trigger => empty`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
 			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10071},
+				resolver := []symbol.Symbol{
+					{Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10071},
 				}
 				source := `
 				sequence alarm {
@@ -1713,7 +2070,15 @@ time.wait{duration=500ms} -> output`
 				    low: high_chan
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// demux node + write node for the `low` branch. The `high`
@@ -1737,8 +2102,8 @@ time.wait{duration=500ms} -> output`
 
 		Context("Direct Stage Targeting", func() {
 			It("Should emit a member-key transition when targeting a sibling stage", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
+				resolver := []symbol.Symbol{
+					{Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
 				}
 				source := `
 				sequence main {
@@ -1748,7 +2113,15 @@ time.wait{duration=500ms} -> output`
 				    stage second {}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The `=> second` edge becomes a Transition on main whose
@@ -1772,9 +2145,9 @@ time.wait{duration=500ms} -> output`
 			// root-level activation path for top-level targets.
 
 			It("Places => X on the enclosing sequence's frame when X is two levels up through a stage and a nested sequence", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20001},
-					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20002},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20001},
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20002},
 				}
 				source := `
 				sequence main {
@@ -1788,7 +2161,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The transition must live on `main` (the frame whose
@@ -1814,9 +2195,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Prefers the innermost sequence's member when the name exists at multiple levels", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20003},
-					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20004},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20003},
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20004},
 				}
 				source := `
 				sequence outer {
@@ -1833,7 +2214,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The transition must land on `inner` (innermost sibling
@@ -1858,9 +2247,9 @@ time.wait{duration=500ms} -> output`
 				// level transition. That clobbered the outer transition's
 				// markedFlags. The IR should have a single transition for
 				// this flow step.
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20005},
-					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20006},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20005},
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20006},
 				}
 				source := `
 				sequence main {
@@ -1874,7 +2263,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Count transitions across main's frame and the inner anon
@@ -1893,9 +2290,9 @@ time.wait{duration=500ms} -> output`
 				// level scope, the resolver must register an activation
 				// (not a transition) and the stamping loop must set
 				// Activation on that scope.
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20007},
-					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20008},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20007},
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20008},
 				}
 				source := `
 				sequence main {
@@ -1905,7 +2302,15 @@ time.wait{duration=500ms} -> output`
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				other := findTopLevelScope(inter, "other")
@@ -1917,15 +2322,23 @@ time.wait{duration=500ms} -> output`
 
 		Context("Top-level anonymous scopes", func() {
 			It("Should compile an anonymous top-level stage and produce a root member with an auto-generated key", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11001},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11001},
 				}
 				source := `
 				stage {
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -1942,15 +2355,23 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile an anonymous top-level sequence and produce a root member with an auto-generated key", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11002},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11002},
 				}
 				source := `
 				sequence {
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -1967,8 +2388,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile a named top-level sequence as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11010},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11010},
 				}
 				source := `
 				sequence main {
@@ -1977,7 +2398,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -1994,15 +2423,23 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile a named top-level stage as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11011},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11011},
 				}
 				source := `
 				stage main {
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -2019,9 +2456,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile a named top-level sequence as LivenessGated with an activation handle when `trigger => name` targets it", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11012},
-					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11013},
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11012},
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11013},
 				}
 				source := `
 				trigger => main
@@ -2032,7 +2469,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var main *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2048,8 +2493,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile named nested scopes as LivenessGated at every depth", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11014},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11014},
 				}
 				source := `
 				sequence outer {
@@ -2062,7 +2507,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var outer *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2097,8 +2550,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile anonymous nested scopes as LivenessAlways at every depth", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11015},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11015},
 				}
 				source := `
 				sequence {
@@ -2111,7 +2564,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var outer *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2144,8 +2605,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should compile mixed named/anonymous nesting per the uniform rule", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11016},
+				resolver := []symbol.Symbol{
+					{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11016},
 				}
 				source := `
 				sequence main {
@@ -2158,7 +2619,15 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var main *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2204,12 +2673,20 @@ time.wait{duration=500ms} -> output`
 				        0 -> output
 				    }
 				}`
-				resolver := symbol.MapResolver{
-					"input":  {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10091},
-					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10092},
+				resolver := []symbol.Symbol{
+					{Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10091},
+					{Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10092},
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diag := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diag := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				main := findTopLevelScope(inter, "main")
@@ -2221,9 +2698,15 @@ time.wait{duration=500ms} -> output`
 			})
 
 			DescribeTable("next keyword error cases",
-				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectedError string) {
+				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diag := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range chans {
+						s := chans[i]
+						root.Parent.AddChild(&s)
+					}
+					_, diag := text.Analyze(ctx, parsedText, root)
 					Expect(diag).ToNot(BeNil())
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(expectedError))
@@ -2235,15 +2718,15 @@ time.wait{duration=500ms} -> output`
 					        input > 10 => next
 					    }
 					}`,
-					symbol.MapResolver{
-						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
+					[]symbol.Symbol{
+						{Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
 					},
 					"no next stage",
 				),
 				Entry("next outside sequence",
 					`input > 10 => next`,
-					symbol.MapResolver{
-						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
+					[]symbol.Symbol{
+						{Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
 					},
 					"outside of a sequence",
 				),
@@ -2252,15 +2735,23 @@ time.wait{duration=500ms} -> output`
 
 		Context("Implicit Expression Triggers", func() {
 			It("Should inject implicit trigger for expression as first flow node", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
 				func alarm{} (value u8) {}
 
 				sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -2288,16 +2779,24 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should inject multiple triggers for multi-channel expression", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"temp":     {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10151},
-					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10152},
+				resolver := []symbol.Symbol{
+					{Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10151},
+					{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10152},
 				}
 				source := `
 				func alarm{} (value u8) {}
 
 				temp + pressure > 100 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(4))
@@ -2329,12 +2828,20 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should not inject trigger for constant expressions", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10161},
+				resolver := []symbol.Symbol{
+					{Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10161},
 				}
 				source := `1 + 2 -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -2344,15 +2851,23 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should not inject trigger when expression is not first node", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
 				func alarm{} (value u8) {}
 
 				sensor -> sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -2364,8 +2879,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should inject trigger for expression in sequence stage", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
 				sequence main {
@@ -2375,7 +2890,15 @@ time.wait{duration=500ms} -> output`
 				    stage alarm {}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				triggerCount := countNodesByType(inter.Nodes, "on")
@@ -2388,8 +2911,8 @@ time.wait{duration=500ms} -> output`
 
 		Context("Interval One-Shot Edge Generation", func() {
 			It("Should generate one-shot edge for interval triggering function", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"interval": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "interval",
 						Kind: symbol.KindFunction,
 						Type: types.Function(types.FunctionProperties{
@@ -2403,7 +2926,15 @@ time.wait{duration=500ms} -> output`
 
 				interval{period=50ms} => press{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -2421,8 +2952,8 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should generate continuous edge for interval with -> operator", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"interval": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "interval",
 						Kind: symbol.KindFunction,
 						Type: types.Function(types.FunctionProperties{
@@ -2436,7 +2967,15 @@ time.wait{duration=500ms} -> output`
 
 				interval{period=50ms} -> handler{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					for i := range resolver {
+						s := resolver[i]
+						root.Parent.AddChild(&s)
+					}
+					return root
+				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Edges).To(HaveLen(1))
@@ -2450,7 +2989,11 @@ time.wait{duration=500ms} -> output`
 		DescribeTable("dimension compatibility",
 			func(ctx SpecContext, source string, expectOk bool, expectedErrorContains string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diag := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+				_, diag := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+					root := symbol.CreateRoot(nil)
+					root.AttachToAmbient(stl.Symbols...)
+					return root
+				}())
 				if expectOk {
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 				} else {
@@ -2490,7 +3033,11 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			setupNode := findNodeByType(inter.Nodes, "setup")
@@ -2510,7 +3057,11 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			exprNodes := lo.Filter(inter.Nodes, func(n ir.Node, _ int) bool {
@@ -2528,9 +3079,9 @@ time.wait{duration=500ms} -> output`
 		})
 
 		It("Should reject void functions mid-chain in flow statements", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
-				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
+			resolver := []symbol.Symbol{
+				{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
+				{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
 			}
 			source := `
 			func increment{ch chan u32} () {
@@ -2544,7 +3095,15 @@ time.wait{duration=500ms} -> output`
 			    stage second {}
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("has no output"))
 		})
@@ -2561,7 +3120,11 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			initNode := findNodeByType(inter.Nodes, "initialize")
@@ -2578,8 +3141,8 @@ time.wait{duration=500ms} -> output`
 
 	Describe("Authority Analysis", func() {
 		It("Should include authority config in IR with simple form", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			resolver := []symbol.Symbol{
+				{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
 			source := `
 			authority 200
@@ -2589,16 +3152,24 @@ time.wait{duration=500ms} -> output`
 			}
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Authorities.Default).ToNot(BeNil())
 			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
 		})
 
 		It("Should include per-channel authority overrides", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
-				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+			resolver := []symbol.Symbol{
+				{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+				{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 			}
 			source := `
 			authority (
@@ -2612,7 +3183,15 @@ time.wait{duration=500ms} -> output`
 			}
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Authorities.Default).ToNot(BeNil())
 			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
@@ -2628,7 +3207,11 @@ time.wait{duration=500ms} -> output`
 			func b{} () {}
 			a{} -> b{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("before"))
 		})
@@ -2645,7 +3228,11 @@ time.wait{duration=500ms} -> output`
 
 			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
+			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			module := MustSucceed(text.Compile(ctx, ir))
@@ -2655,14 +3242,14 @@ time.wait{duration=500ms} -> output`
 		It("Should compile function with channel config param assigned to intermediate variable", func(ctx SpecContext) {
 			// This is the exact user pattern that was failing:
 			// sp := set_point (where set_point is a chan f32 config param)
-			resolver := symbol.MapResolver{
-				"virt_1": {
+			resolver := []symbol.Symbol{
+				{
 					Name: "virt_1",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
 					ID:   10025,
 				},
-				"alarm_out": {
+				{
 					Name: "alarm_out",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.U8()),
@@ -2700,7 +3287,15 @@ time.wait{duration=500ms} -> output`
 			    samples = 10
 			} -> alarm_out`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
@@ -2715,20 +3310,20 @@ time.wait{duration=500ms} -> output`
 			// Test that writing to an intermediate variable correctly tracks the channel
 			// out := output (config param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
-			resolver := symbol.MapResolver{
-				"input_ch": {
+			resolver := []symbol.Symbol{
+				{
 					Name: "input_ch",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
 					ID:   10100,
 				},
-				"write_target": {
+				{
 					Name: "write_target",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
 					ID:   10200,
 				},
-				"sink_ch": {
+				{
 					Name: "sink_ch",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.U8()),
@@ -2744,7 +3339,15 @@ time.wait{duration=500ms} -> output`
 
 			input_ch -> writer{output=write_target} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 
@@ -2763,20 +3366,20 @@ time.wait{duration=500ms} -> output`
 			// Test that writing through an alias of a global channel correctly tracks the channel
 			// out := output (global channel)
 			// out = value * 3.0 (write to channel through alias)
-			resolver := symbol.MapResolver{
-				"input_ch": {
+			resolver := []symbol.Symbol{
+				{
 					Name: "input_ch",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
 					ID:   10110,
 				},
-				"output_ch": {
+				{
 					Name: "output_ch",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
 					ID:   10210,
 				},
-				"sink_ch": {
+				{
 					Name: "sink_ch",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.U8()),
@@ -2792,7 +3395,15 @@ time.wait{duration=500ms} -> output`
 
 			input_ch -> writer{} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 
@@ -2808,11 +3419,8 @@ time.wait{duration=500ms} -> output`
 
 	Describe("ExecContext", func() {
 		It("Should reject a WASM-only function in a flow statement", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
-				},
-				stl.SymbolResolver,
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
 			import error
@@ -2822,14 +3430,22 @@ time.wait{duration=500ms} -> output`
 			sensor -> error.panic{} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
 		})
 
 		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
 			func print{} () {
@@ -2838,13 +3454,21 @@ time.wait{duration=500ms} -> output`
 			sensor -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		It("Should allow an ExecBoth user function in a flow statement", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
 			func handler{} () {
@@ -2853,16 +3477,21 @@ time.wait{duration=500ms} -> output`
 			sensor -> handler{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		It("Should allow a flow-only STL function in a flow statement", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-				},
-				stl.SymbolResolver,
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
 			}
 			source := `
 			func print{} () {
@@ -2871,49 +3500,64 @@ time.wait{duration=500ms} -> output`
 			interval{100ms} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		It("Should allow an ExecBoth STL function (time.now) in a flow statement", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-					"ts_out": {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
-				},
-				stl.SymbolResolver,
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+				{Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
 			}
 			source := `
 			import time
 			interval{100ms} -> time.now{} -> ts_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		It("Should allow time.now{} to write into a plain i64 channel", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"int_out": {Name: "int_out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10044},
-				},
-				stl.SymbolResolver,
+			resolver := []symbol.Symbol{
+				{Name: "int_out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10044},
 			}
 			source := `
 			import time
 			interval{100ms} -> time.now{} -> int_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
 		It("Should reject a flow-only function called in a func body at analysis time", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-				},
-				stl.SymbolResolver,
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
 			}
 			source := `
 			func test() {
@@ -2923,7 +3567,15 @@ time.wait{duration=500ms} -> output`
 			sensor -> test{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
+			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range resolver {
+					s := resolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("cannot be called inside a func block"))
 		})

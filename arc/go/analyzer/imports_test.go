@@ -10,6 +10,8 @@
 package analyzer_test
 
 import (
+	stdctx "context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -18,32 +20,60 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// staticResolver is a tiny test-only Resolver backed by a map of bare
+// names. Replaces the deleted []symbol.Symbol for analyzer tests that
+// need to provide cluster-like channels as dynamic globals.
+type staticResolver map[string]symbol.Symbol
+
+func (r staticResolver) Resolve(_ stdctx.Context, name string) (*symbol.Symbol, error) {
+	if s, ok := r[name]; ok {
+		sym := s
+		return &sym, nil
+	}
+	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
+}
+
+func (r staticResolver) Search(_ stdctx.Context, _ string) ([]*symbol.Symbol, error) {
+	return nil, nil
+}
+
 var _ = Describe("Import Pass", func() {
-	resolver := symbol.CompoundResolver{
-		&symbol.ModuleResolver{
-			Name: "time",
-			Members: symbol.MapResolver{
-				"now": {
-					Name: "time.now",
-					Kind: symbol.KindFunction,
-					Type: types.Function(types.FunctionProperties{
-						Outputs: types.Params{{Name: "result", Type: types.I64()}},
-					}),
-				},
-			},
-		},
-		symbol.MapResolver{
-			"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
-		},
+	// timeModule is a sealed "time" module attached to each test's ambient
+	// prelude so `import time` resolves. dynChannels is the per-test
+	// dynamic resolver, providing the bare channel symbol "ch".
+	timeModule := symbol.NewModule("time", symbol.Symbol{
+		Name: "now",
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Outputs: types.Params{{Name: "result", Type: types.I64()}},
+		}),
+	})
+	dynChannels := staticResolver{
+		"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
+	}
+	newRoot := func() *symbol.Symbol {
+		root := func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			for i := range dynChannels {
+				s := dynChannels[i]
+				root.Parent.AddChild(&s)
+			}
+			return root
+		}()
+		root.Parent.AddChild(timeModule)
+		return root
 	}
 
 	Describe("collectImports", func() {
 		It("Should install a KindModuleAlias child on the root scope", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import time`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			alias := ctx.Scope.FindChildByName("time")
 			Expect(alias).ToNot(BeNil())
@@ -54,7 +84,7 @@ var _ = Describe("Import Pass", func() {
 
 		It("Should diagnose a duplicate import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ( time time )`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("duplicate import"))
@@ -62,28 +92,28 @@ var _ = Describe("Import Pass", func() {
 
 		It("Should diagnose an unknown module", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import banana`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(`unknown module "banana"`))
 		})
 
 		It("Should not double-report an unknown module as unused", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import banana`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring(`imported module "banana" is unused`))
 		})
 
 		It("Should accept an import with no entries", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ()`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should leave Children empty when there are no imports or declarations", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`func f() {}`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Scope.FilterChildrenByKind(symbol.KindModuleAlias)).To(BeEmpty())
 		})
@@ -95,7 +125,7 @@ var _ = Describe("Import Pass", func() {
 				import time
 				func f() {}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring(`imported module "time" is unused`))
 		})
@@ -105,7 +135,7 @@ var _ = Describe("Import Pass", func() {
 				import time
 				func f() i64 { return time.now() }
 			`))
-			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("is unused"))
 		})

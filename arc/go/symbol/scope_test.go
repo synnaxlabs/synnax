@@ -23,13 +23,13 @@ var _ = Describe("Scope", func() {
 		It("Should create a new root scope", func() {
 			s := symbol.CreateRootScope(nil)
 			Expect(s.GlobalResolver).To(BeNil())
-			Expect(s.Children).To(BeEmpty())
+			Expect(s.Children()).To(BeEmpty())
 			Expect(s.Counter).ToNot(BeNil())
 			Expect(*s.Counter).To(Equal(0))
 		})
 
 		It("Should create a new root scope with a global resolver", func() {
-			s := symbol.CreateRootScope(symbol.MapResolver{})
+			s := symbol.CreateRootScope(staticResolver{})
 			Expect(s.GlobalResolver).ToNot(BeNil())
 		})
 	})
@@ -46,7 +46,7 @@ var _ = Describe("Scope", func() {
 			By("Not creating a counter for variables")
 			Expect(varScope.Counter).To(BeNil())
 			Expect(varScope.GlobalResolver).To(BeNil())
-			Expect(varScope.Children).To(BeEmpty())
+			Expect(varScope.Children()).To(BeEmpty())
 			By("Using the root scope counter for it's ID")
 			Expect(varScope.ID).To(Equal(0))
 		})
@@ -128,7 +128,7 @@ var _ = Describe("Scope", func() {
 			)).ToNot(BeNil())
 		})
 		It("Should allow shadowing global symbols from resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
@@ -136,7 +136,7 @@ var _ = Describe("Scope", func() {
 			Expect(scope).ToNot(BeNil())
 		})
 		It("Should resolve to local symbol when shadowing global", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
@@ -147,7 +147,7 @@ var _ = Describe("Scope", func() {
 			Expect(resolved.Type).To(Equal(types.I32()))
 		})
 		It("Should resolve to local symbol when shadowing global in nested scope", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
@@ -285,7 +285,7 @@ var _ = Describe("Scope", func() {
 			Expect(resolved).To(Equal(global))
 		})
 		It("Should resolve from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
@@ -307,14 +307,14 @@ var _ = Describe("Scope", func() {
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol: undefined")))
 		})
 		It("Should skip internal symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
 			Expect(rootScope.Resolve(bCtx, "host_fn")).Error().To(MatchError(ContainSubstring("undefined symbol: host_fn")))
 		})
 		It("Should resolve non-internal symbols from global resolver alongside internal ones", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"user_fn": symbol.Symbol{Name: "user_fn", Kind: symbol.KindFunction, Type: types.F64()},
 			}
@@ -425,7 +425,7 @@ var _ = Describe("Scope", func() {
 			Expect(names).To(ContainElements("foo", "foobar"))
 		})
 		It("Should resolve symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"print": symbol.Symbol{Name: "print", Kind: symbol.KindFunction},
 			}
@@ -448,7 +448,7 @@ var _ = Describe("Scope", func() {
 			Expect(names).To(ContainElements("global", "globalTwo"))
 		})
 		It("Should deduplicate symbols across all sources", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
@@ -478,7 +478,7 @@ var _ = Describe("Scope", func() {
 			Expect(scopes).To(HaveLen(2))
 		})
 		It("Should skip internal symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"len":         symbol.Symbol{Name: "len", Kind: symbol.KindFunction, Type: types.F64()},
 			}
@@ -488,7 +488,7 @@ var _ = Describe("Scope", func() {
 			Expect(scopes[0].Name).To(Equal("len"))
 		})
 		It("Should skip all internal symbols when searching by prefix", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := staticResolver{
 				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"element_sub": symbol.Symbol{Name: "element_sub", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"element_len": symbol.Symbol{Name: "element_len", Kind: symbol.KindFunction, Type: types.F64()},

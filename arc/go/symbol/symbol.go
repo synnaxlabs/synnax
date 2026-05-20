@@ -175,10 +175,14 @@ type Symbol struct {
 	// the prelude; resolution walks through the prelude via the standard
 	// parent walk.
 	Parent *Symbol
-	// Children are the symbols directly contained by this scope. There is
-	// one slot — STL prelude symbols live in their own ambient scope's
-	// Children, the user program root has its own Children, etc.
-	Children []*Symbol
+	// children are the symbols directly contained by this scope. Access
+	// goes through the Children() method so KindModuleAlias can
+	// transparently delegate to its Target — callers iterating a scope
+	// don't need to special-case aliases. The one consumer that needs
+	// the alias's own (empty) child list — LSP semantic-token tagging —
+	// uses FindChildByName to obtain the alias and works with its
+	// fields directly.
+	children []*Symbol
 	// Counter assigns unique IDs to slot-allocating descendants. Non-nil on
 	// the root and on each function and sequence; nil elsewhere.
 	Counter *int
@@ -197,15 +201,20 @@ type Symbol struct {
 	GlobalResolver Resolver
 }
 
-// CreateRoot creates a root Symbol for a program. The optional dynamicResolver
-// is consulted for external symbols (e.g., cluster channels) when local lookup
-// misses. The root is a KindBlock symbol with an empty Name and an ID counter.
+// CreateRoot creates a user-program root attached to an empty ambient
+// prelude. The optional dynamicResolver is consulted for external symbols
+// (e.g., cluster channels) when local lookup misses. Callers attach
+// globals (STL symbols, test channels, custom modules) to the root's
+// ambient via AttachToAmbient.
 func CreateRoot(dynamicResolver Resolver) *Symbol {
-	return &Symbol{
+	ambient := &Symbol{Kind: KindAmbient}
+	root := &Symbol{
 		Kind:           KindBlock,
 		Counter:        new(int),
 		GlobalResolver: dynamicResolver,
 	}
+	ambient.AddChild(root)
+	return root
 }
 
 // Scope is a transitional alias for Symbol. The two types were collapsed when
@@ -231,6 +240,19 @@ func (s *Symbol) GetChildByParserRule(rule antlr.ParserRuleContext) (*Symbol, er
 
 // FindChildByName searches for a direct child with the given name. Returns nil
 // if no matching child is found.
+// Children returns the symbols directly contained by s. A KindModuleAlias
+// transparently returns its Target's children, so callers iterating a
+// scope's members do not need to special-case aliases. Callers that need
+// the alias's own (empty) child slice — LSP semantic-token tagging,
+// rename refactors — obtain the alias via FindChildByName and access its
+// fields directly.
+func (s *Symbol) Children() []*Symbol {
+	if s.Kind == KindModuleAlias && s.Target != nil {
+		return s.Target.Children()
+	}
+	return s.children
+}
+
 func (s *Symbol) FindChildByName(name string) *Symbol {
 	return s.FindChild(func(child *Symbol) bool { return child.Name == name })
 }
@@ -238,13 +260,13 @@ func (s *Symbol) FindChildByName(name string) *Symbol {
 // FindChild searches for a direct child matching the predicate. Returns nil if
 // no matching child is found.
 func (s *Symbol) FindChild(predicate func(*Symbol) bool) *Symbol {
-	res, _ := lo.Find(s.Children, predicate)
+	res, _ := lo.Find(s.children, predicate)
 	return res
 }
 
 // FilterChildren returns all direct children matching the predicate.
 func (s *Symbol) FilterChildren(predicate func(*Symbol) bool) []*Symbol {
-	return lo.Filter(s.Children, func(item *Symbol, _ int) bool {
+	return lo.Filter(s.children, func(item *Symbol, _ int) bool {
 		return predicate(item)
 	})
 }
@@ -262,7 +284,7 @@ func (s *Symbol) AutoName(prefix string) *Symbol {
 	return s
 }
 
-// Add creates a new child Symbol from sym and appends it to s.Children.
+// Add creates a new child Symbol from sym and appends it to s.children.
 //
 // If sym has a non-empty Name, Add checks for naming conflicts in the lexical
 // chain. Built-in symbols (AST == nil) can be shadowed. Returns an error if a
@@ -301,19 +323,104 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		sym.Kind == KindLoopVariable {
 		child.ID = s.addIndex()
 	}
-	s.Children = append(s.Children, child)
+	s.children = append(s.children, child)
 	return child, nil
 }
 
-// AddChild appends an already-constructed child to s.Children and sets its
+// AddChild appends an already-constructed child to s.children and sets its
 // Parent. Used by builders (e.g., STL module construction) that prepare
 // children before attaching them. Does not check for naming conflicts and
 // does not assign IDs; callers are responsible for these when constructing
 // tree fragments directly.
 func (s *Symbol) AddChild(child *Symbol) *Symbol {
 	child.Parent = s
-	s.Children = append(s.Children, child)
+	s.children = append(s.children, child)
 	return child
+}
+
+// ResolveQualified resolves a possibly-qualified name against scope.
+// A literal-name lookup is tried first so a scope child whose Name
+// contains a dot still resolves (some graph tests use this shape).
+// Otherwise the name is split at the first dot, the head is resolved
+// lexically, and the tail is resolved against the result. The alias
+// indirection (head returning a KindModuleAlias) is handled inside
+// Resolve itself, so this function does not chase Target by hand.
+// Used at IR-string boundaries (graph node Type) where the qualified
+// name is already a joined string.
+func ResolveQualified(
+	ctx context.Context,
+	scope *Symbol,
+	name string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	if sym, err := scope.Resolve(ctx, name, options...); err == nil {
+		return sym, nil
+	}
+	dot := strings.IndexByte(name, '.')
+	if dot < 0 {
+		return scope.Resolve(ctx, name, options...)
+	}
+	head, tail := name[:dot], name[dot+1:]
+	headSym, err := scope.Resolve(ctx, head, options...)
+	if err != nil {
+		return nil, err
+	}
+	return headSym.Resolve(ctx, tail, options...)
+}
+
+// AttachToAmbient adds symbols to the ambient prelude reached via s's
+// Parent. Used to expose statically-known globals (STL symbols, test
+// channels, custom modules) to user code via the standard lexical walk.
+// Panics when s has no ambient parent — callers must obtain s via
+// CreateRoot (or equivalent) before attaching.
+func (s *Symbol) AttachToAmbient(syms ...*Symbol) {
+	if s.Parent == nil || s.Parent.Kind != KindAmbient {
+		panic("AttachToAmbient: receiver has no ambient parent")
+	}
+	for _, sym := range syms {
+		s.Parent.AddChild(sym)
+	}
+}
+
+// AutoImportModules aliases each KindModule in root's ambient as a
+// KindModuleAlias child of root. Used by graph mode and other entry
+// points that reference module-qualified names (`control.set_authority`,
+// `time.interval`) without producing `import` statements. Text-mode
+// callers do not call this — the analyzer installs aliases from
+// source-level import declarations.
+func AutoImportModules(root *Symbol) {
+	if root.Parent == nil {
+		return
+	}
+	for _, child := range root.Parent.children {
+		if child.Kind != KindModule {
+			continue
+		}
+		alias := &Symbol{
+			Name:   child.Name,
+			Kind:   KindModuleAlias,
+			Target: child,
+			Parent: root,
+		}
+		root.children = append(root.children, alias)
+	}
+}
+
+// InternalHostFunc builds a KindFunction Symbol for a WASM host shim that
+// is hidden from user code. Used by STL packages to declare host bindings
+// (channels.read, state.load, etc.) with the common shape factored out:
+// every WASM host shim is Kind=KindFunction, Exec=ExecWASM, Internal=true.
+func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
+	return Symbol{
+		Name:     name,
+		Kind:     KindFunction,
+		Exec:     ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  inputs,
+			Outputs: outputs,
+		}),
+	}
 }
 
 // NewModule constructs a sealed module symbol with the given name and the
@@ -325,7 +432,7 @@ func NewModule(name string, members ...Symbol) *Symbol {
 	for i := range members {
 		child := members[i]
 		child.Parent = mod
-		mod.Children = append(mod.Children, &child)
+		mod.children = append(mod.children, &child)
 	}
 	return mod
 }
@@ -347,14 +454,14 @@ func NewTestScope(syms map[string]Symbol) *Symbol {
 			mod := parent.FindChildByName(part)
 			if mod == nil {
 				mod = &Symbol{Name: part, Kind: KindModule, Parent: parent}
-				parent.Children = append(parent.Children, mod)
+				parent.children = append(parent.children, mod)
 			}
 			parent = mod
 		}
 		leaf := sym
 		leaf.Name = parts[len(parts)-1]
 		leaf.Parent = parent
-		parent.Children = append(parent.Children, &leaf)
+		parent.children = append(parent.children, &leaf)
 	}
 	return root
 }
@@ -438,15 +545,41 @@ func (s *Symbol) Resolve(
 	for _, o := range options {
 		o(&opts)
 	}
-	return s.resolve(ctx, name, opts)
+	return s.resolve(ctx, name, opts, s)
 }
 
+// resolve does the actual lexical walk. origin is the scope the caller
+// invoked Resolve on; it is propagated unchanged through the parent walk
+// so that UndefinedSymbolError reports the original scope (where "did
+// you mean" suggestions should be drawn from), not the topmost ancestor.
+//
+// When name parses as a uint32, the walk matches symbols by ID instead
+// of by Name. The Arc lexer forbids identifiers starting with a digit,
+// so an all-numeric input is unambiguously an ID reference (graph
+// configs, channel-key literals in source). The branches share the walk
+// shape (children → GlobalResolver → parent) so a caller passing either
+// kind of key gets the same scoping semantics.
+//
+// Resolving on a KindModuleAlias transparently dispatches to its
+// Target — that is, member lookups (`alias.Resolve("foo")`) walk into
+// the module the alias points at. Direct lookups that *find* an alias
+// return the alias itself; this keeps duplicate-name detection honest
+// (the alias is the thing that conflicts with a second import) and
+// lets LSP refactor operations work on alias declaration sites.
 func (s *Symbol) resolve(
 	ctx context.Context,
 	name string,
 	opts resolveOpts,
+	origin *Symbol,
 ) (*Symbol, error) {
-	if child := s.FindChildByName(name); child != nil {
+	if s.Kind == KindModuleAlias && s.Target != nil {
+		return s.Target.resolve(ctx, name, opts, origin)
+	}
+	matches := func(child *Symbol) bool { return child.Name == name }
+	if id, err := strconv.ParseUint(name, 10, 32); err == nil {
+		matches = func(child *Symbol) bool { return child.ID == int(id) }
+	}
+	if child := s.FindChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
 			child.Used = true
 			return child, nil
@@ -463,9 +596,9 @@ func (s *Symbol) resolve(
 		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
 	}
 	if s.Parent != nil {
-		return s.Parent.resolve(ctx, name, opts)
+		return s.Parent.resolve(ctx, name, opts, origin)
 	}
-	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: origin}
 }
 
 // Search returns symbols matching the given prefix or fuzzy term using the
@@ -473,8 +606,8 @@ func (s *Symbol) resolve(
 func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
 	seen := make(set.Set[string])
 	var results []*Symbol
-	for _, child := range s.Children {
-		if child.Internal {
+	for _, child := range s.children {
+		if child.Internal || child.Name == "" {
 			continue
 		}
 		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
@@ -533,7 +666,7 @@ func (s *Symbol) ClosestAncestorOfKind(kind Kind) (*Symbol, error) {
 // FirstChildOfKind returns the first direct child of the given kind. Returns
 // query.ErrNotFound when no matching child exists.
 func (s *Symbol) FirstChildOfKind(kind Kind) (*Symbol, error) {
-	for _, child := range s.Children {
+	for _, child := range s.children {
 		if child.Kind == kind {
 			return child, nil
 		}
@@ -602,11 +735,11 @@ func (s *Symbol) stringWithIndent(indent string) string {
 		builder.WriteString(s.Type.String())
 		builder.WriteString("\n")
 	}
-	if len(s.Children) > 0 {
+	if len(s.children) > 0 {
 		builder.WriteString(indent)
 		builder.WriteString("children: \n")
 		childIndent := indent + "  "
-		for _, child := range s.Children {
+		for _, child := range s.children {
 			builder.WriteString(child.stringWithIndent(childIndent))
 			builder.WriteString(childIndent)
 			builder.WriteString("---\n")

@@ -621,7 +621,7 @@ func formatFunctionKindDescription(sym *symbol.Scope) string {
 // formatSequenceStagesList returns a list of formatted stage names.
 func formatSequenceStagesList(sym *symbol.Scope) []string {
 	var stages []string
-	for _, child := range sym.Children {
+	for _, child := range sym.Children() {
 		if child.Kind == symbol.KindStage {
 			stages = append(stages, "`"+child.Name+"`")
 		}

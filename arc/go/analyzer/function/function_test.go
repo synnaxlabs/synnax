@@ -26,22 +26,30 @@ import (
 
 // analyzeProgram is a helper that parses source code and runs the analyzer,
 // returning the context for further assertions.
-func analyzeProgram(bCtx SpecContext, src string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
+func analyzeProgram(bCtx SpecContext, src string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
+	ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		for i := range resolver {
+			s := resolver[i]
+			root.Parent.AddChild(&s)
+		}
+		return root
+	}())
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }
 
 // analyzeExpectSuccess parses and analyzes code, asserting no diagnostics.
-func analyzeExpectSuccess(bCtx SpecContext, src string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
+func analyzeExpectSuccess(bCtx SpecContext, src string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(bCtx, src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(BeEmpty(), ctx.Diagnostics.String())
 	return ctx
 }
 
 // analyzeExpectError parses and analyzes code, asserting a diagnostic error.
-func analyzeExpectError(bCtx SpecContext, src string, resolver symbol.Resolver, msgMatcher OmegaMatcher) context.Context[parser.IProgramContext] {
+func analyzeExpectError(bCtx SpecContext, src string, resolver []symbol.Symbol, msgMatcher OmegaMatcher) context.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(bCtx, src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
@@ -54,12 +62,12 @@ var _ = Describe("Function Analyzer", func() {
 		Describe("basic declaration collection", func() {
 			It("should handle empty program", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, ``, nil)
-				Expect(ctx.Scope.Children).To(BeEmpty())
+				Expect(ctx.Scope.Children()).To(BeEmpty())
 			})
 			It("should collect function with no parameters", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
-				Expect(ctx.Scope.Children).To(HaveLen(1))
-				fn := ctx.Scope.Children[0]
+				Expect(ctx.Scope.Children()).To(HaveLen(1))
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Name).To(Equal("foo"))
 				Expect(fn.Kind).To(Equal(symbol.KindFunction))
 				Expect(fn.Type.Config).To(BeEmpty())
@@ -71,15 +79,15 @@ var _ = Describe("Function Analyzer", func() {
 					func first() i32 { return second() }
 					func second() i32 { return 42 }
 				`, nil)
-				Expect(ctx.Scope.Children).To(HaveLen(2))
-				Expect(ctx.Scope.Children[0].Name).To(Equal("first"))
-				Expect(ctx.Scope.Children[1].Name).To(Equal("second"))
+				Expect(ctx.Scope.Children()).To(HaveLen(2))
+				Expect(ctx.Scope.Children()[0].Name).To(Equal("first"))
+				Expect(ctx.Scope.Children()[1].Name).To(Equal("second"))
 			})
 		})
 		Describe("config parameter collection", func() {
 			It("should collect function with only config params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{x i32}() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Config).To(HaveLen(1))
 				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
 				Expect(fn.Type.Inputs).To(BeEmpty())
@@ -87,18 +95,18 @@ var _ = Describe("Function Analyzer", func() {
 			})
 			It("should collect config with channel type", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{sensor chan f64}() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Config).To(HaveLen(1))
 				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
 			})
 			It("should handle empty config block", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{}() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Config).To(BeEmpty())
 			})
 			It("should collect config with default value", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{gain f64 = 1.0}() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Config).To(HaveLen(1))
 				Expect(fn.Type.Config[0].Name).To(Equal("gain"))
 				Expect(fn.Type.Config[0].Type).To(Equal(types.F64()))
@@ -106,7 +114,7 @@ var _ = Describe("Function Analyzer", func() {
 			})
 			It("should collect mixed required and optional config params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{setpoint f64, gain f64 = 1.0}() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Config).To(HaveLen(2))
 				Expect(fn.Type.Config[0].Name).To(Equal("setpoint"))
 				Expect(fn.Type.Config[0].Value).To(BeNil())
@@ -131,7 +139,7 @@ var _ = Describe("Function Analyzer", func() {
 		Describe("input parameter collection", func() {
 			It("should collect multiple inputs without defaults", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo(a i32, b f64, c u8) {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(3))
 				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "a", Type: types.I32()}))
 				Expect(fn.Type.Inputs[1]).To(Equal(types.Param{Name: "b", Type: types.F64()}))
@@ -139,7 +147,7 @@ var _ = Describe("Function Analyzer", func() {
 			})
 			It("should collect all optional inputs", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32 = 1, y i32 = 2) {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(2))
 				Expect(fn.Type.Inputs[0].Name).To(Equal("x"))
 				Expect(fn.Type.Inputs[0].Value).To(Equal(int32(1)))
@@ -148,7 +156,7 @@ var _ = Describe("Function Analyzer", func() {
 			})
 			It("should preserve order of mixed required and optional", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo(a i32, b i32, c i32 = 10) {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Inputs).To(HaveLen(3))
 				Expect(fn.Type.Inputs[0].Value).To(BeNil())
 				Expect(fn.Type.Inputs[1].Value).To(BeNil())
@@ -158,33 +166,33 @@ var _ = Describe("Function Analyzer", func() {
 		Describe("output parameter collection", func() {
 			It("should handle void function", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
 			It("should collect unnamed output with default param name", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() i32 { return 0 }`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Outputs).To(HaveLen(1))
 				Expect(fn.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
 				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
 			})
 			It("should collect single named output without parens", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() result i32 { result = 0 }`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Outputs).To(HaveLen(1))
 				Expect(fn.Type.Outputs[0].Name).To(Equal("result"))
 				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
 			})
 			It("should collect single named output with parens", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() (result i32) { result = 0 }`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Outputs).To(HaveLen(1))
 				Expect(fn.Type.Outputs[0].Name).To(Equal("result"))
 				Expect(fn.Type.Outputs[0].Type).To(Equal(types.I32()))
 			})
 			It("should collect multiple outputs in order", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() (a i32, b f64) { a = 0 b = 0.0 }`, nil)
-				fn := ctx.Scope.Children[0]
+				fn := ctx.Scope.Children()[0]
 				Expect(fn.Type.Outputs).To(HaveLen(2))
 				Expect(fn.Type.Outputs[0]).To(Equal(types.Param{Name: "a", Type: types.I32()}))
 				Expect(fn.Type.Outputs[1]).To(Equal(types.Param{Name: "b", Type: types.F64()}))
@@ -198,8 +206,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 			It("should add functions to root scope", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func outer() { } func inner() { }`, nil)
-				Expect(ctx.Scope.Children).To(HaveLen(2))
-				for _, child := range ctx.Scope.Children {
+				Expect(ctx.Scope.Children()).To(HaveLen(2))
+				for _, child := range ctx.Scope.Children() {
 					Expect(child.Kind).To(Equal(symbol.KindFunction))
 				}
 			})
@@ -304,14 +312,14 @@ var _ = Describe("Function Analyzer", func() {
 
 		Context("complex function analysis", func() {
 			It("should analyze a PID controller function", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"measurement": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "measurement",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F32()),
 						ID:   5,
 					},
-					"measurement_time": {
+					{
 						Name: "measurement_time",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I64()),
@@ -398,9 +406,9 @@ var _ = Describe("Function Analyzer", func() {
 		)
 
 		It("Should reject f64 channel multiplied by f32 channel", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ch_f64": {Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				"ch_f32": {Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			resolver := []symbol.Symbol{
+				{Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
+				{Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
 			}
 			analyzeExpectError(bCtx,
 				`func calc() f64 { return ch_f64 * ch_f32 }`,
@@ -410,9 +418,9 @@ var _ = Describe("Function Analyzer", func() {
 		})
 
 		It("Should reject f32 channel multiplied by f64 channel", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ch_f32": {Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
-				"ch_f64": {Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+			resolver := []symbol.Symbol{
+				{Name: "ch_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+				{Name: "ch_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
 			}
 			ctx := analyzeProgram(bCtx, `func calc() f64 { return ch_f32 * ch_f64 }`, resolver)
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
@@ -420,9 +428,9 @@ var _ = Describe("Function Analyzer", func() {
 		})
 
 		It("Should reject f32 return when literals mask f64 channel in denominator", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+			resolver := []symbol.Symbol{
+				{Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				{Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
 			}
 			ctx := analyzeProgram(bCtx,
 				`func calc() f32 { return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb)) }`,
@@ -433,9 +441,9 @@ var _ = Describe("Function Analyzer", func() {
 		})
 
 		It("Should reject f32 expression returned from f64 function with channel inputs", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+			resolver := []symbol.Symbol{
+				{Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				{Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
 			}
 			analyzeExpectError(bCtx,
 				`func calc() f64 { return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb)) }`,
@@ -468,9 +476,9 @@ var _ = Describe("Function Analyzer", func() {
 
 	Describe("Channel Binding", func() {
 		It("should bind global channels used in function body", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
-				"ox_pt_2": {Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
+			resolver := []symbol.Symbol{
+				{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				{Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 13},
 			}
 			ctx := analyzeExpectSuccess(bCtx, `
 				func add() f32 {
@@ -486,9 +494,9 @@ var _ = Describe("Function Analyzer", func() {
 		})
 
 		It("should bind channel name when writing to a global channel", func(bCtx SpecContext) {
-			resolver := symbol.MapResolver{
-				"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
-				"valve":   {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+			resolver := []symbol.Symbol{
+				{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
 			}
 			ctx := analyzeExpectSuccess(bCtx, `
 				func setValve() {
@@ -504,8 +512,8 @@ var _ = Describe("Function Analyzer", func() {
 
 		Context("channel propagation through function calls", func() {
 			It("should propagate channel writes from called function to caller", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				resolver := []symbol.Symbol{
+					{Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func dog(cat f32) {
@@ -526,8 +534,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate channel reads from called function to caller", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 12},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func readSensor() f32 {
@@ -548,8 +556,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate channels through multi-level call chains", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				resolver := []symbol.Symbol{
+					{Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func abc3(val f32) {
@@ -584,9 +592,9 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should combine direct and transitive channel accesses", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"virt1": {Name: "virt1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
-					"virt2": {Name: "virt2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 31},
+				resolver := []symbol.Symbol{
+					{Name: "virt1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+					{Name: "virt2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 31},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func helper() {
@@ -605,8 +613,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate channels from callee declared after caller", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"virt": {Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
+				resolver := []symbol.Symbol{
+					{Name: "virt", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func caller() {
@@ -623,8 +631,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should track correct channel ID for write through chan input param", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func helper(my_chan chan f32) {
@@ -644,8 +652,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate caller write channels when callee uses chan input param", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func helper(my_chan chan f32) {
@@ -664,8 +672,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate read channels through chan input param", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func helper(my_chan chan f32) f32 {
@@ -682,8 +690,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate channel writes through multi-level chan input param chain", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func leaf(ch chan f32) {
@@ -703,9 +711,9 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate multiple channel params correctly", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor":   {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-					"actuator": {Name: "actuator", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				resolver := []symbol.Symbol{
+					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+					{Name: "actuator", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func process(input chan f32, output chan f32) {
@@ -725,9 +733,9 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate channels when same function called with different channel args", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"valve_a": {Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
-					"valve_b": {Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				resolver := []symbol.Symbol{
+					{Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+					{Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func write_to(ch chan f32) {
@@ -749,8 +757,8 @@ var _ = Describe("Function Analyzer", func() {
 			})
 
 			It("should propagate chan param channels when callee is declared after caller", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ox_pt_1": {Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
+				resolver := []symbol.Symbol{
+					{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 50},
 				}
 				ctx := analyzeExpectSuccess(bCtx, `
 					func top() {
@@ -774,7 +782,7 @@ var _ = Describe("Function Analyzer", func() {
 		Context("valid optional parameter usage", func() {
 			It("should parse single optional parameter", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func add(x i64, y i64 = 0) i64 { return x + y }`, nil)
-				funcScope := ctx.Scope.Children[0]
+				funcScope := ctx.Scope.Children()[0]
 				Expect(funcScope.Type.Inputs).To(HaveLen(2))
 				Expect(funcScope.Type.Inputs[0].Name).To(Equal("x"))
 				Expect(funcScope.Type.Inputs[0].Type).To(Equal(types.I64()))
@@ -786,7 +794,7 @@ var _ = Describe("Function Analyzer", func() {
 
 			It("should parse multiple optional parameters", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func multi(a i32, b f64 = 1.5, c u8 = 10) f64 { return f64(a) + b + f64(c) }`, nil)
-				funcScope := ctx.Scope.Children[0]
+				funcScope := ctx.Scope.Children()[0]
 				Expect(funcScope.Type.Inputs).To(HaveLen(3))
 				Expect(funcScope.Type.Inputs[0].Name).To(Equal("a"))
 				Expect(funcScope.Type.Inputs[0].Value).To(BeNil())
@@ -798,7 +806,7 @@ var _ = Describe("Function Analyzer", func() {
 
 			It("should handle functions with no optional parameters", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func multiply(x i64, y i64) i64 { return x * y }`, nil)
-				funcScope := ctx.Scope.Children[0]
+				funcScope := ctx.Scope.Children()[0]
 				Expect(funcScope.Type.Inputs).To(HaveLen(2))
 				for _, p := range funcScope.Type.Inputs {
 					Expect(p.Value).To(BeNil())

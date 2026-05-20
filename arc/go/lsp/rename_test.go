@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -28,7 +29,13 @@ var _ = Describe("Rename", func() {
 	)
 
 	BeforeEach(func() {
-		server = MustSucceed(lsp.New())
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}()
+		}}))
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
@@ -68,15 +75,14 @@ var _ = Describe("Rename", func() {
 		})
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
@@ -235,15 +241,14 @@ func main() {
 		})
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"

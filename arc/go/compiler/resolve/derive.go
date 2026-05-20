@@ -39,11 +39,7 @@ func DeriveWASMCoordinates(
 	} else if scope != nil {
 		modSym, err := scope.Resolve(ctx, ref.module, symbol.IncludeInternal)
 		if err == nil {
-			container := modSym
-			if container.Target != nil {
-				container = container.Target
-			}
-			original, err := container.Resolve(ctx, ref.name, symbol.IncludeInternal)
+			original, err := modSym.Resolve(ctx, ref.name, symbol.IncludeInternal)
 			if err == nil && original.Type.Kind == types.KindFunction {
 				suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
 			}

@@ -48,7 +48,7 @@ func collectFoldingRanges(scope *symbol.Scope, ranges *[]protocol.FoldingRange) 
 			}
 		}
 	}
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		collectFoldingRanges(child, ranges)
 	}
 }

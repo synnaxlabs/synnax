@@ -54,18 +54,20 @@ var (
 			},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
-// BareGlobals returns the `select` symbol installed at the root scope so
-// programs can reference it without an import.
-func BareGlobals() []symbol.Symbol { return []symbol.Symbol{symbolSelect} }
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the `select` builtin installed at root scope.
+var Symbols = []*symbol.Symbol{&symbolSelect}
 
-type Module struct{}
+// Host is the runtime host-side support for `select`: a node factory only.
+// No WASM bindings, no per-program state.
+type Host struct{}
 
-func NewModule() *Module { return &Module{} }
+// NewHost constructs a selector Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

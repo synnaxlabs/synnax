@@ -13,13 +13,26 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/lsp/testutil"
 	xutil "github.com/synnaxlabs/x/testutil"
 )
 
-// SetupTestServer creates a new arc LSP server with a MockClient for testing.
+// defaultNewRoot builds an STL-populated root with no dynamic resolver.
+// Used as the default for test servers that don't override NewRoot.
+func defaultNewRoot() *symbol.Symbol {
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	return root
+}
+
+// SetupTestServer creates a new arc LSP server with a MockClient for
+// testing. If the supplied configs do not provide a NewRoot, a default
+// is applied that builds an STL-populated root with no dynamic resolver.
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
+	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	server.SetClient(&testutil.MockClient{})
@@ -27,15 +40,26 @@ func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
 }
 
 // SetupTestServerWithClient creates a new arc LSP server and returns
-// the server, URI, and the MockClient.
+// the server, URI, and the MockClient. NewRoot defaults as in
+// SetupTestServer.
 func SetupTestServerWithClient(
 	cfgs ...lsp.Config,
 ) (*lsp.Server, protocol.DocumentURI, *testutil.MockClient) {
+	cfgs = withDefaultNewRoot(cfgs)
 	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	client := &testutil.MockClient{}
 	server.SetClient(client)
 	return server, uri, client
+}
+
+func withDefaultNewRoot(cfgs []lsp.Config) []lsp.Config {
+	for _, c := range cfgs {
+		if c.NewRoot != nil {
+			return cfgs
+		}
+	}
+	return append(cfgs, lsp.Config{NewRoot: defaultNewRoot})
 }
 
 // OpenArcDocument is a helper to open a document in the arc LSP server.

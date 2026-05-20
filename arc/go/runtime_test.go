@@ -52,15 +52,18 @@ type runtimeHarness struct {
 func newRuntimeHarness(
 	ctx context.Context,
 	source string,
-	resolver symbol.Resolver,
+	channelSyms []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
-	compileResolver := symbol.CompoundResolver{stl.SymbolResolver}
-	if resolver != nil {
-		compileResolver = append(compileResolver, resolver)
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	channelPtrs := make([]*symbol.Symbol, len(channelSyms))
+	for i := range channelSyms {
+		s := channelSyms[i]
+		channelPtrs[i] = &s
 	}
-
-	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, arc.WithResolver(compileResolver)))
+	root.AttachToAmbient(channelPtrs...)
+	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 
 	nodeState := node.New(prog.IR)
 	channelState := channels.NewProgramState(channelDigests)
@@ -70,23 +73,23 @@ func newRuntimeHarness(
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 
-	timeMod := MustSucceed(time.NewModule(ctx, wasmRT))
-	channelMod := MustSucceed(channels.NewModule(ctx, channelState, stringsState, wasmRT))
-	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
-	MustSucceed(series.NewModule(ctx, seriesState, wasmRT))
-	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
-	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
+	timeMod := MustSucceed(time.NewHost(ctx, wasmRT))
+	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
+	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
+	MustSucceed(series.NewHost(ctx, wasmRT, seriesState))
+	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
+	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
+	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
 
 	factory := node.CompoundFactory{
 		channelMod,
 		statefulMod,
 		timeMod,
-		selector.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		stable.NewModule(),
-		control.NewModule(authorityState),
+		selector.NewHost(),
+		constant.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
+		control.NewHost(authorityState),
 		mathMod,
 	}
 
@@ -184,15 +187,18 @@ type channelDef struct {
 	id int
 }
 
-func channelSymbols(channels map[string]channelDef) symbol.MapResolver {
-	r := symbol.MapResolver{}
+// channelSymbols builds a flat list of channel symbols from a map of
+// (name → typed-id) entries. Used by runtime tests to attach a fixed set
+// of channels to a test root's ambient prelude.
+func channelSymbols(channels map[string]channelDef) []symbol.Symbol {
+	r := make([]symbol.Symbol, 0, len(channels))
 	for name, ch := range channels {
-		r[name] = symbol.Symbol{
+		r = append(r, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindChannel,
 			Type: types.Chan(ch.dt),
 			ID:   ch.id,
-		}
+		})
 	}
 	return r
 }

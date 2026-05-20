@@ -93,7 +93,7 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := aCtx.Scope.Resolve(aCtx, n.Type)
+		fnSym, err := symbol.ResolveQualified(aCtx, aCtx.Scope, n.Type)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics

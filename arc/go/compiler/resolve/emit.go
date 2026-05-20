@@ -36,11 +36,7 @@ func (r *Resolver) EmitFixedImportCall(
 	if err != nil {
 		return errors.Wrapf(err, "resolve module %s", module)
 	}
-	container := modSym
-	if container.Target != nil {
-		container = container.Target
-	}
-	sym, err := container.Resolve(ctx, name, symbol.IncludeInternal)
+	sym, err := modSym.Resolve(ctx, name, symbol.IncludeInternal)
 	if err != nil {
 		return errors.Wrapf(err, "resolve %s.%s", module, name)
 	}

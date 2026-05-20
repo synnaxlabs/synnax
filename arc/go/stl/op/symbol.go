@@ -78,22 +78,11 @@ const (
 	notSymbolName = "not"
 )
 
-var SymbolResolver = symbol.MapResolver{
-	geSymbolName:  createComparisonSymbol(geSymbolName),
-	gtSymbolName:  createComparisonSymbol(gtSymbolName),
-	leSymbolName:  createComparisonSymbol(leSymbolName),
-	ltSymbolName:  createComparisonSymbol(ltSymbolName),
-	eqSymbolName:  createComparisonSymbol(eqSymbolName),
-	neSymbolName:  createComparisonSymbol(neSymbolName),
-	andSymbolName: createLogicalSymbol(andSymbolName),
-	orSymbolName:  createLogicalSymbol(orSymbolName),
-	notSymbolName: createNotSymbol(notSymbolName),
-}
-
-// BareGlobals returns operator symbols installed at the root scope so
-// lowering passes can emit calls to them without imports.
-func BareGlobals() []symbol.Symbol {
-	return []symbol.Symbol{
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude. Operators are root-level (no module) — they install directly at
+// the root scope so lowering passes can emit calls without imports.
+var Symbols = func() []*symbol.Symbol {
+	bares := []symbol.Symbol{
 		createComparisonSymbol(geSymbolName),
 		createComparisonSymbol(gtSymbolName),
 		createComparisonSymbol(leSymbolName),
@@ -104,4 +93,10 @@ func BareGlobals() []symbol.Symbol {
 		createLogicalSymbol(orSymbolName),
 		createNotSymbol(notSymbolName),
 	}
-}
+	out := make([]*symbol.Symbol, len(bares))
+	for i := range bares {
+		s := bares[i]
+		out[i] = &s
+	}
+	return out
+}()

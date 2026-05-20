@@ -478,34 +478,47 @@ func (s *Server) getCompletionItems(
 		}
 		startChar := pos.Character - uint32(len(prefix))
 		if modulePrefix != "" {
-			// Module-qualified prefix (e.g. "math." or "time.n"): search
-			// only the GlobalResolver and filter to function symbols so
-			// that channels and other unrelated symbols are excluded.
-			if s.cfg.GlobalResolver != nil {
-				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
-				if err == nil {
-					for _, sym := range symbols {
-						if sym.Kind != symbol.KindFunction {
-							continue
-						}
-						if sym.Internal {
-							continue
-						}
-						if !sym.Exec.Compatible(execFilter) {
-							continue
-						}
-						qualifiedName := modulePrefix + sym.Name
-						item := symbolCompletionItem(sym.Name, sym.Type)
-						item.FilterText = qualifiedName
-						item.TextEdit = &protocol.TextEdit{
-							Range: protocol.Range{
-								Start: protocol.Position{Line: pos.Line, Character: startChar},
-								End:   pos,
-							},
-							NewText: qualifiedName,
-						}
-						items = append(items, item)
+			// Module-qualified prefix (e.g. "math." or "time.n"): find the
+			// module by name, prefer the document's scope tree (so user
+			// imports are respected); fall back to the STL ambient prelude
+			// so completion still works when the document hasn't yet been
+			// analyzed (e.g. mid-typing "math.").
+			moduleName := strings.TrimSuffix(modulePrefix, ".")
+			memberPrefix := prefix[len(modulePrefix):]
+			var mod *symbol.Symbol
+			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
+				mod, _ = scopeAtCursor.Resolve(ctx, moduleName, symbol.IncludeInternal)
+			}
+			if mod == nil && s.cfg.NewRoot != nil {
+				mod, _ = s.cfg.NewRoot().Resolve(ctx, moduleName, symbol.IncludeInternal)
+			}
+			// Resolve returns the alias for `import time as t`; follow Target
+			// to reach the module body for member enumeration.
+			if mod != nil && mod.Kind == symbol.KindModuleAlias && mod.Target != nil {
+				mod = mod.Target
+			}
+			if mod != nil && mod.Kind == symbol.KindModule {
+				for _, sym := range mod.Children() {
+					if sym.Kind != symbol.KindFunction || sym.Internal {
+						continue
 					}
+					if !sym.Exec.Compatible(execFilter) {
+						continue
+					}
+					if memberPrefix != "" && !strings.HasPrefix(sym.Name, memberPrefix) {
+						continue
+					}
+					qualifiedName := modulePrefix + sym.Name
+					item := symbolCompletionItem(sym.Name, sym.Type)
+					item.FilterText = qualifiedName
+					item.TextEdit = &protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: pos.Line, Character: startChar},
+							End:   pos,
+						},
+						NewText: qualifiedName,
+					}
+					items = append(items, item)
 				}
 			}
 		} else {
@@ -520,8 +533,8 @@ func (s *Server) getCompletionItems(
 						items = append(items, symbolCompletionItem(scope.Name, scope.Type))
 					}
 				}
-			} else if s.cfg.GlobalResolver != nil {
-				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+			} else if s.cfg.NewRoot != nil {
+				symbols, err := s.cfg.NewRoot().Search(ctx, prefix)
 				if err == nil {
 					for _, sym := range symbols {
 						if sym.Kind == symbol.KindFunction && !sym.Exec.Compatible(execFilter) {
@@ -590,8 +603,8 @@ func (s *Server) getAuthorityEntryCompletions(
 			Detail: t.String(),
 		})
 	}
-	if s.cfg.GlobalResolver != nil {
-		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+	if s.cfg.NewRoot != nil {
+		symbols, err := s.cfg.NewRoot().Search(ctx, prefix)
 		if err != nil {
 			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
 		}
@@ -622,8 +635,8 @@ func (s *Server) resolveFunctionType(
 			return sym.Type, true
 		}
 	}
-	if s.cfg.GlobalResolver != nil {
-		sym, err := s.cfg.GlobalResolver.Resolve(ctx, name)
+	if s.cfg.NewRoot != nil {
+		sym, err := s.cfg.NewRoot().Resolve(ctx, name)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}
@@ -650,8 +663,8 @@ func (s *Server) collectSymbols(
 			Detail: t.String(),
 		})
 	}
-	if s.cfg.GlobalResolver != nil {
-		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+	if s.cfg.NewRoot != nil {
+		symbols, err := s.cfg.NewRoot().Search(ctx, prefix)
 		if err == nil {
 			for _, sym := range symbols {
 				addItem(sym.Name, sym.Type)

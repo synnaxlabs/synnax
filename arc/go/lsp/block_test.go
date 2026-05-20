@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -29,32 +30,25 @@ func generateBlockURI(id string) protocol.DocumentURI {
 
 var _ = Describe("Block Expressions with GlobalResolver", func() {
 	var (
-		server         *lsp.Server
-		globalResolver symbol.MapResolver
+		server   *lsp.Server
+		channels []symbol.Symbol
 	)
 
 	BeforeEach(func() {
-		globalResolver = symbol.MapResolver{
-			"sensor": symbol.Symbol{
-				Name: "sensor",
-				Type: types.Chan(types.F32()),
-				Kind: symbol.KindChannel,
-				ID:   1,
-			},
-			"temp_c": symbol.Symbol{
-				Name: "temp_c",
-				Type: types.Chan(types.F32()),
-				Kind: symbol.KindChannel,
-				ID:   2,
-			},
-			"pressure": symbol.Symbol{
-				Name: "pressure",
-				Type: types.Chan(types.F64()),
-				Kind: symbol.KindChannel,
-				ID:   3,
-			},
+		channels = []symbol.Symbol{
+			{Name: "sensor", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 1},
+			{Name: "temp_c", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 2},
+			{Name: "pressure", Type: types.Chan(types.F64()), Kind: symbol.KindChannel, ID: 3},
 		}
-		server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			for i := range channels {
+				s := channels[i]
+				root.Parent.AddChild(&s)
+			}
+			return root
+		}}))
 		server.SetClient(&MockClient{})
 	})
 

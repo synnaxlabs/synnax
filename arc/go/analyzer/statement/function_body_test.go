@@ -26,14 +26,26 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	createContextWithResolver := func(
 		bCtx SpecContext,
 		block parser.IBlockContext,
-		resolver symbol.Resolver,
+		resolver []symbol.Symbol,
 	) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, stl.NewRoot(resolver))
+		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			for i := range resolver {
+				s := resolver[i]
+				root.Parent.AddChild(&s)
+			}
+			return root
+		}())
 	}
 
 	// Helper to create a context without a resolver
 	createContext := func(bCtx SpecContext, block parser.IBlockContext) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, stl.NewRoot(nil))
+		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			return root
+		}())
 	}
 
 	// Helper to analyze function body and expect success
@@ -81,18 +93,18 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 		DescribeTable("channel type inference with integer constants",
 			func(bCtx SpecContext, code string, chanName string, chanType types.Type, expected types.Type) {
-				globalResolver := symbol.MapResolver{
-					"condition": symbol.Symbol{
+				globalResolver := []symbol.Symbol{
+					{
 						Name: "condition",
 						Kind: symbol.KindVariable,
 						Type: types.U8(),
 					},
-					"u8_channel": symbol.Symbol{
+					{
 						Name: "u8_channel",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.U8()),
 					},
-					chanName: symbol.Symbol{
+					{
 						Name: chanName,
 						Kind: symbol.KindChannel,
 						Type: chanType,
@@ -122,13 +134,13 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				if (condition == 1) { return 0 }
 				return f32_series
 			}`))
-			globalResolver := symbol.MapResolver{
-				"condition": symbol.Symbol{
+			globalResolver := []symbol.Symbol{
+				{
 					Name: "condition",
 					Kind: symbol.KindVariable,
 					Type: types.U8(),
 				},
-				"f32_series": symbol.Symbol{
+				{
 					Name: "f32_series",
 					Kind: symbol.KindVariable,
 					Type: types.Series(types.F32()),
@@ -157,9 +169,9 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				else if (a == 3) { return 2 }
 				return f32_chan
 			}`))
-			globalResolver := symbol.MapResolver{
-				"a": symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.U8()},
-				"f32_chan": symbol.Symbol{
+			globalResolver := []symbol.Symbol{
+				{Name: "a", Kind: symbol.KindVariable, Type: types.U8()},
+				{
 					Name: "f32_chan",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
@@ -172,8 +184,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 
 		It("should infer the correct type for channel and literal operations in power expressions", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{ return f32_chan ^ 2 }`))
-			globalResolver := symbol.MapResolver{
-				"f32_chan": symbol.Symbol{
+			globalResolver := []symbol.Symbol{
+				{
 					Name: "f32_chan",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
@@ -189,13 +201,13 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				if (condition == 1) { return 3.14 }
 				return f32_chan
 			}`))
-			globalResolver := symbol.MapResolver{
-				"condition": symbol.Symbol{
+			globalResolver := []symbol.Symbol{
+				{
 					Name: "condition",
 					Kind: symbol.KindVariable,
 					Type: types.U8(),
 				},
-				"f32_chan": symbol.Symbol{
+				{
 					Name: "f32_chan",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),
@@ -212,8 +224,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				if (x > 0) { return f32_chan }
 				return x
 			}`))
-			globalResolver := symbol.MapResolver{
-				"f32_chan": symbol.Symbol{
+			globalResolver := []symbol.Symbol{
+				{
 					Name: "f32_chan",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.F32()),

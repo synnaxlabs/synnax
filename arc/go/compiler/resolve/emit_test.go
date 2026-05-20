@@ -24,7 +24,9 @@ import (
 // same scope-tree walk the real compiler uses.
 func stringScope() *symbol.Symbol {
 	root := symbol.CreateRoot(nil)
-	root.AddChild(stlstrings.BuildModule())
+	for _, s := range stlstrings.Symbols {
+		root.AddChild(s)
+	}
 	return root
 }
 

@@ -10,6 +10,8 @@
 package math_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -80,11 +82,16 @@ func openMath(
 	config types.Params,
 ) mathSetup {
 	g := makeMathGraph(nodeType, dt)
-	analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stlmath.SymbolResolver))
+	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		symbol.AutoImportModules(root)
+		return root
+	}())
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
-	m := MustSucceed(stlmath.NewModule(ctx, nil))
+	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
 		State:   s.Node("math"),
@@ -100,11 +107,16 @@ func openMathWithReset(
 	config types.Params,
 ) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
-	analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stlmath.SymbolResolver))
+	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		symbol.AutoImportModules(root)
+		return root
+	}())
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	s := node.New(analyzed)
 	inputNode := s.Node("input")
-	m := MustSucceed(stlmath.NewModule(ctx, nil))
+	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
 		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
 		State:   s.Node("math"),
@@ -143,7 +155,7 @@ var _ = Describe("Math", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			rt = testutil.NewRuntime(ctx)
-			MustSucceed(stlmath.NewModule(ctx, rt.Underlying()))
+			MustSucceed(stlmath.NewHost(ctx, rt.Underlying()))
 			rt.Passthrough(ctx, "math")
 		})
 
@@ -221,7 +233,7 @@ var _ = Describe("Math", func() {
 
 		BeforeEach(func(ctx SpecContext) {
 			rt = testutil.NewRuntime(ctx)
-			MustSucceed(stlmath.NewModule(ctx, rt.Underlying()))
+			MustSucceed(stlmath.NewHost(ctx, rt.Underlying()))
 			rt.Passthrough(ctx, "math")
 		})
 
@@ -254,31 +266,37 @@ var _ = Describe("Math", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve bare avg symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "avg"))
+	Describe("Symbols", func() {
+		newRoot := func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stlmath.Symbols...)
+			return root
+		}
+		resolve := func(ctx context.Context, qualified string) *symbol.Symbol {
+			return MustSucceed(symbol.ResolveQualified(ctx, newRoot(), qualified, symbol.IncludeInternal))
+		}
+		It("Should expose bare avg symbol (deprecated)", func(ctx SpecContext) {
+			sym := resolve(ctx, "avg")
+			Expect(sym.Name).To(Equal("avg"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.Deprecated).ToNot(BeNil())
+		})
+		It("Should expose qualified math.avg symbol", func(ctx SpecContext) {
+			sym := resolve(ctx, "math.avg")
 			Expect(sym.Name).To(Equal("avg"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified math.avg symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.avg"))
-			Expect(sym.Name).To(Equal("avg"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		It("Should expose qualified math.min symbol", func(ctx SpecContext) {
+			Expect(resolve(ctx, "math.min").Name).To(Equal("min"))
 		})
-		It("Should resolve qualified math.min symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.min"))
-			Expect(sym.Name).To(Equal("min"))
+		It("Should expose qualified math.max symbol", func(ctx SpecContext) {
+			Expect(resolve(ctx, "math.max").Name).To(Equal("max"))
 		})
-		It("Should resolve qualified math.max symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.max"))
-			Expect(sym.Name).To(Equal("max"))
+		It("Should expose qualified math.derivative symbol", func(ctx SpecContext) {
+			Expect(resolve(ctx, "math.derivative").Name).To(Equal("derivative"))
 		})
-		It("Should resolve qualified math.derivative symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.derivative"))
-			Expect(sym.Name).To(Equal("derivative"))
-		})
-		It("Should resolve qualified math.pow symbol as internal", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.pow"))
+		It("Should expose math.pow symbol as internal", func(ctx SpecContext) {
+			sym := resolve(ctx, "math.pow")
 			Expect(sym.Name).To(Equal("pow"))
 			Expect(sym.Internal).To(BeTrue())
 		})
@@ -287,10 +305,15 @@ var _ = Describe("Math", func() {
 	Describe("Factory", func() {
 		It("Should create node for math.avg via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("avg", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stlmath.SymbolResolver))
+			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
-			m := MustSucceed(stlmath.NewModule(ctx, nil))
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
 			compound := node.CompoundFactory{m}
 			cfg := node.Config{
 				Node:    ir.Node{Key: "math", Type: "math.avg"},
@@ -302,10 +325,15 @@ var _ = Describe("Math", func() {
 		})
 		It("Should create node for math.derivative via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("derivative", types.F64())
-			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stlmath.SymbolResolver))
+			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				symbol.AutoImportModules(root)
+				return root
+			}())
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
-			m := MustSucceed(stlmath.NewModule(ctx, nil))
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
 			compound := node.CompoundFactory{m}
 			cfg := node.Config{
 				Node:  ir.Node{Key: "math", Type: "math.derivative"},
@@ -698,11 +726,16 @@ var _ = Describe("Derivative", func() {
 
 	openDeriv := func(ctx SpecContext, dt types.Type) mathSetup {
 		g := makeDerivGraph(dt)
-		analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stlmath.SymbolResolver))
+		analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			symbol.AutoImportModules(root)
+			return root
+		}())
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := node.New(analyzed)
 		inputNode := s.Node("input")
-		m := MustSucceed(stlmath.NewModule(ctx, nil))
+		m := MustSucceed(stlmath.NewHost(ctx, nil))
 		n := MustSucceed(m.Create(ctx, node.Config{
 			Node:  ir.Node{Type: "derivative"},
 			State: s.Node("deriv"),

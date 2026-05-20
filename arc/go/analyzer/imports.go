@@ -76,7 +76,7 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 // never consulted by resolution.
 func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 	root := ctx.Scope.Root()
-	for _, child := range root.Children {
+	for _, child := range root.Children() {
 		if child.Kind != symbol.KindModuleAlias {
 			continue
 		}

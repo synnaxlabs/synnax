@@ -24,21 +24,23 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// analyze parses and runs full source-level analysis against the STL
-// resolver, returning the diagnostics it produced. An optional channel
-// resolver supplies the channel symbols used by flow statements.
-func analyze(source string, extra ...symbol.Resolver) *diagnostics.Diagnostics {
+// analyze parses and runs full source-level analysis with the STL prelude
+// attached, plus an optional flat list of channels attached to the same
+// ambient. Returns the diagnostics it produced.
+func analyze(source string, extras ...[]symbol.Symbol) *diagnostics.Diagnostics {
 	t, parseDiag := text.Parse(text.Text{Raw: source})
 	if parseDiag != nil && !parseDiag.Ok() {
 		return parseDiag
 	}
-	resolver := symbol.Resolver(stl.SymbolResolver)
-	if len(extra) > 0 {
-		combined := symbol.CompoundResolver{stl.SymbolResolver}
-		combined = append(combined, extra...)
-		resolver = combined
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	for _, set := range extras {
+		for i := range set {
+			s := set[i]
+			root.Parent.AddChild(&s)
+		}
 	}
-	_, diag := text.Analyze(context.Background(), t, stl.NewRoot(resolver))
+	_, diag := text.Analyze(context.Background(), t, root)
 	return diag
 }
 
@@ -150,8 +152,13 @@ trig -> t.now{} -> now_out
 			if parseDiag != nil {
 				Expect(parseDiag.Ok()).To(BeTrue())
 			}
-			resolver := symbol.CompoundResolver{stl.SymbolResolver, chans}
-			i, d := text.Analyze(context.Background(), t, stl.NewRoot(resolver))
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			for i := range chans {
+				s := chans[i]
+				root.Parent.AddChild(&s)
+			}
+			i, d := text.Analyze(context.Background(), t, root)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 			var found bool
 			for _, n := range i.Nodes {

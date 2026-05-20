@@ -535,7 +535,7 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithAnalyzer(
 				ctx,
 				"time.now()",
-				stl.SymbolResolver,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
@@ -547,7 +547,7 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithAnalyzer(
 				ctx,
 				"now()",
-				stl.SymbolResolver,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
@@ -557,7 +557,11 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.NewRoot(stl.SymbolResolver))
+			analyzerCtx := acontext.CreateRoot(bCtx, expr, func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}())
 			timeMod := analyzerCtx.Scope.Parent.FindChildByName("time")
 			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
 				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -577,17 +581,8 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"x": {Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
-				},
-				stl.SymbolResolver,
-			}
-			_, exprType := compileWithAnalyzer(
-				ctx,
-				"x ^ 2.0",
-				resolver,
-			)
+			channels := []symbol.Symbol{{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0}}
+			_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
 			Expect(exprType).To(Equal(types.F64()))
 		})
 	})

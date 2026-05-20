@@ -47,7 +47,7 @@ func findScopeRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Sco
 			*deepest = scope
 		}
 	}
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		findScopeRecursive(child, line, col, deepest)
 	}
 }

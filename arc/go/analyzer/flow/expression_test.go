@@ -23,37 +23,26 @@ import (
 )
 
 var _ = Describe("AnalyzeSingleExpression", func() {
-	testResolver := symbol.MapResolver{
-		"temp_sensor": symbol.Symbol{
-			Name: "temp_sensor",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F32()),
-			ID:   10,
-		},
-		"pressure": symbol.Symbol{
-			Name: "pressure",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F64()),
-			ID:   11,
-		},
-		"ox_pt_1": symbol.Symbol{
-			Name: "ox_pt_1",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F64()),
-			ID:   12,
-		},
-		"ox_pt_2": symbol.Symbol{
-			Name: "ox_pt_2",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F64()),
-			ID:   13,
-		},
+	testChannels := []symbol.Symbol{
+		{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+		{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 11},
+		{Name: "ox_pt_1", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 12},
+		{Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 13},
+	}
+	newRoot := func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		for i := range testChannels {
+			s := testChannels[i]
+			root.Parent.AddChild(&s)
+		}
+		return root
 	}
 
 	Describe("Pure Literals", func() {
 		It("should create KindConstant for integer literal", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`42`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
@@ -67,7 +56,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should create KindConstant for float literal", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`3.14`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
@@ -79,7 +68,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should create KindConstant for string literal", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`"hello"`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			constSym := MustSucceed(ctx.Scope.Resolve(ctx, "constant_0"))
@@ -91,7 +80,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should auto-increment constant names for multiple literals", func(bCtx SpecContext) {
 			expr0 := MustSucceed(parser.ParseExpression(`42`))
-			ctx := context.CreateRoot(bCtx, expr0, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr0, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 
 			expr1 := MustSucceed(parser.ParseExpression(`100`))
@@ -116,7 +105,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 	Describe("Complex Expressions", func() {
 		It("should create KindFunction for binary expression with channel", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`ox_pt_1 > 100`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -129,7 +118,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should accumulate read channels from expression", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`ox_pt_1 > 100`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -139,7 +128,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should accumulate multiple channels from arithmetic expression", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`ox_pt_1 + ox_pt_2`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -150,7 +139,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should create KindFunction for logical AND expression", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`ox_pt_1 > 100 and pressure > 50`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -161,7 +150,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should auto-increment expression names", func(bCtx SpecContext) {
 			expr0 := MustSucceed(parser.ParseExpression(`ox_pt_1 > 100`))
-			ctx := context.CreateRoot(bCtx, expr0, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr0, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 
 			expr1 := MustSucceed(parser.ParseExpression(`pressure < 50`))
@@ -184,7 +173,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should handle parenthesized expressions", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`(ox_pt_1 + ox_pt_2) * 2`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -193,7 +182,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should handle type cast expressions", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`f64(temp_sensor)`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
@@ -206,7 +195,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 	Describe("Error Cases", func() {
 		It("should report undefined symbol in expression", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`unknown_channel > 100`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -215,7 +204,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 		It("should report multiple undefined symbols", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression(`foo + bar`))
-			ctx := context.CreateRoot(bCtx, expr, stl.NewRoot(testResolver))
+			ctx := context.CreateRoot(bCtx, expr, newRoot())
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))

@@ -151,7 +151,7 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("Lazy suggestion performance", func() {
 		It("should not trigger Search on global resolver during Add", func(bCtx SpecContext) {
 			tracker := &searchTracker{
-				inner: symbol.MapResolver{
+				inner: staticResolver{
 					"builtin_fn": {Name: "builtin_fn", Kind: symbol.KindFunction},
 				},
 			}

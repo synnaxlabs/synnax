@@ -29,7 +29,11 @@ var _ = Describe("Completion", func() {
 	)
 
 	BeforeEach(func() {
-		server = MustSucceed(lsp.New())
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+			root := symbol.CreateRoot(nil)
+			root.AttachToAmbient(stl.Symbols...)
+			return root
+		}}))
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
@@ -239,16 +243,22 @@ var _ = Describe("Completion", func() {
 
 	Describe("Sequence Body Shows Symbols and Keywords", func() {
 		It("should show channel symbols and stage keyword inside sequence body", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"sensor": symbol.Symbol{
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   1,
-				},
-			}
+			globalResolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}}
 
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    \n}"
@@ -265,16 +275,22 @@ var _ = Describe("Completion", func() {
 	Describe("GlobalResolver", func() {
 		It("should include global variables from GlobalResolver in completion", func(ctx SpecContext) {
 			// Create a mock GlobalResolver with a global variable
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
-					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
+			globalResolver := []symbol.Symbol{{
+				Name: "myGlobal",
+				Type: types.I32(),
+				Kind: symbol.KindVariable,
+			}}
 
 			// Create server with GlobalResolver
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			// Use the same pattern as hover test - valid Arc code
@@ -294,15 +310,21 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not show GlobalResolver symbols when prefix doesn't match", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
-					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
+			globalResolver := []symbol.Symbol{{
+				Name: "myGlobal",
+				Type: types.I32(),
+				Kind: symbol.KindVariable,
+			}}
 
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
@@ -317,16 +339,22 @@ var _ = Describe("Completion", func() {
 
 	Describe("Parenthesized Expression Completion", func() {
 		It("should suggest channels inside parenthesized expression after return", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"output_sensor": symbol.Symbol{
-					Name: "output_sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   1,
-				},
-			}
+			globalResolver := []symbol.Symbol{{
+				Name: "output_sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   1,
+			}}
 
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() f64 {\n    return (o\n}"
@@ -341,31 +369,36 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Config Parameter Completion", func() {
-		var globalResolver symbol.MapResolver
+		var globalResolver []symbol.Symbol
 
 		BeforeEach(func() {
-			globalResolver = symbol.MapResolver{
-				"myTask": symbol.Symbol{
-					Name: "myTask",
-					Kind: symbol.KindFunction,
-					Type: types.Function(types.FunctionProperties{
-						Config: types.Params{
-							{Name: "threshold", Type: types.F64()},
-							{Name: "timeout", Type: types.I64()},
-							{Name: "channel", Type: types.Chan(types.F64())},
-						},
-					}),
-				},
-				"sensorCh": symbol.Symbol{
-					Name: "sensorCh",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-				},
-			}
+			globalResolver = []symbol.Symbol{{
+				Name: "myTask",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{
+					Config: types.Params{
+						{Name: "threshold", Type: types.F64()},
+						{Name: "timeout", Type: types.I64()},
+						{Name: "channel", Type: types.Chan(types.F64())},
+					},
+				}),
+			}, {
+				Name: "sensorCh",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			}}
 		})
 
 		It("should suggest all config parameters in empty config block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
@@ -380,7 +413,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter out already-provided parameters", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
@@ -394,7 +435,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix when typing parameter name", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{threshold=1.0}\n}"
@@ -408,7 +457,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show type details for config parameters", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{}\n}"
@@ -424,7 +481,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channel symbols for chan type parameters", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    myTask{channel=sensorCh}\n}"
@@ -438,32 +503,36 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Authority Block Completion", func() {
-		var globalResolver symbol.MapResolver
+		var globalResolver []symbol.Symbol
 
 		BeforeEach(func() {
-			globalResolver = symbol.MapResolver{
-				"vent_vlv_cmd": symbol.Symbol{
-					Name: "vent_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   1,
-				},
-				"press_vlv_cmd": symbol.Symbol{
-					Name: "press_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   2,
-				},
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
-					Kind: symbol.KindVariable,
-					Type: types.I32(),
-				},
-			}
+			globalResolver = []symbol.Symbol{{
+				Name: "vent_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			}, {
+				Name: "press_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   2,
+			}, {
+				Name: "myGlobal",
+				Kind: symbol.KindVariable,
+				Type: types.I32(),
+			}}
 		})
 
 		It("should suggest authority keyword at top level", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "auth"
@@ -475,7 +544,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channels inside authority block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    \n)"
@@ -489,7 +566,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not suggest non-channel symbols inside authority block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    \n)"
@@ -502,7 +587,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter out already-listed channels", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    vent_vlv_cmd 100\n    \n)"
@@ -516,7 +609,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix inside authority block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "authority (\n    200\n    v\n)"
@@ -604,33 +705,37 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Stage Body Completion", func() {
-		var globalResolver symbol.MapResolver
+		var globalResolver []symbol.Symbol
 
 		BeforeEach(func() {
-			globalResolver = symbol.MapResolver{
-				"vent_vlv_cmd": symbol.Symbol{
-					Name: "vent_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   1,
-				},
-				"press_vlv_cmd": symbol.Symbol{
-					Name: "press_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   2,
-				},
-				"press_pt": symbol.Symbol{
-					Name: "press_pt",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   3,
-				},
-			}
+			globalResolver = []symbol.Symbol{{
+				Name: "vent_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			}, {
+				Name: "press_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   2,
+			}, {
+				Name: "press_pt",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   3,
+			}}
 		})
 
 		It("should suggest channels inside stage body", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
@@ -645,7 +750,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channels with prefix filter inside stage body", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        v\n    }\n}"
@@ -659,7 +772,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channels inside stage after flow statement", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        \n    }\n}"
@@ -673,7 +794,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channels with prefix after flow statement", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range globalResolver {
+					s := globalResolver[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        v\n    }\n}"
@@ -687,29 +816,22 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Module Qualified Completion", func() {
-		var resolverWithChannels symbol.CompoundResolver
+		var channelsWithChannels []symbol.Symbol
 
 		BeforeEach(func() {
-			resolverWithChannels = make(symbol.CompoundResolver, len(stl.SymbolResolver))
-			copy(resolverWithChannels, stl.SymbolResolver)
-			resolverWithChannels = append(resolverWithChannels, symbol.MapResolver{
-				"sy_node_1_metrics_time": {
-					Name: "sy_node_1_metrics_time",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-				},
-				"temperature_sensor": {
-					Name: "temperature_sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-				},
-			})
+			channelsWithChannels = []symbol.Symbol{
+				{Name: "sy_node_1_metrics_time", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+				{Name: "temperature_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			}
 		})
+		_ = channelsWithChannels
 
 		It("Should return module members for 'math.a' prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "math.a"
@@ -723,9 +845,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "math."
@@ -741,9 +865,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return only WASM time members for 'time.' prefix in func block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
@@ -760,9 +886,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return control.set_authority for 'control.' prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "control."
@@ -774,9 +902,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return control.set_authority for 'control.set_a' prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "control.set_a"
@@ -792,9 +922,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should suggest module names at top-level when typing a partial module name", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "trig => contr")
@@ -813,9 +945,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return error module members for 'error.' prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    error.\n}"
@@ -827,9 +961,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should set FilterText with qualified name", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "math."
@@ -844,9 +980,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should set TextEdit that replaces the full module prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "math."
@@ -864,9 +1002,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should exclude channel symbols from module-qualified results", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: resolverWithChannels,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range channelsWithChannels {
+					s := channelsWithChannels[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
@@ -880,9 +1024,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should exclude channels even with partial member prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: resolverWithChannels,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range channelsWithChannels {
+					s := channelsWithChannels[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.n\n}"
@@ -896,9 +1046,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should return nothing for unknown module prefix", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    fake.\n}"
@@ -910,9 +1062,15 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("Should not affect unqualified completions", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: resolverWithChannels,
-			}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				for i := range channelsWithChannels {
+					s := channelsWithChannels[i]
+					root.Parent.AddChild(&s)
+				}
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    t\n}"
@@ -927,7 +1085,11 @@ var _ = Describe("Completion", func() {
 
 	Describe("ExecContext Filtering", func() {
 		It("should not show internal symbols inside func block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    math.\n}"
@@ -940,7 +1102,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not show flow functions inside func block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    time.\n}"
@@ -957,7 +1123,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show flow functions at top level", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "time."
@@ -972,7 +1142,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show ExecBoth functions at top level", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "time."
@@ -985,7 +1159,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not show WASM-only functions at top level", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "math."
@@ -998,7 +1176,11 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not show unqualified flow-only functions in func block", func(ctx SpecContext) {
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				root := symbol.CreateRoot(nil)
+				root.AttachToAmbient(stl.Symbols...)
+				return root
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() {\n    \n}"

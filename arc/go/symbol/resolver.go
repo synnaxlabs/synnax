@@ -11,72 +11,32 @@ package symbol
 
 import (
 	"context"
-	"strings"
 
-	"github.com/synnaxlabs/x/compare"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
 // Resolver provides on-demand lookups for symbols that live outside the
 // in-memory symbol tree. Implementations are consulted by Symbol.Resolve
-// and Symbol.Search when a name cannot be found among Children.
+// and Symbol.Search when a key cannot be found among Children. The
+// canonical production use is cluster channels: name and ID both stable,
+// but the set changes at runtime. Symbols whose identity is fixed at
+// compile time go in the ambient prelude via (*Symbol).AttachToAmbient
+// instead of behind a Resolver.
 type Resolver interface {
-	// Resolve looks up a symbol by exact name match. Returns a non-nil
-	// error when the symbol does not exist.
+	// Resolve looks up a symbol by name. Numeric-looking names are
+	// equally valid keys — production resolvers typically index by both
+	// name and ID and dispatch based on input format.
 	Resolve(ctx context.Context, name string) (*Symbol, error)
-	// Search returns symbols matching the given search term. Implementations
-	// should support fuzzy matching. Used for completion and "did you mean"
-	// suggestions.
+	// Search returns symbols matching the given search term.
+	// Implementations should support fuzzy matching. Used for completion
+	// and "did you mean" suggestions.
 	Search(ctx context.Context, term string) ([]*Symbol, error)
 }
 
-// MapResolver is a simple map-based resolver for static symbol sets.
-// Construction sites use this for built-in declarations. Each Resolve call
-// returns a fresh *Symbol so callers may attach the result into a tree.
-type MapResolver map[string]Symbol
-
-var _ Resolver = (MapResolver)(nil)
-
-// Resolve looks up a symbol by name in the map.
-func (m MapResolver) Resolve(_ context.Context, name string) (*Symbol, error) {
-	if s, ok := m[name]; ok {
-		sym := s
-		return &sym, nil
-	}
-	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
-}
-
-// Search returns symbols matching the search term using prefix and fuzzy match.
-func (m MapResolver) Search(_ context.Context, term string) ([]*Symbol, error) {
-	var symbols []*Symbol
-	for name, sym := range m {
-		if strings.HasPrefix(name, term) {
-			s := sym
-			symbols = append(symbols, &s)
-			continue
-		}
-		if len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2 {
-			s := sym
-			symbols = append(symbols, &s)
-		}
-	}
-	return symbols, nil
-}
-
-// Values returns the map's symbols as a flat slice. Useful for STL module
-// builders that already have a MapResolver of members and want to install
-// them under a parent.
-func (m MapResolver) Values() []Symbol {
-	out := make([]Symbol, 0, len(m))
-	for _, sym := range m {
-		out = append(out, sym)
-	}
-	return out
-}
-
-// CompoundResolver chains multiple resolvers, returning the first successful match.
+// CompoundResolver chains multiple resolvers, returning the first
+// successful match. Used to compose multiple dynamic sources (e.g.
+// cluster channels plus a temporary scratch set) behind one
+// GlobalResolver.
 type CompoundResolver []Resolver
 
 var _ Resolver = (CompoundResolver)(nil)
@@ -117,37 +77,4 @@ func (c CompoundResolver) Search(ctx context.Context, term string) ([]*Symbol, e
 		}
 	}
 	return symbols, accumulatedErr
-}
-
-// ModuleResolver handles qualified name resolution for a named module. It
-// strips the "Name." prefix before delegating to Members.
-type ModuleResolver struct {
-	// Name is the module namespace (e.g., "math").
-	Name string
-	// Members contains the module's symbols keyed by bare name.
-	Members MapResolver
-}
-
-var _ Resolver = (*ModuleResolver)(nil)
-
-// Resolve looks up a symbol by qualified name. If the name has the prefix
-// "Name.", it strips the prefix and delegates to Members.
-func (m *ModuleResolver) Resolve(ctx context.Context, name string) (*Symbol, error) {
-	bare, ok := strings.CutPrefix(name, m.Name+".")
-	if !ok {
-		return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found in module %s", name, m.Name)
-	}
-	return m.Members.Resolve(ctx, bare)
-}
-
-// Search returns symbols matching the given search term.
-func (m *ModuleResolver) Search(ctx context.Context, term string) ([]*Symbol, error) {
-	prefix := m.Name + "."
-	if bare, ok := strings.CutPrefix(term, prefix); ok {
-		return m.Members.Search(ctx, bare)
-	}
-	if strings.HasPrefix(prefix, term) {
-		return m.Members.Search(ctx, "")
-	}
-	return m.Members.Search(ctx, term)
 }

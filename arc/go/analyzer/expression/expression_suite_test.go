@@ -28,16 +28,26 @@ func TestExpression(t *testing.T) {
 	RunSpecs(t, "Expression Analyzer Suite")
 }
 
-func expectSuccess(specCtx context.Context, code string, resolver symbol.Resolver) {
+func buildExpressionRoot(extras []symbol.Symbol) *symbol.Symbol {
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	for i := range extras {
+		s := extras[i]
+		root.Parent.AddChild(&s)
+	}
+	return root
+}
+
+func expectSuccess(specCtx context.Context, code string, extras []symbol.Symbol) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+	ctx := acontext.CreateRoot(specCtx, ast, buildExpressionRoot(extras))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
-func expectFailure(specCtx context.Context, code string, resolver symbol.Resolver, expectedMsg string) {
+func expectFailure(specCtx context.Context, code string, extras []symbol.Symbol, expectedMsg string) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
+	ctx := acontext.CreateRoot(specCtx, ast, buildExpressionRoot(extras))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))

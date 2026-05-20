@@ -102,66 +102,52 @@ var (
 	}
 )
 
-const ModuleName = "math"
-
-var moduleMembers = symbol.MapResolver{
-	powSymbolName:        powSymbol,
-	avgSymbolName:        avgSymbol,
-	minSymbolName:        minSymbol,
-	maxSymbolName:        maxSymbol,
-	derivativeSymbolName: derivativeSymbol,
-}
+const name = "math"
 
 // module is the math module, built once at package init. Its children are
 // the canonical math.<name> functions and are the targets of the deprecated
 // bare globals' Deprecated field.
-var module = symbol.NewModule(ModuleName, moduleMembers.Values()...)
+var module = symbol.NewModule(
+	name,
+	powSymbol,
+	avgSymbol,
+	minSymbol,
+	maxSymbol,
+	derivativeSymbol,
+)
 
 func deprecated(sym symbol.Symbol, replacement *symbol.Symbol) symbol.Symbol {
 	sym.Deprecated = replacement
 	return sym
 }
 
-var bareGlobals = []symbol.Symbol{
-	deprecated(avgSymbol, module.FindChildByName(avgSymbolName)),
-	deprecated(minSymbol, module.FindChildByName(minSymbolName)),
-	deprecated(maxSymbol, module.FindChildByName(maxSymbolName)),
-	deprecated(derivativeSymbol, module.FindChildByName(derivativeSymbolName)),
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the math module itself and the deprecated bare aliases
+// (avg, min, max, derivative) whose Deprecated field points at the
+// canonical module member.
+var Symbols = []*symbol.Symbol{
+	module,
+	ptrOf(deprecated(avgSymbol, module.FindChildByName(avgSymbolName))),
+	ptrOf(deprecated(minSymbol, module.FindChildByName(minSymbolName))),
+	ptrOf(deprecated(maxSymbol, module.FindChildByName(maxSymbolName))),
+	ptrOf(deprecated(derivativeSymbol, module.FindChildByName(derivativeSymbolName))),
 }
 
-// BuildModule returns the math module with its sealed namespace populated.
-func BuildModule() *symbol.Symbol { return module }
+func ptrOf(s symbol.Symbol) *symbol.Symbol { return &s }
 
-// BareGlobals returns the deprecated bare names (avg, min, max, derivative)
-// installed at the root scope so legacy programs continue to resolve. Each
-// wrapper's Deprecated field points at the canonical member inside the
-// math module so warnings and compiler routing land on the right symbol.
-func BareGlobals() []symbol.Symbol { return bareGlobals }
+// Host is the runtime host-side support for math: it registers the WASM
+// host-function bindings (pow_*, neg_*) and acts as the node factory for
+// avg / min / max / derivative.
+type Host struct{}
 
-var SymbolResolver = symbol.CompoundResolver{
-	bareGlobalsResolver(),
-	&symbol.ModuleResolver{Name: ModuleName, Members: moduleMembers},
-}
-
-func bareGlobalsResolver() symbol.MapResolver {
-	m := symbol.MapResolver{}
-	for _, s := range bareGlobals {
-		m[s.Name] = s
-	}
-	return m
-}
-
-type Module struct{}
-
-func NewModule(
-	ctx context.Context,
-	rt wazero.Runtime,
-) (*Module, error) {
-	m := &Module{}
+// NewHost registers math's WASM host bindings with rt and returns a Host
+// handle that satisfies node.Factory for math's runtime nodes.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{}
 	if rt == nil {
-		return m, nil
+		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder("math")
+	builder := rt.NewHostModuleBuilder(name)
 	// i32-compatible types: WASM uses uint32, convert internally
 	builder = bindI32Pow[uint8](builder, "u8")
 	builder = bindI32Pow[uint16](builder, "u16")
@@ -191,10 +177,10 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return h, nil
 }
 
-func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}

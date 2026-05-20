@@ -65,7 +65,7 @@ func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
 	if root.Parent == nil || root.Parent.Kind != symbol.KindAmbient {
 		return
 	}
-	for _, child := range root.Parent.Children {
+	for _, child := range root.Parent.Children() {
 		if child.Kind != symbol.KindModule {
 			continue
 		}
@@ -75,9 +75,15 @@ func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
 	}
 }
 
-func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
+func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []symbol.Symbol) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
-	analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.NewRoot(resolver))
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	for i := range channels {
+		s := channels[i]
+		root.Parent.AddChild(&s)
+	}
+	analyzerCtx := acontext.CreateRoot(bCtx, expr, root)
 	autoImportSTL(bCtx, analyzerCtx.Scope)
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
@@ -96,11 +102,11 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbo
 func expectSeriesExpression(
 	bCtx SpecContext,
 	expr string,
-	resolver symbol.MapResolver,
+	extras []symbol.Symbol,
 	expectedType types.Type,
 	expectedOpcodes ...any,
 ) {
-	bytecode, exprType := compileWithAnalyzer(bCtx, expr, resolver)
+	bytecode, exprType := compileWithAnalyzer(bCtx, expr, extras)
 	Expect(exprType).To(Equal(expectedType))
 	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 }
@@ -147,12 +153,18 @@ func expectSeriesWithFunctions(
 func expectSeriesLiteralWithHint(
 	bCtx SpecContext,
 	expr string,
-	resolver symbol.Resolver,
+	extras []symbol.Symbol,
 	hint types.Type,
 	expectedOpcodes ...any,
 ) {
 	parsedExpr := MustSucceed(parser.ParseExpression(expr))
-	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, stl.NewRoot(resolver))
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	for i := range extras {
+		s := extras[i]
+		root.Parent.AddChild(&s)
+	}
+	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, root)
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 

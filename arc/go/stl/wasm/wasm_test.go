@@ -85,17 +85,24 @@ func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelSt
 func newHarness(
 	ctx context.Context,
 	g arc.Graph,
-	resolver symbol.Resolver,
+	chans []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *testHarness {
-	var compileResolver symbol.Resolver
-	if resolver != nil {
-		compileResolver = symbol.CompoundResolver{resolver, stl.SymbolResolver}
-	} else {
-		compileResolver = stl.SymbolResolver
+	buildRoot := func() *symbol.Symbol {
+		root := symbol.CreateRoot(nil)
+		root.AttachToAmbient(stl.Symbols...)
+		for i := range chans {
+			s := chans[i]
+			root.Parent.AddChild(&s)
+		}
+		return root
 	}
-	prog := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(compileResolver)))
-	analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
+	prog := MustSucceed(arc.CompileGraph(ctx, g, buildRoot()))
+	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
+		root := buildRoot()
+		symbol.AutoImportModules(root)
+		return root
+	}())
 	Expect(diagnostics.Ok()).To(BeTrue())
 	s := node.New(analyzed)
 
@@ -104,13 +111,13 @@ func newHarness(
 	channelState := channels.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
-	_, _ = series.NewModule(ctx, seriesState, wasmRT)
-	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
-	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
-	_, _ = stltime.NewModule(ctx, wasmRT)
-	channelMod, _ := channels.NewModule(ctx, channelState, stringsState, wasmRT)
+	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
+	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
+	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
+	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
+	_, _ = stltime.NewHost(ctx, wasmRT)
+	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
@@ -190,17 +197,17 @@ func (h *testHarness) OutputTime(nodeKey string, idx int) telem.Series {
 func newTextHarness(
 	ctx context.Context,
 	source string,
-	resolver symbol.Resolver,
+	chans []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *testHarness {
-	var compileResolver symbol.Resolver
-	if resolver != nil {
-		compileResolver = symbol.CompoundResolver{resolver, stl.SymbolResolver}
-	} else {
-		compileResolver = stl.SymbolResolver
-	}
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-	analyzed, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(compileResolver))
+	root := symbol.CreateRoot(nil)
+	root.AttachToAmbient(stl.Symbols...)
+	for i := range chans {
+		s := chans[i]
+		root.Parent.AddChild(&s)
+	}
+	analyzed, diagnostics := text.Analyze(ctx, parsedText, root)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	prog := MustSucceed(text.Compile(ctx, analyzed))
 	s := node.New(analyzed)
@@ -210,13 +217,13 @@ func newTextHarness(
 	channelState := channels.NewProgramState(channelDigests)
 
 	wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
-	statefulMod := MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, wasmRT))
-	_, _ = series.NewModule(ctx, seriesState, wasmRT)
-	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, wasmRT, nil))
-	mathMod := MustSucceed(stlmath.NewModule(ctx, wasmRT))
-	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
-	_, _ = stltime.NewModule(ctx, wasmRT)
-	channelMod, _ := channels.NewModule(ctx, channelState, stringsState, wasmRT)
+	statefulMod := MustSucceed(stateful.NewHost(ctx, wasmRT, seriesState, stringsState))
+	_, _ = series.NewHost(ctx, wasmRT, seriesState)
+	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
+	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
+	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
+	_, _ = stltime.NewHost(ctx, wasmRT)
+	channelMod, _ := channels.NewHost(ctx, wasmRT, channelState, stringsState)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
@@ -299,9 +306,9 @@ func binaryOpGraph(
 }
 
 // expectOutput is a helper that executes a single-function graph and checks the first output element.
-func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
+func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, chans []symbol.Symbol, expected T) {
 	g := singleFunctionGraph(key, outType, body)
-	h := newHarness(ctx, g, resolver)
+	h := newHarness(ctx, g, chans)
 	defer h.Close(ctx)
 	h.Execute(ctx, key)
 	result := h.Output(key, 0)
@@ -615,14 +622,10 @@ var _ = Describe("WASM", func() {
 
 	Describe("TimeSpan Config Values", func() {
 		It("Should thread duration literal config values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"trigger_ch": {
-					Name: "trigger_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
+			chans := []symbol.Symbol{
+				{Name: "trigger_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
+
 			source := `
 func emit_period{period i64 ns} (trigger f32) i64 {
     return period
@@ -630,7 +633,7 @@ func emit_period{period i64 ns} (trigger f32) i64 {
 
 trigger_ch -> emit_period{period=1s}
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
@@ -740,7 +743,7 @@ trigger_ch -> emit_period{period=1s}
 				expectOutput(ctx, "empty_series", types.I64(), `{
 				s series `+elemType+` := []
 				return len(s)
-			}`, stl.SymbolResolver, int32(0))
+			}`, nil, int32(0))
 			},
 			Entry("i32", "i32", types.I32()),
 			Entry("f64", "f64", types.F64()),
@@ -946,21 +949,21 @@ trigger_ch -> emit_period{period=1s}
 			Entry("empty series", "len_empty", types.I64(), `{
 				s series f64 := []
 				return len(s)
-			}`, stl.SymbolResolver, int32(0)),
+			}`, nil, int32(0)),
 			Entry("single element", "len_one", types.I64(), `{
 				s series f64 := [1.0]
 				return len(s)
-			}`, stl.SymbolResolver, int32(1)),
+			}`, nil, int32(1)),
 			Entry("five elements", "len_five", types.I64(), `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				return len(s)
-			}`, stl.SymbolResolver, int32(5)),
+			}`, nil, int32(5)),
 			Entry("after operation", "len_after_op", types.I64(), `{
 				a series f64 := [1.0, 2.0, 3.0]
 				b series f64 := [4.0, 5.0, 6.0]
 				c series f64 := a + b
 				return len(c)
-			}`, stl.SymbolResolver, int32(3)),
+			}`, nil, int32(3)),
 		)
 	})
 
@@ -970,21 +973,21 @@ trigger_ch -> emit_period{period=1s}
 			Entry("empty series", "qslen_empty", types.I64(), `{
 				s series f64 := []
 				return len(s)
-			}`, stl.SymbolResolver, int32(0)),
+			}`, nil, int32(0)),
 			Entry("single element", "qslen_one", types.I64(), `{
 				s series f64 := [1.0]
 				return len(s)
-			}`, stl.SymbolResolver, int32(1)),
+			}`, nil, int32(1)),
 			Entry("five elements", "qslen_five", types.I64(), `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				return len(s)
-			}`, stl.SymbolResolver, int32(5)),
+			}`, nil, int32(5)),
 			Entry("after operation", "qslen_after_op", types.I64(), `{
 				a series f64 := [1.0, 2.0, 3.0]
 				b series f64 := [4.0, 5.0, 6.0]
 				c series f64 := a + b
 				return len(c)
-			}`, stl.SymbolResolver, int32(3)),
+			}`, nil, int32(3)),
 		)
 	})
 
@@ -993,21 +996,21 @@ trigger_ch -> emit_period{period=1s}
 			expectOutput[int32],
 			Entry("empty string", "len_empty_str", types.I64(), `{
 				return len("")
-			}`, stl.SymbolResolver, int32(0)),
+			}`, nil, int32(0)),
 			Entry("simple string", "len_str", types.I64(), `{
 				return len("hello")
-			}`, stl.SymbolResolver, int32(5)),
+			}`, nil, int32(5)),
 			Entry("concatenated strings", "len_concat", types.I64(), `{
 				return len("ab" + "cd")
-			}`, stl.SymbolResolver, int32(4)),
+			}`, nil, int32(4)),
 			Entry("triple concatenation", "len_triple", types.I64(), `{
 				return len("a" + "b" + "c")
-			}`, stl.SymbolResolver, int32(3)),
+			}`, nil, int32(3)),
 			Entry("variable concatenation", "len_var_concat", types.I64(), `{
 				a str := "hello"
 				b str := " world"
 				return len(a + b)
-			}`, stl.SymbolResolver, int32(11)),
+			}`, nil, int32(11)),
 		)
 
 	})
@@ -1017,23 +1020,23 @@ trigger_ch -> emit_period{period=1s}
 			expectOutput[int32],
 			Entry("i64 literals", "pow_ii", types.I64(), `{
 				return 2 ^ 10
-			}`, stl.SymbolResolver, int32(1024)),
+			}`, nil, int32(1024)),
 		)
 
 		DescribeTable("const, const (f64)",
 			expectOutput[float64],
 			Entry("f64 literals", "pow_ff64", types.F64(), `{
 				return 2.0 ^ 3.0
-			}`, stl.SymbolResolver, float64(8.0)),
+			}`, nil, float64(8.0)),
 			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
 				return 9.0 ^ 0.5
-			}`, stl.SymbolResolver, float64(3.0)),
+			}`, nil, float64(3.0)),
 		)
 
 		It("chan, const (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 5), telem.NewSeriesSecondsTSV(1, 2, 3))
@@ -1049,7 +1052,7 @@ trigger_ch -> emit_period{period=1s}
 		It("chan, const (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[float64](2.0, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3))
@@ -1065,7 +1068,7 @@ trigger_ch -> emit_period{period=1s}
 		It("const, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
@@ -1081,7 +1084,7 @@ trigger_ch -> emit_period{period=1s}
 		It("const, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[float64](3.0), telem.NewSeriesSecondsTSV(1))
@@ -1097,7 +1100,7 @@ trigger_ch -> emit_period{period=1s}
 		It("chan, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 10), telem.NewSeriesSecondsTSV(1, 2, 3))
@@ -1113,7 +1116,7 @@ trigger_ch -> emit_period{period=1s}
 		It("chan, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
 				`{ return lhs ^ rhs }`)
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("base_src", 0, telem.NewSeriesV[float64](4.0, 27.0), telem.NewSeriesSecondsTSV(1, 2))
@@ -1134,14 +1137,14 @@ trigger_ch -> emit_period{period=1s}
 			expectOutput[int64],
 			Entry("i64 literal", "neg_i", types.I64(), `{
 				return -5
-			}`, stl.SymbolResolver, int64(-5)),
+			}`, nil, int64(-5)),
 		)
 
 		DescribeTable("const (f64)",
 			expectOutput[float64],
 			Entry("f64 literal", "neg_f", types.F64(), `{
 				return -3.5
-			}`, stl.SymbolResolver, float64(-3.5)),
+			}`, nil, float64(-3.5)),
 		)
 
 		It("chan (i64)", func(ctx SpecContext) {
@@ -1168,7 +1171,7 @@ trigger_ch -> emit_period{period=1s}
 					Target: ir.Handle{Node: "neg_c", Param: "val"},
 				}},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 			h.SetInput("val_src", 0, telem.NewSeriesV[int64](10, -20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
 			changed := h.Execute(ctx, "neg_c")
@@ -1200,7 +1203,7 @@ trigger_ch -> emit_period{period=1s}
 					Target: ir.Handle{Node: "neg_cf", Param: "val"},
 				}},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 			h.SetInput("val_src", 0, telem.NewSeriesV[float64](1.5, -2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3))
 			changed := h.Execute(ctx, "neg_cf")
@@ -1237,7 +1240,7 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("source", 0,
@@ -1278,7 +1281,7 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("source", 0,
@@ -1332,7 +1335,7 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("src_a", 0,
@@ -1387,7 +1390,7 @@ trigger_ch -> emit_period{period=1s}
 			}
 			// The key assertion: this must not panic on Density() for
 			// string-typed named outputs in either the compiler or runtime.
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("labeler", 0,
@@ -1434,7 +1437,7 @@ trigger_ch -> emit_period{period=1s}
 			}
 			// Must not panic even with multiple string outputs
 			// contributing to the memory offset calculation.
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("tagger", 0,
@@ -1473,7 +1476,7 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("source", 0,
@@ -1520,7 +1523,7 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
+			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 
 			h.SetInput("source", 0,
@@ -1787,20 +1790,16 @@ trigger_ch -> emit_period{period=1s}
 	Describe("Imperative Channel Writes", func() {
 		Describe("Writing to Non-Indexed Channels", func() {
 			It("Should write only data channel when index is not configured", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"output_ch": {
-						Name: "output_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   100,
-					},
+				chans := []symbol.Symbol{
+					{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 100},
 				}
+
 				g := singleFunctionGraph("write_test", types.I32(), `{
 					output_ch = 42
 					return 42
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 100, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -1816,20 +1815,16 @@ trigger_ch -> emit_period{period=1s}
 
 		Describe("Writing to Indexed Channels", func() {
 			It("Should write both data and index channel when index is configured", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"output_ch": {
-						Name: "output_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   100,
-					},
+				chans := []symbol.Symbol{
+					{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 100},
 				}
+
 				g := singleFunctionGraph("write_indexed", types.I32(), `{
 					output_ch = 99
 					return 99
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 100, Index: 101, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -1847,20 +1842,16 @@ trigger_ch -> emit_period{period=1s}
 			})
 
 			It("Should write timestamp that is approximately now", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor_out": {
-						Name: "sensor_out",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   200,
-					},
+				chans := []symbol.Symbol{
+					{Name: "sensor_out", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 200},
 				}
+
 				g := singleFunctionGraph("write_ts", types.I32(), `{
 					sensor_out = 42
 					return 42
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 200, Index: 201, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -1878,19 +1869,9 @@ trigger_ch -> emit_period{period=1s}
 			})
 
 			It("Should write to multiple indexed channels independently", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch_a": {
-						Name: "ch_a",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   10,
-					},
-					"ch_b": {
-						Name: "ch_b",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   20,
-					},
+				chans := []symbol.Symbol{
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10},
+					{Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 20},
 				}
 				g := singleFunctionGraph("multi_write", types.I32(), `{
 					ch_a = 15
@@ -1898,7 +1879,7 @@ trigger_ch -> emit_period{period=1s}
 					return 0
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 10, Index: 11, DataType: telem.Int32T},
 					channels.Digest{Key: 20, Index: 21, DataType: telem.Int32T},
 				)
@@ -1919,14 +1900,10 @@ trigger_ch -> emit_period{period=1s}
 
 		Describe("Sequential Writes with Timestamps", func() {
 			It("Should produce increasing timestamps for sequential writes", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"counter_ch": {
-						Name: "counter_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   300,
-					},
+				chans := []symbol.Symbol{
+					{Name: "counter_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 300},
 				}
+
 				g := singleFunctionGraph("seq_write", types.I32(), `{
 					count i32 $= 0
 					count = count + 1
@@ -1934,7 +1911,7 @@ trigger_ch -> emit_period{period=1s}
 					return count
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 300, Index: 301, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -1958,20 +1935,16 @@ trigger_ch -> emit_period{period=1s}
 
 		Describe("Integer Type Channel Writes", func() {
 			It("Should write i32 with index", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"i32_ch": {
-						Name: "i32_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   700,
-					},
+				chans := []symbol.Symbol{
+					{Name: "i32_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 700},
 				}
+
 				g := singleFunctionGraph("i32_write", types.I32(), `{
 					i32_ch = -50000
 					return -50000
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 700, Index: 701, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -1986,20 +1959,16 @@ trigger_ch -> emit_period{period=1s}
 			})
 
 			It("Should write u8 with index", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"u8_ch": {
-						Name: "u8_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
-						ID:   800,
-					},
+				chans := []symbol.Symbol{
+					{Name: "u8_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 800},
 				}
+
 				g := singleFunctionGraph("u8_write", types.U8(), `{
 					u8_ch = 255
 					return 255
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 800, Index: 801, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
@@ -2016,20 +1985,16 @@ trigger_ch -> emit_period{period=1s}
 
 		Describe("Float Type Channel Writes", func() {
 			It("Should write f64 with index", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"f64_ch": {
-						Name: "f64_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   1100,
-					},
+				chans := []symbol.Symbol{
+					{Name: "f64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1100},
 				}
+
 				g := singleFunctionGraph("f64_write", types.F64(), `{
 					f64_ch = 3.14159
 					return 3.14159
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 1100, Index: 1101, DataType: telem.Float64T},
 				)
 				defer h.Close(ctx)
@@ -2044,20 +2009,16 @@ trigger_ch -> emit_period{period=1s}
 			})
 
 			It("Should write f32 with index", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"f32_ch": {
-						Name: "f32_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F32()),
-						ID:   1200,
-					},
+				chans := []symbol.Symbol{
+					{Name: "f32_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1200},
 				}
+
 				g := singleFunctionGraph("f32_write", types.F32(), `{
 					f32_ch = 2.718
 					return 2.718
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 1200, Index: 1201, DataType: telem.Float32T},
 				)
 				defer h.Close(ctx)
@@ -2086,20 +2047,16 @@ trigger_ch -> emit_period{period=1s}
 			})
 
 			It("Should handle channel with zero as index (no index)", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"no_idx_ch": {
-						Name: "no_idx_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   900,
-					},
+				chans := []symbol.Symbol{
+					{Name: "no_idx_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 900},
 				}
+
 				g := singleFunctionGraph("zero_idx", types.I32(), `{
 					no_idx_ch = 123
 					return 123
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 900, Index: 0, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -2115,20 +2072,16 @@ trigger_ch -> emit_period{period=1s}
 
 		Describe("Comparison with Declarative Writes", func() {
 			It("Should produce same output structure as WriteChan for indexed channels", func(ctx SpecContext) {
-				resolver := symbol.MapResolver{
-					"test_ch": {
-						Name: "test_ch",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   1000,
-					},
+				chans := []symbol.Symbol{
+					{Name: "test_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1000},
 				}
+
 				g := singleFunctionGraph("imperative_vs_decl", types.I32(), `{
 					test_ch = 123
 					return 123
 				}`)
 
-				h := newHarness(ctx, g, resolver,
+				h := newHarness(ctx, g, chans,
 					channels.Digest{Key: 1000, Index: 1001, DataType: telem.Int32T},
 				)
 				defer h.Close(ctx)
@@ -2180,14 +2133,10 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		It("Should execute void function with stateful variables", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-					ID:   100,
-				},
+			chans := []symbol.Symbol{
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 100},
 			}
+
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -2214,7 +2163,7 @@ trigger_ch -> emit_period{period=1s}
 					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
 				},
 			}
-			h := newHarness(ctx, g, resolver, channels.Digest{Key: 100, DataType: telem.Int32T})
+			h := newHarness(ctx, g, chans, channels.Digest{Key: 100, DataType: telem.Int32T})
 			defer h.Close(ctx)
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
@@ -2308,13 +2257,8 @@ trigger_ch -> emit_period{period=1s}
 		// type mismatch: expected f32, but was i32"
 		// Bug occurred when reading from a channel config parameter and performing arithmetic.
 		It("Should read from channel config param and perform f32 arithmetic", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"do_0_counter": {
-					Name: "do_0_counter",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
+			chans := []symbol.Symbol{
+				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
 
 			g := arc.Graph{
@@ -2335,7 +2279,7 @@ trigger_ch -> emit_period{period=1s}
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
@@ -2353,13 +2297,8 @@ trigger_ch -> emit_period{period=1s}
 
 		// Test matching the user's original example with stateful variable and conditional
 		It("Should handle channel config param with stateful variable and conditional", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"do_0_counter": {
-					Name: "do_0_counter",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
+			chans := []symbol.Symbol{
+				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
 
 			// Original example: func count_rising{counter chan f32}(input u8) {
@@ -2397,7 +2336,7 @@ trigger_ch -> emit_period{period=1s}
 				},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
@@ -2456,25 +2395,10 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		It("Should handle multiple channel config parameters", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"temp_sensor": {
-					Name: "temp_sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"pressure_sensor": {
-					Name: "pressure_sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   101,
-				},
-				"output_sum": {
-					Name: "output_sum",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   102,
-				},
+			chans := []symbol.Symbol{
+				{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "pressure_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 101},
+				{Name: "output_sum", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 102},
 			}
 
 			// Function that reads from two channel config params and writes their sum to a third
@@ -2508,7 +2432,7 @@ trigger_ch -> emit_period{period=1s}
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 101, DataType: telem.Float32T},
 				channels.Digest{Key: 102, DataType: telem.Float32T},
@@ -2528,37 +2452,12 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		It("Should handle multiple channel config params with different operations", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"input_a": {
-					Name: "input_a",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   200,
-				},
-				"input_b": {
-					Name: "input_b",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   201,
-				},
-				"out_sum": {
-					Name: "out_sum",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   202,
-				},
-				"out_diff": {
-					Name: "out_diff",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   203,
-				},
-				"out_product": {
-					Name: "out_product",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   204,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+				{Name: "input_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 201},
+				{Name: "out_sum", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 202},
+				{Name: "out_diff", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 203},
+				{Name: "out_product", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 204},
 			}
 
 			// Function that performs multiple operations on channel config params
@@ -2598,7 +2497,7 @@ trigger_ch -> emit_period{period=1s}
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 200, DataType: telem.Float64T},
 				channels.Digest{Key: 201, DataType: telem.Float64T},
 				channels.Digest{Key: 202, DataType: telem.Float64T},
@@ -2628,19 +2527,9 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		It("Should handle channel config param used multiple times in expression", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"value_ch": {
-					Name: "value_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   300,
-				},
-				"squared_ch": {
-					Name: "squared_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   301,
-				},
+			chans := []symbol.Symbol{
+				{Name: "value_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 300},
+				{Name: "squared_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 301},
 			}
 
 			// Function that reads from a channel config param twice (squaring it)
@@ -2672,7 +2561,7 @@ trigger_ch -> emit_period{period=1s}
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 300, DataType: telem.Float32T},
 				channels.Digest{Key: 301, DataType: telem.Float32T},
 			)
@@ -2702,13 +2591,8 @@ trigger_ch -> emit_period{period=1s}
 		It("Should handle mixed channel and non-channel config params", func(ctx SpecContext) {
 			// This tests the tolerance_alarm pattern: some config params are channels,
 			// others are plain values (f32, i64)
-			resolver := symbol.MapResolver{
-				"set_point_ch": {
-					Name: "set_point_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   400,
-				},
+			chans := []symbol.Symbol{
+				{Name: "set_point_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 400},
 			}
 
 			// Simplified tolerance alarm: checks if value is above set_point + tolerance
@@ -2765,7 +2649,7 @@ trigger_ch -> emit_period{period=1s}
 				},
 			}
 
-			h := newHarness(ctx, g, resolver,
+			h := newHarness(ctx, g, chans,
 				channels.Digest{Key: 400, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
@@ -2814,25 +2698,10 @@ trigger_ch -> emit_period{period=1s}
 		It("Should handle intermediate variable assignment from channel config param", func(ctx SpecContext) {
 			// This is the EXACT user code that was failing.
 			// The key pattern is: sp := set_point (where set_point is chan f32)
-			resolver := symbol.MapResolver{
-				"input_val": {
-					Name: "input_val",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"set_point_ch": {
-					Name: "set_point_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_val", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "set_point_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -2861,7 +2730,7 @@ func tolerance_alarm{
 
 input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -2936,25 +2805,10 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			// Test that writing to an intermediate variable correctly writes to the channel
 			// out := output (config param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"write_target": {
-					Name: "write_target",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "write_target", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -2968,7 +2822,7 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -2991,25 +2845,10 @@ input_ch -> writer{output=write_target} -> sink_ch
 			// out := output      (from config param)
 			// out2 := out        (from intermediate variable)
 			// out2 = value * 3.0 (write through second intermediate)
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"write_target": {
-					Name: "write_target",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "write_target", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3024,7 +2863,7 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -3046,25 +2885,10 @@ input_ch -> writer{output=write_target} -> sink_ch
 			// Test that writing through an alias of a global channel works correctly
 			// out := output_ch   (global channel alias)
 			// out = value * 4.0  (write to channel through alias)
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3076,7 +2900,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -3100,25 +2924,10 @@ input_ch -> writer{} -> sink_ch
 			// b := a
 			// c := b
 			// c = value * 5.0
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3132,7 +2941,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -3155,25 +2964,10 @@ input_ch -> writer{} -> sink_ch
 			// out2 := output_ch
 			// out1 = value * 2.0  (first write)
 			// out2 = value * 3.0  (second write, overwrites)
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3187,7 +2981,7 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -3212,25 +3006,10 @@ input_ch -> writer{} -> sink_ch
 			// Test reading through a global channel alias:
 			// sp := set_point_ch  (alias to global channel)
 			// threshold := sp     (read from the channel through alias)
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   100,
-				},
-				"set_point_ch": {
-					Name: "set_point_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				{Name: "set_point_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "output_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3245,7 +3024,7 @@ func checker{} (value f32) u8 {
 
 input_ch -> checker{} -> output_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Float32T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},
@@ -3271,43 +3050,13 @@ input_ch -> checker{} -> output_ch
 		})
 
 		It("Should write to separate channels when function with channel config is used multiple times", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"input_1": {
-					Name: "input_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   101,
-				},
-				"input_2": {
-					Name: "input_2",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   102,
-				},
-				"counter_1": {
-					Name: "counter_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   201,
-				},
-				"counter_2": {
-					Name: "counter_2",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   202,
-				},
-				"sink_1": {
-					Name: "sink_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   301,
-				},
-				"sink_2": {
-					Name: "sink_2",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   302,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},
+				{Name: "input_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 102},
+				{Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 201},
+				{Name: "counter_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 202},
+				{Name: "sink_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 301},
+				{Name: "sink_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 302},
 			}
 
 			source := `
@@ -3323,7 +3072,7 @@ func increment{
 input_1 -> increment{counter=counter_1} -> sink_1
 input_2 -> increment{counter=counter_2} -> sink_2
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 101, DataType: telem.Uint8T},
 				channels.Digest{Key: 102, DataType: telem.Uint8T},
 				channels.Digest{Key: 201, DataType: telem.Float32T},
@@ -3352,25 +3101,10 @@ input_2 -> increment{counter=counter_2} -> sink_2
 		})
 
 		It("Should not write to channel when stateful variable initialized from channel is modified", func(ctx SpecContext) {
-			resolver := symbol.MapResolver{
-				"input_ch": {
-					Name: "input_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   100,
-				},
-				"counter_ch": {
-					Name: "counter_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   200,
-				},
-				"sink_ch": {
-					Name: "sink_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   300,
-				},
+			chans := []symbol.Symbol{
+				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "counter_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 200},
+				{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 300},
 			}
 
 			source := `
@@ -3386,7 +3120,7 @@ func count_local (trigger u8) u8 {
 
 input_ch -> count_local{} -> sink_ch
 `
-			h := newTextHarness(ctx, source, resolver,
+			h := newTextHarness(ctx, source, chans,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 200, DataType: telem.Float32T},
 				channels.Digest{Key: 300, DataType: telem.Uint8T},

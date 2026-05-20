@@ -201,7 +201,7 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 
 func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		switch child.Kind {
 		case symbol.KindVariable, symbol.KindStatefulVariable,
 			symbol.KindOutput, symbol.KindLoopVariable:
