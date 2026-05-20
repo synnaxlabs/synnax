@@ -200,6 +200,96 @@ var _ = Describe("Writer AutoIndexing", func() {
 				})
 			})
 
+			Describe("Default Start", func() {
+				It("Defaults Start to telem.Now() when AutoIndexing is true and Start is zero", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "default_start_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "default_start_data", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					before := telem.Now()
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
+					MustSucceed(w.Commit())
+					Expect(w.Close()).To(Succeed())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+					Expect(ts).To(HaveLen(3))
+					Expect(ts[0]).To(BeNumerically(">=", before))
+				})
+
+				It("Rejects an explicit index series with timestamps before the defaulted Start", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "default_start_reject_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "default_start_reject_data", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					Expect(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1),
+							telem.NewSeriesV[float64](1),
+						},
+					))).Error().To(MatchError(validate.ErrValidation))
+					Expect(w.Close()).To(MatchError(validate.ErrValidation))
+				})
+
+				It("Preserves an explicitly provided Start", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "default_start_preserve_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "default_start_preserve_data", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+						Start:        50 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(100, 101),
+							telem.NewSeriesV[float64](1, 2),
+						},
+					)))
+					MustSucceed(w.Commit())
+					Expect(w.Close()).To(Succeed())
+
+					f := MustSucceed(db.Read(ctx, (50*telem.SecondTS).Range(102*telem.SecondTS), idx))
+					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+					Expect(ts).To(Equal([]telem.TimeStamp{
+						100 * telem.SecondTS,
+						101 * telem.SecondTS,
+					}))
+				})
+			})
+
 			Describe("Disabled", func() {
 				It("Should reject a frame missing the index when AutoIndexing is false", func(ctx SpecContext) {
 					var (
@@ -240,6 +330,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						Authorities:    []control.Authority{control.Authority(50)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA"},
 					}))
 
@@ -283,6 +374,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_max"},
 					}))
 
@@ -335,6 +427,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_bcast"},
 					}))
 
@@ -375,6 +468,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						Authorities:    []control.Authority{control.Authority(50)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_explicit"},
 					}))
 
@@ -420,6 +514,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						Authorities:    []control.Authority{control.Authority(150)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "open_wA"},
 					}))
 
@@ -465,6 +560,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "open_max_wA"},
 					}))
 

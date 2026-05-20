@@ -108,6 +108,11 @@ type WriterConfig struct {
 	// SetAuthority calls that name a data channel propagate to its index channel,
 	// taking the max authority across all data channels referencing that index.
 	//
+	// When AutoIndexing is true and Start is left as its zero value, Start is defaulted
+	// to telem.Now() at open time so the writer's domain aligns with the auto-stamped
+	// timestamps. Callers who pass an explicit index series whose timestamps fall
+	// before this defaulted Start will have that write rejected.
+	//
 	// [OPTIONAL] - Defaults to false.
 	AutoIndexing *bool
 }
@@ -199,6 +204,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		return nil, err
 	}
 	if *cfg.AutoIndexing {
+		if cfg.Start.IsZero() {
+			cfg.Start = telem.Now()
+		}
 		cfg = db.expandKeysForAutoIndexing(cfg)
 	}
 	var (
