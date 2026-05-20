@@ -490,8 +490,10 @@ func analyzeOutputRoutingTable(
 			}
 		}
 
-		// Analyze each flow node in the routing entry chain
+		// First node's source is the select-output type; subsequent nodes
+		// chain from the previous node's output.
 		flowNodes := entry.AllFlowNode()
+		nodeSourceType := outputType.Type
 		for i, flowNode := range flowNodes {
 			isLastNode := i == len(flowNodes)-1
 			var targetParam *string
@@ -500,12 +502,41 @@ func analyzeOutputRoutingTable(
 			}
 			analyzeRoutingTargetWithParam(
 				context.Child(ctx, flowNode),
-				outputType.Type,
+				nodeSourceType,
 				nextFuncType,
 				targetParam,
 			)
+			if !isLastNode {
+				nodeSourceType = inferFlowNodeOutputType(context.Child(ctx, flowNode))
+			}
 		}
 	}
+}
+
+// inferFlowNodeOutputType returns the type a flow node emits to the next node
+// in a routing-entry chain, or the zero type if it cannot be resolved.
+func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types.Type {
+	if expr := ctx.AST.Expression(); expr != nil {
+		return atypes.InferFromExpression(context.Child(ctx, expr))
+	}
+	if fn := ctx.AST.Function(); fn != nil {
+		sym, err := ctx.Resolve(parser.FunctionName(fn))
+		if err != nil || sym.Kind != symbol.KindFunction {
+			return types.Type{}
+		}
+		if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok {
+			return out.Type
+		}
+		return types.Type{}
+	}
+	if idNode := ctx.AST.Identifier(); idNode != nil {
+		sym, err := ctx.Resolve(idNode.IDENTIFIER().GetText())
+		if err != nil || sym.Kind != symbol.KindChannel {
+			return types.Type{}
+		}
+		return sym.Type.Unwrap()
+	}
+	return types.Type{}
 }
 
 func analyzeInputRoutingTable(

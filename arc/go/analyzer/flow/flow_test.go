@@ -877,6 +877,42 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
+		It("Should type-check multi-node case body via chain, not select output", func(bCtx SpecContext) {
+			customResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
+					Name: "sensor_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"log_str": symbol.Symbol{
+					Name: "log_str",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+				},
+				"log_num": symbol.Symbol{
+					Name: "log_num",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux{} -> {
+			    high: "above" -> log_str,
+			    low: 1 -> log_num
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
 		It("Should route to channels in routing table", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func demux{} (value f64) (high f64, low f64) {
