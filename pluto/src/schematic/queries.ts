@@ -303,10 +303,7 @@ const augmentWithEdgeSegments = (
   const updates = Edge.Segmented.updateSegmentsForPositionChanges({
     nodes: current.nodes,
     edges: current.edges,
-    props: current.configs as Record<
-      string,
-      { segments?: Edge.Segmented.Segment[] } | undefined
-    >,
+    props: current.configs,
     changes,
   });
   if (updates.length === 0) return actions;

@@ -211,7 +211,7 @@ describe("Flux.createDispatch", () => {
       let ok = true;
       await act(async () => {
         ok = await result.current.dispatchAsync({
-          key: "unknown" as schematic.Key,
+          key: "unknown",
           actions: schematic.setNodePosition({ key: "n", position: { x: 0, y: 0 } }),
         });
       });

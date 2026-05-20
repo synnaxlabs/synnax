@@ -845,7 +845,7 @@ describe("message", () => {
         key: "k",
         state: { x: 1 },
       };
-      (worker as any).onmessage({ data: msg } as MessageEvent<aether.WorkerMessage>);
+      (worker as any).onmessage({ data: msg });
       expect(handler).toHaveBeenCalledWith(msg);
     });
   });
@@ -881,9 +881,7 @@ describe("message", () => {
           type: "t",
           state: { x: 1 },
         };
-        (globalThis as any).onmessage({
-          data: msg,
-        } as MessageEvent<aether.MainMessage>);
+        (globalThis as any).onmessage({ data: msg });
         expect(handler).toHaveBeenCalledWith(msg);
       } finally {
         vi.unstubAllGlobals();

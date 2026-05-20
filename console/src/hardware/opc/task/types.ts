@@ -114,7 +114,7 @@ const ZERO_READ_CONFIG: ReadConfig = {
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
   config: readConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type ReadSchemas = typeof READ_SCHEMAS;
@@ -164,7 +164,7 @@ export const ZERO_WRITE_CONFIG = {
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
@@ -195,7 +195,8 @@ export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
 
 const scanCommandResponseZ = z
   .object({ channels: z.array(scannedNodeZ), connection: connectionConfigZ })
-  .nullish();
+  .nullish()
+  .optional();
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 

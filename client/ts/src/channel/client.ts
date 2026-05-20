@@ -389,8 +389,7 @@ export class Client {
    */
   async delete(params: Params): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
-    if (variant === "keys")
-      return await this.writer.delete({ keys: normalized as Key[] });
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
     return await this.writer.delete({ names: normalized as string[] });
   }
 

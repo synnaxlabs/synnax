@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, type record } from "@synnaxlabs/x";
-import { current, isDraft } from "immer";
+import { current, type Draft, isDraft } from "immer";
 
 import {
   type Action,
@@ -31,7 +31,7 @@ const NO_OP: HandlerResult = { inverse: [], targets: [] };
 // one produce(), an earlier action's wholesale assignment (e.g. state.configs[k]
 // = {...existing, ...payload.config}) leaves the slot as a plain object — the
 // next action would crash if it called current() unconditionally.
-const snapshot = <T>(v: T): T => (isDraft(v) ? current(v) : v);
+const snapshot = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
 const handlers: Handlers = {
   rename: (state, payload) => {

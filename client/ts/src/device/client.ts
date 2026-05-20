@@ -122,7 +122,7 @@ export class Client {
   async retrieve(
     args: RetrieveArgs & { schemas?: DeviceSchemas },
   ): Promise<Device | Array<Device>> {
-    const { schemas, ...rest } = args as RetrieveArgs & { schemas?: DeviceSchemas };
+    const { schemas, ...rest } = args;
     const isSingle = typeof rest === "object" && "key" in rest;
     const res = await sendRequired(
       this.client,

@@ -30,7 +30,7 @@ export const difference = (
         }
         for (let i = 0; i < a.length; i++) compare(a[i], b[i], `${currentPath}[${i}]`);
       } else {
-        const keys = new Set([...Object.keys(a as {}), ...Object.keys(b as {})]);
+        const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
         keys.forEach((key) => {
           compare(
             a[key as keyof typeof a],

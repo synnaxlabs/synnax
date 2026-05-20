@@ -164,7 +164,7 @@ const flattenIssues = (
       out.push(...flattenIssues(issue.issues, fullPath));
       continue;
     }
-    out.push({ ...issue, path: fullPath } as z.core.$ZodIssue);
+    out.push({ ...issue, path: fullPath });
   }
   return out;
 };
@@ -184,8 +184,7 @@ const expandUnrecognizedKeys = (
       "keys" in issue &&
       Array.isArray(issue.keys)
     ) {
-      for (const key of issue.keys)
-        out.push({ ...issue, path: [...issue.path, key] } as z.core.$ZodIssue);
+      for (const key of issue.keys) out.push({ ...issue, path: [...issue.path, key] });
       continue;
     }
     out.push(issue);
