@@ -543,7 +543,7 @@ State create_minimal_state() {
 }
 
 TEST(ChannelStateTest, FlushPreservesLatestSeries) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 3);
     series1.write(1.0f);
@@ -572,7 +572,7 @@ TEST(ChannelStateTest, FlushPreservesLatestSeries) {
 }
 
 TEST(ChannelStateTest, FlushPreservesMultipleChannels) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
@@ -600,7 +600,7 @@ TEST(ChannelStateTest, FlushPreservesMultipleChannels) {
 }
 
 TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
@@ -635,7 +635,7 @@ TEST(ChannelStateTest, PreservedDataAvailableNextCycle) {
 }
 
 TEST(ChannelStateTest, NewDataOverwritesPreserved) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
@@ -660,7 +660,7 @@ TEST(ChannelStateTest, NewDataOverwritesPreserved) {
 }
 
 TEST(ChannelStateTest, SingleSeriesNoOp) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series = x::telem::Series(x::telem::INT32_T, 3);
     series.write(1);
@@ -681,7 +681,7 @@ TEST(ChannelStateTest, SingleSeriesNoOp) {
 }
 
 TEST(ChannelStateTest, EmptyState) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     x::telem::Frame out;
     s.flush_into(out);
@@ -692,7 +692,7 @@ TEST(ChannelStateTest, EmptyState) {
 }
 
 TEST(ChannelStateTest, UnknownChannel) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
@@ -704,7 +704,7 @@ TEST(ChannelStateTest, UnknownChannel) {
 }
 
 TEST(ChannelStateTest, ResetClearsReadsAndWrites) {
-    stl::channel::State s;
+    stl::channels::State s;
 
     auto series = x::telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
