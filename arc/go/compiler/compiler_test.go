@@ -36,16 +36,16 @@ import (
 
 func compile(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, stl.NewRoot(resolver))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
 	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
 }
 
 func compileWithHostImports(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, stl.NewRoot(resolver))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(stl.SymbolResolver))
+	return compiler.Compile(ctx, inter, compiler.WithHostScope(stl.NewRoot(nil)))
 }
 
 func inferReturnType(expected any) string {

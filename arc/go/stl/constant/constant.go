@@ -36,6 +36,10 @@ var (
 	SymbolResolver = symbol.MapResolver{symName: sym}
 )
 
+// BareGlobals returns the `constant` symbol installed at the root scope so
+// graph-mode programs can reference it without an import.
+func BareGlobals() []symbol.Symbol { return []symbol.Symbol{sym} }
+
 type Module struct{}
 
 func NewModule() *Module { return &Module{} }

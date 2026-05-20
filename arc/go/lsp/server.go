@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
@@ -381,7 +382,7 @@ func (s *Server) analyze(
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
 			aCtx := acontext.CreateRoot[parser.IBlockContext](
-				ctx, t, s.cfg.GlobalResolver,
+				ctx, t, stl.NewRoot(s.cfg.GlobalResolver),
 			)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
@@ -393,7 +394,7 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, stl.NewRoot(s.cfg.GlobalResolver))
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag

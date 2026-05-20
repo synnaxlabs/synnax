@@ -157,7 +157,7 @@ var _ = Describe("Text", func() {
 			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
-			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(3))
 			Expect(inter.Nodes).To(HaveLen(2))
@@ -194,7 +194,7 @@ var _ = Describe("Text", func() {
 
 				sensor -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -221,7 +221,7 @@ var _ = Describe("Text", func() {
 
 				unknown_channel -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, nil)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("unknown_channel"))
 			})
@@ -238,7 +238,7 @@ var _ = Describe("Text", func() {
 
 				add(1, 2) -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -258,7 +258,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+					inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 					constantCount := countNodesByType(inter.Nodes, "constant")
@@ -301,7 +301,7 @@ var _ = Describe("Text", func() {
 
 				processor{threshold=100, scale=2.5} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -326,7 +326,7 @@ var _ = Describe("Text", func() {
 
 				calculator{a=10, b=20, c=30} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
@@ -356,7 +356,7 @@ var _ = Describe("Text", func() {
 				processor{threshold=-100} -> print{}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "processor_0")
@@ -379,7 +379,7 @@ var _ = Describe("Text", func() {
 				scaler{factor=-2.5} -> print{}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "scaler_0")
@@ -401,7 +401,7 @@ var _ = Describe("Text", func() {
 					stl.SymbolResolver,
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				waitNode := findNodeByType(inter.Nodes, "time.wait")
@@ -425,7 +425,7 @@ var _ = Describe("Text", func() {
 
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				readerNode := findNodeByKey(inter.Nodes, "reader_0")
@@ -449,7 +449,7 @@ var _ = Describe("Text", func() {
 
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("type mismatch"))
@@ -469,7 +469,7 @@ var _ = Describe("Text", func() {
 
 				reader{channel=unknown_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("undefined symbol"))
@@ -495,7 +495,7 @@ var _ = Describe("Text", func() {
 
 				source{} -> set_authority{value=200, channel=read_sensor}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
@@ -519,7 +519,7 @@ var _ = Describe("Text", func() {
 				source{} -> control.set_authority{value=200, channel=read_sensor}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
@@ -543,7 +543,7 @@ var _ = Describe("Text", func() {
 				source{} -> set_authority{value=200, channel=write_ch}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -571,7 +571,7 @@ var _ = Describe("Text", func() {
 				source{} -> control.set_authority{value=200, channel=write_ch}
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -586,7 +586,7 @@ var _ = Describe("Text", func() {
 				}
 				source := `sensor -> avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -604,7 +604,7 @@ var _ = Describe("Text", func() {
 				source := `import math
 sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -619,7 +619,7 @@ sensor -> math.avg{} -> output`
 				}
 				source := `flag -> select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -634,7 +634,7 @@ sensor -> math.avg{} -> output`
 				}
 				source := `flag -> selector.select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeFalse())
 			})
 
@@ -648,7 +648,7 @@ sensor -> math.avg{} -> output`
 				}
 				source := `sensor -> stable_for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -666,7 +666,7 @@ sensor -> math.avg{} -> output`
 				source := `import stable
 sensor -> stable.for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -697,7 +697,7 @@ sensor -> stable.for{duration=1s} -> output`
 				}
 				source := `sensor -> set_status{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(statusResolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -750,7 +750,7 @@ sensor -> stable.for{duration=1s} -> output`
 				source := `import status
 sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(statusResolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -765,7 +765,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				}
 				source := `sensor -> derivative{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -781,7 +781,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				}
 				source := `interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -798,7 +798,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				source := `import time
 time.interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -812,7 +812,7 @@ time.interval{period=100ms} -> output`
 				}
 				source := `wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(HaveLen(1))
 				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
@@ -829,7 +829,7 @@ time.interval{period=100ms} -> output`
 				source := `import time
 time.wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diags := text.Analyze(ctx, parsedText, resolver)
+				_, diags := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diags.Ok()).To(BeTrue())
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
@@ -849,7 +849,7 @@ time.wait{duration=500ms} -> output`
 
 				source{} -> writer{channel=output_channel}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				writerNode := findNodeByKey(inter.Nodes, "writer_0")
@@ -880,7 +880,7 @@ time.wait{duration=500ms} -> output`
 				toggle_1 -> count_rising{counter=counter_1}
 				toggle_2 -> count_rising{counter=counter_2}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Find the two count_rising nodes
@@ -912,7 +912,7 @@ time.wait{duration=500ms} -> output`
 
 				toggle_1 -> count_rising{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Find the count_rising node
@@ -950,7 +950,7 @@ time.wait{duration=500ms} -> output`
 
 				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
@@ -975,7 +975,7 @@ time.wait{duration=500ms} -> output`
 
 				calculator{a=A, b=B, c=C} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
@@ -1004,7 +1004,7 @@ time.wait{duration=500ms} -> output`
 
 				transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
@@ -1031,7 +1031,7 @@ time.wait{duration=500ms} -> output`
 
 				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "filter_0")
@@ -1059,7 +1059,7 @@ time.wait{duration=500ms} -> output`
 
 				clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "clamp_0")
@@ -1079,7 +1079,7 @@ time.wait{duration=500ms} -> output`
 
 				transform{2.5, 0.1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
@@ -1100,7 +1100,7 @@ time.wait{duration=500ms} -> output`
 
 				controller{100.0} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
@@ -1122,7 +1122,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor_chan -> controller{sensor_chan, 100.0}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
@@ -1142,7 +1142,7 @@ time.wait{duration=500ms} -> output`
 				SETPOINT => my_channel
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
@@ -1170,7 +1170,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				for _, n := range inter.Nodes {
@@ -1200,7 +1200,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1245,7 +1245,7 @@ time.wait{duration=500ms} -> output`
 
 				generator{} -> processor{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Edges).To(HaveLen(1))
@@ -1269,7 +1269,7 @@ time.wait{duration=500ms} -> output`
 
 				temp -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				channelNode := findNodeByKey(inter.Nodes, "on_temp_0")
@@ -1292,7 +1292,7 @@ time.wait{duration=500ms} -> output`
 
 				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				edge := inter.Edges[0]
@@ -1331,7 +1331,7 @@ time.wait{duration=500ms} -> output`
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1376,7 +1376,7 @@ time.wait{duration=500ms} -> output`
 				    high: amplify{} -> display{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1415,7 +1415,7 @@ time.wait{duration=500ms} -> output`
 				    high: increment{ch=counter} -> alarm{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				outputSet := make(set.Set[ir.Handle])
@@ -1442,7 +1442,7 @@ time.wait{duration=500ms} -> output`
 				    nonexistent: display{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, nil)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("nonexistent"))
 			})
@@ -1464,7 +1464,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Root.Strata).To(HaveLen(3))
@@ -1492,7 +1492,7 @@ time.wait{duration=500ms} -> output`
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Root.Strata).To(HaveLen(2))
@@ -1517,7 +1517,7 @@ time.wait{duration=500ms} -> output`
 
 				input_chan -> double{} -> output_chan`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1543,7 +1543,7 @@ time.wait{duration=500ms} -> output`
 				}
 				source := `chan1 -> chan2`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -1572,7 +1572,7 @@ time.wait{duration=500ms} -> output`
 				    low: low_chan
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -1615,7 +1615,7 @@ time.wait{duration=500ms} -> output`
 
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The channel read is the only node; the scope activation is
@@ -1652,7 +1652,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Continuous flow into a sequence activates the sequence
@@ -1676,7 +1676,7 @@ time.wait{duration=500ms} -> output`
 
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Only the trigger read exists; stages are Scope members,
@@ -1700,7 +1700,7 @@ time.wait{duration=500ms} -> output`
 
 				trigger => empty`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
@@ -1727,7 +1727,7 @@ time.wait{duration=500ms} -> output`
 				    low: high_chan
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// demux node + write node for the `low` branch. The `high`
@@ -1762,7 +1762,7 @@ time.wait{duration=500ms} -> output`
 				    stage second {}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The `=> second` edge becomes a Transition on main whose
@@ -1802,7 +1802,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The transition must live on `main` (the frame whose
@@ -1847,7 +1847,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The transition must land on `inner` (innermost sibling
@@ -1888,7 +1888,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Count transitions across main's frame and the inner anon
@@ -1919,7 +1919,7 @@ time.wait{duration=500ms} -> output`
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				other := findTopLevelScope(inter, "other")
@@ -1939,7 +1939,7 @@ time.wait{duration=500ms} -> output`
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -1964,7 +1964,7 @@ time.wait{duration=500ms} -> output`
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -1991,7 +1991,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -2016,7 +2016,7 @@ time.wait{duration=500ms} -> output`
 				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
@@ -2046,7 +2046,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var main *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2076,7 +2076,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var outer *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2125,7 +2125,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var outer *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2172,7 +2172,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				var main *ir.Scope
 				for _, stratum := range inter.Root.Strata {
@@ -2223,7 +2223,7 @@ time.wait{duration=500ms} -> output`
 					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10092},
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diag := text.Analyze(ctx, parsedText, resolver)
+				inter, diag := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				main := findTopLevelScope(inter, "main")
@@ -2237,7 +2237,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					_, diag := text.Analyze(ctx, parsedText, resolver)
+					_, diag := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 					Expect(diag).ToNot(BeNil())
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(expectedError))
@@ -2274,7 +2274,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -2311,7 +2311,7 @@ time.wait{duration=500ms} -> output`
 
 				temp + pressure > 100 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(4))
@@ -2348,7 +2348,7 @@ time.wait{duration=500ms} -> output`
 				}
 				source := `1 + 2 -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -2366,7 +2366,7 @@ time.wait{duration=500ms} -> output`
 
 				sensor -> sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(3))
@@ -2389,7 +2389,7 @@ time.wait{duration=500ms} -> output`
 				    stage alarm {}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				triggerCount := countNodesByType(inter.Nodes, "on")
@@ -2417,7 +2417,7 @@ time.wait{duration=500ms} -> output`
 
 				interval{period=50ms} => press{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
@@ -2450,7 +2450,7 @@ time.wait{duration=500ms} -> output`
 
 				interval{period=50ms} -> handler{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Edges).To(HaveLen(1))
@@ -2464,7 +2464,7 @@ time.wait{duration=500ms} -> output`
 		DescribeTable("dimension compatibility",
 			func(ctx SpecContext, source string, expectOk bool, expectedErrorContains string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diag := text.Analyze(ctx, parsedText, nil)
+				_, diag := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 				if expectOk {
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 				} else {
@@ -2504,7 +2504,7 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			setupNode := findNodeByType(inter.Nodes, "setup")
@@ -2524,7 +2524,7 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			exprNodes := lo.Filter(inter.Nodes, func(n ir.Node, _ int) bool {
@@ -2558,7 +2558,7 @@ time.wait{duration=500ms} -> output`
 			    stage second {}
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("has no output"))
 		})
@@ -2575,7 +2575,7 @@ time.wait{duration=500ms} -> output`
 			    }
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			initNode := findNodeByType(inter.Nodes, "initialize")
@@ -2603,7 +2603,7 @@ time.wait{duration=500ms} -> output`
 			}
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Authorities.Default).ToNot(BeNil())
 			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
@@ -2626,7 +2626,7 @@ time.wait{duration=500ms} -> output`
 			}
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			inter, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Authorities.Default).ToNot(BeNil())
 			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
@@ -2642,7 +2642,7 @@ time.wait{duration=500ms} -> output`
 			func b{} () {}
 			a{} -> b{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, nil)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("before"))
 		})
@@ -2659,7 +2659,7 @@ time.wait{duration=500ms} -> output`
 
 			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
+			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			module := MustSucceed(text.Compile(ctx, ir))
@@ -2714,7 +2714,7 @@ time.wait{duration=500ms} -> output`
 			    samples = 10
 			} -> alarm_out`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
@@ -2758,7 +2758,7 @@ time.wait{duration=500ms} -> output`
 
 			input_ch -> writer{output=write_target} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 
@@ -2806,7 +2806,7 @@ time.wait{duration=500ms} -> output`
 
 			input_ch -> writer{} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			ir, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 
@@ -2836,7 +2836,7 @@ time.wait{duration=500ms} -> output`
 			sensor -> error.panic{} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
 		})
@@ -2852,7 +2852,7 @@ time.wait{duration=500ms} -> output`
 			sensor -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -2867,7 +2867,7 @@ time.wait{duration=500ms} -> output`
 			sensor -> handler{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -2885,7 +2885,7 @@ time.wait{duration=500ms} -> output`
 			interval{100ms} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -2902,7 +2902,7 @@ time.wait{duration=500ms} -> output`
 			interval{100ms} -> time.now{} -> ts_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -2918,7 +2918,7 @@ time.wait{duration=500ms} -> output`
 			interval{100ms} -> time.now{} -> int_out
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -2937,7 +2937,7 @@ time.wait{duration=500ms} -> output`
 			sensor -> test{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			_, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeFalse())
 			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("cannot be called inside a func block"))
 		})

@@ -18,17 +18,24 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
+const ModuleName = "error"
+
+var panicSymbol = symbol.Symbol{
+	Name: "panic",
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecWASM,
+	Type: types.Function(types.FunctionProperties{
+		Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+	}),
+}
+
+// BuildModule returns the error module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol { return symbol.NewModule(ModuleName, panicSymbol) }
+
 var SymbolResolver = &symbol.ModuleResolver{
-	Name: "error",
+	Name: ModuleName,
 	Members: symbol.MapResolver{
-		"panic": {
-			Name: "panic",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecWASM,
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-			}),
-		},
+		"panic": panicSymbol,
 	},
 }
 

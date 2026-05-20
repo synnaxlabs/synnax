@@ -13,7 +13,7 @@ import "github.com/synnaxlabs/arc/symbol"
 
 type options struct {
 	disableHostImports bool
-	hostSymbols        symbol.Resolver
+	hostScope          *symbol.Symbol
 }
 
 type Option func(o *options)
@@ -22,10 +22,10 @@ func DisableHostImport() Option {
 	return func(o *options) { o.disableHostImports = true }
 }
 
-// WithHostSymbols provides a custom symbol resolver for host function type
-// definitions. When set, the compiler uses this resolver instead of the default
-// stdlib resolver. This allows the STL modules to serve as the single source of
-// truth for host function signatures.
-func WithHostSymbols(r symbol.Resolver) Option {
-	return func(o *options) { o.hostSymbols = r }
+// WithHostScope overrides the scope the compiler uses to look up host
+// function type definitions. By default the compiler uses the analyzed
+// program's root scope, which reaches STL modules via its ambient parent.
+// Tests and specialized callers can pass an alternative scope here.
+func WithHostScope(scope *symbol.Symbol) Option {
+	return func(o *options) { o.hostScope = scope }
 }

@@ -34,7 +34,7 @@ func expectOperatorTypeError(
 	operator string,
 ) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := context.CreateRoot(specCtx, ast, nil)
+	ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -605,7 +605,7 @@ var _ = Describe("Expressions", func() {
 					result := x + y * z
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
@@ -796,7 +796,7 @@ var _ = Describe("Expressions", func() {
 					callee()
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, resolver)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(*ctx.CallEdges).To(HaveLen(1))
@@ -807,8 +807,8 @@ var _ = Describe("Expressions", func() {
 		It("Should not record a call edge when no enclosing function exists", func(bCtx SpecContext) {
 			resolver := symbol.MapResolver{
 				"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				"interval": {
-					Name: "interval",
+				"tick": {
+					Name: "tick",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
 						Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
@@ -822,12 +822,12 @@ var _ = Describe("Expressions", func() {
 				}
 				sequence main {
 					stage start {
-						interval{duration=1s} => next
+						tick{duration=1s} => next
 					}
 					stage done {}
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -903,7 +903,7 @@ var _ = Describe("Expressions", func() {
 					y := undefinedVar + 5
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -920,7 +920,7 @@ var _ = Describe("Expressions", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1005,7 +1005,7 @@ var _ = Describe("Expressions", func() {
 					ID:   20002,
 				},
 			}
-			ctx := context.CreateRoot(specCtx, ast, resolver)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1030,7 +1030,7 @@ var _ = Describe("Expressions", func() {
 					ID:   20004,
 				},
 			}
-			ctx := context.CreateRoot(specCtx, ast, resolver)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1051,7 +1051,7 @@ var _ = Describe("Expressions", func() {
 					ID:   20005,
 				},
 			}
-			ctx := context.CreateRoot(specCtx, ast, resolver)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1456,7 +1456,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1468,7 +1468,7 @@ var _ = Describe("Expressions", func() {
 					y := x^-2
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1480,7 +1480,7 @@ var _ = Describe("Expressions", func() {
 					y := x^0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1493,7 +1493,7 @@ var _ = Describe("Expressions", func() {
 					z := x^y
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1506,7 +1506,7 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1521,7 +1521,7 @@ var _ = Describe("Expressions", func() {
 					y := x^n
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1535,7 +1535,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2.0
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1549,7 +1549,7 @@ var _ = Describe("Expressions", func() {
 					y := x^2s
 				}
 			`))
-			ctx := context.CreateRoot(specCtx, ast, nil)
+			ctx := context.CreateRoot(specCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1575,7 +1575,7 @@ var _ = Describe("Expressions", func() {
 			},
 			Entry("undefined module without import", `
 				func testFunc() { x := fake.thing() }
-			`, `module "fake" is not imported`),
+			`, `undefined symbol: fake`),
 			Entry("undefined member", `
 				import time
 				func testFunc() { x := time.nonexistent() }

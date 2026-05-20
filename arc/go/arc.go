@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/program"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 )
@@ -56,14 +57,11 @@ func CompileGraph(ctx context.Context, g Graph, opts ...Option) (Program, error)
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := graph.Analyze(ctx, graphWithAST, o.resolver)
+	inter, diagnostics := graph.Analyze(ctx, graphWithAST, stl.NewAutoImportRoot(o.resolver))
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	var compOpts []compiler.Option
-	if o.resolver != nil {
-		compOpts = append(compOpts, compiler.WithHostSymbols(o.resolver))
-	}
+	compOpts := []compiler.Option{compiler.WithHostScope(inter.Symbols)}
 	output, cErr := compiler.Compile(ctx, inter, compOpts...)
 	if cErr != nil {
 		return Program{}, cErr
@@ -77,14 +75,11 @@ func CompileText(ctx context.Context, t Text, opts ...Option) (Program, error) {
 	if err != nil {
 		return Program{}, err
 	}
-	inter, diagnostics := text.Analyze(ctx, textWithAST, o.resolver)
+	inter, diagnostics := text.Analyze(ctx, textWithAST, stl.NewRoot(o.resolver))
 	if !diagnostics.Ok() {
 		return Program{}, diagnostics
 	}
-	var compOpts []compiler.Option
-	if o.resolver != nil {
-		compOpts = append(compOpts, compiler.WithHostSymbols(o.resolver))
-	}
+	compOpts := []compiler.Option{compiler.WithHostScope(inter.Symbols)}
 	output, cErr := compiler.Compile(ctx, inter, compOpts...)
 	if cErr != nil {
 		return Program{}, cErr

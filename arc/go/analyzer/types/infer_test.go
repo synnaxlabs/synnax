@@ -30,7 +30,7 @@ func inferExprType(
 	expr string,
 ) types.Type {
 	parsed := MustSucceed(parser.ParseExpression(expr))
-	ctx := acontext.CreateRoot(bCtx, parsed, resolver)
+	ctx := acontext.CreateRoot(bCtx, parsed, stl.NewRoot(resolver))
 	return atypes.InferFromExpression(ctx)
 }
 
@@ -711,21 +711,25 @@ var _ = Describe("Type Inference", func() {
 	Describe("Qualified Identifier Type Inference", func() {
 		It("should infer the return type of time.now()", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("time.now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.NewRoot(stl.SymbolResolver))
+			timeMod := aCtx.Scope.Parent.FindChildByName("time")
+			MustSucceed(aCtx.Scope.Add(ctx, symbol.Symbol{
+				Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+			}))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t).To(Equal(types.TimeStamp()))
 		})
 
 		It("should infer the return type of bare now() (deprecated)", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.NewRoot(stl.SymbolResolver))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t).To(Equal(types.TimeStamp()))
 		})
 
 		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.CreateRoot(ctx, parsed, stl.NewRoot(stl.SymbolResolver))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t.IsValid()).To(BeFalse())
 		})

@@ -26,11 +26,11 @@ type searchTracker struct {
 	searchCalled bool
 }
 
-func (s *searchTracker) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
+func (s *searchTracker) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	return s.inner.Resolve(ctx, name)
 }
 
-func (s *searchTracker) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
+func (s *searchTracker) Search(ctx context.Context, term string) ([]*symbol.Symbol, error) {
 	s.searchCalled = true
 	return s.inner.Search(ctx, term)
 }

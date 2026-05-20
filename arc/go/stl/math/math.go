@@ -122,9 +122,20 @@ var moduleMembers = symbol.MapResolver{
 	derivativeSymbolName: derivativeSymbol,
 }
 
+const ModuleName = "math"
+
+// BuildModule returns the math module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol {
+	return symbol.NewModule(ModuleName, moduleMembers.Values()...)
+}
+
+// BareGlobals returns the deprecated bare names (avg, min, max, derivative)
+// installed at the root scope so legacy programs continue to resolve.
+func BareGlobals() []symbol.Symbol { return deprecatedBareResolver.Values() }
+
 var SymbolResolver = symbol.CompoundResolver{
 	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "math", Members: moduleMembers},
+	&symbol.ModuleResolver{Name: ModuleName, Members: moduleMembers},
 }
 
 type Module struct{}

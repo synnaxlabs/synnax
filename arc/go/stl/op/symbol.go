@@ -89,3 +89,19 @@ var SymbolResolver = symbol.MapResolver{
 	orSymbolName:  createLogicalSymbol(orSymbolName),
 	notSymbolName: createNotSymbol(notSymbolName),
 }
+
+// BareGlobals returns operator symbols installed at the root scope so
+// lowering passes can emit calls to them without imports.
+func BareGlobals() []symbol.Symbol {
+	return []symbol.Symbol{
+		createComparisonSymbol(geSymbolName),
+		createComparisonSymbol(gtSymbolName),
+		createComparisonSymbol(leSymbolName),
+		createComparisonSymbol(ltSymbolName),
+		createComparisonSymbol(eqSymbolName),
+		createComparisonSymbol(neSymbolName),
+		createLogicalSymbol(andSymbolName),
+		createLogicalSymbol(orSymbolName),
+		createNotSymbol(notSymbolName),
+	}
+}

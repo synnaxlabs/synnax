@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
-	"github.com/synnaxlabs/x/set"
 )
 
 // checkImportOrder reports any import statement that appears after a
@@ -37,60 +36,79 @@ func checkImportOrder(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
-// collectImports populates the root scope's ImportSet and diagnoses
-// duplicates and unknown modules. Must run before any resolution pass.
+// collectImports installs a KindModuleAlias child on the program root for
+// each `import` statement. The alias's Target points at the underlying
+// module symbol (looked up in the ambient prelude). Subsequent dotted
+// lookups (`t.now`) resolve through the alias by ordinary scope walk and
+// member descent — no separate import gate is needed.
+//
+// Diagnoses duplicate aliases and unknown module paths.
 func collectImports(ctx acontext.Context[parser.IProgramContext]) {
-	imports := symbol.NewImportSet()
 	root := ctx.Scope.Root()
-	root.Imports = imports
-
-	known := knownModuleSet(root.GlobalResolver)
-
+	ambient := ambientOf(root)
 	for _, entry := range parser.Imports(ctx.AST) {
-		rec := symbol.ImportRecord{
-			Path:  entry.Path,
-			Alias: entry.Alias,
-			AST:   entry.AST,
-		}
-		if duplicate := imports.Add(rec); duplicate {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				entry.AST,
-				"duplicate import: %q is already imported",
-				entry.Alias,
-			))
-			continue
-		}
-		if !known.Contains(entry.Path) {
+		module := lookupModule(ambient, entry.Path)
+		if module == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry.AST,
 				"unknown module %q",
 				entry.Path,
 			))
-			imports.MarkUsed(entry.Alias)
+			continue
+		}
+		alias := symbol.Symbol{
+			Name:   entry.Alias,
+			Kind:   symbol.KindModuleAlias,
+			AST:    entry.AST,
+			Target: module,
+		}
+		if _, err := root.Add(ctx, alias); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				entry.AST,
+				"duplicate import: %q is already imported",
+				entry.Alias,
+			))
 		}
 	}
 }
 
-// knownModuleSet returns every module name the resolver exposes, used to
-// diagnose imports of unknown modules.
-func knownModuleSet(r symbol.Resolver) set.Set[string] {
-	if r == nil {
-		return set.New[string]()
-	}
-	return set.New(symbol.ListModules(r)...)
-}
-
-// reportUnusedImports flags every import that was never consulted.
+// reportUnusedImports flags every alias child of the program root that was
+// never consulted by resolution.
 func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 	root := ctx.Scope.Root()
-	if root.Imports == nil {
-		return
-	}
-	for _, rec := range root.Imports.Unused() {
+	for _, child := range root.Children {
+		if child.Kind != symbol.KindModuleAlias {
+			continue
+		}
+		if child.Used {
+			continue
+		}
 		ctx.Diagnostics.Add(diagnostics.Errorf(
-			rec.AST,
+			child.AST,
 			"imported module %q is unused",
-			rec.Alias,
+			child.Name,
 		))
 	}
+}
+
+// ambientOf returns the KindAmbient parent of the program root if any,
+// otherwise nil. The ambient holds the STL modules available for import.
+func ambientOf(root *symbol.Symbol) *symbol.Symbol {
+	if root.Parent != nil && root.Parent.Kind == symbol.KindAmbient {
+		return root.Parent
+	}
+	return nil
+}
+
+// lookupModule searches the ambient prelude for a KindModule child with the
+// given canonical path. Returns nil when ambient is nil or the module is
+// not present.
+func lookupModule(ambient *symbol.Symbol, path string) *symbol.Symbol {
+	if ambient == nil {
+		return nil
+	}
+	if child := ambient.FindChildByName(path); child != nil && child.Kind == symbol.KindModule {
+		return child
+	}
+	return nil
 }

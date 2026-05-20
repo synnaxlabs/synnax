@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/types"
@@ -46,7 +47,7 @@ var _ = Describe("Constant", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -123,7 +124,7 @@ var _ = Describe("Constant", func() {
 					},
 				}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
 			marked = nil
@@ -237,7 +238,7 @@ var _ = Describe("Constant", func() {
 					},
 				},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(constant.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
 			cfg := node.Config{

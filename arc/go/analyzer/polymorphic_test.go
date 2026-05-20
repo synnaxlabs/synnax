@@ -16,6 +16,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -54,7 +55,7 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	DescribeTable("Simple Polymorphic Flow",
 		func(sCtx SpecContext, tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
-			ctx := acontext.CreateRoot(sCtx, ast, resolver)
+			ctx := acontext.CreateRoot(sCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 

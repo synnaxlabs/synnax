@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -77,7 +78,7 @@ var _ = Describe("StableFor", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+		analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stable.SymbolResolver))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s = node.New(analyzed)
 	})
@@ -423,7 +424,7 @@ var _ = Describe("StableFor", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(stable.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := node.New(analyzed)
 			compound := node.CompoundFactory{stable.NewModule()}

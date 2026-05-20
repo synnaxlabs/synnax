@@ -77,11 +77,11 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		opt(o)
 	}
 
-	var symResolver symbol.Resolver
-	if !o.disableHostImports {
-		symResolver = o.hostSymbols
+	hostScope := o.hostScope
+	if hostScope == nil && !o.disableHostImports {
+		hostScope = program.Symbols
 	}
-	resolver := resolve.NewResolver(symResolver)
+	resolver := resolve.NewResolver(hostScope)
 
 	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
 

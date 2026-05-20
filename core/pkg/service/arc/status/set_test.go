@@ -57,7 +57,7 @@ var _ = Describe("SymbolResolver", func() {
 		It("Should include the qualified member when searching with a matching term", func(ctx SpecContext) {
 			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set"))
 			Expect(results).To(HaveLen(2))
-			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
+			names := lo.Map(results, func(s *symbol.Symbol, _ int) string { return s.Name })
 			Expect(names).To(ContainElement("set_status"))
 			Expect(names).To(ContainElement("set"))
 		})
@@ -128,7 +128,7 @@ var _ = Describe("Module", func() {
 		It("Should include the qualified member for a matching term", func(ctx SpecContext) {
 			results := MustSucceed(mod.Search(ctx, "set"))
 			Expect(results).To(HaveLen(2))
-			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
+			names := lo.Map(results, func(s *symbol.Symbol, _ int) string { return s.Name })
 			Expect(names).To(ContainElement("set_status"))
 			Expect(names).To(ContainElement("set"))
 		})

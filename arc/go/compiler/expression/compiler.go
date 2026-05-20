@@ -252,7 +252,7 @@ func compileFunctionCallExpr(
 	if scope.Deprecated != "" {
 		emitName = scope.Deprecated
 	}
-	emitName = ctx.Scope.Root().Imports.CanonicalName(emitName)
+	emitName = ctx.Scope.Root().CanonicalName(emitName)
 	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, emitName, concreteType)
 	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {

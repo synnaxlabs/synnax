@@ -367,9 +367,15 @@ func analyzeNamedRef(
 
 // isRootLevelScope reports whether sym is declared directly under the file
 // root (i.e., a top-level sequence or stage). Uses a structural parent
-// check so anonymous/auto-named wrapper scopes don't misclassify.
-func isRootLevelScope(sym *symbol.Scope) bool {
-	if sym == nil || sym.Parent == nil || sym.Parent.Parent != nil {
+// check so anonymous/auto-named wrapper scopes don't misclassify. The
+// user program root's Parent is either nil (no ambient) or KindAmbient
+// (the STL prelude).
+func isRootLevelScope(sym *symbol.Symbol) bool {
+	if sym == nil || sym.Parent == nil {
+		return false
+	}
+	parent := sym.Parent
+	if parent.Parent != nil && parent.Parent.Kind != symbol.KindAmbient {
 		return false
 	}
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
@@ -473,7 +479,7 @@ func analyzeFunctionNode(
 	}
 	// Node.Type must be the canonical module path so factories find it;
 	// rewrite aliased prefixes (`t.now` → `time.now`).
-	nodeType := ctx.Scope.Root().Imports.CanonicalName(name)
+	nodeType := ctx.Scope.Root().CanonicalName(name)
 	freshType := types.Freshen(sym.Type, key)
 	n := ir.Node{
 		Key:      key,
@@ -547,13 +553,17 @@ func analyzeExpression(
 
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
 // Returns a partially complete IR even on errors for LSP support.
+//
+// The root parameter is the pre-built program root. Callers construct it
+// (typically via stl.NewRoot) so the text package never needs to know
+// which built-ins are loaded or where external symbols come from.
 func Analyze(
 	ctx context.Context,
 	t Text,
-	resolver symbol.Resolver,
+	root *symbol.Symbol,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
+		aCtx = acontext.CreateRoot(ctx, t.AST, root)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 
@@ -564,25 +574,26 @@ func Analyze(
 	}
 
 	for _, c := range i.Symbols.Children {
-		if c.Kind == symbol.KindFunction {
-			fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
-			var bodyAst antlr.ParserRuleContext = fnDecl
-			if ok {
-				bodyAst = fnDecl.Block()
-			}
-			exprDecl, ok := c.AST.(parser.IExpressionContext)
-			if ok {
-				bodyAst = exprDecl
-			}
-			i.Functions = append(i.Functions, ir.Function{
-				Key:      c.Name,
-				Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
-				Config:   c.Type.Config,
-				Inputs:   c.Type.Inputs,
-				Outputs:  c.Type.Outputs,
-				Channels: c.Channels,
-			})
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
 		}
+		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+		var bodyAst antlr.ParserRuleContext = fnDecl
+		if ok {
+			bodyAst = fnDecl.Block()
+		}
+		exprDecl, ok := c.AST.(parser.IExpressionContext)
+		if ok {
+			bodyAst = exprDecl
+		}
+		i.Functions = append(i.Functions, ir.Function{
+			Key:      c.Name,
+			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
+			Config:   c.Type.Config,
+			Inputs:   c.Type.Inputs,
+			Outputs:  c.Type.Outputs,
+			Channels: c.Channels,
+		})
 	}
 	kg := newKeyGenerator()
 	shell := newShellBuilder()

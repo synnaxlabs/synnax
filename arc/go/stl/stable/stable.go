@@ -39,28 +39,33 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
 		},
 	})
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Deprecated: "stable.for",
-			Type:       symbolType,
-		},
+	bareSymbol = symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Deprecated: "stable.for",
+		Type:       symbolType,
 	}
+	memberSymbol = symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: symbolType,
+	}
+	bareResolver   = symbol.MapResolver{bareSymbolName: bareSymbol}
 	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name: qualifiedMemberName,
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: symbolType,
-			},
-		},
+		Name:    moduleName,
+		Members: symbol.MapResolver{qualifiedMemberName: memberSymbol},
 	}
 	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
+
+// BuildModule returns the stable module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol { return symbol.NewModule(moduleName, memberSymbol) }
+
+// BareGlobals returns the deprecated `stable_for` bare alias installed at
+// the root scope so legacy programs continue to resolve.
+func BareGlobals() []symbol.Symbol { return []symbol.Symbol{bareSymbol} }
 
 type Module struct {
 	now func() telem.TimeStamp

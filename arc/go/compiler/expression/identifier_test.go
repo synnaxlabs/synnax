@@ -557,9 +557,11 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.SymbolResolver)
-			analyzerCtx.Scope.Imports = symbol.NewImportSet()
-			analyzerCtx.Scope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
+			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.NewRoot(stl.SymbolResolver))
+			timeMod := analyzerCtx.Scope.Parent.FindChildByName("time")
+			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
+				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+			}))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 
@@ -567,7 +569,7 @@ var _ = Describe("Identifier Compilation", func() {
 				bCtx,
 				analyzerCtx.Scope,
 				analyzerCtx.TypeMap,
-				resolve.NewResolver(stl.SymbolResolver),
+				resolve.NewResolver(stl.NewRoot(nil)),
 			)
 			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 			Expect(exprType).To(Equal(types.TimeStamp()))

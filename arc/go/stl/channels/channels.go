@@ -69,9 +69,20 @@ var hostSymbols = symbol.MapResolver{
 	},
 }
 
+const ModuleName = "channels"
+
+// BuildModule returns the channels module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol {
+	return symbol.NewModule(ModuleName, hostSymbols.Values()...)
+}
+
+// BareGlobals returns the `on` and `write` symbols installed at the root
+// scope so flow-mode programs can reference them without an import.
+func BareGlobals() []symbol.Symbol { return userSymbols.Values() }
+
 var SymbolResolver = symbol.CompoundResolver{
 	userSymbols,
-	&symbol.ModuleResolver{Name: "channels", Members: hostSymbols},
+	&symbol.ModuleResolver{Name: ModuleName, Members: hostSymbols},
 }
 
 type Module struct {

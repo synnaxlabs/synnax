@@ -20,109 +20,118 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
+const ModuleName = "string"
+
+// BuildModule returns the string module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol {
+	return symbol.NewModule(ModuleName, moduleMembers.Values()...)
+}
+
 var SymbolResolver = &symbol.ModuleResolver{
-	Name: "string",
-	Members: symbol.MapResolver{
-		"from_literal": {
-			Name:     "from_literal",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
-			}),
-		},
-		"concat": {
-			Name:     "concat",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"equal": {
-			Name:     "equal",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-			}),
-		},
-		"len": {
-			Name:     "len",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-			}),
-		},
-		"from_i32": {
-			Name:     "from_i32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u32": {
-			Name:     "from_u32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_i64": {
-			Name:     "from_i64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u64": {
-			Name:     "from_u64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f32": {
-			Name:     "from_f32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f64": {
-			Name:     "from_f64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
+	Name:    ModuleName,
+	Members: moduleMembers,
+}
+
+var moduleMembers = symbol.MapResolver{
+	"from_literal": {
+		Name:     "from_literal",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+			Outputs: types.Params{{Name: "handle", Type: types.I32()}},
+		}),
+	},
+	"concat": {
+		Name:     "concat",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"equal": {
+		Name:     "equal",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+		}),
+	},
+	"len": {
+		Name:     "len",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "handle", Type: types.String()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+		}),
+	},
+	"from_i32": {
+		Name:     "from_i32",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.I32()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"from_u32": {
+		Name:     "from_u32",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.U32()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"from_i64": {
+		Name:     "from_i64",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"from_u64": {
+		Name:     "from_u64",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.U64()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"from_f32": {
+		Name:     "from_f32",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.F32()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	},
+	"from_f64": {
+		Name:     "from_f64",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
 	},
 }
 

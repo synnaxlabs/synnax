@@ -112,9 +112,20 @@ func NewModule(
 	return mod, nil
 }
 
+const ModuleName = "time"
+
+// BuildModule returns the time module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol {
+	return symbol.NewModule(ModuleName, moduleMembers.Values()...)
+}
+
+// BareGlobals returns the deprecated bare names installed at the root scope
+// so legacy programs continue to resolve.
+func BareGlobals() []symbol.Symbol { return deprecatedBareResolver.Values() }
+
 var SymbolResolver = symbol.CompoundResolver{
 	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "time", Members: moduleMembers},
+	&symbol.ModuleResolver{Name: ModuleName, Members: moduleMembers},
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {

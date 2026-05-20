@@ -85,9 +85,20 @@ var hostSymbols = symbol.MapResolver{
 	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 }
 
+const ModuleName = "series"
+
+// BuildModule returns the series module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol {
+	return symbol.NewModule(ModuleName, hostSymbols.Values()...)
+}
+
+// BareGlobals returns the user-facing `len` symbol installed at the root
+// scope so programs can use it without an import.
+func BareGlobals() []symbol.Symbol { return userSymbols.Values() }
+
 var SymbolResolver = symbol.CompoundResolver{
 	userSymbols,
-	&symbol.ModuleResolver{Name: "series", Members: hostSymbols},
+	&symbol.ModuleResolver{Name: ModuleName, Members: hostSymbols},
 }
 
 type Module struct {

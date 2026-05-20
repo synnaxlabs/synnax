@@ -96,7 +96,7 @@ func newHarness(
 		compileResolver = stl.SymbolResolver
 	}
 	prog := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(compileResolver)))
-	analyzed, diagnostics := graph.Analyze(ctx, g, resolver)
+	analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 	Expect(diagnostics.Ok()).To(BeTrue())
 	s := node.New(analyzed)
 
@@ -201,9 +201,9 @@ func newTextHarness(
 		compileResolver = stl.SymbolResolver
 	}
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-	analyzed, diagnostics := text.Analyze(ctx, parsedText, compileResolver)
+	analyzed, diagnostics := text.Analyze(ctx, parsedText, stl.NewRoot(compileResolver))
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-	prog := MustSucceed(text.Compile(ctx, analyzed, compiler.WithHostSymbols(compileResolver)))
+	prog := MustSucceed(text.Compile(ctx, analyzed, compiler.WithHostScope(analyzed.Symbols)))
 	s := node.New(analyzed)
 
 	stringsState := stlstrings.NewProgramState()

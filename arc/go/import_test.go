@@ -38,7 +38,7 @@ func analyze(source string, extra ...symbol.Resolver) *diagnostics.Diagnostics {
 		combined = append(combined, extra...)
 		resolver = combined
 	}
-	_, diag := text.Analyze(context.Background(), t, resolver)
+	_, diag := text.Analyze(context.Background(), t, stl.NewRoot(resolver))
 	return diag
 }
 
@@ -151,7 +151,7 @@ trig -> t.now{} -> now_out
 				Expect(parseDiag.Ok()).To(BeTrue())
 			}
 			resolver := symbol.CompoundResolver{stl.SymbolResolver, chans}
-			i, d := text.Analyze(context.Background(), t, resolver)
+			i, d := text.Analyze(context.Background(), t, stl.NewRoot(resolver))
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 			var found bool
 			for _, n := range i.Nodes {

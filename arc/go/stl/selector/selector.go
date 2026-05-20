@@ -57,6 +57,10 @@ var (
 	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
+// BareGlobals returns the `select` symbol installed at the root scope so
+// programs can reference it without an import.
+func BareGlobals() []symbol.Symbol { return []symbol.Symbol{symbolSelect} }
+
 type Module struct{}
 
 func NewModule() *Module { return &Module{} }

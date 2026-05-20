@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
@@ -58,7 +59,7 @@ var _ = Describe("OP", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+		analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(op.SymbolResolver))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := node.New(analyzed)
 		lhsNode := s.Node("lhs")
@@ -129,7 +130,7 @@ var _ = Describe("OP", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+		analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(op.SymbolResolver))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s := node.New(analyzed)
 		inputNode := s.Node("input")
@@ -183,7 +184,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -235,7 +236,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -288,7 +289,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -341,7 +342,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -394,7 +395,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -446,7 +447,7 @@ var _ = Describe("OP", func() {
 				},
 			}
 			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
-			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(combinedResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")

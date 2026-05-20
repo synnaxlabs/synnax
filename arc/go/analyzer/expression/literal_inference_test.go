@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -146,7 +147,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 2.2 * integer_sensor
 				}
 			`))
-			ctx := acontext.CreateRoot(specCtx, program, testResolver)
+			ctx := acontext.CreateRoot(specCtx, program, stl.NewRoot(testResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
@@ -233,7 +234,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 1000 - f32_ch
 				}
 			`))
-			aCtx := acontext.CreateRoot(ctx, program, testResolver)
+			aCtx := acontext.CreateRoot(ctx, program, stl.NewRoot(testResolver))
 			analyzer.AnalyzeProgram(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 		})

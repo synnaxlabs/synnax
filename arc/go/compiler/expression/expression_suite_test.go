@@ -58,9 +58,27 @@ func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source
 	return FinalizeContext(ctx), exprType
 }
 
+// autoImportSTL adds a KindModuleAlias child to root for every module in
+// the ambient prelude, so expression-level tests can reference module
+// members like `time.now()` without an explicit import statement.
+func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
+	if root.Parent == nil || root.Parent.Kind != symbol.KindAmbient {
+		return
+	}
+	for _, child := range root.Parent.Children {
+		if child.Kind != symbol.KindModule {
+			continue
+		}
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: child.Name, Kind: symbol.KindModuleAlias, Target: child,
+		}))
+	}
+}
+
 func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
-	analyzerCtx := acontext.CreateRoot(bCtx, expr, resolver)
+	analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.NewRoot(resolver))
+	autoImportSTL(bCtx, analyzerCtx.Scope)
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 	if analyzerCtx.Constraints.HasTypeVariables() {
@@ -69,7 +87,7 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, resolver symbo
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
@@ -134,7 +152,7 @@ func expectSeriesLiteralWithHint(
 	expectedOpcodes ...any,
 ) {
 	parsedExpr := MustSucceed(parser.ParseExpression(expr))
-	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, resolver)
+	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, stl.NewRoot(resolver))
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 
@@ -151,7 +169,7 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver(stl.NewRoot(nil)))
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -30,7 +31,7 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(control.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			_ = node.New(inter)
 			factory := control.NewModule(&control.ProgramState{})
@@ -49,7 +50,7 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(control.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 			authorityState = &control.ProgramState{}
@@ -154,7 +155,7 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(control.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			progState = node.New(analyzed)
 			authorityState = &control.ProgramState{}
@@ -252,7 +253,7 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(control.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 			authorityState = &control.ProgramState{}
@@ -312,7 +313,7 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(control.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			factory := control.NewModule(&control.ProgramState{})

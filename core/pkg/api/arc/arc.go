@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/compiler"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	"github.com/synnaxlabs/arc/stl"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -191,12 +192,12 @@ func (s *Service) compile(ctx context.Context, arc *Arc) error {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 2: Analyze the parsed text to produce IR
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewSymbolResolver(nil))
+	ir, diag := arctext.Analyze(ctx, parsed, stl.NewRoot(s.internal.NewSymbolResolver(nil)))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 3: Compile IR to WebAssembly module
-	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.NewSymbolResolver(nil)))
+	mod, err := arctext.Compile(ctx, ir, compiler.WithHostScope(ir.Symbols))
 	if err != nil {
 		return err
 	}

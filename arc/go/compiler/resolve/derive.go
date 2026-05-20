@@ -23,7 +23,7 @@ import (
 // module name and function base name. If the original symbol has type variables,
 // a type suffix is appended based on the concrete type.
 func DeriveWASMCoordinates(
-	symbols symbol.Resolver,
+	scope *symbol.Symbol,
 	ref pendingRef,
 ) (wasmModule string, wasmFuncName string) {
 	if idx := strings.LastIndex(ref.qualifiedName, "."); idx >= 0 {
@@ -35,8 +35,8 @@ func DeriveWASMCoordinates(
 	var suffix string
 	if ref.typeSuffix != "" {
 		suffix = ref.typeSuffix
-	} else if symbols != nil {
-		original, err := symbols.Resolve(context.Background(), ref.qualifiedName)
+	} else if scope != nil {
+		original, err := scope.Lookup(context.Background(), ref.qualifiedName)
 		if err == nil && original.Type.Kind == types.KindFunction {
 			suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
 		}

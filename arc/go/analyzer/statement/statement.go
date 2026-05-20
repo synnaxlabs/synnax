@@ -197,7 +197,7 @@ func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Sy
 	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
 	// Config params with channel type (KindConfig) should be read from, not aliased.
 	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
-		return &sym.Symbol
+		return sym
 	}
 	return nil
 }
@@ -1052,7 +1052,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	}
 
 	if varScope.Type.Kind == types.KindChan {
-		analyzeChannelAssignment(ctx, &varScope.Symbol)
+		analyzeChannelAssignment(ctx, varScope)
 		return
 	}
 

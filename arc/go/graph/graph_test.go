@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -92,7 +93,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, nil)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(1))
 			funcScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
@@ -149,7 +150,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(2))
 			Expect(inter.Nodes).To(HaveLen(2))
@@ -201,7 +202,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The fact that analysis succeeded without errors indicates
@@ -264,7 +265,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Check that the multiplier node instance has concrete resolved types
@@ -337,7 +338,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Both node instances should have concrete F64 types
@@ -394,7 +395,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				// This should fail because poly_add expects both parameters to be the same type T
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
@@ -432,7 +433,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				// This should fail because string doesn't satisfy NumericConstraint
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
@@ -466,7 +467,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("edge target node 'nonexistent' not found"))
 			})
@@ -499,7 +500,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("missing required input 'input'"))
 			})
@@ -532,7 +533,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 			})
@@ -699,7 +700,7 @@ var _ = Describe("Graph", func() {
 				Expect(parsed.Edges).To(HaveLen(6))
 
 				// Analyze the graph
-				inter, diagnostics := graph.Analyze(ctx, parsed, nil)
+				inter, diagnostics := graph.Analyze(ctx, parsed, stl.NewAutoImportRoot(nil))
 
 				// The analysis should succeed
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -798,7 +799,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -843,7 +844,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -872,7 +873,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeFalse())
 		})
 
@@ -906,7 +907,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 				})
@@ -948,7 +949,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Edges).To(HaveLen(2))
 				})
@@ -970,7 +971,7 @@ var _ = Describe("Graph", func() {
 						Edges: []ir.Edge{},
 					}
 					g = MustSucceed(graph.Parse(g))
-					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Nodes).To(HaveLen(2))
 				})
@@ -1006,7 +1007,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(diagnostics).To(MatchError(ContainSubstring("missing required input 'b'")))
 				})
@@ -1040,7 +1041,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				})
 
@@ -1084,7 +1085,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("multiple edges"))
 			})
@@ -1122,7 +1123,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Edges).To(HaveLen(2))
 			})
@@ -1174,7 +1175,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
@@ -1225,7 +1226,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(resolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
@@ -1313,7 +1314,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, statusResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(statusResolver))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Nodes).To(HaveLen(2))
 		})

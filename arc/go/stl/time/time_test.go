@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/types"
@@ -57,7 +58,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -334,7 +335,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -873,7 +874,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 
@@ -976,7 +977,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -1171,7 +1172,7 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				waitState := node.New(analyzed)
 				waitFactory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
@@ -1245,7 +1246,7 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s = node.New(analyzed)
 			})
@@ -1334,7 +1335,7 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s = node.New(analyzed)
 			})
@@ -1470,7 +1471,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(time.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})

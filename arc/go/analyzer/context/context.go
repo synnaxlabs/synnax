@@ -146,29 +146,36 @@ func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
 	return result, nil
 }
 
-// CreateRoot creates a new root context for program analysis. CreateRoot initializes
-// all shared state (Diagnostics, Constraints, TypeMap) and creates the root symbol
-// scope.
+// CreateRoot creates a new root context for program analysis. CreateRoot
+// initializes the shared state (Diagnostics, Constraints, TypeMap) and uses
+// the supplied root symbol as the lexical scope.
 //
-// The ctx parameter is the standard Go context for cancellation and deadlines. The
-// ast parameter is the root AST node (typically a program or top-level node). The
-// resolver parameter is a symbol resolver for resolving built-in symbols and can
-// be nil.
+// The root parameter is the pre-built program root. Callers in the consumer
+// layer (LSP, compiler, graph mode, services) build it via stl.BuildRoot()
+// and attach any external (DynamicResolver / channel) resolution before
+// passing it in. The analyzer does not know about STL or external services;
+// it only walks the scope tree it is given.
+//
+// When root is nil, an empty root is created. This is suitable for tests
+// that need to construct a hand-rolled scope without STL or external
+// resolvers.
 func CreateRoot[ASTNode antlr.ParserRuleContext](
 	ctx context.Context,
 	ast ASTNode,
-	resolver symbol.Resolver,
+	root *symbol.Symbol,
 ) Context[ASTNode] {
+	if root == nil {
+		root = symbol.CreateRoot(nil)
+	}
 	return Context[ASTNode]{
 		Context:     ctx,
-		Scope:       symbol.CreateRootScope(resolver),
+		Scope:       root,
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		CallEdges:   &[]CallEdge{},
 		AST:         ast,
 	}
-
 }
 
 // Child creates a new child context for a different AST node. Child is the primary

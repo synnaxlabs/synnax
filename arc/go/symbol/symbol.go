@@ -9,52 +9,36 @@
 
 // Package symbol implements symbol table management for the Arc programming language.
 //
-// This package provides a hierarchical scoping system that tracks all named entities
-// (variables, functions, channels, etc.) throughout an Arc program. It supports lexical
-// scoping with parent-child relationships, cascading symbol resolution, automatic ID
-// assignment for variables, and pluggable global symbol resolvers.
+// A Symbol is the unit of named entity. Variables, functions, modules, channels,
+// blocks, loops, sequences, and stages are all Symbols distinguished by Kind. A
+// Symbol can be a leaf (no Children) or a container (Children populated). The
+// language's lexical scope is exactly the tree of Symbols rooted at the program's
+// root Symbol.
 //
-// # Core Concepts
+// Resolution is uniform across all Symbols. Calling Resolve on a container Symbol
+// asks "from inside this Symbol, what does this name mean?". The search proceeds:
+// children → DynamicResolver (when set) → parent. Dotted names recurse — Resolve
+// splits at the first dot, resolves the head, then resolves the tail against the
+// head's children.
 //
-// Scope Hierarchy: Scopes form a tree structure where each scope can have a parent and
-// multiple children. The root scope represents the entire program, and child scopes
-// represent functions, blocks, and other lexical scopes.
-//
-// ID Assignment: Variables, inputs, outputs, config, and stateful variables receive
-// unique integer IDs within their containing function scope. Functions create new ID
-// counter scopes, ensuring that variable IDs are independent per function.
-//
-// Symbol Resolution: Name lookup searches in order: children → global resolver → parent
-// scope. This enables lexical scoping with proper shadowing semantics.
-//
-// # Basic Usage
-//
-//	// Create root scope with global symbols
-//	resolver := symbol.MapResolver{
-//	    "pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
-//	}
-//	root := symbol.CreateRootScope(resolver)
-//
-//	// Add function scope
-//	funcScope, _ := root.Add(ctx, symbol.Symbol{
-//	    Name: "main",
-//	    Kind: symbol.KindFunction,
-//	})
-//
-//	// Add variable to function
-//	varScope, _ := funcScope.Add(ctx, symbol.Symbol{
-//	    Name: "x",
-//	    Kind: symbol.KindVariable,
-//	    Type: types.I32(),
-//	})
-//
-//	// Resolve symbols
-//	resolved, _ := varScope.Resolve(ctx, "pi")  // Finds global symbol
+// Sealed namespaces (modules, aliases) have Parent == nil. The walk-up cannot
+// escape the seal, which gives modules their member-access semantics for free.
+// Transparent containers (functions, blocks, loops) keep Parent set; lexical
+// resolution from inside them walks outward as usual.
 package symbol
 
 import (
+	"context"
+	"strconv"
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // ExecContext indicates which execution context a symbol is valid in.
@@ -116,49 +100,531 @@ const (
 	KindLoop
 	// KindLoopVariable represents an immutable loop iteration variable.
 	KindLoopVariable
+	// KindModule represents a namespace container (e.g., math, time). Module
+	// symbols are sealed: lookup of a member inside a module is restricted
+	// to that module's children — the Resolve walk does not continue out
+	// through Parent. This is what gives module access its member-only
+	// semantics: `math.foo` cannot accidentally find an unrelated `foo` in
+	// an enclosing scope.
+	KindModule
+	// KindModuleAlias represents an import alias bound in a file's root. The
+	// Target field points at the underlying module symbol; member lookups on
+	// the alias indirect through Target.
+	KindModuleAlias
+	// KindAmbient represents the prelude scope that sits as Parent of the
+	// program root. It holds STL bare globals (deprecated aliases,
+	// operators, len, select, ...) and the program root itself. Root()
+	// recognizes KindAmbient as the boundary above the user program — it
+	// walks to the topmost user-program scope and stops there.
+	KindAmbient
 )
 
-// Symbol represents a named entity in an Arc program.
+// Symbol is a named entity in an Arc program and, when it has Children, a
+// container that holds other Symbols. Variables, functions, modules, channels,
+// blocks, loops, sequences, stages, and aliases are all Symbols distinguished
+// by Kind.
 //
-// Each symbol has an associated type from Arc's type system, a kind that categorizes
-// its role, and an optional AST node for source location information used in error
-// reporting. Symbols that receive unique IDs (variables, inputs, outputs, config, and
-// stateful variables) are assigned sequential IDs within their containing function scope.
+// ID Assignment: Symbols whose Kind allocates a runtime slot (KindVariable,
+// KindStatefulVariable, KindChannel, KindInput, KindOutput, KindConfig,
+// KindLoopVariable) receive a unique ID from the nearest ancestor that owns a
+// Counter (the root and each function or sequence).
 type Symbol struct {
 	// Type is the symbol's type from Arc's type system.
 	Type types.Type
-	// AST is the parser node for source location information. Global symbols from
-	// resolvers have AST == nil, while locally-defined symbols have non-nil AST.
+	// AST is the parser node for source location information. Built-in symbols
+	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
 	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput and KindConfig symbols. Nil means no default (required parameter).
+	// Only used for KindInput and KindConfig symbols. Nil means no default.
 	DefaultValue any
-	// Name is the symbol's identifier.
+	// Name is the symbol's identifier. Container symbols of anonymous kinds
+	// (KindBlock, KindLoop, top-level stages) may have an empty Name.
 	Name string
-	// Kind categorizes the symbol (variable, function, channel, etc.).
+	// Kind categorizes the symbol.
 	Kind Kind
-	// ID is a unique identifier within the containing function scope. Only assigned
-	// to KindVariable, KindStatefulVariable, KindInput, KindOutput, KindChannel, and
-	// KindConfig.
+	// ID is a unique identifier within the containing function scope. Only
+	// assigned to symbols whose Kind allocates a runtime slot.
 	ID int
 	// SourceID tracks the ID of the source symbol for channel type propagation.
-	// When a variable or config param holds a channel reference, this field stores
-	// the ID of the original source (config param or global channel) so that
-	// Channels.Read/Write can be correctly resolved at instantiation time.
+	// When a variable or config param holds a channel reference, this field
+	// stores the ID of the original source (config param or global channel) so
+	// that Channels.Read/Write can be correctly resolved at instantiation time.
 	// A nil value means this symbol is the original source (e.g., a config param).
 	SourceID *int
-	// Internal marks symbols that are only accessible to the compiler (e.g., WASM
-	// host function signatures used for type suffix derivation). Internal symbols
-	// are skipped during scope resolution so user code cannot reference them, but
-	// remain visible to the compiler's resolve.Resolver which queries the
-	// symbol.Resolver interface directly.
+	// Internal marks symbols that are only accessible to the compiler (e.g.,
+	// WASM host function signatures used for type suffix derivation). Internal
+	// symbols are skipped during user-facing Resolve so user code cannot
+	// reference them, but remain visible to the compiler's resolve.Resolver
+	// which uses Lookup to bypass the filter.
 	Internal bool
-	// Exec indicates which execution context this symbol is valid in (WASM, Flow,
-	// or Both). A zero value is invalid and will cause resolution to fail, forcing
-	// every symbol to be explicitly tagged.
+	// Exec indicates which execution context this symbol is valid in (WASM,
+	// Flow, or Both). A zero value is invalid and will cause resolution to
+	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
 	// Deprecated holds the qualified replacement name for deprecated symbols.
 	// Empty means not deprecated. When set, analysis helpers can automatically
 	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
 	Deprecated string
+
+	// --- Tree structure (zero on leaf symbols, populated on containers) ---
+
+	// Parent is the lexically enclosing symbol. Nil for sealed namespaces
+	// (KindModule, KindModuleAlias) and for the topmost scope in a tree.
+	// For a program with an ambient prelude, the program root's Parent is
+	// the prelude; resolution walks through the prelude via the standard
+	// parent walk.
+	Parent *Symbol
+	// Children are the symbols directly contained by this scope. There is
+	// one slot — STL prelude symbols live in their own ambient scope's
+	// Children, the user program root has its own Children, etc.
+	Children []*Symbol
+	// Counter assigns unique IDs to slot-allocating descendants. Non-nil on
+	// the root and on each function and sequence; nil elsewhere.
+	Counter *int
+	// Channels tracks which Synnax channels this symbol's AST node reads
+	// from and writes to. Populated for function symbols.
+	Channels types.Channels
+	// Target is the aliased symbol for KindModuleAlias. Member resolution on
+	// an alias indirects through Target.
+	Target *Symbol
+	// Used reports whether this symbol has been consulted by a Resolve call.
+	// Used to drive unused-import diagnostics on alias symbols.
+	Used bool
+	// GlobalResolver provides on-demand lookups for symbols not pre-materialized
+	// in the symbol tree (e.g., cluster-backed channels). Consulted by Resolve
+	// when a name is not found among Children. Typically set on the root only.
+	GlobalResolver Resolver
+}
+
+// CreateRoot creates a root Symbol for a program. The optional dynamicResolver
+// is consulted for external symbols (e.g., cluster channels) when local lookup
+// misses. The root is a KindBlock symbol with an empty Name and an ID counter.
+func CreateRoot(dynamicResolver Resolver) *Symbol {
+	return &Symbol{
+		Kind:            KindBlock,
+		Counter:         new(int),
+		GlobalResolver: dynamicResolver,
+	}
+}
+
+// Scope is a transitional alias for Symbol. The two types were collapsed when
+// modules became Symbols of KindModule. Existing call sites that name *Scope
+// continue to compile; new code should use *Symbol directly.
+type Scope = Symbol
+
+// CreateRootScope is a transitional alias for CreateRoot. Existing call sites
+// continue to compile; new code should use CreateRoot directly.
+func CreateRootScope(dynamicResolver Resolver) *Symbol {
+	return CreateRoot(dynamicResolver)
+}
+
+// GetChildByParserRule finds a direct child with the given AST parser rule.
+// Returns an error if no matching child is found.
+func (s *Symbol) GetChildByParserRule(rule antlr.ParserRuleContext) (*Symbol, error) {
+	res := s.FindChild(func(child *Symbol) bool { return child.AST == rule })
+	if res == nil {
+		return nil, errors.New("could not find symbol matching parser rule")
+	}
+	return res, nil
+}
+
+// FindChildByName searches for a direct child with the given name. Returns nil
+// if no matching child is found.
+func (s *Symbol) FindChildByName(name string) *Symbol {
+	return s.FindChild(func(child *Symbol) bool { return child.Name == name })
+}
+
+// FindChild searches for a direct child matching the predicate. Returns nil if
+// no matching child is found.
+func (s *Symbol) FindChild(predicate func(*Symbol) bool) *Symbol {
+	res, _ := lo.Find(s.Children, predicate)
+	return res
+}
+
+// FilterChildren returns all direct children matching the predicate.
+func (s *Symbol) FilterChildren(predicate func(*Symbol) bool) []*Symbol {
+	return lo.Filter(s.Children, func(item *Symbol, _ int) bool {
+		return predicate(item)
+	})
+}
+
+// FilterChildrenByKind returns all direct children of the given kind.
+func (s *Symbol) FilterChildrenByKind(kind Kind) []*Symbol {
+	return s.FilterChildren(func(child *Symbol) bool { return child.Kind == kind })
+}
+
+// AutoName assigns a unique name by appending a numeric ID from the parent's
+// counter. Returns s for method chaining.
+func (s *Symbol) AutoName(prefix string) *Symbol {
+	idx := s.Parent.addIndex()
+	s.Name = prefix + strconv.Itoa(idx)
+	return s
+}
+
+// Add creates a new child Symbol from sym and appends it to s.Children.
+//
+// If sym has a non-empty Name, Add checks for naming conflicts in the lexical
+// chain. Built-in symbols (AST == nil) can be shadowed. Returns an error if a
+// locally-defined symbol with the same name already exists.
+//
+// Functions and sequences receive a new ID counter so their slot IDs are
+// independent. Slot-allocating Kinds (variables, channels, params) receive an
+// ID from the nearest ancestor counter.
+func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
+	if sym.Name != "" {
+		existing, err := s.Resolve(ctx, sym.Name)
+		if err == nil && existing.AST != nil {
+			tok := existing.AST.GetStart()
+			return nil, errors.Newf(
+				"name %s conflicts with existing symbol at line %d, col %d",
+				sym.Name,
+				tok.GetLine(),
+				tok.GetColumn(),
+			)
+		}
+	}
+	child := &Symbol{}
+	*child = sym
+	child.Parent = s
+	if sym.Kind == KindFunction || sym.Kind == KindSequence {
+		child.Counter = new(int)
+	}
+	if sym.Kind == KindFunction {
+		child.Channels = types.NewChannels()
+	}
+	if sym.Kind == KindVariable ||
+		sym.Kind == KindStatefulVariable ||
+		sym.Kind == KindInput ||
+		sym.Kind == KindConfig ||
+		sym.Kind == KindOutput ||
+		sym.Kind == KindLoopVariable {
+		child.ID = s.addIndex()
+	}
+	s.Children = append(s.Children, child)
+	return child, nil
+}
+
+// AddChild appends an already-constructed child to s.Children and sets its
+// Parent. Used by builders (e.g., STL module construction) that prepare
+// children before attaching them. Does not check for naming conflicts and
+// does not assign IDs; callers are responsible for these when constructing
+// tree fragments directly.
+func (s *Symbol) AddChild(child *Symbol) *Symbol {
+	child.Parent = s
+	s.Children = append(s.Children, child)
+	return child
+}
+
+// NewModule constructs a sealed module symbol with the given name and the
+// supplied members as children. Parent is nil so name resolution from
+// outside cannot see the module's siblings, and lookup from inside cannot
+// escape the module's namespace.
+func NewModule(name string, members ...Symbol) *Symbol {
+	mod := &Symbol{Name: name, Kind: KindModule}
+	for i := range members {
+		child := members[i]
+		child.Parent = mod
+		mod.Children = append(mod.Children, &child)
+	}
+	return mod
+}
+
+// NewTestScope builds a scope tree from a flat map of qualified names to
+// symbols, suitable for tests that need to populate a scope with host
+// functions by qualified name (e.g., {"math.abs": ...}). Multi-segment
+// names produce a nested module hierarchy: "math.abs" creates a `math`
+// module containing `abs`. Unqualified names land directly on the root.
+//
+// The returned root has no GlobalResolver and no ambient parent — it is
+// a standalone tree for unit-test scaffolding.
+func NewTestScope(syms map[string]Symbol) *Symbol {
+	root := CreateRoot(nil)
+	for name, sym := range syms {
+		parts := strings.Split(name, ".")
+		parent := root
+		for _, part := range parts[:len(parts)-1] {
+			mod := parent.FindChildByName(part)
+			if mod == nil {
+				mod = &Symbol{Name: part, Kind: KindModule, Parent: parent}
+				parent.Children = append(parent.Children, mod)
+			}
+			parent = mod
+		}
+		leaf := sym
+		leaf.Name = parts[len(parts)-1]
+		leaf.Parent = parent
+		parent.Children = append(parent.Children, &leaf)
+	}
+	return root
+}
+
+func (s *Symbol) addIndex() int {
+	if s.Counter != nil {
+		v := *s.Counter
+		*s.Counter++
+		return v
+	}
+	return s.Parent.addIndex()
+}
+
+// Root returns the user program's root scope. The walk stops at the
+// topmost scope before crossing into a KindAmbient prelude (or at the
+// topmost scope if there is no ambient). This is the scope that holds
+// the user's imports and the slot-counter for their variables.
+func (s *Symbol) Root() *Symbol {
+	for {
+		if s.Parent == nil || s.Parent.Kind == KindAmbient {
+			return s
+		}
+		s = s.Parent
+	}
+}
+
+// CanonicalName rewrites a dotted name's alias prefix to the underlying
+// module's canonical name. For `t.now` where `t` is a KindModuleAlias
+// child of s with Target pointing at module `time`, returns `time.now`.
+// Returns the input unchanged when the name is unqualified, the prefix
+// is not a known alias, or the alias already matches its canonical name.
+func (s *Symbol) CanonicalName(name string) string {
+	dot := strings.IndexByte(name, '.')
+	if dot < 0 {
+		return name
+	}
+	prefix := name[:dot]
+	alias := s.FindChildByName(prefix)
+	if alias == nil || alias.Kind != KindModuleAlias || alias.Target == nil {
+		return name
+	}
+	if alias.Target.Name == prefix {
+		return name
+	}
+	return alias.Target.Name + name[dot:]
+}
+
+// Resolve looks up a symbol by name using lexical scoping rules.
+//
+// Bare names walk: children → GlobalResolver → parent. The walk stops at
+// a KindModule scope — inside a module, lookup cannot escape outward.
+// That seal is what gives module members their member-only semantics:
+// `math.foo` cannot accidentally find an unrelated `foo` in a scope above
+// math. The walk also skips KindModule entries encountered along the way:
+// bare module names are not accessible from user code, modules are
+// reached only through KindModuleAlias children installed by `import`.
+//
+// Dotted names recurse: the head is resolved lexically (which finds an
+// alias in the user root or a module via the ambient prelude when one is
+// in scope through an alias), aliases indirect through Target, and the
+// tail is resolved against the resulting module. The module's seal
+// confines tail lookup to its own children.
+func (s *Symbol) Resolve(ctx context.Context, name string) (*Symbol, error) {
+	if dot := strings.IndexByte(name, '.'); dot > 0 {
+		head, tail := name[:dot], name[dot+1:]
+		container, err := s.Resolve(ctx, head)
+		if err != nil {
+			return nil, err
+		}
+		if container.Target != nil {
+			container.Used = true
+			container = container.Target
+		}
+		return container.Resolve(ctx, tail)
+	}
+	if child := s.FindChildByName(name); child != nil {
+		if !child.Internal && child.Kind != KindModule {
+			child.Used = true
+			return child, nil
+		}
+	}
+	if s.GlobalResolver != nil {
+		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil && !sym.Internal {
+			return sym, nil
+		}
+	}
+	if s.Kind == KindModule {
+		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if s.Parent != nil {
+		return s.Parent.Resolve(ctx, name)
+	}
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+}
+
+// Lookup is the unfiltered counterpart to Resolve. It finds a symbol by exact
+// name without skipping Internal entries and without recording Used. The
+// compiler's resolve package uses Lookup when it needs to reach host-function
+// shims that user code is not allowed to see.
+func (s *Symbol) Lookup(ctx context.Context, name string) (*Symbol, error) {
+	if dot := strings.IndexByte(name, '.'); dot > 0 {
+		head, tail := name[:dot], name[dot+1:]
+		container, err := s.Lookup(ctx, head)
+		if err != nil {
+			return nil, err
+		}
+		if container.Target != nil {
+			container = container.Target
+		}
+		return container.Lookup(ctx, tail)
+	}
+	if child := s.FindChildByName(name); child != nil {
+		return child, nil
+	}
+	if s.GlobalResolver != nil {
+		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
+			return sym, nil
+		}
+	}
+	if s.Kind == KindModule {
+		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if s.Parent != nil {
+		return s.Parent.Lookup(ctx, name)
+	}
+	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+}
+
+// Search returns symbols matching the given prefix or fuzzy term using the
+// same traversal order as Resolve.
+func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
+	seen := make(set.Set[string])
+	var results []*Symbol
+	for _, child := range s.Children {
+		if child.Internal {
+			continue
+		}
+		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
+			results = append(results, child)
+			seen.Add(child.Name)
+		}
+	}
+	if s.GlobalResolver != nil {
+		matches, err := s.GlobalResolver.Search(ctx, term)
+		if err == nil {
+			for _, sym := range matches {
+				if sym.Internal {
+					continue
+				}
+				if !seen.Contains(sym.Name) {
+					results = append(results, sym)
+					seen.Add(sym.Name)
+				}
+			}
+		}
+	}
+	if s.Parent != nil {
+		parentResults, err := s.Parent.Search(ctx, term)
+		if err == nil {
+			for _, sym := range parentResults {
+				if !seen.Contains(sym.Name) {
+					results = append(results, sym)
+					seen.Add(sym.Name)
+				}
+			}
+		}
+	}
+	return results, nil
+}
+
+func matchesSearch(name, term string) bool {
+	if strings.HasPrefix(name, term) {
+		return true
+	}
+	return len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2
+}
+
+// ClosestAncestorOfKind walks up the parent chain (including s itself) and
+// returns the nearest symbol with the given Kind. Returns query.ErrNotFound
+// when no such ancestor exists.
+func (s *Symbol) ClosestAncestorOfKind(kind Kind) (*Symbol, error) {
+	if s.Kind == kind {
+		return s, nil
+	}
+	if s.Parent == nil {
+		return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
+	}
+	return s.Parent.ClosestAncestorOfKind(kind)
+}
+
+// FirstChildOfKind returns the first direct child of the given kind. Returns
+// query.ErrNotFound when no matching child exists.
+func (s *Symbol) FirstChildOfKind(kind Kind) (*Symbol, error) {
+	for _, child := range s.Children {
+		if child.Kind == kind {
+			return child, nil
+		}
+	}
+	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
+}
+
+// ResolveConfigChannel replaces an internal config param ID with the actual
+// channel ID. For user-defined functions, the analyzer populates fnSym.Channels
+// with internal param IDs when processing the function body, so we replace
+// those with actual channel IDs. For built-in functions, fnSym has no children
+// or channels, so we fall back to adding the channel to Read.
+func ResolveConfigChannel(
+	c *types.Channels,
+	fnSym *Symbol,
+	paramName string,
+	channelKey uint32,
+	channelName string,
+) {
+	replaced := false
+	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
+		configParamID := uint32(configParamSym.ID)
+		if _, ok := fnSym.Channels.Write[configParamID]; ok {
+			delete(c.Write, configParamID)
+			c.Write[channelKey] = channelName
+			replaced = true
+		}
+		if _, ok := fnSym.Channels.Read[configParamID]; ok {
+			delete(c.Read, configParamID)
+			c.Read[channelKey] = channelName
+			replaced = true
+		}
+	}
+	if !replaced {
+		dir := types.ChanDirectionRead
+		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+			dir = param.Type.ChanDirection
+		}
+		if dir.IsRead() {
+			c.Read[channelKey] = channelName
+		}
+		if dir.IsWrite() {
+			c.Write[channelKey] = channelName
+		}
+	}
+}
+
+// String returns a human-readable string representation of the symbol tree.
+func (s *Symbol) String() string { return s.stringWithIndent("") }
+
+func (s *Symbol) stringWithIndent(indent string) string {
+	builder := strings.Builder{}
+	if s.Name != "" {
+		builder.WriteString(indent)
+		builder.WriteString("name: ")
+		builder.WriteString(s.Name)
+		builder.WriteString("\n")
+	}
+	builder.WriteString(indent)
+	builder.WriteString("kind: ")
+	builder.WriteString(s.Kind.String())
+	builder.WriteString("\n")
+	if s.Type.Kind != types.KindInvalid {
+		builder.WriteString(indent)
+		builder.WriteString("type: ")
+		builder.WriteString(s.Type.String())
+		builder.WriteString("\n")
+	}
+	if len(s.Children) > 0 {
+		builder.WriteString(indent)
+		builder.WriteString("children: \n")
+		childIndent := indent + "  "
+		for _, child := range s.Children {
+			builder.WriteString(child.stringWithIndent(childIndent))
+			builder.WriteString(childIndent)
+			builder.WriteString("---\n")
+		}
+	}
+	return builder.String()
 }

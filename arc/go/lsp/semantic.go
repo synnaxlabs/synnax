@@ -206,14 +206,14 @@ func importContextIdents(tokens []antlr.Token) set.Set[int] {
 	return out
 }
 
-// isImportAlias reports whether name is bound as a module alias in the active
-// import set.
+// isImportAlias reports whether name is bound as a module alias in the
+// program root's scope tree.
 func isImportAlias(docIR ir.IR, name string) bool {
-	if docIR.Symbols == nil || docIR.Symbols.Imports == nil {
+	if docIR.Symbols == nil {
 		return false
 	}
-	_, ok := docIR.Symbols.Imports.Lookup(name)
-	return ok
+	child := docIR.Symbols.FindChildByName(name)
+	return child != nil && child.Kind == symbol.KindModuleAlias
 }
 
 // appendTokenPerLine emits one LSP semantic token per source line covered by t.

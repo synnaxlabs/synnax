@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,7 +32,7 @@ func analyzeAndExpect(bCtx SpecContext, source string) context.Context[parser.IP
 
 func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, resolver)
+	ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	return ctx
@@ -39,7 +40,7 @@ func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver symb
 
 func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, resolver)
+	ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeFalse())
 	return ctx
@@ -95,7 +96,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return min
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(globalResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 		})
@@ -110,7 +111,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return value
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(globalResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
@@ -130,7 +131,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return y
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, globalResolver)
+			ctx := context.CreateRoot(bCtx, prog, stl.NewRoot(globalResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))

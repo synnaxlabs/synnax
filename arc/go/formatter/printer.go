@@ -116,6 +116,10 @@ func (p *printer) print(tokens []antlr.Token) string {
 	}
 
 	p.flushPendingLineEnd()
+	// Flush any comments that were never attached to a visible token. This
+	// covers the comment-only-file case, where the loop above never runs
+	// because visibleTokens is empty.
+	p.emitTrailingComments(commentAttacher)
 
 	out := strings.TrimRight(p.output.String(), " \t\n")
 	if out == "" {

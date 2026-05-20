@@ -323,67 +323,71 @@ var _ = Describe("Scope", func() {
 			Expect(resolved.Name).To(Equal("user_fn"))
 		})
 
-		Describe("Import gate", func() {
-			moduleResolver := &symbol.ModuleResolver{
-				Name: "time",
-				Members: symbol.MapResolver{
-					"now": {Name: "time.now", Kind: symbol.KindFunction, Type: types.F64()},
-				},
+		Describe("Module aliases", func() {
+			// buildAmbientRoot constructs a root with a synthetic ambient
+			// prelude that has a single "time" module containing "now".
+			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
+				timeMod := symbol.NewModule("time", symbol.Symbol{
+					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
+				})
+				ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
+				ambient.AddChild(timeMod)
+				root := symbol.CreateRoot(nil)
+				ambient.AddChild(root)
+				return root
 			}
 
-			It("Should leave dotted lookups ungated when Imports is nil", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
-			})
-
-			It("Should leave dotted lookups ungated when Imports has AutoAll", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewAutoImportSet()
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
-			})
-
-			It("Should return ModuleNotImportedError when the alias is not in the set", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
+			It("Should fail dotted lookup when no alias exists for the module", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
 				Expect(rootScope.Resolve(bCtx, "time.now")).Error().To(MatchError(
-					`module "time" is not imported`,
-				))
-			})
-
-			It("Should resolve a dotted lookup when the module is imported", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
-			})
-
-			It("Should mark the alias used after a successful gate check", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(rootScope.Imports.Unused()).To(BeEmpty())
-			})
-
-			It("Should mark the alias used even when the member lookup fails", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				Expect(rootScope.Resolve(bCtx, "time.doesnotexist")).Error().To(MatchError(
 					ContainSubstring("undefined symbol"),
 				))
-				Expect(rootScope.Imports.Unused()).To(BeEmpty())
 			})
 
-			It("Should rewrite aliased prefixes before the GlobalResolver lookup", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
+			It("Should resolve a dotted lookup through a same-name alias", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChildByName("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
+				Expect(resolved.Name).To(Equal("now"))
+			})
+
+			It("Should resolve a dotted lookup through a renamed alias", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChildByName("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
 				resolved := MustSucceed(rootScope.Resolve(bCtx, "t.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
+				Expect(resolved.Name).To(Equal("now"))
+			})
+
+			It("Should mark the alias as used on successful resolution", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChildByName("time")
+				alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				MustSucceed(rootScope.Resolve(bCtx, "t.now"))
+				Expect(alias.Used).To(BeTrue())
+			})
+
+			It("Should not find members past the module seal", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChildByName("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				// A bare "outer" exists in the user root but `time.outer` must
+				// not find it — module member lookup is sealed.
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "outer", Kind: symbol.KindFunction, Type: types.F64(),
+				}))
+				Expect(rootScope.Resolve(bCtx, "time.outer")).Error().To(MatchError(
+					ContainSubstring("undefined symbol"),
+				))
 			})
 		})
 	})
@@ -563,10 +567,10 @@ var _ = Describe("Scope", func() {
 	Describe("AutoName", func() {
 		It("Should generate name with prefix and incremented index", func() {
 			rootScope := symbol.CreateRootScope(nil)
-			child1 := &symbol.Scope{Parent: rootScope, Symbol: symbol.Symbol{Kind: symbol.KindBlock}}
+			child1 := &symbol.Symbol{Parent: rootScope, Kind: symbol.KindBlock}
 			child1.AutoName("stage_")
 			Expect(child1.Name).To(Equal("stage_0"))
-			child2 := &symbol.Scope{Parent: rootScope, Symbol: symbol.Symbol{Kind: symbol.KindBlock}}
+			child2 := &symbol.Symbol{Parent: rootScope, Kind: symbol.KindBlock}
 			child2.AutoName("stage_")
 			Expect(child2.Name).To(Equal("stage_1"))
 		})
@@ -598,7 +602,7 @@ var _ = Describe("Scope", func() {
 		})
 		Describe("ResolveConfigChannel", func() {
 			It("Should fall back to Read when fnSym has no children (built-in functions)", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{Name: "on", Kind: symbol.KindFunction}}
+				fnSym := &symbol.Symbol{Name: "on", Kind: symbol.KindFunction}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
@@ -666,7 +670,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should use WriteChan access for built-in with WriteChan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "set_authority",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -674,7 +678,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.WriteChan(types.U8())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "valve")
 				Expect(nodeChannels.Write).To(HaveLen(1))
@@ -683,7 +687,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should use ReadChan access for built-in with ReadChan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "on",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -691,7 +695,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.ReadChan(types.F64())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 10, "sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
@@ -700,7 +704,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should default to Read for built-in with plain Chan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "custom",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -708,7 +712,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.Chan(types.F64())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 99, "ch")
 				Expect(nodeChannels.Read).To(HaveLen(1))

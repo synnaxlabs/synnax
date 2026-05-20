@@ -41,28 +41,33 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 		},
 	})
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Type:       symbolProps,
-			Deprecated: "control.set_authority",
-		},
+	bareSymbol = symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       symbolProps,
+		Deprecated: "control.set_authority",
 	}
+	memberSymbol = symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: symbolProps,
+	}
+	bareResolver   = symbol.MapResolver{bareSymbolName: bareSymbol}
 	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name: qualifiedMemberName,
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: symbolProps,
-			},
-		},
+		Name:    moduleName,
+		Members: symbol.MapResolver{qualifiedMemberName: memberSymbol},
 	}
 	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
+
+// BuildModule returns the control module with its sealed namespace populated.
+func BuildModule() *symbol.Symbol { return symbol.NewModule(moduleName, memberSymbol) }
+
+// BareGlobals returns the deprecated bare alias installed at the root scope
+// so legacy programs continue to resolve.
+func BareGlobals() []symbol.Symbol { return []symbol.Symbol{bareSymbol} }
 
 type Module struct {
 	auth *ProgramState

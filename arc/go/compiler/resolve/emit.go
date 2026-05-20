@@ -36,10 +36,10 @@ func (r *Resolver) EmitCall(
 // for monomorphic host functions like string.from_i32; for polymorphic
 // ones (channels.read, state.load), use EmitCall with the concrete type.
 func (r *Resolver) EmitFixedCall(w *wasm.Writer, writerID int, name string) error {
-	if r.symbols == nil {
-		return errors.Newf("cannot resolve %s: no symbol resolver", name)
+	if r.scope == nil {
+		return errors.Newf("cannot resolve %s: no scope", name)
 	}
-	sym, err := r.symbols.Resolve(context.Background(), name)
+	sym, err := r.scope.Lookup(context.Background(), name)
 	if err != nil {
 		return errors.Wrapf(err, "resolve %s", name)
 	}

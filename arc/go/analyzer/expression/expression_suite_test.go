@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,14 +30,14 @@ func TestExpression(t *testing.T) {
 
 func expectSuccess(specCtx context.Context, code string, resolver symbol.Resolver) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(specCtx, ast, resolver)
+	ctx := acontext.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
 func expectFailure(specCtx context.Context, code string, resolver symbol.Resolver, expectedMsg string) {
 	ast := MustSucceed(parser.Parse(code))
-	ctx := acontext.CreateRoot(specCtx, ast, resolver)
+	ctx := acontext.CreateRoot(specCtx, ast, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))

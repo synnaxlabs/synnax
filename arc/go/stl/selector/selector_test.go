@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
@@ -66,7 +67,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(selector.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -122,7 +123,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(selector.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -398,7 +399,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(selector.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			compound := node.CompoundFactory{selector.NewModule()}
@@ -442,7 +443,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, stl.NewAutoImportRoot(selector.SymbolResolver))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			factory := selector.NewModule()

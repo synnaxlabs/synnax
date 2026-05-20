@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -111,8 +112,8 @@ var _ = Describe("Flow Statements", func() {
 	Describe("Function Without Config Braces", func() {
 		It("Should detect when function follows function invocation without config braces", func(bCtx SpecContext) {
 			intervalResolver := symbol.MapResolver{
-				"interval": symbol.Symbol{
-					Name: "interval",
+				"tick": symbol.Symbol{
+					Name: "tick",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
@@ -123,8 +124,8 @@ var _ = Describe("Flow Statements", func() {
 			ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 
-interval{period=50ms} -> sim_daq`))
-			ctx := context.CreateRoot(bCtx, ast, intervalResolver)
+tick{period=50ms} -> sim_daq`))
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(intervalResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
@@ -136,7 +137,7 @@ interval{period=50ms} -> sim_daq`))
 			ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 sensor_chan -> sim_daq`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
@@ -148,7 +149,7 @@ sensor_chan -> sim_daq`))
 			ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 sensor_chan > 100 -> sim_daq`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
@@ -167,7 +168,7 @@ func transform{scale f64, offset f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> transform{2.5, 0.1} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -177,7 +178,7 @@ sensor_chan -> transform{2.5, 0.1} -> sink{}`))
 func controller{setpoint f64, gain f64 = 1.0} () {}
 
 sensor_chan -> controller{100.0}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -191,7 +192,7 @@ func filter{threshold f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> filter{"hello"} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -208,7 +209,7 @@ func filter{threshold f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -220,7 +221,7 @@ sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
 func controller{setpoint f64, gain f64} () {}
 
 sensor_chan -> controller{100.0}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -236,7 +237,7 @@ func filter{threshold f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> filter{5.0} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -248,7 +249,7 @@ func controller{sensor chan f64, setpoint f64} () {
 }
 
 sensor_chan -> controller{sensor_chan, 100.0}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -262,7 +263,7 @@ func filter{threshold f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> filter{} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -276,7 +277,7 @@ sensor_chan -> filter{} -> sink{}`))
 func controller{gain f64 = 1.0, offset f64 = 0.0} () {}
 
 sensor_chan -> controller{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -290,7 +291,7 @@ func transform{scale f64, offset f64} (x f64) f64 {
 func sink{} () {}
 
 sensor_chan -> transform{2.5, "bad"} -> sink{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -306,7 +307,7 @@ sensor_chan -> transform{2.5, "bad"} -> sink{}`))
 func source() {}
 func sink(v u8) {}
 source{} -> sink{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -320,7 +321,7 @@ func producer() u8 {
 }
 func consumer(v f64) {}
 producer{} -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -335,7 +336,7 @@ func producer() f32 psi {
 }
 func consumer(v f32 bar) {}
 producer{} -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("return type"))
@@ -349,7 +350,7 @@ func source() u8 {
 }
 func multi(a u8, b u8) {}
 source{} -> multi{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -364,7 +365,7 @@ func splitter() (high f64, low f64) {
 }
 func consumer(v f64) {}
 splitter{} -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -378,7 +379,7 @@ func producer() f64 {
 }
 func consumer(v f64) {}
 producer{} -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
@@ -392,7 +393,7 @@ producer{} -> consumer{}`))
 				ast := MustSucceed(parser.Parse(`
 func consumer(v f64) {}
 my_func -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, localResolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(localResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(Equal("my_func is not a channel"))
@@ -405,7 +406,7 @@ my_func -> consumer{}`))
 				ast := MustSucceed(parser.Parse(`
 func consumer(v f64) {}
 int_chan -> consumer{}`))
-				ctx := context.CreateRoot(bCtx, ast, localResolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(localResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("channel"))
@@ -417,7 +418,7 @@ int_chan -> consumer{}`))
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -426,7 +427,7 @@ int_chan -> consumer{}`))
 			ast := MustSucceed(parser.Parse(`
 			once{} -> processor{}
 			`))
-			ctx := context.CreateRoot(bCtx, ast, nil)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(nil))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Complete analysis reports all undefined symbols
@@ -445,7 +446,7 @@ int_chan -> consumer{}`))
 			}
 			// This should work - types match
 			sensor_chan -> controller{setpoint=100.0, input=sensor_chan, output=output_chan}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -460,7 +461,7 @@ int_chan -> consumer{}`))
 			}
 			// Missing 'threshold' and 'output' parameters
 			sensor_chan -> filter{input=sensor_chan}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Complete analysis reports all missing required parameters
@@ -474,7 +475,7 @@ int_chan -> consumer{}`))
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
 			sensor_chan -> controller{setpoint=100.0}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -484,7 +485,7 @@ int_chan -> consumer{}`))
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
 			sensor_chan -> controller{setpoint=100.0, gain=2.5}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -494,7 +495,7 @@ int_chan -> consumer{}`))
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
 			sensor_chan -> controller{gain=2.5}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -508,7 +509,7 @@ int_chan -> consumer{}`))
 			}
 			// 'extra' is not a valid config parameter for 'simple'
 			sensor_chan -> simple{input=sensor_chan, extra=42.0}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -533,7 +534,7 @@ int_chan -> consumer{}`))
 			    message = 42,
 			    input = sensor_chan
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Complete analysis reports all type mismatches
@@ -556,7 +557,7 @@ int_chan -> consumer{}`))
 			    message = "hello",
 			    input = sensor_chan
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -575,7 +576,7 @@ int_chan -> consumer{}`))
 			sensor_chan -> output_chan
 			// Channel as source in multi-func flow
 			sensor_chan -> process{input=sensor_chan, output=output_chan} -> valve_cmd`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -598,7 +599,7 @@ int_chan -> consumer{}`))
 			temperature -> controller{temp=temperature, setpoint=100.0}
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
 			sensor_chan -> logger{value=sensor_chan}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -611,7 +612,7 @@ int_chan -> consumer{}`))
 			}
 			// This channel as source:
 			sensor_chan -> display{input=sensor_chan}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
@@ -636,7 +637,7 @@ int_chan -> consumer{}`))
 			// This should fail because "on" func is not available
 			sensor_chan -> display{input=sensor_chan}`))
 
-			ctx := context.CreateRoot(bCtx, ast, noOnResolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(noOnResolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -654,7 +655,7 @@ sensor_chan > 100 -> alarm{}
 // Arithmetic expression
  (sensor_chan * 1.8) + 32.0 -> logger{}`))
 
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			// The expressions should be validated successfully
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -671,7 +672,7 @@ func setup() {
 // 'threshold' doesn't exist at the inter-func layer scope
 sensor_chan > threshold -> alarm{}`))
 
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -687,7 +688,7 @@ func target(v f64) {}
 sensor_chan -> {
     high: target{}
 }`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("output routing table must follow a func invocation"))
@@ -706,7 +707,7 @@ func demux(value f64) (high f64, low f64) {
 sensor_chan -> demux{} -> {
     high: some_var
 }`))
-				ctx := context.CreateRoot(bCtx, ast, localResolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(localResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect((*ctx.Diagnostics)[0].Message).To(Equal("some_var is not a channel, sequence, or stage"))
@@ -733,7 +734,7 @@ sequence main {
 				localResolver := symbol.MapResolver{
 					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 				}
-				ctx := context.CreateRoot(bCtx, ast, localResolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(localResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
@@ -748,7 +749,7 @@ sequence main {
 			        low = value
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
@@ -783,7 +784,7 @@ sequence main {
 			    high: alarm{},
 			    low: logger{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -799,7 +800,7 @@ sequence main {
 			sensor_chan -> simple{} -> {
 			    output: target{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -822,7 +823,7 @@ sequence main {
 			    high: target{},
 			    medium: target{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -844,7 +845,7 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: u32_target{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -872,7 +873,7 @@ sequence main {
 			    high: multiplier{} -> alarm{},
 			    low: logger{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -891,7 +892,7 @@ sequence main {
 			    high: output_chan,
 			    low: temp_sensor
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -904,7 +905,7 @@ sequence main {
 			    }
 			    // 'low' is never assigned
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			// Should have warning about unassigned output
@@ -929,7 +930,7 @@ sequence main {
 			    high: configurable{threshold=50.0},
 			    low: configurable{}
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Should fail because 'low' route is missing required config parameter
@@ -955,7 +956,7 @@ sequence main {
 			    high: output_chan: a,
 			    low: temp_sensor: b
 			} -> combiner{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -977,7 +978,7 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: output_chan: invalid_param
 			} -> doubler{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1005,7 +1006,7 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: multiplier{}: a
 			} -> converter{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1038,7 +1039,7 @@ sequence main {
 			    high: filter{} -> amplifier{}: input,
 			    low: output_chan: scale
 			} -> scaler{}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1056,7 +1057,7 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: output_chan: a
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1074,7 +1075,7 @@ sequence main {
 				    sensor_chan: a,
 				    output_chan: b
 				} -> combiner{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
@@ -1088,7 +1089,7 @@ sequence main {
 				 {
 				    sensor_chan: invalid_param
 				} -> combiner{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1099,7 +1100,7 @@ sequence main {
 				ast := MustSucceed(parser.Parse(`
 				{ sensor_chan: a } -> output_chan
 				`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1119,7 +1120,7 @@ sequence main {
 				 {
 				    sensor_chan: processor{}
 				} -> combiner{}`))
-				ctx := context.CreateRoot(bCtx, ast, resolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1135,7 +1136,7 @@ sequence main {
 					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(chanType)},
 				}
 				ast := MustSucceed(parser.Parse(source))
-				ctx := context.CreateRoot(bCtx, ast, literalResolver)
+				ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(literalResolver))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
@@ -1157,7 +1158,7 @@ sequence main {
 			        setup{}
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1173,7 +1174,7 @@ sequence main {
 			        process{}
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -1192,7 +1193,7 @@ sequence main {
 			        greet{}
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1204,7 +1205,7 @@ sequence main {
 			        1 + 1
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1226,7 +1227,7 @@ sequence main {
 			        sensor -> process{} => next
 			    }
 			}`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -1263,7 +1264,7 @@ sequence main {
 			}
 
 			start_cmd => main`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
+			ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})

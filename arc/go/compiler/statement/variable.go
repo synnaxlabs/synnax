@@ -266,7 +266,7 @@ func compileSeriesCompoundAssignment(
 	scope *symbol.Scope,
 	compoundOp parser.ICompoundOpContext,
 ) error {
-	sym := scope.Symbol
+	sym := *scope
 	varType := sym.Type
 	elemType := *varType.Elem
 	op := compoundOpToString(compoundOp)
@@ -310,7 +310,7 @@ func compileCompoundAssignment(
 		return compileIndexedCompoundAssignment(ctx, scope, indexOrSlice, compoundOp)
 	}
 
-	sym := scope.Symbol
+	sym := *scope
 	varType := sym.Type
 
 	// Handle whole-series compound assignment
@@ -376,7 +376,7 @@ func compileAssignment(
 		return compileIndexedAssignment(ctx, scope, indexOrSlice)
 	}
 
-	sym := scope.Symbol
+	sym := *scope
 	varType := sym.Type
 
 	// For channel writes, push the channel ID before compiling the expression.

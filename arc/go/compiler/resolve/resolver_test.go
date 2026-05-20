@@ -21,7 +21,7 @@ import (
 var _ = Describe("Resolver", func() {
 	Describe("Resolve", func() {
 		It("Should return incrementing handles", func() {
-			r := resolve.NewResolver(symbol.MapResolver{})
+			r := resolve.NewResolver(symbol.CreateRoot(nil))
 			h0 := r.Resolve("foo", types.Function(types.FunctionProperties{}))
 			h1 := r.Resolve("bar", types.Function(types.FunctionProperties{}))
 			h2 := r.Resolve("baz", types.Function(types.FunctionProperties{}))
@@ -42,7 +42,7 @@ var _ = Describe("Resolver", func() {
 					}),
 				},
 			}
-			r := resolve.NewResolver(symbols)
+			r := resolve.NewResolver(symbol.NewTestScope(symbols))
 			h0 := r.Resolve("math.abs", types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},
@@ -63,7 +63,7 @@ var _ = Describe("Resolver", func() {
 					}),
 				},
 			}
-			r := resolve.NewResolver(symbols)
+			r := resolve.NewResolver(symbol.NewTestScope(symbols))
 			hImport := r.Resolve("test.print", types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}))
@@ -86,7 +86,7 @@ var _ = Describe("Resolver", func() {
 					}),
 				},
 			}
-			r := resolve.NewResolver(symbols)
+			r := resolve.NewResolver(symbol.NewTestScope(symbols))
 			ft := types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},
@@ -115,7 +115,7 @@ var _ = Describe("Resolver", func() {
 					}),
 				},
 			}
-			r := resolve.NewResolver(symbols)
+			r := resolve.NewResolver(symbol.NewTestScope(symbols))
 			hLog := r.Resolve("test.log", types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}))
@@ -150,7 +150,7 @@ var _ = Describe("DeriveWASMCoordinates", func() {
 				}),
 			},
 		}
-		r := resolve.NewResolver(symbols)
+		r := resolve.NewResolver(symbol.NewTestScope(symbols))
 		h := r.Resolve("math.abs", types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 			Outputs: types.Params{{Name: "result", Type: types.F64()}},
@@ -175,7 +175,7 @@ var _ = Describe("DeriveWASMCoordinates", func() {
 				}),
 			},
 		}
-		r := resolve.NewResolver(symbols)
+		r := resolve.NewResolver(symbol.NewTestScope(symbols))
 		r.Resolve("math.abs", types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 			Outputs: types.Params{{Name: "result", Type: types.F64()}},

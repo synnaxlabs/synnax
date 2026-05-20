@@ -15,7 +15,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -30,8 +29,8 @@ type channelResolver struct {
 
 var _ arc.SymbolResolver = (*channelResolver)(nil)
 
-func channelToSymbol(ch channel.Channel) symbol.Symbol {
-	return arc.Symbol{
+func channelToSymbol(ch channel.Channel) *symbol.Symbol {
+	return &arc.Symbol{
 		Name: ch.Name,
 		Kind: symbol.KindChannel,
 		Type: types.Chan(types.FromTelem(ch.DataType)),
@@ -39,7 +38,7 @@ func channelToSymbol(ch channel.Channel) symbol.Symbol {
 	}
 }
 
-func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol, error) {
+func (r *channelResolver) Resolve(ctx context.Context, name string) (*arc.Symbol, error) {
 	key, err := strconv.Atoi(name)
 	ch := channel.Channel{}
 	q := r.channelSvc.NewRetrieve().Entry(&ch)
@@ -49,12 +48,12 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 		q = q.Where(channel.MatchNames(name))
 	}
 	if err = q.Exec(ctx, r.tx); err != nil {
-		return arc.Symbol{}, err
+		return nil, err
 	}
 	return channelToSymbol(ch), nil
 }
 
-func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
+func (r *channelResolver) Search(ctx context.Context, name string) ([]*arc.Symbol, error) {
 	var results []channel.Channel
 	if err := r.channelSvc.NewRetrieve().
 		Where(channel.MatchInternal(false)).
@@ -62,17 +61,18 @@ func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol
 		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item channel.Channel, index int) arc.Symbol {
+	return lo.Map(results, func(item channel.Channel, index int) *arc.Symbol {
 		return channelToSymbol(item)
 	}), nil
 }
 
+// NewResolver returns the dynamic resolver that the analyzer consults for
+// symbols outside the user program. After STL became scope-graph builtins
+// (see stl.BuildRoot), this resolver only handles status types and
+// cluster-backed channel lookups; the STL itself is no longer chained in.
 func NewResolver(channelSvc *channel.Service, tx gorp.Tx) arc.SymbolResolver {
-	resolvers := make(symbol.CompoundResolver, len(stl.SymbolResolver))
-	copy(resolvers, stl.SymbolResolver)
-	return append(
-		resolvers,
+	return symbol.CompoundResolver{
 		arcstatus.SymbolResolver,
 		&channelResolver{channelSvc: channelSvc, tx: tx},
-	)
+	}
 }

@@ -19,15 +19,19 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// stringSymbolResolver wraps the strings stdlib's "string" module so that
-// qualified names like "string.from_i32" resolve through the same path the
-// real compiler uses.
-var stringSymbolResolver symbol.Resolver = stlstrings.SymbolResolver
+// stringScope wraps the strings stdlib's "string" module under a fresh
+// root so qualified lookups like "string.from_i32" resolve through the
+// same scope-tree walk the real compiler uses.
+func stringScope() *symbol.Symbol {
+	root := symbol.CreateRoot(nil)
+	root.AddChild(stlstrings.BuildModule())
+	return root
+}
 
 var _ = Describe("EmitNumericToString", func() {
 	DescribeTable("Should dispatch to the host fn matching the source type",
 		func(from types.Type, wantWASMName string) {
-			r := resolve.NewResolver(stringSymbolResolver)
+			r := resolve.NewResolver(stringScope())
 			w := wasm.NewWriter()
 			wID := r.TrackWriter(w)
 
@@ -50,7 +54,7 @@ var _ = Describe("EmitNumericToString", func() {
 	)
 
 	It("Should return an error for non-numeric source types", func() {
-		r := resolve.NewResolver(stringSymbolResolver)
+		r := resolve.NewResolver(stringScope())
 		w := wasm.NewWriter()
 		wID := r.TrackWriter(w)
 
@@ -61,7 +65,7 @@ var _ = Describe("EmitNumericToString", func() {
 
 var _ = Describe("EmitFixedCall", func() {
 	It("Should resolve the signature from the SymbolResolver and emit an import", func() {
-		r := resolve.NewResolver(stringSymbolResolver)
+		r := resolve.NewResolver(stringScope())
 		w := wasm.NewWriter()
 		wID := r.TrackWriter(w)
 
@@ -73,7 +77,7 @@ var _ = Describe("EmitFixedCall", func() {
 	})
 
 	It("Should return an error when the symbol does not exist", func() {
-		r := resolve.NewResolver(stringSymbolResolver)
+		r := resolve.NewResolver(stringScope())
 		w := wasm.NewWriter()
 		wID := r.TrackWriter(w)
 
@@ -87,6 +91,6 @@ var _ = Describe("EmitFixedCall", func() {
 		wID := r.TrackWriter(w)
 
 		Expect(r.EmitFixedCall(w, wID, "string.from_i32")).
-			To(MatchError(ContainSubstring("no symbol resolver")))
+			To(MatchError(ContainSubstring("no scope")))
 	})
 })

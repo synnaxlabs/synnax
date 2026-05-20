@@ -45,18 +45,25 @@ type writerPatches struct {
 // Phase 1 (compile): Resolve returns temporary handles and records references.
 // Phase 2 (link): FinalizeAndPatch assigns real WASM function indices and
 // patches all tracked writers.
+//
+// The scope field is the symbol root used to look up host-function types by
+// qualified name (e.g., "channels.write"). It is typically the analyzed
+// program's root, which reaches STL modules via its ambient parent and
+// dynamic resolvers (channels, status) via its GlobalResolver.
 type Resolver struct {
-	symbols       symbol.Resolver
+	scope         *symbol.Symbol
 	pending       []pendingRef
 	compiled      map[string]compiledFunc
 	writers       []writerPatches
 	handleCounter uint32
 }
 
-// NewResolver creates a new Resolver backed by the given symbol resolver.
-func NewResolver(symbols symbol.Resolver) *Resolver {
+// NewResolver creates a new Resolver backed by the given scope. The scope
+// is consulted via Lookup (unfiltered, no module gating) to find host
+// function symbols by qualified name.
+func NewResolver(scope *symbol.Symbol) *Resolver {
 	return &Resolver{
-		symbols:  symbols,
+		scope:    scope,
 		compiled: make(map[string]compiledFunc),
 	}
 }
@@ -131,7 +138,7 @@ func (r *Resolver) Finalize(m *wasm.Module) map[uint32]uint32 {
 			localRefs = append(localRefs, ref)
 			continue
 		}
-		wasmMod, wasmName := DeriveWASMCoordinates(r.symbols, ref)
+		wasmMod, wasmName := DeriveWASMCoordinates(r.scope, ref)
 		key := importKey{wasmModule: wasmMod, wasmName: wasmName}
 		if idx, ok := importCache[key]; ok {
 			patches[ref.handle] = idx

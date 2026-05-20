@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -60,7 +61,7 @@ var resolver = symbol.MapResolver{
 // analyzeAndExpectSuccess parses the source, analyzes it, and expects success.
 func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, resolver)
+	ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
@@ -68,7 +69,7 @@ func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 // analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
 func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, resolver)
+	ctx := context.CreateRoot(bCtx, ast, stl.NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
