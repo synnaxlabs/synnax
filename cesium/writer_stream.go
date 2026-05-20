@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -372,11 +373,12 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 		if hwm := idx.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
 			t0 = hwm + 1
 		}
-		stamps := make([]telem.TimeStamp, n)
+		series := telem.MakeSeries(telem.TimeStampT, int(n))
+		stamps := xunsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 		for j := range stamps {
 			stamps[j] = t0 + telem.TimeStamp(j)
 		}
-		fr = fr.Append(idxKey, telem.NewSeriesV(stamps...))
+		fr = fr.Append(idxKey, series)
 	}
 	return fr
 }
