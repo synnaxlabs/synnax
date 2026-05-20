@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -907,6 +908,96 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: "above" -> log_str,
 			    low: 1 -> log_num
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should reject type mismatch in a chained case body node", func(bCtx SpecContext) {
+			customResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
+					Name: "sensor_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"log_str": symbol.Symbol{
+					Name: "log_str",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux{} -> {
+			    high: 123 -> log_str,
+			    low: "below" -> log_str
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should reject a func with named outputs in a non-terminal chain position", func(bCtx SpecContext) {
+			customResolver := symbol.MapResolver{
+				"sensor_chan": symbol.Symbol{
+					Name: "sensor_chan",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"log_num": symbol.Symbol{
+					Name: "log_num",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux{} -> {
+			    high: demux{} -> log_num,
+			    low: 1 -> log_num
+			}`))
+			ctx := context.CreateRoot(bCtx, ast, customResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("named outputs and requires a routing table"))
+		})
+
+		It("Should accept select{} with boolean discriminator and string-literal chain bodies", func(bCtx SpecContext) {
+			customResolver := symbol.CompoundResolver{
+				selector.SymbolResolver,
+				symbol.MapResolver{
+					"flag": symbol.Symbol{
+						Name: "flag",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+					},
+					"log_str": symbol.Symbol{
+						Name: "log_str",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.String()),
+					},
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+			    true: "high" -> log_str,
+			    false: "low" -> log_str
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, customResolver)
 			analyzer.AnalyzeProgram(ctx)
