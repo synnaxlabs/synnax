@@ -264,19 +264,22 @@ Flags, width, and precision compose in spec order:
 
 </Details>
 
-Inside a format string, `{` opens a placeholder. To write a literal `{`, escape it as
-`\{`. A bare `}` outside a placeholder is always a literal `}`.
+Inside a format string, `{` opens a placeholder. To write a literal `{`, double it as
+`{{`; to write a literal `}`, double it as `}}`. A single `}` outside a placeholder is
+treated as plain text.
 
 | Escape | Meaning     |
 | ------ | ----------- |
-| `\{`   | Literal `{` |
+| `{{`   | Literal `{` |
+| `}}`   | Literal `}` |
 
 ```arc
-msg := f"progress: \{50}" // "progress: {50}"
+msg := f"progress: {{{50}}}" // "progress: {50}"
 ```
 
-The `\{` escape is recognized in `f` and `rf` strings. In non-format strings, `{` is
-already literal so no escape is needed.
+The `{{` / `}}` escape mechanism is independent of the `r` prefix, so backslashes never
+interfere with placeholder parsing. `rf"C:\logs\{name}.txt"` interpolates `{name}` and
+keeps every backslash literal.
 
 ### Series Literals
 

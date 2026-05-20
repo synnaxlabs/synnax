@@ -87,10 +87,11 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("plain word", `f"static"`, "static"),
 			Entry("single space", `f" "`, " "),
 			Entry("multi-word with punctuation", `f"hello, world!"`, "hello, world!"),
-			Entry("escaped open brace", `f"\\{"`, "{"),
+			Entry("doubled open brace", `f"{{"`, "{"),
+			Entry("doubled close brace", `f"}}"`, "}"),
 			Entry("bare close brace is literal", `f"}"`, "}"),
-			Entry("open escaped, close bare around literal", `f"\\{x}"`, "{x}"),
-			Entry("escape mixed with text", `f"pre \\{ mid } post"`, "pre { mid } post"),
+			Entry("doubled braces around literal", `f"{{x}}"`, "{x}"),
+			Entry("doubled braces mixed with text", `f"pre {{ mid }} post"`, "pre { mid } post"),
 			Entry("embedded double quotes", `f"he said \"hi\""`, `he said "hi"`),
 		)
 	})
@@ -345,12 +346,18 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				`f"{42} trailing"`, "42 trailing"),
 			Entry("placeholder at end",
 				`f"leading {42}"`, "leading 42"),
-			Entry("escapes interleaved with placeholders",
-				`f"\\{ {7} }"`, "{ 7 }"),
+			Entry("doubled braces interleaved with placeholders",
+				`f"{{ {7} }}"`, "{ 7 }"),
 			Entry("three placeholders with mixed specs",
 				`f"{1}, {i32(2):05d}, {f64(3.14):.2f}"`, "1, 00002, 3.14"),
-			Entry("escaped open and bare close around placeholder",
-				`f"\\{{42}}"`, "{42}"),
+			Entry("doubled braces around placeholder",
+				`f"{{{42}}}"`, "{42}"),
+			Entry("raw string with backslash adjacent to placeholder",
+				`rf"C:\logs\{42}.txt"`, `C:\logs\42.txt`),
+			Entry("raw string with backslash adjacent and doubled-brace literal",
+				`rf"C:\out\{{tag}}-{42}.bin"`, `C:\out\{tag}-42.bin`),
+			Entry("raw format string with only doubled braces (no placeholder)",
+				`rf"C:\logs\{{abc}}.txt"`, `C:\logs\{abc}.txt`),
 		)
 	})
 
@@ -502,6 +509,26 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			}
 			out, _ := h.Flush()
 			Expect(lastString(out, 101)).To(Equal("static"))
+		})
+
+		It("flows a raw format string with only doubled-brace literals (no placeholders)", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"log":  {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`trig -> rf"C:\logs\{{abc}}.txt" -> log`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(`C:\logs\{abc}.txt`))
 		})
 	})
 

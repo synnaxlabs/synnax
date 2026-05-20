@@ -129,6 +129,11 @@ func fmt_fn() {
     // String width and precision count UTF-8 runes, not bytes.
     fmt_utf8_width_fn_out = f"{fmt_utf8_in:6s}"
     fmt_utf8_prec_fn_out = f"{fmt_utf8_in:.3s}"
+    // Doubled-brace literal-brace escapes: {{ -> { and }} -> }.
+    fmt_brace_pair_fn_out = f"{{a}}"
+    fmt_brace_around_fn_out = f"{{{42}}}"
+    fmt_brace_path_fn_out = rf"C:\logs\{{abc}}.txt"
+    fmt_brace_path_int_fn_out = rf"C:\logs\{{{42}}}.txt"
 }
 fmt_trigger -> fmt_fn{}
 // ──────────────────────── format strings (flow) ───────────────────────
@@ -142,6 +147,11 @@ fmt_trigger -> f"chan: {fmt_float_in:.2f}" -> fmt_chan_float_flow_out
 fmt_trigger -> f"chan: {fmt_str_in:q}" -> fmt_chan_str_flow_out
 // Multiple placeholders in one flow expression.
 fmt_trigger -> f"i={fmt_int_in}, f={fmt_float_in:.1f}" -> fmt_multi_flow_out
+// Doubled-brace literal-brace escapes in flow position. This path is the
+// one that historically dropped the {{/}} collapse and emitted the raw
+// body verbatim; the assertions below pin the fixed behavior.
+fmt_trigger -> rf"C:\logs\{{abc}}.txt" -> fmt_brace_path_flow_out
+fmt_trigger -> rf"C:\logs\{42}.txt" -> fmt_brace_backslash_flow_out
 """
 
 VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -194,6 +204,13 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     # UTF-8 rune-count parity outputs.
     ("fmt_utf8_width_fn_out", sy.DataType.STRING),
     ("fmt_utf8_prec_fn_out", sy.DataType.STRING),
+    # Literal-brace escape ({{ / }}) outputs.
+    ("fmt_brace_pair_fn_out", sy.DataType.STRING),
+    ("fmt_brace_around_fn_out", sy.DataType.STRING),
+    ("fmt_brace_path_fn_out", sy.DataType.STRING),
+    ("fmt_brace_path_int_fn_out", sy.DataType.STRING),
+    ("fmt_brace_path_flow_out", sy.DataType.STRING),
+    ("fmt_brace_backslash_flow_out", sy.DataType.STRING),
     ("fmt_const_int_flow_out", sy.DataType.STRING),
     ("fmt_const_hex_flow_out", sy.DataType.STRING),
     ("fmt_const_float_flow_out", sy.DataType.STRING),
@@ -426,6 +443,26 @@ class StlString(ArcConsoleCase):
         self.wait_for_eq("fmt_utf8_width_fn_out", " héllo", is_virtual=True)
         self.log("[fmt_utf8_prec] Expecting 'hél'")
         self.wait_for_eq("fmt_utf8_prec_fn_out", "hél", is_virtual=True)
+
+        # Literal-brace escapes: {{ -> { and }} -> }.
+        self.log("[fmt_brace_pair] Expecting '{a}'")
+        self.wait_for_eq("fmt_brace_pair_fn_out", "{a}", is_virtual=True)
+        self.log("[fmt_brace_around] Expecting '{42}'")
+        self.wait_for_eq("fmt_brace_around_fn_out", "{42}", is_virtual=True)
+        self.log("[fmt_brace_path] Expecting 'C:\\logs\\{abc}.txt'")
+        self.wait_for_eq("fmt_brace_path_fn_out", r"C:\logs\{abc}.txt", is_virtual=True)
+        self.log("[fmt_brace_path_int] Expecting 'C:\\logs\\{42}.txt'")
+        self.wait_for_eq(
+            "fmt_brace_path_int_fn_out", r"C:\logs\{42}.txt", is_virtual=True
+        )
+        self.log("[fmt_brace_path_flow] Expecting 'C:\\logs\\{abc}.txt'")
+        self.wait_for_eq(
+            "fmt_brace_path_flow_out", r"C:\logs\{abc}.txt", is_virtual=True
+        )
+        self.log("[fmt_brace_backslash_flow] Expecting 'C:\\logs\\42.txt'")
+        self.wait_for_eq(
+            "fmt_brace_backslash_flow_out", r"C:\logs\42.txt", is_virtual=True
+        )
 
     def verify_sequence_execution(self) -> None:
         self._test_len()

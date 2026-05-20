@@ -259,8 +259,8 @@ trig -> f{}`
 			expectSuccess(specCtx, wrap(`    log = `+`f"hello world"`))
 		})
 
-		It("accepts an escaped open brace and bare close with no placeholder", func(specCtx SpecContext) {
-			expectSuccess(specCtx, wrap(`    log = `+`f"\\{ }"`))
+		It("accepts a doubled open brace and bare close with no placeholder", func(specCtx SpecContext) {
+			expectSuccess(specCtx, wrap(`    log = `+`f"{{ }"`))
 		})
 
 		It("accepts an rf-prefixed format string with a placeholder", func(specCtx SpecContext) {

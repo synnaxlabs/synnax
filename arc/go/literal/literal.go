@@ -12,6 +12,7 @@ package literal
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
@@ -52,9 +53,9 @@ func Parse(
 
 // ParseString parses any of the eight string literal forms ("..." / `...`
 // crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
-// format-prefixed strings the body is returned with \{ and \} preserved so the
-// format-string parser can interpret them; placeholder analysis happens in
-// callers via FmtStrParse.
+// format-prefixed strings without placeholders, {{ and }} are collapsed to
+// literal braces; for format strings with placeholders the body is returned
+// with placeholders intact so callers can run FmtStrParse themselves.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
@@ -63,12 +64,26 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if !ok {
 		return ParsedValue{}, errors.Newf("invalid string literal: %s", text)
 	}
-	if flags.Raw {
-		return ParsedValue{Value: body, Type: types.String()}, nil
+	value := body
+	if !flags.Raw {
+		var err error
+		value, err = UnescapeString(body, flags.Multi)
+		if err != nil {
+			return ParsedValue{}, errors.Wrapf(err, "invalid string literal %s", text)
+		}
 	}
-	value, err := UnescapeString(body, flags.Multi)
-	if err != nil {
-		return ParsedValue{}, errors.Wrapf(err, "invalid string literal %s", text)
+	if flags.Format {
+		segments, err := FmtStrParse(value)
+		if err != nil {
+			return ParsedValue{}, errors.Wrapf(err, "invalid format string %s", text)
+		}
+		if !FmtStrHasPlaceholder(segments) {
+			var sb strings.Builder
+			for _, seg := range segments {
+				sb.WriteString(seg.Text)
+			}
+			value = sb.String()
+		}
 	}
 	return ParsedValue{Value: value, Type: types.String()}, nil
 }

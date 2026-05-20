@@ -125,34 +125,38 @@ var _ = Describe("Parse", func() {
 				{Text: " b=", Start: 9, End: 12, SpecOffset: -1},
 				{Text: "b", Spec: "d", IsPlaceholder: true, Start: 12, End: 17, SpecOffset: 14},
 			}),
-		Entry(`escaped opening brace`, `\{`,
+		Entry(`doubled opening brace is literal`, `{{`,
 			[]literal.FmtStrSegment{
 				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
+			}),
+		Entry(`doubled closing brace is literal`, `}}`,
+			[]literal.FmtStrSegment{
+				{Text: "}", Start: 0, End: 2, SpecOffset: -1},
 			}),
 		Entry(`bare closing brace is literal`, `}`,
 			[]literal.FmtStrSegment{
 				{Text: "}", Start: 0, End: 1, SpecOffset: -1},
 			}),
-		Entry(`escaped open with bare close`, `\{ }`,
+		Entry(`doubled open with doubled close`, `{{ }}`,
 			[]literal.FmtStrSegment{
-				{Text: "{ }", Start: 0, End: 4, SpecOffset: -1},
+				{Text: "{ }", Start: 0, End: 5, SpecOffset: -1},
 			}),
-		Entry(`escaped open around literal with bare close`, `\{hello}`,
+		Entry(`doubled braces around literal`, `{{hello}}`,
 			[]literal.FmtStrSegment{
-				{Text: "{hello}", Start: 0, End: 8, SpecOffset: -1},
+				{Text: "{hello}", Start: 0, End: 9, SpecOffset: -1},
 			}),
-		Entry(`escaped open and bare close around placeholder`, `\{{x}}`,
+		Entry(`doubled braces around placeholder`, `{{{x}}}`,
 			[]literal.FmtStrSegment{
 				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 2, End: 5, SpecOffset: -1},
-				{Text: "}", Start: 5, End: 6, SpecOffset: -1},
+				{Text: "}", Start: 5, End: 7, SpecOffset: -1},
 			}),
-		Entry(`escaped open mixed with placeholder and bare close`,
-			`pre \{ {x} } post`,
+		Entry(`doubled braces mixed with placeholder`,
+			`pre {{ {x} }} post`,
 			[]literal.FmtStrSegment{
 				{Text: "pre { ", Start: 0, End: 7, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 7, End: 10, SpecOffset: -1},
-				{Text: " } post", Start: 10, End: 17, SpecOffset: -1},
+				{Text: " } post", Start: 10, End: 18, SpecOffset: -1},
 			}),
 		Entry(`literal backslash before non-brace`, `a\nb`,
 			[]literal.FmtStrSegment{
@@ -162,20 +166,15 @@ var _ = Describe("Parse", func() {
 			[]literal.FmtStrSegment{
 				{Text: `a\}b`, Start: 0, End: 4, SpecOffset: -1},
 			}),
-		Entry(`escaped brace adjacent to placeholder`, `\{{x}`,
-			[]literal.FmtStrSegment{
-				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
-				{Text: "x", IsPlaceholder: true, Start: 2, End: 5, SpecOffset: -1},
-			}),
 		Entry(`placeholder adjacent to bare close`, `{x}}`,
 			[]literal.FmtStrSegment{
 				{Text: "x", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 				{Text: "}", Start: 3, End: 4, SpecOffset: -1},
 			}),
-		Entry(`escaped open spanning newlines with bare close`,
-			"line1 \\{\nline2}",
+		Entry(`doubled brace spanning newlines`,
+			"line1 {{\nline2}}",
 			[]literal.FmtStrSegment{
-				{Text: "line1 {\nline2}", Start: 0, End: 15, SpecOffset: -1},
+				{Text: "line1 {\nline2}", Start: 0, End: 16, SpecOffset: -1},
 			}),
 		Entry("bare close prefix", "}foo",
 			[]literal.FmtStrSegment{
@@ -226,6 +225,22 @@ var _ = Describe("Parse", func() {
 					Start: 0, End: 12, SpecOffset: 9,
 				},
 			}),
+		// Adjacency tests: a literal backslash followed by a placeholder. The
+		// expected behavior (matching Python's rf"...") is that the backslash
+		// stays literal and the {expr} is interpolated. This is required for
+		// Windows-style paths like rf"C:\logs\{name}.txt" to work.
+		Entry(`backslash immediately before placeholder`, `\{x}`,
+			[]literal.FmtStrSegment{
+				{Text: `\`, Start: 0, End: 1, SpecOffset: -1},
+				{Text: "x", IsPlaceholder: true, Start: 1, End: 4, SpecOffset: -1},
+			}),
+		Entry(`Windows path with placeholder after final backslash`,
+			`C:\logs\{name}.txt`,
+			[]literal.FmtStrSegment{
+				{Text: `C:\logs\`, Start: 0, End: 8, SpecOffset: -1},
+				{Text: "name", IsPlaceholder: true, Start: 8, End: 14, SpecOffset: -1},
+				{Text: ".txt", Start: 14, End: 18, SpecOffset: -1},
+			}),
 	)
 
 	DescribeTable("error cases",
@@ -238,7 +253,6 @@ var _ = Describe("Parse", func() {
 			"unmatched '{'"),
 		Entry("opening brace before valid placeholder", "{ {x}",
 			"unmatched '{'"),
-		Entry("two opening braces in a row", "{{", "unmatched '{'"),
 		Entry("opening brace at end of literal", "literal {",
 			"unmatched '{'"),
 		Entry("placeholder starting with format spec", "{:.2f}",

@@ -229,16 +229,16 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(ch[0]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 10, TokenType: tokenTypeChannel}))
 		})
 
-		It("does not treat \\{ as a placeholder opener and leaves bare } literal", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, `x := f"a \{ b } c"`)
+		It("treats {{ as a literal-brace escape and leaves bare } literal", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"a {{ b }} c"`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(BeEmpty())
 			str := filterByType(all, tokenTypeString)
 			Expect(str).ToNot(BeEmpty())
 		})
 
-		It("recognizes a real placeholder while ignoring surrounding escapes", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, `x := f"\{ {42} }"`)
+		It("recognizes a real placeholder while ignoring surrounding doubled braces", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"{{ {42} }}"`)
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
 			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))

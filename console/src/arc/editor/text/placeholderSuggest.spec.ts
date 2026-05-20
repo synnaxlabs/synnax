@@ -94,15 +94,21 @@ const TEST_CASES: TestCase[] = [
     expected: true,
   },
   {
-    name: "escaped open brace does not trigger",
-    buffer: 'f"hello \\{va',
+    name: "doubled open brace does not trigger",
+    buffer: 'f"hello {{va',
     typed: "l",
     expected: false,
   },
   {
-    name: "real placeholder after escaped brace still triggers",
-    buffer: 'f"\\{ {va',
+    name: "real placeholder after doubled brace still triggers",
+    buffer: 'f"{{ {va',
     typed: "l",
+    expected: true,
+  },
+  {
+    name: "backslash adjacent to placeholder triggers",
+    buffer: 'rf"C:\\path\\{na',
+    typed: "m",
     expected: true,
   },
   {

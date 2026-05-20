@@ -82,8 +82,8 @@ func StripQuotes(text string) (body string, flags StringFlags, ok bool) {
 // UnescapeString applies the standard Arc escape table to body. The delimiter
 // escape is asymmetric: single-line strings recognize \", multi-line strings
 // recognize \`; the other passes through verbatim. Unrecognized escapes also
-// pass through, so \{ survives for FmtStrParse to interpret in format strings.
-// Errors only on a trailing backslash or an incomplete \uXXXX escape.
+// pass through verbatim. Literal-brace escapes ({{ and }}) are handled by
+// FmtStrParse. Errors only on a trailing backslash or an incomplete \uXXXX escape.
 func UnescapeString(body string, multi bool) (string, error) {
 	var b strings.Builder
 	b.Grow(len(body))
@@ -136,8 +136,8 @@ func UnescapeString(body string, multi bool) (string, error) {
 }
 
 // FmtStrParse splits a format-string body into ordered segments at `{...}`
-// placeholders. `\{` escapes to a literal `{`; a bare `}` outside a placeholder
-// is plain text.
+// placeholders. `{{` escapes to a literal `{` and `}}` to a literal `}`; a
+// bare `}` outside a placeholder is plain text.
 func FmtStrParse(body string) ([]FmtStrSegment, error) {
 	var segments []FmtStrSegment
 	pos := 0
@@ -183,15 +183,21 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 func scanText(body string, pos int) (int, string) {
 	var b strings.Builder
 	for i := pos; i < len(body); i++ {
-		if body[i] == '\\' && i+1 < len(body) && body[i+1] == '{' {
-			b.WriteByte('{')
+		c := body[i]
+		if c == '{' {
+			if i+1 < len(body) && body[i+1] == '{' {
+				b.WriteByte('{')
+				i++
+				continue
+			}
+			return i, b.String()
+		}
+		if c == '}' && i+1 < len(body) && body[i+1] == '}' {
+			b.WriteByte('}')
 			i++
 			continue
 		}
-		if body[i] == '{' {
-			return i, b.String()
-		}
-		b.WriteByte(body[i])
+		b.WriteByte(c)
 	}
 	return len(body), b.String()
 }
