@@ -13,6 +13,7 @@ import {
   type destructor,
   notation,
   TimeStamp,
+  timestampFormatZ,
   timeZoneZ,
   xy,
 } from "@synnaxlabs/x";
@@ -31,7 +32,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
+export { timestampFormatZ };
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 
 export const timestampConfigZ = z.object({
