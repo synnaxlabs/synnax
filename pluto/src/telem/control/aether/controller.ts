@@ -25,7 +25,6 @@ import {
   type CrudeSeries,
   type destructor,
   type status as xstatus,
-  TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -162,16 +161,11 @@ export class Controller
           variant: "warning",
         });
 
-      // Subtracting 1 millisecond makes sure that we avoid accidentally
-      // setting the start timestamp over the writer earlier than the first
-      // sample we write, preventing a validation error when releasing control. We
-      // choose 1 ms because it is the resolution of a JS timestamp.
-      const start = TimeStamp.now().sub(TimeSpan.milliseconds(1));
       this.writer = await client.openWriter({
-        start,
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
+        autoIndexing: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
@@ -227,15 +221,10 @@ export class Controller
     }
   }
 
-  // buildFrame is a callback so that frames are constructed fresh on each retry
-  // attempt. This is necessary because frames may contain index timestamps that
-  // would be stale relative to the new writer's start after a reconnection.
   async set(
-    buildFrame: () => Promise<
-      framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>
-    >,
+    frame: framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void> {
-    await this.withRetry(async () => this.writer?.write(await buildFrame()));
+    await this.withRetry(async () => this.writer?.write(frame));
   }
 
   async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
@@ -328,20 +317,8 @@ export class SetChannelValue
       if (client == null) throw new DisconnectedError("No Core connected");
       if (this.props.channel === 0)
         throw new ValidationError("No command channel specified for actuator");
-      await this.controller.set(async () => {
-        const ch = await client.channels.retrieve(this.props.channel);
-        const fr: Record<channel.Key | channel.Name, CrudeSeries> = {
-          [ch.key]: values,
-        };
-        if (ch.index !== 0) {
-          const index = await client.channels.retrieve(ch.index);
-          const now = TimeStamp.now();
-          fr[index.key] = Array.from({ length: values.length }, (_, i) =>
-            now.add(TimeSpan.nanoseconds(i)),
-          );
-        }
-        return fr;
-      });
+      const ch = await client.channels.retrieve(this.props.channel);
+      await this.controller.set({ [ch.key]: values });
     }, "Failed to command channel");
   }
 }
