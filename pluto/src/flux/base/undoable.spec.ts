@@ -123,9 +123,9 @@ describe("UndoableStore", () => {
     });
 
     it("runs preprocess by default and skips it under skipPreprocess", () => {
-      const preprocess = vi.fn((_: Doc, acts: Action[]) => [
+      const preprocess = vi.fn((_: Doc, acts: Action[]): Action[] => [
         ...acts,
-        { type: "set", key: "extra", value: 1 } as Action,
+        { type: "set", key: "extra", value: 1 },
       ]);
       const { store } = setupStore({ preprocess });
       prime(store, "k");
