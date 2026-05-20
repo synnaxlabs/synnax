@@ -114,7 +114,6 @@ TimestampFormat enum {
     date        = "date"
     preciseDate = "preciseDate"
     dateTime    = "dateTime"
-    shortDate   = "shortDate"
 
     @doc value "is the rendered form of a timestamp displayed alongside a sample."
     @py omit

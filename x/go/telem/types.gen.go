@@ -50,7 +50,6 @@ const (
 	TimestampFormatDate        TimestampFormat = "date"
 	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
 	TimestampFormatDateTime    TimestampFormat = "dateTime"
-	TimestampFormatShortDate   TimestampFormat = "shortDate"
 )
 
 // TimeZone is the time zone used when rendering timestamps.

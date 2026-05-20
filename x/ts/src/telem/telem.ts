@@ -650,7 +650,6 @@ export class TimeStamp
       case "preciseTime":
         return this.timeString(true, timeZone);
       case "date":
-      case "shortDate":
         return this.dateString();
       case "preciseDate":
         return `${this.dateString()} ${this.timeString(true, timeZone)}`;
@@ -698,13 +697,13 @@ export class TimeStamp
    * @returns The appropriate TimeStampStringFormat
    *
    * Rules:
-   * - For spans >= 30 days: "shortDate" (e.g., "Nov 5")
+   * - For spans >= 30 days: "date" (e.g., "Nov 5")
    * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
    * - For spans >= 1 hour: "time" (e.g., "14:23:45")
    * - For spans < 1 hour: "preciseTime" (e.g., "14:23:45.123")
    */
   formatBySpan(span: TimeSpan): TimeStampStringFormat {
-    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "shortDate";
+    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "date";
     if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
     if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
     return "preciseTime";

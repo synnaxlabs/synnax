@@ -549,7 +549,6 @@ describe("TimeStamp", () => {
       ["date", "Dec 15"],
       ["preciseDate", "Dec 15 12:20:00.012"],
       ["dateTime", "Dec 15 12:20:00"],
-      ["shortDate", "Dec 15"],
     ];
 
     FORMAT_TESTS.forEach(([format, expected]) => {
@@ -922,10 +921,10 @@ describe("TimeStamp", () => {
   });
 
   describe("formatBySpan", () => {
-    test("should return 'shortDate' for spans >= 30 days", () => {
+    test("should return 'date' for spans >= 30 days", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.days(30);
-      expect(ts.formatBySpan(span)).toBe("shortDate");
+      expect(ts.formatBySpan(span)).toBe("date");
     });
 
     test("should return 'dateTime' for spans >= 1 day", () => {

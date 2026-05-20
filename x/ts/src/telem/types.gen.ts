@@ -19,7 +19,6 @@ export const TIMESTAMP_FORMATS = [
   "date",
   "preciseDate",
   "dateTime",
-  "shortDate",
 ] as const;
 export const timestampFormatZ = z.enum(TIMESTAMP_FORMATS);
 export type TimestampFormat = z.infer<typeof timestampFormatZ>;
