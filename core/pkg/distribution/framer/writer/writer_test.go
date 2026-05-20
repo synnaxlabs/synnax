@@ -470,8 +470,65 @@ var _ = Describe("Writer", func() {
 			))).To(BeTrue())
 			Eventually(out.Outlet()).Should(Receive(&res))
 			Expect(res.Group).To(Equal(uint32(20)))
-			Expect(w1.Close()).To(Succeed())
-			Expect(w2.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Auto-Indexing", func() {
+		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
+			builder := DeferClose(mock.ProvisionCluster(ctx, 2))
+			gw := builder.Nodes[1]
+			peer := node.Key(2)
+
+			idx := channel.Channel{
+				Name:        channel.NewRandomName(),
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Leaseholder: peer,
+			}
+			Expect(gw.Channel.Create(ctx, &idx)).To(Succeed())
+			data := channel.Channel{
+				Name:        channel.NewRandomName(),
+				DataType:    telem.Float64T,
+				LocalIndex:  idx.LocalKey,
+				Leaseholder: peer,
+			}
+			Expect(gw.Channel.Create(ctx, &data)).To(Succeed())
+			Eventually(func(g Gomega) {
+				var chs []channel.Channel
+				g.Expect(gw.Channel.NewRetrieve().
+					Entries(&chs).
+					Where(channel.MatchKeys(idx.Key(), data.Key())).
+					Exec(ctx, nil)).To(Succeed())
+				g.Expect(chs).To(HaveLen(2))
+			}).Should(Succeed())
+
+			before := telem.Now()
+			w := MustOpen(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:         []channel.Key{data.Key()},
+				Sync:         new(true),
+				AutoIndexing: new(true),
+				Start:        1 * telem.SecondTS,
+			}))
+			Expect((w.Write(frame.NewUnary(
+				data.Key(),
+				telem.NewSeriesV(1.1, 2.2, 3.3),
+			)))).To(BeTrue())
+			MustSucceed(w.Commit())
+			after := telem.Now()
+
+			iter := MustOpen(gw.Framer.OpenIterator(ctx, iterator.Config{
+				Keys:   []channel.Key{idx.Key()},
+				Bounds: telem.TimeRangeMax,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+			ts := telem.UnmarshalSeries[telem.TimeStamp](iter.Value().SeriesAt(0))
+
+			Expect(ts).To(HaveLen(3))
+			Expect(ts[0]).To(BeNumerically(">=", before))
+			Expect(ts[2]).To(BeNumerically("<=", after+telem.TimeStamp(3)))
+			Expect(ts[1]).To(Equal(ts[0] + 1))
+			Expect(ts[2]).To(Equal(ts[0] + 2))
 		})
 	})
 
