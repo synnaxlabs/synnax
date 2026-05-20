@@ -145,8 +145,7 @@ var _ = Describe("Channel", func() {
 				Functions: []graph.Function{{Key: "on"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -259,8 +258,7 @@ var _ = Describe("Channel", func() {
 				}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -509,8 +507,7 @@ var _ = Describe("Channel", func() {
 				}
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -576,8 +573,7 @@ var _ = Describe("Channel", func() {
 			})
 			mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -715,8 +711,7 @@ var _ = Describe("Channel", func() {
 				})
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -785,8 +780,7 @@ var _ = Describe("Channel", func() {
 				})
 				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())

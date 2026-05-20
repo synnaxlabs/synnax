@@ -30,8 +30,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 		{Name: "ox_pt_2", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 13},
 	}
 	newRoot := func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range testChannels {
 			s := testChannels[i]
 			root.Parent.AddChild(&s)

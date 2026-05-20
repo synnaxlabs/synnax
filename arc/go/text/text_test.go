@@ -157,8 +157,7 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -198,8 +197,7 @@ var _ = Describe("Text", func() {
 				sensor -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -233,8 +231,7 @@ var _ = Describe("Text", func() {
 				unknown_channel -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -254,8 +251,7 @@ var _ = Describe("Text", func() {
 				add(1, 2) -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -277,8 +273,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -333,8 +328,7 @@ var _ = Describe("Text", func() {
 				processor{threshold=100, scale=2.5} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -362,8 +356,7 @@ var _ = Describe("Text", func() {
 				calculator{a=10, b=20, c=30} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -396,8 +389,7 @@ var _ = Describe("Text", func() {
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -423,8 +415,7 @@ var _ = Describe("Text", func() {
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -446,8 +437,7 @@ var _ = Describe("Text", func() {
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -478,8 +468,7 @@ var _ = Describe("Text", func() {
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -510,8 +499,7 @@ var _ = Describe("Text", func() {
 				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -538,8 +526,7 @@ var _ = Describe("Text", func() {
 				reader{channel=unknown_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -569,8 +556,7 @@ var _ = Describe("Text", func() {
 				source{} -> set_authority{value=200, channel=read_sensor}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -598,8 +584,7 @@ var _ = Describe("Text", func() {
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -627,8 +612,7 @@ var _ = Describe("Text", func() {
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -660,8 +644,7 @@ var _ = Describe("Text", func() {
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -680,8 +663,7 @@ var _ = Describe("Text", func() {
 				source := `sensor -> avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -703,8 +685,7 @@ var _ = Describe("Text", func() {
 sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -723,8 +704,7 @@ sensor -> math.avg{} -> output`
 				source := `flag -> select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -743,8 +723,7 @@ sensor -> math.avg{} -> output`
 				source := `flag -> selector.select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -762,8 +741,7 @@ sensor -> math.avg{} -> output`
 				source := `sensor -> stable_for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -785,8 +763,7 @@ sensor -> math.avg{} -> output`
 sensor -> stable.for{duration=1s} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -827,8 +804,7 @@ sensor -> stable.for{duration=1s} -> output`
 				source := `sensor -> set_status{status_key="alarm", variant="error", message="Bad"}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range statusResolver {
 						s := statusResolver[i]
 						root.Parent.AddChild(&s)
@@ -859,8 +835,7 @@ sensor -> stable.for{duration=1s} -> output`
 					Type: statusFnType,
 				})
 				root := func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range []symbol.Symbol{
 						{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
 					} {
@@ -889,8 +864,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				source := `sensor -> derivative{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -910,8 +884,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 				source := `interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -932,8 +905,7 @@ sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 time.interval{period=100ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -951,8 +923,7 @@ time.interval{period=100ms} -> output`
 				source := `wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -973,8 +944,7 @@ time.interval{period=100ms} -> output`
 time.wait{duration=500ms} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1001,8 +971,7 @@ time.wait{duration=500ms} -> output`
 				source{} -> writer{channel=output_channel}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1040,8 +1009,7 @@ time.wait{duration=500ms} -> output`
 				toggle_2 -> count_rising{counter=counter_2}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1080,8 +1048,7 @@ time.wait{duration=500ms} -> output`
 				toggle_1 -> count_rising{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1126,8 +1093,7 @@ time.wait{duration=500ms} -> output`
 				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1159,8 +1125,7 @@ time.wait{duration=500ms} -> output`
 				calculator{a=A, b=B, c=C} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1192,8 +1157,7 @@ time.wait{duration=500ms} -> output`
 				transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1223,8 +1187,7 @@ time.wait{duration=500ms} -> output`
 				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1255,8 +1218,7 @@ time.wait{duration=500ms} -> output`
 				clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1279,8 +1241,7 @@ time.wait{duration=500ms} -> output`
 				transform{2.5, 0.1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1304,8 +1265,7 @@ time.wait{duration=500ms} -> output`
 				controller{100.0} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1330,8 +1290,7 @@ time.wait{duration=500ms} -> output`
 				sensor_chan -> controller{sensor_chan, 100.0}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1358,8 +1317,7 @@ time.wait{duration=500ms} -> output`
 				`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1394,8 +1352,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1432,8 +1389,7 @@ time.wait{duration=500ms} -> output`
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1485,8 +1441,7 @@ time.wait{duration=500ms} -> output`
 				generator{} -> processor{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1513,8 +1468,7 @@ time.wait{duration=500ms} -> output`
 				temp -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1544,8 +1498,7 @@ time.wait{duration=500ms} -> output`
 				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1587,8 +1540,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1636,8 +1588,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1679,8 +1630,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1714,8 +1664,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -1740,8 +1689,7 @@ time.wait{duration=500ms} -> output`
 				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1776,8 +1724,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1805,8 +1752,7 @@ time.wait{duration=500ms} -> output`
 				input_chan -> double{} -> output_chan`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1839,8 +1785,7 @@ time.wait{duration=500ms} -> output`
 				source := `chan1 -> chan2`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1876,8 +1821,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1927,8 +1871,7 @@ time.wait{duration=500ms} -> output`
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1972,8 +1915,7 @@ time.wait{duration=500ms} -> output`
 				sensor -> main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2004,8 +1946,7 @@ time.wait{duration=500ms} -> output`
 				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2036,8 +1977,7 @@ time.wait{duration=500ms} -> output`
 				trigger => empty`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2071,8 +2011,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2114,8 +2053,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2162,8 +2100,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2215,8 +2152,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2264,8 +2200,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2303,8 +2238,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2331,8 +2265,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2364,8 +2297,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2399,8 +2331,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2432,8 +2363,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2470,8 +2400,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2508,8 +2437,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2565,8 +2493,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2620,8 +2547,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2679,8 +2605,7 @@ time.wait{duration=500ms} -> output`
 				}
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diag := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2700,8 +2625,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -2744,8 +2668,7 @@ time.wait{duration=500ms} -> output`
 				sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2789,8 +2712,7 @@ time.wait{duration=500ms} -> output`
 				temp + pressure > 100 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2834,8 +2756,7 @@ time.wait{duration=500ms} -> output`
 				source := `1 + 2 -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2860,8 +2781,7 @@ time.wait{duration=500ms} -> output`
 				sensor -> sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2891,8 +2811,7 @@ time.wait{duration=500ms} -> output`
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2927,8 +2846,7 @@ time.wait{duration=500ms} -> output`
 				interval{period=50ms} => press{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2968,8 +2886,7 @@ time.wait{duration=500ms} -> output`
 				interval{period=50ms} -> handler{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -2990,8 +2907,7 @@ time.wait{duration=500ms} -> output`
 			func(ctx SpecContext, source string, expectOk bool, expectedErrorContains string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diag := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				if expectOk {
@@ -3034,8 +2950,7 @@ time.wait{duration=500ms} -> output`
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -3058,8 +2973,7 @@ time.wait{duration=500ms} -> output`
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -3096,8 +3010,7 @@ time.wait{duration=500ms} -> output`
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3121,8 +3034,7 @@ time.wait{duration=500ms} -> output`
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -3153,8 +3065,7 @@ time.wait{duration=500ms} -> output`
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3184,8 +3095,7 @@ time.wait{duration=500ms} -> output`
 			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3208,8 +3118,7 @@ time.wait{duration=500ms} -> output`
 			a{} -> b{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeFalse())
@@ -3229,8 +3138,7 @@ time.wait{duration=500ms} -> output`
 			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -3288,8 +3196,7 @@ time.wait{duration=500ms} -> output`
 			} -> alarm_out`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3340,8 +3247,7 @@ time.wait{duration=500ms} -> output`
 			input_ch -> writer{output=write_target} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3396,8 +3302,7 @@ time.wait{duration=500ms} -> output`
 			input_ch -> writer{} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3431,8 +3336,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3455,8 +3359,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3478,8 +3381,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3501,8 +3403,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3523,8 +3424,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3544,8 +3444,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -3568,8 +3467,7 @@ time.wait{duration=500ms} -> output`
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)

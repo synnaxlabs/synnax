@@ -291,7 +291,7 @@ func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenT
 	return mapLexerTokenType(antlrType)
 }
 
-func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
+func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Symbol) *uint32 {
 	var (
 		name  = t.GetText()
 		pos   = position{Line: t.GetLine(), Col: t.GetColumn()}

@@ -27,8 +27,7 @@ var _ = Describe("Authority Analyzer", func() {
 		{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 	}
 	newRoot := func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range channels {
 			s := channels[i]
 			root.Parent.AddChild(&s)

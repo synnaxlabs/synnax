@@ -40,8 +40,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string, expectOk bool, assertion func(context.Context[parser.IStatementContext])) {
 					stmt := MustSucceed(parser.ParseStatement(code))
 					ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.Analyze(ctx)
@@ -66,8 +65,7 @@ var _ = Describe("Statement", func() {
 			It("should detect type mismatch between declaration and initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -82,8 +80,7 @@ var _ = Describe("Statement", func() {
 					x := 1
 				}`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -95,8 +92,7 @@ var _ = Describe("Statement", func() {
 			It("should detect undefined variable in initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x := y + 1`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -110,8 +106,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -127,8 +122,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze stateful variable with explicit type", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -145,8 +139,7 @@ var _ = Describe("Statement", func() {
 			func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				setupFunctionContext(ctx)
@@ -179,8 +172,7 @@ var _ = Describe("Statement", func() {
 			func(bCtx SpecContext, code string) {
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -198,8 +190,7 @@ var _ = Describe("Statement", func() {
 		It("should detect undefined variable in condition", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`if x > 10 { y := 1 }`))
 			ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			statement.Analyze(ctx)
@@ -214,8 +205,7 @@ var _ = Describe("Statement", func() {
 			func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -247,8 +237,7 @@ var _ = Describe("Statement", func() {
 		It("should analyze standalone expression with existing variable", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`x + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -265,8 +254,7 @@ var _ = Describe("Statement", func() {
 		It("should detect errors in standalone expression", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement(`undefined_var + 1`))
 			ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			statement.Analyze(ctx)
@@ -303,8 +291,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string, expectOk bool, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range channels {
 							s := channels[i]
 							root.Parent.AddChild(&s)
@@ -329,8 +316,7 @@ var _ = Describe("Statement", func() {
 			It("should detect undefined channel in assignment", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_channel = 42.0 }`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				setupChannelFunctionContext(ctx)
@@ -346,8 +332,7 @@ var _ = Describe("Statement", func() {
 					code := "current := " + chanName
 					stmt := MustSucceed(parser.ParseStatement(code))
 					ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range channels {
 							s := channels[i]
 							root.Parent.AddChild(&s)
@@ -371,8 +356,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range channels {
 							s := channels[i]
 							root.Parent.AddChild(&s)
@@ -434,8 +418,7 @@ var _ = Describe("Statement", func() {
 					value = local_ref
 				}`))
 				ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range channels {
 						s := channels[i]
 						root.Parent.AddChild(&s)
@@ -454,8 +437,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range channels {
 							s := channels[i]
 							root.Parent.AddChild(&s)
@@ -517,8 +499,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot[parser.IBlockContext](bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range channels {
 							s := channels[i]
 							root.Parent.AddChild(&s)
@@ -562,8 +543,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -607,8 +587,7 @@ var _ = Describe("Statement", func() {
 					s += " world"
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -629,8 +608,7 @@ var _ = Describe("Statement", func() {
 			It("should reject compound assignment on channels", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ sensor += 1.0 }`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range channels {
 						s := channels[i]
 						root.Parent.AddChild(&s)
@@ -647,8 +625,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -680,8 +657,7 @@ var _ = Describe("Statement", func() {
 					x += "hello"
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -696,8 +672,7 @@ var _ = Describe("Statement", func() {
 					y := x + 3.2
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -709,8 +684,7 @@ var _ = Describe("Statement", func() {
 			It("should reject compound assignment on undefined variable", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_var += 5 }`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -723,8 +697,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -773,8 +746,7 @@ var _ = Describe("Statement", func() {
 					arr[0:2] += 5
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -789,8 +761,7 @@ var _ = Describe("Statement", func() {
 					x[0] += 1
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -804,8 +775,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -855,8 +825,7 @@ var _ = Describe("Statement", func() {
 					s += "hello"
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -872,8 +841,7 @@ var _ = Describe("Statement", func() {
 					a += b
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -895,8 +863,7 @@ var _ = Describe("Statement", func() {
 				}
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			setupFunctionContext(ctx)
@@ -912,8 +879,7 @@ var _ = Describe("Statement", func() {
 				z := y + 5
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			statement.AnalyzeBlock(ctx)
@@ -927,8 +893,7 @@ var _ = Describe("Statement", func() {
 				y f32 := x
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			statement.AnalyzeBlock(ctx)
@@ -944,8 +909,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -967,8 +931,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -988,8 +951,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1039,8 +1001,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1113,8 +1074,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1142,8 +1102,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1195,8 +1154,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1228,8 +1186,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1290,8 +1247,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1313,8 +1269,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1380,8 +1335,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1420,8 +1374,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1466,8 +1419,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1492,8 +1444,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					setupFunctionContext(ctx)
@@ -1532,8 +1483,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1555,8 +1505,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1576,8 +1525,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1627,8 +1575,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1706,8 +1653,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1735,8 +1681,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1788,8 +1733,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1821,8 +1765,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						for i := range funcs {
 							s := funcs[i]
 							root.Parent.AddChild(&s)
@@ -1883,8 +1826,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1906,8 +1848,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -1969,8 +1910,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -2009,8 +1949,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -2055,8 +1994,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					statement.AnalyzeBlock(ctx)
@@ -2081,8 +2019,7 @@ var _ = Describe("Statement", func() {
 				func(bCtx SpecContext, code string, errorSubstring string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}())
 					setupFunctionContext(ctx)
@@ -2122,8 +2059,7 @@ var _ = Describe("Statement", func() {
 				data[0] = 10
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			setupFunctionContext(ctx)
@@ -2138,8 +2074,7 @@ var _ = Describe("Statement", func() {
 				x[0] = 10
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			setupFunctionContext(ctx)
@@ -2154,8 +2089,7 @@ var _ = Describe("Statement", func() {
 				data[0:2] = 10
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			setupFunctionContext(ctx)
@@ -2170,8 +2104,7 @@ var _ = Describe("Statement", func() {
 				data[0] = "hello"
 			}`))
 			ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			setupFunctionContext(ctx)
@@ -2186,8 +2119,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze range with 1 argument", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2202,8 +2134,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze range with 2 arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(5, 10) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2213,8 +2144,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze range with 3 arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(0, 10, 2) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2227,8 +2157,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze range with explicit integer type", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(i32(10)) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2241,8 +2170,7 @@ var _ = Describe("Statement", func() {
 			It("should reject range with no arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range() { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2253,8 +2181,7 @@ var _ = Describe("Statement", func() {
 			It("should reject range with 4 arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(1, 2, 3, 4) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2265,8 +2192,7 @@ var _ = Describe("Statement", func() {
 			It("should reject range with float arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(f64(3.14)) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2277,8 +2203,7 @@ var _ = Describe("Statement", func() {
 			It("should accept range with negative bounds", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(-5, 5) { x := i }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2293,8 +2218,7 @@ var _ = Describe("Statement", func() {
 					for x := data { y := x }
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -2307,8 +2231,7 @@ var _ = Describe("Statement", func() {
 					for i, x := data { y := x + f64(i) }
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -2321,8 +2244,7 @@ var _ = Describe("Statement", func() {
 					for v := x { y := v }
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -2336,8 +2258,7 @@ var _ = Describe("Statement", func() {
 					for i, v := x { y := v }
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -2353,8 +2274,7 @@ var _ = Describe("Statement", func() {
 					for running { running = 0 }
 				}`))
 				ctx := context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.AnalyzeBlock(ctx)
@@ -2364,8 +2284,7 @@ var _ = Describe("Statement", func() {
 			It("should analyze infinite for loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for { x := 1 }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2377,8 +2296,7 @@ var _ = Describe("Statement", func() {
 			It("should accept break inside for loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for { break }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2388,8 +2306,7 @@ var _ = Describe("Statement", func() {
 			It("should accept continue inside for loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { continue }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2399,8 +2316,7 @@ var _ = Describe("Statement", func() {
 			It("should reject break outside for loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`break`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2411,8 +2327,7 @@ var _ = Describe("Statement", func() {
 			It("should reject continue outside for loop", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`continue`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2425,8 +2340,7 @@ var _ = Describe("Statement", func() {
 					if i > 5 { break }
 				}`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)
@@ -2438,8 +2352,7 @@ var _ = Describe("Statement", func() {
 			It("should reject assignment to loop variable", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`for i := range(10) { i = 5 }`))
 				ctx := context.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				statement.Analyze(ctx)

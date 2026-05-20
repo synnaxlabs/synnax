@@ -29,8 +29,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		resolver []symbol.Symbol,
 	) context.Context[parser.IBlockContext] {
 		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			for i := range resolver {
 				s := resolver[i]
 				root.Parent.AddChild(&s)
@@ -42,8 +41,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 	// Helper to create a context without a resolver
 	createContext := func(bCtx SpecContext, block parser.IBlockContext) context.Context[parser.IBlockContext] {
 		return context.CreateRoot(bCtx, block, func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			return root
 		}())
 	}

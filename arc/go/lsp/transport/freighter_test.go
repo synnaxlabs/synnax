@@ -83,8 +83,7 @@ var _ = Describe("Freighter Transport", func() {
 			Instrumentation: alamos.New("test"),
 			NewRoot: func() *symbol.Symbol {
 				return func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}()
 			},

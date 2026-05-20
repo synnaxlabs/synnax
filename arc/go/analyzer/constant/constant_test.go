@@ -32,8 +32,7 @@ func analyzeProgram(
 ) acontext.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
 	ctx := acontext.CreateRoot(specCtx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(resolver)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(resolver, stl.Symbols...)
 		return root
 	}())
 	analyzer.AnalyzeProgram(ctx)

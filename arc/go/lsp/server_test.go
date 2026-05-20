@@ -339,8 +339,7 @@ var _ = Describe("External Change Notifications", func() {
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
 			NewRoot: func() *symbol.Symbol {
 				return func() *symbol.Symbol {
-					root := symbol.CreateRoot(resolver)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(resolver, stl.Symbols...)
 					return root
 				}()
 			},

@@ -179,7 +179,7 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 func compileFunctionCallExpr(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	funcName string,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	funcCall parser.IFunctionCallSuffixContext,
 ) (types.Type, error) {
 	funcType := scope.Type

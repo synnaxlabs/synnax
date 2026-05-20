@@ -83,8 +83,7 @@ func openMath(
 ) mathSetup {
 	g := makeMathGraph(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		symbol.AutoImportModules(root)
 		return root
 	}())
@@ -108,8 +107,7 @@ func openMathWithReset(
 ) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		symbol.AutoImportModules(root)
 		return root
 	}())
@@ -268,35 +266,35 @@ var _ = Describe("Math", func() {
 
 	Describe("Symbols", func() {
 		newRoot := func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stlmath.Symbols...)
+			root := symbol.NewRoot(nil, stlmath.Symbols...)
 			return root
 		}
-		resolve := func(ctx context.Context, qualified string) *symbol.Symbol {
-			return MustSucceed(symbol.ResolveQualified(ctx, newRoot(), qualified, symbol.IncludeInternal))
+		math := func(ctx context.Context, member string) *symbol.Symbol {
+			mod := MustSucceed(newRoot().Resolve(ctx, "math", symbol.IncludeInternal))
+			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
 		It("Should expose bare avg symbol (deprecated)", func(ctx SpecContext) {
-			sym := resolve(ctx, "avg")
+			sym := MustSucceed(newRoot().Resolve(ctx, "avg", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("avg"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 			Expect(sym.Deprecated).ToNot(BeNil())
 		})
 		It("Should expose qualified math.avg symbol", func(ctx SpecContext) {
-			sym := resolve(ctx, "math.avg")
+			sym := math(ctx, "avg")
 			Expect(sym.Name).To(Equal("avg"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should expose qualified math.min symbol", func(ctx SpecContext) {
-			Expect(resolve(ctx, "math.min").Name).To(Equal("min"))
+			Expect(math(ctx, "min").Name).To(Equal("min"))
 		})
 		It("Should expose qualified math.max symbol", func(ctx SpecContext) {
-			Expect(resolve(ctx, "math.max").Name).To(Equal("max"))
+			Expect(math(ctx, "max").Name).To(Equal("max"))
 		})
 		It("Should expose qualified math.derivative symbol", func(ctx SpecContext) {
-			Expect(resolve(ctx, "math.derivative").Name).To(Equal("derivative"))
+			Expect(math(ctx, "derivative").Name).To(Equal("derivative"))
 		})
 		It("Should expose math.pow symbol as internal", func(ctx SpecContext) {
-			sym := resolve(ctx, "math.pow")
+			sym := math(ctx, "pow")
 			Expect(sym.Name).To(Equal("pow"))
 			Expect(sym.Internal).To(BeTrue())
 		})
@@ -306,8 +304,7 @@ var _ = Describe("Math", func() {
 		It("Should create node for math.avg via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("avg", types.F64())
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -326,8 +323,7 @@ var _ = Describe("Math", func() {
 		It("Should create node for math.derivative via CompoundFactory", func(ctx SpecContext) {
 			g := makeMathGraph("derivative", types.F64())
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -727,8 +723,7 @@ var _ = Describe("Derivative", func() {
 	openDeriv := func(ctx SpecContext, dt types.Type) mathSetup {
 		g := makeDerivGraph(dt)
 		analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			symbol.AutoImportModules(root)
 			return root
 		}())

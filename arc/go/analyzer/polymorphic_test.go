@@ -47,8 +47,7 @@ func newMockPolymorphicSymbols() []symbol.Symbol {
 var _ = Describe("Polymorphic func Analysis", func() {
 	extras := newMockPolymorphicSymbols()
 	newRoot := func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range extras {
 			s := extras[i]
 			root.Parent.AddChild(&s)

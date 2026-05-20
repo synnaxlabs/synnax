@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,8 +34,7 @@ func analyzeAndExpect(bCtx SpecContext, source string) context.Context[parser.IP
 func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)
@@ -49,8 +49,7 @@ func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []sy
 func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)
@@ -113,8 +112,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range globalResolver {
 					s := globalResolver[i]
 					root.Parent.AddChild(&s)
@@ -136,8 +134,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range globalResolver {
 					s := globalResolver[i]
 					root.Parent.AddChild(&s)
@@ -147,7 +144,7 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 			varScope := MustSucceed(blockScope.Resolve(ctx, "value"))
 			Expect(varScope.Type).To(Equal(types.I32()))
 		})
@@ -164,8 +161,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range globalResolver {
 					s := globalResolver[i]
 					root.Parent.AddChild(&s)
@@ -175,7 +171,7 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 			yScope := MustSucceed(blockScope.Resolve(ctx, "y"))
 			Expect(yScope.Type).To(Equal(types.I64()))
 		})
@@ -193,7 +189,7 @@ var _ = Describe("Analyzer Integration", func() {
 			func(bCtx SpecContext, tc unificationCase) {
 				ctx := analyzeAndExpect(bCtx, tc.source)
 				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, tc.funcName))
-				blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+				blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 				varScope := MustSucceed(blockScope.Resolve(ctx, tc.varName))
 				Expect(varScope.Type).To(Equal(tc.expectedType))
 			},
@@ -247,7 +243,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
 			Expect(funcScope.Name).To(Equal("dog"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(2))
 			Expect(blocks[0].Children()).To(BeEmpty())
@@ -267,7 +263,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(1))
 			Expect(blocks[0].Children()).To(HaveLen(1))
@@ -290,7 +286,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`)
 
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
-			blockScope := MustSucceed(funcScope.FirstChildOfKind(symbol.KindBlock))
+			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
 			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
 			Expect(blocks).To(HaveLen(3))
 			Expect(blocks[0].Children()).To(BeEmpty())

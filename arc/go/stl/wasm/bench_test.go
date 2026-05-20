@@ -109,8 +109,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 
 	// Compile graph to WASM
 	mod, err := arc.CompileGraph(ctx, g, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}())
 	if err != nil {
@@ -272,8 +271,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	}
 
 	mod, err := arc.CompileGraph(ctx, g, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}())
 	if err != nil {

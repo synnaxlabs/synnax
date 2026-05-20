@@ -24,8 +24,7 @@ import (
 var _ = Describe("Literal Type Inference", func() {
 	var testExtras []symbol.Symbol
 	newRoot := func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range testExtras {
 			s := testExtras[i]
 			root.Parent.AddChild(&s)

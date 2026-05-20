@@ -31,8 +31,7 @@ func inferExprType(
 ) types.Type {
 	parsed := MustSucceed(parser.ParseExpression(expr))
 	ctx := acontext.CreateRoot(bCtx, parsed, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)
@@ -720,8 +719,7 @@ var _ = Describe("Type Inference", func() {
 		It("should infer the return type of time.now()", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("time.now()"))
 			aCtx := acontext.CreateRoot(ctx, parsed, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			timeMod := aCtx.Scope.Parent.FindChildByName("time")
@@ -735,8 +733,7 @@ var _ = Describe("Type Inference", func() {
 		It("should infer the return type of bare now() (deprecated)", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("now()"))
 			aCtx := acontext.CreateRoot(ctx, parsed, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			t := atypes.InferFromExpression(aCtx)
@@ -746,8 +743,7 @@ var _ = Describe("Type Inference", func() {
 		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
 			aCtx := acontext.CreateRoot(ctx, parsed, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			t := atypes.InferFromExpression(aCtx)

@@ -22,6 +22,19 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
+// FirstChildOfKind returns the first direct child of s with the given kind.
+// Returns query.ErrNotFound when no matching child exists. Used by tests
+// that need to drill into a known scope shape (e.g. a function's block
+// child); production code resolves by name or kind-filter instead.
+func FirstChildOfKind(s *symbol.Symbol, kind symbol.Kind) (*symbol.Symbol, error) {
+	for _, child := range s.Children() {
+		if child.Kind == kind {
+			return child, nil
+		}
+	}
+	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
+}
+
 // StaticResolver is a test-only map-backed implementation of
 // symbol.Resolver. Tests use it to stand in for a real dynamic resolver
 // (production cluster channels) when only a fixed snapshot is needed

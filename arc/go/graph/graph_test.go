@@ -91,8 +91,7 @@ var _ = Describe("Graph", func() {
 			}
 			g = MustSucceed(graph.Parse(g))
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -143,8 +142,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 			}
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			root.Parent.AddChild(&symbol.Symbol{
 				Name: "ox_pt_1",
 				Type: types.Chan(types.F32()),
@@ -206,8 +204,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -274,8 +271,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -352,8 +348,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -414,8 +409,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -457,8 +451,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -496,8 +489,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -534,8 +526,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -572,8 +563,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -744,8 +734,7 @@ var _ = Describe("Graph", func() {
 
 				// Analyze the graph
 				inter, diagnostics := graph.Analyze(ctx, parsed, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -843,8 +832,7 @@ var _ = Describe("Graph", func() {
 			}}
 			g = MustSucceed(graph.Parse(g))
 			_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -892,8 +880,7 @@ var _ = Describe("Graph", func() {
 			}}
 			g = MustSucceed(graph.Parse(g))
 			_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -925,8 +912,7 @@ var _ = Describe("Graph", func() {
 			}}
 			g = MustSucceed(graph.Parse(g))
 			_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -968,8 +954,7 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						symbol.AutoImportModules(root)
 						return root
 					}())
@@ -1015,8 +1000,7 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						symbol.AutoImportModules(root)
 						return root
 					}())
@@ -1042,8 +1026,7 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						symbol.AutoImportModules(root)
 						return root
 					}())
@@ -1083,8 +1066,7 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						symbol.AutoImportModules(root)
 						return root
 					}())
@@ -1122,8 +1104,7 @@ var _ = Describe("Graph", func() {
 					}
 					g = MustSucceed(graph.Parse(g))
 					_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						symbol.AutoImportModules(root)
 						return root
 					}())
@@ -1171,8 +1152,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				_, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -1214,8 +1194,7 @@ var _ = Describe("Graph", func() {
 				}
 				g = MustSucceed(graph.Parse(g))
 				inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -1266,8 +1245,7 @@ var _ = Describe("Graph", func() {
 			}}
 			g = MustSucceed(graph.Parse(g))
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1321,8 +1299,7 @@ var _ = Describe("Graph", func() {
 			}}
 			g = MustSucceed(graph.Parse(g))
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1388,8 +1365,7 @@ var _ = Describe("Graph", func() {
 			channels := []symbol.Symbol{
 				{Name: "sensor", Type: types.Chan(types.U8()), Kind: symbol.KindChannel, ID: 100},
 			}
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			for i := range channels {
 				s := channels[i]
 				root.Parent.AddChild(&s)

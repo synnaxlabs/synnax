@@ -10,8 +10,7 @@
 // Package arc is the top-level Arc compiler entry point. CompileText and
 // CompileGraph orchestrate parse → analyze → compile against a caller-
 // supplied root scope. Callers are responsible for building the root
-// (STL symbols, cluster channels, dynamic resolvers) via symbol.CreateRoot
-// and symbol.AttachToAmbient.
+// (STL symbols, cluster channels, dynamic resolvers) via symbol.NewRoot.
 package arc
 
 import (
@@ -39,16 +38,16 @@ type (
 	Program        = program.Program
 )
 
-// NewRoot returns a program root with the standard library symbols
-// attached to the ambient prelude and resolver installed as the
-// GlobalResolver. This is the canonical entry point for production
-// compilation: callers that need additional static symbols (e.g.
-// status types) attach them via root.AttachToAmbient before passing
-// the root to CompileText or CompileGraph.
-func NewRoot(resolver SymbolResolver) *symbol.Symbol {
-	root := symbol.CreateRoot(resolver)
-	root.AttachToAmbient(stl.Symbols...)
-	return root
+// NewRoot returns a program root with the standard library symbols and
+// any extras attached to the ambient prelude, and resolver installed as
+// the GlobalResolver. This is the canonical entry point for production
+// compilation: callers pass any additional static symbols (e.g. status
+// types) as extras alongside the resolver.
+func NewRoot(resolver SymbolResolver, extras ...*symbol.Symbol) *symbol.Symbol {
+	syms := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(extras))
+	syms = append(syms, stl.Symbols...)
+	syms = append(syms, extras...)
+	return symbol.NewRoot(resolver, syms...)
 }
 
 // CompileGraph parses, analyzes, and compiles a graph-mode program

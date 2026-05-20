@@ -121,10 +121,10 @@ func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // is the production analysis root: tx is consulted for channel lookups,
 // nil means "use the service DB directly."
 func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
-	root := arcsymbol.CreateRoot(s.NewChannelResolver(tx))
-	root.AttachToAmbient(stl.Symbols...)
-	root.AttachToAmbient(arcstatus.Symbols...)
-	return root
+	syms := make([]*arcsymbol.Symbol, 0, len(stl.Symbols)+len(arcstatus.Symbols))
+	syms = append(syms, stl.Symbols...)
+	syms = append(syms, arcstatus.Symbols...)
+	return arcsymbol.NewRoot(s.NewChannelResolver(tx), syms...)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {

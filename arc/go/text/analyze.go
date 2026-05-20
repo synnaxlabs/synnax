@@ -248,9 +248,9 @@ type identifierAST interface {
 // declaration. Named declarations resolve by identifier; anonymous ones are
 // looked up via their parser rule (registered during the collect pass under a
 // synthesized AutoName key).
-func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Scope, bool) {
+func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Symbol, bool) {
 	var (
-		scope *symbol.Scope
+		scope *symbol.Symbol
 		err   error
 	)
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -339,7 +339,7 @@ func analyzeIdentifierByRole(
 // on some other sequence's internal step.
 func analyzeNamedRef(
 	ctx acontext.Context[parser.IIdentifierContext],
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
@@ -381,7 +381,7 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
-func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
 	chKey := uint32(sym.ID)
 	n := ir.Node{
@@ -395,7 +395,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
 }
 
-func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
 	chKey := uint32(sym.ID)
 	n := ir.Node{
@@ -412,7 +412,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 
 func buildGlobalConstantNode(
 	name string,
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 	kg *keyGenerator,
 ) (nodeResult, bool) {
 	key := kg.generate("const", name)
@@ -935,7 +935,7 @@ func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
 	config types.Params,
 	node ir.Node,
-	fnSym *symbol.Scope,
+	fnSym *symbol.Symbol,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true

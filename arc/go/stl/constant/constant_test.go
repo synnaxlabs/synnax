@@ -49,8 +49,7 @@ var _ = Describe("Constant", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -131,8 +130,7 @@ var _ = Describe("Constant", func() {
 				}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -250,8 +248,7 @@ var _ = Describe("Constant", func() {
 				},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())

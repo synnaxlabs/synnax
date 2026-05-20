@@ -37,8 +37,7 @@ import (
 func compile(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)
@@ -52,8 +51,7 @@ func compile(ctx context.Context, source string, resolver []symbol.Symbol) (comp
 func compileWithHostImports(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
 	inter, diag := text.Analyze(ctx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)

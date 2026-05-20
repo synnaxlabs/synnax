@@ -622,8 +622,7 @@ func add(a i32, b i32) i32 {
 	Describe("GlobalResolver", func() {
 		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable})
@@ -644,8 +643,7 @@ func add(a i32, b i32) i32 {
 			server = MustSucceed(lsp.New(lsp.Config{
 				NewRoot: func() *symbol.Symbol {
 					return func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}()
 				},
@@ -663,8 +661,7 @@ func add(a i32, b i32) i32 {
 			server = MustSucceed(lsp.New(lsp.Config{
 				NewRoot: func() *symbol.Symbol {
 					return func() *symbol.Symbol {
-						root := symbol.CreateRoot(nil)
-						root.AttachToAmbient(stl.Symbols...)
+						root := symbol.NewRoot(nil, stl.Symbols...)
 						return root
 					}()
 				},
@@ -841,8 +838,7 @@ func add(a i32, b i32) i32 {
 
 		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				root.Parent.AddChild(&symbol.Symbol{Name: "sensorData",
 					Type: types.Chan(types.F64()),
 					Kind: symbol.KindChannel})

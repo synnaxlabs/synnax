@@ -41,8 +41,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			{Name: "pressure", Type: types.Chan(types.F64()), Kind: symbol.KindChannel, ID: 3},
 		}
 		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			for i := range channels {
 				s := channels[i]
 				root.Parent.AddChild(&s)

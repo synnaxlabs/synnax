@@ -62,8 +62,8 @@ type ChannelMapping struct {
 // channel accesses through function calls, handling forward references where the
 // callee is declared after the caller in source order.
 type CallEdge struct {
-	Caller   *symbol.Scope
-	Callee   *symbol.Scope
+	Caller   *symbol.Symbol
+	Callee   *symbol.Symbol
 	CallSite antlr.ParserRuleContext
 	// ArgChannels maps input parameter index (position in the callee's input list)
 	// to the actual channel ID/name passed at this call site. Only populated for
@@ -87,7 +87,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 	// Context is the standard Go context for cancellation and deadlines.
 	context.Context
 	// Scope is the current symbol scope for name resolution.
-	Scope *symbol.Scope
+	Scope *symbol.Symbol
 	// Diagnostics accumulates errors and warnings during analysis.
 	Diagnostics *diagnostics.Diagnostics
 	// Constraints accumulates type constraints for unification.
@@ -109,7 +109,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 //
 // WithScope is typically used when entering a new lexical scope, such as a function
 // body or block statement.
-func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
+func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	c.Scope = scope
 	return c
 }
@@ -129,7 +129,7 @@ func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 // resolved symbol is deprecated, a warning is added to diagnostics. Use this
 // for bare identifier resolution. For qualified names (e.g., `math.abs`) use
 // ResolveQualified so the head and tail are resolved as separate symbols.
-func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
+func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
 	result, err := c.Scope.Resolve(c, name)
 	if err != nil {
 		return result, err
@@ -144,7 +144,7 @@ func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
 // the head and then resolves tail through it; an alias head transparently
 // dispatches to its Target inside Resolve. Deprecation warnings fire on
 // whichever segment resolved to the deprecated symbol.
-func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Scope, error) {
+func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error) {
 	headSym, err := c.Scope.Resolve(c, head)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Scope, error)
 	return tailSym, nil
 }
 
-func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Scope) {
+func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	if sym == nil || sym.Deprecated == nil {
 		return
 	}
@@ -178,11 +178,10 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Scope) {
 // the supplied root symbol as the lexical scope.
 //
 // The root parameter is the pre-built program root. Callers in the consumer
-// layer (LSP, compiler, graph mode, services) build it via symbol.CreateRoot
-// and symbol.AttachToAmbient and attach any external (DynamicResolver /
-// channel) resolution before passing it in. The analyzer does not know
-// about STL or external services;
-// it only walks the scope tree it is given.
+// layer (LSP, compiler, graph mode, services) build it via symbol.NewRoot
+// with any external (DynamicResolver / channel) resolution before passing
+// it in. The analyzer does not know about STL or external services; it
+// only walks the scope tree it is given.
 //
 // When root is nil, an empty root is created. This is suitable for tests
 // that need to construct a hand-rolled scope without STL or external
@@ -193,7 +192,7 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 	root *symbol.Symbol,
 ) Context[ASTNode] {
 	if root == nil {
-		root = symbol.CreateRoot(nil)
+		root = symbol.NewRoot(nil)
 	}
 	return Context[ASTNode]{
 		Context:     ctx,

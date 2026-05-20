@@ -34,8 +34,7 @@ var _ = Describe("Control", func() {
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -58,8 +57,7 @@ var _ = Describe("Control", func() {
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -168,8 +166,7 @@ var _ = Describe("Control", func() {
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -271,8 +268,7 @@ var _ = Describe("Control", func() {
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -336,8 +332,7 @@ var _ = Describe("Control", func() {
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -363,31 +358,31 @@ var _ = Describe("Control", func() {
 
 	Describe("Symbols", func() {
 		newRoot := func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(control.Symbols...)
+			root := symbol.NewRoot(nil, control.Symbols...)
 			return root
 		}
-		resolve := func(ctx context.Context, qualified string) *symbol.Symbol {
-			return MustSucceed(symbol.ResolveQualified(ctx, newRoot(), qualified, symbol.IncludeInternal))
+		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			return MustSucceed(newRoot().Resolve(ctx, name, symbol.IncludeInternal))
 		}
 		It("Should expose bare set_authority symbol", func(ctx SpecContext) {
-			sym := resolve(ctx, "set_authority")
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should expose qualified control.set_authority symbol", func(ctx SpecContext) {
-			sym := resolve(ctx, "control.set_authority")
+			mod := MustSucceed(newRoot().Resolve(ctx, "control", symbol.IncludeInternal))
+			sym := MustSucceed(mod.Resolve(ctx, "set_authority", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should have optional input", func(ctx SpecContext) {
-			sym := resolve(ctx, "set_authority")
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
 		})
 		It("Should have config params", func(ctx SpecContext) {
-			sym := resolve(ctx, "set_authority")
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Type.Config).To(HaveLen(2))
 			Expect(sym.Type.Config[0].Name).To(Equal("value"))
 			Expect(sym.Type.Config[1].Name).To(Equal("channel"))

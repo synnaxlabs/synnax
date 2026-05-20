@@ -64,21 +64,3 @@ func (s *Symbol) isAmbientModule(name string) bool {
 	}
 	return false
 }
-
-// ModuleNotImportedError is retained for backward compatibility with
-// callers that still type-assert on it; new code should rely on
-// UndefinedSymbolError's hint to surface the missing-import diagnostic.
-type ModuleNotImportedError struct {
-	Alias string
-	Name  string
-}
-
-// Error implements the error interface.
-func (e *ModuleNotImportedError) Error() string {
-	return fmt.Sprintf("module %q is not imported", e.Alias)
-}
-
-// GetHint suggests the import statement that would make Name resolve.
-func (e *ModuleNotImportedError) GetHint() string {
-	return fmt.Sprintf("add `import %s` at the top of the file", e.Alias)
-}

@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -26,6 +27,31 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/zyn"
 )
+
+// resolveQualified looks up name against scope. A literal-name lookup
+// is tried first so a scope child whose Name contains a dot still
+// resolves — graph tests register function symbols whose Key is the
+// joined "module.member" string. When that misses, the name is split
+// at the first dot and walked as head + tail. Used at the IR/string
+// boundary where graph node Type is a joined "module.member" string.
+func resolveQualified(
+	ctx context.Context,
+	scope *symbol.Symbol,
+	name string,
+) (*symbol.Symbol, error) {
+	if sym, err := scope.Resolve(ctx, name); err == nil {
+		return sym, nil
+	}
+	head, tail, ok := strings.Cut(name, ".")
+	if !ok {
+		return scope.Resolve(ctx, name)
+	}
+	headSym, err := scope.Resolve(ctx, head)
+	if err != nil {
+		return nil, err
+	}
+	return headSym.Resolve(ctx, tail)
+}
 
 // Analyze compiles a visual graph into executable IR with type inference,
 // edge validation, and stratified execution planning. Errors are collected
@@ -93,7 +119,7 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := symbol.ResolveQualified(aCtx, aCtx.Scope, n.Type)
+		fnSym, err := resolveQualified(aCtx, aCtx.Scope, n.Type)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
@@ -254,7 +280,7 @@ func Analyze(
 // registration.
 func bindParams(
 	ctx context.Context,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	params types.Params,
 	kind symbol.Kind,
 ) error {

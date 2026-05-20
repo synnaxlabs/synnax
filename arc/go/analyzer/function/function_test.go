@@ -29,8 +29,7 @@ import (
 func analyzeProgram(bCtx SpecContext, src string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
 	ctx := context.CreateRoot(bCtx, prog, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)

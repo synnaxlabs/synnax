@@ -39,8 +39,7 @@ var _ = Describe("SetupTestServer", func() {
 
 	It("should expose custom symbols attached to the ambient prelude", func(ctx SpecContext) {
 		server, uri := SetupTestServer(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			root.Parent.AddChild(&symbol.Symbol{
 				Name: "sensor",
 				Type: types.Chan(types.F32()),
@@ -73,8 +72,7 @@ var _ = Describe("SetupTestServerWithClient", func() {
 
 	It("should accept a custom config and propagate diagnostics", func(ctx SpecContext) {
 		server, uri, client := SetupTestServerWithClient(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			root.Parent.AddChild(&symbol.Symbol{
 				Name: "sensor",
 				Type: types.Chan(types.F32()),
@@ -133,8 +131,7 @@ var _ = Describe("Hover", func() {
 var _ = Describe("Definition", func() {
 	It("should return definition locations for a variable reference", func(ctx SpecContext) {
 		server := MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			return root
 		}}))
 		server.SetClient(&MockClient{})
@@ -147,8 +144,7 @@ var _ = Describe("Definition", func() {
 
 	It("should return nil for a non-existent document", func(ctx SpecContext) {
 		server := MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			return root
 		}}))
 		server.SetClient(&MockClient{})
@@ -168,8 +164,7 @@ var _ = Describe("Completion", func() {
 
 	It("should return completions including symbols attached to the ambient prelude", func(ctx SpecContext) {
 		server, uri := SetupTestServer(lsp.Config{NewRoot: func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			root.Parent.AddChild(&symbol.Symbol{
 				Name: "pressure",
 				Type: types.Chan(types.F64()),

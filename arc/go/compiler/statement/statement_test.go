@@ -29,8 +29,7 @@ import (
 func compile(bCtx SpecContext, source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}())
 	analyzer.AnalyzeStatement(aCtx)
@@ -43,8 +42,7 @@ func compile(bCtx SpecContext, source string) []byte {
 func compileBlock(bCtx SpecContext, source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}())
 	analyzer.AnalyzeBlock(aCtx)
@@ -60,8 +58,7 @@ var _ = Describe("Statement Compiler", func() {
 		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -167,8 +164,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeStatement(aCtx)
@@ -188,8 +184,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeStatement(aCtx)
@@ -212,8 +207,7 @@ var _ = Describe("Statement Compiler", func() {
 				count = 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -243,8 +237,7 @@ var _ = Describe("Statement Compiler", func() {
 				x i64 := count + 1
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -276,8 +269,7 @@ var _ = Describe("Statement Compiler", func() {
 				c i64 := a + b
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -312,8 +304,7 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeStatement(aCtx)
@@ -336,8 +327,7 @@ var _ = Describe("Statement Compiler", func() {
 				count += 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -368,8 +358,7 @@ var _ = Describe("Statement Compiler", func() {
 				value -= 25.5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -401,8 +390,7 @@ var _ = Describe("Statement Compiler", func() {
 				n *= 3
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -764,8 +752,7 @@ var _ = Describe("Statement Compiler", func() {
 		compileStr := func(bCtx SpecContext, source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -933,8 +920,7 @@ var _ = Describe("Statement Compiler", func() {
 				data[0] = 42
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 
@@ -973,8 +959,7 @@ var _ = Describe("Statement Compiler", func() {
 				x := [a, 12.0]
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1013,8 +998,7 @@ var _ = Describe("Statement Compiler", func() {
 				x := [a, 5]
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1054,8 +1038,7 @@ var _ = Describe("Statement Compiler", func() {
 				x := [a, b, 15.0]
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1097,8 +1080,7 @@ var _ = Describe("Statement Compiler", func() {
 		compileWithChannels := func(bCtx SpecContext, source string, resolver []symbol.Symbol) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1676,8 +1658,7 @@ var _ = Describe("Statement Compiler", func() {
 		compileWithChanInput := func(bCtx SpecContext, source string, inputName string, inputType types.Type) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -1775,8 +1756,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1829,8 +1809,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1882,8 +1861,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1921,8 +1899,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -1956,8 +1933,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2001,8 +1977,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2052,8 +2027,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2121,8 +2095,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2157,8 +2130,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2187,8 +2159,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2242,8 +2213,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2281,8 +2251,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)
@@ -2317,8 +2286,7 @@ var _ = Describe("Statement Compiler", func() {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				analyzer.AnalyzeBlock(aCtx)
@@ -2363,8 +2331,7 @@ var _ = Describe("Statement Compiler", func() {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				analyzer.AnalyzeBlock(aCtx)
@@ -2406,8 +2373,7 @@ var _ = Describe("Statement Compiler", func() {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 				aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					return root
 				}())
 				analyzer.AnalyzeBlock(aCtx)
@@ -2452,8 +2418,7 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeBlock(aCtx)

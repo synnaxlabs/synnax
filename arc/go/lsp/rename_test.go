@@ -31,8 +31,7 @@ var _ = Describe("Rename", func() {
 	BeforeEach(func() {
 		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
 			return func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}()
 		}}))
@@ -76,8 +75,7 @@ var _ = Describe("Rename", func() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable})
@@ -242,8 +240,7 @@ func main() {
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				root.Parent.AddChild(&symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable})

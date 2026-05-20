@@ -79,8 +79,7 @@ var _ = Describe("StableFor", func() {
 			},
 		}
 		analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			symbol.AutoImportModules(root)
 			return root
 		}())
@@ -383,17 +382,17 @@ var _ = Describe("StableFor", func() {
 
 	Describe("Symbols", func() {
 		newRoot := func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stable.Symbols...)
+			root := symbol.NewRoot(nil, stable.Symbols...)
 			return root
 		}
 		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(symbol.ResolveQualified(ctx, newRoot(), "stable_for", symbol.IncludeInternal))
+			sym := MustSucceed(newRoot().Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should expose qualified stable.for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(symbol.ResolveQualified(ctx, newRoot(), "stable.for", symbol.IncludeInternal))
+			mod := MustSucceed(newRoot().Resolve(ctx, "stable", symbol.IncludeInternal))
+			sym := MustSucceed(mod.Resolve(ctx, "for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
@@ -435,8 +434,7 @@ var _ = Describe("StableFor", func() {
 				},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())

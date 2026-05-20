@@ -35,8 +35,7 @@ func expectOperatorTypeError(
 ) {
 	ast := MustSucceed(parser.Parse(code))
 	ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}())
 	analyzer.AnalyzeProgram(ctx)
@@ -610,8 +609,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -803,8 +801,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -839,8 +836,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -923,8 +919,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -944,8 +939,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1030,8 +1024,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20002,
 			}}
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1060,8 +1053,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20004,
 			}}
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1087,8 +1079,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20005,
 			}}
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1490,8 +1481,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1506,8 +1496,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1522,8 +1511,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1539,8 +1527,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1556,8 +1543,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1575,8 +1561,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1593,8 +1578,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -1611,8 +1595,7 @@ var _ = Describe("Expressions", func() {
 				}
 			`))
 			ctx := context.CreateRoot(specCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)

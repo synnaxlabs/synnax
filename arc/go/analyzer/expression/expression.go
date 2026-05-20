@@ -554,7 +554,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 // propagation, when all scopes are guaranteed to exist.
 func buildArgChannels(
 	ctx context.Context[parser.IPostfixExpressionContext],
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	funcCall parser.IFunctionCallSuffixContext,
 ) map[int]context.ChannelMapping {
 	argList := funcCall.ArgumentList()
@@ -608,7 +608,7 @@ func resolveChannelArg(
 // If the callee hasn't been fully analyzed yet (forward reference), inputScopes will
 // be empty and no remapping occurs. The post-pass handles that case.
 func propagateChannelsWithArgMap(
-	caller, callee *symbol.Scope,
+	caller, callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) {
 	paramMap := ResolveArgChannels(callee, argChannels)
@@ -629,7 +629,7 @@ func propagateChannelsWithArgMap(
 }
 
 func ResolveArgChannels(
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) map[int]context.ChannelMapping {
 	if len(argChannels) == 0 {

@@ -126,8 +126,7 @@ func sim_daq() {}
 
 tick{period=50ms} -> sim_daq`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range intervalResolver {
 					s := intervalResolver[i]
 					root.Parent.AddChild(&s)
@@ -146,8 +145,7 @@ tick{period=50ms} -> sim_daq`))
 func sim_daq() {}
 sensor_chan -> sim_daq`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -166,8 +164,7 @@ sensor_chan -> sim_daq`))
 func sim_daq() {}
 sensor_chan > 100 -> sim_daq`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -193,8 +190,7 @@ func sink{} () {}
 
 sensor_chan -> transform{2.5, 0.1} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -211,8 +207,7 @@ func controller{setpoint f64, gain f64 = 1.0} () {}
 
 sensor_chan -> controller{100.0}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -233,8 +228,7 @@ func sink{} () {}
 
 sensor_chan -> filter{"hello"} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -258,8 +252,7 @@ func sink{} () {}
 
 sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -278,8 +271,7 @@ func controller{setpoint f64, gain f64} () {}
 
 sensor_chan -> controller{100.0}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -302,8 +294,7 @@ func sink{} () {}
 
 sensor_chan -> filter{5.0} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -322,8 +313,7 @@ func controller{sensor chan f64, setpoint f64} () {
 
 sensor_chan -> controller{sensor_chan, 100.0}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -344,8 +334,7 @@ func sink{} () {}
 
 sensor_chan -> filter{} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -366,8 +355,7 @@ func controller{gain f64 = 1.0, offset f64 = 0.0} () {}
 
 sensor_chan -> controller{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -388,8 +376,7 @@ func sink{} () {}
 
 sensor_chan -> transform{2.5, "bad"} -> sink{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -412,8 +399,7 @@ func source() {}
 func sink(v u8) {}
 source{} -> sink{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -434,8 +420,7 @@ func producer() u8 {
 func consumer(v f64) {}
 producer{} -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -457,8 +442,7 @@ func producer() f32 psi {
 func consumer(v f32 bar) {}
 producer{} -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -479,8 +463,7 @@ func source() u8 {
 func multi(a u8, b u8) {}
 source{} -> multi{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -502,8 +485,7 @@ func splitter() (high f64, low f64) {
 func consumer(v f64) {}
 splitter{} -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -524,8 +506,7 @@ func producer() f64 {
 func consumer(v f64) {}
 producer{} -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -546,8 +527,7 @@ producer{} -> consumer{}`))
 func consumer(v f64) {}
 my_func -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range localResolver {
 						s := localResolver[i]
 						root.Parent.AddChild(&s)
@@ -567,8 +547,7 @@ my_func -> consumer{}`))
 func consumer(v f64) {}
 int_chan -> consumer{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range localResolver {
 						s := localResolver[i]
 						root.Parent.AddChild(&s)
@@ -587,8 +566,7 @@ int_chan -> consumer{}`))
 			once{} -> processor{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -604,8 +582,7 @@ int_chan -> consumer{}`))
 			once{} -> processor{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			analyzer.AnalyzeProgram(ctx)
@@ -627,8 +604,7 @@ int_chan -> consumer{}`))
 			// This should work - types match
 			sensor_chan -> controller{setpoint=100.0, input=sensor_chan, output=output_chan}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -650,8 +626,7 @@ int_chan -> consumer{}`))
 			// Missing 'threshold' and 'output' parameters
 			sensor_chan -> filter{input=sensor_chan}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -672,8 +647,7 @@ int_chan -> consumer{}`))
 
 			sensor_chan -> controller{setpoint=100.0}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -690,8 +664,7 @@ int_chan -> consumer{}`))
 
 			sensor_chan -> controller{setpoint=100.0, gain=2.5}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -708,8 +681,7 @@ int_chan -> consumer{}`))
 
 			sensor_chan -> controller{gain=2.5}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -730,8 +702,7 @@ int_chan -> consumer{}`))
 			// 'extra' is not a valid config parameter for 'simple'
 			sensor_chan -> simple{input=sensor_chan, extra=42.0}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -763,8 +734,7 @@ int_chan -> consumer{}`))
 			    input = sensor_chan
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -794,8 +764,7 @@ int_chan -> consumer{}`))
 			    input = sensor_chan
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -821,8 +790,7 @@ int_chan -> consumer{}`))
 			// Channel as source in multi-func flow
 			sensor_chan -> process{input=sensor_chan, output=output_chan} -> valve_cmd`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -852,8 +820,7 @@ int_chan -> consumer{}`))
 			// This is shorthand for: "when sensor_chan gets a value, pass it to logger"
 			sensor_chan -> logger{value=sensor_chan}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -873,8 +840,7 @@ int_chan -> consumer{}`))
 			// This channel as source:
 			sensor_chan -> display{input=sensor_chan}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -906,8 +872,7 @@ int_chan -> consumer{}`))
 			sensor_chan -> display{input=sensor_chan}`))
 
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range noOnResolver {
 					s := noOnResolver[i]
 					root.Parent.AddChild(&s)
@@ -932,8 +897,7 @@ sensor_chan > 100 -> alarm{}
  (sensor_chan * 1.8) + 32.0 -> logger{}`))
 
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -957,8 +921,7 @@ func setup() {
 sensor_chan > threshold -> alarm{}`))
 
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -981,8 +944,7 @@ sensor_chan -> {
     high: target{}
 }`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1008,8 +970,7 @@ sensor_chan -> demux{} -> {
     high: some_var
 }`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range localResolver {
 						s := localResolver[i]
 						root.Parent.AddChild(&s)
@@ -1043,8 +1004,7 @@ sequence main {
 					{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 				}
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range localResolver {
 						s := localResolver[i]
 						root.Parent.AddChild(&s)
@@ -1066,8 +1026,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1109,8 +1068,7 @@ sequence main {
 			    low: logger{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1133,8 +1091,7 @@ sequence main {
 			    output: target{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1164,8 +1121,7 @@ sequence main {
 			    medium: target{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1194,8 +1150,7 @@ sequence main {
 			    high: u32_target{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1230,8 +1185,7 @@ sequence main {
 			    low: logger{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1257,8 +1211,7 @@ sequence main {
 			    low: temp_sensor
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1278,8 +1231,7 @@ sequence main {
 			    // 'low' is never assigned
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1311,8 +1263,7 @@ sequence main {
 			    low: configurable{}
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1345,8 +1296,7 @@ sequence main {
 			    low: temp_sensor: b
 			} -> combiner{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1375,8 +1325,7 @@ sequence main {
 			    high: output_chan: invalid_param
 			} -> doubler{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1411,8 +1360,7 @@ sequence main {
 			    high: multiplier{}: a
 			} -> converter{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1452,8 +1400,7 @@ sequence main {
 			    low: output_chan: scale
 			} -> scaler{}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1478,8 +1425,7 @@ sequence main {
 			    high: output_chan: a
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1504,8 +1450,7 @@ sequence main {
 				    output_chan: b
 				} -> combiner{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1526,8 +1471,7 @@ sequence main {
 				    sensor_chan: invalid_param
 				} -> combiner{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1545,8 +1489,7 @@ sequence main {
 				{ sensor_chan: a } -> output_chan
 				`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1573,8 +1516,7 @@ sequence main {
 				    sensor_chan: processor{}
 				} -> combiner{}`))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range resolver {
 						s := resolver[i]
 						root.Parent.AddChild(&s)
@@ -1597,8 +1539,7 @@ sequence main {
 				}
 				ast := MustSucceed(parser.Parse(source))
 				ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					for i := range literalResolver {
 						s := literalResolver[i]
 						root.Parent.AddChild(&s)
@@ -1627,8 +1568,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1651,8 +1591,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1678,8 +1617,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1698,8 +1636,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1728,8 +1665,7 @@ sequence main {
 			    }
 			}`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)
@@ -1773,8 +1709,7 @@ sequence main {
 
 			start_cmd => main`))
 			ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				for i := range resolver {
 					s := resolver[i]
 					root.Parent.AddChild(&s)

@@ -372,7 +372,7 @@ func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {
 
 func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if scope.Type.IsValid() {
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)

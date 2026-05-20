@@ -61,8 +61,7 @@ var _ = Describe("Time", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -343,8 +342,7 @@ var _ = Describe("Time", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -887,8 +885,7 @@ var _ = Describe("Time", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -925,37 +922,40 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Symbols", func() {
 		newRoot := func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(time.Symbols...)
+			root := symbol.NewRoot(nil, time.Symbols...)
 			return root
 		}
-		resolve := func(ctx context.Context, qualified string) *symbol.Symbol {
-			return MustSucceed(symbol.ResolveQualified(ctx, newRoot(), qualified, symbol.IncludeInternal))
+		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			return MustSucceed(newRoot().Resolve(ctx, name, symbol.IncludeInternal))
+		}
+		timeM := func(ctx context.Context, member string) *symbol.Symbol {
+			mod := MustSucceed(newRoot().Resolve(ctx, "time", symbol.IncludeInternal))
+			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
 		It("Should expose interval bare symbol", func(ctx SpecContext) {
-			Expect(resolve(ctx, "interval").Name).To(Equal("interval"))
+			Expect(bare(ctx, "interval").Name).To(Equal("interval"))
 		})
 		It("Should expose wait bare symbol", func(ctx SpecContext) {
-			Expect(resolve(ctx, "wait").Name).To(Equal("wait"))
+			Expect(bare(ctx, "wait").Name).To(Equal("wait"))
 		})
 		It("Should expose time.now (not deprecated)", func(ctx SpecContext) {
-			sym := resolve(ctx, "time.now")
+			sym := timeM(ctx, "now")
 			Expect(sym.Name).To(Equal("now"))
 			Expect(sym.Deprecated).To(BeNil())
 		})
 		It("Should expose bare now as deprecated", func(ctx SpecContext) {
-			sym := resolve(ctx, "now")
+			sym := bare(ctx, "now")
 			Expect(sym.Name).To(Equal("now"))
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.now"))
 		})
 		It("Should mark bare interval as deprecated", func(ctx SpecContext) {
-			sym := resolve(ctx, "interval")
+			sym := bare(ctx, "interval")
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.interval"))
 		})
 		It("Should mark bare wait as deprecated", func(ctx SpecContext) {
-			sym := resolve(ctx, "wait")
+			sym := bare(ctx, "wait")
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
@@ -1004,8 +1004,7 @@ var _ = Describe("Time", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())
@@ -1204,8 +1203,7 @@ var _ = Describe("Time", func() {
 					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -1283,8 +1281,7 @@ var _ = Describe("Time", func() {
 					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -1377,8 +1374,7 @@ var _ = Describe("Time", func() {
 					}},
 				}
 				analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-					root := symbol.CreateRoot(nil)
-					root.AttachToAmbient(stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.Symbols...)
 					symbol.AutoImportModules(root)
 					return root
 				}())
@@ -1518,8 +1514,7 @@ var _ = Describe("Time", func() {
 				}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				symbol.AutoImportModules(root)
 				return root
 			}())

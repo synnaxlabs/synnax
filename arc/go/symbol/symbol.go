@@ -201,12 +201,13 @@ type Symbol struct {
 	GlobalResolver Resolver
 }
 
-// CreateRoot creates a user-program root attached to an empty ambient
-// prelude. The optional dynamicResolver is consulted for external symbols
-// (e.g., cluster channels) when local lookup misses. Callers attach
-// globals (STL symbols, test channels, custom modules) to the root's
-// ambient via AttachToAmbient.
-func CreateRoot(dynamicResolver Resolver) *Symbol {
+// NewRoot creates a user-program root attached to an empty ambient
+// prelude with ambientGlobals already attached. The optional
+// dynamicResolver is consulted for external symbols (e.g., cluster
+// channels) when local lookup misses. The ambientGlobals are added
+// directly to the ambient prelude as siblings of the root — this is
+// where STL symbols, test channels, and custom modules belong.
+func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,
@@ -214,32 +215,22 @@ func CreateRoot(dynamicResolver Resolver) *Symbol {
 		GlobalResolver: dynamicResolver,
 	}
 	ambient.AddChild(root)
+	for _, sym := range ambientGlobals {
+		ambient.AddChild(sym)
+	}
 	return root
-}
-
-// Scope is a transitional alias for Symbol. The two types were collapsed when
-// modules became Symbols of KindModule. Existing call sites that name *Scope
-// continue to compile; new code should use *Symbol directly.
-type Scope = Symbol
-
-// CreateRootScope is a transitional alias for CreateRoot. Existing call sites
-// continue to compile; new code should use CreateRoot directly.
-func CreateRootScope(dynamicResolver Resolver) *Symbol {
-	return CreateRoot(dynamicResolver)
 }
 
 // GetChildByParserRule finds a direct child with the given AST parser rule.
 // Returns an error if no matching child is found.
 func (s *Symbol) GetChildByParserRule(rule antlr.ParserRuleContext) (*Symbol, error) {
-	res := s.FindChild(func(child *Symbol) bool { return child.AST == rule })
+	res := s.findChild(func(child *Symbol) bool { return child.AST == rule })
 	if res == nil {
 		return nil, errors.New("could not find symbol matching parser rule")
 	}
 	return res, nil
 }
 
-// FindChildByName searches for a direct child with the given name. Returns nil
-// if no matching child is found.
 // Children returns the symbols directly contained by s. A KindModuleAlias
 // transparently returns its Target's children, so callers iterating a
 // scope's members do not need to special-case aliases. Callers that need
@@ -253,27 +244,22 @@ func (s *Symbol) Children() []*Symbol {
 	return s.children
 }
 
+// FindChildByName searches for a direct child with the given name. Returns nil
+// if no matching child is found.
 func (s *Symbol) FindChildByName(name string) *Symbol {
-	return s.FindChild(func(child *Symbol) bool { return child.Name == name })
+	return s.findChild(func(child *Symbol) bool { return child.Name == name })
 }
 
-// FindChild searches for a direct child matching the predicate. Returns nil if
-// no matching child is found.
-func (s *Symbol) FindChild(predicate func(*Symbol) bool) *Symbol {
+func (s *Symbol) findChild(predicate func(*Symbol) bool) *Symbol {
 	res, _ := lo.Find(s.children, predicate)
 	return res
 }
 
-// FilterChildren returns all direct children matching the predicate.
-func (s *Symbol) FilterChildren(predicate func(*Symbol) bool) []*Symbol {
-	return lo.Filter(s.children, func(item *Symbol, _ int) bool {
-		return predicate(item)
-	})
-}
-
 // FilterChildrenByKind returns all direct children of the given kind.
 func (s *Symbol) FilterChildrenByKind(kind Kind) []*Symbol {
-	return s.FilterChildren(func(child *Symbol) bool { return child.Kind == kind })
+	return lo.Filter(s.children, func(item *Symbol, _ int) bool {
+		return item.Kind == kind
+	})
 }
 
 // AutoName assigns a unique name by appending a numeric ID from the parent's
@@ -338,50 +324,6 @@ func (s *Symbol) AddChild(child *Symbol) *Symbol {
 	return child
 }
 
-// ResolveQualified resolves a possibly-qualified name against scope.
-// A literal-name lookup is tried first so a scope child whose Name
-// contains a dot still resolves (some graph tests use this shape).
-// Otherwise the name is split at the first dot, the head is resolved
-// lexically, and the tail is resolved against the result. The alias
-// indirection (head returning a KindModuleAlias) is handled inside
-// Resolve itself, so this function does not chase Target by hand.
-// Used at IR-string boundaries (graph node Type) where the qualified
-// name is already a joined string.
-func ResolveQualified(
-	ctx context.Context,
-	scope *Symbol,
-	name string,
-	options ...ResolveOption,
-) (*Symbol, error) {
-	if sym, err := scope.Resolve(ctx, name, options...); err == nil {
-		return sym, nil
-	}
-	dot := strings.IndexByte(name, '.')
-	if dot < 0 {
-		return scope.Resolve(ctx, name, options...)
-	}
-	head, tail := name[:dot], name[dot+1:]
-	headSym, err := scope.Resolve(ctx, head, options...)
-	if err != nil {
-		return nil, err
-	}
-	return headSym.Resolve(ctx, tail, options...)
-}
-
-// AttachToAmbient adds symbols to the ambient prelude reached via s's
-// Parent. Used to expose statically-known globals (STL symbols, test
-// channels, custom modules) to user code via the standard lexical walk.
-// Panics when s has no ambient parent — callers must obtain s via
-// CreateRoot (or equivalent) before attaching.
-func (s *Symbol) AttachToAmbient(syms ...*Symbol) {
-	if s.Parent == nil || s.Parent.Kind != KindAmbient {
-		panic("AttachToAmbient: receiver has no ambient parent")
-	}
-	for _, sym := range syms {
-		s.Parent.AddChild(sym)
-	}
-}
-
 // AutoImportModules aliases each KindModule in root's ambient as a
 // KindModuleAlias child of root. Used by graph mode and other entry
 // points that reference module-qualified names (`control.set_authority`,
@@ -435,35 +377,6 @@ func NewModule(name string, members ...Symbol) *Symbol {
 		mod.children = append(mod.children, &child)
 	}
 	return mod
-}
-
-// NewTestScope builds a scope tree from a flat map of qualified names to
-// symbols, suitable for tests that need to populate a scope with host
-// functions by qualified name (e.g., {"math.abs": ...}). Multi-segment
-// names produce a nested module hierarchy: "math.abs" creates a `math`
-// module containing `abs`. Unqualified names land directly on the root.
-//
-// The returned root has no GlobalResolver and no ambient parent — it is
-// a standalone tree for unit-test scaffolding.
-func NewTestScope(syms map[string]Symbol) *Symbol {
-	root := CreateRoot(nil)
-	for name, sym := range syms {
-		parts := strings.Split(name, ".")
-		parent := root
-		for _, part := range parts[:len(parts)-1] {
-			mod := parent.FindChildByName(part)
-			if mod == nil {
-				mod = &Symbol{Name: part, Kind: KindModule, Parent: parent}
-				parent.children = append(parent.children, mod)
-			}
-			parent = mod
-		}
-		leaf := sym
-		leaf.Name = parts[len(parts)-1]
-		leaf.Parent = parent
-		parent.children = append(parent.children, &leaf)
-	}
-	return root
 }
 
 func (s *Symbol) addIndex() int {
@@ -579,7 +492,7 @@ func (s *Symbol) resolve(
 	if id, err := strconv.ParseUint(name, 10, 32); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }
 	}
-	if child := s.FindChild(matches); child != nil {
+	if child := s.findChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
 			child.Used = true
 			return child, nil
@@ -661,17 +574,6 @@ func (s *Symbol) ClosestAncestorOfKind(kind Kind) (*Symbol, error) {
 		return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
-}
-
-// FirstChildOfKind returns the first direct child of the given kind. Returns
-// query.ErrNotFound when no matching child exists.
-func (s *Symbol) FirstChildOfKind(kind Kind) (*Symbol, error) {
-	for _, child := range s.children {
-		if child.Kind == kind {
-			return child, nil
-		}
-	}
-	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 }
 
 // ResolveConfigChannel replaces an internal config param ID with the actual

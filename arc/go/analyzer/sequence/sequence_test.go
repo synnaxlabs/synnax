@@ -62,8 +62,7 @@ var resolver = []symbol.Symbol{
 func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)
@@ -78,8 +77,7 @@ func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		for i := range resolver {
 			s := resolver[i]
 			root.Parent.AddChild(&s)

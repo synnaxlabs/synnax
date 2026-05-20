@@ -31,8 +31,7 @@ var _ = Describe("Definition", func() {
 	BeforeEach(func() {
 		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
 			return func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}()
 		}}))
@@ -187,8 +186,7 @@ func main() {
 	Describe("GlobalResolver", func() {
 		It("should return nil for global variables attached to the ambient (no AST)", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				root.Parent.AddChild(&symbol.Symbol{
 					Name: "myGlobal",
 					Type: types.I32(),

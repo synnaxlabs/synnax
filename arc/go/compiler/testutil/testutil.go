@@ -31,8 +31,7 @@ import (
 // expressions referencing host functions (channels.write, series.add, ...).
 func FunctionScope(ctx context.Context) *symbol.Symbol {
 	root := func() *symbol.Symbol {
-		root := symbol.CreateRoot(nil)
-		root.AttachToAmbient(stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.Symbols...)
 		return root
 	}()
 	s := testutil.MustSucceed(root.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: arctypes.I32()}))

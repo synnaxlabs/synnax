@@ -104,7 +104,7 @@ const (
 func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
-) (*symbol.Scope, channelSourceKind) {
+) (*symbol.Symbol, channelSourceKind) {
 	primary := parser.GetPrimaryExpression(expr)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, channelSourceNone
@@ -164,7 +164,7 @@ func compileStatefulVariable(
 // compileIndexedAssignment handles indexed assignment statements (series[i] = value)
 func compileIndexedAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	indexOrSlice parser.IIndexOrSliceContext,
 ) error {
 	elemType := scope.Type.Unwrap()
@@ -200,7 +200,7 @@ func compileIndexedAssignment(
 // Equivalent to: arr[i] = arr[i] op expr
 func compileIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	indexOrSlice parser.IIndexOrSliceContext,
 	compoundOp parser.ICompoundOpContext,
 ) error {
@@ -263,7 +263,7 @@ func compileIndexedCompoundAssignment(
 // Equivalent to: series = series op expr (broadcast or element-wise)
 func compileSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	compoundOp parser.ICompoundOpContext,
 ) error {
 	sym := *scope
@@ -302,7 +302,7 @@ func compileSeriesCompoundAssignment(
 
 func compileCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	compoundOp parser.ICompoundOpContext,
 ) error {
 	// Handle indexed compound assignment (arr[i] += value)
@@ -461,7 +461,7 @@ func compileAssignment(
 func compileOutputAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	outputName string,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) error {
 	// Value is already on stack from expression compilation
 

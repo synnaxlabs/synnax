@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package stl is the Arc standard library. It exposes a flat slice of
-// symbols that callers attach to a program's ambient prelude via
-// symbol.AttachToAmbient. The package owns no root-building or
-// scope-assembly logic; that lives in the symbol package.
+// symbols that callers pass to symbol.NewRoot as ambient globals.
+// The package owns no root-building or scope-assembly logic; that lives
+// in the symbol package.
 package stl
 
 import (

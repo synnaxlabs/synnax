@@ -252,7 +252,7 @@ func analyzeIdentifier(
 func resolveFunc[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	fn parser.IFunctionContext,
-) (*symbol.Scope, string) {
+) (*symbol.Symbol, string) {
 	head, tail := parser.FunctionNameParts(fn)
 	name := head
 	if tail != "" {

@@ -558,8 +558,7 @@ var _ = Describe("Identifier Compilation", func() {
 		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
 			analyzerCtx := acontext.CreateRoot(bCtx, expr, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			timeMod := analyzerCtx.Scope.Parent.FindChildByName("time")

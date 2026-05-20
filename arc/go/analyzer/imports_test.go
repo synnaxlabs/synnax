@@ -38,8 +38,7 @@ var _ = Describe("Import Pass", func() {
 	}
 	newRoot := func() *symbol.Symbol {
 		root := func() *symbol.Symbol {
-			root := symbol.CreateRoot(nil)
-			root.AttachToAmbient(stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.Symbols...)
 			for i := range dynChannels {
 				s := dynChannels[i]
 				root.Parent.AddChild(&s)

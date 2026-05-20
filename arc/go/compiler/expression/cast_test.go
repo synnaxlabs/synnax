@@ -344,8 +344,7 @@ var _ = Describe("Type Cast Compilation", func() {
 			expr, diag := parser.ParseExpression(source)
 			Expect(diag).To(BeNil())
 			analyzerCtx := acontext.CreateRoot(bCtx, expr, func() *symbol.Symbol {
-				root := symbol.CreateRoot(nil)
-				root.AttachToAmbient(stl.Symbols...)
+				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
 			aexpression.Analyze(analyzerCtx)
