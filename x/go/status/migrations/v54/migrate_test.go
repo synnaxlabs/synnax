@@ -44,7 +44,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 			},
 		}
 		MustSucceed(gorp.OpenTable[string, v54.Status[any]](
-			ctx, gorp.TableConfig[v54.Status[any]]{DB: db},
+			ctx, gorp.TableConfig[string, v54.Status[any]]{DB: db},
 		))
 		Expect(gorp.NewCreate[string, v54.Status[any]]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())

@@ -10,4 +10,5 @@
 export * from "@/telem/Provider";
 export * from "@/telem/resolveDataTypeIcon";
 export * from "@/telem/SelectDataType";
+export * from "@/telem/SelectTimeZone";
 export * from "@/telem/text";

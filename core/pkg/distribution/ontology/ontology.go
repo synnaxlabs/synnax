@@ -48,12 +48,43 @@ import (
 type Ontology struct {
 	Config
 	ResourceObserver     observe.Observer[iter.Seq[Change]]
-	RelationshipObserver observe.Observable[gorp.TxReader[[]byte, Relationship]]
+	RelationshipObserver observe.Observable[gorp.TxReader[string, Relationship]]
 	registrar            serviceRegistrar
 	disconnectObservers  []observe.Disconnect
 	closer               io.MultiCloser
 	resourceTable        *gorp.Table[string, Resource]
-	relationshipTable    *gorp.Table[[]byte, Relationship]
+	relationshipTable    *gorp.Table[string, Relationship]
+	relIndexes           relationshipIndexes
+}
+
+// relationshipIndexes bundles the secondary indexes registered on the
+// relationship table. relByTo answers "given an ID, which relationships
+// point at it" in O(1), which is the lookup that ParentsTraverser would
+// otherwise serve via a full pebble scan. relByFrom is the symmetric
+// from-keyed index used by ChildrenTraverser; it duplicates work that the
+// from-prefix scan already does cheaply, but having both directions in the
+// index lets the traverse dispatcher pick the index uniformly without
+// special-casing direction.
+type relationshipIndexes struct {
+	byTo   *gorp.LookupIndex[string, Relationship, ID]
+	byFrom *gorp.LookupIndex[string, Relationship, ID]
+}
+
+func newRelationshipIndexes() relationshipIndexes {
+	return relationshipIndexes{
+		byTo: gorp.NewLookupIndex[string, Relationship, ID](
+			"relationship_by_to",
+			func(r *Relationship) ID { return r.To },
+		),
+		byFrom: gorp.NewLookupIndex[string, Relationship, ID](
+			"relationship_by_from",
+			func(r *Relationship) ID { return r.From },
+		),
+	}
+}
+
+func (i relationshipIndexes) all() []gorp.Index[string, Relationship] {
+	return []gorp.Index[string, Relationship]{i.byTo, i.byFrom}
 }
 
 type Config struct {
@@ -91,10 +122,11 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 		Config:           cfg,
 		ResourceObserver: observe.New[iter.Seq[Change]](),
 		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
+		relIndexes:       newRelationshipIndexes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &o.closer)
 	defer func() { err = cleanup(err) }()
-	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Resource]{
+	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations: []migrate.Migration{
@@ -103,11 +135,12 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
-	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[Relationship]{
+	if o.relationshipTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Relationship]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
+		Indexes:         o.relIndexes.all(),
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[[]byte, Relationship]("msgpack_to_orc"),
+			gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
 		},
 	}); !ok(err, o.relationshipTable) {
 		return nil, err
@@ -179,6 +212,7 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 		registrar:         o.registrar,
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
+		relIndexes:        o.relIndexes,
 	}
 }
 

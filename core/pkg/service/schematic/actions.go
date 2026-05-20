@@ -15,13 +15,20 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// ScopedAction wraps an action sequence with the targeted schematic key and the
-// originating client's session key. Subscribers to the action signal channel
-// compare SessionKey against their own client key to skip self-originated
-// updates (optimistic-UI dedup).
+// ScopedAction wraps an action sequence with the targeted schematic key, the
+// originating client's session key, and a monotonic sequence number assigned
+// by the node that handled the Dispatch. Subscribers compare Seq against the
+// last value they applied for the same Key to decide whether the frame is
+// fresh or a stale echo. SessionKey is preserved so subscribers can avoid
+// re-recording an echoed frame onto their own undo stacks. The sequence is
+// monotonic per originating node: in multi-node deployments two nodes may
+// emit overlapping Seq values for the same Key, so cross-node ordering is
+// best-effort until a cluster-wide ordering primitive lands as part of the
+// broader server-side undo work.
 type ScopedAction struct {
 	Key        Key      `json:"key" msgpack:"key"`
 	SessionKey string   `json:"session_key" msgpack:"session_key"`
+	Seq        uint64   `json:"seq" msgpack:"seq"`
 	Actions    []Action `json:"actions" msgpack:"actions"`
 }
 

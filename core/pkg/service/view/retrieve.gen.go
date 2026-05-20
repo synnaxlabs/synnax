@@ -75,7 +75,7 @@ func MatchKeys(keys ...Key) Filter {
 
 // MatchTypes returns a filter for views whose Type matches any of the provided values.
 func MatchTypes(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, View] {
+	return func(r Retrieve) gorp.Filter[Key, View] {
 		return gorp.Match(func(_ gorp.Context, e *View) (bool, error) {
 			return lo.Contains(vals, e.Type), nil
 		})
