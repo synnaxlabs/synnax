@@ -14,7 +14,7 @@
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/state.h"
 
 namespace arc::runtime::state {
 

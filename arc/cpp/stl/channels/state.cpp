@@ -9,7 +9,7 @@
 
 #include <ranges>
 
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/state.h"
 
 namespace arc::stl::channels {
 

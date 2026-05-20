@@ -18,7 +18,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
