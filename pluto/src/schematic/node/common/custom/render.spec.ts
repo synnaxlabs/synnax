@@ -205,7 +205,7 @@ describe("Custom.useRender", () => {
             activeState: "inactive",
             externalScale: 1,
             spec: undefined,
-          } as Custom.UseRenderArgs,
+          },
         },
       );
       expect(container.children.length).toBe(0);

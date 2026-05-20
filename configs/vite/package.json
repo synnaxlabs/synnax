@@ -21,7 +21,7 @@
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-dts": "^4.5.4"
+    "unplugin-dts": "^1.0.0"
   },
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",

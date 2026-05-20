@@ -267,7 +267,7 @@ export class ScopedUnaryStore<
         valueOrVariant?: state.SetArg<Value | undefined> | SetExtra,
         variant?: SetExtra,
       ): (() => void) => this.set(scope, key, valueOrVariant, variant),
-      get: this.get.bind(this) as UnaryStore<Key, Value>["get"],
+      get: this.get.bind(this),
       list: () => this.list(),
       has: (key: Key | Key[]) => this.has(key),
       delete: (
