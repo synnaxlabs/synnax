@@ -12,9 +12,9 @@ packages:
   - x/ts
 
 allowBuilds:
-  core-js: true
+  core-js: false
   esbuild: true
-  protobufjs: true
+  protobufjs: false
   sharp: true
 
 catalog:
