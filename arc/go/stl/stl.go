@@ -14,6 +14,8 @@
 package stl
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/stl/control"
@@ -26,28 +28,21 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/symbol"
 )
 
 // Symbols is the flattened set of symbols every STL package contributes
 // to a program's ambient prelude.
-var Symbols = func() []*symbol.Symbol {
-	var out []*symbol.Symbol
-	for _, pkg := range [][]*symbol.Symbol{
-		channels.Symbols,
-		constant.Symbols,
-		control.Symbols,
-		errors.Symbols,
-		math.Symbols,
-		op.Symbols,
-		selector.Symbols,
-		series.Symbols,
-		stable.Symbols,
-		stateful.Symbols,
-		strings.Symbols,
-		time.Symbols,
-	} {
-		out = append(out, pkg...)
-	}
-	return out
-}()
+var Symbols = slices.Concat(
+	channels.Symbols,
+	constant.Symbols,
+	control.Symbols,
+	errors.Symbols,
+	math.Symbols,
+	op.Symbols,
+	selector.Symbols,
+	series.Symbols,
+	stable.Symbols,
+	stateful.Symbols,
+	strings.Symbols,
+	time.Symbols,
+)

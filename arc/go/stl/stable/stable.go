@@ -51,7 +51,7 @@ var (
 		Kind:       symbol.KindFunction,
 		Exec:       symbol.ExecFlow,
 		Type:       symbolType,
-		Deprecated: module.FindChildByName(qualifiedMemberName),
+		Deprecated: module.FindChild(qualifiedMemberName),
 	}
 )
 

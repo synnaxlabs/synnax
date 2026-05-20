@@ -561,7 +561,7 @@ var _ = Describe("Identifier Compilation", func() {
 				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
-			timeMod := analyzerCtx.Scope.Parent.FindChildByName("time")
+			timeMod := analyzerCtx.Scope.Parent.FindChild("time")
 			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
 				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
 			}))

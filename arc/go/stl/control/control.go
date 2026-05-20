@@ -49,7 +49,7 @@ var (
 		Kind:       symbol.KindFunction,
 		Exec:       symbol.ExecFlow,
 		Type:       symbolProps,
-		Deprecated: module.FindChildByName(qualifiedMemberName),
+		Deprecated: module.FindChild(qualifiedMemberName),
 	}
 )
 

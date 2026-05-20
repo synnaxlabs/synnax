@@ -212,7 +212,7 @@ func isImportAlias(docIR ir.IR, name string) bool {
 	if docIR.Symbols == nil {
 		return false
 	}
-	child := docIR.Symbols.FindChildByName(name)
+	child := docIR.Symbols.FindChild(name)
 	return child != nil && child.Kind == symbol.KindModuleAlias
 }
 

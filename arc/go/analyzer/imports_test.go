@@ -54,7 +54,7 @@ var _ = Describe("Import Pass", func() {
 			prog := MustSucceed(parser.Parse(`import time`))
 			ctx := context.CreateRoot(bCtx, prog, newRoot())
 			analyzer.AnalyzeProgram(ctx)
-			alias := ctx.Scope.FindChildByName("time")
+			alias := ctx.Scope.FindChild("time")
 			Expect(alias).ToNot(BeNil())
 			Expect(alias.Kind).To(Equal(symbol.KindModuleAlias))
 			Expect(alias.Target).ToNot(BeNil())

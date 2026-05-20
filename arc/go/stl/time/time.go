@@ -79,27 +79,15 @@ var module = symbol.NewModule(
 	nowSymbol,
 )
 
-func deprecated(sym symbol.Symbol, replacement *symbol.Symbol) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
-}
-
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the time module plus the deprecated bare aliases (interval,
 // wait, now) whose Deprecated fields point at the canonical members.
-var Symbols = func() []*symbol.Symbol {
-	bares := []symbol.Symbol{
-		deprecated(intervalSymbol, module.FindChildByName(intervalSymbolName)),
-		deprecated(waitSymbol, module.FindChildByName(waitSymbolName)),
-		deprecated(nowSymbol, module.FindChildByName(nowSymbolName)),
-	}
-	out := []*symbol.Symbol{module}
-	for _, s := range bares {
-		s := s
-		out = append(out, &s)
-	}
-	return out
-}()
+var Symbols = []*symbol.Symbol{
+	module,
+	symbol.Deprecate(intervalSymbol, module.FindChild(intervalSymbolName)),
+	symbol.Deprecate(waitSymbol, module.FindChild(waitSymbolName)),
+	symbol.Deprecate(nowSymbol, module.FindChild(nowSymbolName)),
+}
 
 // Host is the runtime host-side support for the time module: it registers
 // the `now` WASM host function and acts as the node factory for interval

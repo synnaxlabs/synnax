@@ -180,7 +180,7 @@ type Symbol struct {
 	// transparently delegate to its Target — callers iterating a scope
 	// don't need to special-case aliases. The one consumer that needs
 	// the alias's own (empty) child list — LSP semantic-token tagging —
-	// uses FindChildByName to obtain the alias and works with its
+	// uses FindChild to obtain the alias and works with its
 	// fields directly.
 	children []*Symbol
 	// Counter assigns unique IDs to slot-allocating descendants. Non-nil on
@@ -235,7 +235,7 @@ func (s *Symbol) GetChildByParserRule(rule antlr.ParserRuleContext) (*Symbol, er
 // transparently returns its Target's children, so callers iterating a
 // scope's members do not need to special-case aliases. Callers that need
 // the alias's own (empty) child slice — LSP semantic-token tagging,
-// rename refactors — obtain the alias via FindChildByName and access its
+// rename refactors — obtain the alias via FindChild and access its
 // fields directly.
 func (s *Symbol) Children() []*Symbol {
 	if s.Kind == KindModuleAlias && s.Target != nil {
@@ -244,9 +244,9 @@ func (s *Symbol) Children() []*Symbol {
 	return s.children
 }
 
-// FindChildByName searches for a direct child with the given name. Returns nil
+// FindChild searches for a direct child with the given name. Returns nil
 // if no matching child is found.
-func (s *Symbol) FindChildByName(name string) *Symbol {
+func (s *Symbol) FindChild(name string) *Symbol {
 	return s.findChild(func(child *Symbol) bool { return child.Name == name })
 }
 
@@ -377,6 +377,15 @@ func NewModule(name string, members ...Symbol) *Symbol {
 		mod.children = append(mod.children, &child)
 	}
 	return mod
+}
+
+// Deprecate returns a heap-allocated copy of sym with Deprecated set to
+// replacement. Used by STL packages to build the bare-name aliases
+// (`avg`, `interval`, ...) that point at their canonical module members
+// (`math.avg`, `time.interval`, ...).
+func Deprecate(sym Symbol, replacement *Symbol) *Symbol {
+	sym.Deprecated = replacement
+	return &sym
 }
 
 func (s *Symbol) addIndex() int {
@@ -589,7 +598,7 @@ func ResolveConfigChannel(
 	channelName string,
 ) {
 	replaced := false
-	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
+	if configParamSym := fnSym.FindChild(paramName); configParamSym != nil {
 		configParamID := uint32(configParamSym.ID)
 		if _, ok := fnSym.Channels.Write[configParamID]; ok {
 			delete(c.Write, configParamID)

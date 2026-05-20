@@ -796,7 +796,7 @@ sensor -> stable.for{duration=1s} -> output`
 						Name:       "set_status",
 						Kind:       symbol.KindFunction,
 						Exec:       symbol.ExecFlow,
-						Deprecated: statusModule.FindChildByName("set"),
+						Deprecated: statusModule.FindChild("set"),
 						Type:       statusFnType,
 					},
 					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},

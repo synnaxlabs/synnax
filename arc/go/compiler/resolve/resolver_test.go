@@ -51,7 +51,7 @@ var _ = Describe("Resolver", func() {
 			r := resolve.NewResolver()
 			w := wasm.NewWriter()
 			wID := r.TrackWriter(w)
-			target := monoMathAbs().FindChildByName("abs")
+			target := monoMathAbs().FindChild("abs")
 			r.EmitCall(w, wID, target, target.Type)
 
 			m := wasm.NewModule()
@@ -65,7 +65,7 @@ var _ = Describe("Resolver", func() {
 			r := resolve.NewResolver()
 			w := wasm.NewWriter()
 			wID := r.TrackWriter(w)
-			absTarget := monoMathAbs().FindChildByName("abs")
+			absTarget := monoMathAbs().FindChild("abs")
 			r.EmitCall(w, wID, absTarget, absTarget.Type)
 			myFunc := &symbol.Symbol{Name: "myFunc", Kind: symbol.KindFunction}
 			r.EmitCall(w, wID, myFunc, types.Function(types.FunctionProperties{}))
@@ -85,7 +85,7 @@ var _ = Describe("Resolver", func() {
 			r := resolve.NewResolver()
 			w := wasm.NewWriter()
 			wID := r.TrackWriter(w)
-			target := monoMathAbs().FindChildByName("abs")
+			target := monoMathAbs().FindChild("abs")
 			r.EmitCall(w, wID, target, target.Type)
 			r.EmitCall(w, wID, target, target.Type)
 
@@ -110,7 +110,7 @@ var _ = Describe("Resolver", func() {
 			r := resolve.NewResolver()
 			w := wasm.NewWriter()
 			wID := r.TrackWriter(w)
-			target := mathModuleWithAbs().FindChildByName("abs")
+			target := mathModuleWithAbs().FindChild("abs")
 			concrete := types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},

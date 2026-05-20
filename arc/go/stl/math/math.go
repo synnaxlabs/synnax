@@ -116,24 +116,17 @@ var module = symbol.NewModule(
 	derivativeSymbol,
 )
 
-func deprecated(sym symbol.Symbol, replacement *symbol.Symbol) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
-}
-
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the math module itself and the deprecated bare aliases
 // (avg, min, max, derivative) whose Deprecated field points at the
 // canonical module member.
 var Symbols = []*symbol.Symbol{
 	module,
-	ptrOf(deprecated(avgSymbol, module.FindChildByName(avgSymbolName))),
-	ptrOf(deprecated(minSymbol, module.FindChildByName(minSymbolName))),
-	ptrOf(deprecated(maxSymbol, module.FindChildByName(maxSymbolName))),
-	ptrOf(deprecated(derivativeSymbol, module.FindChildByName(derivativeSymbolName))),
+	symbol.Deprecate(avgSymbol, module.FindChild(avgSymbolName)),
+	symbol.Deprecate(minSymbol, module.FindChild(minSymbolName)),
+	symbol.Deprecate(maxSymbol, module.FindChild(maxSymbolName)),
+	symbol.Deprecate(derivativeSymbol, module.FindChild(derivativeSymbolName)),
 }
-
-func ptrOf(s symbol.Symbol) *symbol.Symbol { return &s }
 
 // Host is the runtime host-side support for math: it registers the WASM
 // host-function bindings (pow_*, neg_*) and acts as the node factory for

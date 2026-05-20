@@ -722,7 +722,7 @@ var _ = Describe("Type Inference", func() {
 				root := symbol.NewRoot(nil, stl.Symbols...)
 				return root
 			}())
-			timeMod := aCtx.Scope.Parent.FindChildByName("time")
+			timeMod := aCtx.Scope.Parent.FindChild("time")
 			MustSucceed(aCtx.Scope.Add(ctx, symbol.Symbol{
 				Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
 			}))

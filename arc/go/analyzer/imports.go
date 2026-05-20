@@ -107,7 +107,7 @@ func lookupModule(ambient *symbol.Symbol, path string) *symbol.Symbol {
 	if ambient == nil {
 		return nil
 	}
-	if child := ambient.FindChildByName(path); child != nil && child.Kind == symbol.KindModule {
+	if child := ambient.FindChild(path); child != nil && child.Kind == symbol.KindModule {
 		return child
 	}
 	return nil

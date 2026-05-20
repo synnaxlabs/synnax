@@ -188,20 +188,20 @@ var _ = Describe("Scope", func() {
 		})
 	})
 
-	Describe("FindChildByName", func() {
+	Describe("FindChild", func() {
 		It("Should find child by name", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil)
 			child := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
-			found := rootScope.FindChildByName("x")
+			found := rootScope.FindChild("x")
 			Expect(found).To(Equal(child))
 		})
 
 		It("Should return nil when name not found", func() {
 			rootScope := symbol.NewRoot(nil)
-			found := rootScope.FindChildByName("nonexistent")
+			found := rootScope.FindChild("nonexistent")
 			Expect(found).To(BeNil())
 		})
 	})
@@ -312,7 +312,7 @@ var _ = Describe("Scope", func() {
 
 			It("Should resolve a qualified lookup through a same-name alias", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
-				timeMod := rootScope.Parent.FindChildByName("time")
+				timeMod := rootScope.Parent.FindChild("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
@@ -322,7 +322,7 @@ var _ = Describe("Scope", func() {
 
 			It("Should resolve a qualified lookup through a renamed alias", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
-				timeMod := rootScope.Parent.FindChildByName("time")
+				timeMod := rootScope.Parent.FindChild("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
@@ -332,7 +332,7 @@ var _ = Describe("Scope", func() {
 
 			It("Should mark the alias as used on head resolution", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
-				timeMod := rootScope.Parent.FindChildByName("time")
+				timeMod := rootScope.Parent.FindChild("time")
 				alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))
@@ -342,7 +342,7 @@ var _ = Describe("Scope", func() {
 
 			It("Should not find members past the module seal", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
-				timeMod := rootScope.Parent.FindChildByName("time")
+				timeMod := rootScope.Parent.FindChild("time")
 				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
 					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
 				}))

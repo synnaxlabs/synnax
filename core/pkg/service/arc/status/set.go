@@ -62,16 +62,13 @@ var module = symbol.NewModule(moduleName, memberSymbol)
 // bareSymbolPtr is the deprecated `set_status` bare global. Its
 // Deprecated field points at the module's `set` member so warnings name
 // the qualified replacement.
-var bareSymbolPtr = func() *symbol.Symbol {
-	s := &symbol.Symbol{
-		Name: bareSymbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: symbolProps,
-	}
-	s.Deprecated = module.FindChildByName(qualifiedMemberName)
-	return s
-}()
+var bareSymbolPtr = &symbol.Symbol{
+	Name:       bareSymbolName,
+	Kind:       symbol.KindFunction,
+	Exec:       symbol.ExecFlow,
+	Type:       symbolProps,
+	Deprecated: module.FindChild(qualifiedMemberName),
+}
 
 // Symbols are the symbols this package contributes to a program's
 // ambient prelude: the status module plus the deprecated bare global.

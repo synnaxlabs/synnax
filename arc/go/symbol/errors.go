@@ -58,7 +58,7 @@ func (s *Symbol) isAmbientModule(name string) bool {
 		if cur.Kind != KindAmbient {
 			continue
 		}
-		if child := cur.FindChildByName(name); child != nil && child.Kind == KindModule {
+		if child := cur.FindChild(name); child != nil && child.Kind == KindModule {
 			return true
 		}
 	}
