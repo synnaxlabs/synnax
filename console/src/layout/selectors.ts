@@ -353,6 +353,17 @@ export const selectActivePanelKey = (
 export const useSelectActivePanelKey = (): string | null =>
   useMemoSelect(selectActivePanelKey, []);
 
+export const selectActiveTabKey = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string | null => {
+  const wp = selectWindowPanels(state, windowKey);
+  return wp?.activeTab ?? null;
+};
+
+export const useSelectActiveTabKey = (): string | null =>
+  useMemoSelect(selectActiveTabKey, []);
+
 export const selectPanel = (state: StoreState, key: string): PanelMeta | null =>
   selectSliceState(state).panels[key] ?? null;
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, type project } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -116,6 +116,33 @@ export const useList = Flux.createList<
     store.panels.onSet((p) => onChange(p.key, p)),
     store.panels.onDelete(onDelete),
   ],
+});
+
+export interface CreateParams extends panel.New {
+  project?: project.Key;
+}
+
+export interface CreateOutput extends panel.Panel {
+  project?: project.Key;
+}
+
+// useCreate dispatches a panel create against the given project (or as a
+// project-less orphan when project is absent). The server parents the panel
+// to the project in the ontology, which is what drives project-scoped tab
+// listings.
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  CreateParams,
+  FluxSubStore,
+  CreateOutput
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.CREATE_VERBS,
+  update: async ({ client, data, store }) => {
+    const { project, ...rest } = data;
+    const p = await client.panels.create(rest, project);
+    store.panels.set(p.key, p);
+    return { ...p, project };
+  },
 });
 
 export interface RenameParams {

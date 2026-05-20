@@ -12,15 +12,8 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Action, actionZ, rename as renameAction } from "@/panel/actions.gen";
-import {
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  type Panel,
-  panelZ,
-} from "@/panel/types.gen";
-import { keyZ as projectKeyZ } from "@/project/types.gen";
+import { type Key, keyZ, type New, newZ, type Panel, panelZ } from "@/panel/types.gen";
+import { type Key as ProjectKey, keyZ as projectKeyZ } from "@/project/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -30,7 +23,10 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-const createReqZ = z.object({ panels: newZ.array() });
+const createReqZ = z.object({
+  project: projectKeyZ.optional(),
+  panels: newZ.array(),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ panels: array.nullishToEmpty(panelZ) });
@@ -66,14 +62,14 @@ export class Client {
     this.client = client;
   }
 
-  async create(panel: New): Promise<Panel>;
-  async create(panels: New[]): Promise<Panel[]>;
-  async create(panels: New | New[]): Promise<Panel | Panel[]> {
+  async create(panel: New, project?: ProjectKey): Promise<Panel>;
+  async create(panels: New[], project?: ProjectKey): Promise<Panel[]>;
+  async create(panels: New | New[], project?: ProjectKey): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
     const res = await sendRequired(
       this.client,
       "/panel/create",
-      { panels: array.toArray(panels) },
+      { project, panels: array.toArray(panels) },
       createReqZ,
       createResZ,
     );

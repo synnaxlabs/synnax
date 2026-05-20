@@ -31,6 +31,7 @@ export interface PanelMeta extends z.infer<typeof panelMetaZ> {}
 export const windowPanelsStateZ = z.object({
   order: z.string().array(),
   active: z.string().nullable(),
+  activeTab: z.string().nullable().default(null),
 });
 
 export interface WindowPanelsState extends z.infer<typeof windowPanelsStateZ> {}
@@ -57,7 +58,7 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
       ephemeral: false,
     },
   },
-  windowPanels: { main: { order: ["main"], active: "main" } },
+  windowPanels: { main: { order: ["main"], active: "main", activeTab: null } },
 });
 
 export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
@@ -82,7 +83,11 @@ export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
           pinned: true,
           ephemeral: false,
         };
-        windowPanels[windowKey] = { order: [windowKey], active: windowKey };
+        windowPanels[windowKey] = {
+          order: [windowKey],
+          active: windowKey,
+          activeTab: null,
+        };
       }
       return {
         ...rest,

@@ -13,12 +13,14 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,7 +45,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Panels []panel.Panel `json:"panels" msgpack:"panels"`
+		// Project, when non-zero, parents each created panel to that project in
+		// the ontology. Zero is allowed for project-less / orphan panels (the
+		// panel is still parented to the root Panels group).
+		Project project.Key   `json:"project" msgpack:"project"`
+		Panels  []panel.Panel `json:"panels" msgpack:"panels"`
 	}
 	CreateResponse = CreateRequest
 )
@@ -56,10 +62,14 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	}); err != nil {
 		return res, err
 	}
+	parent := ontology.ID{}
+	if req.Project != uuid.Nil {
+		parent = project.OntologyID(req.Project)
+	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
 		for i, p := range req.Panels {
-			if err := w.Create(ctx, &p, ontology.ID{}); err != nil {
+			if err := w.Create(ctx, &p, parent); err != nil {
 				return err
 			}
 			req.Panels[i] = p

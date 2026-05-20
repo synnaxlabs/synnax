@@ -8,28 +8,42 @@
 // included in the file licenses/APL.txt.
 
 import * as Drift from "@synnaxlabs/drift/react";
-import { Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { Panel as PlutoPanel, Tabs } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 
+// PanelTabs renders the project's panel tab strip in the top nav. Source of
+// truth is Flux (panel.useList); per-window active panel state lives in the
+// Redux layout slice. When there is no active project, the strip renders
+// nothing — the welcome / project-picker handles that case at the viewport
+// level.
 export const PanelTabs = (): ReactElement | null => {
   const dispatch = useDispatch();
   const windowKey = Drift.useSelectWindowKey();
-  const panels = Layout.useSelectOrderedPanels();
+  const activeProjectKey = Project.useSelectActiveKey();
   const activeKey = Layout.useSelectActivePanelKey();
+  const { data, retrieve, getItem } = PlutoPanel.useList();
+  const { updateAsync: createAsync } = PlutoPanel.useCreate();
 
-  const tabs = useMemo<Tabs.Tab[]>(
-    () =>
-      panels.map((p) => ({
-        tabKey: p.key,
-        name: p.name,
-        closable: false,
-        editable: true,
-      })),
-    [panels],
-  );
+  // Fetch the panel list once on mount. Reactive channel listeners on the
+  // Pluto panel store keep it fresh from here on.
+  useEffect(() => {
+    if (activeProjectKey == null) return;
+    retrieve({});
+  }, [activeProjectKey, retrieve]);
+
+  const tabs = useMemo<Tabs.Tab[]>(() => {
+    const out: Tabs.Tab[] = [];
+    for (const key of data) {
+      const p = getItem(key);
+      if (p == null || Array.isArray(p)) continue;
+      out.push({ tabKey: p.key, name: p.name, closable: true, editable: true });
+    }
+    return out;
+  }, [data, getItem]);
 
   const handleSelect = useCallback(
     (key: string) => {
@@ -39,25 +53,20 @@ export const PanelTabs = (): ReactElement | null => {
     [dispatch, windowKey],
   );
 
-  const handleClose = useCallback(
-    (key: string) => {
-      if (windowKey == null) return;
-      dispatch(Layout.removePanel({ windowKey, key }));
-    },
-    [dispatch, windowKey],
-  );
-
-  const handleRename = useCallback(
-    (key: string, name: string) => {
-      dispatch(Layout.renamePanel({ key, name }));
-    },
-    [dispatch],
-  );
-
   const handleCreate = useCallback(() => {
-    if (windowKey == null) return;
-    dispatch(Layout.createPanel({ windowKey, name: "Untitled" }));
-  }, [dispatch, windowKey]);
+    if (windowKey == null || activeProjectKey == null) return;
+    // Fire and forget: the action channel listener surfaces the new panel
+    // into the Flux store, and the autoselect effect below picks it up.
+    void createAsync({ name: "Untitled", project: activeProjectKey });
+  }, [windowKey, activeProjectKey, createAsync]);
+
+  // Autoselect: when no panel is active but the project has at least one,
+  // select the first. Keeps the viewport from showing the empty-no-panel
+  // state once a project has content.
+  useEffect(() => {
+    if (windowKey == null || activeKey != null || tabs.length === 0) return;
+    dispatch(Layout.setActivePanel({ windowKey, key: tabs[0].tabKey }));
+  }, [windowKey, activeKey, tabs, dispatch]);
 
   const providerValue = useMemo(
     () => ({
@@ -65,14 +74,12 @@ export const PanelTabs = (): ReactElement | null => {
       selected: activeKey ?? undefined,
       closable: true,
       onSelect: handleSelect,
-      onClose: handleClose,
-      onRename: handleRename,
       onCreate: handleCreate,
     }),
-    [tabs, activeKey, handleSelect, handleClose, handleRename, handleCreate],
+    [tabs, activeKey, handleSelect, handleCreate],
   );
 
-  if (windowKey == null) return null;
+  if (windowKey == null || activeProjectKey == null) return null;
 
   return (
     <Tabs.Provider value={providerValue}>

@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/table"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -44,8 +44,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Tables    []table.Table `json:"tables" msgpack:"tables"`
-		Project project.Key `json:"project" msgpack:"project"`
+		Tables  []table.Table `json:"tables" msgpack:"tables"`
+		Project project.Key   `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`

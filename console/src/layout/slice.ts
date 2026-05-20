@@ -219,7 +219,7 @@ const ensureWindowPanels = (state: SliceState, windowKey: string): string => {
   };
   state.mosaics[panelKey] ??= ZERO_MOSAIC_STATE;
   if (wp == null) {
-    wp = { order: [panelKey], active: panelKey };
+    wp = { order: [panelKey], active: panelKey, activeTab: null };
     state.windowPanels[windowKey] = wp;
   } else {
     if (!wp.order.includes(panelKey)) wp.order.push(panelKey);
@@ -317,7 +317,7 @@ export const { actions, reducer } = createSlice({
           pinned: true,
           ephemeral: false,
         };
-        state.windowPanels[key] = { order: [key], active: key };
+        state.windowPanels[key] = { order: [key], active: key, activeTab: null };
       }
 
       // Clean up the source mosaic when leaving the mosaic location or
@@ -690,7 +690,7 @@ export const { actions, reducer } = createSlice({
       state.mosaics[key] = { ...ZERO_MOSAIC_STATE };
       let wp = state.windowPanels[windowKey];
       if (wp == null) {
-        wp = { order: [], active: null };
+        wp = { order: [], active: null, activeTab: null };
         state.windowPanels[windowKey] = wp;
       }
       if (!wp.order.includes(key)) wp.order.push(key);
@@ -741,10 +741,27 @@ export const { actions, reducer } = createSlice({
       panel.name = name;
     },
     setActivePanel: (state, { payload }: PayloadAction<SetActivePanelPayload>) => {
+      state.windowPanels[payload.windowKey] ??= {
+        order: [],
+        active: null,
+        activeTab: null,
+      };
       const wp = state.windowPanels[payload.windowKey];
-      if (wp == null) return;
-      if (!wp.order.includes(payload.key)) return;
       wp.active = payload.key;
+      // Tab focus is scoped to the active panel; reset on switch so the next
+      // panel's adapter falls back to its first tab.
+      wp.activeTab = null;
+    },
+    setActiveTab: (
+      state,
+      { payload }: PayloadAction<{ windowKey: string; key: string | null }>,
+    ) => {
+      state.windowPanels[payload.windowKey] ??= {
+        order: [],
+        active: null,
+        activeTab: null,
+      };
+      state.windowPanels[payload.windowKey].activeTab = payload.key;
     },
     reorderPanels: (state, { payload }: PayloadAction<ReorderPanelsPayload>) => {
       const wp = state.windowPanels[payload.windowKey];
@@ -805,6 +822,7 @@ export const {
   removePanel,
   renamePanel,
   setActivePanel,
+  setActiveTab,
   reorderPanels,
   setPanelPinned,
   setPanelEphemeral,

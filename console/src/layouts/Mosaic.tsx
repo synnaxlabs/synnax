@@ -53,6 +53,7 @@ import { Nav } from "@/layouts/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Mosaic as PanelMosaic } from "@/panel/Mosaic";
 import { Project } from "@/project";
 import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
@@ -225,6 +226,13 @@ const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
+  const activePanelKey = Layout.useSelectActivePanelKey();
+  // When the user is in a project with an active panel, render the
+  // panel-backed mosaic (Flux-sourced, dispatch-driven). Otherwise fall
+  // through to the legacy per-window Redux mosaic so existing behavior
+  // continues until the panel UX fully replaces it.
+  if (windowKey != null && activePanelKey != null)
+    return <PanelMosaic panelKey={activePanelKey} windowKey={windowKey} />;
   return windowKey == null || mosaic == null ? null : (
     <Internal windowKey={windowKey} mosaic={mosaic} />
   );
