@@ -33,6 +33,8 @@ type autoIndexScenario struct {
 	data   channel.Channel
 }
 
+func (s autoIndexScenario) Close() error { return s.closer.Close() }
+
 func openAutoIndexScenario(ctx context.Context) autoIndexScenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
@@ -54,8 +56,7 @@ func openAutoIndexScenario(ctx context.Context) autoIndexScenario {
 var _ = Describe("AutoIndexing", func() {
 	Describe("Pure data-only keys", func() {
 		It("Should generate timestamps for a writer opened with only a data channel", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			before := telem.Now()
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -88,8 +89,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Should be strictly monotonic across multiple Write calls", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{s.data.Key()},
@@ -128,8 +128,7 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Multiple data channels", func() {
 		It("Should share a single auto-generated index across data channels with the same LocalIndex", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			other := channel.Channel{
 				Name:       channel.NewRandomName(),
@@ -163,8 +162,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Should size each generated index to its own data channel when lengths differ", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			idx2 := channel.Channel{
 				Name:     channel.NewRandomName(),
@@ -224,8 +222,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Should generate co-aligned timestamps for data channels with different indexes", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			idx2 := channel.Channel{
 				Name:     channel.NewRandomName(),
@@ -270,8 +267,7 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Mixed mode", func() {
 		It("Should accept user-provided index data and only auto-stamp omitted index channels", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			keys := []channel.Key{s.idx.Key(), s.data.Key()}
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -303,8 +299,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Should auto-stamp the index when the caller omits it from a Write frame", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			keys := []channel.Key{s.idx.Key(), s.data.Key()}
 			before := telem.Now()
@@ -336,8 +331,7 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Multi-node leaseholder stamping", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
-			builder := mock.ProvisionCluster(ctx, 2)
-			defer func() { Expect(builder.Close()).To(Succeed()) }()
+			builder := DeferClose(mock.ProvisionCluster(ctx, 2))
 			gw := builder.Nodes[1]
 			peer := node.Key(2)
 
@@ -397,8 +391,7 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Disabled", func() {
 		It("Should be a no-op when AutoIndexing is false (default)", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			keys := []channel.Key{s.idx.Key(), s.data.Key()}
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -430,14 +423,13 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Mixed user-provided and auto-generated index timestamps", func() {
 		It("Should resume auto-stamping after a user-provided index timestamp in the future", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			// A user-provided index timestamp far enough in the future that telem.Now()
-			// at the next write is guaranteed to be less. Because auto-indexing now runs
-			// inside cesium, the index's high-water mark absorbs the user-provided value;
-			// subsequent auto-stamps follow it monotonically rather than conflicting at
-			// the storage layer.
+			// at the next write is guaranteed to be less. Because auto-indexing now
+			// runs inside cesium, the index's high-water mark absorbs the user-provided
+			// value; subsequent auto-stamps follow it monotonically rather than
+			// conflicting at the storage layer.
 			future := telem.Now() + telem.HourTS
 			keys := []channel.Key{s.idx.Key(), s.data.Key()}
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -476,8 +468,7 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("Watermark and mixed-frame handling", func() {
 		It("Should leave one index untouched while auto-stamping another in the same frame", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			idx2 := channel.Channel{
 				Name:     channel.NewRandomName(),
@@ -535,23 +526,20 @@ var _ = Describe("AutoIndexing", func() {
 
 	Describe("SetAuthority propagation to implicit index channels", func() {
 		It("Raises the implicit index when a referencing data channel is raised", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wA := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{s.data.Key()},
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wB := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(MustSucceed(wB.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -569,8 +557,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Tracks the max across data channels sharing an implicit index", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			other := channel.Channel{
 				Name:       channel.NewRandomName(),
@@ -579,7 +566,7 @@ var _ = Describe("AutoIndexing", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &other)).To(Succeed())
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wA := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{s.data.Key(), other.Key()},
 				Authorities: []control.Authority{
 					control.Authority(50),
@@ -588,14 +575,12 @@ var _ = Describe("AutoIndexing", func() {
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wB := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(150)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(MustSucceed(wB.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -621,8 +606,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Lowers the implicit index when both referencing data channels are lowered", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			other := channel.Channel{
 				Name:       channel.NewRandomName(),
@@ -631,7 +615,7 @@ var _ = Describe("AutoIndexing", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &other)).To(Succeed())
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wA := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{s.data.Key(), other.Key()},
 				Authorities: []control.Authority{
 					control.Authority(200),
@@ -640,14 +624,12 @@ var _ = Describe("AutoIndexing", func() {
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wB := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(150)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(MustSucceed(wB.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -668,23 +650,20 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Respects an explicit authority supplied for the implicit index", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wA := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{s.data.Key()},
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wB := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(MustSucceed(wB.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -705,8 +684,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Propagates from a broadcast SetAuthority through subsequent per-channel calls", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			other := channel.Channel{
 				Name:       channel.NewRandomName(),
@@ -715,20 +693,18 @@ var _ = Describe("AutoIndexing", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &other)).To(Succeed())
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wA := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{s.data.Key(), other.Key()},
 				Authorities:  []control.Authority{control.Authority(50)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wB := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wB := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(150)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wB.Close()).To(Succeed()) }()
 			Expect(MustSucceed(wB.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -756,35 +732,31 @@ var _ = Describe("AutoIndexing", func() {
 		// and observing which writer wins control. The reported `authorized` flag is
 		// the public signal of who holds the index.
 		It("Inherits a broadcast authority", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:         []channel.Key{s.data.Key()},
 				Authorities:  []control.Authority{control.Authority(150)},
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-			wLower := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wLower := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wLower.Close()).To(Succeed()) }()
 			authorized := MustSucceed(wLower.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
 			)))
 			Expect(authorized).To(BeFalse())
 
-			wHigher := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wHigher := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(200)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wHigher.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wHigher.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(11),
@@ -793,8 +765,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Takes the max authority across data channels sharing an index", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			other := channel.Channel{
 				Name:       channel.NewRandomName(),
@@ -803,7 +774,7 @@ var _ = Describe("AutoIndexing", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &other)).To(Succeed())
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{s.data.Key(), other.Key()},
 				Authorities: []control.Authority{
 					control.Authority(50),
@@ -812,16 +783,14 @@ var _ = Describe("AutoIndexing", func() {
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
 			// If the implicit index had inherited min(50, 200) = 50, this writer
 			// at authority 100 would win the index. With max it loses.
-			wBetween := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wBetween := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wBetween.Close()).To(Succeed()) }()
 			authorized := MustSucceed(wBetween.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -830,12 +799,11 @@ var _ = Describe("AutoIndexing", func() {
 
 			// If the implicit index had defaulted to AuthorityAbsolute (255), this
 			// writer at authority 220 would lose. With max=200 it wins.
-			wAbove := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wAbove := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(220)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wAbove.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wAbove.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(11),
@@ -844,8 +812,7 @@ var _ = Describe("AutoIndexing", func() {
 		})
 
 		It("Resolves authority per-index when distinct indexes are implicit", func(ctx SpecContext) {
-			s := openAutoIndexScenario(ctx)
-			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			s := DeferClose(openAutoIndexScenario(ctx))
 
 			idx2 := channel.Channel{
 				Name:     channel.NewRandomName(),
@@ -860,7 +827,7 @@ var _ = Describe("AutoIndexing", func() {
 			}
 			Expect(s.dist.Channel.Create(ctx, &data2)).To(Succeed())
 
-			wA := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys: []channel.Key{s.data.Key(), data2.Key()},
 				Authorities: []control.Authority{
 					control.Authority(80),
@@ -869,15 +836,13 @@ var _ = Describe("AutoIndexing", func() {
 				AutoIndexing: new(true),
 				Sync:         new(true),
 			}))
-			defer func() { Expect(wA.Close()).To(Succeed()) }()
 
 			// idx1 should have inherited 80; a writer at 100 outranks it.
-			wIdx1 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wIdx1 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{s.idx.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wIdx1.Close()).To(Succeed()) }()
 			authorized := MustSucceed(wIdx1.Write(frame.NewUnary(
 				s.idx.Key(),
 				telem.NewSeriesSecondsTSV(10),
@@ -885,12 +850,11 @@ var _ = Describe("AutoIndexing", func() {
 			Expect(authorized).To(BeTrue())
 
 			// idx2 should have inherited 180; a writer at 100 is outranked.
-			wIdx2 := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+			wIdx2 := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:        []channel.Key{idx2.Key()},
 				Authorities: []control.Authority{control.Authority(100)},
 				Sync:        new(true),
 			}))
-			defer func() { Expect(wIdx2.Close()).To(Succeed()) }()
 			authorized = MustSucceed(wIdx2.Write(frame.NewUnary(
 				idx2.Key(),
 				telem.NewSeriesSecondsTSV(11),

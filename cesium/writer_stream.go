@@ -324,10 +324,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 // autoStamp inspects fr, injects a TimeStamp series for each idxWriter whose index
 // channel is being written by this writer but is absent from fr, and returns the
 // updated frame. Each generated series is sized to match the length of a data channel
-// in the same idxWriter group. Generated timestamps start at max(now, hwm+1) where
-// hwm is the index's current high-water mark; subsequent samples within the same call
-// are spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm
-// when the generated series is written.
+// in the same idxWriter group. Generated timestamps start at max(now, hwm+1) where hwm
+// is the index's current high-water mark; subsequent samples within the same call are
+// spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm when the
+// generated series is written.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
 	present := make(set.Set[ChannelKey])
 	keyLens := make(map[ChannelKey]int64, fr.Count())

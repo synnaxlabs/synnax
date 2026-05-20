@@ -31,10 +31,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = DeferClose(openDBOnFS(ctx, fs))
 			})
 
 			Describe("Data-only writers", func() {
@@ -238,22 +235,20 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data, Name: "auth_data_1", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 
-					wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(50)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wA"},
 					}))
-					defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-					wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(100)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wB"},
 					}))
-					defer func() { Expect(wB.Close()).To(Succeed()) }()
 
 					authorized := MustSucceed(wB.Write(telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(10))))
 					Expect(authorized).To(BeTrue())
@@ -280,7 +275,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data2, Name: "auth_data_2b", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 
-					wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{data1, data2},
 						Authorities: []control.Authority{
 							control.Authority(50),
@@ -290,15 +285,13 @@ var _ = Describe("Writer AutoIndexing", func() {
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wA_max"},
 					}))
-					defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-					wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(150)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wB_max"},
 					}))
-					defer func() { Expect(wB.Close()).To(Succeed()) }()
 
 					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(10),
@@ -332,22 +325,20 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data, Name: "auth_data_3", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 
-					wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(50)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wA_explicit"},
 					}))
-					defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-					wB := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(100)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "wB_explicit"},
 					}))
-					defer func() { Expect(wB.Close()).To(Succeed()) }()
 
 					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(10),
@@ -379,33 +370,30 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data, Name: "open_data_1", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 
-					wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(150)},
 						AutoIndexing:   new(true),
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_wA"},
 					}))
-					defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-					wLow := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wLow := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(100)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_wLow"},
 					}))
-					defer func() { Expect(wLow.Close()).To(Succeed()) }()
 					Expect(MustSucceed(wLow.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(10),
 					)))).To(BeFalse())
 
-					wHigh := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wHigh := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(200)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_wHigh"},
 					}))
-					defer func() { Expect(wHigh.Close()).To(Succeed()) }()
 					Expect(MustSucceed(wHigh.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(11),
 					)))).To(BeTrue())
@@ -424,7 +412,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data2, Name: "open_data_2b", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 
-					wA := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{data1, data2},
 						Authorities: []control.Authority{
 							control.Authority(50),
@@ -434,26 +422,23 @@ var _ = Describe("Writer AutoIndexing", func() {
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_max_wA"},
 					}))
-					defer func() { Expect(wA.Close()).To(Succeed()) }()
 
-					wBetween := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wBetween := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(100)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_max_wBetween"},
 					}))
-					defer func() { Expect(wBetween.Close()).To(Succeed()) }()
 					Expect(MustSucceed(wBetween.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(10),
 					)))).To(BeFalse())
 
-					wAbove := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					wAbove := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{idx},
 						Authorities:    []control.Authority{control.Authority(220)},
 						Sync:           new(true),
 						ControlSubject: control.Subject{Key: "open_max_wAbove"},
 					}))
-					defer func() { Expect(wAbove.Close()).To(Succeed()) }()
 					Expect(MustSucceed(wAbove.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(11),
 					)))).To(BeTrue())

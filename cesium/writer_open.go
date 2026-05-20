@@ -67,6 +67,7 @@ type WriterConfig struct {
 	Sync *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
+	//
 	// [OPTIONAL] - Defaults to an empty string.
 	ControlSubject xcontrol.Subject
 	// Channels sets the channels that the writer will write to. If a channel does not
