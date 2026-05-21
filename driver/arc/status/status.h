@@ -187,7 +187,7 @@ public:
     }
 };
 
-class Module : public ::arc::stl::Module {
+class Module : public ::arc::stl::Module, public ::arc::stl::str::StateConsumer {
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
     std::shared_ptr<::arc::stl::str::State> str_state;

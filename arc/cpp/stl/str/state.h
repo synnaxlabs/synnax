@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -85,6 +86,14 @@ public:
         this->config_handles.clear();
         this->config_counter = CONFIG_HANDLE_BASE;
     }
+};
+
+/// StateConsumer lets stl::Modules opt into receiving the runtime's shared
+/// string state before bind_to. Inherit alongside stl::Module.
+class StateConsumer {
+public:
+    virtual ~StateConsumer() = default;
+    virtual void set_str_state(std::shared_ptr<State>) = 0;
 };
 
 }
