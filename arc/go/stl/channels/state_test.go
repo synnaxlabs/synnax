@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel_test
+package channels_test
 
 import (
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ProgramState", func() {
-	var s *channel.ProgramState
+	var s *channels.ProgramState
 
 	BeforeEach(func() {
-		s = channel.NewProgramState([]channel.Digest{
+		s = channels.NewProgramState([]channels.Digest{
 			{Key: 1, DataType: telem.Float32T, Index: 2},
 			{Key: 3, DataType: telem.Int32T},
 			{Key: 5, DataType: telem.Float64T, Index: 6},
@@ -32,7 +32,7 @@ var _ = Describe("ProgramState", func() {
 
 	Describe("NewProgramState", func() {
 		It("Should initialize index mappings from digests", func() {
-			cs := channel.NewProgramState([]channel.Digest{
+			cs := channels.NewProgramState([]channels.Digest{
 				{Key: 10, Index: 11},
 				{Key: 20, Index: 21},
 			})
@@ -43,21 +43,21 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should handle nil digests", func() {
-			cs := channel.NewProgramState(nil)
+			cs := channels.NewProgramState(nil)
 			Expect(cs).ToNot(BeNil())
 			_, ok := cs.ReadValue(1)
 			Expect(ok).To(BeFalse())
 		})
 
 		It("Should handle empty digests", func() {
-			cs := channel.NewProgramState([]channel.Digest{})
+			cs := channels.NewProgramState([]channels.Digest{})
 			Expect(cs).ToNot(BeNil())
 			_, ok := cs.ReadValue(1)
 			Expect(ok).To(BeFalse())
 		})
 
 		It("Should ignore zero-value index in digests", func() {
-			cs := channel.NewProgramState([]channel.Digest{{Key: 10, Index: 0}})
+			cs := channels.NewProgramState([]channels.Digest{{Key: 10, Index: 0}})
 			cs.WriteValue(10, telem.NewSeriesV[int32](42))
 			fr, changed := cs.Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
@@ -150,7 +150,7 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should return false for a channel with no data", func() {
-			s = channel.NewProgramState([]channel.Digest{{Key: 10}})
+			s = channels.NewProgramState([]channels.Digest{{Key: 10}})
 			_, ok := s.ReadValue(10)
 			Expect(ok).To(BeFalse())
 		})

@@ -21,8 +21,8 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -535,7 +535,7 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithAnalyzer(
 				ctx,
 				"time.now()",
-				stl.SymbolResolver,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
@@ -547,7 +547,7 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithAnalyzer(
 				ctx,
 				"now()",
-				stl.SymbolResolver,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
@@ -557,9 +557,11 @@ var _ = Describe("Identifier Compilation", func() {
 
 		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
 			expr := MustSucceed(parser.ParseExpression("t.now()"))
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.SymbolResolver)
-			analyzerCtx.Scope.Imports = symbol.NewImportSet()
-			analyzerCtx.Scope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
+			analyzerCtx := acontext.CreateRoot(bCtx, expr, NewRoot(nil))
+			timeMod := analyzerCtx.Scope.Parent.FindChild("time")
+			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
+				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+			}))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 
@@ -567,7 +569,7 @@ var _ = Describe("Identifier Compilation", func() {
 				bCtx,
 				analyzerCtx.Scope,
 				analyzerCtx.TypeMap,
-				resolve.NewResolver(stl.SymbolResolver),
+				resolve.NewResolver(),
 			)
 			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 			Expect(exprType).To(Equal(types.TimeStamp()))
@@ -575,17 +577,8 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 
 		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"x": {Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
-				},
-				stl.SymbolResolver,
-			}
-			_, exprType := compileWithAnalyzer(
-				ctx,
-				"x ^ 2.0",
-				resolver,
-			)
+			channels := []symbol.Symbol{{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0}}
+			_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
 			Expect(exprType).To(Equal(types.F64()))
 		})
 	})

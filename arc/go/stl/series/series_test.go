@@ -27,7 +27,7 @@ var _ = Describe("Series", func() {
 	BeforeEach(func(ctx SpecContext) {
 		rt = testutil.NewRuntime(ctx)
 		ss = series.NewProgramState()
-		MustSucceed(series.NewModule(ctx, ss, rt.Underlying()))
+		MustSucceed(series.NewHost(ctx, rt.Underlying(), ss))
 		rt.Passthrough(ctx, "series")
 	})
 

@@ -22,8 +22,8 @@
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
-#include "arc/cpp/stl/channel/channel.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/channels.h"
+#include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/error/error.h"
 #include "arc/cpp/stl/math/math.h"
 #include "arc/cpp/stl/series/series.h"
@@ -75,13 +75,13 @@ node::Context make_context() {
 
 /// @brief Builds a set of STL modules from the given state.
 std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
-    const std::shared_ptr<stl::channel::State> &channel_st,
+    const std::shared_ptr<stl::channels::State> &channel_st,
     const std::shared_ptr<stl::str::State> &str_st,
     const std::shared_ptr<stl::series::State> &series_st,
     const std::shared_ptr<stl::stateful::Variables> &var_st
 ) {
     return {
-        std::make_shared<stl::channel::Module>(channel_st, str_st),
+        std::make_shared<stl::channels::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::str::Module>(str_st),
@@ -145,7 +145,7 @@ T call_func(
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1187,7 +1187,7 @@ func counter(trigger i64) i64 {
 
     auto mod = compile_arc(client, source);
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {index_ch.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -1360,7 +1360,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
         static_cast<int32_t>(data_ch.key)
     ) << "Config param value should be the channel ID";
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {trigger_idx.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::UINT8_T, trigger_idx.key},
@@ -1489,7 +1489,7 @@ func str_len(s str) i64 {
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1617,7 +1617,7 @@ func labeler(x i64) (label str, value i64) {
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1734,7 +1734,7 @@ func qstr_len(s str) i64 {
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1826,7 +1826,7 @@ produce_str{} -> )" + output_name;
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1895,7 +1895,7 @@ produce_str{} -> )" + output_name;
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1991,7 +1991,7 @@ func concat_len(a str, b str) i64 {
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -2651,7 +2651,7 @@ func loop_state(trigger i64) i64 {
 )" + trigger_name + " -> loop_state{} -> " +
                                output_name;
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {index_ch.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::INT64_T, index_ch.key},

@@ -56,7 +56,16 @@ var _ = Describe("Formatter", func() {
 		Entry("multiple modules with hierarchical path",
 			"import (time math.trig)",
 			"import (\n    time\n    math.trig\n)\n"),
-		Entry("empty stays empty", "import ()", "import ()\n"),
+		Entry("multi-line single item collapses to bare form",
+			"import (\n    time\n)",
+			"import time\n"),
+		Entry("multi-line single item preserves trailing declarations",
+			"import (\n    time\n)\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n",
+			"import time\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n"),
+		Entry("empty is removed", "import ()", ""),
+		Entry("empty is removed and following declarations are preserved",
+			"import ()\n\nauthority 255\n",
+			"authority 255\n"),
 	)
 
 	DescribeTable("Unit Literals",

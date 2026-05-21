@@ -18,12 +18,14 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
 #include "arc/cpp/types/types.h"
 
-namespace arc::stl::channel {
+namespace arc::stl::channels {
+
+inline constexpr const char *MODULE_NAME = "channels";
 
 /// @brief Source node that reads from a channel and outputs the data.
 /// Tracks a high water mark to avoid duplicate processing of the same data.
@@ -208,7 +210,7 @@ private:
         auto ch = this->channel;
         linker
             .func_wrap(
-                "channel",
+                MODULE_NAME,
                 "read_" + suffix,
                 [ch](uint32_t channel_id) -> W {
                     auto [multi_series, ok] = ch->read_value(
@@ -223,7 +225,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "channel",
+                MODULE_NAME,
                 "write_" + suffix,
                 [ch, dt](uint32_t channel_id, W value) {
                     ch->write_channel_typed(
@@ -241,7 +243,7 @@ private:
         auto ss = this->str_state;
         linker
             .func_wrap(
-                "channel",
+                MODULE_NAME,
                 "read_str",
                 [ch, ss](uint32_t channel_id) -> uint32_t {
                     auto [multi_series, ok] = ch->read_value(channel_id);
@@ -254,7 +256,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "channel",
+                MODULE_NAME,
                 "write_str",
                 [this, ch, ss](uint32_t channel_id, uint32_t str_handle) {
                     std::string str_value = ss->get(str_handle);

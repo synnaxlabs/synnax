@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package channel
+package channels
 
 import (
 	"context"
@@ -25,71 +25,76 @@ import (
 
 var numConstraint = types.NumericConstraint()
 
-var userSymbols = symbol.MapResolver{
-	"on": {
-		Name: "on",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-			Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
-		}),
-	},
-	"write": {
-		Name: "write",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
-		}),
-	},
+// userOnSymbol and userWriteSymbol are the user-facing flow-mode builtins
+// `on{}` and `write{}` installed at root scope so programs can reference
+// them without an import.
+var userOnSymbol = symbol.Symbol{
+	Name: "on",
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecFlow,
+	Type: types.Function(types.FunctionProperties{
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
+		Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+	}),
 }
 
-var hostSymbols = symbol.MapResolver{
-	"read": {
-		Name:     "read",
-		Kind:     symbol.KindFunction,
-		Exec:     symbol.ExecWASM,
-		Internal: true,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
-			Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-		}),
-	},
-	"write": {
-		Name:     "write",
-		Kind:     symbol.KindFunction,
-		Exec:     symbol.ExecWASM,
-		Internal: true,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
-		}),
-	},
+var userWriteSymbol = symbol.Symbol{
+	Name: "write",
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecFlow,
+	Type: types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
+	}),
 }
 
-var SymbolResolver = symbol.CompoundResolver{
-	userSymbols,
-	&symbol.ModuleResolver{Name: "channel", Members: hostSymbols},
-}
+const name = "channels"
 
-type Module struct {
+var module = symbol.NewModule(
+	name,
+	symbol.InternalHostFunc(
+		"read",
+		types.Params{{Name: "ch", Type: types.I32()}},
+		types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+	),
+	symbol.InternalHostFunc(
+		"write",
+		types.Params{
+			{Name: "ch", Type: types.I32()},
+			{Name: "value", Type: types.Variable("T", &numConstraint)},
+		},
+		nil,
+	),
+)
+
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the channels module plus `on` and `write` as bare globals so
+// flow-mode programs can reference them without an import.
+var Symbols = []*symbol.Symbol{module, &userOnSymbol, &userWriteSymbol}
+
+// Host is the runtime host-side support for the channels module: it
+// registers WASM host bindings (read/write per type) and acts as the node
+// factory for `on` (source) and `write` (sink) flow nodes.
+type Host struct {
 	state   *ProgramState
 	strings *strings.ProgramState
 }
 
-func NewModule(
+// NewHost registers the channels module's WASM host bindings with rt. cs
+// is the channels ProgramState; stringState is the strings ProgramState
+// (used by the read_str / write_str bindings).
+func NewHost(
 	ctx context.Context,
+	rt wazero.Runtime,
 	cs *ProgramState,
 	stringState *strings.ProgramState,
-	rat wazero.Runtime,
-) (*Module, error) {
-	mod := &Module{state: cs, strings: stringState}
-	if rat == nil {
-		return mod, nil
+) (*Host, error) {
+	h := &Host{state: cs, strings: stringState}
+	if rt == nil {
+		return h, nil
 	}
-	builder := rat.NewHostModuleBuilder("channel")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = bindI32[uint8](builder, cs, "u8")
 	builder = bindI32[uint16](builder, cs, "u16")
 	builder = bindI32[uint32](builder, cs, "u32")
@@ -104,10 +109,10 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return mod, nil
+	return h, nil
 }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	isSource := cfg.Node.Type == "on"
 	isSink := cfg.Node.Type == "write"
 	if !isSource && !isSink {
@@ -121,10 +126,10 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return &source{
 			State: cfg.State,
 			key:   nodeCfg.Channel,
-			state: m.state,
+			state: h.state,
 		}, nil
 	}
-	return &sink{State: cfg.State, state: m.state, key: nodeCfg.Channel}, nil
+	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

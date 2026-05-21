@@ -18,6 +18,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +31,7 @@ func analyzeProgram(
 	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := acontext.CreateRoot(specCtx, prog, resolver)
+	ctx := acontext.CreateRoot(specCtx, prog, NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }
@@ -63,13 +64,13 @@ var _ = Describe("Global Constant Analyzer", func() {
 		Describe("basic declaration collection", func() {
 			It("should handle empty program", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, ``, nil)
-				Expect(ctx.Scope.Children).To(BeEmpty())
+				Expect(ctx.Scope.Children()).To(BeEmpty())
 			})
 
 			It("should parse global constant with explicit type", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `MAX_PRESSURE f64 := 500.0`, nil)
-				Expect(ctx.Scope.Children).To(HaveLen(1))
-				c := ctx.Scope.Children[0]
+				Expect(ctx.Scope.Children()).To(HaveLen(1))
+				c := ctx.Scope.Children()[0]
 				Expect(c.Name).To(Equal("MAX_PRESSURE"))
 				Expect(c.Kind).To(Equal(symbol.KindGlobalConstant))
 				Expect(c.Type).To(Equal(types.F64()))
@@ -78,7 +79,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 
 			It("should infer i64 from integer literal", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `COUNT := 42`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Name).To(Equal("COUNT"))
 				Expect(c.Kind).To(Equal(symbol.KindGlobalConstant))
 				Expect(c.Type).To(Equal(types.I64()))
@@ -87,28 +88,28 @@ var _ = Describe("Global Constant Analyzer", func() {
 
 			It("should infer f64 from float literal", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `PI := 3.14159`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type).To(Equal(types.F64()))
 				Expect(c.DefaultValue).To(Equal(3.14159))
 			})
 
 			It("should support unit literals", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `TIMEOUT := 100ms`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type.Kind).To(Equal(types.KindI64))
 				Expect(c.DefaultValue).To(BeNumerically("==", int64(100*telem.Millisecond)))
 			})
 
 			It("should support explicit type with unit literal", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `DELAY i64 := 500ms`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type.Kind).To(Equal(types.KindI64))
 				Expect(c.DefaultValue).To(BeNumerically("==", int64(500*telem.Millisecond)))
 			})
 
 			It("should parse string constant", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `MESSAGE := "hello"`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type).To(Equal(types.String()))
 				Expect(c.DefaultValue).To(Equal("hello"))
 			})
@@ -128,7 +129,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 					MAX := 100
 					func foo() {}
 				`, nil)
-				Expect(ctx.Scope.Children).To(HaveLen(2))
+				Expect(ctx.Scope.Children()).To(HaveLen(2))
 				consts := ctx.Scope.FilterChildrenByKind(symbol.KindGlobalConstant)
 				funcs := ctx.Scope.FilterChildrenByKind(symbol.KindFunction)
 				Expect(consts).To(HaveLen(1))
@@ -139,14 +140,14 @@ var _ = Describe("Global Constant Analyzer", func() {
 		Describe("type coercion", func() {
 			It("should coerce integer to explicit f64", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `VALUE f64 := 42`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type).To(Equal(types.F64()))
 				Expect(c.DefaultValue).To(Equal(float64(42)))
 			})
 
 			It("should coerce integer to explicit i32", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `VALUE i32 := 42`, nil)
-				c := ctx.Scope.Children[0]
+				c := ctx.Scope.Children()[0]
 				Expect(c.Type).To(Equal(types.I32()))
 				Expect(c.DefaultValue).To(Equal(int32(42)))
 			})

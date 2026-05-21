@@ -20,136 +20,101 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-var SymbolResolver = &symbol.ModuleResolver{
-	Name: "string",
-	Members: symbol.MapResolver{
-		"from_literal": {
-			Name:     "from_literal",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
-			}),
-		},
-		"concat": {
-			Name:     "concat",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"equal": {
-			Name:     "equal",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-			}),
-		},
-		"len": {
-			Name:     "len",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-			}),
-		},
-		"from_i32": {
-			Name:     "from_i32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u32": {
-			Name:     "from_u32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_i64": {
-			Name:     "from_i64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u64": {
-			Name:     "from_u64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f32": {
-			Name:     "from_f32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f64": {
-			Name:     "from_f64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-	},
-}
+const name = "string"
 
-type Module struct {
+var module = symbol.NewModule(
+	name,
+	symbol.InternalHostFunc(
+		"from_literal",
+		types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+		types.Params{{Name: "handle", Type: types.I32()}},
+	),
+	symbol.InternalHostFunc(
+		"concat",
+		types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"equal",
+		types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+	),
+	symbol.InternalHostFunc(
+		"len",
+		types.Params{{Name: "handle", Type: types.String()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+	),
+	symbol.InternalHostFunc(
+		"from_i32",
+		types.Params{{Name: "value", Type: types.I32()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"from_u32",
+		types.Params{{Name: "value", Type: types.U32()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"from_i64",
+		types.Params{{Name: "value", Type: types.I64()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"from_u64",
+		types.Params{{Name: "value", Type: types.U64()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"from_f32",
+		types.Params{{Name: "value", Type: types.F32()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+	symbol.InternalHostFunc(
+		"from_f64",
+		types.Params{{Name: "value", Type: types.F64()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	),
+)
+
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude. Strings contributes only its module (no bare globals).
+var Symbols = []*symbol.Symbol{module}
+
+// Host is the runtime host-side support for the string module: it registers
+// the WASM host bindings that allocate and manipulate string handles
+// against a strings ProgramState. memory is the WASM guest's linear memory,
+// set after the guest is instantiated via SetMemory.
+type Host struct {
 	strings *ProgramState
 	memory  api.Memory
 }
 
-func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
+// SetMemory updates the WASM guest memory reference used by host functions
+// that read string bytes (e.g., from_literal). Call after guest
+// instantiation.
+func (h *Host) SetMemory(memory api.Memory) { h.memory = memory }
 
-func NewModule(
+// NewHost registers the string module's WASM host bindings with rt. The
+// bindings allocate and read string handles against ps. memory may be nil
+// at construction time; call SetMemory once the WASM guest is instantiated.
+func NewHost(
 	ctx context.Context,
-	s *ProgramState,
-	rat wazero.Runtime,
+	rt wazero.Runtime,
+	ps *ProgramState,
 	memory api.Memory,
-) (*Module, error) {
-	m := &Module{strings: s, memory: memory}
-	if rat == nil {
-		return m, nil
+) (*Host, error) {
+	h := &Host{strings: ps, memory: memory}
+	s := ps
+	if rt == nil {
+		return h, nil
 	}
-	builder := rat.NewHostModuleBuilder("string")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {
-			if m.memory == nil {
+			if h.memory == nil {
 				return 0
 			}
-			data, ok := m.memory.Read(ptr, length)
+			data, ok := h.memory.Read(ptr, length)
 			if !ok {
 				return 0
 			}
@@ -207,5 +172,5 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return h, nil
 }

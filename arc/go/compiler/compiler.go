@@ -77,11 +77,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		opt(o)
 	}
 
-	var symResolver symbol.Resolver
-	if !o.disableHostImports {
-		symResolver = o.hostSymbols
-	}
-	resolver := resolve.NewResolver(symResolver)
+	resolver := resolve.NewResolver()
 
 	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
 
@@ -203,9 +199,9 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 	return err
 }
 
-func collectLocals(scope *symbol.Scope) []wasm.ValueType {
+func collectLocals(scope *symbol.Symbol) []wasm.ValueType {
 	var locals []wasm.ValueType
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		switch child.Kind {
 		case symbol.KindVariable, symbol.KindStatefulVariable,
 			symbol.KindOutput, symbol.KindLoopVariable:

@@ -37,9 +37,9 @@ class Factory {
 public:
     virtual ~Factory() = default;
 
-    /// @brief returns the module name this factory belongs to (e.g. "authority",
-    /// "status"). When the MultiFactory encounters a qualified node type like
-    /// "status.set", it skips factories whose module name doesn't match the
+    /// @brief returns the module name this factory belongs to (e.g. "control",
+    /// "time"). When the MultiFactory encounters a qualified node type like
+    /// "time.interval", it skips factories whose module name doesn't match the
     /// prefix. Factories that return an empty string are always considered.
     [[nodiscard]] virtual std::string module_name() const { return ""; }
 

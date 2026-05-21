@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -26,13 +27,13 @@ import (
 
 var _ = Describe("StableFor", func() {
 	var (
-		module      *stable.Module
+		module      *stable.Host
 		s           *node.ProgramState
 		irNode      ir.Node
 		currentTime telem.TimeStamp
 	)
 	BeforeEach(func(ctx SpecContext) {
-		module = stable.NewModule(stable.WithNow(func() telem.TimeStamp {
+		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
 			return currentTime
 		}))
 		irNode = ir.Node{
@@ -77,7 +78,7 @@ var _ = Describe("StableFor", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s = node.New(analyzed)
 	})
@@ -375,14 +376,17 @@ var _ = Describe("StableFor", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve bare stable_for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable_for"))
+	Describe("Symbols", func() {
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, stable.Symbols...) })
+		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
+			sym := MustSucceed(root.Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified stable.for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable.for"))
+		It("Should expose qualified stable.for symbol", func(ctx SpecContext) {
+			mod := MustSucceed(root.Resolve(ctx, "stable", symbol.IncludeInternal))
+			sym := MustSucceed(mod.Resolve(ctx, "for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
@@ -423,10 +427,10 @@ var _ = Describe("StableFor", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			s := node.New(analyzed)
-			compound := node.CompoundFactory{stable.NewModule()}
+			compound := node.CompoundFactory{stable.NewHost()}
 			irNode := analyzed.Nodes[1]
 			irNode.Type = "stable.for"
 			n := MustSucceed(compound.Create(ctx, node.Config{

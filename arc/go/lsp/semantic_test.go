@@ -23,8 +23,10 @@ import (
 // Tests in this file pin both the legend ordering and the token-type routing
 // for STR_LITERAL vs STR_LITERAL_RAW to those ids.
 const (
+	tokenTypeKeyword   = uint32(0)
 	tokenTypeString    = uint32(4)
-	tokenTypeStringRaw = uint32(21)
+	tokenTypeNamespace = uint32(21)
+	tokenTypeStringRaw = uint32(22)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -185,6 +187,69 @@ var _ = Describe("Semantic Tokens", func() {
 			OpenArcDocument(server, ctx, uri, "x := 42")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(tokens, tokenTypeStringRaw)).To(BeEmpty())
+		})
+
+		It("routes module names in a bare import to the namespace token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import time\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(1))
+			Expect(ns[0].Length).To(Equal(uint32(4))) // "time"
+		})
+
+		It("routes every module name in a block import to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import (\n    time\n    math\n)\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(2))
+		})
+
+		It("routes both the module name and its alias to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import time as t\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(2)) // "time" and "t"
+		})
+
+		It("routes import qualifiers at use sites to the namespace token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"import time\n\nfunc cat() i64 { return time.now() }\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			// One for the import declaration, one for the qualifier at the call site.
+			Expect(ns).To(HaveLen(2))
+			for _, t := range ns {
+				Expect(t.Length).To(Equal(uint32(4)))
+			}
+		})
+
+		It("does not route an unimported qualifier to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"func cat() i64 { return time.now() }\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
+		})
+
+		It("routes import and as alongside func and authority to the keyword token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `import time as t
+
+authority 255
+
+func cat() {
+    t.now()
+}
+`)
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			lengths := make([]uint32, 0)
+			for _, tok := range filterByType(tokens, tokenTypeKeyword) {
+				lengths = append(lengths, tok.Length)
+			}
+			Expect(lengths).To(ConsistOf(
+				uint32(6), // import
+				uint32(2), // as
+				uint32(9), // authority
+				uint32(4), // func
+			))
 		})
 	})
 

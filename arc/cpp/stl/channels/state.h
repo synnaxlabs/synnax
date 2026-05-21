@@ -22,7 +22,7 @@
 
 #include "arc/cpp/types/types.h"
 
-namespace arc::stl::channel {
+namespace arc::stl::channels {
 using Series = x::mem::local_shared<x::telem::Series>;
 
 struct Digest {

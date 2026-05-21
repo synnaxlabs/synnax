@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -24,21 +24,22 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// analyze parses and runs full source-level analysis against the STL
-// resolver, returning the diagnostics it produced. An optional channel
-// resolver supplies the channel symbols used by flow statements.
-func analyze(source string, extra ...symbol.Resolver) *diagnostics.Diagnostics {
+// analyze parses and runs full source-level analysis with the STL prelude
+// attached, plus an optional flat list of channels attached to the same
+// ambient. Returns the diagnostics it produced.
+func analyze(source string, extras ...[]symbol.Symbol) *diagnostics.Diagnostics {
 	t, parseDiag := text.Parse(text.Text{Raw: source})
 	if parseDiag != nil && !parseDiag.Ok() {
 		return parseDiag
 	}
-	resolver := symbol.Resolver(stl.SymbolResolver)
-	if len(extra) > 0 {
-		combined := symbol.CompoundResolver{stl.SymbolResolver}
-		combined = append(combined, extra...)
-		resolver = combined
+	root := symbol.NewRoot(nil, stl.Symbols...)
+	for _, set := range extras {
+		for i := range set {
+			s := set[i]
+			root.Parent.AddChild(&s)
+		}
 	}
-	_, diag := text.Analyze(context.Background(), t, resolver)
+	_, diag := text.Analyze(context.Background(), t, root)
 	return diag
 }
 
@@ -103,19 +104,19 @@ trig -> time.now{} -> now_out
 
 		It("Should accept multiple modules in one block", func() {
 			d := analyze(`
-import ( time authority )
+import ( time control )
 
-trig -> authority.set{value=200, channel=valve_cmd}
+trig -> control.set_authority{value=200, channel=valve_cmd}
 func get_now() i64 { return time.now() }
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
 
-		It("Should accept authority.set with import authority", func() {
+		It("Should accept control.set_authority with import control", func() {
 			d := analyze(`
-import authority
+import control
 
-trig -> authority.set{value=200, channel=valve_cmd}
+trig -> control.set_authority{value=200, channel=valve_cmd}
 `, chans)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 		})
@@ -150,8 +151,12 @@ trig -> t.now{} -> now_out
 			if parseDiag != nil {
 				Expect(parseDiag.Ok()).To(BeTrue())
 			}
-			resolver := symbol.CompoundResolver{stl.SymbolResolver, chans}
-			i, d := text.Analyze(context.Background(), t, resolver)
+			root := symbol.NewRoot(nil, stl.Symbols...)
+			for i := range chans {
+				s := chans[i]
+				root.Parent.AddChild(&s)
+			}
+			i, d := text.Analyze(context.Background(), t, root)
 			Expect(d.Ok()).To(BeTrue(), messages(d))
 			var found bool
 			for _, n := range i.Nodes {
@@ -232,6 +237,59 @@ trig -> time.doesnotexist{} -> now_out
 		})
 	})
 
+	Describe("ordering", func() {
+		It("Should reject an import that follows a function declaration", func() {
+			d := analyze(`
+func get_now() i64 { return 0 }
+
+import time
+
+trig -> get_now{} -> now_out
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(
+				`import statements must appear before any other top-level declarations`,
+			))
+		})
+
+		It("Should reject an import that follows a flow statement", func() {
+			d := analyze(`
+sensor -> output
+
+import time
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(
+				`import statements must appear before any other top-level declarations`,
+			))
+		})
+
+		It("Should reject an import that follows the authority block", func() {
+			d := analyze(`
+authority 100
+
+import control
+
+trig -> control.set_authority{value=200, channel=valve_cmd}
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(
+				`import statements must appear before any other top-level declarations`,
+			))
+		})
+
+		It("Should accept imports interleaved among themselves at the top", func() {
+			d := analyze(`
+import time
+import control
+
+trig -> control.set_authority{value=200, channel=valve_cmd}
+func get_now() i64 { return time.now() }
+`, chans)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+		})
+	})
+
 	Describe("authority block ordering", func() {
 		It("Should compile and run import + authority + dotted call", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
@@ -239,12 +297,12 @@ trig -> time.doesnotexist{} -> now_out
 				"valve_cmd":   {types.U8(), 101},
 			})
 			h := newRuntimeHarness(ctx, `
-				import authority
+				import control
 				authority 100
-				trigger_cmd -> authority.set{value=200, channel=valve_cmd}
+				trigger_cmd -> control.set_authority{value=200, channel=valve_cmd}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -254,7 +312,7 @@ trig -> time.doesnotexist{} -> now_out
 
 			changes := h.FlushAuthority()
 			Expect(changes).To(HaveLen(1),
-				"authority.set should buffer one authority change per activation")
+				"control.set_authority should buffer one authority change per activation")
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
 			Expect(changes[0].Channel).ToNot(BeNil())
 			Expect(*changes[0].Channel).To(Equal(uint32(101)))

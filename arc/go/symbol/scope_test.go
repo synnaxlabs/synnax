@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,22 +22,22 @@ import (
 var _ = Describe("Scope", func() {
 	Describe("CreateRootScope", func() {
 		It("Should create a new root scope", func() {
-			s := symbol.CreateRootScope(nil)
+			s := symbol.NewRoot(nil)
 			Expect(s.GlobalResolver).To(BeNil())
-			Expect(s.Children).To(BeEmpty())
+			Expect(s.Children()).To(BeEmpty())
 			Expect(s.Counter).ToNot(BeNil())
 			Expect(*s.Counter).To(Equal(0))
 		})
 
 		It("Should create a new root scope with a global resolver", func() {
-			s := symbol.CreateRootScope(symbol.MapResolver{})
+			s := symbol.NewRoot(StaticResolver{})
 			Expect(s.GlobalResolver).ToNot(BeNil())
 		})
 	})
 
 	Describe("Add", func() {
 		It("Should add a new variable scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			varScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -46,13 +47,13 @@ var _ = Describe("Scope", func() {
 			By("Not creating a counter for variables")
 			Expect(varScope.Counter).To(BeNil())
 			Expect(varScope.GlobalResolver).To(BeNil())
-			Expect(varScope.Children).To(BeEmpty())
+			Expect(varScope.Children()).To(BeEmpty())
 			By("Using the root scope counter for it's ID")
 			Expect(varScope.ID).To(Equal(0))
 		})
 
 		It("Should add a new function scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "my_func", Kind: symbol.KindFunction},
@@ -64,7 +65,7 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should add a new func scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			stageScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "my_task", Kind: symbol.KindBlock},
@@ -74,7 +75,7 @@ var _ = Describe("Scope", func() {
 
 		DescribeTable("Should assign IDs to variable kinds",
 			func(bCtx SpecContext, kind symbol.Kind) {
-				rootScope := symbol.CreateRootScope(nil)
+				rootScope := symbol.NewRoot(nil)
 				scope1 := MustSucceed(rootScope.Add(
 					bCtx,
 					symbol.Symbol{Name: "var1", Kind: kind, Type: types.I32()},
@@ -92,7 +93,7 @@ var _ = Describe("Scope", func() {
 		)
 
 		It("Should correctly increment IDs for variables within function scopes", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "my_func", Kind: symbol.KindFunction},
@@ -116,7 +117,7 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should not return error when adding duplicate symbol that shadows a global", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			scope1 := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -128,18 +129,18 @@ var _ = Describe("Scope", func() {
 			)).ToNot(BeNil())
 		})
 		It("Should allow shadowing global symbols from resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
 		})
 		It("Should resolve to local symbol when shadowing global", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			localScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "x"))
 			Expect(resolved).To(Equal(localScope))
@@ -147,10 +148,10 @@ var _ = Describe("Scope", func() {
 			Expect(resolved.Type).To(Equal(types.I32()))
 		})
 		It("Should resolve to local symbol when shadowing global in nested scope", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			localScope := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			resolved := MustSucceed(funcScope.Resolve(bCtx, "x"))
@@ -158,7 +159,7 @@ var _ = Describe("Scope", func() {
 			Expect(resolved.Type).To(Equal(types.I32()))
 		})
 		It("Should allow symbols with empty names", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			child := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "", Kind: symbol.KindBlock}))
 			Expect(child.Name).To(Equal(""))
 		})
@@ -166,7 +167,7 @@ var _ = Describe("Scope", func() {
 
 	Describe("GetChildByParserRule", func() {
 		It("Should find child by parser rule", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			rule := antlr.NewBaseParserRuleContext(nil, 0)
 			child := MustSucceed(rootScope.Add(
 				bCtx,
@@ -177,7 +178,7 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should return error when parser rule not found", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			scope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -187,81 +188,27 @@ var _ = Describe("Scope", func() {
 		})
 	})
 
-	Describe("FindChildByName", func() {
+	Describe("FindChild", func() {
 		It("Should find child by name", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			child := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
-			found := rootScope.FindChildByName("x")
+			found := rootScope.FindChild("x")
 			Expect(found).To(Equal(child))
 		})
 
 		It("Should return nil when name not found", func() {
-			rootScope := symbol.CreateRootScope(nil)
-			found := rootScope.FindChildByName("nonexistent")
+			rootScope := symbol.NewRoot(nil)
+			found := rootScope.FindChild("nonexistent")
 			Expect(found).To(BeNil())
-		})
-	})
-
-	Describe("FindChild", func() {
-		It("Should find child matching predicate", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			scope := MustSucceed(rootScope.Add(
-				bCtx,
-				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
-			))
-			Expect(scope).ToNot(BeNil())
-			child := MustSucceed(rootScope.Add(
-				bCtx,
-				symbol.Symbol{Name: "y", Kind: symbol.KindInput, Type: types.I64()},
-			))
-			found := rootScope.FindChild(func(s *symbol.Scope) bool {
-				return s.Kind == symbol.KindInput
-			})
-			Expect(found).To(Equal(child))
-		})
-
-		It("Should return nil when no match", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scope).ToNot(BeNil())
-			found := rootScope.FindChild(func(s *symbol.Scope) bool {
-				return s.Kind == symbol.KindFunction
-			})
-			Expect(found).To(BeNil())
-		})
-	})
-
-	Describe("FilterChildren", func() {
-		It("Should filter children by predicate", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			var1 := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
-			Expect(funcScope).ToNot(BeNil())
-			var2 := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.I64()}))
-			filtered := rootScope.FilterChildren(func(s *symbol.Scope) bool {
-				return s.Kind == symbol.KindVariable
-			})
-			Expect(filtered).To(HaveLen(2))
-			Expect(filtered).To(ContainElements(var1, var2))
-		})
-
-		It("Should return empty when no matches", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scope).ToNot(BeNil())
-			filtered := rootScope.FilterChildren(func(s *symbol.Scope) bool {
-				return s.Kind == symbol.KindChannel
-			})
-			Expect(filtered).To(BeEmpty())
 		})
 	})
 
 	Describe("Root", func() {
 		It("Should return root scope from any depth", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			varScope := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(varScope.Root()).To(Equal(rootScope))
@@ -272,125 +219,147 @@ var _ = Describe("Scope", func() {
 
 	Describe("Resolve", func() {
 		It("Should resolve symbol in current scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			child := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "x"))
 			Expect(resolved).To(Equal(child))
 		})
 		It("Should resolve symbol from parent scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			global := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "global", Kind: symbol.KindVariable, Type: types.I32()}))
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			resolved := MustSucceed(funcScope.Resolve(bCtx, "global"))
 			Expect(resolved).To(Equal(global))
 		})
 		It("Should resolve from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"pi": symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "pi"))
 			Expect(resolved.Name).To(Equal("pi"))
 			Expect(resolved.Kind).To(Equal(symbol.KindConfig))
 		})
 		It("Should prioritize local over parent scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			rootX := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			resolvedFromFunc := MustSucceed(funcScope.Resolve(bCtx, "x"))
 			Expect(resolvedFromFunc).To(Equal(rootX))
 		})
 		It("Should return error for undefined symbol", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			_, err := rootScope.Resolve(bCtx, "undefined")
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol: undefined")))
 		})
 		It("Should skip internal symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			Expect(rootScope.Resolve(bCtx, "host_fn")).Error().To(MatchError(ContainSubstring("undefined symbol: host_fn")))
 		})
 		It("Should resolve non-internal symbols from global resolver alongside internal ones", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"host_fn": symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"user_fn": symbol.Symbol{Name: "user_fn", Kind: symbol.KindFunction, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "user_fn"))
 			Expect(resolved.Name).To(Equal("user_fn"))
 		})
 
-		Describe("Import gate", func() {
-			moduleResolver := &symbol.ModuleResolver{
-				Name: "time",
-				Members: symbol.MapResolver{
-					"now": {Name: "time.now", Kind: symbol.KindFunction, Type: types.F64()},
-				},
+		Describe("Module aliases", func() {
+			// buildAmbientRoot constructs a root with a synthetic ambient
+			// prelude that has a single "time" module containing "now".
+			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
+				timeMod := symbol.NewModule("time", symbol.Symbol{
+					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
+				})
+				ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
+				ambient.AddChild(timeMod)
+				root := symbol.NewRoot(nil)
+				ambient.AddChild(root)
+				return root
 			}
 
-			It("Should leave dotted lookups ungated when Imports is nil", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
+			// resolveQualified mirrors the caller-side pattern that AST walkers
+			// use after Resolve was narrowed to single names: look up the head,
+			// follow alias.Target if present, then look up the tail against
+			// the resulting symbol's children.
+			resolveQualified := func(
+				bCtx SpecContext,
+				scope *symbol.Symbol,
+				head, tail string,
+			) (*symbol.Symbol, error) {
+				sym, err := scope.Resolve(bCtx, head)
+				if err != nil {
+					return nil, err
+				}
+				container := sym
+				if container.Target != nil {
+					container = container.Target
+				}
+				return container.Resolve(bCtx, tail)
+			}
+
+			It("Should fail head lookup when no alias exists for the module", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				Expect(resolveQualified(bCtx, rootScope, "time", "now")).Error().
+					To(MatchError(ContainSubstring("undefined symbol")))
 			})
 
-			It("Should leave dotted lookups ungated when Imports has AutoAll", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewAutoImportSet()
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
+			It("Should resolve a qualified lookup through a same-name alias", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChild("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				resolved := MustSucceed(resolveQualified(bCtx, rootScope, "time", "now"))
+				Expect(resolved.Name).To(Equal("now"))
 			})
 
-			It("Should return ModuleNotImportedError when the alias is not in the set", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				Expect(rootScope.Resolve(bCtx, "time.now")).Error().To(MatchError(
-					`module "time" is not imported`,
-				))
+			It("Should resolve a qualified lookup through a renamed alias", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChild("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				resolved := MustSucceed(resolveQualified(bCtx, rootScope, "t", "now"))
+				Expect(resolved.Name).To(Equal("now"))
 			})
 
-			It("Should resolve a dotted lookup when the module is imported", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
+			It("Should mark the alias as used on head resolution", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChild("time")
+				alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				MustSucceed(rootScope.Resolve(bCtx, "t"))
+				Expect(alias.Used).To(BeTrue())
 			})
 
-			It("Should mark the alias used after a successful gate check", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				MustSucceed(rootScope.Resolve(bCtx, "time.now"))
-				Expect(rootScope.Imports.Unused()).To(BeEmpty())
-			})
-
-			It("Should mark the alias used even when the member lookup fails", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "time"})
-				Expect(rootScope.Resolve(bCtx, "time.doesnotexist")).Error().To(MatchError(
-					ContainSubstring("undefined symbol"),
-				))
-				Expect(rootScope.Imports.Unused()).To(BeEmpty())
-			})
-
-			It("Should rewrite aliased prefixes before the GlobalResolver lookup", func(bCtx SpecContext) {
-				rootScope := symbol.CreateRootScope(moduleResolver)
-				rootScope.Imports = symbol.NewImportSet()
-				rootScope.Imports.Add(symbol.ImportRecord{Path: "time", Alias: "t"})
-				resolved := MustSucceed(rootScope.Resolve(bCtx, "t.now"))
-				Expect(resolved.Name).To(Equal("time.now"))
+			It("Should not find members past the module seal", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChild("time")
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				// A bare "outer" exists in the user root but `time.outer` must
+				// not find it — module member lookup is sealed.
+				MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "outer", Kind: symbol.KindFunction, Type: types.F64(),
+				}))
+				Expect(resolveQualified(bCtx, rootScope, "time", "outer")).Error().
+					To(MatchError(ContainSubstring("undefined symbol")))
 			})
 		})
 	})
 
 	Describe("Search", func() {
 		It("Should resolve symbols from children", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			fooScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(fooScope).ToNot(BeNil())
 			foobarScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foobar", Kind: symbol.KindVariable, Type: types.I64()}))
@@ -403,18 +372,18 @@ var _ = Describe("Scope", func() {
 			Expect(names).To(ContainElements("foo", "foobar"))
 		})
 		It("Should resolve symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"print": symbol.Symbol{Name: "print", Kind: symbol.KindFunction},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			scopes := MustSucceed(rootScope.Search(bCtx, "p"))
 			Expect(scopes).To(HaveLen(2))
 			names := []string{scopes[0].Name, scopes[1].Name}
 			Expect(names).To(ContainElements("pi", "print"))
 		})
 		It("Should resolve symbols from parent scope", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			globalScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "global", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(globalScope).ToNot(BeNil())
 			globalTwoScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "globalTwo", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -426,10 +395,10 @@ var _ = Describe("Scope", func() {
 			Expect(names).To(ContainElements("global", "globalTwo"))
 		})
 		It("Should deduplicate symbols across all sources", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			rootX := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(rootX).ToNot(BeNil())
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
@@ -440,14 +409,14 @@ var _ = Describe("Scope", func() {
 			Expect(scopes[0].Type).To(Equal(types.I64()))
 		})
 		It("Should return empty slice for non-matching prefix", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
 			scopes := MustSucceed(rootScope.Search(bCtx, "xyz"))
 			Expect(scopes).To(BeEmpty())
 		})
 		It("Should return all symbols for empty prefix", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			fooScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(fooScope).ToNot(BeNil())
 			barScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -456,22 +425,22 @@ var _ = Describe("Scope", func() {
 			Expect(scopes).To(HaveLen(2))
 		})
 		It("Should skip internal symbols from global resolver", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"len":         symbol.Symbol{Name: "len", Kind: symbol.KindFunction, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			scopes := MustSucceed(rootScope.Search(bCtx, ""))
 			Expect(scopes).To(HaveLen(1))
 			Expect(scopes[0].Name).To(Equal("len"))
 		})
 		It("Should skip all internal symbols when searching by prefix", func(bCtx SpecContext) {
-			globalResolver := symbol.MapResolver{
+			globalResolver := StaticResolver{
 				"element_add": symbol.Symbol{Name: "element_add", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"element_sub": symbol.Symbol{Name: "element_sub", Kind: symbol.KindFunction, Type: types.F64(), Internal: true},
 				"element_len": symbol.Symbol{Name: "element_len", Kind: symbol.KindFunction, Type: types.F64()},
 			}
-			rootScope := symbol.CreateRootScope(globalResolver)
+			rootScope := symbol.NewRoot(globalResolver)
 			scopes := MustSucceed(rootScope.Search(bCtx, "element"))
 			Expect(scopes).To(HaveLen(1))
 			Expect(scopes[0].Name).To(Equal("element_len"))
@@ -480,7 +449,7 @@ var _ = Describe("Scope", func() {
 
 	Describe("ClosestAncestorOfKind", func() {
 		It("Should find closest ancestor of kind", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			blockScope := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock}))
 			varScope := MustSucceed(blockScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -489,37 +458,15 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should return self if matching kind", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			ancestor := MustSucceed(funcScope.ClosestAncestorOfKind(symbol.KindFunction))
 			Expect(ancestor).To(Equal(funcScope))
 		})
 
 		It("Should return error when no ancestor found", func() {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			_, err := rootScope.ClosestAncestorOfKind(symbol.KindChannel)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
-		})
-	})
-
-	Describe("FirstChildOfKind", func() {
-		It("Should find first child of kind", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			varScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(varScope).ToNot(BeNil())
-			funcChild := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
-			funcG := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "g", Kind: symbol.KindFunction}))
-			Expect(funcG).ToNot(BeNil())
-			first := MustSucceed(rootScope.FirstChildOfKind(symbol.KindFunction))
-			Expect(first).To(Equal(funcChild))
-		})
-
-		It("Should return error when no child of kind", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
-			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scope).ToNot(BeNil())
-			_, err := rootScope.FirstChildOfKind(symbol.KindChannel)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 		})
@@ -527,7 +474,7 @@ var _ = Describe("Scope", func() {
 
 	Describe("String", func() {
 		It("Should format scope as string", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "myFunc", Kind: symbol.KindFunction}))
 			varScope := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(varScope).ToNot(BeNil())
@@ -542,7 +489,7 @@ var _ = Describe("Scope", func() {
 
 	Describe("FilterChildrenByKind", func() {
 		It("Should filter children by kind", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			var1 := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			Expect(funcScope).ToNot(BeNil())
@@ -552,7 +499,7 @@ var _ = Describe("Scope", func() {
 			Expect(filtered).To(ContainElements(var1, var2))
 		})
 		It("Should return empty when no matches", func(bCtx SpecContext) {
-			rootScope := symbol.CreateRootScope(nil)
+			rootScope := symbol.NewRoot(nil)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
 			filtered := rootScope.FilterChildrenByKind(symbol.KindChannel)
@@ -562,11 +509,11 @@ var _ = Describe("Scope", func() {
 
 	Describe("AutoName", func() {
 		It("Should generate name with prefix and incremented index", func() {
-			rootScope := symbol.CreateRootScope(nil)
-			child1 := &symbol.Scope{Parent: rootScope, Symbol: symbol.Symbol{Kind: symbol.KindBlock}}
+			rootScope := symbol.NewRoot(nil)
+			child1 := &symbol.Symbol{Parent: rootScope, Kind: symbol.KindBlock}
 			child1.AutoName("stage_")
 			Expect(child1.Name).To(Equal("stage_0"))
-			child2 := &symbol.Scope{Parent: rootScope, Symbol: symbol.Symbol{Kind: symbol.KindBlock}}
+			child2 := &symbol.Symbol{Parent: rootScope, Kind: symbol.KindBlock}
 			child2.AutoName("stage_")
 			Expect(child2.Name).To(Equal("stage_1"))
 		})
@@ -598,7 +545,7 @@ var _ = Describe("Scope", func() {
 		})
 		Describe("ResolveConfigChannel", func() {
 			It("Should fall back to Read when fnSym has no children (built-in functions)", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{Name: "on", Kind: symbol.KindFunction}}
+				fnSym := &symbol.Symbol{Name: "on", Kind: symbol.KindFunction}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
@@ -607,7 +554,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should replace internal Read ID with actual channel ID for user-defined functions", func(bCtx SpecContext) {
-				fnSym := symbol.CreateRootScope(nil)
+				fnSym := symbol.NewRoot(nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
@@ -626,7 +573,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should replace internal Write ID with actual channel ID for user-defined functions", func(bCtx SpecContext) {
-				fnSym := symbol.CreateRootScope(nil)
+				fnSym := symbol.NewRoot(nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
@@ -646,7 +593,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should handle param that is both read and written", func(bCtx SpecContext) {
-				fnSym := symbol.CreateRootScope(nil)
+				fnSym := symbol.NewRoot(nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
 				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
@@ -666,7 +613,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should use WriteChan access for built-in with WriteChan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "set_authority",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -674,7 +621,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.WriteChan(types.U8())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "valve")
 				Expect(nodeChannels.Write).To(HaveLen(1))
@@ -683,7 +630,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should use ReadChan access for built-in with ReadChan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "on",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -691,7 +638,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.ReadChan(types.F64())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 10, "sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
@@ -700,7 +647,7 @@ var _ = Describe("Scope", func() {
 			})
 
 			It("Should default to Read for built-in with plain Chan config param", func() {
-				fnSym := &symbol.Scope{Symbol: symbol.Symbol{
+				fnSym := &symbol.Symbol{
 					Name: "custom",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
@@ -708,7 +655,7 @@ var _ = Describe("Scope", func() {
 							{Name: "channel", Type: types.Chan(types.F64())},
 						},
 					}),
-				}}
+				}
 				nodeChannels := types.NewChannels()
 				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 99, "ch")
 				Expect(nodeChannels.Read).To(HaveLen(1))

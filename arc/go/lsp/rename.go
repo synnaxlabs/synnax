@@ -20,13 +20,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Server) logUnexpectedSymbolError(sym *symbol.Scope, err error) {
+func (s *Server) logUnexpectedSymbolError(sym *symbol.Symbol, err error) {
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		s.cfg.L.Error("unexpected failure resolving symbol", zap.Stringer("symbol", sym), zap.Error(err))
 	}
 }
 
-func isValidSymbol(sym *symbol.Scope, err error) bool {
+func isValidSymbol(sym *symbol.Symbol, err error) bool {
 	return !errors.Is(err, query.ErrNotFound) && sym != nil && sym.AST != nil
 }
 
@@ -81,7 +81,7 @@ func (s *Server) Rename(
 func (s *Server) findAllReferences(
 	ctx context.Context,
 	doc *Document,
-	targetSym *symbol.Scope,
+	targetSym *symbol.Symbol,
 ) []protocol.Location {
 	if doc.IR.Symbols == nil || targetSym == nil || targetSym.AST == nil {
 		return nil
