@@ -1423,10 +1423,8 @@ var _ = Describe("Text", func() {
 				    ch = ch + 1
 				}
 
-				func alarm{} (value f64) {}
-
 				demux{threshold=100.0} -> {
-				    high: increment{ch=counter} -> alarm{}
+				    high: increment{ch=counter}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)

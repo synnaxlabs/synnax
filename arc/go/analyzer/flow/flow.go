@@ -178,22 +178,9 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		}
 		if !upstreamIsTrigger && !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
 			t := funcType.Type.Inputs[0].Type
-			var prevOutputType types.Type
-			if outputType, ok := prevFuncType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
-				prevOutputType = outputType.Type
-			} else if len(prevFuncType.Type.Outputs) > 0 {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"func '%s' has named outputs and requires a routing table",
-					prevFuncName,
-				))
-				return
-			} else {
-				// Void function (no outputs) cannot feed into a function expecting input
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"func '%s' has no return value but '%s' expects an input parameter",
-					prevFuncName,
-					name,
-				))
+			prevOutputType := resolveFuncOutput(ctx, prevFuncType.Type, prevFuncName,
+				"'"+name+"' expects an input parameter")
+			if !prevOutputType.IsValid() {
 				return
 			}
 			if err := atypes.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
@@ -270,6 +257,30 @@ func resolveFunc[T antlr.ParserRuleContext](
 		return nil
 	}
 	return sym
+}
+
+// resolveFuncOutput returns fn's default output type for chained use, emitting
+// a diagnostic when fn has named outputs or no return value. downstreamDesc
+// is embedded in the no-return message to describe the unsatisfied consumer.
+func resolveFuncOutput[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	fnType types.Type,
+	fnName string,
+	downstreamDesc string,
+) types.Type {
+	if out, ok := fnType.Outputs.Get(ir.DefaultOutputParam); ok {
+		return out.Type
+	}
+	if len(fnType.Outputs) > 0 {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"func '%s' has named outputs and requires a routing table",
+			fnName))
+	} else {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"func '%s' has no return value but %s",
+			fnName, downstreamDesc))
+	}
+	return types.Type{}
 }
 
 func validateFuncConfig[T antlr.ParserRuleContext](
@@ -494,8 +505,10 @@ func analyzeOutputRoutingTable(
 			}
 		}
 
-		// Analyze each flow node in the routing entry chain
+		// First node's source is the select-output type; subsequent nodes
+		// chain from the previous node's output.
 		flowNodes := entry.AllFlowNode()
+		nodeSourceType := outputType.Type
 		for i, flowNode := range flowNodes {
 			isLastNode := i == len(flowNodes)-1
 			var targetParam *string
@@ -504,10 +517,13 @@ func analyzeOutputRoutingTable(
 			}
 			analyzeRoutingTargetWithParam(
 				context.Child(ctx, flowNode),
-				outputType.Type,
+				nodeSourceType,
 				nextFuncType,
 				targetParam,
 			)
+			if !isLastNode {
+				nodeSourceType = inferFlowNodeOutputType(context.Child(ctx, flowNode))
+			}
 		}
 	}
 }
@@ -673,4 +689,29 @@ func analyzeRoutingTargetWithParam(
 	} else if expr := ctx.AST.Expression(); expr != nil {
 		AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
+}
+
+// inferFlowNodeOutputType returns the type a flow node emits to the next node
+// in a routing-entry chain.
+func inferFlowNodeOutputType(ctx context.Context[parser.IFlowNodeContext]) types.Type {
+	if expr := ctx.AST.Expression(); expr != nil {
+		return atypes.InferFromExpression(context.Child(ctx, expr))
+	}
+	if fn := ctx.AST.Function(); fn != nil {
+		fnName := parser.FunctionName(fn)
+		sym, err := ctx.Resolve(fnName)
+		if err != nil || sym.Kind != symbol.KindFunction {
+			return types.Type{}
+		}
+		return resolveFuncOutput(ctx, sym.Type, fnName,
+			"the next node in the chain expects an input")
+	}
+	if idNode := ctx.AST.Identifier(); idNode != nil {
+		sym, err := ctx.Resolve(idNode.IDENTIFIER().GetText())
+		if err != nil || sym.Kind != symbol.KindChannel {
+			return types.Type{}
+		}
+		return sym.Type.Unwrap()
+	}
+	return types.Type{}
 }
