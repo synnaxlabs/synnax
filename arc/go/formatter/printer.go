@@ -398,31 +398,11 @@ func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
 			return true
 		}
 	}
-	if p.isEmptyBlock(idx, tokens) {
-		return true
-	}
-	return p.hasAssignInBraceBlock(idx, tokens)
-}
-
-func (p *printer) hasAssignInBraceBlock(idx int, tokens []antlr.Token) bool {
-	braceDepth := 1
-	for i := idx + 1; i < len(tokens); i++ {
-		tokType := tokens[i].GetTokenType()
-		switch tokType {
-		case parser.ArcLexerLBRACE:
-			braceDepth++
-		case parser.ArcLexerRBRACE:
-			braceDepth--
-			if braceDepth == 0 {
-				return false
-			}
-		case parser.ArcLexerASSIGN:
-			if braceDepth == 1 {
-				return true
-			}
-		}
-	}
-	return false
+	// Walk exhausted: the brace sits at the start of the token stream with
+	// only an identifier (and possibly a dotted member chain) before it.
+	// Block-body forms (func/stage/sequence bodies) are detected earlier in
+	// detectBraceContext, so this must be a callable's config values block.
+	return true
 }
 
 func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
