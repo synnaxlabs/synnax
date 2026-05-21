@@ -23,7 +23,7 @@ export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodO
   task: typeof keyZ;
   running: z.ZodBoolean;
   cmd: z.ZodOptional<z.ZodString>;
-  data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Data;
+  data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : z.ZodOptional<Data>;
 }>;
 
 export interface StatusDetailsZFunction {
@@ -38,20 +38,22 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
     task: keyZ,
     running: z.boolean(),
     cmd: z.string().optional(),
-    data: data ?? z.unknown().optional(),
+    data: (data ?? z.unknown()).optional(),
   });
 export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task: Key;
   running: boolean;
   cmd?: string;
-} & ([Data] extends [z.ZodNever] ? {} : { data: z.infer<Data> });
+} & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
 
 export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> =
   z.ZodObject<{
     task: z.ZodOptional<typeof keyZ>;
     running: z.ZodBoolean;
     cmd: z.ZodOptional<z.ZodString>;
-    data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Data;
+    data: [Data] extends [z.ZodNever]
+      ? z.ZodOptional<z.ZodUnknown>
+      : z.ZodOptional<Data>;
   }>;
 
 export interface NewStatusDetailsZFunction {
@@ -66,13 +68,13 @@ export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodT
     task: keyZ.optional(),
     running: z.boolean(),
     cmd: z.string().optional(),
-    data: data ?? z.unknown().optional(),
+    data: (data ?? z.unknown()).optional(),
   });
 export type NewStatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task?: Key;
   running: boolean;
   cmd?: string;
-} & ([Data] extends [z.ZodNever] ? {} : { data: z.infer<Data> });
+} & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
 
 /** Command is a command to execute on a task in the Driver system. */
 export const commandZ = z.object({
