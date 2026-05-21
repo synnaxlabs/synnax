@@ -29,6 +29,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   color: t.colors.gray.l11,
   size: "small",
   label: Label.defaultConfig("Setpoint"),
+  control: { show: true },
   source: telem.sourcePipeline("number", {
     connections: [],
     segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },

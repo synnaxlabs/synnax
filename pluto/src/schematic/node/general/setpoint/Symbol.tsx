@@ -21,7 +21,6 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  draggable,
   config: {
     label,
     orientation = "left",
@@ -36,7 +35,7 @@ export const Symbol = ({
 }: NodeProps<Config>): ReactElement => {
   const { value, set } = Setpoint.use({ aetherKey: nodeKey, source, sink });
   return (
-    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
       <Primitive

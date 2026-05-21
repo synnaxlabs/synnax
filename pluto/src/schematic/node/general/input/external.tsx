@@ -28,6 +28,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   color: t.colors.gray.l11,
   size: "small",
   label: Label.defaultConfig("Input"),
+  control: { show: true },
   sink: telem.sinkPipeline("string", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel: 0 }) },

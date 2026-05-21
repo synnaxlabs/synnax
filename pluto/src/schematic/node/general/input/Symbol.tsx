@@ -21,13 +21,12 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  draggable,
   config: { label, control, sink, ...restConfig },
 }: NodeProps<Config>): ReactElement => {
   const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
-    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
-      <Control.State config={control} />
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
+      <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
       <Primitive onSend={set} {...restConfig} />
     </Grid.Grid>

@@ -20,12 +20,11 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  draggable,
   config: { label, source, options, color: colorVal, inlineSize },
 }: NodeProps<Config>): ReactElement => {
   const { key: optKey } = StateIndicator.use({ aetherKey: nodeKey, source, options });
   return (
-    <Grid.Grid allowRotate={false} editable={selected && !draggable} nodeKey={nodeKey}>
+    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Primitive
         matchedOptionKey={optKey}

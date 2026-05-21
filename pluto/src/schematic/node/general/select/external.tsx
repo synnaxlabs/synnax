@@ -30,6 +30,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("Select"),
+  control: { show: true },
   sink: telem.sinkPipeline("number", {
     connections: [],
     segments: { setter: control.setChannelValue({ channel: 0 }) },
