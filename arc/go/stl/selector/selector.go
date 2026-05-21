@@ -54,14 +54,20 @@ var (
 			},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
-type Module struct{}
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the `select` builtin installed at root scope.
+var Symbols = []*symbol.Symbol{&symbolSelect}
 
-func NewModule() *Module { return &Module{} }
+// Host is the runtime host-side support for `select`: a node factory only.
+// No WASM bindings, no per-program state.
+type Host struct{}
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+// NewHost constructs a selector Host.
+func NewHost() *Host { return &Host{} }
+
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

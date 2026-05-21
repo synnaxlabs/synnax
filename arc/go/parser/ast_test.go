@@ -178,4 +178,72 @@ var _ = Describe("AST Utilities", func() {
 			Expect(lit.GetText()).To(Equal("42"))
 		})
 	})
+
+	Describe("Imports", func() {
+		It("Should return nil for a nil program", func() {
+			Expect(parser.Imports(nil)).To(BeNil())
+		})
+
+		It("Should return nil when no import statements are present", func() {
+			prog := MustSucceed(parser.Parse(`func f() {}`))
+			Expect(parser.Imports(prog)).To(BeNil())
+		})
+
+		It("Should collect a single bare import", func() {
+			prog := MustSucceed(parser.Parse(`import time`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[0].Alias).To(Equal("time"))
+			Expect(entries[0].AST).ToNot(BeNil())
+		})
+
+		It("Should collect multiple modules in one block", func() {
+			prog := MustSucceed(parser.Parse(`import ( time math status )`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(3))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[1].Path).To(Equal("math"))
+			Expect(entries[2].Path).To(Equal("status"))
+		})
+
+		It("Should record the alias when present", func() {
+			prog := MustSucceed(parser.Parse(`import time as t`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[0].Alias).To(Equal("t"))
+		})
+
+		It("Should join hierarchical path segments with dots", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("math.trig"))
+		})
+
+		It("Should default alias to the last path segment on hierarchical paths", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig`))
+			entries := parser.Imports(prog)
+			Expect(entries[0].Alias).To(Equal("trig"))
+		})
+
+		It("Should preserve a hierarchical alias when AS is present", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig as t`))
+			entries := parser.Imports(prog)
+			Expect(entries[0].Path).To(Equal("math.trig"))
+			Expect(entries[0].Alias).To(Equal("t"))
+		})
+
+		It("Should collect items across multiple import statements", func() {
+			prog := MustSucceed(parser.Parse(`
+				import time
+				import math
+			`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(2))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[1].Path).To(Equal("math"))
+		})
+	})
 })

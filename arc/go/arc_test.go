@@ -19,17 +19,21 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	"github.com/synnaxlabs/arc/stl"
-	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Arc", func() {
-	compile := func(ctx SpecContext, code string, resolver arc.SymbolResolver) arc.Program {
+	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
-		return MustSucceed(arc.CompileText(ctx, t, arc.WithResolver(resolver)))
+		root := symbol.NewRoot(nil, stl.Symbols...)
+		for i := range channels {
+			s := channels[i]
+			root.Parent.AddChild(&s)
+		}
+		return MustSucceed(arc.CompileText(ctx, t, root))
 	}
 
 	findNodeByType := func(nodes ir.Nodes, nodeType string) ir.Node {
@@ -146,19 +150,17 @@ var _ = Describe("Arc", func() {
 }
 
 ox_pt_1 -> calc{} -> ox_pt_doubled`,
-			symbol.MapResolver{
-				"ox_pt_1": arc.Symbol{
-					Name: "ox_pt_1",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   1,
-				},
-				"ox_pt_doubled": arc.Symbol{
-					Name: "ox_pt_doubled",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   2,
-				},
+			arc.Symbol{
+				Name: "ox_pt_1",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   1,
+			},
+			arc.Symbol{
+				Name: "ox_pt_doubled",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   2,
 			})
 
 		Expect(mod.Functions).To(HaveLen(1))
@@ -220,13 +222,11 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
         1 -> output
     }
 }`,
-			symbol.MapResolver{
-				"output": arc.Symbol{
-					Name: "output",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   1,
-				},
+			arc.Symbol{
+				Name: "output",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   1,
 			})
 
 		seg := findTopLevelScope(mod, "seg")
@@ -277,32 +277,30 @@ sequence main {
         0 -> press_vlv_cmd
     }
 }
-`, symbol.MapResolver{
-			"press_vlv_cmd": arc.Symbol{
-				Name: "press_vlv_cmd",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.U8()),
-				ID:   1,
-			},
-			"vent_vlv_cmd": arc.Symbol{
+`, arc.Symbol{
+			Name: "press_vlv_cmd",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.U8()),
+			ID:   1,
+		},
+			arc.Symbol{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   4,
 			},
-			"press_pt": arc.Symbol{
+			arc.Symbol{
 				Name: "press_pt",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   2,
 			},
-			"start_seq_cmd": arc.Symbol{
+			arc.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   3,
-			},
-		})
+			})
 
 		main := findTopLevelScope(mod, "main")
 		Expect(main.Steps).To(HaveLen(2))
@@ -352,31 +350,29 @@ sequence main {
 		        press_pt -> expr2{} => press
 		    }
 		}`,
-			symbol.MapResolver{
-				"press_vlv_cmd": arc.Symbol{
-					Name: "press_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   1,
-				},
-				"vent_vlv_cmd": arc.Symbol{
-					Name: "vent_vlv_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   4,
-				},
-				"press_pt": arc.Symbol{
-					Name: "press_pt",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   2,
-				},
-				"start_seq_cmd": arc.Symbol{
-					Name: "start_seq_cmd",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
-					ID:   3,
-				},
+			arc.Symbol{
+				Name: "press_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   1,
+			},
+			arc.Symbol{
+				Name: "vent_vlv_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   4,
+			},
+			arc.Symbol{
+				Name: "press_pt",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   2,
+			},
+			arc.Symbol{
+				Name: "start_seq_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   3,
 			})
 
 		Expect(mod.Functions).To(HaveLen(2))
@@ -412,7 +408,7 @@ sequence main {
 			        wait{duration=5s} => next
 			    }
 			    stage end {}
-			}`, time.SymbolResolver)
+			}`)
 		// Under the new IR the wait node is the only IR node; stages and
 		// entries no longer materialize as nodes.
 		Expect(mod.Nodes).To(HaveLen(1))
@@ -423,27 +419,11 @@ sequence main {
 		// Regression test: stateful variables must produce typed WASM imports
 		// like "state::load_i64", not bare "state::load". This mirrors the
 		// exact program used in the C++ NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-		channelResolver := symbol.MapResolver{
-			"trigger": arc.Symbol{
-				Name: "trigger",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   1,
-			},
-			"output_a": arc.Symbol{
-				Name: "output_a",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   2,
-			},
-			"output_b": arc.Symbol{
-				Name: "output_b",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   3,
-			},
+		channels := []arc.Symbol{
+			{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+			{Name: "output_a", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 2},
+			{Name: "output_b", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 3},
 		}
-		fullResolver := symbol.CompoundResolver{stl.SymbolResolver, channelResolver}
 
 		mod := compile(ctx, `
 func counter(trigger i64) i64 {
@@ -453,7 +433,7 @@ func counter(trigger i64) i64 {
 }
 trigger -> counter{} -> output_a
 trigger -> counter{} -> output_b
-`, fullResolver)
+`, channels...)
 
 		Expect(mod.WASM).ToNot(BeEmpty())
 
@@ -475,17 +455,14 @@ trigger -> counter{} -> output_b
 	})
 
 	It("Should return a compile error when () is used instead of {} in a flow", func(ctx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			stl.SymbolResolver,
-			symbol.MapResolver{
-				"some_ch": arc.Symbol{
-					Name: "some_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I64()),
-					ID:   1,
-				},
-			},
+		root := symbol.NewRoot(nil, stl.Symbols...)
+		some := symbol.Symbol{
+			Name: "some_ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I64()),
+			ID:   1,
 		}
+		root.Parent.AddChild(&some)
 		t := arc.Text{Raw: `
 some_ch -> check()
 
@@ -493,7 +470,7 @@ func check() {
     a := 1
 }
 `}
-		Expect(arc.CompileText(ctx, t, arc.WithResolver(resolver))).Error().To(SatisfyAll(
+		Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("functions in flow statements use {} not ()")),
 			MatchError(ContainSubstring("did you mean: check{}?")),
 		))
@@ -509,11 +486,9 @@ sequence main {
     1 -> valve_b
 }
 `,
-				symbol.MapResolver{
-					"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-					"valve_a":   symbol.Symbol{Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-					"valve_b":   symbol.Symbol{Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "valve_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "valve_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
 			)
 
 			main := findTopLevelScope(mod, "main")
@@ -535,13 +510,8 @@ sequence main {
     0 -> valve_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
 			)
 
 			main := findTopLevelScope(mod, "main")
@@ -564,15 +534,10 @@ sequence main {
     1 -> vent_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"press_cmd": symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-						"press_pt":  symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-						"vent_cmd":  symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
 			)
 
 			main := findTopLevelScope(mod, "main")
@@ -595,14 +560,9 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"all_valves": symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
 			)
 
 			abort := findTopLevelScope(mod, "abort")
@@ -629,15 +589,10 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"engine_cmd": symbol.Symbol{Name: "engine_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-						"abort_btn":  symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 3},
-						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "engine_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 3},
+				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
 			)
 
 			_ = findTopLevelScope(mod, "main")
@@ -658,13 +613,8 @@ sequence main {
     0 -> valve_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
 			)
 
 			main := findTopLevelScope(mod, "main")
@@ -694,15 +644,10 @@ sequence main {
     1 -> vent_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"press_cmd": symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-						"press_pt":  symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-						"vent_cmd":  symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "press_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
+				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 4},
 			)
 
 			pb := MustSucceed(programpb.ProgramToPB(mod))
@@ -725,14 +670,9 @@ stage abort {
     1 -> vent_cmd
 }
 `,
-				symbol.CompoundResolver{
-					symbol.MapResolver{
-						"start_cmd":  symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-						"all_valves": symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-						"vent_cmd":   symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
-					},
-					stl.SymbolResolver,
-				},
+				symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				symbol.Symbol{Name: "all_valves", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
+				symbol.Symbol{Name: "vent_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 3},
 			)
 
 			pb := MustSucceed(programpb.ProgramToPB(mod))

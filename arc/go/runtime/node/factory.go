@@ -41,8 +41,8 @@ type Factory interface {
 }
 
 // ModuleNamer is an optional interface that factories can implement to declare
-// which module they belong to (e.g. "authority", "status"). When the
-// CompoundFactory encounters a qualified node type like "status.set", it skips
+// which module they belong to (e.g. "control", "time"). When the
+// CompoundFactory encounters a qualified node type like "time.interval", it skips
 // factories whose module name doesn't match the prefix. Factories that don't
 // implement this interface are always considered.
 type ModuleNamer interface {
@@ -55,7 +55,7 @@ type CompoundFactory []Factory
 
 func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 	// Strip module prefix from the node type so factories only match bare names.
-	// The compiler emits qualified names (e.g. "time.interval", "authority.set")
+	// The compiler emits qualified names (e.g. "time.interval", "control.set_authority")
 	// into the IR; normalizing here keeps prefix awareness out of individual
 	// factories.
 	var modulePrefix string
@@ -64,7 +64,7 @@ func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 		cfg.Node.Type = cfg.Node.Type[i+1:]
 	}
 	for _, factory := range f {
-		// When the IR node has a module prefix (e.g. "status" from "status.set"),
+		// When the IR node has a module prefix (e.g. "control" from "control.set_authority"),
 		// skip factories belonging to a different module. Factories that don't
 		// implement ModuleNamer are always considered.
 		if modulePrefix != "" {

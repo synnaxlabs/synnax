@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -36,16 +37,15 @@ var _ = Describe("SetupTestServer", func() {
 		Expect(hover.Contents.Value).To(ContainSubstring("func"))
 	})
 
-	It("should accept a custom GlobalResolver config", func(ctx SpecContext) {
-		resolver := symbol.MapResolver{
-			"sensor": symbol.Symbol{
+	It("should expose custom symbols attached to the ambient prelude", func(ctx SpecContext) {
+		server, uri := SetupTestServer(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return NewRoot(nil, symbol.Symbol{
 				Name: "sensor",
 				Type: types.Chan(types.F32()),
 				Kind: symbol.KindChannel,
 				ID:   1,
-			},
-		}
-		server, uri := SetupTestServer(lsp.Config{GlobalResolver: resolver})
+			})
+		}})
 		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
 		completions := Completion(server, ctx, uri, 0, 24)
 		Expect(completions).ToNot(BeNil())
@@ -69,14 +69,13 @@ var _ = Describe("SetupTestServerWithClient", func() {
 	})
 
 	It("should accept a custom config and propagate diagnostics", func(ctx SpecContext) {
-		resolver := symbol.MapResolver{
-			"sensor": symbol.Symbol{
+		server, uri, client := SetupTestServerWithClient(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return NewRoot(nil, symbol.Symbol{
 				Name: "sensor",
 				Type: types.Chan(types.F32()),
 				Kind: symbol.KindChannel,
-			},
-		}
-		server, uri, client := SetupTestServerWithClient(lsp.Config{GlobalResolver: resolver})
+			})
+		}})
 		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
 		Expect(client.Diagnostics()).To(BeEmpty())
 	})
@@ -127,7 +126,7 @@ var _ = Describe("Hover", func() {
 
 var _ = Describe("Definition", func() {
 	It("should return definition locations for a variable reference", func(ctx SpecContext) {
-		server := MustSucceed(lsp.New())
+		server := MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil) }}))
 		server.SetClient(&MockClient{})
 		uri := protocol.DocumentURI("file:///test.arc")
 		OpenArcDocument(server, ctx, uri, "func test() {\n    x i32 := 42\n    y := x + 1\n}")
@@ -137,7 +136,7 @@ var _ = Describe("Definition", func() {
 	})
 
 	It("should return nil for a non-existent document", func(ctx SpecContext) {
-		server := MustSucceed(lsp.New())
+		server := MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil) }}))
 		server.SetClient(&MockClient{})
 		locations := Definition(server, ctx, "file:///missing.arc", 0, 0)
 		Expect(locations).To(BeNil())
@@ -153,16 +152,15 @@ var _ = Describe("Completion", func() {
 		Expect(len(completions.Items)).To(BeNumerically(">", 0))
 	})
 
-	It("should return completions including global resolver symbols", func(ctx SpecContext) {
-		resolver := symbol.MapResolver{
-			"pressure": symbol.Symbol{
+	It("should return completions including symbols attached to the ambient prelude", func(ctx SpecContext) {
+		server, uri := SetupTestServer(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return NewRoot(nil, symbol.Symbol{
 				Name: "pressure",
 				Type: types.Chan(types.F64()),
 				Kind: symbol.KindChannel,
 				ID:   1,
-			},
-		}
-		server, uri := SetupTestServer(lsp.Config{GlobalResolver: resolver})
+			})
+		}})
 		OpenArcDocument(server, ctx, uri, "func test() { x := pres }")
 		completions := Completion(server, ctx, uri, 0, 24)
 		Expect(completions).ToNot(BeNil())
