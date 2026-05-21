@@ -165,7 +165,7 @@ export class Controller
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
         authorities: this.state.authority,
-        autoIndexing: true,
+        autoIndex: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
