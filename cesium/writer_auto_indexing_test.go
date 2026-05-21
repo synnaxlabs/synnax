@@ -192,6 +192,41 @@ var _ = Describe("Writer AutoIndexing", func() {
 				})
 			})
 
+			Describe("Virtual channels", func() {
+				It("Should auto-stamp the indexed channel while leaving a virtual channel in the same frame untouched", func(ctx SpecContext) {
+					var (
+						idx     = GenerateChannelKey()
+						data    = GenerateChannelKey()
+						virtual = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "virt_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "virt_data", Index: idx, DataType: telem.Float64T},
+						cesium.Channel{Key: virtual, Name: "virt_chan", Virtual: true, DataType: telem.Int64T},
+					)).To(Succeed())
+					before := telem.Now()
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data, virtual},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{data, virtual},
+						[]telem.Series{
+							telem.NewSeriesV[float64](1, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30),
+						},
+					)))
+					MustSucceed(w.Commit())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+					Expect(ts).To(HaveLen(3))
+					Expect(ts[0]).To(BeNumerically(">=", before))
+				})
+			})
+
 			Describe("Multiple data channels per index", func() {
 				It("Should stamp once for an index shared across data channels", func(ctx SpecContext) {
 					var (

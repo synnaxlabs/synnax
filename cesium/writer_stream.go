@@ -295,7 +295,10 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		idx := w.keyToIdx[k]
+		idx, ok := w.keyToIdx[k]
+		if !ok {
+			continue
+		}
 		if k == idx.idx.ch.Key {
 			idx.scanIdxPresent = true
 			continue
