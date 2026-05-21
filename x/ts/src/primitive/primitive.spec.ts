@@ -54,13 +54,13 @@ describe("primitive", () => {
 
   describe("isStringer", () => {
     it("should return true for a stringer", () => {
-      expect(primitive.isStringer(new ExampleStringer("cat"))).toEqual(true);
+      expect(primitive.isStringer(new ExampleStringer("cat"))).toBe(true);
     });
     it("should return false for a non-stringer", () => {
-      expect(primitive.isStringer(0)).toEqual(false);
+      expect(primitive.isStringer(0)).toBe(false);
     });
     it("should return false for null", () => {
-      expect(primitive.isStringer(null)).toEqual(false);
+      expect(primitive.isStringer(null)).toBe(false);
     });
   });
 
@@ -178,12 +178,65 @@ describe("primitive", () => {
 
       describe("isCrudeValueExtension", () => {
         it("should return true for a CrudeValueExtension", () => {
-          expect(primitive.isCrudeValueExtension({ value: 12n })).toEqual(true);
+          expect(primitive.isCrudeValueExtension({ value: 12n })).toBe(true);
         });
         it("should return false for a non-CrudeValueExtension", () => {
-          expect(primitive.isCrudeValueExtension(12n)).toEqual(false);
+          expect(primitive.isCrudeValueExtension(12n)).toBe(false);
         });
       });
+    });
+  });
+
+  describe("isHashable", () => {
+    class HashableThing implements primitive.Hashable {
+      constructor(private readonly v: string) {}
+      hash(): string {
+        return this.v;
+      }
+    }
+
+    it("returns true for an object with a hash() method", () => {
+      expect(primitive.isHashable(new HashableThing("x"))).toBe(true);
+    });
+
+    it("returns true for a plain object literal with a hash function", () => {
+      expect(primitive.isHashable({ hash: () => "x" })).toBe(true);
+    });
+
+    it("narrows the type for downstream calls", () => {
+      const v: unknown = new HashableThing("abc");
+      if (primitive.isHashable(v)) expect(v.hash()).toEqual("abc");
+      else throw new Error("expected isHashable to narrow");
+    });
+
+    it("returns false for null", () => {
+      expect(primitive.isHashable(null)).toBe(false);
+    });
+
+    it("returns false for undefined", () => {
+      expect(primitive.isHashable(undefined)).toBe(false);
+    });
+
+    it("returns false for primitives", () => {
+      expect(primitive.isHashable("x")).toBe(false);
+      expect(primitive.isHashable(42)).toBe(false);
+      expect(primitive.isHashable(42n)).toBe(false);
+      expect(primitive.isHashable(true)).toBe(false);
+    });
+
+    it("returns false for plain objects without a hash function", () => {
+      expect(primitive.isHashable({})).toBe(false);
+      expect(primitive.isHashable({ key: "x" })).toBe(false);
+    });
+
+    it("returns false when hash is not a function", () => {
+      expect(primitive.isHashable({ hash: "not a function" })).toBe(false);
+      expect(primitive.isHashable({ hash: 42 })).toBe(false);
+      expect(primitive.isHashable({ hash: null })).toBe(false);
+    });
+
+    it("returns false for arrays", () => {
+      expect(primitive.isHashable([1, 2, 3])).toBe(false);
     });
   });
 });

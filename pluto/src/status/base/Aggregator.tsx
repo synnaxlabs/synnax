@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  type CrudeTimeSpan,
+  id,
+  type status as xstatus,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   useCallback,
@@ -99,8 +105,8 @@ const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
 
 interface UseNotificationsProps {
-  expiration?: TimeSpan;
-  poll?: TimeSpan;
+  expiration?: CrudeTimeSpan;
+  poll?: CrudeTimeSpan;
 }
 
 export const useNotifications = ({
@@ -110,11 +116,12 @@ export const useNotifications = ({
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(() => TimeStamp.now());
+  const pollMs = new TimeSpan(poll).milliseconds;
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), poll.milliseconds);
+    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
     return () => clearInterval(interval);
-  }, [poll.milliseconds]);
+  }, [pollMs]);
 
   const filtered = useMemo(() => {
     const threshold = now.sub(expiration);

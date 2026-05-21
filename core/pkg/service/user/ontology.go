@@ -32,21 +32,17 @@ func OntologyID(key Key) ontology.ID {
 
 // OntologyIDsFromKeys returns a slice of unique identifiers from a slice of keys
 func OntologyIDsFromKeys(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID {
-		return OntologyID(key)
-	})
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
-// OntologyIDFromUser returns a unique identifier for a User for use within a resource
+// OntologyID returns a unique identifier for the user for use within a resource
 // ontology.
-func OntologyIDFromUser(u *User) ontology.ID { return OntologyID(u.Key) }
+func (u User) OntologyID() ontology.ID { return OntologyID(u.Key) }
 
 // OntologyIDsFromUsers returns a slice of unique identifiers for a slice of Users for
 // use within a resource ontology.
 func OntologyIDsFromUsers(users []User) []ontology.ID {
-	return lo.Map(users, func(u User, _ int) ontology.ID {
-		return OntologyIDFromUser(&u)
-	})
+	return lo.Map(users, func(u User, _ int) ontology.ID { return u.OntologyID() })
 }
 
 func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }

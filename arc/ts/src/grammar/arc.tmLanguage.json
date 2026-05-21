@@ -123,13 +123,16 @@
     "strings": {
       "patterns": [
         {
-          "name": "string.quoted.raw.arc",
-          "begin": "`",
-          "end": "`",
+          "name": "string.quoted.arc",
+          "begin": "(rf|fr|f|r)?(\"|`)",
+          "end": "\\2",
+          "beginCaptures": {
+            "1": { "name": "storage.type.string.arc" }
+          },
           "patterns": [
             {
               "name": "constant.character.escape.arc",
-              "match": "\\\\`"
+              "match": "\\\\([\\\\\"`/bfnrt]|u[0-9a-fA-F]{4})"
             },
             {
               "name": "meta.template.expression.arc",
@@ -142,28 +145,6 @@
                 "0": { "name": "punctuation.definition.template-expression.end.arc" }
               },
               "patterns": [{ "include": "$self" }]
-            }
-          ]
-        },
-        {
-          "name": "string.quoted.double.arc",
-          "begin": "\"",
-          "end": "\"",
-          "patterns": [
-            {
-              "name": "constant.character.escape.arc",
-              "match": "\\\\([\\\\\"/bfnrt]|u[0-9a-fA-F]{4})"
-            }
-          ]
-        },
-        {
-          "name": "string.quoted.single.arc",
-          "begin": "'",
-          "end": "'",
-          "patterns": [
-            {
-              "name": "constant.character.escape.arc",
-              "match": "\\\\([\\\\'bfnrt]|u[0-9a-fA-F]{4})"
             }
           ]
         }

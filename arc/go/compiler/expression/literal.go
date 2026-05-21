@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -24,11 +23,8 @@ func compileLiteral(
 	if num := ctx.AST.NumericLiteral(); num != nil {
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
-	if str := ctx.AST.STR_LITERAL(); str != nil {
-		return compileStringLiteral(ctx, literal.ParseString, str.GetText())
-	}
-	if str := ctx.AST.STR_LITERAL_RAW(); str != nil {
-		return compileRawStringLiteral(ctx, str.GetText())
+	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
+		return compileStringLiteral(ctx, strTerm.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
@@ -36,32 +32,30 @@ func compileLiteral(
 	return types.Type{}, errors.New("unknown literal type")
 }
 
-func compileRawStringLiteral(
-	ctx context.Context[parser.ILiteralContext],
-	text string,
-) (types.Type, error) {
-	parsed, err := literal.ParseRawString(text, types.String())
-	if err != nil {
-		return types.Type{}, err
-	}
-	body, _ := parsed.Value.(string)
-	segments, err := fmtstring.Parse(body)
-	if err != nil {
-		return types.Type{}, err
-	}
-	return EmitFmtSegments(ctx, segments)
-}
-
 func compileStringLiteral(
 	ctx context.Context[parser.ILiteralContext],
-	parse func(string, types.Type) (literal.ParsedValue, error),
 	text string,
 ) (types.Type, error) {
-	parsed, err := parse(text, types.String())
-	if err != nil {
-		return types.Type{}, err
+	body, flags, ok := literal.StripQuotes(text)
+	if !ok {
+		return types.Type{}, errors.Newf("invalid string literal: %s", text)
 	}
-	emitLiteralSegment(ctx, parsed.Value.(string))
+	value := body
+	if !flags.Raw {
+		var err error
+		value, err = literal.UnescapeString(body, flags.Multi)
+		if err != nil {
+			return types.Type{}, errors.Wrapf(err, "invalid string literal %s", text)
+		}
+	}
+	if flags.Format {
+		segments, err := literal.FmtStrParse(value)
+		if err != nil {
+			return types.Type{}, err
+		}
+		return EmitFmtSegments(ctx, segments)
+	}
+	emitLiteralSegment(ctx, value)
 	return types.String(), nil
 }
 

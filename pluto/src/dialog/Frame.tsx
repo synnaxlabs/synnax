@@ -278,26 +278,37 @@ export const Frame = ({
   );
 
   const handleEscape = useCallback(
-    ({ stage }: Triggers.UseEvent) => {
+    ({ stage, stopPropagation }: Triggers.UseEvent) => {
       if (
         stage !== "start" ||
         visibleRef.current === false ||
         dialogRef.current == null
       )
         return;
-      if (variant !== "modal") return close();
+      if (variant !== "modal") {
+        close();
+        stopPropagation();
+        return;
+      }
       const dialogEl = dialogRef.current;
       const allModals = Array.from(document.getElementsByClassName(BACKGROUND_CLASS));
       const thisModalIndex = allModals.findIndex((e) => e.contains(dialogEl));
       const children = dialogEl.getElementsByClassName(CSS.visible(true));
-      if (thisModalIndex === allModals.length - 1 && children.length === 0)
-        return close();
+      if (thisModalIndex === allModals.length - 1 && children.length === 0) {
+        close();
+        stopPropagation();
+      }
     },
     [close, variant],
   );
 
   useClickOutside({ ref: dialogRef, exclude, onClickOutside: close });
-  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, loose: true });
+  Triggers.use({
+    triggers: ESCAPE_TRIGGERS,
+    callback: handleEscape,
+    loose: true,
+    priority: 100,
+  });
 
   const internalContextValue: InternalContextValue = useMemo(
     () => ({

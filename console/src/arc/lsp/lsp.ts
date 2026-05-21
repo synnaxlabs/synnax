@@ -71,13 +71,7 @@ const TOKEN_CONFIG = {
   string: {
     dark: "#98C379",
     light: "#0A7D00",
-    scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
-  },
-  // Distinct from `string` to mark verbatim, no-escape semantics.
-  stringRaw: {
-    dark: "#CE9178",
-    light: "#A31515",
-    scopes: ["string.quoted.raw.arc"],
+    scopes: ["string.quoted.arc"],
   },
   stringPlaceholder: {
     dark: "#CC255F",
@@ -111,6 +105,7 @@ const TOKEN_CONFIG = {
       "entity.name.function.arc",
       "support.function.builtin.arc",
       "support.function.arc",
+      "storage.type.string.arc",
     ],
   },
   stage: {
@@ -256,7 +251,7 @@ const createFreighterTransport = ({
 
   const reader: MessageReader = {
     listen: (callback) => {
-      onMessageCallback = callback as (message: Message) => void;
+      onMessageCallback = callback;
       receiveLoop().catch((err) => onErrorCallback?.(err));
       return { dispose: () => (onMessageCallback = null) };
     },

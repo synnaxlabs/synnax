@@ -11,12 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ } from "@/schematic/actions.gen";
+import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
-  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -25,7 +24,7 @@ import {
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+export const SET_CHANNEL_NAME = "sy_schematic_set";
 
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
@@ -36,9 +35,15 @@ const dispatchReqZ = z.object({
   actions: actionZ.array(),
 });
 
+// The server emits this frame as snake_case JSON, but the framer's JSON codec
+// runs snakeToCamel before handing the value to the schema, so this stays in
+// camelCase. seq is the server's monotonic high-water mark used by the store
+// to drop stale echoes; it defaults to 0 to keep frames from servers that
+// predate the field parseable.
 export const scopedActionZ = z.object({
   key: keyZ,
   sessionKey: z.string(),
+  seq: z.number().int().nonnegative().default(0),
   actions: actionZ.array(),
 });
 
@@ -100,13 +105,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
@@ -168,15 +167,8 @@ export class Client {
   }
 }
 
-export const ZERO_LEGEND: Legend = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
 export const ZERO_NEW: New = {
   name: "",
-  legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
   configs: {},

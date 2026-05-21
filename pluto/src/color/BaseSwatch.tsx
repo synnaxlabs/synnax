@@ -89,7 +89,7 @@ export const BaseSwatch = ({
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
-      size={size as Button.ButtonProps["size"]}
+      size={size}
       draggable={draggable}
       onDragStart={handleDragStart}
       style={{

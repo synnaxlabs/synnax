@@ -34,5 +34,4 @@ jobs:
     secrets: inherit
     with:
       directory: freighter/integration
-      ginkgo_flags: -p --randomize-all
       coverage_flag: freighter-integration

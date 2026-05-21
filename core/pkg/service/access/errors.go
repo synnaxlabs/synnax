@@ -10,8 +10,8 @@
 package access
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/errors"
 )
 
-var ErrDenied = errors.Wrap(base.ErrAuth, "access denied")
+var ErrDenied = errors.Wrap(auth.ErrAuth, "access denied")

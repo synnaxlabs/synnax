@@ -32,7 +32,7 @@ export class MockRetriever implements channel.Retriever {
     return normalized.map(
       (key) =>
         new channel.Channel({
-          key: key as number,
+          key,
           name: `channel-${key}`,
           dataType: DataType.FLOAT32,
           isIndex: false,
@@ -58,7 +58,10 @@ const basicRemoteReadFunc =
     );
   };
 
-const retriever = new channel.DebouncedBatchRetriever(new MockRetriever(), 10);
+const retriever = new channel.DebouncedBatchRetriever(
+  new MockRetriever(),
+  TimeSpan.milliseconds(10),
+);
 
 const newCache = (): Cache =>
   new Cache({

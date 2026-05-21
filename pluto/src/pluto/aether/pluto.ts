@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
-import { RoutedWorker } from "@synnaxlabs/x";
 
 import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
@@ -57,10 +56,6 @@ const STORE_CONFIG: flux.StoreConfig<{
 };
 
 export const render = (): void => {
-  // @ts-expect-error - for some reason post-message can't type transfer correctly
-  const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
-  onmessage = w.handle.bind(w);
-
   const REGISTRY: aether.ComponentRegistry = {
     ...alamos.REGISTRY,
     ...button.REGISTRY,
@@ -91,7 +86,6 @@ export const render = (): void => {
   };
 
   void aether.render({
-    comms: w.route("vis"),
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

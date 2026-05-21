@@ -164,16 +164,14 @@ export class WriteAdapter {
         throw new ValidationError(`
         Received a single channel name or key but no series.
         `);
-      if (Array.isArray(series)) {
+      if (Array.isArray(series))
         if (series.some((s) => s instanceof Series || Array.isArray(s)))
           throw new ValidationError(`
           Received a single channel name or key but multiple series.
           `);
 
-        series = series as CrudeSeries;
-      }
       const pld = await this.fetchChannel(columnsOrData);
-      const s = new Series({ data: series as CrudeSeries, dataType: pld.dataType });
+      const s = new Series({ data: series, dataType: pld.dataType });
       return new Frame(pld.key, s);
     }
 

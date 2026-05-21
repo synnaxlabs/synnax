@@ -345,7 +345,8 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 			parser.ArcLexerIDENTIFIER,
 			parser.ArcLexerINTEGER_LITERAL,
 			parser.ArcLexerFLOAT_LITERAL,
-			parser.ArcLexerSTR_LITERAL:
+			parser.ArcLexerSTR_LITERAL,
+			parser.ArcLexerSTR_LITERAL_MULTI:
 			return true
 		}
 	}

@@ -34,16 +34,18 @@ import (
 
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating, retrieving, renaming, and deleting
-// channels, and owns the cluster-wide lease routing logic that was previously
-// held by a separate leaseProxy type.
+// channels, and owns the cluster-wide lease routing logic previously held by a
+// separate leaseProxy type — the two were tightly coupled (the retrieve validator
+// reads proxy state, the proxy needs service indexes) so they're now one struct.
 type Service struct {
 	cfg    ServiceConfig
 	db     *gorp.DB
 	closer io.MultiCloser
 	Writer
-	otg   *ontology.Ontology
-	group group.Group
-	table *gorp.Table[Key, Channel]
+	otg     *ontology.Ontology
+	group   group.Group
+	table   *gorp.Table[Key, Channel]
+	indexes indexes
 	// leasedCounter and freeCounter drive local-key assignment for
 	// gateway-leased and free-virtual channels respectively. freeCounter is
 	// only populated on the bootstrapper node.
@@ -51,6 +53,10 @@ type Service struct {
 	freeCounter   *counter
 	// mu guards externalNonVirtualSet, which tracks the key set used by
 	// validateChannels to enforce the uint20 channel-index overflow limit.
+	// Retrieve.Validate routes through here, and createGateway/deleteGateway
+	// hold the write lock while mutating the set, so internal callers must
+	// use newRetrieve (no validator) to avoid deadlocking against their own
+	// pending writes.
 	mu struct {
 		externalNonVirtualSet *set.Integer[Key]
 		sync.RWMutex
@@ -121,15 +127,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:          cfg,
 		db:           cfg.ClusterDB,
 		otg:          cfg.Ontology,
+		indexes:      newIndexes(),
 		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.ClusterDB,
 		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Channel]("msgpack_to_orc")},
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -143,6 +151,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.leasedCounter, err = openCounter(ctx, cfg.ClusterDB, leasedCounterKey); !ok(err, nil) {
 		return nil, err
 	}
+	// Seed the external/non-virtual key set by scanning the table once at
+	// startup. This is the only call site that unavoidably walks the table —
+	// there is no index for (Internal, Virtual) and the cost is bounded by
+	// how many channels the cluster has accumulated.
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
@@ -181,12 +193,28 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 	return s.table.Observe()
 }
 
-func (s *Service) NewRetrieve() Retrieve {
+// newRetrieve returns a Retrieve without the channel-index overflow
+// validator attached. Internal callers (create / delete / rename paths)
+// must use this instead of NewRetrieve because they run inside the write
+// window that validateChannels' RLock would block on, and because they
+// don't need the overflow check — they already enforce it inline at commit
+// time.
+func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
-		baseTX: s.db,
-		gorp:   s.table.NewRetrieve().Validate(s.validateChannels),
-		search: s.cfg.Search,
+		baseTX:  s.db,
+		gorp:    s.table.NewRetrieve(),
+		search:  s.cfg.Search,
+		indexes: s.indexes,
 	}
+}
+
+// NewRetrieve opens a retrieve query for external callers, with the channel
+// index overflow validator attached to enforce the uint20 cap on retrieved
+// external non-virtual channels.
+func (s *Service) NewRetrieve() Retrieve {
+	r := s.newRetrieve()
+	r.gorp = r.gorp.Validate(s.validateChannels)
+	return r
 }
 
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
@@ -199,10 +227,11 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// validateChannels runs after every Retrieve.Exec and fails the query if any
-// retrieved external non-virtual channel would push the uint20 channel index
-// past the configured overflow limit. Attached via Validate on NewRetrieve so
-// it propagates through the generated Exec/Count/Exists pipeline.
+// validateChannels runs after every Retrieve.Exec (when called via
+// NewRetrieve) and fails the query if any retrieved external non-virtual
+// channel would push the uint20 channel index past the configured overflow
+// limit. Attached via Validate on NewRetrieve so it propagates through the
+// generated Exec/Count/Exists pipeline.
 func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

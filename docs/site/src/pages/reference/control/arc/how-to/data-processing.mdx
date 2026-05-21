@@ -392,13 +392,13 @@ output is in units per second (e.g., psi/second if pressure is in psi).
 
 ## Formatting Status Strings
 
-Backtick format strings build human-readable status messages from live channel values.
-Placeholders inside `{...}` accept any expression, and a `:spec` after the expression
-controls formatting:
+[Format strings](/reference/control/arc/reference/syntax#format-strings) build
+human-readable status messages from live channel values. Placeholders inside `{...}`
+accept any expression, and a `:spec` after the expression controls formatting:
 
 ```arc
 func fmt_pressure(value f64) str {
-    return `Pressure: {value:.2f} psi`
+    return f"Pressure: {value:.2f} psi"
 }
 
 pressure -> fmt_pressure{} -> pressure_status
@@ -413,17 +413,13 @@ Format strings are useful for writing diagnostic outputs:
 ```arc
 func alert(value f64) str {
     if value > 800.0 {
-        return `HIGH PRESSURE: {value:.1f} psi`
+        return f"HIGH PRESSURE: {value:.1f} psi"
     }
-    return `pressure nominal: {value:.1f} psi`
+    return f"pressure nominal: {value:.1f} psi"
 }
 
 pressure -> alert{} -> log
 ```
-
-See
-[Format String Literals](/reference/control/arc/reference/syntax#format-string-literals)
-for the full syntax and supported format specs.
 
 <Divider.Divider x />
 

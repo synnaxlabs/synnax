@@ -31,8 +31,7 @@ import { CSS } from "@/css";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { create } from "@/schematic/Schematic";
-import { fromRemote } from "@/schematic/slice";
+import { create } from "@/schematic/layout";
 
 interface SnapshotCtx {
   client: Client | null;
@@ -50,7 +49,8 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
     icon: <Icon.Schematic />,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
-      placeLayout(create(fromRemote(await client.schematics.retrieve({ key }))));
+      const s = await client.schematics.retrieve({ key });
+      placeLayout(create({ key: s.key, name: s.name, editable: false }));
     },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();

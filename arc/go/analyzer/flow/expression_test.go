@@ -204,7 +204,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 
 	Describe("Raw String Format Literals", func() {
 		It("should create KindConstant for raw string without placeholders", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`static`"))
+			expr := MustSucceed(parser.ParseExpression(`f"static"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -212,12 +212,12 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect(constSym.Kind).To(Equal(symbol.KindConstant))
 		})
 
-		It("should create string_fmt synthetic function for raw string with placeholder", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`v={ox_pt_1}`"))
+		It("should create fmt_str synthetic function for raw string with placeholder", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression(`f"v={ox_pt_1}"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
@@ -225,41 +225,41 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 		})
 
 		It("should track placeholder channel reads on the synthetic function", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`v={ox_pt_1}`"))
+			expr := MustSucceed(parser.ParseExpression(`f"v={ox_pt_1}"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
 			Expect(fnSym.Channels.Read).To(HaveLen(1))
 			Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
 		})
 
 		It("should track multiple placeholder channel reads", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`a={ox_pt_1} b={ox_pt_2}`"))
+			expr := MustSucceed(parser.ParseExpression(`f"a={ox_pt_1} b={ox_pt_2}"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
 			Expect(fnSym.Channels.Read).To(HaveLen(2))
 			Expect(fnSym.Channels.Read[12]).To(Equal("ox_pt_1"))
 			Expect(fnSym.Channels.Read[13]).To(Equal("ox_pt_2"))
 		})
 
 		It("should accept a numeric literal placeholder with format spec", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`x={42%05d}`"))
+			expr := MustSucceed(parser.ParseExpression(`f"x={42%05d}"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 		})
 
-		It("should auto-increment string_fmt names across multiple raw strings", func(bCtx SpecContext) {
-			expr0 := MustSucceed(parser.ParseExpression("`{ox_pt_1}`"))
+		It("should auto-increment fmt_str names across multiple raw strings", func(bCtx SpecContext) {
+			expr0 := MustSucceed(parser.ParseExpression(`f"{ox_pt_1}"`))
 			ctx := context.CreateRoot(bCtx, expr0, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 
-			expr1 := MustSucceed(parser.ParseExpression("`{ox_pt_2}`"))
+			expr1 := MustSucceed(parser.ParseExpression(`f"{ox_pt_2}"`))
 			ctx1 := context.Context[parser.IExpressionContext]{
 				Context:     bCtx,
 				Scope:       ctx.Scope,
@@ -271,16 +271,40 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			flow.AnalyzeSingleExpression(ctx1)
 
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_0"))
-			MustSucceed(ctx.Scope.Resolve(ctx, "string_fmt_1"))
+			MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_0"))
+			MustSucceed(ctx.Scope.Resolve(ctx, "fmt_str_1"))
 		})
 
 		It("should report unmatched opening brace in raw string body", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`{x`"))
+			expr := MustSucceed(parser.ParseExpression(`f"{x"`))
 			ctx := context.CreateRoot(bCtx, expr, testResolver)
 			flow.AnalyzeSingleExpression(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unmatched"))
+		})
+
+		It("should report empty placeholder", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression(`f"pre {} post"`))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("must contain an expression"))
+		})
+
+		It("should report undefined identifier in placeholder", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression(`f"x={unknown_ch}"`))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
+		})
+
+		It("should report invalid format spec for placeholder type", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression(`f"x={ox_pt_1:s}"`))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("invalid format spec"))
 		})
 
 	})

@@ -14,6 +14,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
 
+const renderAttached = (args: Custom.UseRenderArgs, container: HTMLElement | null) => {
+  const utils = renderHook((props: Custom.UseRenderArgs) => Custom.useRender(props), {
+    initialProps: args,
+  });
+  if (container != null) utils.result.current(container);
+  return utils;
+};
+
 describe("Custom.useRender", () => {
   const createMockSpec = (
     overrides?: Partial<schematic.symbol.Spec>,
@@ -56,49 +64,48 @@ describe("Custom.useRender", () => {
   });
 
   describe("early returns", () => {
-    it("should return early when spec is null", () => {
+    it("should not mount anything when spec is null", () => {
       const container = document.createElement("div");
-      const { result } = renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec: undefined,
-        }),
+        },
+        container,
       );
       expect(container.children.length).toBe(0);
-      expect(result.current).toBeUndefined();
     });
 
-    it("should return early when svg is empty", () => {
+    it("should not mount anything when svg is empty", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ svg: "" });
-      const { result } = renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
       expect(container.children.length).toBe(0);
-      expect(result.current).toBeUndefined();
     });
 
-    it("should return early when container is null", () => {
-      const spec = createMockSpec();
-      const { result } = renderHook(() =>
+    it("should return a stable ref callback even when ref never attaches", () => {
+      const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          container: null,
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
-          spec,
+          spec: createMockSpec(),
         }),
       );
-      expect(result.current).toBeUndefined();
+      const first = result.current;
+      rerender();
+      expect(result.current).toBe(first);
+      expect(typeof result.current).toBe("function");
     });
   });
 
@@ -106,14 +113,14 @@ describe("Custom.useRender", () => {
     it("should mount SVG to container", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       expect(container.children.length).toBe(1);
@@ -127,15 +134,15 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const onMount = vi.fn();
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
           onMount,
-        }),
+        },
+        container,
       );
 
       expect(onMount).toHaveBeenCalledTimes(1);
@@ -149,14 +156,14 @@ describe("Custom.useRender", () => {
         svg: '<svg viewBox="0 0 100 100"><rect width="50" height="50"/><circle r="10"/></svg>',
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg");
@@ -171,14 +178,14 @@ describe("Custom.useRender", () => {
         svg: '<svg viewBox="0 0 100 100"><g><rect width="50" height="50"/></g></svg>',
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg");
@@ -187,19 +194,69 @@ describe("Custom.useRender", () => {
     });
   });
 
-  describe("state management", () => {
-    it("should apply inactive state when activeState is not 'active'", () => {
+  describe("auto-heal", () => {
+    it("should mount SVG when ref attaches after the resolving render", () => {
       const container = document.createElement("div");
-      const spec = createMockSpec();
+      const { result, rerender } = renderHook(
+        (props: Custom.UseRenderArgs) => Custom.useRender(props),
+        {
+          initialProps: {
+            orientation: "top",
+            activeState: "inactive",
+            externalScale: 1,
+            spec: undefined,
+          },
+        },
+      );
+      expect(container.children.length).toBe(0);
 
-      renderHook(() =>
+      rerender({
+        orientation: "top",
+        activeState: "inactive",
+        externalScale: 1,
+        spec: createMockSpec(),
+      });
+      result.current(container);
+      expect(container.children.length).toBe(1);
+    });
+
+    it("should re-mount SVG after detach and re-attach with the same spec", () => {
+      const spec = createMockSpec();
+      const { result } = renderHook(() =>
         Custom.useRender({
-          container,
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
         }),
+      );
+
+      const container1 = document.createElement("div");
+      result.current(container1);
+      expect(container1.children.length).toBe(1);
+
+      result.current(null);
+      expect(container1.children.length).toBe(0);
+
+      const container2 = document.createElement("div");
+      result.current(container2);
+      expect(container2.children.length).toBe(1);
+    });
+  });
+
+  describe("state management", () => {
+    it("should apply inactive state when activeState is not 'active'", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+
+      renderAttached(
+        {
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -211,14 +268,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "active",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -230,14 +287,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -249,10 +306,9 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState,
             externalScale: 1,
@@ -262,6 +318,7 @@ describe("Custom.useRender", () => {
           initialProps: { activeState: "inactive" },
         },
       );
+      result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("#333");
@@ -305,14 +362,14 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -327,14 +384,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scale: 2 });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -346,14 +403,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 3,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -365,14 +422,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scale: 2 });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1.5,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -384,10 +441,9 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ externalScale }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState: "inactive",
             externalScale,
@@ -397,6 +453,7 @@ describe("Custom.useRender", () => {
           initialProps: { externalScale: 1 },
         },
       );
+      result.current(container);
 
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.getAttribute("width")).toBe("100");
@@ -411,14 +468,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -433,14 +490,14 @@ describe("Custom.useRender", () => {
         svg: '<svg viewBox="0 0 200 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
@@ -453,10 +510,9 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ orientation }) =>
           Custom.useRender({
-            container,
             orientation,
             activeState: "inactive",
             externalScale: 1,
@@ -466,6 +522,7 @@ describe("Custom.useRender", () => {
           initialProps: { orientation: "left" as location.Outer },
         },
       );
+      result.current(container);
 
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.getAttribute("width")).toBe("100");
@@ -483,14 +540,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scaleStroke: false });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector("rect") as SVGRectElement;
@@ -501,14 +558,14 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ scaleStroke: true });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector("rect") as SVGRectElement;
@@ -530,14 +587,14 @@ describe("Custom.useRender", () => {
         scaleStroke: false,
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const elements = container.querySelectorAll(
@@ -555,10 +612,9 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec();
       const onMount = vi.fn();
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState,
             externalScale: 1,
@@ -569,6 +625,7 @@ describe("Custom.useRender", () => {
           initialProps: { activeState: "inactive" },
         },
       );
+      result.current(container);
 
       expect(onMount).toHaveBeenCalledTimes(1);
       const svgBefore = container.querySelector("svg");
@@ -584,10 +641,9 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const onMount = vi.fn();
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState: "inactive",
             externalScale: 1,
@@ -598,6 +654,7 @@ describe("Custom.useRender", () => {
           initialProps: { spec: createMockSpec() },
         },
       );
+      result.current(container);
 
       expect(onMount).toHaveBeenCalledTimes(1);
 
@@ -615,15 +672,15 @@ describe("Custom.useRender", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
 
-      const { rerender } = renderHook(() =>
+      const { result, rerender } = renderHook(() =>
         Custom.useRender({
-          container,
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
         }),
       );
+      result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const strokeBefore = rect.getAttribute("stroke");
@@ -639,10 +696,9 @@ describe("Custom.useRender", () => {
     it("should remove old SVG when spec changes", () => {
       const container = document.createElement("div");
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ spec }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState: "inactive",
             externalScale: 1,
@@ -656,6 +712,7 @@ describe("Custom.useRender", () => {
           },
         },
       );
+      result.current(container);
 
       expect(container.querySelector(".first")).toBeTruthy();
       expect(container.children.length).toBe(1);
@@ -670,6 +727,24 @@ describe("Custom.useRender", () => {
       expect(container.querySelector(".second")).toBeTruthy();
       expect(container.children.length).toBe(1);
     });
+
+    it("should remove the SVG from the container on detach", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const { result } = renderHook(() =>
+        Custom.useRender({
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        }),
+      );
+      result.current(container);
+      expect(container.children.length).toBe(1);
+
+      result.current(null);
+      expect(container.children.length).toBe(0);
+    });
   });
 
   describe("edge cases", () => {
@@ -680,14 +755,14 @@ describe("Custom.useRender", () => {
       });
 
       expect(() => {
-        renderHook(() =>
-          Custom.useRender({
-            container,
+        renderAttached(
+          {
             orientation: "top",
             activeState: "inactive",
             externalScale: 1,
             spec,
-          }),
+          },
+          container,
         );
       }).not.toThrow();
     });
@@ -721,14 +796,14 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -768,14 +843,14 @@ describe("Custom.useRender", () => {
       });
 
       expect(() => {
-        renderHook(() =>
-          Custom.useRender({
-            container,
+        renderAttached(
+          {
             orientation: "top",
             activeState: "inactive",
             externalScale: 1,
             spec,
-          }),
+          },
+          container,
         );
       }).not.toThrow();
     });
@@ -785,14 +860,14 @@ describe("Custom.useRender", () => {
       const spec = createMockSpec({ states: [] });
 
       expect(() => {
-        renderHook(() =>
-          Custom.useRender({
-            container,
+        renderAttached(
+          {
             orientation: "top",
             activeState: "inactive",
             externalScale: 1,
             spec,
-          }),
+          },
+          container,
         );
       }).not.toThrow();
     });
@@ -814,14 +889,14 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      renderHook(() =>
-        Custom.useRender({
-          container,
+      renderAttached(
+        {
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
-        }),
+        },
+        container,
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
@@ -860,10 +935,9 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState,
             externalScale: 1,
@@ -873,6 +947,7 @@ describe("Custom.useRender", () => {
           initialProps: { activeState: "inactive" },
         },
       );
+      result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("fill")).toBe("blue");
@@ -918,10 +993,9 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState,
             externalScale: 1,
@@ -931,6 +1005,7 @@ describe("Custom.useRender", () => {
           initialProps: { activeState: "inactive" },
         },
       );
+      result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
@@ -985,10 +1060,9 @@ describe("Custom.useRender", () => {
         ],
       });
 
-      const { rerender } = renderHook(
+      const { result, rerender } = renderHook(
         ({ activeState }) =>
           Custom.useRender({
-            container,
             orientation: "top",
             activeState,
             externalScale: 1,
@@ -998,6 +1072,7 @@ describe("Custom.useRender", () => {
           initialProps: { activeState: "inactive" },
         },
       );
+      result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
 

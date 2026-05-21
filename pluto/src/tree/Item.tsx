@@ -52,8 +52,7 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       }}
       gap="small"
       align="center"
-      // Cast rest props - TS can't prove remaining props match after destructuring tree-specific ones
-      {...(rest as Select.ListItemProps<K, Button.ElementType>)}
+      {...rest}
     >
       {hasChildren && (
         <Caret.Animated

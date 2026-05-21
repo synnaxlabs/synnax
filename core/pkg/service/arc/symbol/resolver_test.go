@@ -52,6 +52,21 @@ var _ = Describe("NewResolver", func() {
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
 		Expect(sym.ID).To(Equal(int(ch.Key())))
+		Expect(sym.Renameable).To(BeTrue())
+	})
+
+	It("Should mark internal channels as not Renameable", func(ctx SpecContext) {
+		ch := &channel.Channel{
+			Name:     "resolver_internal_ch",
+			Virtual:  true,
+			Internal: true,
+			DataType: telem.Float32T,
+		}
+		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+		resolver := symbol.NewResolver(dist.Channel, nil)
+		sym := MustSucceed(resolver.Resolve(ctx, "resolver_internal_ch"))
+		Expect(sym.Renameable).To(BeFalse())
 	})
 
 	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
