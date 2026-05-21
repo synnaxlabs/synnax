@@ -157,7 +157,7 @@ export const useRetrieveObservableName = ({
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-const unknownStatusZ = task.statusZ(z.unknown());
+const unknownStatusZ = task.statusZ(z.unknown().optional());
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
@@ -307,7 +307,11 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       store.statuses.onSet((status) => {
         const prevKey = get<string>("key", { optional: true })?.value;
         if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
-        set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
+        set(
+          "status",
+          task.statusZ(z.unknown().optional()).parse(status),
+          RESET_OPTIONS,
+        );
       }),
     ],
   });
