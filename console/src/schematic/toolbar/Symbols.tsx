@@ -607,7 +607,7 @@ export const Symbols = (): ReactElement => {
           placeholder={
             <>
               <Icon.Search />
-              Search Symbols
+              Search symbols
             </>
           }
           size="small"

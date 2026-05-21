@@ -12,7 +12,7 @@ import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {
   key: "meters",
-  name: "Flow Meters",
+  name: "Flowmeters",
   Icon: Icon.Rule,
   symbols: [
     "flowmeterGeneral",
