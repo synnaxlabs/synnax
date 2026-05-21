@@ -90,7 +90,7 @@ type Config struct {
 	// telemetry occupying the given timestamp already exists for the provided keys, the
 	// writer will fail to open.
 	//
-	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndexing is true.
+	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -103,19 +103,19 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// AutoIndexing causes each leaseholder to generate timestamps for any index channel
+	// AutoIndex causes each leaseholder to generate timestamps for any index channel
 	// local to it (and in the writer's Keys) whose series is omitted from a Write
 	// frame. The first sample in each Write call is stamped with telem.Now() on the
 	// leaseholder that owns the index; remaining samples in the same call are spaced
 	// 1ns apart. A per-leaseholder high-water mark guarantees strict monotonicity
 	// across Write calls for indexes owned by that leaseholder.
 	//
-	// When AutoIndexing is true and the caller's Keys reference data channels whose
-	// index channels are not also in Keys, those index channels are implicitly added to
-	// the writer at open time so the storage layer opens them for writing.
+	// When AutoIndex is true and the caller's Keys reference data channels whose index
+	// channels are not also in Keys, those index channels are implicitly added to the
+	// writer at open time so the storage layer opens them for writing.
 	//
 	// [OPTIONAL] - Defaults to false.
-	AutoIndexing *bool `json:"auto_indexing" msgpack:"auto_indexing"`
+	AutoIndex *bool `json:"auto_index" msgpack:"auto_index"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -155,7 +155,7 @@ func DefaultConfig() Config {
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
-		AutoIndexing:             new(false),
+		AutoIndex:                new(false),
 	}
 }
 
@@ -181,7 +181,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 		Sync:                     c.Sync,
-		AutoIndexing:             c.AutoIndexing,
+		AutoIndex:                c.AutoIndex,
 	}
 }
 
@@ -193,7 +193,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	validate.NotNil(v, "sync", c.Sync)
 	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
-	validate.NotNil(v, "auto_indexing", c.AutoIndexing)
+	validate.NotNil(v, "auto_index", c.AutoIndex)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -215,7 +215,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.Sync = override.Nil(c.Sync, other.Sync)
-	c.AutoIndexing = override.Nil(c.AutoIndexing, other.AutoIndexing)
+	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
 }
 

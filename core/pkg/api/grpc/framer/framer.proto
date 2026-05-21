@@ -60,7 +60,7 @@ message WriterConfig {
   bool enable_auto_commit = 6;
   int64 auto_index_persist_interval = 7;
   bool err_on_unauthorized = 8;
-  bool auto_indexing = 9;
+  bool auto_index = 9;
 }
 
 message WriterRequest {

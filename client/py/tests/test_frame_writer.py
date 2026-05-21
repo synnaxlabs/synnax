@@ -104,15 +104,15 @@ class TestWriter:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
 
-    def test_auto_indexing_generates_timestamps_for_data_only_writer(
+    def test_auto_index_generates_timestamps_for_data_only_writer(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should generate timestamps for a writer opened with only a data channel
-        when auto_indexing is true."""
+        when auto_index is true."""
         idx_ch, data_ch = indexed_pair
         before = sy.TimeStamp.now()
         with client.open_writer(
-            start=before, channels=[data_ch.key], auto_indexing=True
+            start=before, channels=[data_ch.key], auto_index=True
         ) as w:
             data = np.random.rand(4).astype(np.float64)
             w.write({data_ch.key: data})
@@ -122,7 +122,7 @@ class TestWriter:
         )
         assert len(f) == 4
 
-    def test_auto_indexing_omitted_index_in_mixed_writer(
+    def test_auto_index_omitted_index_in_mixed_writer(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should auto-stamp the index when the caller opens with both index and data
@@ -130,7 +130,7 @@ class TestWriter:
         idx_ch, data_ch = indexed_pair
         before = sy.TimeStamp.now()
         with client.open_writer(
-            start=before, channels=[idx_ch.key, data_ch.key], auto_indexing=True
+            start=before, channels=[idx_ch.key, data_ch.key], auto_index=True
         ) as w:
             data = np.random.rand(3).astype(np.float64)
             w.write({data_ch.key: data})
@@ -140,7 +140,7 @@ class TestWriter:
         )
         assert len(f) == 3
 
-    def test_auto_indexing_mixes_user_provided_and_generated_in_one_writer(
+    def test_auto_index_mixes_user_provided_and_generated_in_one_writer(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should let a single writer alternate between user-provided and auto-stamped
@@ -151,7 +151,7 @@ class TestWriter:
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
             channels=[idx_ch.key, data_ch.key],
-            auto_indexing=True,
+            auto_index=True,
         ) as w:
             w.write(
                 {
@@ -171,17 +171,17 @@ class TestWriter:
         )
         assert len(auto_f) == 3
 
-    def test_auto_indexing_leaves_user_provided_index_untouched(
+    def test_auto_index_leaves_user_provided_index_untouched(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):
         """Should leave user-provided index timestamps exactly as written when
-        auto_indexing is enabled."""
+        auto_index is enabled."""
         idx_ch, data_ch = indexed_pair
         expected = seconds_linspace(200, 3)
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
             channels=[idx_ch.key, data_ch.key],
-            auto_indexing=True,
+            auto_index=True,
         ) as w:
             w.write(
                 {

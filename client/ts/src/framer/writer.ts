@@ -60,14 +60,14 @@ const baseWriterConfigZ = z.object({
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
   /** authorities set the control authority to set for each channel on the writer.
-   * Defaults to absolute authority. If not working with concurrent control,
-   * it's best to leave this as the default.
+   * Defaults to absolute authority. If not working with concurrent control, it's best
+   * to leave this as the default.
    */
   authorities: z
     .union([control.authorityZ.transform((a) => [a]), control.authorityZ.array()])
     .default([control.ABSOLUTE_AUTHORITY]),
-  /** mode sets the persistence and streaming mode of the writer. The default
-   * mode is WriterModePersistStream.
+  /** mode sets the persistence and streaming mode of the writer. The default mode is
+   * WriterModePersistStream.
    */
   mode: writerModeZ.default(WriterMode.PersistStream),
   /**
@@ -76,23 +76,23 @@ const baseWriterConfigZ = z.object({
    */
   errOnUnauthorized: z.boolean().default(false),
   /**
-   * enableAutoCommit determines whether the writer will automatically commit.
-   * If enableAutoCommit is true, then the writer will commit after each write, and
-   * will flush that commit to index after the specified autoIndexPersistInterval.
+   * enableAutoCommit determines whether the writer will automatically commit. If
+   * enableAutoCommit is true, then the writer will commit after each write, and will
+   * flush that commit to index after the specified autoIndexPersistInterval.
    */
   enableAutoCommit: z.boolean().default(true),
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
   /**
-   * autoIndexing causes Synnax to automatically generate timestamps for any index
-   * channel that is not included in a write call. The first sample in each write is
-   * stamped at the time the write is received, and subsequent samples are spaced 1
-   * nanosecond apart. Generated timestamps are guaranteed to be strictly monotonic
-   * across all writes on the writer. If the writer is opened with data channels whose
-   * index channels are not included, those index channels are added implicitly.
+   * autoIndex causes Synnax to automatically generate timestamps for any index channel
+   * that is not included in a write call. The first sample in each write is stamped at
+   * the time the write is received, and subsequent samples are spaced 1 nanosecond
+   * apart. Generated timestamps are guaranteed to be strictly monotonic across all
+   * writes on the writer. If the writer is opened with data channels whose index
+   * channels are not included, those index channels are added implicitly.
    */
-  autoIndexing: z.boolean().default(false),
+  autoIndex: z.boolean().default(false),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({

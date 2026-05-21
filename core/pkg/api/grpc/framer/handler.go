@@ -94,7 +94,7 @@ func (t frameWriterRequestTranslator) Forward(
 			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
 			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
-			AutoIndexing:             msg.Config.AutoIndexing,
+			AutoIndex:                msg.Config.AutoIndex,
 		},
 	}
 	if t.codec != nil && t.codec.Initialized() && !msg.Frame.Empty() {
@@ -132,7 +132,7 @@ func (t frameWriterRequestTranslator) Backward(
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
 			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
-			AutoIndexing:             msg.Config.AutoIndexing,
+			AutoIndex:                msg.Config.AutoIndex,
 		}
 		if t.codec != nil {
 			if err = t.codec.Update(ctx, keys); err != nil {

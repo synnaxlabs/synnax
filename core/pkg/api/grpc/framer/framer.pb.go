@@ -228,7 +228,7 @@ type WriterConfig struct {
 	EnableAutoCommit         bool                   `protobuf:"varint,6,opt,name=enable_auto_commit,json=enableAutoCommit,proto3" json:"enable_auto_commit,omitempty"`
 	AutoIndexPersistInterval int64                  `protobuf:"varint,7,opt,name=auto_index_persist_interval,json=autoIndexPersistInterval,proto3" json:"auto_index_persist_interval,omitempty"`
 	ErrOnUnauthorized        bool                   `protobuf:"varint,8,opt,name=err_on_unauthorized,json=errOnUnauthorized,proto3" json:"err_on_unauthorized,omitempty"`
-	AutoIndexing             bool                   `protobuf:"varint,9,opt,name=auto_indexing,json=autoIndexing,proto3" json:"auto_indexing,omitempty"`
+	AutoIndex                bool                   `protobuf:"varint,9,opt,name=auto_index,json=autoIndex,proto3" json:"auto_index,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -319,9 +319,9 @@ func (x *WriterConfig) GetErrOnUnauthorized() bool {
 	return false
 }
 
-func (x *WriterConfig) GetAutoIndexing() bool {
+func (x *WriterConfig) GetAutoIndex() bool {
 	if x != nil {
-		return x.AutoIndexing
+		return x.AutoIndex
 	}
 	return false
 }
@@ -671,7 +671,7 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x16\n" +
-	"\x06buffer\x18\b \x01(\fR\x06buffer\"\xf0\x02\n" +
+	"\x06buffer\x18\b \x01(\fR\x06buffer\"\xea\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12 \n" +
 	"\vauthorities\x18\x02 \x03(\rR\vauthorities\x12\x14\n" +
@@ -680,8 +680,9 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
-	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\x12#\n" +
-	"\rauto_indexing\x18\t \x01(\bR\fautoIndexing\"\x9d\x01\n" +
+	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\x12\x1d\n" +
+	"\n" +
+	"auto_index\x18\t \x01(\bR\tautoIndex\"\x9d\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +

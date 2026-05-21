@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Writer AutoIndexing", func() {
+var _ = Describe("Writer AutoIndex", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
@@ -49,7 +49,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					before := telem.Now()
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
@@ -77,7 +77,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
@@ -106,7 +106,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 						Start:        100 * telem.SecondTS,
 					}))
@@ -141,7 +141,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					future := telem.Now() + telem.HourTS
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -169,7 +169,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					before := telem.Now()
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					explicit := before + 10*telem.MillisecondTS
@@ -208,7 +208,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					before := telem.Now()
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data, virtual},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -242,7 +242,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data1, data2},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -278,7 +278,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					before := telem.Now()
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data1, data2},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -316,7 +316,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data1, data2},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -351,7 +351,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{idx1, data1, data2},
 						Start:        100 * telem.SecondTS,
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.MultiFrame(
@@ -375,7 +375,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 			})
 
 			Describe("Default Start", func() {
-				It("Defaults Start to telem.Now() when AutoIndexing is true and Start is zero", func(ctx SpecContext) {
+				It("Defaults Start to telem.Now() when AutoIndex is true and Start is zero", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
 						data = GenerateChannelKey()
@@ -389,7 +389,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					before := telem.Now()
 					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
@@ -414,7 +414,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 					}))
 					Expect(w.Write(telem.MultiFrame(
@@ -440,7 +440,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
-						AutoIndexing: new(true),
+						AutoIndex: new(true),
 						Sync:         new(true),
 						Start:        50 * telem.SecondTS,
 					}))
@@ -464,7 +464,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 			})
 
 			Describe("Disabled", func() {
-				It("Should reject a frame missing the index when AutoIndexing is false", func(ctx SpecContext) {
+				It("Should reject a frame missing the index when AutoIndex is false", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
 						data = GenerateChannelKey()
@@ -501,7 +501,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(50)},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA"},
@@ -545,7 +545,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 							control.Authority(50),
 							control.Authority(50),
 						},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_max"},
@@ -598,7 +598,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 							control.Authority(50),
 							control.Authority(50),
 						},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_bcast"},
@@ -644,7 +644,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 							control.Authority(200),
 							control.Authority(200),
 						},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_lower"},
@@ -690,7 +690,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data1, data2},
 						Authorities:    []control.Authority{control.Authority(50)},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_chain"},
@@ -735,7 +735,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(50)},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "wA_explicit"},
@@ -781,7 +781,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:       []cesium.ChannelKey{data},
 						Authorities:    []control.Authority{control.Authority(150)},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "open_wA"},
@@ -827,7 +827,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 							control.Authority(50),
 							control.Authority(200),
 						},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "open_max_wA"},
@@ -875,7 +875,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 							control.Authority(80),
 							control.Authority(180),
 						},
-						AutoIndexing:   new(true),
+						AutoIndex:   new(true),
 						Sync:           new(true),
 						Start:          1 * telem.SecondTS,
 						ControlSubject: control.Subject{Key: "open_perindex_wA"},
