@@ -329,9 +329,9 @@ type ImportEntry struct {
 	AST   IImportItemContext
 }
 
-// ImportPathText returns the dotted source text of an importPath.
+// importPathText returns the dotted source text of an importPath.
 // AUTHORITY is a lexer keyword, so the head is read separately.
-func ImportPathText(p IImportPathContext) string {
+func importPathText(p IImportPathContext) string {
 	var b strings.Builder
 	if head := p.ImportPathHead(); head != nil {
 		if id := head.IDENTIFIER(); id != nil {
@@ -347,15 +347,15 @@ func ImportPathText(p IImportPathContext) string {
 	return b.String()
 }
 
-// ImportAlias returns the user-visible alias: the AS clause identifier
+// importAlias returns the user-visible alias: the AS clause identifier
 // when present, otherwise the last path segment.
-func ImportAlias(item IImportItemContext) string {
+func importAlias(item IImportItemContext) string {
 	if item.AS() != nil {
 		if id := item.IDENTIFIER(); id != nil {
 			return id.GetText()
 		}
 	}
-	path := ImportPathText(item.ImportPath())
+	path := importPathText(item.ImportPath())
 	if idx := strings.LastIndexByte(path, '.'); idx >= 0 {
 		return path[idx+1:]
 	}
@@ -375,8 +375,8 @@ func Imports(prog IProgramContext) []ImportEntry {
 		}
 		for _, imp := range stmt.AllImportItem() {
 			entries = append(entries, ImportEntry{
-				Path:  ImportPathText(imp.ImportPath()),
-				Alias: ImportAlias(imp),
+				Path:  importPathText(imp.ImportPath()),
+				Alias: importAlias(imp),
 				AST:   imp,
 			})
 		}
