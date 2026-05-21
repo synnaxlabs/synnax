@@ -1383,10 +1383,8 @@ time.wait{duration=500ms} -> output`
 				    ch = ch + 1
 				}
 
-				func alarm{} (value f64) {}
-
 				demux{threshold=100.0} -> {
-				    high: increment{ch=counter} -> alarm{}
+				    high: increment{ch=counter}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
