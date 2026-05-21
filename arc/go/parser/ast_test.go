@@ -199,11 +199,11 @@ var _ = Describe("AST Utilities", func() {
 		})
 
 		It("Should collect multiple modules in one block", func() {
-			prog := MustSucceed(parser.Parse(`import ( time authority status )`))
+			prog := MustSucceed(parser.Parse(`import ( time math status )`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(3))
 			Expect(entries[0].Path).To(Equal("time"))
-			Expect(entries[1].Path).To(Equal("authority"))
+			Expect(entries[1].Path).To(Equal("math"))
 			Expect(entries[2].Path).To(Equal("status"))
 		})
 
@@ -213,14 +213,6 @@ var _ = Describe("AST Utilities", func() {
 			Expect(entries).To(HaveLen(1))
 			Expect(entries[0].Path).To(Equal("time"))
 			Expect(entries[0].Alias).To(Equal("t"))
-		})
-
-		It("Should treat AUTHORITY as a valid path head", func() {
-			prog := MustSucceed(parser.Parse(`import authority`))
-			entries := parser.Imports(prog)
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0].Path).To(Equal("authority"))
-			Expect(entries[0].Alias).To(Equal("authority"))
 		})
 
 		It("Should join hierarchical path segments with dots", func() {
@@ -246,12 +238,12 @@ var _ = Describe("AST Utilities", func() {
 		It("Should collect items across multiple import statements", func() {
 			prog := MustSucceed(parser.Parse(`
 				import time
-				import authority
+				import math
 			`))
 			entries := parser.Imports(prog)
 			Expect(entries).To(HaveLen(2))
 			Expect(entries[0].Path).To(Equal("time"))
-			Expect(entries[1].Path).To(Equal("authority"))
+			Expect(entries[1].Path).To(Equal("math"))
 		})
 	})
 })

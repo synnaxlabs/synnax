@@ -59,8 +59,8 @@ public:
         const auto node_key = cfg.node.key;
         // Strip module prefix from the node type so factories only match bare
         // names. The compiler emits qualified names (e.g. "time.interval",
-        // "authority.set") into the IR; normalizing here keeps prefix awareness
-        // out of individual factories.
+        // "control.set_authority") into the IR; normalizing here keeps prefix
+        // awareness out of individual factories.
         std::string module_prefix;
         if (auto dot = cfg.node.type.rfind('.'); dot != std::string::npos) {
             module_prefix = cfg.node.type.substr(0, dot);

@@ -871,14 +871,6 @@ func add(a i32, b i32) i32 {
 			Expect(foundFunction).To(BeTrue())
 		})
 
-		It("should tokenize keyword as variable when used as module prefix", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "authority.set{value=255}")
-			tokens := SemanticTokens(server, ctx, uri)
-			Expect(tokens).ToNot(BeNil())
-			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
-			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
-		})
-
 		It("should tokenize keyword normally when not a module prefix", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "authority 200")
 			tokens := SemanticTokens(server, ctx, uri)

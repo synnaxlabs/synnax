@@ -317,15 +317,6 @@ func classifyTokenAt(
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
 		return classifyIdentifierAt(ctx, t.GetText(), line1, col0, docIR.Symbols)
 	}
-	// AUTHORITY followed by DOT is a leftover legacy use of the keyword as a
-	// module prefix; the analyzer no longer recognizes "authority" as a module
-	// (it has been renamed to "control") but the grammar still parses the form
-	// so users get an analyzer error rather than a parse error. Color it as a
-	// namespace/variable instead of a keyword for that case.
-	if antlrType == parser.ArcLexerAUTHORITY && nextTokenType == parser.ArcLexerDOT {
-		tokenType := uint32(SemanticTokenTypeVariable)
-		return &tokenType
-	}
 	return mapLexerTokenType(antlrType)
 }
 

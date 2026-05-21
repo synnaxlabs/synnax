@@ -46,7 +46,6 @@ var _ = Describe("Formatter", func() {
 		Entry("aliased collapses to bare form", "import (time as t)", "import time as t\n"),
 		Entry("bare aliased stays bare", "import time as t", "import time as t\n"),
 		Entry("hierarchical path collapses to bare form", "import (math.trig)", "import math.trig\n"),
-		Entry("authority keyword collapses to bare form", "import (authority)", "import authority\n"),
 		Entry("multiple modules expand to multi-line block",
 			"import (time math status)",
 			"import (\n    time\n    math\n    status\n)\n"),

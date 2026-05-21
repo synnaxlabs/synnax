@@ -167,7 +167,7 @@ var _ = Describe("Authority Analyzer", func() {
 		It("Should allow multiple imports before the authority declaration", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
 				import time
-				import authority
+				import math
 				authority 200
 			`))
 			ctx := acontext.CreateRoot(specCtx, prog, root)

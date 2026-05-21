@@ -1093,12 +1093,6 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 func (p *printer) needsNewlineBefore(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerAUTHORITY:
-		// AUTHORITY also names an importable module; `import authority` or
-		// `import ( authority )` shouldn't break onto a new line.
-		if tokType == parser.ArcLexerAUTHORITY &&
-			(p.inImportParenContext() || p.lastTokenType == parser.ArcLexerIMPORT) {
-			return false
-		}
 		return p.prevToken != nil && p.lastTokenType != parser.ArcLexerRBRACE
 	case parser.ArcLexerSTAGE:
 		return p.prevToken != nil
