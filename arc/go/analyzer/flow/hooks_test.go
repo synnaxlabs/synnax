@@ -16,6 +16,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,21 +28,19 @@ var _ = Describe("AnalyzeFlowConfig hook", func() {
 			configAST parser.IConfigValuesContext
 		)
 		params := types.Params{{Name: "x", Type: types.I32()}}
-		r := symbol.MapResolver{
-			"trig": {Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-			"hooked": {
-				Name: "hooked",
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecBoth,
-				Type: types.Function(types.FunctionProperties{Config: params, Inputs: params}),
-				AnalyzeFlowConfig: symbol.FlowConfigHook(func(_ any, c parser.IConfigValuesContext) {
-					called++
-					configAST = c
-				}),
-			},
+		trig := symbol.Symbol{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1}
+		hooked := symbol.Symbol{
+			Name: "hooked",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecBoth,
+			Type: types.Function(types.FunctionProperties{Config: params, Inputs: params}),
+			AnalyzeFlowConfig: symbol.FlowConfigHook(func(_ any, c parser.IConfigValuesContext) {
+				called++
+				configAST = c
+			}),
 		}
 		ast := MustSucceed(parser.Parse(`trig -> hooked{x=1}`))
-		ctx := acontext.CreateRoot(bCtx, ast, r)
+		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, hooked))
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		Expect(called).To(Equal(1))
@@ -50,17 +49,15 @@ var _ = Describe("AnalyzeFlowConfig hook", func() {
 
 	It("Should not invoke the hook when the symbol does not define one", func(bCtx SpecContext) {
 		params := types.Params{{Name: "x", Type: types.I32()}}
-		r := symbol.MapResolver{
-			"trig": {Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-			"plain": {
-				Name: "plain",
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecBoth,
-				Type: types.Function(types.FunctionProperties{Config: params, Inputs: params}),
-			},
+		trig := symbol.Symbol{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1}
+		plain := symbol.Symbol{
+			Name: "plain",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecBoth,
+			Type: types.Function(types.FunctionProperties{Config: params, Inputs: params}),
 		}
 		ast := MustSucceed(parser.Parse(`trig -> plain{x=1}`))
-		ctx := acontext.CreateRoot(bCtx, ast, r)
+		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, trig, plain))
 		Expect(func() { analyzer.AnalyzeProgram(ctx) }).ToNot(Panic())
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})

@@ -20,6 +20,8 @@
 
 namespace arc::stl::series {
 
+inline constexpr const char *MODULE_NAME = "series";
+
 class Module : public stl::Module {
     std::shared_ptr<State> series_state;
 

@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -112,11 +112,11 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("authority.set{}"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority{}"))
 		})
 
-		It("should provide hover for 'authority.set' function", func(ctx SpecContext) {
-			content := "authority.set{value=255}"
+		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
+			content := "control.set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -127,7 +127,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### authority.set"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### control.set_authority"))
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
@@ -605,15 +605,11 @@ func add(a i32, b i32) i32 {
 
 	Describe("GlobalResolver", func() {
 		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
@@ -623,30 +619,30 @@ func add(a i32, b i32) i32 {
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
 		})
 
-		It("should serve Symbol.Doc from the GlobalResolver", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"docced": symbol.Symbol{
+		It("should serve Symbol.Doc from an ambient global", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{
 					Name: "docced",
 					Type: types.I32(),
 					Kind: symbol.KindVariable,
-					Doc:  "#### docced\n\nDoc supplied by the GlobalResolver.",
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Doc:  "#### docced\n\nDoc supplied by an ambient global.",
+				})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return docced\n}")
 			hover := Hover(server, ctx, uri, 1, 12)
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("Doc supplied by the GlobalResolver"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Doc supplied by an ambient global"))
 		})
 	})
 
 	Describe("Qualified Module Identifiers", func() {
 		It("Should provide hover for qualified module function", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -659,7 +655,9 @@ func add(a i32, b i32) i32 {
 
 		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -832,15 +830,11 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"sensorData": symbol.Symbol{
-					Name: "sensorData",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "sensorData",
 					Type: types.Chan(types.F64()),
-					Kind: symbol.KindChannel,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindChannel})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() { x := sensorData }")
@@ -876,14 +870,6 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(foundFunction).To(BeTrue())
-		})
-
-		It("should tokenize keyword as variable when used as module prefix", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "authority.set{value=255}")
-			tokens := SemanticTokens(server, ctx, uri)
-			Expect(tokens).ToNot(BeNil())
-			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
-			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
 		})
 
 		It("should tokenize keyword normally when not a module prefix", func(ctx SpecContext) {

@@ -27,7 +27,11 @@ type ProgramState struct {
 	configStringCounter uint32
 }
 
-// NewProgramState creates a new ProgramState.
+// NewProgramState creates a new strings ProgramState.
+//
+// ProgramState is program-scoped (one instance per running Arc program). It
+// follows the codebase convention of using ProgramState for program-level
+// runtime data, distinct from node-level State in runtime/node.
 func NewProgramState() *ProgramState {
 	return &ProgramState{
 		strings:             make(map[uint32]string),

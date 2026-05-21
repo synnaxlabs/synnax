@@ -17,12 +17,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	arctest "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -100,76 +100,49 @@ func deleteConfig(keyOrName string) types.Params {
 	}
 }
 
-var _ = Describe("SymbolResolver", func() {
-	Describe("Resolve", func() {
-		It("Should resolve status.set by qualified name", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.set"))
-			Expect(sym.Name).To(Equal("set"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-			Expect(sym.Exec).To(Equal(symbol.ExecBoth))
+var _ = Describe("Symbols", func() {
+	statusModule := func() *symbol.Symbol {
+		for _, s := range arcstatus.Symbols {
+			if s.Kind == symbol.KindModule && s.Name == "status" {
+				return s
+			}
+		}
+		return nil
+	}
+
+	Describe("Module shape", func() {
+		It("Should expose a single 'status' module", func() {
+			mod := statusModule()
+			Expect(mod).ToNot(BeNil())
+			Expect(mod.Name).To(Equal("status"))
+			Expect(mod.Kind).To(Equal(symbol.KindModule))
 		})
 
-		It("Should resolve status.delete by qualified name", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.delete"))
-			Expect(sym.Name).To(Equal("delete"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-			Expect(sym.Exec).To(Equal(symbol.ExecBoth))
-		})
-
-		It("Should not resolve the deprecated bare set_status", func(ctx SpecContext) {
-			Expect(arcstatus.SymbolResolver.Resolve(ctx, "set_status")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should not resolve the bare member name without the module prefix", func(ctx SpecContext) {
-			Expect(arcstatus.SymbolResolver.Resolve(ctx, "set")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should return ErrNotFound for an unknown name", func(ctx SpecContext) {
-			Expect(arcstatus.SymbolResolver.Resolve(ctx, "unknown")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Search", func() {
-		// ModuleResolver.Search strips a "status." prefix and delegates to MapResolver.
-
-		It("Should return [set] for a prefix matching 'set'", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set"))
-		})
-
-		It("Should return [delete] for a prefix matching 'delete'", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "delete"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("delete"))
-		})
-
-		It("Should return [set] for the qualified 'status.set' term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "status.set"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set"))
-		})
-
-		It("Should return both members when searching for the bare module prefix", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "status."))
-			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
+		It("Should expose set and delete as the only members", func() {
+			children := statusModule().Children()
+			names := make([]string, len(children))
+			for i, c := range children {
+				names[i] = c.Name
+			}
 			Expect(names).To(ConsistOf("set", "delete"))
 		})
 
-		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "nonexistent"))
-			Expect(results).To(BeEmpty())
+		It("Should not expose a deprecated bare set_status symbol", func() {
+			for _, s := range arcstatus.Symbols {
+				Expect(s.Name).ToNot(Equal("set_status"))
+			}
 		})
 	})
 
 	Describe("Type Signature", func() {
 		Describe("status.set", func() {
-			var sym symbol.Symbol
-			BeforeEach(func(ctx SpecContext) {
-				sym = MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.set"))
+			var sym *symbol.Symbol
+			BeforeEach(func() { sym = statusModule().FindChild("set") })
+
+			It("Should be a KindFunction with ExecBoth", func() {
+				Expect(sym).ToNot(BeNil())
+				Expect(sym.Kind).To(Equal(symbol.KindFunction))
+				Expect(sym.Exec).To(Equal(symbol.ExecBoth))
 			})
 
 			It("Should be a function type", func() {
@@ -198,9 +171,13 @@ var _ = Describe("SymbolResolver", func() {
 		})
 
 		Describe("status.delete", func() {
-			var sym symbol.Symbol
-			BeforeEach(func(ctx SpecContext) {
-				sym = MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.delete"))
+			var sym *symbol.Symbol
+			BeforeEach(func() { sym = statusModule().FindChild("delete") })
+
+			It("Should be a KindFunction with ExecBoth", func() {
+				Expect(sym).ToNot(BeNil())
+				Expect(sym.Kind).To(Equal(symbol.KindFunction))
+				Expect(sym.Exec).To(Equal(symbol.ExecBoth))
 			})
 
 			It("Should have one string config parameter", func() {
@@ -271,19 +248,6 @@ var _ = Describe("Module", func() {
 
 		It("Should accept SetMemory without panicking", func() {
 			Expect(func() { mod.SetMemory(nil) }).ToNot(Panic())
-		})
-	})
-
-	Describe("Resolve / Search", func() {
-		It("Should delegate Resolve to SymbolResolver", func(ctx SpecContext) {
-			sym := MustSucceed(mod.Resolve(ctx, "status.set"))
-			Expect(sym.Name).To(Equal("set"))
-		})
-
-		It("Should delegate Search to SymbolResolver", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "delete"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("delete"))
 		})
 	})
 
@@ -608,21 +572,27 @@ var _ = Describe("deleteNode.Next", func() {
 
 var _ = Describe("Analyzer hooks", func() {
 	// Exercise compile-time variant validation through text.Analyze.
-	channelResolver := symbol.MapResolver{
-		"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-		"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 2},
+	channels := []symbol.Symbol{
+		{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+		{Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 2},
 	}
-	resolver := symbol.CompoundResolver{arcstatus.SymbolResolver, channelResolver}
+	buildRoot := func() *symbol.Symbol {
+		root := symboltestutil.NewRoot(nil, channels...)
+		for _, s := range arcstatus.Symbols {
+			root.Parent.AddChild(s)
+		}
+		return root
+	}
 
 	analyzeOK := func(ctx context.Context, src string) bool {
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
-		_, diags := text.Analyze(ctx, parsed, resolver)
+		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		return diags.Ok()
 	}
 
 	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
 		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
-		_, diags := text.Analyze(ctx, parsed, resolver)
+		_, diags := text.Analyze(ctx, parsed, buildRoot())
 		Expect(diags.Ok()).To(BeFalse())
 		errs := diags.Errors()
 		Expect(errs).ToNot(BeEmpty())
@@ -639,27 +609,27 @@ var _ = Describe("Analyzer hooks", func() {
 	Describe("flow form (analyzeStatusSetFlowConfig)", func() {
 		It("Should flag an invalid variant in named config", func(ctx SpecContext) {
 			expectInvalidVariantError(ctx,
-				`sensor -> status.set{key_or_name="alarm", message="bad", variant="bogus"}`,
+				"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"bogus\"}",
 				"bogus")
 		})
 
 		It("Should reject upper-cased variants (case-sensitive)", func(ctx SpecContext) {
 			expectInvalidVariantError(ctx,
-				`sensor -> status.set{key_or_name="alarm", message="bad", variant="SUCCESS"}`,
+				"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"SUCCESS\"}",
 				"SUCCESS")
 		})
 
 		It("Should accept a valid variant", func(ctx SpecContext) {
 			Expect(analyzeOK(ctx,
-				`sensor -> status.set{key_or_name="alarm", message="ok", variant="success"}`,
+				"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"ok\", variant=\"success\"}",
 			)).To(BeTrue())
 		})
 
 		It("Should not flag a missing variant entry", func(ctx SpecContext) {
 			// No variant key set; analyzer skips silently. We only assert that no
 			// "not a valid variant" diagnostic fires.
-			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b"}`}))
-			_, diags := text.Analyze(ctx, parsed, resolver)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\"}"}))
+			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
 			}
@@ -667,19 +637,19 @@ var _ = Describe("Analyzer hooks", func() {
 
 		It("Should flag an invalid variant in anonymous (positional) config", func(ctx SpecContext) {
 			expectInvalidVariantError(ctx,
-				`sensor -> status.set{"alarm", "bad", "bogus"}`,
+				"import status\nsensor -> status.set{\"alarm\", \"bad\", \"bogus\"}",
 				"bogus")
 		})
 
 		It("Should accept a valid variant in anonymous (positional) config", func(ctx SpecContext) {
 			Expect(analyzeOK(ctx,
-				`sensor -> status.set{"alarm", "ok", "success"}`,
+				"import status\nsensor -> status.set{\"alarm\", \"ok\", \"success\"}",
 			)).To(BeTrue())
 		})
 
 		It("Should not flag positional config that omits the variant slot", func(ctx SpecContext) {
-			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{"a", "b"}`}))
-			_, diags := text.Analyze(ctx, parsed, resolver)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: "import status\nsensor -> status.set{\"a\", \"b\"}"}))
+			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
 			}
@@ -689,19 +659,19 @@ var _ = Describe("Analyzer hooks", func() {
 	Describe("func form (analyzeStatusSetCall)", func() {
 		It("Should flag an invalid variant in a call", func(ctx SpecContext) {
 			expectInvalidVariantError(ctx,
-				`func body() { status.set("alarm", "bad", "bogus") }`,
+				"import status\nfunc body() { status.set(\"alarm\", \"bad\", \"bogus\") }",
 				"bogus")
 		})
 
 		It("Should accept a valid variant in a call", func(ctx SpecContext) {
 			Expect(analyzeOK(ctx,
-				`func body() { status.set("alarm", "ok", "success") }`,
+				"import status\nfunc body() { status.set(\"alarm\", \"ok\", \"success\") }",
 			)).To(BeTrue())
 		})
 
 		It("Should not flag a call with fewer than 3 args", func(ctx SpecContext) {
-			parsed := MustSucceed(text.Parse(text.Text{Raw: `func body() { status.set("a", "b") }`}))
-			_, diags := text.Analyze(ctx, parsed, resolver)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: "import status\nfunc body() { status.set(\"a\", \"b\") }"}))
+			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
 			}
@@ -710,8 +680,8 @@ var _ = Describe("Analyzer hooks", func() {
 
 	Describe("checkVariantLiteral (non-literal variant expressions)", func() {
 		It("Should not flag a non-string-literal variant", func(ctx SpecContext) {
-			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b", variant=42}`}))
-			_, diags := text.Analyze(ctx, parsed, resolver)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\", variant=42}"}))
+			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
 			}

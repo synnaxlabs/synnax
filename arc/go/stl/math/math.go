@@ -102,42 +102,45 @@ var (
 	}
 )
 
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
+const name = "math"
+
+// module is the math module, built once at package init. Its children are
+// the canonical math.<name> functions and are the targets of the deprecated
+// bare globals' Deprecated field.
+var module = symbol.NewModule(
+	name,
+	powSymbol,
+	avgSymbol,
+	minSymbol,
+	maxSymbol,
+	derivativeSymbol,
+)
+
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the math module itself and the deprecated bare aliases
+// (avg, min, max, derivative) whose Deprecated field points at the
+// canonical module member.
+var Symbols = []*symbol.Symbol{
+	module,
+	symbol.Deprecate(avgSymbol, module.FindChild(avgSymbolName)),
+	symbol.Deprecate(minSymbol, module.FindChild(minSymbolName)),
+	symbol.Deprecate(maxSymbol, module.FindChild(maxSymbolName)),
+	symbol.Deprecate(derivativeSymbol, module.FindChild(derivativeSymbolName)),
 }
 
-var deprecatedBareResolver = symbol.MapResolver{
-	avgSymbolName:        deprecated(avgSymbol, "math.avg"),
-	minSymbolName:        deprecated(minSymbol, "math.min"),
-	maxSymbolName:        deprecated(maxSymbol, "math.max"),
-	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
-}
+// Host is the runtime host-side support for math: it registers the WASM
+// host-function bindings (pow_*, neg_*) and acts as the node factory for
+// avg / min / max / derivative.
+type Host struct{}
 
-var moduleMembers = symbol.MapResolver{
-	powSymbolName:        powSymbol,
-	avgSymbolName:        avgSymbol,
-	minSymbolName:        minSymbol,
-	maxSymbolName:        maxSymbol,
-	derivativeSymbolName: derivativeSymbol,
-}
-
-var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "math", Members: moduleMembers},
-}
-
-type Module struct{}
-
-func NewModule(
-	ctx context.Context,
-	rt wazero.Runtime,
-) (*Module, error) {
-	m := &Module{}
+// NewHost registers math's WASM host bindings with rt and returns a Host
+// handle that satisfies node.Factory for math's runtime nodes.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{}
 	if rt == nil {
-		return m, nil
+		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder("math")
+	builder := rt.NewHostModuleBuilder(name)
 	// i32-compatible types: WASM uses uint32, convert internally
 	builder = bindI32Pow[uint8](builder, "u8")
 	builder = bindI32Pow[uint16](builder, "u16")
@@ -167,10 +170,10 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return h, nil
 }
 
-func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}

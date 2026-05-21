@@ -20,28 +20,28 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func compile(bCtx SpecContext, source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
-	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
+	aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
 	analyzer.AnalyzeStatement(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+	ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
 }
 
 func compileBlock(bCtx SpecContext, source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-	aCtx := acontext.CreateRoot(bCtx, block, nil)
+	aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 	analyzer.AnalyzeBlock(aCtx)
 	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+	ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 	Expect(diverged).To(BeFalse())
 	return ctx.Writer.Bytes()
@@ -51,7 +51,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Named Output Assignment", func() {
 		compileWithOutputs := func(bCtx SpecContext, source string, outputs types.Params, memBase uint32) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, stl.SymbolResolver)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -67,7 +67,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			ctx.Outputs = outputs
 			ctx.OutputMemoryBase = memBase
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
@@ -154,10 +154,10 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Stateful Variables", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -171,10 +171,10 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -191,10 +191,10 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				count = 5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -218,10 +218,10 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				x i64 := count + 1
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -247,10 +247,10 @@ var _ = Describe("Statement Compiler", func() {
 				b i64 $= 20
 				c i64 := a + b
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -279,10 +279,10 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
-			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
 
@@ -299,10 +299,10 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 10
 				count += 5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -327,10 +327,10 @@ var _ = Describe("Statement Compiler", func() {
 				value f64 $= 100.0
 				value -= 25.5
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -356,10 +356,10 @@ var _ = Describe("Statement Compiler", func() {
 				n *= 2
 				n *= 3
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -715,10 +715,10 @@ var _ = Describe("Statement Compiler", func() {
 		var sLit, sConcat uint64
 		compileStr := func(bCtx SpecContext, source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			sLit = uint64(0)
@@ -880,7 +880,7 @@ var _ = Describe("Statement Compiler", func() {
 				data series i64 := [1, 2, 3]
 				data[0] = 42
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 
 			// Set up function scope BEFORE analysis (required for indexed assignment)
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
@@ -894,7 +894,7 @@ var _ = Describe("Statement Compiler", func() {
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -916,11 +916,11 @@ var _ = Describe("Statement Compiler", func() {
 				a := 5
 				x := [a, 12.0]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -952,11 +952,11 @@ var _ = Describe("Statement Compiler", func() {
 				a := 12.0
 				x := [a, 5]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -989,11 +989,11 @@ var _ = Describe("Statement Compiler", func() {
 				b := 10
 				x := [a, b, 15.0]
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1026,9 +1026,9 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		compileWithChannels := func(bCtx SpecContext, source string, resolver symbol.Resolver) []byte {
+		compileWithChannels := func(bCtx SpecContext, source string, resolver []symbol.Symbol) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, resolver)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil, resolver...))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -1039,7 +1039,7 @@ var _ = Describe("Statement Compiler", func() {
 			aCtx.Scope = fn
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
@@ -1048,8 +1048,8 @@ var _ = Describe("Statement Compiler", func() {
 		Describe("Channel Writes", func() {
 			DescribeTable("Should compile channel write for numeric types",
 				func(bCtx SpecContext, typeName string, arcType types.Type, valueCode string, expectedValueOps ...any) {
-					resolver := symbol.MapResolver{
-						"test_ch": {
+					resolver := []symbol.Symbol{
+						{
 							Name: "test_ch",
 							Kind: symbol.KindChannel,
 							Type: types.Chan(arcType),
@@ -1076,8 +1076,8 @@ var _ = Describe("Statement Compiler", func() {
 			)
 
 			It("Should compile f64 channel write with float literal", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"f64_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "f64_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1094,8 +1094,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile f32 channel write with float literal", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"f32_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "f32_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F32()),
@@ -1112,8 +1112,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel write with variable value", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"output_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "output_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
@@ -1137,8 +1137,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel write with expression value", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"result_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "result_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I64()),
@@ -1168,14 +1168,14 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile multiple channel writes", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch1": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "ch1",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
 						ID:   600,
 					},
-					"ch2": {
+					{
 						Name: "ch2",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1200,8 +1200,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel write to timestamp channel via write_i64", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ts_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "ts_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.TimeStamp()),
@@ -1222,8 +1222,8 @@ var _ = Describe("Statement Compiler", func() {
 
 		Describe("Channel Reads", func() {
 			It("Should compile channel read in variable declaration", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1243,8 +1243,8 @@ var _ = Describe("Statement Compiler", func() {
 
 			DescribeTable("Should compile channel read for numeric types",
 				func(bCtx SpecContext, typeName string, arcType types.Type) {
-					resolver := symbol.MapResolver{
-						"test_ch": {
+					resolver := []symbol.Symbol{
+						{
 							Name: "test_ch",
 							Kind: symbol.KindChannel,
 							Type: types.Chan(arcType),
@@ -1273,8 +1273,8 @@ var _ = Describe("Statement Compiler", func() {
 			)
 
 			It("Should compile channel read in expression", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"pressure": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "pressure",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1300,8 +1300,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel read in comparison", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"temp": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "temp",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
@@ -1333,14 +1333,14 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile multiple channel reads", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"ch1": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "ch1",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
 						ID:   400,
 					},
-					"ch2": {
+					{
 						Name: "ch2",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
@@ -1364,8 +1364,8 @@ var _ = Describe("Statement Compiler", func() {
 
 		Describe("Channel Alias Reads", func() {
 			It("Should compile channel alias read assigned to f64 scalar", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1393,8 +1393,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1427,8 +1427,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile i32 channel alias read assigned to i32 scalar", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"int_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "int_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
@@ -1456,14 +1456,14 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile channel alias read written to another channel", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
 						ID:   100,
 					},
-					"output_ch": {
+					{
 						Name: "output_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1488,8 +1488,8 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile conditional channel alias read with scalar assignment", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1526,14 +1526,14 @@ var _ = Describe("Statement Compiler", func() {
 
 		Describe("Channel Read and Write Combined", func() {
 			It("Should compile reading from one channel and writing to another", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"input_ch": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "input_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
 						ID:   100,
 					},
-					"output_ch": {
+					{
 						Name: "output_ch",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.F64()),
@@ -1559,14 +1559,14 @@ var _ = Describe("Statement Compiler", func() {
 			})
 
 			It("Should compile conditional channel write based on channel read", func(bCtx SpecContext) {
-				resolver := symbol.MapResolver{
-					"sensor": {
+				resolver := []symbol.Symbol{
+					{
 						Name: "sensor",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
 						ID:   100,
 					},
-					"alarm": {
+					{
 						Name: "alarm",
 						Kind: symbol.KindChannel,
 						Type: types.Chan(types.I32()),
@@ -1599,7 +1599,7 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Chan-typed Input Parameter Operations", func() {
 		compileWithChanInput := func(bCtx SpecContext, source string, inputName string, inputType types.Type) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
@@ -1615,7 +1615,7 @@ var _ = Describe("Statement Compiler", func() {
 			}))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver(stl.SymbolResolver))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			return FinalizeContext(ctx)
@@ -1694,10 +1694,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1744,10 +1744,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1793,10 +1793,10 @@ var _ = Describe("Statement Compiler", func() {
 					running = 0
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1828,10 +1828,10 @@ var _ = Describe("Statement Compiler", func() {
 					break
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1859,10 +1859,10 @@ var _ = Describe("Statement Compiler", func() {
 					x = 0
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1900,10 +1900,10 @@ var _ = Describe("Statement Compiler", func() {
 					continue
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -1947,10 +1947,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2012,10 +2012,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2044,10 +2044,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2070,10 +2070,10 @@ var _ = Describe("Statement Compiler", func() {
 					x := i
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2121,10 +2121,10 @@ var _ = Describe("Statement Compiler", func() {
 					x = x - 1
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2156,10 +2156,10 @@ var _ = Describe("Statement Compiler", func() {
 					}
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 
@@ -2188,12 +2188,12 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration (single-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				ctx := context.CreateRoot(
+				ctx := context.NewRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.SymbolResolver),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -2230,12 +2230,12 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				ctx := context.CreateRoot(
+				ctx := context.NewRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.SymbolResolver),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -2269,12 +2269,12 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
 			compileForLoop := func(source string) []byte {
 				block := MustSucceed(parser.ParseBlock("{" + source + "}"))
-				aCtx := acontext.CreateRoot(bCtx, block, nil)
+				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				ctx := context.CreateRoot(
+				ctx := context.NewRoot(
 					bCtx, aCtx.Scope, aCtx.TypeMap,
-					resolve.NewResolver(stl.SymbolResolver),
+					resolve.NewResolver(),
 				)
 				diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 				Expect(diverged).To(BeFalse())
@@ -2311,10 +2311,10 @@ var _ = Describe("Statement Compiler", func() {
 					}
 				}
 			}`))
-			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
 			Expect(len(ctx.Writer.Bytes())).To(BeNumerically(">", 0))

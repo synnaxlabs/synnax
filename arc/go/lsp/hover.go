@@ -131,6 +131,7 @@ func (s *Server) Hover(
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
 		contents = s.getUserSymbolHover(
+			ctx,
 			scopeAtCursor,
 			qualifiedWord,
 			displayContent,
@@ -314,16 +315,26 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
 	).Render(),
-	"set_authority": deprecatedDoc("set_authority", "authority.set{}", "authority.set{value=255}"),
-	"authority.set": doc.New(
-		doc.TitleWithKind("authority.set", "Function"),
+	parser.LiteralIMPORT: doc.New(
+		doc.TitleWithKind(parser.LiteralIMPORT, "Keyword"),
+		doc.Paragraph("Imports modules so their qualified members can be used. A module must be imported before its dotted members (e.g. time.now, control.set_authority) can be referenced."),
+		doc.Divider(),
+		arcCode("import ( time control )"),
+		doc.Divider(),
+		doc.Paragraph("Aliases rename the qualifier:"),
+		doc.Divider(),
+		arcCode("import ( time as t )"),
+	).Render(),
+	"set_authority": deprecatedDoc("set_authority", "control.set_authority{}", "control.set_authority{value=255}"),
+	"control.set_authority": doc.New(
+		doc.TitleWithKind("control.set_authority", "Function"),
 		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
 		doc.Divider(),
-		arcCode("authority.set{value=255}"),
+		arcCode("control.set_authority{value=255}"),
 		doc.Divider(),
 		doc.Paragraph("Set authority for a specific channel:"),
 		doc.Divider(),
-		arcCode("authority.set{value=255, channel=valve_cmd}"),
+		arcCode("control.set_authority{value=255, channel=valve_cmd}"),
 		doc.Divider(),
 		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
 	).Render(),
@@ -384,18 +395,19 @@ func (s *Server) getOperatorHoverContents(op string) string {
 	return operatorDocs[op]
 }
 
-// getHoverContents returns the hover doc for word, preferring Symbol.Doc from
-// the GlobalResolver (so STL modules own their docs) before keywordDocs.
+// getHoverContents returns the hover doc for word, preferring Symbol.Doc
+// resolved against a fresh analyzer root (so STL modules own their docs)
+// before keywordDocs.
 func (s *Server) getHoverContents(ctx context.Context, word string) string {
-	if s.cfg.GlobalResolver != nil {
-		if sym, err := s.cfg.GlobalResolver.Resolve(ctx, word); err == nil && sym.Doc != "" {
+	if s.cfg.NewRoot != nil {
+		if sym, err := s.cfg.NewRoot().Resolve(ctx, word); err == nil && sym.Doc != "" {
 			return sym.Doc
 		}
 	}
 	return keywordDocs[word]
 }
 
-func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
+func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	if sym.AST == nil {
 		return ""
 	}
@@ -494,8 +506,13 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content string) string {
-	sym, err := scope.Resolve(context.Background(), name)
+func (s *Server) getUserSymbolHover(
+	ctx context.Context,
+	scope *symbol.Symbol,
+	name string,
+	content string,
+) string {
+	sym, err := scope.Resolve(ctx, name)
 	if err != nil {
 		return ""
 	}
@@ -546,7 +563,7 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content st
 }
 
 // formatFunctionSignatureContent returns the function signature without code fences.
-func formatFunctionSignatureContent(sym *symbol.Scope) string {
+func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	if sym.Type.Kind != types.KindFunction {
 		return ""
 	}
@@ -593,7 +610,7 @@ func formatFunctionSignatureContent(sym *symbol.Scope) string {
 	return sig.String()
 }
 
-func formatFunctionKindDescription(sym *symbol.Scope) string {
+func formatFunctionKindDescription(sym *symbol.Symbol) string {
 	if sym.Type.Config != nil {
 		return "Reactive stage with configuration"
 	}
@@ -601,9 +618,9 @@ func formatFunctionKindDescription(sym *symbol.Scope) string {
 }
 
 // formatSequenceStagesList returns a list of formatted stage names.
-func formatSequenceStagesList(sym *symbol.Scope) []string {
+func formatSequenceStagesList(sym *symbol.Symbol) []string {
 	var stages []string
-	for _, child := range sym.Children {
+	for _, child := range sym.Children() {
 		if child.Kind == symbol.KindStage {
 			stages = append(stages, "`"+child.Name+"`")
 		}
@@ -614,7 +631,7 @@ func formatSequenceStagesList(sym *symbol.Scope) []string {
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
 func (s *Server) symbolToLocation(
 	uri protocol.DocumentURI,
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 ) *protocol.Location {
 	if sym.AST == nil {
 		return nil

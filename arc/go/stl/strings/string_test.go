@@ -28,7 +28,7 @@ var _ = Describe("Strings", func() {
 	)
 
 	call := func(ctx SpecContext, fn string, args ...uint64) []uint64 {
-		return rt.Call(ctx, "string", fn, args...)
+		return rt.Call(ctx, "strings", fn, args...)
 	}
 	callU32 := func(ctx SpecContext, fn string, args ...uint64) uint32 {
 		return testutil.AsU32(call(ctx, fn, args...)[0])
@@ -41,8 +41,8 @@ var _ = Describe("Strings", func() {
 		rt = testutil.NewRuntime(ctx)
 		ss = strings.NewProgramState()
 		mem = wazerotest.NewMemory(1)
-		MustSucceed(strings.NewModule(ctx, ss, rt.Underlying(), mem))
-		rt.Passthrough(ctx, "string")
+		MustSucceed(strings.NewHost(ctx, rt.Underlying(), ss, mem))
+		rt.Passthrough(ctx, "strings")
 	})
 
 	AfterEach(func(ctx SpecContext) {
@@ -71,9 +71,9 @@ var _ = Describe("Strings", func() {
 			rt2 := testutil.NewRuntime(ctx)
 			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
 			ss2 := strings.NewProgramState()
-			MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
-			rt2.Passthrough(ctx, "string")
-			res := rt2.Call(ctx, "string", "from_literal", testutil.U32(0), testutil.U32(5))
+			MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
+			rt2.Passthrough(ctx, "strings")
+			res := rt2.Call(ctx, "strings", "from_literal", testutil.U32(0), testutil.U32(5))
 			Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 		})
 	})
@@ -286,9 +286,9 @@ var _ = Describe("Strings", func() {
 				rt2 := testutil.NewRuntime(ctx)
 				defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
 				ss2 := strings.NewProgramState()
-				MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
-				rt2.Passthrough(ctx, "string")
-				res := rt2.Call(ctx, "string", fn, value, testutil.U32(0), testutil.U32(3))
+				MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
+				rt2.Passthrough(ctx, "strings")
+				res := rt2.Call(ctx, "strings", fn, value, testutil.U32(0), testutil.U32(3))
 				Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 			},
 			Entry("format_i32 with nil memory", "format_i32", testutil.I32(42)),
@@ -300,7 +300,7 @@ var _ = Describe("Strings", func() {
 		)
 	})
 
-	Describe("format_string", func() {
+	Describe("format_str", func() {
 		writeSpec := func(spec string) (uint32, uint32) {
 			mem.Write(0, []byte(spec))
 			return 0, uint32(len(spec))
@@ -309,33 +309,34 @@ var _ = Describe("Strings", func() {
 		It("Should format a string handle against a spec read from memory", func(ctx SpecContext) {
 			h := ss.Create("hi")
 			ptr, length := writeSpec("5s")
-			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(ptr), testutil.U32(length))
+			rh := callU32(ctx, "format_str", testutil.U32(h), testutil.U32(ptr), testutil.U32(length))
 			Expect(MustBeOk(ss.Get(rh))).To(Equal("   hi"))
 		})
 
 		It("Should format an unknown handle as the empty-string spec result", func(ctx SpecContext) {
 			ptr, length := writeSpec("q")
-			rh := callU32(ctx, "format_string", testutil.U32(9999), testutil.U32(ptr), testutil.U32(length))
-			Expect(MustBeOk(ss.Get(rh))).To(Equal(`""`))
+			rh := callU32(ctx, "format_str", testutil.U32(9999), testutil.U32(ptr), testutil.U32(length))
+			Expect(rh).To(BeZero())
 		})
 
 		It("Should return handle 0 when the spec read is out-of-bounds", func(ctx SpecContext) {
 			h := ss.Create("hi")
-			Expect(callU32(ctx, "format_string", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))).To(Equal(uint32(0)))
+			rh := callU32(ctx, "format_str", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))
+			Expect(rh).To(BeZero())
 		})
 	})
 
-	Describe("Module.SetMemory", func() {
+	Describe("Host.SetMemory", func() {
 		It("Should swap the backing memory used by format_*", func(ctx SpecContext) {
 			rt2 := testutil.NewRuntime(ctx)
 			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
 			ss2 := strings.NewProgramState()
-			m := MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
-			rt2.Passthrough(ctx, "string")
+			h := MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
+			rt2.Passthrough(ctx, "strings")
 			mem2 := wazerotest.NewMemory(1)
-			m.SetMemory(mem2)
+			h.SetMemory(mem2)
 			mem2.Write(0, []byte("05d"))
-			res := rt2.Call(ctx, "string", "format_i32", testutil.I32(7), testutil.U32(0), testutil.U32(3))
+			res := rt2.Call(ctx, "strings", "format_i32", testutil.I32(7), testutil.U32(0), testutil.U32(3))
 			Expect(MustBeOk(ss2.Get(testutil.AsU32(res[0])))).To(Equal("00007"))
 		})
 	})

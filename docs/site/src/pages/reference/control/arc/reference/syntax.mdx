@@ -531,6 +531,44 @@ func example() {
 
 <Divider.Divider x />
 
+## Imports
+
+Modules must be imported before their qualified members (`time.now`, `authority.set`,
+`status.set`, …) can be used. A single import uses the bare form; multiple imports go in
+an `import ( … )` block.
+
+### Single Module
+
+```arc
+import time
+
+trig -> time.now{} -> ts_out
+```
+
+### Aliased
+
+Rename the qualifier with `as`:
+
+```arc
+import time as t
+
+trig -> t.now{} -> ts_out
+```
+
+### Multiple Modules
+
+List several modules in one block, separated by whitespace:
+
+```arc
+import (
+    authority
+    status
+    time as t
+)
+```
+
+<Divider.Divider x />
+
 ## Authority Declarations
 
 Authority declarations set the [control authority](/reference/control/control-authority)

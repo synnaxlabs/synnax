@@ -75,10 +75,9 @@ var setHoverDoc = doc.New(
 	doc.Paragraph("Accepted variants: "+allowedVariantsList+"."),
 ).Render()
 
-var SymbolResolver = &symbol.ModuleResolver{
-	Name: moduleName,
-	Members: symbol.MapResolver{
-		setMemberName: {
+var Symbols = []*symbol.Symbol{
+	symbol.NewModule(moduleName,
+		symbol.Symbol{
 			Name:              setMemberName,
 			Kind:              symbol.KindFunction,
 			Exec:              symbol.ExecBoth,
@@ -87,8 +86,8 @@ var SymbolResolver = &symbol.ModuleResolver{
 			AnalyzeCall:       analyzeStatusSetCall,
 			AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
 		},
-		deleteMemberName: deleteResolverEntry,
-	},
+		deleteResolverEntry,
+	),
 }
 
 type Module struct {
@@ -152,14 +151,6 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 		return nil, err
 	}
 	return m, nil
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
 }
 
 func (m *Module) ModuleName() string { return moduleName }

@@ -25,7 +25,7 @@ var _ = Describe("Vars", func() {
 		rt      *testutil.Runtime
 		seriesS *series.ProgramState
 		strS    *strings.ProgramState
-		mod     *stateful.Module
+		mod     *stateful.Host
 	)
 
 	call := func(ctx SpecContext, fn string, args ...uint64) []uint64 {
@@ -48,7 +48,7 @@ var _ = Describe("Vars", func() {
 		rt = testutil.NewRuntime(ctx)
 		seriesS = series.NewProgramState()
 		strS = strings.NewProgramState()
-		mod = MustSucceed(stateful.NewModule(ctx, seriesS, strS, rt.Underlying()))
+		mod = MustSucceed(stateful.NewHost(ctx, rt.Underlying(), seriesS, strS))
 		rt.Passthrough(ctx, "state")
 	})
 

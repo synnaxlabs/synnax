@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,25 +28,23 @@ var _ = Describe("AnalyzeCall hook", func() {
 			called  int
 			callAST parser.IFunctionCallSuffixContext
 		)
-		r := symbol.MapResolver{
-			"hooked": {
-				Name: "hooked",
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecBoth,
-				Type: types.Function(types.FunctionProperties{
-					Inputs:  types.Params{{Name: "a", Type: types.I32()}},
-					Config:  types.Params{{Name: "a", Type: types.I32()}},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-				}),
-				AnalyzeCall: symbol.CallHook(func(_ any, c parser.IFunctionCallSuffixContext) {
-					called++
-					callAST = c
-				}),
-			},
+		hooked := symbol.Symbol{
+			Name: "hooked",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecBoth,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "a", Type: types.I32()}},
+				Config:  types.Params{{Name: "a", Type: types.I32()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			}),
+			AnalyzeCall: symbol.CallHook(func(_ any, c parser.IFunctionCallSuffixContext) {
+				called++
+				callAST = c
+			}),
 		}
 		src := `func main() i32 { return hooked(1) }`
 		ast := MustSucceed(parser.Parse(src))
-		ctx := acontext.CreateRoot(bCtx, ast, r)
+		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, hooked))
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		Expect(called).To(Equal(1))
@@ -53,21 +52,19 @@ var _ = Describe("AnalyzeCall hook", func() {
 	})
 
 	It("Should not invoke the hook when the symbol does not define one", func(bCtx SpecContext) {
-		r := symbol.MapResolver{
-			"plain": {
-				Name: "plain",
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecBoth,
-				Type: types.Function(types.FunctionProperties{
-					Inputs:  types.Params{{Name: "a", Type: types.I32()}},
-					Config:  types.Params{{Name: "a", Type: types.I32()}},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-				}),
-			},
+		plain := symbol.Symbol{
+			Name: "plain",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecBoth,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "a", Type: types.I32()}},
+				Config:  types.Params{{Name: "a", Type: types.I32()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			}),
 		}
 		src := `func main() i32 { return plain(1) }`
 		ast := MustSucceed(parser.Parse(src))
-		ctx := acontext.CreateRoot(bCtx, ast, r)
+		ctx := acontext.NewRoot(bCtx, ast, NewRoot(nil, plain))
 		Expect(func() { analyzer.AnalyzeProgram(ctx) }).ToNot(Panic())
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})

@@ -110,16 +110,16 @@ func chan_fwd_callee(ch chan f32) {
     ch = 66.0
 }
 
-interval{100ms} -> test_same_channel_write{}
-interval{100ms} -> test_diamond{}
-interval{100ms} -> test_multi_callee{}
-interval{100ms} -> test_chain{}
-interval{100ms} -> test_fwd_ref{}
-interval{100ms} -> test_chan_param_write{}
-interval{100ms} -> test_chan_chain{}
-interval{100ms} -> test_chan_diff_args{}
-interval{100ms} -> test_chan_multi_param{}
-interval{100ms} -> test_chan_fwd_ref{}
+start_edge_case_cmd -> test_same_channel_write{}
+start_edge_case_cmd -> test_diamond{}
+start_edge_case_cmd -> test_multi_callee{}
+start_edge_case_cmd -> test_chain{}
+start_edge_case_cmd -> test_fwd_ref{}
+start_edge_case_cmd -> test_chan_param_write{}
+start_edge_case_cmd -> test_chan_chain{}
+start_edge_case_cmd -> test_chan_diff_args{}
+start_edge_case_cmd -> test_chan_multi_param{}
+start_edge_case_cmd -> test_chan_fwd_ref{}
 """
 
 # ── Read-only monitor (no write channels, only status.set) ──
@@ -128,6 +128,7 @@ interval{100ms} -> test_chan_fwd_ref{}
 # the empty keys list.
 
 ARC_READ_ONLY_MONITOR = """
+import status
 start_read_only_monitor_cmd => main
 
 sequence main {
@@ -157,7 +158,7 @@ func self_rec() {
     ch1 = 1.0
     self_rec()
 }
-interval{100ms} -> self_rec{}
+start_edge_case_cmd -> self_rec{}
 """
 
 # Callee called in ALL branches of if-else (no exit path)
@@ -173,7 +174,7 @@ func ping() {
 func pong() {
     ping()
 }
-interval{100ms} -> ping{}
+start_edge_case_cmd -> ping{}
 """
 
 # Tangled web of 5 functions forming one big cycle. Branches decide arithmetic,
@@ -217,7 +218,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{100ms} -> init_seq{}
+start_edge_case_cmd -> init_seq{}
 """
 
 # ── ExecContext violations (invalid, caught at configure time) ──
@@ -228,7 +229,7 @@ func bad() {
     ch1 = 1.0
     interval(100)
 }
-interval{100ms} -> bad{}
+start_edge_case_cmd -> bad{}
 """
 
 # WASM-only function used as a flow node
@@ -256,6 +257,76 @@ EXEC_CONTEXT_CASES = [
         "WasmInFlow",
         ARC_WASM_IN_FLOW,
         "cannot be used as a flow statement",
+    ),
+]
+
+# ── Import diagnostic sources (invalid, caught at configure time) ──
+# Verify the four import diagnostics surface end-to-end through the console.
+# Comprehensive coverage is in arc/go/import_test.go.
+
+# Qualified module member used without an `import (…)` block.
+ARC_IMPORT_MISSING = """
+func get_now() i64 {
+    return time.now()
+}
+start_edge_case_cmd -> get_now{}
+"""
+
+# Module imported but never referenced.
+ARC_IMPORT_UNUSED = """
+import time
+func passthrough() {
+    ch1 = ch1 + 1.0
+}
+start_edge_case_cmd -> passthrough{}
+"""
+
+# Import names a module the resolver does not expose.
+ARC_IMPORT_UNKNOWN = """
+import banana
+func passthrough() {
+    ch1 = ch1 + 1.0
+}
+start_edge_case_cmd -> passthrough{}
+"""
+
+# Same module listed twice in one block.
+ARC_IMPORT_DUPLICATE = """
+import ( time time )
+func get_now() i64 {
+    return time.now()
+}
+start_edge_case_cmd -> get_now{}
+"""
+
+
+@dataclass
+class ImportCase:
+    label: str
+    source: str
+    wait_substr: str
+
+
+IMPORT_CASES = [
+    ImportCase(
+        "Missing",
+        ARC_IMPORT_MISSING,
+        'module "time" is not imported',
+    ),
+    ImportCase(
+        "Unused",
+        ARC_IMPORT_UNUSED,
+        'imported module "time" is unused',
+    ),
+    ImportCase(
+        "UnknownModule",
+        ARC_IMPORT_UNKNOWN,
+        'unknown module "banana"',
+    ),
+    ImportCase(
+        "Duplicate",
+        ARC_IMPORT_DUPLICATE,
+        "duplicate import",
     ),
 ]
 
@@ -300,7 +371,7 @@ func self_rec() {
         self_rec()
     }
 }
-interval{100ms} -> self_rec{}
+start_edge_case_cmd -> self_rec{}
 """
 
 # Same tangled web but route_beta wraps its call in if ch1 > 0, providing one exit path.
@@ -345,7 +416,7 @@ func commit() {
     ch1 = 50.0
     init_seq()
 }
-interval{100ms} -> init_seq{}
+start_edge_case_cmd -> init_seq{}
 """
 
 CHANNEL_VIRTUAL = [
@@ -519,6 +590,24 @@ class EdgeCases(ArcConsoleCase):
                 f"[{case.label}] Expected error notification, got: {notifications}"
             )
 
+    def _verify_import_cases(self) -> None:
+        self.log("=== Import diagnostic detection ===")
+        for case in IMPORT_CASES:
+            self.log(f"[{case.label}] Testing import diagnostic")
+            self.load_arc(
+                case.source, f"Import{case.label}", start=False, configure=False
+            )
+
+            self.console.arc.configure_no_wait()
+            status = self.console.arc.wait_for_status(case.wait_substr)
+            self.log(f"[{case.label}] Got expected error: {status}")
+
+            notifications = self.console.notifications.check(timeout=5)
+            error_notifications = [n for n in notifications if n.get("type") == "error"]
+            assert len(error_notifications) > 0, (
+                f"[{case.label}] Expected error notification, got: {notifications}"
+            )
+
     def _verify_type_mismatch_cases(self) -> None:
         self.log("=== Type mismatch detection ===")
         for case in TYPE_MISMATCH_CASES:
@@ -562,4 +651,5 @@ class EdgeCases(ArcConsoleCase):
         self._verify_guarded_cases()
         self._verify_exec_context_cases()
         self._verify_type_mismatch_cases()
+        self._verify_import_cases()
         self._verify_read_only_monitor()
