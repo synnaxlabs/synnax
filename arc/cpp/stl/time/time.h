@@ -24,6 +24,8 @@
 
 namespace arc::stl::time {
 
+inline constexpr const char *MODULE_NAME = "time";
+
 /// @brief Sentinel value indicating base_interval hasn't been set yet.
 inline const x::telem::TimeSpan UNSET_BASE_INTERVAL = x::telem::TimeSpan::max();
 
@@ -257,7 +259,7 @@ public:
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         linker
             .func_wrap(
-                "time",
+                MODULE_NAME,
                 "now",
                 [this]() -> int64_t { return this->clock.now().nanoseconds(); }
             )

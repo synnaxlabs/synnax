@@ -19,7 +19,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         using W = typename WasmType<cpptype>::type;                                    \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "create_empty_" #suffix,                                               \
                 [ss](uint32_t length) -> uint32_t {                                    \
                     auto s = x::telem::Series(                                         \
@@ -33,7 +33,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "set_element_" #suffix,                                                \
                 [ss](uint32_t handle, uint32_t index, W value) -> uint32_t {           \
                     auto *s = ss->get(handle);                                         \
@@ -45,7 +45,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "index_" #suffix,                                                      \
                 [ss](uint32_t handle, uint32_t index) -> W {                           \
                     auto *s = ss->get(handle);                                         \
@@ -56,7 +56,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_add_" #suffix,                                                \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -68,7 +68,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_mul_" #suffix,                                                \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -80,7 +80,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_sub_" #suffix,                                                \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -92,7 +92,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_div_" #suffix,                                                \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -105,7 +105,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_mod_" #suffix,                                                \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -118,7 +118,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_rsub_" #suffix,                                               \
                 [ss](W v, uint32_t handle) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -130,7 +130,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_rdiv_" #suffix,                                               \
                 [ss](W v, uint32_t handle) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -142,7 +142,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_radd_" #suffix,                                               \
                 [ss](W v, uint32_t handle) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -154,7 +154,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_rmul_" #suffix,                                               \
                 [ss](W v, uint32_t handle) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -166,7 +166,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "element_rmod_" #suffix,                                               \
                 [ss](W v, uint32_t handle) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -178,7 +178,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "series_add_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -195,7 +195,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "series_mul_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -212,7 +212,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "series_sub_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -229,7 +229,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "series_div_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -246,7 +246,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "series_mod_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -263,7 +263,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_gt_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -280,7 +280,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_lt_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -297,7 +297,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_ge_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -314,7 +314,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_le_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -331,7 +331,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_eq_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -348,7 +348,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_ne_" #suffix,                                                 \
                 [ss](uint32_t a, uint32_t b) -> uint32_t {                             \
                     auto *sa = ss->get(a);                                             \
@@ -365,7 +365,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_gt_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -377,7 +377,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_lt_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -389,7 +389,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_ge_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -401,7 +401,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_le_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -413,7 +413,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_eq_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -425,7 +425,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             .unwrap();                                                                 \
         linker                                                                         \
             .func_wrap(                                                                \
-                "series",                                                              \
+                MODULE_NAME,                                                           \
                 "compare_ne_scalar_" #suffix,                                          \
                 [ss](uint32_t handle, W v) -> uint32_t {                               \
                     auto *s = ss->get(handle);                                         \
@@ -453,7 +453,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
 #define BIND_NEGATE(suffix)                                                            \
     linker                                                                             \
         .func_wrap(                                                                    \
-            "series",                                                                  \
+            MODULE_NAME,                                                               \
             "negate_" #suffix,                                                         \
             [ss](uint32_t handle) -> uint32_t {                                        \
                 auto *s = ss->get(handle);                                             \
@@ -475,7 +475,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
 
     linker
         .func_wrap(
-            "series",
+            MODULE_NAME,
             "not_u8",
             [ss](uint32_t handle) -> uint32_t {
                 auto *s = ss->get(handle);
@@ -487,7 +487,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .unwrap();
     linker
         .func_wrap(
-            "series",
+            MODULE_NAME,
             "len",
             [ss](uint32_t handle) -> int64_t {
                 const auto *s = ss->get(handle);
@@ -498,7 +498,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
         .unwrap();
     linker
         .func_wrap(
-            "series",
+            MODULE_NAME,
             "slice",
             [ss](uint32_t handle, uint32_t start, uint32_t end) -> uint32_t {
                 const auto *src = ss->get(handle);

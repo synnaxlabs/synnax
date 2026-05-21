@@ -41,7 +41,7 @@ var _ = Describe("Strings", func() {
 		rt = testutil.NewRuntime(ctx)
 		ss = strings.NewProgramState()
 		mem = wazerotest.NewMemory(1)
-		MustSucceed(strings.NewModule(ctx, ss, rt.Underlying(), mem))
+		MustSucceed(strings.NewHost(ctx, rt.Underlying(), ss, mem))
 		rt.Passthrough(ctx, "string")
 	})
 
@@ -73,7 +73,7 @@ var _ = Describe("Strings", func() {
 			rt2 := testutil.NewRuntime(ctx)
 			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
 			ss2 := strings.NewProgramState()
-			MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
+			MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
 			rt2.Passthrough(ctx, "string")
 			res := rt2.Call(ctx, "string", "from_literal", testutil.U32(0), testutil.U32(5))
 			Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))

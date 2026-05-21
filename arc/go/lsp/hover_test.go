@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -621,15 +621,11 @@ func add(a i32, b i32) i32 {
 
 	Describe("GlobalResolver", func() {
 		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
@@ -643,7 +639,9 @@ func add(a i32, b i32) i32 {
 	Describe("Qualified Module Identifiers", func() {
 		It("Should provide hover for qualified module function", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -656,7 +654,9 @@ func add(a i32, b i32) i32 {
 
 		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -829,15 +829,11 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"sensorData": symbol.Symbol{
-					Name: "sensorData",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "sensorData",
 					Type: types.Chan(types.F64()),
-					Kind: symbol.KindChannel,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindChannel})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() { x := sensorData }")

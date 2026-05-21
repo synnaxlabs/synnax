@@ -21,32 +21,27 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-func collectModuleResolvers(r symbol.Resolver) []*symbol.ModuleResolver {
-	switch v := r.(type) {
-	case *symbol.ModuleResolver:
-		return []*symbol.ModuleResolver{v}
-	case symbol.CompoundResolver:
-		var all []*symbol.ModuleResolver
-		for _, sub := range v {
-			all = append(all, collectModuleResolvers(sub)...)
+func allModules() []*symbol.Symbol {
+	var mods []*symbol.Symbol
+	for _, s := range stl.Symbols {
+		if s.Kind == symbol.KindModule {
+			mods = append(mods, s)
 		}
-		return all
-	default:
-		return nil
 	}
+	return mods
 }
 
-var _ = Describe("SymbolResolver", func() {
+var _ = Describe("STL Symbols", func() {
 	It("Should set KindFunction on every module member with a function type", func() {
 		var violations []string
-		for _, mod := range collectModuleResolvers(stl.SymbolResolver) {
-			for name, sym := range mod.Members {
+		for _, mod := range allModules() {
+			for _, sym := range mod.Children() {
 				if sym.Type.Kind != types.KindFunction {
 					continue
 				}
 				if sym.Kind != symbol.KindFunction {
 					violations = append(violations, fmt.Sprintf(
-						"%s.%s (Kind is %s, expected KindFunction)", mod.Name, name, sym.Kind,
+						"%s.%s (Kind is %s, expected KindFunction)", mod.Name, sym.Name, sym.Kind,
 					))
 				}
 			}
@@ -58,15 +53,15 @@ var _ = Describe("SymbolResolver", func() {
 
 	It("Should set ExecContext on every KindFunction symbol", func() {
 		var violations []string
-		for _, mod := range collectModuleResolvers(stl.SymbolResolver) {
-			for name, sym := range mod.Members {
+		for _, mod := range allModules() {
+			for _, sym := range mod.Children() {
 				if sym.Kind != symbol.KindFunction {
 					continue
 				}
 				if sym.Exec == 0 {
 					violations = append(violations, fmt.Sprintf(
 						"%s.%s (Exec is 0, must be ExecWASM, ExecFlow, or ExecBoth)",
-						mod.Name, name,
+						mod.Name, sym.Name,
 					))
 				}
 			}
@@ -78,8 +73,8 @@ var _ = Describe("SymbolResolver", func() {
 
 	It("Should use DefaultOutputParam on user-callable single-output functions", func() {
 		var violations []string
-		for _, mod := range collectModuleResolvers(stl.SymbolResolver) {
-			for name, sym := range mod.Members {
+		for _, mod := range allModules() {
+			for _, sym := range mod.Children() {
 				if sym.Internal || sym.Type.Kind != types.KindFunction || len(sym.Type.Outputs) != 1 {
 					continue
 				}
@@ -87,7 +82,7 @@ var _ = Describe("SymbolResolver", func() {
 				if out.Name != ir.DefaultOutputParam {
 					violations = append(violations, fmt.Sprintf(
 						"%s.%s output is named %q, expected %q",
-						mod.Name, name, out.Name, ir.DefaultOutputParam,
+						mod.Name, sym.Name, out.Name, ir.DefaultOutputParam,
 					))
 				}
 			}

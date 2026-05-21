@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -327,15 +328,17 @@ var _ = Describe("External Change Notifications", func() {
 		server   *lsp.Server
 		uri      protocol.DocumentURI
 		client   *MockClient
-		resolver symbol.MapResolver
+		resolver StaticResolver
 		observer observe.Observer[struct{}]
 	)
 
 	BeforeEach(func() {
-		resolver = make(symbol.MapResolver)
+		resolver = make(StaticResolver)
 		observer = observe.New[struct{}]()
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
-			GlobalResolver:   resolver,
+			NewRoot: func() *symbol.Symbol {
+				return NewRoot(resolver)
+			},
 			OnExternalChange: observer,
 		})
 	})

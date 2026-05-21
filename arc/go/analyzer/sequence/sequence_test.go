@@ -16,12 +16,13 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var resolver = symbol.MapResolver{
-	"interval": symbol.Symbol{
+var resolver = []symbol.Symbol{
+	{
 		Name: "interval",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -29,7 +30,7 @@ var resolver = symbol.MapResolver{
 			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
-	"wait": symbol.Symbol{
+	{
 		Name: "wait",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -37,30 +38,30 @@ var resolver = symbol.MapResolver{
 			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
-	"log": symbol.Symbol{
+	{
 		Name: "log",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{{Name: "message", Type: types.String()}},
 		}),
 	},
-	"control": symbol.Symbol{
+	{
 		Name: "control",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{{Name: "target", Type: types.F64()}},
 		}),
 	},
-	"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
-	"abort_btn": symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
-	"pressure":  symbol.Symbol{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
-	"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+	{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+	{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 }
 
 // analyzeAndExpectSuccess parses the source, analyzes it, and expects success.
 func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, resolver)
+	ctx := context.CreateRoot(bCtx, ast, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
@@ -68,7 +69,7 @@ func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 // analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
 func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, resolver)
+	ctx := context.CreateRoot(bCtx, ast, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))

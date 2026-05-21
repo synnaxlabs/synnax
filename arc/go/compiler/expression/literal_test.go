@@ -298,17 +298,15 @@ var _ = Describe("Literal Compilation", func() {
 				expectSeriesLiteralWithHint,
 
 				Entry("single variable", "[x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0), OpLocalGet, 0, OpCall, uint32(1),
 				),
 				Entry("two i32 variables", "[x, y]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-						"y": scalarSymbol("y", types.I32(), 1),
+					[]symbol.Symbol{
+						scalarSymbol("x", types.I32(), 0),
+						scalarSymbol("y", types.I32(), 1),
 					},
 					types.Series(types.I32()),
 					OpI32Const, int32(2), OpCall, uint32(0),
@@ -316,10 +314,10 @@ var _ = Describe("Literal Compilation", func() {
 					OpI32Const, int32(1), OpLocalGet, 1, OpCall, uint32(1),
 				),
 				Entry("three f64 variables", "[a, b, c]",
-					symbol.MapResolver{
-						"a": scalarSymbol("a", types.F64(), 0),
-						"b": scalarSymbol("b", types.F64(), 1),
-						"c": scalarSymbol("c", types.F64(), 2),
+					[]symbol.Symbol{
+						scalarSymbol("a", types.F64(), 0),
+						scalarSymbol("b", types.F64(), 1),
+						scalarSymbol("c", types.F64(), 2),
 					},
 					types.Series(types.F64()),
 					OpI32Const, int32(3), OpCall, uint32(0),
@@ -328,17 +326,13 @@ var _ = Describe("Literal Compilation", func() {
 					OpI32Const, int32(2), OpLocalGet, 2, OpCall, uint32(1),
 				),
 				Entry("u8 variable", "[x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.U8(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.U8(), 0)},
 					types.Series(types.U8()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0), OpLocalGet, 0, OpCall, uint32(1),
 				),
 				Entry("i64 variable", "[x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I64(), 0)},
 					types.Series(types.I64()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0), OpLocalGet, 0, OpCall, uint32(1),
@@ -351,9 +345,7 @@ var _ = Describe("Literal Compilation", func() {
 				expectSeriesLiteralWithHint,
 
 				Entry("x + 1", "[x + i32(1)]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -361,9 +353,7 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("x * 2", "[x * i32(2)]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -371,9 +361,9 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("a + b, a - b", "[a + b, a - b]",
-					symbol.MapResolver{
-						"a": scalarSymbol("a", types.I32(), 0),
-						"b": scalarSymbol("b", types.I32(), 1),
+					[]symbol.Symbol{
+						scalarSymbol("a", types.I32(), 0),
+						scalarSymbol("b", types.I32(), 1),
 					},
 					types.Series(types.I32()),
 					OpI32Const, int32(2), OpCall, uint32(0),
@@ -385,9 +375,7 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("f64 multiplication", "[x * 2.0]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.F64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.F64(), 0)},
 					types.Series(types.F64()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -395,9 +383,7 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("f64 division", "[x / 2.0]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.F64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.F64(), 0)},
 					types.Series(types.F64()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -518,9 +504,7 @@ var _ = Describe("Literal Compilation", func() {
 				expectSeriesLiteralWithHint,
 
 				Entry("negated i32 variable", "[-x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -528,9 +512,7 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("negated f64 variable", "[-x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.F64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.F64(), 0)},
 					types.Series(types.F64()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -538,9 +520,9 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("multiple negated f64", "[-x, -y]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.F64(), 0),
-						"y": scalarSymbol("y", types.F64(), 1),
+					[]symbol.Symbol{
+						scalarSymbol("x", types.F64(), 0),
+						scalarSymbol("y", types.F64(), 1),
 					},
 					types.Series(types.F64()),
 					OpI32Const, int32(2), OpCall, uint32(0),
@@ -552,9 +534,7 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("negated i64 variable", "[-x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I64(), 0)},
 					types.Series(types.I64()),
 					OpI32Const, int32(1), OpCall, uint32(0),
 					OpI32Const, int32(0),
@@ -569,27 +549,21 @@ var _ = Describe("Literal Compilation", func() {
 				expectSeriesLiteralWithHint,
 
 				Entry("literal and variable", "[i32(1), x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(2), OpCall, uint32(0),
 					OpI32Const, int32(0), OpI32Const, int32(1), OpCall, uint32(1),
 					OpI32Const, int32(1), OpLocalGet, 0, OpCall, uint32(1),
 				),
 				Entry("variable and literal", "[x, i32(2)]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(2), OpCall, uint32(0),
 					OpI32Const, int32(0), OpLocalGet, 0, OpCall, uint32(1),
 					OpI32Const, int32(1), OpI32Const, int32(2), OpCall, uint32(1),
 				),
 				Entry("literal, variable, expression", "[i32(1), x, x + i32(1)]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.I32(), 0)},
 					types.Series(types.I32()),
 					OpI32Const, int32(3), OpCall, uint32(0),
 					OpI32Const, int32(0), OpI32Const, int32(1), OpCall, uint32(1),
@@ -599,18 +573,16 @@ var _ = Describe("Literal Compilation", func() {
 					OpCall, uint32(1),
 				),
 				Entry("f64 literal and variable", "[1.5, x]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.F64(), 0),
-					},
+					[]symbol.Symbol{scalarSymbol("x", types.F64(), 0)},
 					types.Series(types.F64()),
 					OpI32Const, int32(2), OpCall, uint32(0),
 					OpI32Const, int32(0), OpF64Const, float64(1.5), OpCall, uint32(1),
 					OpI32Const, int32(1), OpLocalGet, 0, OpCall, uint32(1),
 				),
 				Entry("variable and expression", "[x, y * i32(2)]",
-					symbol.MapResolver{
-						"x": scalarSymbol("x", types.I32(), 0),
-						"y": scalarSymbol("y", types.I32(), 1),
+					[]symbol.Symbol{
+						scalarSymbol("x", types.I32(), 0),
+						scalarSymbol("y", types.I32(), 1),
 					},
 					types.Series(types.I32()),
 					OpI32Const, int32(2), OpCall, uint32(0),

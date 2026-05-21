@@ -10,6 +10,8 @@
 package control_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -17,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,10 +33,10 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			_ = node.New(inter)
-			factory := control.NewModule(&control.ProgramState{})
+			factory := control.NewHost(&control.ProgramState{})
 			Expect(factory).ToNot(BeNil())
 		})
 	})
@@ -49,11 +52,11 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 			authorityState = &control.ProgramState{}
-			factory = control.NewModule(authorityState)
+			factory = control.NewHost(authorityState)
 		})
 		It("Should create node for set_authority type", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -154,11 +157,11 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			progState = node.New(analyzed)
 			authorityState = &control.ProgramState{}
-			factory = control.NewModule(authorityState)
+			factory = control.NewHost(authorityState)
 			outputs = []string{}
 		})
 
@@ -252,11 +255,11 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 			authorityState = &control.ProgramState{}
-			factory = control.NewModule(authorityState)
+			factory = control.NewHost(authorityState)
 		})
 
 		It("Should allow re-fire after Reset", func(ctx SpecContext) {
@@ -312,10 +315,10 @@ var _ = Describe("Control", func() {
 				Nodes:     []graph.Node{{Key: "set_auth", Type: "set_authority"}},
 				Functions: []graph.Function{{Key: "set_authority"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, control.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
-			factory := control.NewModule(&control.ProgramState{})
+			factory := control.NewHost(&control.ProgramState{})
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
@@ -333,25 +336,31 @@ var _ = Describe("Control", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve bare set_authority symbol", func(ctx SpecContext) {
-			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
+	Describe("Symbols", func() {
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, control.Symbols...) })
+		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
+		}
+		It("Should expose bare set_authority symbol", func(ctx SpecContext) {
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified control.set_authority symbol", func(ctx SpecContext) {
-			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "control.set_authority"))
+		It("Should expose qualified control.set_authority symbol", func(ctx SpecContext) {
+			mod := MustSucceed(root.Resolve(ctx, "control", symbol.IncludeInternal))
+			sym := MustSucceed(mod.Resolve(ctx, "set_authority", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should have optional input", func(ctx SpecContext) {
-			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
 		})
 		It("Should have config params", func(ctx SpecContext) {
-			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
+			sym := bare(ctx, "set_authority")
 			Expect(sym.Type.Config).To(HaveLen(2))
 			Expect(sym.Type.Config[0].Name).To(Equal("value"))
 			Expect(sym.Type.Config[1].Name).To(Equal("channel"))

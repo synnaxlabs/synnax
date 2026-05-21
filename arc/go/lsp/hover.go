@@ -80,7 +80,7 @@ func deprecatedDoc(old, replacement, example string) string {
 }
 
 func (s *Server) Hover(
-	_ context.Context,
+	ctx context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
 	d, ok := s.getDocument(params.TextDocument.URI)
@@ -131,6 +131,7 @@ func (s *Server) Hover(
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
 		contents = s.getUserSymbolHover(
+			ctx,
 			scopeAtCursor,
 			qualifiedWord,
 			displayContent,
@@ -407,7 +408,7 @@ func (s *Server) getHoverContents(word string) string {
 	return keywordDocs[word]
 }
 
-func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
+func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	if sym.AST == nil {
 		return ""
 	}
@@ -506,8 +507,13 @@ func cleanDocComment(comments []string) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content string) string {
-	sym, err := scope.Resolve(context.Background(), name)
+func (s *Server) getUserSymbolHover(
+	ctx context.Context,
+	scope *symbol.Symbol,
+	name string,
+	content string,
+) string {
+	sym, err := scope.Resolve(ctx, name)
 	if err != nil {
 		return ""
 	}
@@ -558,7 +564,7 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content st
 }
 
 // formatFunctionSignatureContent returns the function signature without code fences.
-func formatFunctionSignatureContent(sym *symbol.Scope) string {
+func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	if sym.Type.Kind != types.KindFunction {
 		return ""
 	}
@@ -605,7 +611,7 @@ func formatFunctionSignatureContent(sym *symbol.Scope) string {
 	return sig.String()
 }
 
-func formatFunctionKindDescription(sym *symbol.Scope) string {
+func formatFunctionKindDescription(sym *symbol.Symbol) string {
 	if sym.Type.Config != nil {
 		return "Reactive stage with configuration"
 	}
@@ -613,9 +619,9 @@ func formatFunctionKindDescription(sym *symbol.Scope) string {
 }
 
 // formatSequenceStagesList returns a list of formatted stage names.
-func formatSequenceStagesList(sym *symbol.Scope) []string {
+func formatSequenceStagesList(sym *symbol.Symbol) []string {
 	var stages []string
-	for _, child := range sym.Children {
+	for _, child := range sym.Children() {
 		if child.Kind == symbol.KindStage {
 			stages = append(stages, "`"+child.Name+"`")
 		}
@@ -626,7 +632,7 @@ func formatSequenceStagesList(sym *symbol.Scope) []string {
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition
 func (s *Server) symbolToLocation(
 	uri protocol.DocumentURI,
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 ) *protocol.Location {
 	if sym.AST == nil {
 		return nil

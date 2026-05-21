@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/testutil"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -40,7 +41,7 @@ var _ = Describe("Channel", func() {
 				{Key: 3, DataType: telem.StringT},
 			})
 			ss = strings.NewProgramState()
-			_, err := channels.NewModule(ctx, cs, ss, rt.Underlying())
+			_, err := channels.NewHost(ctx, rt.Underlying(), cs, ss)
 			Expect(err).To(Succeed())
 			rt.Passthrough(ctx, "channels")
 		})
@@ -137,12 +138,12 @@ var _ = Describe("Channel", func() {
 			rtState *rnode.ProgramState
 		)
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(channels.NewModule(ctx, nil, nil, nil))
+			factory = MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "test", Type: "on"}},
 				Functions: []graph.Function{{Key: "on"}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			rtState = rnode.New(analyzed)
 		})
@@ -251,14 +252,14 @@ var _ = Describe("Channel", func() {
 					},
 				}},
 			}
-			inter, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 10, DataType: telem.Float32T, Index: 11},
 				{Key: 20, DataType: telem.Int32T, Index: 0},
 			})
 			progState = rnode.New(inter)
-			factory = MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
+			factory = MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 		})
 
 		Describe("Data Reading", func() {
@@ -495,8 +496,8 @@ var _ = Describe("Channel", func() {
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 					}},
 				}
-				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
-				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, channels.SymbolResolver)
+				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+				analyzed2, diagnostics2 := graph.Analyze(ctx, g2, NewGraphRoot(nil))
 				Expect(diagnostics2.Ok()).To(BeTrue())
 				s2 := rnode.New(analyzed2)
 				channelState := channels.NewProgramState([]channels.Digest{
@@ -557,8 +558,8 @@ var _ = Describe("Channel", func() {
 			channelState = channels.NewProgramState([]channels.Digest{
 				{Key: 100, DataType: telem.Float32T, Index: 101},
 			})
-			mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
-			analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
+			mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			progState = rnode.New(analyzed)
 			factory = mod
@@ -691,8 +692,8 @@ var _ = Describe("Channel", func() {
 					{Key: 1, DataType: telem.Int32T, Index: 2},
 					{Key: 3, DataType: telem.Int32T, Index: 4},
 				})
-				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
+				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
@@ -756,8 +757,8 @@ var _ = Describe("Channel", func() {
 					{Key: 30, DataType: telem.Float32T, Index: 31},
 					{Key: 40, DataType: telem.Float64T, Index: 41},
 				})
-				mod := MustSucceed(channels.NewModule(ctx, channelState, nil, nil))
-				analyzed, diagnostics := graph.Analyze(ctx, g, channels.SymbolResolver)
+				mod := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s := rnode.New(analyzed)
 
@@ -802,7 +803,7 @@ var _ = Describe("Channel", func() {
 	Describe("NewModule nil-safety", func() {
 		It("Should not panic when channel state is nil", func(ctx SpecContext) {
 			Expect(func() {
-				MustSucceed(channels.NewModule(ctx, nil, nil, nil))
+				MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			}).ToNot(Panic())
 		})
 	})

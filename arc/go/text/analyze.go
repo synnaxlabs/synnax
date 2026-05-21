@@ -248,9 +248,9 @@ type identifierAST interface {
 // declaration. Named declarations resolve by identifier; anonymous ones are
 // looked up via their parser rule (registered during the collect pass under a
 // synthesized AutoName key).
-func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Scope, bool) {
+func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Symbol, bool) {
 	var (
-		scope *symbol.Scope
+		scope *symbol.Symbol
 		err   error
 	)
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -339,7 +339,7 @@ func analyzeIdentifierByRole(
 // on some other sequence's internal step.
 func analyzeNamedRef(
 	ctx acontext.Context[parser.IIdentifierContext],
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 	shell *shellBuilder,
 ) (transitionIntent, bool) {
 	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
@@ -367,15 +367,21 @@ func analyzeNamedRef(
 
 // isRootLevelScope reports whether sym is declared directly under the file
 // root (i.e., a top-level sequence or stage). Uses a structural parent
-// check so anonymous/auto-named wrapper scopes don't misclassify.
-func isRootLevelScope(sym *symbol.Scope) bool {
-	if sym == nil || sym.Parent == nil || sym.Parent.Parent != nil {
+// check so anonymous/auto-named wrapper scopes don't misclassify. The
+// user program root's Parent is either nil (no ambient) or KindAmbient
+// (the STL prelude).
+func isRootLevelScope(sym *symbol.Symbol) bool {
+	if sym == nil || sym.Parent == nil {
+		return false
+	}
+	parent := sym.Parent
+	if parent.Parent != nil && parent.Parent.Kind != symbol.KindAmbient {
 		return false
 	}
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
-func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
 	chKey := uint32(sym.ID)
 	n := ir.Node{
@@ -389,7 +395,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
 }
 
-func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
 	chKey := uint32(sym.ID)
 	n := ir.Node{
@@ -406,7 +412,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 
 func buildGlobalConstantNode(
 	name string,
-	sym *symbol.Scope,
+	sym *symbol.Symbol,
 	kg *keyGenerator,
 ) (nodeResult, bool) {
 	key := kg.generate("const", name)
@@ -448,9 +454,13 @@ func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	name := parser.FunctionName(ctx.AST)
+	head, tail := parser.FunctionNameParts(ctx.AST)
+	name := head
+	if tail != "" {
+		name = head + "." + tail
+	}
 	key := kg.generate(name, "")
-	sym, err := ctx.Resolve(name)
+	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
@@ -471,9 +481,10 @@ func analyzeFunctionNode(
 		))
 		return nodeResult{}, false
 	}
-	// Node.Type must be the canonical module path so factories find it;
-	// rewrite aliased prefixes (`t.now` → `time.now`).
-	nodeType := ctx.Scope.Root().Imports.CanonicalName(name)
+	// Node.Type is the canonical module path so factories find it. After
+	// alias indirection in Resolve, sym's tree position already points at
+	// the canonical module member; QualifiedName joins the parts.
+	nodeType := sym.QualifiedName()
 	freshType := types.Freshen(sym.Type, key)
 	n := ir.Node{
 		Key:      key,
@@ -547,13 +558,17 @@ func analyzeExpression(
 
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
 // Returns a partially complete IR even on errors for LSP support.
+//
+// The root parameter is the pre-built program root. Callers construct it
+// (typically via stl.NewRoot) so the text package never needs to know
+// which built-ins are loaded or where external symbols come from.
 func Analyze(
 	ctx context.Context,
 	t Text,
-	resolver symbol.Resolver,
+	root *symbol.Symbol,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
+		aCtx = acontext.CreateRoot(ctx, t.AST, root)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 
@@ -563,26 +578,27 @@ func Analyze(
 		return i, aCtx.Diagnostics
 	}
 
-	for _, c := range i.Symbols.Children {
-		if c.Kind == symbol.KindFunction {
-			fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
-			var bodyAst antlr.ParserRuleContext = fnDecl
-			if ok {
-				bodyAst = fnDecl.Block()
-			}
-			exprDecl, ok := c.AST.(parser.IExpressionContext)
-			if ok {
-				bodyAst = exprDecl
-			}
-			i.Functions = append(i.Functions, ir.Function{
-				Key:      c.Name,
-				Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
-				Config:   c.Type.Config,
-				Inputs:   c.Type.Inputs,
-				Outputs:  c.Type.Outputs,
-				Channels: c.Channels,
-			})
+	for _, c := range i.Symbols.Children() {
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
 		}
+		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
+		var bodyAst antlr.ParserRuleContext = fnDecl
+		if ok {
+			bodyAst = fnDecl.Block()
+		}
+		exprDecl, ok := c.AST.(parser.IExpressionContext)
+		if ok {
+			bodyAst = exprDecl
+		}
+		i.Functions = append(i.Functions, ir.Function{
+			Key:      c.Name,
+			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
+			Config:   c.Type.Config,
+			Inputs:   c.Type.Inputs,
+			Outputs:  c.Type.Outputs,
+			Channels: c.Channels,
+		})
 	}
 	kg := newKeyGenerator()
 	shell := newShellBuilder()
@@ -919,7 +935,7 @@ func extractConfigValues(
 	ctx acontext.Context[parser.IConfigValuesContext],
 	config types.Params,
 	node ir.Node,
-	fnSym *symbol.Scope,
+	fnSym *symbol.Symbol,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return config, true

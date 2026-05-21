@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,7 +56,7 @@ func newTestConfig(ctx context.Context, nodeType string) node.Config {
 		Nodes:     []graph.Node{{Key: "n1", Type: nodeType}},
 		Functions: []graph.Function{{Key: nodeType}},
 	}
-	analyzed, _ := graph.Analyze(ctx, g, nil)
+	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil))
 	s := node.New(analyzed)
 	return node.Config{
 		Node:  ir.Node{Type: nodeType},

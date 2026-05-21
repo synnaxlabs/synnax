@@ -409,17 +409,22 @@ func (s *Server) getCompletionItems(
 		return []protocol.CompletionItem{}
 	}
 
+	var root *symbol.Symbol
+	if s.cfg.NewRoot != nil {
+		root = s.cfg.NewRoot()
+	}
+
 	if completionCtx == ContextAuthorityEntry {
-		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos)
+		return s.getAuthorityEntryCompletions(ctx, doc, prefix, pos, root)
 	}
 
 	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
 		configInfo := extractConfigContext(doc.displayContent(), pos)
 		if configInfo != nil {
 			if completionCtx == ContextConfigParamName {
-				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo)
+				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo, root)
 			}
-			return s.getConfigValueCompletions(ctx, doc, prefix, configInfo)
+			return s.getConfigValueCompletions(ctx, doc, prefix, configInfo, root)
 		}
 	}
 
@@ -478,34 +483,47 @@ func (s *Server) getCompletionItems(
 		}
 		startChar := pos.Character - uint32(len(prefix))
 		if modulePrefix != "" {
-			// Module-qualified prefix (e.g. "math." or "time.n"): search
-			// only the GlobalResolver and filter to function symbols so
-			// that channels and other unrelated symbols are excluded.
-			if s.cfg.GlobalResolver != nil {
-				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
-				if err == nil {
-					for _, sym := range symbols {
-						if sym.Kind != symbol.KindFunction {
-							continue
-						}
-						if sym.Internal {
-							continue
-						}
-						if !sym.Exec.Compatible(execFilter) {
-							continue
-						}
-						qualifiedName := modulePrefix + sym.Name
-						item := symbolCompletionItem(sym.Name, sym.Type)
-						item.FilterText = qualifiedName
-						item.TextEdit = &protocol.TextEdit{
-							Range: protocol.Range{
-								Start: protocol.Position{Line: pos.Line, Character: startChar},
-								End:   pos,
-							},
-							NewText: qualifiedName,
-						}
-						items = append(items, item)
+			// Module-qualified prefix (e.g. "math." or "time.n"): find the
+			// module by name, prefer the document's scope tree (so user
+			// imports are respected); fall back to the STL ambient prelude
+			// so completion still works when the document hasn't yet been
+			// analyzed (e.g. mid-typing "math.").
+			moduleName := strings.TrimSuffix(modulePrefix, ".")
+			memberPrefix := prefix[len(modulePrefix):]
+			var mod *symbol.Symbol
+			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
+				mod, _ = scopeAtCursor.Resolve(ctx, moduleName, symbol.IncludeInternal)
+			}
+			if mod == nil && root != nil {
+				mod, _ = root.Resolve(ctx, moduleName, symbol.IncludeInternal)
+			}
+			// Resolve returns the alias for `import time as t`; follow Target
+			// to reach the module body for member enumeration.
+			if mod != nil && mod.Kind == symbol.KindModuleAlias && mod.Target != nil {
+				mod = mod.Target
+			}
+			if mod != nil && mod.Kind == symbol.KindModule {
+				for _, sym := range mod.Children() {
+					if sym.Kind != symbol.KindFunction || sym.Internal {
+						continue
 					}
+					if !sym.Exec.Compatible(execFilter) {
+						continue
+					}
+					if memberPrefix != "" && !strings.HasPrefix(sym.Name, memberPrefix) {
+						continue
+					}
+					qualifiedName := modulePrefix + sym.Name
+					item := symbolCompletionItem(sym.Name, sym.Type)
+					item.FilterText = qualifiedName
+					item.TextEdit = &protocol.TextEdit{
+						Range: protocol.Range{
+							Start: protocol.Position{Line: pos.Line, Character: startChar},
+							End:   pos,
+						},
+						NewText: qualifiedName,
+					}
+					items = append(items, item)
 				}
 			}
 		} else {
@@ -520,8 +538,8 @@ func (s *Server) getCompletionItems(
 						items = append(items, symbolCompletionItem(scope.Name, scope.Type))
 					}
 				}
-			} else if s.cfg.GlobalResolver != nil {
-				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+			} else if root != nil {
+				symbols, err := root.Search(ctx, prefix)
 				if err == nil {
 					for _, sym := range symbols {
 						if sym.Kind == symbol.KindFunction && !sym.Exec.Compatible(execFilter) {
@@ -576,6 +594,7 @@ func (s *Server) getAuthorityEntryCompletions(
 	doc *Document,
 	prefix string,
 	pos protocol.Position,
+	root *symbol.Symbol,
 ) []protocol.CompletionItem {
 	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
 	existingSet := set.New(existing...)
@@ -590,8 +609,8 @@ func (s *Server) getAuthorityEntryCompletions(
 			Detail: t.String(),
 		})
 	}
-	if s.cfg.GlobalResolver != nil {
-		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+	if root != nil {
+		symbols, err := root.Search(ctx, prefix)
 		if err != nil {
 			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
 		}
@@ -615,6 +634,7 @@ func (s *Server) resolveFunctionType(
 	ctx context.Context,
 	doc *Document,
 	name string,
+	root *symbol.Symbol,
 ) (types.Type, bool) {
 	if doc.IR.Symbols != nil {
 		sym, err := doc.IR.Symbols.Resolve(ctx, name)
@@ -622,8 +642,8 @@ func (s *Server) resolveFunctionType(
 			return sym.Type, true
 		}
 	}
-	if s.cfg.GlobalResolver != nil {
-		sym, err := s.cfg.GlobalResolver.Resolve(ctx, name)
+	if root != nil {
+		sym, err := root.Resolve(ctx, name)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}
@@ -636,6 +656,7 @@ func (s *Server) collectSymbols(
 	doc *Document,
 	prefix string,
 	filter func(types.Type) bool,
+	root *symbol.Symbol,
 ) []protocol.CompletionItem {
 	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
@@ -650,8 +671,8 @@ func (s *Server) collectSymbols(
 			Detail: t.String(),
 		})
 	}
-	if s.cfg.GlobalResolver != nil {
-		symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+	if root != nil {
+		symbols, err := root.Search(ctx, prefix)
 		if err == nil {
 			for _, sym := range symbols {
 				addItem(sym.Name, sym.Type)
@@ -674,8 +695,9 @@ func (s *Server) getConfigParamCompletions(
 	doc *Document,
 	prefix string,
 	configInfo *configContextInfo,
+	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName)
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
@@ -701,8 +723,9 @@ func (s *Server) getConfigValueCompletions(
 	doc *Document,
 	prefix string,
 	configInfo *configContextInfo,
+	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName)
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
@@ -714,7 +737,7 @@ func (s *Server) getConfigValueCompletions(
 	if param.Type.Kind == types.KindChan {
 		items = s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
 			return t.Kind == types.KindChan
-		})
+		}, root)
 	} else if param.Type.IsNumeric() {
 		for _, c := range completions {
 			if (c.Category&categoryUnit) == 0 || !strings.HasPrefix(c.Label, prefix) {
@@ -729,7 +752,7 @@ func (s *Server) getConfigValueCompletions(
 	}
 	nonChanSymbols := s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
 		return t.Kind != types.KindChan
-	})
+	}, root)
 	items = append(items, nonChanSymbols...)
 	return items
 }

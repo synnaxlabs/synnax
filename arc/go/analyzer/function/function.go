@@ -240,7 +240,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 func addOutputsToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if outputType == nil {
 		return
@@ -392,7 +392,7 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 func addConfigToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	configBlock parser.IConfigBlockContext,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if configBlock == nil || configBlock.ConfigList() == nil {
 		return

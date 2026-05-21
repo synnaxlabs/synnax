@@ -18,19 +18,19 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-func channelResolver(channels map[string]struct {
+func channelSymbols(channels map[string]struct {
 	dt types.Type
 	id int
 },
-) symbol.MapResolver {
-	r := symbol.MapResolver{}
+) []symbol.Symbol {
+	r := make([]symbol.Symbol, 0, len(channels))
 	for name, ch := range channels {
-		r[name] = symbol.Symbol{
+		r = append(r, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindChannel,
 			Type: types.Chan(ch.dt),
 			ID:   ch.id,
-		}
+		})
 	}
 	return r
 }
@@ -38,7 +38,7 @@ func channelResolver(channels map[string]struct {
 var _ = Describe("Stat Flow Chains", func() {
 	Describe("avg", func() {
 		It("Should compute the average through a flow chain", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -74,7 +74,7 @@ var _ = Describe("Stat Flow Chains", func() {
 		})
 
 		It("Should compute the average with int32 type", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -100,7 +100,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 	Describe("min", func() {
 		It("Should compute the minimum through a flow chain", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -126,7 +126,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 	Describe("max", func() {
 		It("Should compute the maximum through a flow chain", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -152,7 +152,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 	Describe("derivative", func() {
 		It("Should compute pointwise derivative through a flow chain", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -182,7 +182,7 @@ var _ = Describe("Stat Flow Chains", func() {
 
 	Describe("Full chain", func() {
 		It("Should execute source -> avg -> sink and flush channel writes", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{
@@ -210,7 +210,7 @@ var _ = Describe("Stat Flow Chains", func() {
 		})
 
 		It("Should execute source -> min -> sink and flush channel writes", func(ctx SpecContext) {
-			resolver := channelResolver(map[string]struct {
+			resolver := channelSymbols(map[string]struct {
 				dt types.Type
 				id int
 			}{

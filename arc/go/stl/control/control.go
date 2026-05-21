@@ -24,13 +24,9 @@ import (
 const (
 	bareSymbolName      = "set_authority"
 	qualifiedMemberName = "set_authority"
-	moduleName          = "control"
+	name                = "control"
 )
 
-// Two separate resolvers are needed because the bare top-level form
-// ("set_authority") and the qualified form ("control.set_authority") both
-// need to resolve to the same function. The bare form will be deprecated
-// and removed once users migrate to control.set_authority{}.
 var (
 	symbolProps = types.Function(types.FunctionProperties{
 		Config: types.Params{
@@ -41,38 +37,40 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 		},
 	})
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Type:       symbolProps,
-			Deprecated: "control.set_authority",
-		},
+	memberSymbol = symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: symbolProps,
 	}
-	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name: qualifiedMemberName,
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: symbolProps,
-			},
-		},
+	module     = symbol.NewModule(name, memberSymbol)
+	bareSymbol = symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       symbolProps,
+		Deprecated: module.FindChild(qualifiedMemberName),
 	}
-	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
-type Module struct {
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the control module plus the deprecated bare alias
+// (set_authority) whose Deprecated field points at the canonical member.
+var Symbols = []*symbol.Symbol{module, &bareSymbol}
+
+// Host is the runtime host-side support for the control module: it acts as
+// the node factory for set_authority. There are no WASM bindings for
+// control; authority changes flow through ProgramState directly.
+type Host struct {
 	auth *ProgramState
 }
 
-func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
+// NewHost constructs a control Host backed by the given authority
+// ProgramState. Control has no WASM host bindings; the Host is purely a
+// node factory.
+func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
-func (m *Module) ModuleName() string { return moduleName }
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
@@ -85,7 +83,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		channelKey = &nodeCfg.Channel
 	}
 	return &setAuthority{
-		auth:       m.auth,
+		auth:       h.auth,
 		authority:  nodeCfg.Value,
 		channelKey: channelKey,
 	}, nil
