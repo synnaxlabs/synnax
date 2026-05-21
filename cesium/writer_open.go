@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -119,9 +120,7 @@ type WriterConfig struct {
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
-var (
-	_ config.Config[WriterConfig] = WriterConfig{}
-)
+var _ config.Config[WriterConfig] = WriterConfig{}
 
 func DefaultWriterConfig() WriterConfig {
 	return WriterConfig{
@@ -382,7 +381,7 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 			keyAuth[k] = cfg.Authorities[i]
 		}
 	}
-	indexAuth := make(map[ChannelKey]xcontrol.Authority)
+	indexToAuth := make(map[ChannelKey]xcontrol.Authority)
 	var implicit []ChannelKey
 	for _, k := range cfg.Channels {
 		u, ok := db.mu.dbs.unary[k]
@@ -400,13 +399,13 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 		if existing.Contains(idxKey) {
 			continue
 		}
-		if _, seen := indexAuth[idxKey]; !seen {
+		if _, seen := indexToAuth[idxKey]; !seen {
 			implicit = append(implicit, idxKey)
-			indexAuth[idxKey] = 0
+			indexToAuth[idxKey] = 0
 		}
 		if perChannelAuth {
-			if a := keyAuth[k]; a > indexAuth[idxKey] {
-				indexAuth[idxKey] = a
+			if a := keyAuth[k]; a > indexToAuth[idxKey] {
+				indexToAuth[idxKey] = a
 			}
 		}
 	}
@@ -415,9 +414,10 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 	}
 	cfg.Channels = append(cfg.Channels, implicit...)
 	if perChannelAuth {
-		for _, idxKey := range implicit {
-			cfg.Authorities = append(cfg.Authorities, indexAuth[idxKey])
-		}
+		indexAuths := lo.Map(implicit, func(idxKey ChannelKey, _ int) xcontrol.Authority {
+			return indexToAuth[idxKey]
+		})
+		cfg.Authorities = append(cfg.Authorities, indexAuths...)
 	}
 	return cfg
 }
