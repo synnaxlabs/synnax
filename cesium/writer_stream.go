@@ -114,17 +114,15 @@ type streamWriter struct {
 	propChans []ChannelKey
 	propAuths []xcontrol.Authority
 	// keyToIdx maps every channel key the writer is responsible for to its owning
-	// idxWriter. Populated at open time when AutoIndexing is true and used by autoStamp
-	// to resolve fr.RawKeys() to their idxWriter group in O(1) per key, so the per-Write
-	// scan runs in O(KeysInFrame) rather than O(IndexGroups × KeysInFrame).
+	// idxWriter. Populated at open time when AutoIndexing is true.
 	keyToIdx map[ChannelKey]*idxWriter
 	WriterConfig
 }
 
 // initAutoIndexing seeds each idxWriter's dataAuth map from the writer's open-time
 // per-channel authorities, builds the streamWriter's key→idxWriter lookup, and
-// allocates the streamWriter's propagateAuthority scratch buffers. Must be called
-// after w.internal is fully populated.
+// allocates the streamWriter's propagateAuthority scratch buffers. Must be called after
+// w.internal is fully populated.
 func (w *streamWriter) initAutoIndexing() {
 	n := len(w.Channels)
 	w.propChans = make([]ChannelKey, 0, n)

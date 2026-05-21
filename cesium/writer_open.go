@@ -374,16 +374,9 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 	existing := set.New(cfg.Channels...)
 	perChannelAuth := len(cfg.Authorities) > 1
-	var keyAuth map[ChannelKey]xcontrol.Authority
-	if perChannelAuth {
-		keyAuth = make(map[ChannelKey]xcontrol.Authority, len(cfg.Channels))
-		for i, k := range cfg.Channels {
-			keyAuth[k] = cfg.Authorities[i]
-		}
-	}
 	indexToAuth := make(map[ChannelKey]xcontrol.Authority)
 	var implicit []ChannelKey
-	for _, k := range cfg.Channels {
+	for i, k := range cfg.Channels {
 		u, ok := db.mu.dbs.unary[k]
 		if !ok {
 			continue
@@ -404,7 +397,7 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 			indexToAuth[idxKey] = 0
 		}
 		if perChannelAuth {
-			if a := keyAuth[k]; a > indexToAuth[idxKey] {
+			if a := cfg.Authorities[i]; a > indexToAuth[idxKey] {
 				indexToAuth[idxKey] = a
 			}
 		}
@@ -414,8 +407,8 @@ func (db *DB) expandKeysForAutoIndexing(cfg WriterConfig) WriterConfig {
 	}
 	cfg.Channels = append(cfg.Channels, implicit...)
 	if perChannelAuth {
-		indexAuths := lo.Map(implicit, func(idxKey ChannelKey, _ int) xcontrol.Authority {
-			return indexToAuth[idxKey]
+		indexAuths := lo.Map(implicit, func(k ChannelKey, _ int) xcontrol.Authority {
+			return indexToAuth[k]
 		})
 		cfg.Authorities = append(cfg.Authorities, indexAuths...)
 	}
