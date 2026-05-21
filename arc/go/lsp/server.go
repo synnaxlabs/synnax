@@ -72,9 +72,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	if other.NewRoot != nil {
-		c.NewRoot = other.NewRoot
-	}
+	c.NewRoot = override.Nil(c.NewRoot, other.NewRoot)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)
