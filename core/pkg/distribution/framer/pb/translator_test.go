@@ -55,7 +55,7 @@ var _ = Describe("Translator", func() {
 					Mode:                     ts.WriterModePersistStream,
 					EnableAutoCommit:         new(false),
 					AutoIndexPersistInterval: telem.TimeSpan(5000),
-					AutoIndex:             new(true),
+					AutoIndex:                new(true),
 				},
 				Frame: testFrame(),
 			}
