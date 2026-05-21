@@ -355,16 +355,14 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 			idx.setDataAuth(k, auths[i])
 		}
 	}
-indexLoop:
+	explicit := set.New(chans[:nExplicit]...)
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		for _, ek := range chans[:nExplicit] {
-			if ek == idxKey {
-				continue indexLoop
-			}
+		if explicit.Contains(idxKey) {
+			continue
 		}
 		chans = append(chans, idxKey)
 		auths = append(auths, idx.maxDataAuth())
