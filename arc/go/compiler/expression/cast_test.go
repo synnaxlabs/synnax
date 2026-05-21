@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -358,7 +358,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		func(bCtx SpecContext, source string) {
 			expr, diag := parser.ParseExpression(source)
 			Expect(diag).To(BeNil())
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, stl.SymbolResolver)
+			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
 			Expect(analyzerCtx.Diagnostics.String()).To(ContainSubstring("cannot cast"))

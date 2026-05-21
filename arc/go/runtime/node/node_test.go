@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,7 +56,7 @@ func newTestConfig(ctx context.Context, nodeType string) node.Config {
 		Nodes:     []graph.Node{{Key: "n1", Type: nodeType}},
 		Functions: []graph.Function{{Key: nodeType}},
 	}
-	analyzed, _ := graph.Analyze(ctx, g, nil)
+	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil))
 	s := node.New(analyzed)
 	return node.Config{
 		Node:  ir.Node{Type: nodeType},
@@ -150,20 +151,20 @@ var _ = Describe("Node", func() {
 		})
 
 		It("Should route qualified types to the correct module when member names collide", func(ctx SpecContext) {
-			authorityNode := &mockNode{}
+			controlNode := &mockNode{}
 			statusNode := &mockNode{}
-			authorityFactory := &mockFactory{nodeType: "set", moduleName: "authority", returnNode: authorityNode}
+			controlFactory := &mockFactory{nodeType: "set", moduleName: "control", returnNode: controlNode}
 			statusFactory := &mockFactory{nodeType: "set", moduleName: "status", returnNode: statusNode}
-			compound := node.CompoundFactory{statusFactory, authorityFactory}
+			compound := node.CompoundFactory{statusFactory, controlFactory}
 
-			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "authority.set")))
-			Expect(n).To(Equal(authorityNode))
-			Expect(authorityFactory.createCalled).To(Equal(1))
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "control.set")))
+			Expect(n).To(Equal(controlNode))
+			Expect(controlFactory.createCalled).To(Equal(1))
 			Expect(statusFactory.createCalled).To(Equal(0))
 		})
 
 		It("Should skip mismatched modules but still try factories without a module name", func(ctx SpecContext) {
-			wrongModule := &mockFactory{nodeType: "set", moduleName: "authority"}
+			wrongModule := &mockFactory{nodeType: "set", moduleName: "control"}
 			noModule := &mockFactory{nodeType: "set", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{wrongModule, noModule}
 

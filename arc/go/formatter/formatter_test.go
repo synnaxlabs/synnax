@@ -37,6 +37,36 @@ var _ = Describe("Formatter", func() {
 		Entry("power with multiply", "x := 2 ^ 3 * 4", "x := 2 ^ 3 * 4\n"),
 	)
 
+	DescribeTable("Imports",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single module collapses to bare form", "import(time)", "import time\n"),
+		Entry("bare form stays bare", "import time", "import time\n"),
+		Entry("aliased collapses to bare form", "import (time as t)", "import time as t\n"),
+		Entry("bare aliased stays bare", "import time as t", "import time as t\n"),
+		Entry("hierarchical path collapses to bare form", "import (math.trig)", "import math.trig\n"),
+		Entry("multiple modules expand to multi-line block",
+			"import (time math status)",
+			"import (\n    time\n    math\n    status\n)\n"),
+		Entry("multiple modules with alias",
+			"import (time as t math)",
+			"import (\n    time as t\n    math\n)\n"),
+		Entry("multiple modules with hierarchical path",
+			"import (time math.trig)",
+			"import (\n    time\n    math.trig\n)\n"),
+		Entry("multi-line single item collapses to bare form",
+			"import (\n    time\n)",
+			"import time\n"),
+		Entry("multi-line single item preserves trailing declarations",
+			"import (\n    time\n)\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n",
+			"import time\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n"),
+		Entry("empty is removed", "import ()", ""),
+		Entry("empty is removed and following declarations are preserved",
+			"import ()\n\nauthority 255\n",
+			"authority 255\n"),
+	)
+
 	DescribeTable("Unit Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))

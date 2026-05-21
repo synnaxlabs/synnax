@@ -17,15 +17,16 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func newMockPolymorphicResolver() symbol.Resolver {
+func newMockPolymorphicSymbols() []symbol.Symbol {
 	constraint := types.NumericConstraint()
 	simpleInputs := types.Params{{Name: "a", Type: types.Variable("T", &constraint)}}
-	return &symbol.MapResolver{
-		"simple": {
+	return []symbol.Symbol{
+		{
 			Name: "simple",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
@@ -35,7 +36,7 @@ func newMockPolymorphicResolver() symbol.Resolver {
 				},
 			}),
 		},
-		"sensor_f32": {
+		{
 			Name: "sensor_f32",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F32()),
@@ -44,7 +45,9 @@ func newMockPolymorphicResolver() symbol.Resolver {
 }
 
 var _ = Describe("Polymorphic func Analysis", func() {
-	resolver := newMockPolymorphicResolver()
+	extras := newMockPolymorphicSymbols()
+	var root *symbol.Symbol
+	BeforeEach(func() { root = NewRoot(nil, extras...) })
 
 	type polymorphicCase struct {
 		expectedType types.Type
@@ -54,7 +57,7 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	DescribeTable("Simple Polymorphic Flow",
 		func(sCtx SpecContext, tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
-			ctx := acontext.CreateRoot(sCtx, ast, resolver)
+			ctx := acontext.NewRoot(sCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 

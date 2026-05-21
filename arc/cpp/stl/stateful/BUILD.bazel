@@ -10,7 +10,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/stl/series:state",
-        "//arc/cpp/stl/str:state",
+        "//arc/cpp/stl/strings:state",
         "//x/cpp/telem",
     ],
 )
@@ -27,6 +27,6 @@ cc_library(
         ":state",
         "//arc/cpp/stl",
         "//arc/cpp/stl/series:state",
-        "//arc/cpp/stl/str:state",
+        "//arc/cpp/stl/strings:state",
     ],
 )
