@@ -45,7 +45,10 @@ var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrit
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterCommandSetAuthority.
+	// Config is used for updating the parameters in WriterCommandSetAuthority. Once
+	// the request has been sent, ownership of Config (including the underlying arrays
+	// of Config.Channels and Config.Authorities) transfers to the streamWriter, which
+	// may mutate them in place; callers must not retain or share those slices.
 	Config WriterConfig
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
@@ -336,6 +339,11 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 // broadcast across every channel in the writer, including indexes — but the tracked
 // state is refreshed so the next per-channel call computes correctly. Indexes the
 // caller explicitly included in cfg.Channels are left untouched.
+//
+// propagateAuthority may append to cfg.Channels and cfg.Authorities. The streamWriter
+// treats a dequeued WriterRequest as exclusively owned, so callers must not retain or
+// share the underlying arrays of req.Config.Channels / req.Config.Authorities once the
+// request has been sent.
 func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	if len(cfg.Channels) == 0 {
 		for _, idx := range w.internal {
@@ -347,13 +355,17 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		idx.setAuthExplicit = false
 	}
 	nExplicit := len(cfg.Channels)
-	chans := make([]ChannelKey, nExplicit, nExplicit+len(w.internal))
-	auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
-	copy(chans, cfg.Channels)
-	for i := range cfg.Channels {
-		auths[i] = cfg.authority(i)
+	// If the caller broadcast a single authority across multiple channels, materialize
+	// a per-channel authorities slice so the loop below can index Authorities[i]
+	// directly and the implicit-index append loop has the right starting length.
+	if len(cfg.Authorities) < nExplicit {
+		auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
+		for i := range auths {
+			auths[i] = cfg.Authorities[0]
+		}
+		cfg.Authorities = auths
 	}
-	for i, k := range chans {
+	for i, k := range cfg.Channels {
 		idx, ok := w.keyToIdx[k]
 		if !ok {
 			continue
@@ -362,17 +374,15 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 			idx.setAuthExplicit = true
 			continue
 		}
-		idx.setDataAuth(k, auths[i])
+		idx.setDataAuth(k, cfg.Authorities[i])
 	}
 	for _, idx := range w.internal {
 		if !idx.writingToIdx || idx.setAuthExplicit {
 			continue
 		}
-		chans = append(chans, idx.idx.ch.Key)
-		auths = append(auths, idx.maxDataAuth())
+		cfg.Channels = append(cfg.Channels, idx.idx.ch.Key)
+		cfg.Authorities = append(cfg.Authorities, idx.maxDataAuth())
 	}
-	cfg.Channels = chans
-	cfg.Authorities = auths
 	return cfg
 }
 
