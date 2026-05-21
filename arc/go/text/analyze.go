@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -34,10 +35,11 @@ import (
 // invocations with the same logical name receive distinct keys.
 type keyGenerator struct {
 	occurrences map[string]int
+	synthFuncs  *ir.Functions
 }
 
-func newKeyGenerator() *keyGenerator {
-	return &keyGenerator{occurrences: make(map[string]int)}
+func newKeyGenerator(synthFuncs *ir.Functions) *keyGenerator {
+	return &keyGenerator{occurrences: make(map[string]int), synthFuncs: synthFuncs}
 }
 
 func (kg *keyGenerator) generate(role, name string) string {
@@ -488,6 +490,61 @@ func analyzeFunctionNode(
 	return newNodeResult(n, firstInputParam(n.Inputs), firstOutputParam(n.Outputs)), true
 }
 
+// tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
+// emitting a synthetic function. handled=true means the literal was a format
+// string with placeholders and the result is authoritative; handled=false
+// means callers should fall through to other literal handling.
+func tryAnalyzeFmtStrLiteral(
+	ctx acontext.Context[parser.IExpressionContext],
+	sym *symbol.Scope,
+	kg *keyGenerator,
+) (nodeResult, bool, bool) {
+	literalCtx := parser.GetLiteral(ctx.AST)
+	if literalCtx == nil {
+		return nodeResult{}, false, false
+	}
+	strTerm := parser.StringTerminal(literalCtx)
+	if strTerm == nil {
+		return nodeResult{}, false, false
+	}
+	_, flags, ok := literal.StripQuotes(strTerm.GetText())
+	if !ok || !flags.Format {
+		return nodeResult{}, false, false
+	}
+	outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
+	parsedValue, err := literal.Parse(literalCtx, outputType)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nodeResult{}, true, false
+	}
+	body := parsedValue.Value.(string)
+	segments, err := literal.FmtStrParse(body)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nodeResult{}, true, false
+	}
+	if !literal.FmtStrHasPlaceholder(segments) {
+		return nodeResult{}, false, false
+	}
+	key := kg.generate("fmt", "")
+	synthKey := compiler.FmtStrSyntheticPrefix + key
+	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+		Key:      synthKey,
+		Body:     ir.Body{Raw: body},
+		Inputs:   types.Params{},
+		Config:   types.Params{},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+		Channels: sym.Channels.Copy(),
+	})
+	n := ir.Node{
+		Key:      key,
+		Type:     synthKey,
+		Channels: sym.Channels.Copy(),
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
+}
+
 func analyzeExpression(
 	ctx acontext.Context[parser.IExpressionContext],
 	kg *keyGenerator,
@@ -496,6 +553,12 @@ func analyzeExpression(
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
+	}
+
+	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
+		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg); handled {
+			return n, ok
+		}
 	}
 
 	if sym.Kind == symbol.KindConstant {
@@ -581,7 +644,7 @@ func Analyze(
 			})
 		}
 	}
-	kg := newKeyGenerator()
+	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder()
 
 	// The root scope is always parallel and always-live.

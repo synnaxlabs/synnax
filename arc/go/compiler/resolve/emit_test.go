@@ -59,6 +59,64 @@ var _ = Describe("EmitNumericToString", func() {
 	})
 })
 
+var _ = Describe("EmitNumericFormat", func() {
+	DescribeTable("Should dispatch to the format_<type> host fn matching the source type",
+		func(from types.Type, wantWASMName string) {
+			r := resolve.NewResolver(stringSymbolResolver)
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+
+			Expect(r.EmitNumericFormat(w, wID, from)).To(Succeed())
+
+			m := wasm.NewModule()
+			r.Finalize(m)
+			Expect(m.ImportNames()).To(ConsistOf(wantWASMName))
+		},
+		Entry("i8 -> format_i32", types.I8(), "format_i32"),
+		Entry("i16 -> format_i32", types.I16(), "format_i32"),
+		Entry("i32 -> format_i32", types.I32(), "format_i32"),
+		Entry("u8 -> format_u32", types.U8(), "format_u32"),
+		Entry("u16 -> format_u32", types.U16(), "format_u32"),
+		Entry("u32 -> format_u32", types.U32(), "format_u32"),
+		Entry("i64 -> format_i64", types.I64(), "format_i64"),
+		Entry("u64 -> format_u64", types.U64(), "format_u64"),
+		Entry("f32 -> format_f32", types.F32(), "format_f32"),
+		Entry("f64 -> format_f64", types.F64(), "format_f64"),
+	)
+
+	It("Should return an error for non-numeric source types", func() {
+		r := resolve.NewResolver(stringSymbolResolver)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitNumericFormat(w, wID, types.String())).
+			To(MatchError(ContainSubstring("cannot convert")))
+	})
+})
+
+var _ = Describe("EmitStringFormat", func() {
+	It("Should emit an import for string.format_string", func() {
+		r := resolve.NewResolver(stringSymbolResolver)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitStringFormat(w, wID)).To(Succeed())
+
+		m := wasm.NewModule()
+		r.Finalize(m)
+		Expect(m.ImportNames()).To(ConsistOf("format_string"))
+	})
+
+	It("Should return an error when no SymbolResolver is configured", func() {
+		r := resolve.NewResolver(nil)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitStringFormat(w, wID)).
+			To(MatchError(ContainSubstring("no symbol resolver")))
+	})
+})
+
 var _ = Describe("EmitFixedCall", func() {
 	It("Should resolve the signature from the SymbolResolver and emit an import", func() {
 		r := resolve.NewResolver(stringSymbolResolver)
