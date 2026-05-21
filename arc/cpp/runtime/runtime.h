@@ -282,11 +282,11 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     };
 
     // External factories that are also stl::Modules need their host fns bound
-    // to the WASM linker. Modules that opt in via stl::str::StateConsumer
+    // to the WASM linker. Modules that opt in via stl::strings::StateConsumer
     // receive str_state before bind_to.
     for (const auto &f: cfg.factories) {
         if (auto m = std::dynamic_pointer_cast<stl::Module>(f)) {
-            if (auto sc = std::dynamic_pointer_cast<stl::str::StateConsumer>(m))
+            if (auto sc = std::dynamic_pointer_cast<stl::strings::StateConsumer>(m))
                 sc->set_str_state(str_st);
             stl_modules.push_back(m);
         }

@@ -21,7 +21,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 
 namespace driver::arc::status {
@@ -187,10 +187,10 @@ public:
     }
 };
 
-class Module : public ::arc::stl::Module, public ::arc::stl::str::StateConsumer {
+class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
-    std::shared_ptr<::arc::stl::str::State> str_state;
+    std::shared_ptr<::arc::stl::strings::State> str_state;
 
 public:
     Module(std::shared_ptr<synnax::Synnax> client, Reporter report):
@@ -202,7 +202,7 @@ public:
         return node_type == "set" || node_type == "delete";
     }
 
-    void set_str_state(std::shared_ptr<::arc::stl::str::State> ss) override {
+    void set_str_state(std::shared_ptr<::arc::stl::strings::State> ss) override {
         this->str_state = std::move(ss);
     }
 
