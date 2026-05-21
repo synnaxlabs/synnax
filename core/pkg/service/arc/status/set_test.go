@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	arctest "github.com/synnaxlabs/arc/stl/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -715,5 +716,126 @@ var _ = Describe("Analyzer hooks", func() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
 			}
 		})
+	})
+})
+
+var _ = Describe("WASM host functions", func() {
+	var (
+		rt   *arctest.Runtime
+		strs *stlstrings.ProgramState
+		rep  *recordingReporter
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		rt = arctest.NewRuntime(ctx)
+		strs = stlstrings.NewProgramState()
+		rep = &recordingReporter{}
+		MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+			Status:   statSvc,
+			Strings:  strs,
+			Runtime:  rt.Underlying(),
+			Reporter: rep.report,
+		}))
+		rt.Passthrough(ctx, "status")
+	})
+
+	AfterEach(func(ctx SpecContext) {
+		Expect(rt.Close(ctx)).To(Succeed())
+	})
+
+	Describe("set", func() {
+		It("Should upsert a status and return a non-zero handle resolving to the key", func(ctx SpecContext) {
+			name := "wasm_set_" + uuid.NewString()
+			keyH := strs.Create(name)
+			msgH := strs.Create("from wasm")
+			varH := strs.Create("info")
+
+			res := rt.Call(ctx, "status", "set",
+				arctest.U32(keyH), arctest.U32(msgH), arctest.U32(varH))
+			out := arctest.AsU32(res[0])
+			Expect(out).ToNot(BeZero())
+			Expect(MustBeOk(strs.Get(out))).To(Equal(name))
+
+			var s status.Status[any]
+			Expect(statSvc.NewRetrieve().Where(status.MatchNames[any](name)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+		})
+
+		It("Should warn and return 0 on an invalid key_or_name handle", func(ctx SpecContext) {
+			msgH := strs.Create("m")
+			varH := strs.Create("info")
+			res := rt.Call(ctx, "status", "set",
+				arctest.U32(9999), arctest.U32(msgH), arctest.U32(varH))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+			Expect(calls[0].message).To(ContainSubstring("status.set: invalid string handle"))
+		})
+
+		It("Should warn and return 0 on an invalid message handle", func(ctx SpecContext) {
+			keyH := strs.Create("wasm_msg_h_" + uuid.NewString())
+			varH := strs.Create("info")
+			res := rt.Call(ctx, "status", "set",
+				arctest.U32(keyH), arctest.U32(9999), arctest.U32(varH))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			Expect(rep.get()).To(HaveLen(1))
+		})
+
+		It("Should warn and return 0 on an invalid variant handle", func(ctx SpecContext) {
+			keyH := strs.Create("wasm_var_h_" + uuid.NewString())
+			msgH := strs.Create("m")
+			res := rt.Call(ctx, "status", "set",
+				arctest.U32(keyH), arctest.U32(msgH), arctest.U32(9999))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			Expect(rep.get()).To(HaveLen(1))
+		})
+	})
+
+	Describe("delete", func() {
+		It("Should delete a status and return 1", func(ctx SpecContext) {
+			name := "wasm_del_" + uuid.NewString()
+			Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+			})).To(Succeed())
+			keyH := strs.Create(name)
+
+			res := rt.Call(ctx, "status", "delete", arctest.U32(keyH))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(1)))
+
+			Expect(statSvc.NewRetrieve().Where(status.MatchNames[any](name)).
+				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should warn and return 0 on an invalid key_or_name handle", func(ctx SpecContext) {
+			res := rt.Call(ctx, "status", "delete", arctest.U32(9999))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+			Expect(calls[0].message).To(ContainSubstring("status.delete: invalid string handle"))
+		})
+
+		It("Should return 0 when dispatchDelete reports no match", func(ctx SpecContext) {
+			keyH := strs.Create("wasm_missing_" + uuid.NewString())
+			res := rt.Call(ctx, "status", "delete", arctest.U32(keyH))
+			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+		})
+	})
+})
+
+var _ = Describe("deleteNode.Next error propagation", func() {
+	It("Should warn with a 'status.delete:' prefix when the service returns an error", func(ctx SpecContext) {
+		rep := &recordingReporter{}
+		mod := newModule(ctx, rep)
+		state, irNode := buildState(ctx, "delete", deleteConfig(""))
+		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: state.Node(irNode.Key)}))
+
+		n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].message).To(HavePrefix("status.delete:"))
 	})
 })

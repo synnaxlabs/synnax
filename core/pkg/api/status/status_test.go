@@ -222,5 +222,17 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			var s status.Status[any]
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](preKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 		})
+
+		It("Should propagate ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+			grantOn(ctx, user.OntologyID(author.Key),
+				[]access.Action{access.ActionDelete},
+				statusTypeOnly)
+
+			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+				KeyOrName: "",
+			})
+			Expect(err).To(MatchError(status.ErrEmptyKeyOrName))
+			Expect(res).To(Equal(DeleteByKeyOrNameResponse{}))
+		})
 	})
 })
