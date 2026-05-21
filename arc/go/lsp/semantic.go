@@ -14,8 +14,10 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/set"
@@ -45,6 +47,7 @@ const (
 	SemanticTokenTypeUnit
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
+	SemanticTokenTypeStringPlaceholder
 )
 
 var semanticTokenTypes = []string{
@@ -71,6 +74,7 @@ var semanticTokenTypes = []string{
 	"unit",
 	"namespace",
 	"stringRaw",
+	"stringPlaceholder",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -89,6 +93,11 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 	// Track prev/next token types so classifyToken can handle qualified names (e.g., control.set_authority).
 	for i, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
+			continue
+		}
+		if t.GetTokenType() == parser.ArcLexerSTR_LITERAL ||
+			t.GetTokenType() == parser.ArcLexerSTR_LITERAL_MULTI {
+			tokens = append(tokens, expandStringToken(ctx, t, docIR)...)
 			continue
 		}
 		var prevType, nextType int
@@ -218,14 +227,25 @@ func isImportAlias(docIR ir.IR, name string) bool {
 
 // appendTokenPerLine emits one LSP semantic token per source line covered by t.
 // Monaco does not render a single semantic token whose length crosses a newline,
-// so multi-line ANTLR tokens (e.g. STR_LITERAL_RAW spanning several lines) must
-// be split into per-line entries to receive consistent coloring across the whole
-// span. For single-line tokens this collapses to one append, matching the prior
-// behavior.
+// so multi-line ANTLR tokens (e.g. STR_LITERAL_MULTI spanning several lines)
+// must be split into per-line entries to receive consistent coloring across the
+// whole span. For single-line tokens this collapses to one append, matching the
+// prior behavior.
 func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []lsp.Token {
-	text := t.GetText()
-	line := uint32(t.GetLine() - 1)
-	startChar := uint32(t.GetColumn())
+	return appendTextTokenPerLine(
+		tokens,
+		t.GetText(),
+		uint32(t.GetLine()-1),
+		uint32(t.GetColumn()),
+		tokenType,
+	)
+}
+
+func appendTextTokenPerLine(
+	tokens []lsp.Token,
+	text string,
+	line, startChar, tokenType uint32,
+) []lsp.Token {
 	lineStart := 0
 	for i := 0; i < len(text); i++ {
 		if text[i] != '\n' {
@@ -254,7 +274,25 @@ func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []l
 	return tokens
 }
 
-func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenType int, inImport bool, docIR ir.IR) *uint32 {
+func classifyToken(
+	ctx context.Context,
+	t antlr.Token,
+	prevTokenType, nextTokenType int,
+	inImport bool,
+	docIR ir.IR,
+) *uint32 {
+	return classifyTokenAt(ctx, t, prevTokenType, nextTokenType, inImport, docIR, t.GetLine(), t.GetColumn())
+}
+
+// Variant with explicit (line1, col0) for tokens lexed out of a sub-string.
+func classifyTokenAt(
+	ctx context.Context,
+	t antlr.Token,
+	prevTokenType, nextTokenType int,
+	inImport bool,
+	docIR ir.IR,
+	line1, col0 int,
+) *uint32 {
 	antlrType := t.GetTokenType()
 	// Identifiers (and AUTHORITY used as an importable name) inside an import
 	// statement are module references, not variables.
@@ -277,7 +315,7 @@ func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenT
 		return &tokenType
 	}
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
-		return classifyIdentifier(ctx, t, docIR.Symbols)
+		return classifyIdentifierAt(ctx, t.GetText(), line1, col0, docIR.Symbols)
 	}
 	// AUTHORITY followed by DOT is a leftover legacy use of the keyword as a
 	// module prefix; the analyzer no longer recognizes "authority" as a module
@@ -291,12 +329,8 @@ func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenT
 	return mapLexerTokenType(antlrType)
 }
 
-func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Symbol) *uint32 {
-	var (
-		name  = t.GetText()
-		pos   = position{Line: t.GetLine(), Col: t.GetColumn()}
-		scope = findScopeAtInternalPosition(rootScope, pos)
-	)
+func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, rootScope *symbol.Symbol) *uint32 {
+	scope := findScopeAtInternalPosition(rootScope, position{Line: line1, Col: col0})
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
 		return nil
@@ -364,10 +398,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
 		parser.ArcLexerLEQ, parser.ArcLexerGEQ:
 		tokenType = SemanticTokenTypeOperator
-	case parser.ArcLexerSTR_LITERAL:
+	case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 		tokenType = SemanticTokenTypeString
-	case parser.ArcLexerSTR_LITERAL_RAW:
-		tokenType = SemanticTokenTypeStringRaw
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
@@ -378,4 +410,100 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		return nil
 	}
 	return &tokenType
+}
+
+// expandStringToken emits LSP semantic tokens for a STR_LITERAL or
+// STR_LITERAL_MULTI. Format strings (f/rf prefix) with placeholders have their
+// {...} segments expanded with classified inner expression tokens; everything
+// else collapses to a single string-colored token.
+func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
+	text := t.GetText()
+	body, flags, ok := literal.StripQuotes(text)
+	prefixLen := 0
+	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
+		prefixLen++
+	}
+	fallback := func() []lsp.Token {
+		var out []lsp.Token
+		line, col := uint32(t.GetLine()-1), uint32(t.GetColumn())
+		if prefixLen > 0 {
+			out = appendTextTokenPerLine(out, text[:prefixLen], line, col, SemanticTokenTypeFunction)
+			col += uint32(prefixLen)
+		}
+		out = appendTextTokenPerLine(out, text[prefixLen:], line, col, SemanticTokenTypeString)
+		return out
+	}
+	if !ok || !flags.Format {
+		return fallback()
+	}
+	segs, err := literal.FmtStrParse(body)
+	if err != nil {
+		return fallback()
+	}
+	if !literal.FmtStrHasPlaceholder(segs) {
+		return fallback()
+	}
+	const delimLen = 1
+	bodyOff := prefixLen + delimLen
+	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
+	prevOff := 0
+	posOf := func(off int) (uint32, uint32) {
+		cursor = cursor.Advance(text[prevOff:], off-prevOff)
+		prevOff = off
+		return uint32(cursor.Line), uint32(cursor.Col)
+	}
+	var tokens []lsp.Token
+	emit := func(a, b int, tt uint32) {
+		if a >= b {
+			return
+		}
+		line, col := posOf(a)
+		tokens = appendTextTokenPerLine(tokens, text[a:b], line, col, tt)
+	}
+	emitInner := func(a, b int) {
+		inner := tokenizeContent(text[a:b])
+		baseLine, baseCol := posOf(a)
+		for i, it := range inner {
+			if it.GetTokenType() == antlr.TokenEOF {
+				continue
+			}
+			var prev, next int
+			if i > 0 {
+				prev = inner[i-1].GetTokenType()
+			}
+			if i+1 < len(inner) {
+				next = inner[i+1].GetTokenType()
+			}
+			relLine, relCol := uint32(it.GetLine()-1), uint32(it.GetColumn())
+			absLine, absCol := baseLine+relLine, relCol
+			if relLine == 0 {
+				absCol = baseCol + relCol
+			}
+			tt := classifyTokenAt(ctx, it, prev, next, false, docIR, int(absLine)+1, int(absCol))
+			if tt == nil {
+				continue
+			}
+			tokens = appendTextTokenPerLine(tokens, it.GetText(), absLine, absCol, *tt)
+		}
+	}
+	emit(0, prefixLen, SemanticTokenTypeFunction)
+	emit(prefixLen, bodyOff, SemanticTokenTypeString)
+	for _, seg := range segs {
+		if !seg.IsPlaceholder {
+			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeString)
+			continue
+		}
+		emit(seg.Start+bodyOff, seg.Start+bodyOff+1, SemanticTokenTypeStringPlaceholder)
+		exprEnd := seg.End - 1
+		if seg.SpecOffset >= 0 {
+			exprEnd = seg.SpecOffset
+		}
+		emitInner(seg.Start+bodyOff+1, exprEnd+bodyOff)
+		if seg.SpecOffset >= 0 {
+			emit(seg.SpecOffset+bodyOff, seg.End-1+bodyOff, SemanticTokenTypeStringPlaceholder)
+		}
+		emit(seg.End-1+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringPlaceholder)
+	}
+	emit(len(text)-delimLen, len(text), SemanticTokenTypeString)
+	return tokens
 }

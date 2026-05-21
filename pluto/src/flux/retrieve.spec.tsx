@@ -318,7 +318,7 @@ describe("useRetrieveSuspended", () => {
       name: "Number",
       retrieve,
       mountListeners: ({ onChange }) => {
-        capturedOnChange = onChange as (v: number | undefined) => void;
+        capturedOnChange = onChange;
         return () => {};
       },
     });

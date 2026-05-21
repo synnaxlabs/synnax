@@ -55,7 +55,7 @@ var _ = Describe("Migrate", func() {
 		// This simulates the state of the DB before the range_groups migration
 		// was added.
 		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
-			ctx, gorp.TableConfig[ranger.Range]{DB: db},
+			ctx, gorp.TableConfig[uuid.UUID, ranger.Range]{DB: db},
 		))
 
 		tx := db.OpenTx()

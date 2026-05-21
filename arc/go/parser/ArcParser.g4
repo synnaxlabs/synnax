@@ -432,7 +432,7 @@ typeCast
 literal
     : numericLiteral
     | STR_LITERAL
-    | STR_LITERAL_RAW
+    | STR_LITERAL_MULTI
     | seriesLiteral
     ;
 

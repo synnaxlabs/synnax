@@ -3109,6 +3109,117 @@ var _ = Describe("Compiler", func() {
 		})
 	})
 
+	Describe("Format String Synthetic Functions", func() {
+		var strMod *stlstrings.Host
+		var strState *stlstrings.ProgramState
+
+		BeforeEach(func(ctx SpecContext) {
+			_, strMod, strState = bindDefaultModules(ctx, r)
+		})
+
+		It("Compiles a flow-form raw string with a single literal placeholder", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"v={42}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			handle := uint32(results[0])
+			Expect(handle).To(BeNumerically(">", 0))
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=42"))
+		})
+
+		It("Compiles a placeholder with a numeric format spec", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"v={f64(3.14159):.2f}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=3.14"))
+		})
+
+		It("Compiles multiple placeholders separated by literals", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"a={1} b={i32(2):05d} c={f64(3.14):.2f}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("a=1 b=00002 c=3.14"))
+		})
+
+		It("Compiles a placeholder-only body with no surrounding literals", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"{42}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("42"))
+		})
+
+		It("Numbers multiple synthetic functions independently", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log_a", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+				{Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 102},
+			}
+			output := MustSucceed(compileWithHostImports(ctx, `
+			trig -> `+`f"first={1}"`+` -> log_a
+			trig -> `+`f"second={2}"`+` -> log_b
+			`, resolver))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
+		})
+	})
+
 	Describe("Numeric Type Execution", func() {
 		DescribeTable("numeric type literals",
 			func(ctx SpecContext, body string, expected any) {

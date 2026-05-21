@@ -11,6 +11,7 @@ package strings
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -20,7 +21,19 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-const name = "string"
+const name = "strings"
+
+func formatHostFunc(t types.Type) symbol.Symbol {
+	return symbol.InternalHostFunc(
+		"format_"+t.String(),
+		types.Params{
+			{Name: "value", Type: t},
+			{Name: "spec_ptr", Type: types.I32()},
+			{Name: "spec_len", Type: types.I32()},
+		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+	)
+}
 
 var module = symbol.NewModule(
 	name,
@@ -74,11 +87,50 @@ var module = symbol.NewModule(
 		types.Params{{Name: "value", Type: types.F64()}},
 		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 	),
+	formatHostFunc(types.I32()),
+	formatHostFunc(types.U32()),
+	formatHostFunc(types.I64()),
+	formatHostFunc(types.U64()),
+	formatHostFunc(types.F32()),
+	formatHostFunc(types.F64()),
+	formatHostFunc(types.String()),
 )
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude. Strings contributes only its module (no bare globals).
 var Symbols = []*symbol.Symbol{module}
+
+func registerFrom[T any](
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	name string,
+	conv func(T) string,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v T) uint32 {
+			return s.Create(conv(v))
+		}).Export(name)
+}
+
+func registerFormat[T any](
+	builder wazero.HostModuleBuilder,
+	h *Host,
+	name string,
+	coerce func(T) any,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v T, ptr, length uint32) uint32 {
+			return h.strings.Create(formatWithSpec(h.memory, ptr, length, coerce(v)))
+		}).Export(name)
+}
+
+func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
+	spec, ok := memory.Read(ptr, length)
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("%"+string(spec), value)
+}
 
 // Host is the runtime host-side support for the string module: it registers
 // the WASM host bindings that allocate and manipulate string handles
@@ -145,30 +197,26 @@ func NewHost(
 			}
 			return 0
 		}).Export("len")
+	builder = registerFrom(builder, s, "from_i32", func(v int32) string { return strconv.FormatInt(int64(v), 10) })
+	builder = registerFrom(builder, s, "from_u32", func(v uint32) string { return strconv.FormatUint(uint64(v), 10) })
+	builder = registerFrom(builder, s, "from_i64", func(v int64) string { return strconv.FormatInt(v, 10) })
+	builder = registerFrom(builder, s, "from_u64", func(v uint64) string { return strconv.FormatUint(v, 10) })
+	builder = registerFrom(builder, s, "from_f32", func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) })
+	builder = registerFrom(builder, s, "from_f64", func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) })
+	builder = registerFormat(builder, h, "format_i32", func(v int32) any { return int64(v) })
+	builder = registerFormat(builder, h, "format_u32", func(v uint32) any { return uint64(v) })
+	builder = registerFormat(builder, h, "format_i64", func(v int64) any { return v })
+	builder = registerFormat(builder, h, "format_u64", func(v uint64) any { return v })
+	builder = registerFormat(builder, h, "format_f32", func(v float32) any { return float64(v) })
+	builder = registerFormat(builder, h, "format_f64", func(v float64) any { return v })
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int32) uint32 {
-			return s.Create(strconv.FormatInt(int64(v), 10))
-		}).Export("from_i32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint32) uint32 {
-			return s.Create(strconv.FormatUint(uint64(v), 10))
-		}).Export("from_u32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int64) uint32 {
-			return s.Create(strconv.FormatInt(v, 10))
-		}).Export("from_i64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint64) uint32 {
-			return s.Create(strconv.FormatUint(v, 10))
-		}).Export("from_u64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float32) uint32 {
-			return s.Create(strconv.FormatFloat(float64(v), 'g', -1, 32))
-		}).Export("from_f32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float64) uint32 {
-			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
-		}).Export("from_f64")
+		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {
+			str, ok := s.Get(handle)
+			if !ok {
+				return 0
+			}
+			return s.Create(formatWithSpec(h.memory, ptr, length, str))
+		}).Export("format_str")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}

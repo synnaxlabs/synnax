@@ -15,7 +15,7 @@
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/stl.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
 namespace arc::stl::stateful {
 
@@ -24,13 +24,13 @@ inline constexpr const char *MODULE_NAME = "state";
 class Module : public stl::Module {
     std::shared_ptr<Variables> vars;
     std::shared_ptr<series::State> series_state;
-    std::shared_ptr<str::State> str_state;
+    std::shared_ptr<strings::State> str_state;
 
 public:
     Module(
         std::shared_ptr<Variables> vars,
         std::shared_ptr<series::State> series_state,
-        std::shared_ptr<str::State> str_state
+        std::shared_ptr<strings::State> str_state
     ):
         vars(std::move(vars)),
         series_state(std::move(series_state)),

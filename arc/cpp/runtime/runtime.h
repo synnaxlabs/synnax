@@ -38,7 +38,7 @@
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stable/stable.h"
 #include "arc/cpp/stl/stateful/stateful.h"
-#include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/strings/strings.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
@@ -248,7 +248,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     }
 
     auto channel_st = std::make_shared<stl::channels::State>(digests);
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
 
     auto var_st = std::make_shared<stl::stateful::Variables>();
@@ -271,7 +271,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::channels::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
-        std::make_shared<stl::str::Module>(str_st),
+        std::make_shared<stl::strings::Module>(str_st),
         std::make_shared<stl::math::Module>(),
         time_module,
         std::make_shared<stl::error::Module>(error_handler),

@@ -30,7 +30,7 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
         "//arc/cpp/stl/channels:state",
-        "//arc/cpp/stl/str:state",
+        "//arc/cpp/stl/strings:state",
         "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",

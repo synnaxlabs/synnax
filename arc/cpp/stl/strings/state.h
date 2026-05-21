@@ -13,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace arc::stl::str {
+namespace arc::stl::strings {
 
 /// Handle store for strings created during WASM execution.
 /// Manages both transient handles (cleared each cycle) and config handles

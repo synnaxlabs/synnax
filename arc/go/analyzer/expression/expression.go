@@ -525,7 +525,10 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		return
 	}
-	if ctx.AST.Literal() != nil {
+	if lit := ctx.AST.Literal(); lit != nil {
+		if strTerm := parser.StringTerminal(lit); strTerm != nil {
+			AnalyzeFmtStrLiteral(ctx, strTerm)
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {

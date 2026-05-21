@@ -59,7 +59,7 @@ func arcparserParserInit() {
 		"MINUS", "STAR", "SLASH", "PERCENT", "CARET", "EQ", "NEQ", "LT", "GT",
 		"LEQ", "GEQ", "AND", "OR", "NOT", "LPAREN", "RPAREN", "LBRACE", "RBRACE",
 		"LBRACKET", "RBRACKET", "COMMA", "COLON", "DOT", "INTEGER_LITERAL",
-		"FLOAT_LITERAL", "STR_LITERAL", "STR_LITERAL_RAW", "IDENTIFIER", "SINGLE_LINE_COMMENT",
+		"FLOAT_LITERAL", "STR_LITERAL_MULTI", "STR_LITERAL", "IDENTIFIER", "SINGLE_LINE_COMMENT",
 		"MULTI_LINE_COMMENT", "WS",
 	}
 	staticData.RuleNames = []string{
@@ -416,7 +416,7 @@ func arcparserParserInit() {
 		737, 731, 1, 0, 0, 0, 737, 732, 1, 0, 0, 0, 737, 736, 1, 0, 0, 0, 738,
 		147, 1, 0, 0, 0, 739, 740, 3, 106, 53, 0, 740, 741, 5, 52, 0, 0, 741, 742,
 		3, 122, 61, 0, 742, 743, 5, 53, 0, 0, 743, 149, 1, 0, 0, 0, 744, 749, 3,
-		152, 76, 0, 745, 749, 5, 63, 0, 0, 746, 749, 5, 64, 0, 0, 747, 749, 3,
+		152, 76, 0, 745, 749, 5, 64, 0, 0, 746, 749, 5, 63, 0, 0, 747, 749, 3,
 		154, 77, 0, 748, 744, 1, 0, 0, 0, 748, 745, 1, 0, 0, 0, 748, 746, 1, 0,
 		0, 0, 748, 747, 1, 0, 0, 0, 749, 151, 1, 0, 0, 0, 750, 752, 5, 38, 0, 0,
 		751, 750, 1, 0, 0, 0, 751, 752, 1, 0, 0, 0, 752, 753, 1, 0, 0, 0, 753,
@@ -535,8 +535,8 @@ const (
 	ArcParserDOT                 = 60
 	ArcParserINTEGER_LITERAL     = 61
 	ArcParserFLOAT_LITERAL       = 62
-	ArcParserSTR_LITERAL         = 63
-	ArcParserSTR_LITERAL_RAW     = 64
+	ArcParserSTR_LITERAL_MULTI   = 63
+	ArcParserSTR_LITERAL         = 64
 	ArcParserIDENTIFIER          = 65
 	ArcParserSINGLE_LINE_COMMENT = 66
 	ArcParserMULTI_LINE_COMMENT  = 67
@@ -762,7 +762,7 @@ func (p *ArcParser) Program() (localctx IProgramContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	for ((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&-2209015342213104382) != 0) || _la == ArcParserSTR_LITERAL_RAW || _la == ArcParserIDENTIFIER {
+	for ((int64(_la) & ^0x3f) == 0 && ((int64(1)<<_la)&-2209015342213104382) != 0) || _la == ArcParserSTR_LITERAL || _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(158)
 			p.TopLevelItem()
@@ -5442,7 +5442,7 @@ func (p *ArcParser) FlowStatement() (localctx IFlowStatementContext) {
 			p.RoutingTable()
 		}
 
-	case ArcParserNEXT, ArcParserCHAN, ArcParserAUTHORITY, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserSERIES, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserSTR_LITERAL_RAW, ArcParserIDENTIFIER:
+	case ArcParserNEXT, ArcParserCHAN, ArcParserAUTHORITY, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserSERIES, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL_MULTI, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 		{
 			p.SetState(371)
 			p.FlowNode()
@@ -5477,7 +5477,7 @@ func (p *ArcParser) FlowStatement() (localctx IFlowStatementContext) {
 				p.RoutingTable()
 			}
 
-		case ArcParserNEXT, ArcParserCHAN, ArcParserAUTHORITY, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserSERIES, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL, ArcParserSTR_LITERAL_RAW, ArcParserIDENTIFIER:
+		case ArcParserNEXT, ArcParserCHAN, ArcParserAUTHORITY, ArcParserI8, ArcParserI16, ArcParserI32, ArcParserI64, ArcParserU8, ArcParserU16, ArcParserU32, ArcParserU64, ArcParserF32, ArcParserF64, ArcParserSTR, ArcParserSERIES, ArcParserMINUS, ArcParserNOT, ArcParserLPAREN, ArcParserLBRACKET, ArcParserINTEGER_LITERAL, ArcParserFLOAT_LITERAL, ArcParserSTR_LITERAL_MULTI, ArcParserSTR_LITERAL, ArcParserIDENTIFIER:
 			{
 				p.SetState(376)
 				p.FlowNode()
@@ -14461,7 +14461,7 @@ type ILiteralContext interface {
 	// Getter signatures
 	NumericLiteral() INumericLiteralContext
 	STR_LITERAL() antlr.TerminalNode
-	STR_LITERAL_RAW() antlr.TerminalNode
+	STR_LITERAL_MULTI() antlr.TerminalNode
 	SeriesLiteral() ISeriesLiteralContext
 
 	// IsLiteralContext differentiates from other interfaces.
@@ -14520,8 +14520,8 @@ func (s *LiteralContext) STR_LITERAL() antlr.TerminalNode {
 	return s.GetToken(ArcParserSTR_LITERAL, 0)
 }
 
-func (s *LiteralContext) STR_LITERAL_RAW() antlr.TerminalNode {
-	return s.GetToken(ArcParserSTR_LITERAL_RAW, 0)
+func (s *LiteralContext) STR_LITERAL_MULTI() antlr.TerminalNode {
+	return s.GetToken(ArcParserSTR_LITERAL_MULTI, 0)
 }
 
 func (s *LiteralContext) SeriesLiteral() ISeriesLiteralContext {
@@ -14598,11 +14598,11 @@ func (p *ArcParser) Literal() (localctx ILiteralContext) {
 			}
 		}
 
-	case ArcParserSTR_LITERAL_RAW:
+	case ArcParserSTR_LITERAL_MULTI:
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(746)
-			p.Match(ArcParserSTR_LITERAL_RAW)
+			p.Match(ArcParserSTR_LITERAL_MULTI)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit

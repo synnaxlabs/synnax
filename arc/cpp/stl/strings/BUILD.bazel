@@ -12,8 +12,8 @@ cc_library(
 )
 
 cc_library(
-    name = "str",
-    hdrs = ["str.h"],
+    name = "strings",
+    hdrs = ["strings.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -35,11 +35,11 @@ cc_test(
 )
 
 cc_test(
-    name = "str_test",
-    srcs = ["str_test.cpp"],
+    name = "strings_test",
+    srcs = ["strings_test.cpp"],
     deps = [
         ":state",
-        ":str",
+        ":strings",
         "@googletest//:gtest_main",
     ],
 )

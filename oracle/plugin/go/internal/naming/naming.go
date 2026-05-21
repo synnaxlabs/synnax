@@ -46,9 +46,10 @@ func IsScreamingCase(s string) bool {
 // PascalCase identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
-	"Https", "Id", "Io", "Ip", "Json", "Lhs", "Qps", "Ram", "Rhs", "Rpc",
-	"Sla", "Smtp", "Sql", "Ssh", "Tcp", "Tls", "Ttl", "Udp", "Ui", "Uid",
-	"Uri", "Url", "Utf8", "Uuid", "Vm", "Xml", "Xmpp", "Xss", "Xy",
+	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
+	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Tcp", "Tls", "Ttl", "Udp", "Ui",
+	"Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp", "Xss",
+	"Xy",
 }
 
 // ToPascalCase converts a name to PascalCase, preserving Go acronym conventions

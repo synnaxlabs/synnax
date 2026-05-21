@@ -314,6 +314,22 @@ var _ = Describe("Type Cast Compilation", func() {
 			OpCall, uint32(0),
 		),
 		Entry(
+			"float literal to str (negative zero)",
+			"str(-0.0)",
+			types.String(),
+			OpF64Const, float64(0),
+			OpF64Neg,
+			OpCall, uint32(0),
+		),
+		Entry(
+			"float literal to str (negative zero with trailing zeros)",
+			"str(-0.0000)",
+			types.String(),
+			OpF64Const, float64(0),
+			OpF64Neg,
+			OpCall, uint32(0),
+		),
+		Entry(
 			"float literal to str (trailing zero)",
 			"str(1.0)",
 			types.String(),

@@ -153,6 +153,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Eventually(seen).Should(Receive(&got))
 			Expect(got.Key).To(Equal(s.Key))
 			Expect(got.SessionKey).To(Equal("session-marker-xyz"))
+			Expect(got.Seq).To(BeNumerically(">", uint64(0)))
 			Expect(got.Actions).To(HaveLen(1))
 		})
 	})

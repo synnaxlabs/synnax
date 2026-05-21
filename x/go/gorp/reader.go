@@ -26,17 +26,19 @@ import (
 // entries from the DB. Reader only accesses entries that match its type arguments.
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
+	// keyCodec encodes K to prefixed pebble keys and decodes the reverse.
 	keyCodec keyCodec[K, E]
-	tx       Tx
+	// tx is the underlying transaction this Reader reads through.
+	tx Tx
 }
 
 // WrapReader wraps the given Tx to provide a strongly typed Reader.
-func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
+func WrapReader[K Key, E Entry[K]](tx Tx) Reader[K, E] {
 	return wrapReader[K, E](tx, nil)
 }
 
-func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) *Reader[K, E] {
-	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
+func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) Reader[K, E] {
+	return Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
@@ -93,12 +95,16 @@ func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	return entries, nil
 }
 
+// IterOptions configures a Reader iterator.
 type IterOptions struct {
+	// prefix narrows the scan to keys starting with this byte prefix
+	// (appended to the entry-type prefix). Nil scans all entries of
+	// type E.
 	prefix []byte
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
+func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
@@ -106,7 +112,7 @@ func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err er
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r *Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
 		return nil, nil, err
@@ -127,9 +133,15 @@ func (r *Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, 
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
 // before returning it to the caller. To create a new Iterator, call OpenIterator.
 type Iterator[E any] struct {
+	// Iterator is the underlying byte-level iterator.
 	kv.Iterator
-	err   error
+	// err is the last decode error encountered by Value. Surfaced via
+	// Error().
+	err error
+	// value is the reusable decode buffer; Value returns a pointer to
+	// this and overwrites it on each call.
 	value *E
+	// codec decodes the iterator's raw bytes into E.
 	codec encoding.Codec
 }
 

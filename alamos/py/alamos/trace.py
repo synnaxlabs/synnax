@@ -9,6 +9,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from functools import cached_property
 from typing import Protocol
 
 from opentelemetry.propagators.textmap import Setter, TextMapPropagator
@@ -95,7 +96,6 @@ class Tracer:
     _filter: EnvironmentFilter
     _otel_provider: OtelTraceProvider | None
     _otel_propagator: TextMapPropagator | None
-    __otel_tracer: OtelTracer | None
 
     def _(self) -> Noop:
         return self
@@ -110,16 +110,12 @@ class Tracer:
         self._filter = filter_
         self._otel_provider = otel_provider
         self._otel_propagator = otel_propagator
-        self.__otel_tracer = None
 
-    @property
+    @cached_property
     def _otel_tracer(self) -> OtelTracer | None:
-        if self.__otel_tracer is not None:
-            return self.__otel_tracer
-        if self._otel_provider is not None:
-            self.__otel_tracer = self._otel_provider.get_tracer(self._meta.key)
-            return self.__otel_tracer
-        return None
+        if self._otel_provider is None:
+            return None
+        return self._otel_provider.get_tracer(self._meta.key)
 
     @contextmanager
     def trace(self, key: str, env: Environment) -> Iterator[Span]:

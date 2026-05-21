@@ -68,7 +68,7 @@ export class Client<ScopedStore extends Store = Store> {
   getCache<Q extends Query, D extends state.State>(key: string): QueryCache<Q, D> {
     let cache = this.caches.get(key);
     if (cache == null) {
-      cache = new QueryCache<Q, D>() as unknown as QueryCache<Query, state.State>;
+      cache = new QueryCache<Q, D>();
       this.caches.set(key, cache);
     }
     return cache as unknown as QueryCache<Q, D>;

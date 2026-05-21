@@ -71,6 +71,40 @@ var _ = Describe("STL Symbols", func() {
 				strings.Join(violations, "\n  "))
 	})
 
+	It("Should obey the ExecBoth structural contract on every ExecBoth symbol", func() {
+		var violations []string
+		for _, mod := range allModules() {
+			for _, sym := range mod.Children() {
+				if sym.Kind != symbol.KindFunction || sym.Exec != symbol.ExecBoth {
+					continue
+				}
+				inputs := sym.Type.Inputs
+				config := sym.Type.Config
+				if len(inputs) != len(config) {
+					violations = append(violations, fmt.Sprintf(
+						"%s.%s (Inputs has %d params, Config has %d; ExecBoth requires "+
+							"one-to-one mirroring)",
+						mod.Name, sym.Name, len(inputs), len(config),
+					))
+					continue
+				}
+				for i := range inputs {
+					if inputs[i].Name != config[i].Name || !types.Equal(inputs[i].Type, config[i].Type) {
+						violations = append(violations, fmt.Sprintf(
+							"%s.%s (Inputs[%d]={%s,%s} does not match Config[%d]={%s,%s})",
+							mod.Name, sym.Name,
+							i, inputs[i].Name, inputs[i].Type,
+							i, config[i].Name, config[i].Type,
+						))
+					}
+				}
+			}
+		}
+		Expect(violations).To(BeEmpty(),
+			"ExecBoth symbols violating the dual-shape contract:\n  "+
+				strings.Join(violations, "\n  "))
+	})
+
 	It("Should use DefaultOutputParam on user-callable single-output functions", func() {
 		var violations []string
 		for _, mod := range allModules() {

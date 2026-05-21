@@ -49,7 +49,9 @@ const (
 	ExecWASM ExecContext = 1 << iota
 	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
 	ExecFlow
-	// ExecBoth marks a symbol as usable in both contexts.
+	// ExecBoth marks a symbol as usable in both contexts. Inputs must mirror
+	// Config one-for-one (N=0 allowed); upstream edges in flow form are
+	// triggers, not typed inputs. Invariant enforced in stl_test.go.
 	ExecBoth = ExecWASM | ExecFlow
 )
 
@@ -157,6 +159,13 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Renameable marks symbols whose backing resource the host can rename via an
+	// out-of-band side effect. Source-defined symbols (AST != nil) are renameable
+	// by source-text edits alone and do not need this flag; resolver-supplied
+	// symbols (e.g., Synnax channels) set it to opt into the LSP rename flow,
+	// which dispatches to the host via OnRename. Independent of Internal — the
+	// resolver decides the policy for its kind.
+	Renameable bool
 	// Exec indicates which execution context this symbol is valid in (WASM,
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.

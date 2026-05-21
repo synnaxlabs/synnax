@@ -37,7 +37,7 @@ import {
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
-import { PropertiesControls } from "@/schematic/toolbar/Properties";
+import { Properties } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
 const TABS = [
@@ -94,7 +94,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     selected.length === 1 &&
     singleSelectedConfig != null &&
     "label" in singleSelectedConfig
-      ? ((singleSelectedConfig.label as { label?: string } | undefined)?.label ?? null)
+      ? (singleSelectedConfig.label?.label ?? null)
       : null;
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
@@ -109,7 +109,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "control":
           return <Control layoutKey={layoutKey} />;
         default:
-          return <PropertiesControls layoutKey={layoutKey} />;
+          return <Properties layoutKey={layoutKey} />;
       }
     },
     [layoutKey, canEdit],

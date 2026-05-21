@@ -27,7 +27,7 @@
 #include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
@@ -163,7 +163,7 @@ class State {
     std::unordered_map<ir::Handle, size_t> value_index;
     /// @brief Per-module state slices.
     std::shared_ptr<stl::channels::State> channel;
-    std::shared_ptr<stl::str::State> strings;
+    std::shared_ptr<stl::strings::State> strings;
     std::shared_ptr<stl::series::State> series;
     std::shared_ptr<stl::stateful::Variables> vars;
 
@@ -181,7 +181,7 @@ public:
     State(
         const Config &cfg,
         std::shared_ptr<stl::channels::State> channel,
-        std::shared_ptr<stl::str::State> strings,
+        std::shared_ptr<stl::strings::State> strings,
         std::shared_ptr<stl::series::State> series,
         std::shared_ptr<stl::stateful::Variables> vars,
         errors::Handler error_handler = errors::noop_handler

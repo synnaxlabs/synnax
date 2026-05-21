@@ -113,8 +113,10 @@ export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 export interface UseRetrieveEffectParams<
   Query extends base.Query,
   Data extends state.State,
+> extends Pick<
+  UseObservableBaseRetrieveParams<Query, Data>,
+  "scope" | "beforeRetrieve" | "addStatusOnFailure"
 > {
-  scope?: string;
   onChange?: (result: Result<Data>, query: Query) => void;
   query?: Query;
 }
@@ -435,12 +437,7 @@ const useSuspended = <
           }
           cache.set(memoQuery, successResult(name, next));
         };
-        const result = mountListeners({
-          client: client as AllowDisconnected extends true ? Client | null : Client,
-          store,
-          query: memoQuery,
-          onChange,
-        });
+        const result = mountListeners({ client, store, query: memoQuery, onChange });
         const listeners = Array.isArray(result) ? result : [result];
         return () => {
           cacheSub();

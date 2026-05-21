@@ -160,6 +160,19 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 	return nil
 }
 
+// StringTerminal returns the string literal terminal node for either
+// STR_LITERAL or STR_LITERAL_MULTI form, or
+// nil if the literal is not a string.
+func StringTerminal(lit ILiteralContext) antlr.TerminalNode {
+	if t := lit.STR_LITERAL(); t != nil {
+		return t
+	}
+	if t := lit.STR_LITERAL_MULTI(); t != nil {
+		return t
+	}
+	return nil
+}
+
 // IsNumericLiteral checks if an expression is a numeric literal (int or float),
 // possibly with a unary minus. This is more permissive than IsLiteral for cases
 // like [-1, -2.0] where we want to treat negated numbers as literals.

@@ -97,6 +97,8 @@ const getArrayElementSchema = (
   if (schema == null) return undefined;
   const def = (schema as ZodSchema)._zod?.def;
   if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
+  // Traverse through wrappers (optional, nullable, default, catch) to inner schema
+  if (def?.innerType != null) return getArrayElementSchema(def.innerType);
   // Handle union types that may contain arrays (e.g., nullishToEmpty)
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {

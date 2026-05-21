@@ -33,34 +33,35 @@ import {
   type record,
   xy,
 } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { selectViewport, useSelectSelected } from "@/schematic/selectors";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { MissingSymbolForm } from "@/schematic/toolbar/MissingSymbolForm";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = memo(
-  ({ layoutKey }: PropertiesProps): ReactElement => {
-    const selected = useSelectSelected(layoutKey);
-    if (selected.length === 0)
-      return (
-        <Text.Text status="disabled" center>
-          Select a Schematic element to configure its properties.
-        </Text.Text>
-      );
-    if (selected.length > 1) return <MultiConfig layoutKey={layoutKey} />;
-    const elKey = selected[0];
-    return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
-  },
-);
-PropertiesControls.displayName = "PropertiesControls";
+export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
+  const selected = useSelectSelected(layoutKey);
+  const configByKey = Schematic.useSelectConfigs({ key: layoutKey, keys: selected });
+  if (selected.length === 0 || configByKey.size === 0)
+    return (
+      <Text.Text status="disabled" center>
+        Select a schematic element to configure its properties.
+      </Text.Text>
+    );
+  if (selected.length > 1)
+    return <MultiConfig layoutKey={layoutKey} configByKey={configByKey} />;
+  const elKey = selected[0];
+  return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
+});
+Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
   layoutKey: string;
@@ -72,7 +73,7 @@ const IndividualConfig = ({
   elKey,
 }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useSelectElementConfig({ key: layoutKey, elKey });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
 
   const onChange = (key: string, next: Schematic.ElementConfig): void => {
     dispatch({
@@ -81,9 +82,10 @@ const IndividualConfig = ({
     });
   };
 
+  const initialValues = useMemo(() => deep.copy(config), [config]);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
-    values: deep.copy(config),
+    values: initialValues,
     sync: true,
     onChange: ({ values }) => onChange(elKey, deep.copy(values)),
   });
@@ -91,10 +93,10 @@ const IndividualConfig = ({
     "specKey",
     { ctx: formMethods, optional: true },
   );
-  const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
+  const isCustom = schematic.symbol.keyZ.safeParse(specKey).success && specKey != null;
   const placeLayout = Layout.usePlacer();
   let actions: ReactNode = null;
-  if (isRemote && specKey != null)
+  if (isCustom)
     actions = (
       <Button.Button
         variant="filled"
@@ -108,29 +110,61 @@ const IndividualConfig = ({
 
   if (config == null) return null;
   const C = Schematic.ELEMENT_REGISTRY[config.variant];
-
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
-        <C.Form key={elKey} actions={actions} schematicKey={layoutKey} />
+        {isCustom ? (
+          <CustomVariantForm
+            specKey={specKey}
+            elKey={elKey}
+            actions={actions}
+            schematicKey={layoutKey}
+            VariantForm={C.Form}
+          />
+        ) : (
+          <C.Form key={elKey} actions={actions} schematicKey={layoutKey} />
+        )}
       </Form.Form>
     </Flex.Box>
   );
 };
 
-interface MultiElementPropertiesProps {
-  layoutKey: string;
+interface CustomVariantFormProps {
+  specKey: string;
+  elKey: string;
+  actions: ReactNode;
+  schematicKey: string;
+  VariantForm: FC<Schematic.Node.FormProps>;
 }
 
-const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement => {
+const CustomVariantForm = ({
+  specKey,
+  elKey,
+  actions,
+  schematicKey,
+  VariantForm,
+}: CustomVariantFormProps): ReactElement => {
+  const result = Schematic.Symbol.useRetrieve(
+    { key: specKey },
+    { addStatusOnFailure: false },
+  );
+  if (Schematic.Symbol.isMissing(result)) return <MissingSymbolForm />;
+  return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
+};
+
+interface MultiElementPropertiesProps {
+  layoutKey: string;
+  configByKey: Map<string, Schematic.ElementConfig>;
+}
+
+const MultiConfig = ({
+  layoutKey,
+  configByKey,
+}: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
-  const configByKey = Schematic.useSelectConfigs({
-    key: layoutKey,
-    keys: selected,
-  });
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
 
   const nodesByKey = useMemo(() => {
@@ -143,17 +177,14 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
     dispatch({
       key: layoutKey,
-      actions: schematic.setConfig({
-        key: elKey,
-        config: { ...existing, ...next } as record.Unknown,
-      }),
+      actions: schematic.setConfig({ key: elKey, config: { ...existing, ...next } }),
     });
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
-    firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
+    firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
   }
 
@@ -306,7 +337,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
       if (!("orientation" in cfg) || cfg.orientation == null) return;
       onChange(key, {
         orientation: location.rotate(cfg.orientation, dir),
-      } as Partial<Schematic.ElementConfig>);
+      });
     });
   };
 
@@ -322,8 +353,8 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       onChange(elKey, {
-        label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
-      } as Partial<Schematic.ElementConfig>);
+        label: { ...cfg.label, [key]: value },
+      });
     });
   };
 
@@ -341,9 +372,7 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
               key={keys[0]}
               value={hex}
               onChange={(c: color.Color) => {
-                keys.forEach((key) =>
-                  onChange(key, { color: c } as Partial<Schematic.ElementConfig>),
-                );
+                keys.forEach((key) => onChange(key, { color: c }));
               }}
             />
           ))}

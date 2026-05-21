@@ -12,9 +12,9 @@
 
 #include "gtest/gtest.h"
 
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
-namespace arc::stl::str {
+namespace arc::stl::strings {
 TEST(State, CreateReturnsIncrementingHandles) {
     State st;
     const uint32_t h1 = st.create("hello");

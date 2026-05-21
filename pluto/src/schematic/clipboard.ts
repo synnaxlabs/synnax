@@ -59,7 +59,7 @@ export const useClipboard = ({
   selected,
   onPaste,
 }: UseClipboardArgs): UseClipboardReturn => {
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
 
@@ -78,7 +78,7 @@ export const useClipboard = ({
       const configs: Record<string, record.Unknown> = {};
       for (const k of [...ns.map((n) => n.key), ...es.map((edge) => edge.key)]) {
         const c = schem.configs[k];
-        if (c != null) configs[k] = c as record.Unknown;
+        if (c != null) configs[k] = c;
       }
       const payload: Payload = {
         version: VERSION,

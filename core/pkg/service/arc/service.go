@@ -131,6 +131,7 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
 		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		OnRename:        channelRename(s.cfg.Channel),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
@@ -177,7 +178,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Arc]{
+	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Key, Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),

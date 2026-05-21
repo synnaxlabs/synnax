@@ -279,7 +279,7 @@ func (r *Resolver) EmitStringFromLiteral(w *wasm.Writer, wID int) {
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCall(w, wID, "string", "from_literal", ct)
+	r.EmitImportCall(w, wID, "strings", "from_literal", ct)
 }
 
 // EmitStringConcat emits a call to string.concat.
@@ -288,7 +288,7 @@ func (r *Resolver) EmitStringConcat(w *wasm.Writer, wID int) {
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCall(w, wID, "string", "concat", ct)
+	r.EmitImportCall(w, wID, "strings", "concat", ct)
 }
 
 // EmitStringEqual emits a call to string.equal.
@@ -297,7 +297,7 @@ func (r *Resolver) EmitStringEqual(w *wasm.Writer, wID int) {
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCall(w, wID, "string", "equal", ct)
+	r.EmitImportCall(w, wID, "strings", "equal", ct)
 }
 
 // EmitStringLen emits a call to string.len.
@@ -306,7 +306,7 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I64()}},
 	})
-	r.EmitImportCall(w, wID, "string", "len", ct)
+	r.EmitImportCall(w, wID, "strings", "len", ct)
 }
 
 // EmitNumericToString emits a call to the string.from_* host fn matching
@@ -319,24 +319,58 @@ func (r *Resolver) EmitNumericToString(
 	scope *symbol.Symbol,
 	from types.Type,
 ) error {
-	var suffix string
-	switch from.Kind {
-	case types.KindI8, types.KindI16, types.KindI32:
-		suffix = "i32"
-	case types.KindU8, types.KindU16, types.KindU32:
-		suffix = "u32"
-	case types.KindI64:
-		suffix = "i64"
-	case types.KindU64:
-		suffix = "u64"
-	case types.KindF32:
-		suffix = "f32"
-	case types.KindF64:
-		suffix = "f64"
-	default:
-		return errors.Newf("cannot convert %s to str", from)
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
 	}
-	return r.EmitFixedImportCall(ctx, w, wID, scope, "string", "from_"+suffix)
+	return r.EmitFixedImportCall(ctx, w, wID, scope, "strings", "from_"+suffix)
+}
+
+// EmitNumericFormat emits a call to string.format_<suffix> for the given
+// source numeric type. Used by backtick f-strings with format specs.
+func (r *Resolver) EmitNumericFormat(
+	ctx context.Context,
+	w *wasm.Writer,
+	wID int,
+	scope *symbol.Symbol,
+	from types.Type,
+) error {
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
+	}
+	return r.EmitFixedImportCall(ctx, w, wID, scope, "strings", "format_"+suffix)
+}
+
+// EmitStringFormat emits a call to string.format_str. Used by backtick
+// f-strings to apply a format spec to an already-string value.
+func (r *Resolver) EmitStringFormat(
+	ctx context.Context,
+	w *wasm.Writer,
+	wID int,
+	scope *symbol.Symbol,
+) error {
+	return r.EmitFixedImportCall(ctx, w, wID, scope, "strings", "format_str")
+}
+
+func numericSuffix(t types.Type) (string, error) {
+	switch t.Kind {
+	case types.KindI8, types.KindI16, types.KindI32:
+		return "i32", nil
+	case types.KindU8, types.KindU16, types.KindU32:
+		return "u32", nil
+	case types.KindI64, types.KindIntegerConstant:
+		return "i64", nil
+	case types.KindU64:
+		return "u64", nil
+	case types.KindF32:
+		return "f32", nil
+	case types.KindF64,
+		types.KindFloatConstant, types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
+		return "f64", nil
+	}
+	return "", errors.Newf("cannot convert %s to str", t)
 }
 
 // EmitMathPow emits a call to math.pow for the given type. The host

@@ -10,6 +10,8 @@
 package lsp_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
@@ -17,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -277,6 +280,170 @@ func main() {
 					Position:     protocol.Position{Line: 1, Character: 0}, // Empty line
 				},
 				NewName: "newName",
+			}))
+			Expect(result).To(BeNil())
+		})
+	})
+
+	Describe("OnRename", func() {
+		channelSymbols := []symbol.Symbol{
+			{
+				Name:       "sensor",
+				Type:       types.Chan(types.F32()),
+				Kind:       symbol.KindChannel,
+				ID:         42,
+				Renameable: true,
+			},
+			{
+				Name: "internal_sensor",
+				Type: types.Chan(types.F32()),
+				Kind: symbol.KindChannel,
+				ID:   43,
+			},
+		}
+		newRootWithChannels := func() *symbol.Symbol {
+			return NewRoot(nil, channelSymbols...)
+		}
+		channelContent := `func test() {
+    x f32 := sensor + 1.0
+    y := sensor * 2.0
+}`
+
+		It("should invoke OnRename with the resolved symbol and names", func(ctx SpecContext) {
+			var (
+				gotSym     *symbol.Symbol
+				gotOldName string
+				gotNewName string
+				callCount  int
+			)
+			onRename := func(_ context.Context, sym *symbol.Symbol, oldName, newName string) error {
+				callCount++
+				gotSym = sym
+				gotOldName = oldName
+				gotNewName = newName
+				return nil
+			}
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, channelContent)
+
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14}, // sensor
+				},
+				NewName: "renamed_sensor",
+			}))
+			Expect(result).ToNot(BeNil())
+			Expect(callCount).To(Equal(1))
+			Expect(gotSym).ToNot(BeNil())
+			Expect(gotSym.Kind).To(Equal(symbol.KindChannel))
+			Expect(gotSym.ID).To(Equal(42))
+			Expect(gotOldName).To(Equal("sensor"))
+			Expect(gotNewName).To(Equal("renamed_sensor"))
+		})
+
+		It("should produce text edits for every channel reference in the document", func(ctx SpecContext) {
+			onRename := func(context.Context, *symbol.Symbol, string, string) error { return nil }
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, channelContent)
+
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+				},
+				NewName: "renamed_sensor",
+			}))
+			Expect(result).ToNot(BeNil())
+			Expect(result.Changes).To(HaveKey(uri))
+			edits := result.Changes[uri]
+			Expect(edits).To(HaveLen(2))
+			for _, edit := range edits {
+				Expect(edit.NewText).To(Equal("renamed_sensor"))
+			}
+		})
+
+		It("should abort the rename when OnRename returns an error", func(ctx SpecContext) {
+			renameErr := errors.New("channel rename rejected")
+			onRename := func(context.Context, *symbol.Symbol, string, string) error {
+				return renameErr
+			}
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, channelContent)
+
+			Expect(server.Rename(ctx, &protocol.RenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+				},
+				NewName: "renamed_sensor",
+			})).Error().To(MatchError(renameErr))
+		})
+
+		It("should invoke OnRename for source-defined symbols too", func(ctx SpecContext) {
+			callCount := 0
+			onRename := func(_ context.Context, _ *symbol.Symbol, _, _ string) error {
+				callCount++
+				return nil
+			}
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  func() *symbol.Symbol { return NewRoot(nil) },
+				OnRename: onRename,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, `func test() {
+    x i32 := 42
+    y := x + 10
+}`)
+
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 4}, // x
+				},
+				NewName: "value",
+			}))
+			Expect(result).ToNot(BeNil())
+			Expect(callCount).To(Equal(1))
+		})
+
+		It("should reject rename on symbols not marked Renameable", func(ctx SpecContext) {
+			onRename := func(context.Context, *symbol.Symbol, string, string) error { return nil }
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
+			}))
+			server.SetClient(&MockClient{})
+			OpenArcDocument(server, ctx, uri, `func test() {
+    x f32 := internal_sensor + 1.0
+}`)
+
+			prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14}, // internal_sensor
+				},
+			}))
+			Expect(prepared).To(BeNil())
+
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 14},
+				},
+				NewName: "renamed",
 			}))
 			Expect(result).To(BeNil())
 		})

@@ -16,7 +16,7 @@ cc_library(
         "//arc/cpp/stl/channels:state",
         "//arc/cpp/stl/series:state",
         "//arc/cpp/stl/stateful:state",
-        "//arc/cpp/stl/str:state",
+        "//arc/cpp/stl/strings:state",
         "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",

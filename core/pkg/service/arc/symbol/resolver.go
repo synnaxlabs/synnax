@@ -33,10 +33,11 @@ var _ symbol.Resolver = (*ChannelResolver)(nil)
 
 func channelToSymbol(ch channel.Channel) *symbol.Symbol {
 	return &symbol.Symbol{
-		Name: ch.Name,
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.FromTelem(ch.DataType)),
-		ID:   int(ch.Key()),
+		Name:       ch.Name,
+		Kind:       symbol.KindChannel,
+		Type:       types.Chan(types.FromTelem(ch.DataType)),
+		ID:         int(ch.Key()),
+		Renameable: !ch.Internal,
 	}
 }
 

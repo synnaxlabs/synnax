@@ -1274,7 +1274,7 @@ func (p *printer) isType(tokType int) bool {
 func (p *printer) isLiteral(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL, parser.ArcLexerSTR_LITERAL,
-		parser.ArcLexerSTR_LITERAL_RAW:
+		parser.ArcLexerSTR_LITERAL_MULTI:
 		return true
 	}
 	return false

@@ -16,7 +16,7 @@ import { Input } from "@/input";
 describe("Input.Time", () => {
   it("should allow the user to input a time", () => {
     const handleChange = vi.fn();
-    const c = render(<Input.Time value={0} onChange={handleChange} tzInfo="UTC" />);
+    const c = render(<Input.Time value={0} onChange={handleChange} timeZone="UTC" />);
     fireEvent.change(c.getByDisplayValue("00:00:00"), {
       target: { value: "15:00:00" },
     });

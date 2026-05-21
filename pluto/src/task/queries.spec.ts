@@ -439,7 +439,7 @@ describe("queries", () => {
           port: z.number(),
           host: z.string(),
         }),
-        statusData: z.any(),
+        statusData: z.any().optional(),
       };
 
       const { useRetrieve } = Task.createRetrieve(schemas);
@@ -703,7 +703,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: "123",
@@ -770,7 +770,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -813,7 +813,7 @@ describe("queries", () => {
             port: z.number().min(1).max(65535),
             host: z.string().min(1),
           }),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: "0",
@@ -865,7 +865,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -918,7 +918,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1020,7 +1020,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: "123",
@@ -1057,7 +1057,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ value: z.string() }),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1161,7 +1161,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ setting: z.string() }),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1207,7 +1207,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1254,7 +1254,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ value: z.string() }),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1291,7 +1291,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: "999999",
@@ -1326,7 +1326,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: z.any(),
+          statusData: z.any().optional(),
         },
         initialValues: {
           key: testTask.key,
@@ -1393,7 +1393,7 @@ describe("queries", () => {
           retryCount: z.number(),
         }),
       });
-      const statusData = z.any();
+      const statusData = z.any().optional();
       const schemas = {
         type,
         config,
