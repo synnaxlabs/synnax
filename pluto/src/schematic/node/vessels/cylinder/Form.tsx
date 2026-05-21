@@ -20,7 +20,7 @@ export const CylinderForm = (): ReactElement => (
       <Label.Form path="label" />
       <Flex.Box x>
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
         <Base.NumericField
           path="dimensions.width"
           label="Width"

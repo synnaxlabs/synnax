@@ -96,7 +96,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         </Base.Field>
         <Base.Field<boolean>
           path="dblClickNav"
-          label="Click Mode"
+          label="Click mode"
           padHelpText={false}
           hideIfNull={false}
           defaultValue
@@ -106,7 +106,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         <Base.Field<Text.Level>
           hideIfNull
           path="label.level"
-          label="Label Size"
+          label="Label size"
           padHelpText={false}
         >
           {Form.SelectTextLevel}

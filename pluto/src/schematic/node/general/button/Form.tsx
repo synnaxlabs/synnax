@@ -64,11 +64,11 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   return (
     <Form.Wrapper y empty>
       <Flex.Box x>
-        <Input.Item label="Output Channel" grow padHelpText={false}>
+        <Input.Item label="Output channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
         <Base.NumericField
-          label="Activation Delay"
+          label="Activation delay"
           path="onClickDelay"
           inputProps={Form.ACTIVATION_DELAY_INPUT_PROPS}
           hideIfNull
@@ -76,7 +76,7 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         />
         <Base.SwitchField
           path="control.show"
-          label="Show Control Chip"
+          label="Show control chip"
           hideIfNull
           optional
           padHelpText={false}

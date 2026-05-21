@@ -84,20 +84,20 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
   return (
     <Wrapper y empty>
       <Flex.Box x grow>
-        <Input.Item label="State Channel" grow padHelpText={false}>
+        <Input.Item label="State channel" grow padHelpText={false}>
           <Channel.SelectSingle
             value={source.channel as number}
             onChange={handleSourceChange}
           />
         </Input.Item>
-        <Input.Item label="Command Channel" grow padHelpText={false}>
+        <Input.Item label="Command channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
       </Flex.Box>
       <Flex.Box x grow>
         {!omit.includes("onClickDelay") && (
           <Base.NumericField
-            label="Activation Delay"
+            label="Activation delay"
             path="onClickDelay"
             grow
             inputProps={ACTIVATION_DELAY_INPUT_PROPS}
@@ -107,7 +107,7 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
         )}
         <Base.SwitchField
           path="control.show"
-          label="Show Control Chip"
+          label="Show control chip"
           hideIfNull
           optional
           padHelpText={false}

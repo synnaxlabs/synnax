@@ -43,7 +43,7 @@ export const StyleForm = ({
           {!hasStateOverrides && <ColorField path="color" optional />}
           <Base.SwitchField
             path="normallyOpen"
-            label="Normally Open"
+            label="Normally open"
             padHelpText={false}
             hideIfNull
             optional

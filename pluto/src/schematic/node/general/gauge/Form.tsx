@@ -60,19 +60,19 @@ export const GaugeForm = (): ReactElement => {
                 />
                 <Base.NumericField
                   path="bounds.lower"
-                  label="Min Value"
+                  label="Min value"
                   hideIfNull
                   inputProps={BOUND_INPUT_PROPS}
                 />
                 <Base.NumericField
                   path="bounds.upper"
-                  label="Max Value"
+                  label="Max value"
                   hideIfNull
                   inputProps={BOUND_INPUT_PROPS}
                 />
                 <Base.NumericField
                   path="barWidth"
-                  label="Bar Width"
+                  label="Bar width"
                   hideIfNull
                   inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
                 />

@@ -67,7 +67,7 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command Channel" grow>
+      <Input.Item label="Command channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
     </Form.Wrapper>

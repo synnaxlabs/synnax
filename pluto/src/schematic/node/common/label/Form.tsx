@@ -40,7 +40,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       style={MAX_INLINE_SIZE_STYLE}
       path={`${path}.maxInlineSize`}
       hideIfNull
-      label="Label Wrap Width"
+      label="Label wrap width"
       inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
@@ -48,7 +48,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       hideIfNull
       visible={!omit.includes("level")}
       path={`${path}.level`}
-      label="Label Size"
+      label="Label size"
       padHelpText={false}
     >
       {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
@@ -56,7 +56,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     <Base.Field<Flex.Alignment>
       visible={!omit.includes("align")}
       path={`${path}.align`}
-      label="Label Alignment"
+      label="Label alignment"
       padHelpText={false}
       hideIfNull
     >
@@ -67,7 +67,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     <Base.Field<direction.Direction>
       visible={!omit.includes("direction")}
       path={`${path}.direction`}
-      label="Label Direction"
+      label="Label direction"
       padHelpText={false}
       hideIfNull
     >

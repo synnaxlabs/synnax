@@ -64,12 +64,12 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command Channel" grow>
+      <Input.Item label="Command channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
       <Base.SwitchField
         path="control.show"
-        label="Show Control Chip"
+        label="Show control chip"
         hideIfNull
         optional
       />
