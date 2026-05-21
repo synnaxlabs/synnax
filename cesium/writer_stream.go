@@ -343,6 +343,9 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		}
 		return cfg
 	}
+	for _, idx := range w.internal {
+		idx.setAuthExplicit = false
+	}
 	nExplicit := len(cfg.Channels)
 	chans := make([]ChannelKey, nExplicit, nExplicit+len(w.internal))
 	auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
@@ -351,20 +354,21 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		auths[i] = cfg.authority(i)
 	}
 	for i, k := range chans {
-		if idx, ok := w.keyToIdx[k]; ok {
-			idx.setDataAuth(k, auths[i])
+		idx, ok := w.keyToIdx[k]
+		if !ok {
+			continue
 		}
+		if k == idx.idx.ch.Key {
+			idx.setAuthExplicit = true
+			continue
+		}
+		idx.setDataAuth(k, auths[i])
 	}
-	explicit := set.New(chans[:nExplicit]...)
 	for _, idx := range w.internal {
-		if !idx.writingToIdx {
+		if !idx.writingToIdx || idx.setAuthExplicit {
 			continue
 		}
-		idxKey := idx.idx.ch.Key
-		if explicit.Contains(idxKey) {
-			continue
-		}
-		chans = append(chans, idxKey)
+		chans = append(chans, idx.idx.ch.Key)
 		auths = append(auths, idx.maxDataAuth())
 	}
 	cfg.Channels = chans
@@ -467,14 +471,22 @@ type idxWriter struct {
 	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
 	// authority as the max across its referencing data channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
-	// scanIdxPresent and scanDataLen are transient scratch fields set during the single
-	// frame scan in streamWriter.autoStamp. scanIdxPresent is true when the caller's
-	// frame already contains this idxWriter's index key (in which case no stamping is
-	// needed). scanDataLen is the length of the first non-empty data channel for this
-	// group observed in the frame (the size of the auto-stamped series). Both are
-	// reset to their zero values at the start of every autoStamp call.
+	// scanIdxPresent is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. True when the caller's frame already contains this
+	// idxWriter's index key (in which case no stamping is needed). Reset to false at
+	// the start of every autoStamp call.
 	scanIdxPresent bool
-	scanDataLen    int64
+	// scanDataLen is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
+	// observed for this group (the size of the auto-stamped series). Reset to zero at
+	// the start of every autoStamp call.
+	scanDataLen int64
+	// setAuthExplicit is a transient scratch field used during the per-channel scan in
+	// streamWriter.propagateAuthority. True when the caller explicitly named this
+	// idxWriter's index key in the SetAuthority config, in which case the index
+	// authority is left untouched. Reset to false at the start of every
+	// propagateAuthority call.
+	setAuthExplicit bool
 }
 
 func (w *idxWriter) resetAutoStampScan() { w.scanIdxPresent = false; w.scanDataLen = 0 }
