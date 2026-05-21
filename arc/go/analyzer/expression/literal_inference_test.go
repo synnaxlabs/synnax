@@ -22,11 +22,9 @@ import (
 )
 
 var _ = Describe("Literal Type Inference", func() {
-	var testExtras []symbol.Symbol
-	newRoot := func() *symbol.Symbol { return NewRoot(nil, testExtras...) }
-
+	var baseExtras []symbol.Symbol
 	BeforeEach(func() {
-		testExtras = []symbol.Symbol{
+		baseExtras = []symbol.Symbol{
 			{Name: "abc", Kind: symbol.KindVariable, Type: types.F32()},
 			{Name: "xyz", Kind: symbol.KindVariable, Type: types.I32()},
 			{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
@@ -35,6 +33,15 @@ var _ = Describe("Literal Type Inference", func() {
 	})
 
 	Describe("Numeric literals should adapt to context", func() {
+		var (
+			testExtras []symbol.Symbol
+			root       *symbol.Symbol
+		)
+		BeforeEach(func() {
+			testExtras = baseExtras
+			root = NewRoot(nil, testExtras...)
+		})
+
 		It("Should allow comparison of f32 variable with integer literal", func(ctx SpecContext) {
 			expectSuccess(ctx, `
 				func testFunc() {
@@ -132,7 +139,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 2.2 * integer_sensor
 				}
 			`))
-			ctx := acontext.CreateRoot(specCtx, program, newRoot())
+			ctx := acontext.CreateRoot(specCtx, program, root)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
@@ -152,11 +159,16 @@ var _ = Describe("Literal Type Inference", func() {
 	})
 
 	Describe("Literal-left expression regression tests", func() {
+		var (
+			testExtras []symbol.Symbol
+			root       *symbol.Symbol
+		)
 		BeforeEach(func() {
-			testExtras = append(testExtras,
+			testExtras = append(baseExtras,
 				symbol.Symbol{Name: "f32_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
 				symbol.Symbol{Name: "f64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 			)
+			root = NewRoot(nil, testExtras...)
 		})
 
 		It("Should accept integer literal minus f32 channel with f32 return type", func(ctx SpecContext) {
@@ -213,15 +225,16 @@ var _ = Describe("Literal Type Inference", func() {
 					return 1000 - f32_ch
 				}
 			`))
-			aCtx := acontext.CreateRoot(ctx, program, newRoot())
+			aCtx := acontext.CreateRoot(ctx, program, root)
 			analyzer.AnalyzeProgram(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 		})
 	})
 
 	Describe("Power operator regression tests (SY-3207)", func() {
+		var testExtras []symbol.Symbol
 		BeforeEach(func() {
-			testExtras = append(testExtras,
+			testExtras = append(baseExtras,
 				symbol.Symbol{Name: "f32_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
 				symbol.Symbol{Name: "f64_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 				symbol.Symbol{Name: "i32_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},

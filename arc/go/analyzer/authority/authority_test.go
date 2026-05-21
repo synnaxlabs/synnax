@@ -26,12 +26,13 @@ var _ = Describe("Authority Analyzer", func() {
 		{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 		{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 	}
-	newRoot := func() *symbol.Symbol { return NewRoot(nil, channels...) }
+	var root *symbol.Symbol
+	BeforeEach(func() { root = NewRoot(nil, channels...) })
 
 	Describe("Simple Form", func() {
 		It("Should parse a simple authority declaration", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority 200`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
@@ -40,7 +41,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should accept authority 0", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority 0`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
@@ -49,7 +50,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should accept authority 255", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority 255`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
@@ -58,7 +59,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should reject authority value > 255", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority 256`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("0-255"))
@@ -68,7 +69,7 @@ var _ = Describe("Authority Analyzer", func() {
 	Describe("Grouped Form", func() {
 		It("Should parse grouped authority with default only", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (200)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
@@ -77,7 +78,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should parse grouped authority with default and channel overrides", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (200 valve 100 vent 150)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).ToNot(BeNil())
@@ -89,7 +90,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should parse grouped authority with channel overrides only", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (valve 100)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).To(BeNil())
@@ -99,7 +100,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should parse empty grouped authority", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority ()`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).To(BeNil())
@@ -110,7 +111,7 @@ var _ = Describe("Authority Analyzer", func() {
 	Describe("Validation", func() {
 		It("Should reject multiple default authority values (simple form)", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse("authority 200\nauthority 100"))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("multiple default"))
@@ -118,7 +119,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should reject multiple default authority values (grouped form)", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (200 100)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("multiple default"))
@@ -126,7 +127,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should reject duplicate channel entries", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (valve 100 valve 200)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("duplicate"))
@@ -134,7 +135,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should reject non-existent channel", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (nonexistent 100)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("not found"))
@@ -145,7 +146,7 @@ var _ = Describe("Authority Analyzer", func() {
 				func test{} () {}
 				authority 200
 			`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("before"))
@@ -156,7 +157,7 @@ var _ = Describe("Authority Analyzer", func() {
 				import time
 				authority 200
 			`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("before"))
 			Expect(config.Default).ToNot(BeNil())
@@ -169,7 +170,7 @@ var _ = Describe("Authority Analyzer", func() {
 				import authority
 				authority 200
 			`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("before"))
 			Expect(config.Default).ToNot(BeNil())
@@ -182,7 +183,7 @@ var _ = Describe("Authority Analyzer", func() {
 				func test{} () {}
 				authority 200
 			`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("before"))
@@ -190,7 +191,7 @@ var _ = Describe("Authority Analyzer", func() {
 
 		It("Should reject channel-specific authority value > 255", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (valve 300)`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("0-255"))
@@ -200,7 +201,7 @@ var _ = Describe("Authority Analyzer", func() {
 	Describe("No Authority", func() {
 		It("Should return zero config when no authority blocks exist", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`func test{} () {}`))
-			ctx := acontext.CreateRoot(specCtx, prog, newRoot())
+			ctx := acontext.CreateRoot(specCtx, prog, root)
 			config := authority.Analyze(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(config.Default).To(BeNil())

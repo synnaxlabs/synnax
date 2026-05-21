@@ -909,15 +909,13 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("Symbols", func() {
-		newRoot := func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, time.Symbols...)
-			return root
-		}
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, time.Symbols...) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
-			return MustSucceed(newRoot().Resolve(ctx, name, symbol.IncludeInternal))
+			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
 		timeM := func(ctx context.Context, member string) *symbol.Symbol {
-			mod := MustSucceed(newRoot().Resolve(ctx, "time", symbol.IncludeInternal))
+			mod := MustSucceed(root.Resolve(ctx, "time", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
 		It("Should expose interval bare symbol", func(ctx SpecContext) {

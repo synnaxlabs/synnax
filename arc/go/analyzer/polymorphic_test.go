@@ -46,7 +46,8 @@ func newMockPolymorphicSymbols() []symbol.Symbol {
 
 var _ = Describe("Polymorphic func Analysis", func() {
 	extras := newMockPolymorphicSymbols()
-	newRoot := func() *symbol.Symbol { return NewRoot(nil, extras...) }
+	var root *symbol.Symbol
+	BeforeEach(func() { root = NewRoot(nil, extras...) })
 
 	type polymorphicCase struct {
 		expectedType types.Type
@@ -56,7 +57,7 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	DescribeTable("Simple Polymorphic Flow",
 		func(sCtx SpecContext, tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
-			ctx := acontext.CreateRoot(sCtx, ast, newRoot())
+			ctx := acontext.CreateRoot(sCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 

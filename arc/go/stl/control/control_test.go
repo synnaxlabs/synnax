@@ -337,12 +337,10 @@ var _ = Describe("Control", func() {
 	})
 
 	Describe("Symbols", func() {
-		newRoot := func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, control.Symbols...)
-			return root
-		}
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, control.Symbols...) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
-			return MustSucceed(newRoot().Resolve(ctx, name, symbol.IncludeInternal))
+			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}
 		It("Should expose bare set_authority symbol", func(ctx SpecContext) {
 			sym := bare(ctx, "set_authority")
@@ -350,7 +348,7 @@ var _ = Describe("Control", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should expose qualified control.set_authority symbol", func(ctx SpecContext) {
-			mod := MustSucceed(newRoot().Resolve(ctx, "control", symbol.IncludeInternal))
+			mod := MustSucceed(root.Resolve(ctx, "control", symbol.IncludeInternal))
 			sym := MustSucceed(mod.Resolve(ctx, "set_authority", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))

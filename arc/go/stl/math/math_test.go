@@ -257,16 +257,14 @@ var _ = Describe("Math", func() {
 	})
 
 	Describe("Symbols", func() {
-		newRoot := func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stlmath.Symbols...)
-			return root
-		}
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, stlmath.Symbols...) })
 		math := func(ctx context.Context, member string) *symbol.Symbol {
-			mod := MustSucceed(newRoot().Resolve(ctx, "math", symbol.IncludeInternal))
+			mod := MustSucceed(root.Resolve(ctx, "math", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
 		}
 		It("Should expose bare avg symbol (deprecated)", func(ctx SpecContext) {
-			sym := MustSucceed(newRoot().Resolve(ctx, "avg", symbol.IncludeInternal))
+			sym := MustSucceed(root.Resolve(ctx, "avg", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("avg"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 			Expect(sym.Deprecated).ToNot(BeNil())

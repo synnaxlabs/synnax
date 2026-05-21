@@ -377,17 +377,15 @@ var _ = Describe("StableFor", func() {
 	})
 
 	Describe("Symbols", func() {
-		newRoot := func() *symbol.Symbol {
-			root := symbol.NewRoot(nil, stable.Symbols...)
-			return root
-		}
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, stable.Symbols...) })
 		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(newRoot().Resolve(ctx, "stable_for", symbol.IncludeInternal))
+			sym := MustSucceed(root.Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should expose qualified stable.for symbol", func(ctx SpecContext) {
-			mod := MustSucceed(newRoot().Resolve(ctx, "stable", symbol.IncludeInternal))
+			mod := MustSucceed(root.Resolve(ctx, "stable", symbol.IncludeInternal))
 			sym := MustSucceed(mod.Resolve(ctx, "for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
