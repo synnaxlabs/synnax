@@ -107,47 +107,10 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
-	// propChans and propAuths are scratch buffers used by propagateAuthority to build
-	// the (possibly expanded) Channels/Authorities slices returned to setAuthority.
-	// Truncated to zero length at the start of each call so the steady state is
-	// allocation-free. Only used when AutoIndexing is true.
-	propChans []ChannelKey
-	propAuths []xcontrol.Authority
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter. Populated at open time when AutoIndexing is true.
 	keyToIdx map[ChannelKey]*idxWriter
 	WriterConfig
-}
-
-// initAutoIndexing seeds each idxWriter's dataAuth map from the writer's open-time
-// per-channel authorities, builds the streamWriter's key→idxWriter lookup, and
-// allocates the streamWriter's propagateAuthority scratch buffers. Must be called after
-// w.internal is fully populated.
-func (w *streamWriter) initAutoIndexing() {
-	n := len(w.Channels)
-	w.propChans = make([]ChannelKey, 0, n)
-	w.propAuths = make([]xcontrol.Authority, 0, n)
-	w.keyToIdx = make(map[ChannelKey]*idxWriter, n)
-	authByKey := make(map[ChannelKey]xcontrol.Authority, n)
-	for i, k := range w.Channels {
-		authByKey[k] = w.authority(i)
-	}
-	for _, idx := range w.internal {
-		for k := range idx.internal {
-			w.keyToIdx[k] = idx
-		}
-		if !idx.writingToIdx {
-			continue
-		}
-		idxKey := idx.idx.ch.Key
-		idx.dataAuth = make(map[ChannelKey]xcontrol.Authority, len(idx.internal))
-		for dataKey := range idx.internal {
-			if dataKey == idxKey {
-				continue
-			}
-			idx.dataAuth[dataKey] = authByKey[dataKey]
-		}
-	}
 }
 
 // Flow implements the confluence.Flow interface.
@@ -371,9 +334,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 // calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
 // broadcast across every channel in the writer, including indexes — but the tracked
 // state is refreshed so the next per-channel call computes correctly. Indexes the
-// caller explicitly included in cfg.Channels are left untouched. The returned
-// WriterConfig's Channels and Authorities slices alias scratch buffers owned by the
-// streamWriter and must not be retained across calls to propagateAuthority.
+// caller explicitly included in cfg.Channels are left untouched.
 func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 	if len(cfg.Channels) == 0 {
 		for _, idx := range w.internal {
@@ -381,35 +342,36 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		}
 		return cfg
 	}
-	w.propChans = append(w.propChans[:0], cfg.Channels...)
-	w.propAuths = w.propAuths[:0]
+	nExplicit := len(cfg.Channels)
+	chans := make([]ChannelKey, nExplicit, nExplicit+len(w.internal))
+	auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
+	copy(chans, cfg.Channels)
 	for i := range cfg.Channels {
-		w.propAuths = append(w.propAuths, cfg.authority(i))
+		auths[i] = cfg.authority(i)
 	}
-	for i, k := range w.propChans {
+	for i, k := range chans {
 		for _, idx := range w.internal {
-			if idx.setDataAuth(k, w.propAuths[i]) {
+			if idx.setDataAuth(k, auths[i]) {
 				break
 			}
 		}
 	}
-	nExplicit := len(w.propChans)
 indexLoop:
 	for _, idx := range w.internal {
 		if !idx.writingToIdx {
 			continue
 		}
 		idxKey := idx.idx.ch.Key
-		for _, ek := range w.propChans[:nExplicit] {
+		for _, ek := range chans[:nExplicit] {
 			if ek == idxKey {
 				continue indexLoop
 			}
 		}
-		w.propChans = append(w.propChans, idxKey)
-		w.propAuths = append(w.propAuths, idx.maxDataAuth())
+		chans = append(chans, idxKey)
+		auths = append(auths, idx.maxDataAuth())
 	}
-	cfg.Channels = w.propChans
-	cfg.Authorities = w.propAuths
+	cfg.Channels = chans
+	cfg.Authorities = auths
 	return cfg
 }
 

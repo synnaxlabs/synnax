@@ -209,10 +209,14 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		cfg = db.expandKeysForAutoIndexing(cfg)
 	}
 	var (
-		domainWriters  map[ChannelKey]*idxWriter
+		domainWriters  = make(map[ChannelKey]*idxWriter)
 		virtualWriters map[ChannelKey]*virtual.Writer
 		controlUpdate  ControlUpdate
+		keyToIdx       map[ChannelKey]*idxWriter
 	)
+	if *cfg.AutoIndexing {
+		keyToIdx = make(map[ChannelKey]*idxWriter, len(cfg.Channels))
+	}
 	defer func() {
 		if err == nil {
 			return
@@ -258,10 +262,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		if isUnary && !u.Channel().IsIndex {
 			continue
 		}
-		var (
-			auth     = cfg.authority(i)
-			transfer control.Transfer
-		)
+		var transfer control.Transfer
 		if isVirtual {
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
@@ -269,7 +270,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			virtualWriters[key], transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
 				Subject:               cfg.ControlSubject,
 				Start:                 cfg.Start,
-				Authority:             auth,
+				Authority:             cfg.authority(i),
 				ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized,
 			})
 			if err != nil {
@@ -286,20 +287,19 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
-			if domainWriters == nil {
-				domainWriters = make(map[ChannelKey]*idxWriter)
-			}
-			idxW, err := db.openDomainIdxWriter(u.Channel().Index, cfg)
+			var idxW *idxWriter
+			idxW, err = db.openDomainIdxWriter(u.Channel().Index, cfg)
 			if err != nil {
 				return nil, err
 			}
 			idxW.writingToIdx = true
 			idxW.domainAlignment = uW.DomainIndex()
-			if idxW.internal == nil {
-				idxW.internal = make(map[ChannelKey]*unaryWriterState)
-			}
 			idxW.internal[key] = &unaryWriterState{Writer: *uW}
 			domainWriters[u.Channel().Index] = idxW
+			if *cfg.AutoIndexing {
+				keyToIdx[key] = idxW
+				idxW.dataAuth = make(map[ChannelKey]xcontrol.Authority)
+			}
 		}
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
@@ -316,9 +316,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		idxKey := u.Channel().Index
 		idxW, ok := domainWriters[idxKey]
 		if !ok {
-			if domainWriters == nil {
-				domainWriters = make(map[ChannelKey]*idxWriter)
-			}
 			idxW, err = db.openDomainIdxWriter(idxKey, cfg)
 			if err != nil {
 				return nil, err
@@ -326,17 +323,24 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			idxW.writingToIdx = false
 			domainWriters[idxKey] = idxW
 		}
-		uW, transfer, err := u.OpenWriter(ctx, makeUnaryConfig(i, idxW.domainAlignment))
+		var (
+			uW       *unary.Writer
+			transfer control.Transfer
+		)
+		uW, transfer, err = u.OpenWriter(ctx, makeUnaryConfig(i, idxW.domainAlignment))
 		if err != nil {
 			return nil, err
 		}
 		if transfer.Occurred() {
 			controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
 		}
-		if idxW.internal == nil {
-			idxW.internal = make(map[ChannelKey]*unaryWriterState)
-		}
 		idxW.internal[key] = &unaryWriterState{Writer: *uW}
+		if *cfg.AutoIndexing {
+			keyToIdx[key] = idxW
+			if idxW.writingToIdx {
+				idxW.dataAuth[key] = cfg.authority(i)
+			}
+		}
 	}
 
 	if len(controlUpdate.Transfers) > 0 {
@@ -350,6 +354,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
 		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key},
+		keyToIdx:     keyToIdx,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()
 			defer db.mu.RUnlock()
@@ -358,9 +363,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 	}
 	for _, idx := range domainWriters {
 		w.internal = append(w.internal, idx)
-	}
-	if *cfg.AutoIndexing {
-		w.initAutoIndexing()
 	}
 	return w, nil
 }
@@ -423,7 +425,7 @@ func (db *DB) openDomainIdxWriter(
 	if !ok {
 		return nil, channel.NewNotFoundError(idxKey)
 	}
-	w := &idxWriter{}
+	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
 	w.idx.highWaterMark = cfg.Start
