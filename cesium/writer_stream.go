@@ -108,7 +108,7 @@ type streamWriter struct {
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
-	// idxWriter. Populated at open time when AutoIndexing is true.
+	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
 	WriterConfig
 }
@@ -282,10 +282,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 
 // autoStamp injects a TimeStamp series for each idxWriter whose index channel is
 // referenced by the writer but absent from fr. It runs in O(KeysInFrame + IndexGroups):
-// a single pass over fr's keys uses keyToIdx to resolve each key's idxWriter group
-// in O(1) and records whether that group's index is present and the length of any
-// data channel for the group. A subsequent pass over idxWriters counts how many
-// stamps are needed, grows fr by exactly that amount, and performs the appends.
+// a single pass over fr's keys uses keyToIdx to resolve each key's idxWriter group in
+// O(1) and records whether that group's index is present and the length of any data
+// channel for the group. A subsequent pass over idxWriters counts how many stamps are
+// needed, grows fr by exactly that amount, and performs the appends.
 func (w *streamWriter) autoStamp(fr Frame) Frame {
 	for _, idx := range w.internal {
 		idx.resetAutoStampScan()
@@ -294,10 +294,7 @@ func (w *streamWriter) autoStamp(fr Frame) Frame {
 		if fr.ShouldExcludeRaw(i) {
 			continue
 		}
-		idx, ok := w.keyToIdx[k]
-		if !ok {
-			continue
-		}
+		idx := w.keyToIdx[k]
 		if k == idx.idx.ch.Key {
 			idx.scanIdxPresent = true
 			continue
@@ -436,9 +433,15 @@ type idxWriter struct {
 		*index.Domain
 		// Key is the channel key of the index.
 		ch channel.Channel
-		// highWaterMark is the highest timestamp written to the index. This watermark
-		// is only relevant when writingToIdx is true.
+		// highWaterMark is the last timestamp written to the index — whether by
+		// auto-stamping or by a caller-provided series. Drives commit resolution
+		// (resolveCommitEnd). Only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
+		// autoStampClock is the last timestamp emitted by appendAutoStamp on this
+		// index. Advanced only by auto-stamping; caller-provided index timestamps do
+		// not move it. Used to keep auto-stamps strictly monotonic across Write calls
+		// without inheriting future timestamps the caller wrote explicitly.
+		autoStampClock telem.TimeStamp
 	}
 	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
@@ -474,38 +477,31 @@ type idxWriter struct {
 	scanDataLen    int64
 }
 
-// resetAutoStampScan clears the transient fields populated by streamWriter.autoStamp's
-// single-pass frame scan. Must be called before the scan so state from a previous
-// Write does not leak into the current one.
 func (w *idxWriter) resetAutoStampScan() {
 	w.scanIdxPresent = false
 	w.scanDataLen = 0
 }
 
-// shouldAutoStamp reports whether this idxWriter should have a TimeStamp series
-// appended to the frame for the current Write, based on the state recorded during the
-// preceding frame scan. Returns true when the idxWriter is responsible for the index,
-// its key is not already in the frame, and at least one of its data channels is
-// present with non-empty data.
 func (w *idxWriter) shouldAutoStamp() bool {
 	return w.writingToIdx && !w.scanIdxPresent && w.scanDataLen > 0
 }
 
 // appendAutoStamp appends a TimeStamp series for this idxWriter's index channel onto
 // fr, sized to scanDataLen (set during the preceding frame scan). Generated timestamps
-// start at max(now, hwm+1), where hwm is the index's current high-water mark, and are
-// spaced 1ns apart. The idxWriter's existing updateHighWater path advances hwm when
-// the generated series is written downstream. Must only be called when
-// shouldAutoStamp returns true.
+// start at max(now, autoStampClock+1), where autoStampClock is the last value emitted
+// by a prior call to appendAutoStamp on this index, and are spaced 1ns apart.
+// Externally-provided index timestamps do not advance autoStampClock — if the caller
+// has written explicit timestamps ahead of the local clock, the auto-stamped series
+// will regress the index's high-water mark and the subsequent commit will fail at the
+// domain layer with validate.ErrValidation. Must only be called when shouldAutoStamp
+// returns true.
 func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
-	t0 := now
-	if hwm := w.idx.highWaterMark; hwm > 0 && hwm+1 > t0 {
-		t0 = hwm + 1
-	}
+	t0 := max(now, w.idx.autoStampClock+1)
 	stamps := make([]telem.TimeStamp, w.scanDataLen)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
 	}
+	w.idx.autoStampClock = stamps[len(stamps)-1]
 	return fr.Append(w.idx.ch.Key, telem.NewSeriesV(stamps...))
 }
 
