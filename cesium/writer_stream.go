@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -477,32 +478,26 @@ type idxWriter struct {
 	scanDataLen    int64
 }
 
-func (w *idxWriter) resetAutoStampScan() {
-	w.scanIdxPresent = false
-	w.scanDataLen = 0
-}
+func (w *idxWriter) resetAutoStampScan() { w.scanIdxPresent = false; w.scanDataLen = 0 }
 
 func (w *idxWriter) shouldAutoStamp() bool {
 	return w.writingToIdx && !w.scanIdxPresent && w.scanDataLen > 0
 }
 
-// appendAutoStamp appends a TimeStamp series for this idxWriter's index channel onto
-// fr, sized to scanDataLen (set during the preceding frame scan). Generated timestamps
-// start at max(now, autoStampClock+1), where autoStampClock is the last value emitted
-// by a prior call to appendAutoStamp on this index, and are spaced 1ns apart.
-// Externally-provided index timestamps do not advance autoStampClock — if the caller
-// has written explicit timestamps ahead of the local clock, the auto-stamped series
-// will regress the index's high-water mark and the subsequent commit will fail at the
-// domain layer with validate.ErrValidation. Must only be called when shouldAutoStamp
-// returns true.
 func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	t0 := max(now, w.idx.autoStampClock+1)
-	stamps := make([]telem.TimeStamp, w.scanDataLen)
+	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
+	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
+	// through NewSeriesV(stamps...) would allocate a separate []TimeStamp and then copy
+	// it into the Series's []byte; this folds the two allocations into one and skips
+	// the intermediate copy on the per-Write hot path.
+	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
 		stamps[j] = t0 + telem.TimeStamp(j)
 	}
 	w.idx.autoStampClock = stamps[len(stamps)-1]
-	return fr.Append(w.idx.ch.Key, telem.NewSeriesV(stamps...))
+	return fr.Append(w.idx.ch.Key, series)
 }
 
 // setDataAuth records auth as the authority for k if k is one of this group's data

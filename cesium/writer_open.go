@@ -103,12 +103,6 @@ type WriterConfig struct {
 	// strictly monotonic across Write calls — the next call's first sample is greater
 	// than the last sample of the previous auto-stamp.
 	//
-	// Caller-provided index timestamps do not advance the auto-stamp clock. If the
-	// caller writes an explicit index series with timestamps ahead of the local
-	// node's clock and then issues a subsequent Write without an index series, the
-	// auto-stamped values will overlap previously-committed data and the write will
-	// be rejected with validate.ErrValidation.
-	//
 	// When AutoIndexing is true, any index channel referenced by a data channel in
 	// Channels but not present in Channels itself is implicitly opened for writing.
 	// SetAuthority calls that name a data channel propagate to its index channel,
