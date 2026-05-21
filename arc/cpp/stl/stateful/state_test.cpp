@@ -98,7 +98,7 @@ TEST(Variables, Reset) {
 
 TEST(Variables, LoadStrReturnsInitialOnFirstAccess) {
     Variables vars;
-    str::State ss;
+    strings::State ss;
     vars.set_current_node_key("node1");
     const uint32_t init_handle = ss.create("hello");
     const uint32_t result = vars.load_str(0, init_handle, ss);
@@ -107,7 +107,7 @@ TEST(Variables, LoadStrReturnsInitialOnFirstAccess) {
 
 TEST(Variables, StoreAndLoadStr) {
     Variables vars;
-    str::State ss;
+    strings::State ss;
     vars.set_current_node_key("node1");
     const uint32_t init_handle = ss.create("initial");
     vars.load_str(0, init_handle, ss);
@@ -152,7 +152,7 @@ TEST(Variables, StoreAndLoadSeries) {
 
 TEST(Variables, StoreStrInvalidHandleIsNoOp) {
     Variables vars;
-    str::State ss;
+    strings::State ss;
     vars.set_current_node_key("node_a");
     const uint32_t init_handle = ss.create("initial");
     vars.store_str(0, init_handle, ss);

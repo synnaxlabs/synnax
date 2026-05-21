@@ -1471,7 +1471,7 @@ var _ = Describe("Go Types Plugin", func() {
 						functions string[]
 						nodes     string[]
 
-						@go fields "Symbols *symbol.Scope ` + "`" + `json:\"-\"` + "`" + `" "TypeMap map[string]any ` + "`" + `json:\"-\"` + "`" + `"
+						@go fields "Symbols *symbol.Symbol ` + "`" + `json:\"-\"` + "`" + `" "TypeMap map[string]any ` + "`" + `json:\"-\"` + "`" + `"
 						@go imports "github.com/synnaxlabs/arc/symbol"
 					}
 				`
@@ -1484,7 +1484,7 @@ var _ = Describe("Go Types Plugin", func() {
 						"type IR struct {",
 						"Functions []string",
 						"Nodes []string",
-						`Symbols *symbol.Scope `+"`"+`json:"-"`+"`",
+						`Symbols *symbol.Symbol `+"`"+`json:"-"`+"`",
 						`TypeMap map[string]any `+"`"+`json:"-"`+"`",
 						`"github.com/synnaxlabs/arc/symbol"`,
 					)

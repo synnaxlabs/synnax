@@ -106,13 +106,13 @@ func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Scope {
+func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
 	if d.IR.Symbols == nil {
 		return nil
 	}
 	astPos := d.toASTPosition(pos)
 	internalPos := fromProtocol(astPos)
-	var deepest *symbol.Scope
+	var deepest *symbol.Symbol
 	findScopeRecursive(d.IR.Symbols, internalPos.Line, internalPos.Col, &deepest)
 	if deepest == nil {
 		return d.IR.Symbols
@@ -120,7 +120,7 @@ func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Scope {
 	return deepest
 }
 
-func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Position) (*symbol.Scope, error) {
+func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Position) (*symbol.Symbol, error) {
 	word := d.getWordAtPosition(pos)
 	if word == "" {
 		return nil, nil

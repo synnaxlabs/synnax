@@ -81,13 +81,9 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 		opt(o)
 	}
 
-	var symResolver symbol.Resolver
-	if !o.disableHostImports {
-		symResolver = o.hostSymbols
-	}
-	resolver := resolve.NewResolver(symResolver)
+	resolver := resolve.NewResolver()
 
-	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
+	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))
@@ -240,9 +236,9 @@ func compileFmtStrSynthetic(
 	}, nil
 }
 
-func collectLocals(scope *symbol.Scope) []wasm.ValueType {
+func collectLocals(scope *symbol.Symbol) []wasm.ValueType {
 	var locals []wasm.ValueType
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		switch child.Kind {
 		case symbol.KindVariable, symbol.KindStatefulVariable,
 			symbol.KindOutput, symbol.KindLoopVariable:

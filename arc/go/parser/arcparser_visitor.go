@@ -22,6 +22,18 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#topLevelItem.
 	VisitTopLevelItem(ctx *TopLevelItemContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#importStatement.
+	VisitImportStatement(ctx *ImportStatementContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#importItem.
+	VisitImportItem(ctx *ImportItemContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#importPath.
+	VisitImportPath(ctx *ImportPathContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#importPathHead.
+	VisitImportPathHead(ctx *ImportPathHeadContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#authorityBlock.
 	VisitAuthorityBlock(ctx *AuthorityBlockContext) interface{}
 

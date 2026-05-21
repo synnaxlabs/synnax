@@ -31,11 +31,14 @@ func _() {
 	_ = x[KindGlobalConstant-11]
 	_ = x[KindLoop-12]
 	_ = x[KindLoopVariable-13]
+	_ = x[KindModule-14]
+	_ = x[KindModuleAlias-15]
+	_ = x[KindAmbient-16]
 }
 
-const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutputKindSequenceKindStageKindConstantKindGlobalConstantKindLoopKindLoopVariable"
+const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindBlockKindConfigKindInputKindOutputKindSequenceKindStageKindConstantKindGlobalConstantKindLoopKindLoopVariableKindModuleKindModuleAliasKindAmbient"
 
-var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126, 144, 152, 168}
+var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126, 144, 152, 168, 178, 193, 204}
 
 func (i Kind) String() string {
 	idx := int(i) - 0

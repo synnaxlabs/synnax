@@ -1,0 +1,118 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package control
+
+import (
+	"context"
+
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+const (
+	bareSymbolName      = "set_authority"
+	qualifiedMemberName = "set_authority"
+	name                = "control"
+)
+
+var (
+	symbolProps = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "value", Type: types.U8()},
+			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+		},
+	})
+	memberSymbol = symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: symbolProps,
+	}
+	module     = symbol.NewModule(name, memberSymbol)
+	bareSymbol = symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       symbolProps,
+		Deprecated: module.FindChild(qualifiedMemberName),
+	}
+)
+
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the control module plus the deprecated bare alias
+// (set_authority) whose Deprecated field points at the canonical member.
+var Symbols = []*symbol.Symbol{module, &bareSymbol}
+
+// Host is the runtime host-side support for the control module: it acts as
+// the node factory for set_authority. There are no WASM bindings for
+// control; authority changes flow through ProgramState directly.
+type Host struct {
+	auth *ProgramState
+}
+
+// NewHost constructs a control Host backed by the given authority
+// ProgramState. Control has no WASM host bindings; the Host is purely a
+// node factory.
+func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
+
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
+		return nil, query.ErrNotFound
+	}
+	var nodeCfg nodeConfig
+	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+		return nil, errors.Wrap(err, "control.set_authority config")
+	}
+	var channelKey *uint32
+	if nodeCfg.Channel != 0 {
+		channelKey = &nodeCfg.Channel
+	}
+	return &setAuthority{
+		auth:       h.auth,
+		authority:  nodeCfg.Value,
+		channelKey: channelKey,
+	}, nil
+}
+
+var schema = zyn.Object(map[string]zyn.Schema{
+	"value":   zyn.Number().Uint8(),
+	"channel": zyn.Number().Uint32(),
+})
+
+type nodeConfig struct {
+	Value   uint8  `json:"value"`
+	Channel uint32 `json:"channel"`
+}
+
+type setAuthority struct {
+	auth        *ProgramState
+	authority   uint8
+	channelKey  *uint32
+	initialized bool
+}
+
+func (s *setAuthority) Reset()                  { s.initialized = false }
+func (s *setAuthority) IsOutputTruthy(int) bool { return false }
+
+func (s *setAuthority) Next(node.Context) {
+	if s.initialized {
+		return
+	}
+	s.initialized = true
+	s.auth.Set(s.channelKey, s.authority)
+}

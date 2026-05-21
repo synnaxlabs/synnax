@@ -62,8 +62,8 @@ Series parse_default_value(
 State::State(const Config &cfg, errors::Handler error_handler):
     State(
         cfg,
-        std::make_shared<stl::channel::State>(cfg.channels),
-        std::make_shared<stl::str::State>(),
+        std::make_shared<stl::channels::State>(cfg.channels),
+        std::make_shared<stl::strings::State>(),
         std::make_shared<stl::series::State>(),
         std::make_shared<stl::stateful::Variables>(),
         std::move(error_handler)
@@ -71,8 +71,8 @@ State::State(const Config &cfg, errors::Handler error_handler):
 
 State::State(
     const Config &cfg,
-    std::shared_ptr<stl::channel::State> channel,
-    std::shared_ptr<stl::str::State> strings,
+    std::shared_ptr<stl::channels::State> channel,
+    std::shared_ptr<stl::strings::State> strings,
     std::shared_ptr<stl::series::State> series,
     std::shared_ptr<stl::stateful::Variables> vars,
     errors::Handler error_handler

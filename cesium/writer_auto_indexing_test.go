@@ -128,7 +128,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					}))
 				})
 
-				It("Should resume auto-stamping from the high-water mark after a future user-provided value", func(ctx SpecContext) {
+				It("Should reject an auto-stamp that would regress the index past a caller-provided future timestamp", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
 						data = GenerateChannelKey()
@@ -139,7 +139,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data, Name: "mix_data_2", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 					future := telem.Now() + telem.HourTS
-					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
@@ -151,14 +151,79 @@ var _ = Describe("Writer AutoIndexing", func() {
 							telem.NewSeriesV[float64](1),
 						},
 					)))
+					Expect(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](2)))).
+						Error().To(MatchError(validate.ErrValidation))
+					Expect(w.Close()).To(MatchError(validate.ErrValidation))
+				})
+
+				It("Does not advance the auto-stamp clock when the caller writes explicit timestamps", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "mix_idx_3", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "mix_data_3", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+					before := telem.Now()
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					explicit := before + 10*telem.MillisecondTS
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{
+							telem.NewSeriesV(explicit),
+							telem.NewSeriesV[float64](1),
+						},
+					)))
+					Eventually(telem.Now).Should(BeNumerically(">", explicit))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](2))))
 					MustSucceed(w.Commit())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
 					Expect(ts).To(HaveLen(2))
-					Expect(ts[0]).To(Equal(future))
-					Expect(ts[1]).To(BeNumerically(">", future))
+					Expect(ts[0]).To(Equal(explicit))
+					Expect(ts[1]).To(BeNumerically(">", explicit))
+				})
+			})
+
+			Describe("Virtual channels", func() {
+				It("Should auto-stamp the indexed channel while leaving a virtual channel in the same frame untouched", func(ctx SpecContext) {
+					var (
+						idx     = GenerateChannelKey()
+						data    = GenerateChannelKey()
+						virtual = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "virt_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "virt_data", Index: idx, DataType: telem.Float64T},
+						cesium.Channel{Key: virtual, Name: "virt_chan", Virtual: true, DataType: telem.Int64T},
+					)).To(Succeed())
+					before := telem.Now()
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data, virtual},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{data, virtual},
+						[]telem.Series{
+							telem.NewSeriesV[float64](1, 2, 3),
+							telem.NewSeriesV[int64](10, 20, 30),
+						},
+					)))
+					MustSucceed(w.Commit())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
+					Expect(ts).To(HaveLen(3))
+					Expect(ts[0]).To(BeNumerically(">=", before))
 				})
 			})
 

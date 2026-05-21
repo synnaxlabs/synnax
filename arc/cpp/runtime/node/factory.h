@@ -37,9 +37,9 @@ class Factory {
 public:
     virtual ~Factory() = default;
 
-    /// @brief returns the module name this factory belongs to (e.g. "authority",
-    /// "status"). When the MultiFactory encounters a qualified node type like
-    /// "status.set", it skips factories whose module name doesn't match the
+    /// @brief returns the module name this factory belongs to (e.g. "control",
+    /// "time"). When the MultiFactory encounters a qualified node type like
+    /// "time.interval", it skips factories whose module name doesn't match the
     /// prefix. Factories that return an empty string are always considered.
     [[nodiscard]] virtual std::string module_name() const { return ""; }
 
@@ -59,8 +59,8 @@ public:
         const auto node_key = cfg.node.key;
         // Strip module prefix from the node type so factories only match bare
         // names. The compiler emits qualified names (e.g. "time.interval",
-        // "authority.set") into the IR; normalizing here keeps prefix awareness
-        // out of individual factories.
+        // "control.set_authority") into the IR; normalizing here keeps prefix
+        // awareness out of individual factories.
         std::string module_prefix;
         if (auto dot = cfg.node.type.rfind('.'); dot != std::string::npos) {
             module_prefix = cfg.node.type.substr(0, dot);

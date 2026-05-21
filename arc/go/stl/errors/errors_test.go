@@ -21,12 +21,12 @@ import (
 var _ = Describe("errors", func() {
 	var (
 		rt  *testutil.Runtime
-		mod *errors.Module
+		mod *errors.Host
 	)
 
 	BeforeEach(func(ctx SpecContext) {
 		rt = testutil.NewRuntime(ctx)
-		mod = MustSucceed(errors.NewModule(ctx, nil, rt.Underlying()))
+		mod = MustSucceed(errors.NewHost(ctx, rt.Underlying(), nil))
 		rt.Passthrough(ctx, "error")
 	})
 
