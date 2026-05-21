@@ -179,22 +179,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
 		})
 
-		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
-			content := `sensor -> status.set{key_or_name="alarm", message="Bad", variant="error"}`
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 17},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### status.set"))
-			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
-		})
-
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
 			content := "t := time.now()"
 			OpenArcDocument(server, ctx, uri, content)
@@ -637,6 +621,25 @@ func add(a i32, b i32) i32 {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+		})
+
+		It("should serve Symbol.Doc from the GlobalResolver", func(ctx SpecContext) {
+			globalResolver := symbol.MapResolver{
+				"docced": symbol.Symbol{
+					Name: "docced",
+					Type: types.I32(),
+					Kind: symbol.KindVariable,
+					Doc:  "#### docced\n\nDoc supplied by the GlobalResolver.",
+				},
+			}
+
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return docced\n}")
+			hover := Hover(server, ctx, uri, 1, 12)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("Doc supplied by the GlobalResolver"))
 		})
 	})
 

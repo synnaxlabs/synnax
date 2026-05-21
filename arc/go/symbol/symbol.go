@@ -54,9 +54,15 @@ package symbol
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/symbol/hooks"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
+
+// CallHook runs after the generic func-form validation passes.
+type CallHook func(ctx any, funcCall parser.IFunctionCallSuffixContext)
+
+// FlowConfigHook runs after the generic flow-form config validation passes.
+type FlowConfigHook func(ctx any, config parser.IConfigValuesContext)
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -172,7 +178,10 @@ type Symbol struct {
 	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
 	Deprecated string
 	// AnalyzeCall runs after generic func-form validation. Optional.
-	AnalyzeCall hooks.CallHook
+	AnalyzeCall CallHook
 	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
-	AnalyzeFlowConfig hooks.FlowConfigHook
+	AnalyzeFlowConfig FlowConfigHook
+	// Doc is the rendered Markdown hover documentation surfaced by the LSP.
+	// Optional; symbols without a Doc fall back to the LSP's built-in catalog.
+	Doc string
 }

@@ -16,7 +16,6 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/symbol/hooks"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,7 +34,7 @@ var _ = Describe("AnalyzeFlowConfig hook", func() {
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecBoth,
 				Type: types.Function(types.FunctionProperties{Config: params, Inputs: params}),
-				AnalyzeFlowConfig: hooks.FlowConfigHook(func(_ any, c parser.IConfigValuesContext) {
+				AnalyzeFlowConfig: symbol.FlowConfigHook(func(_ any, c parser.IConfigValuesContext) {
 					called++
 					configAST = c
 				}),

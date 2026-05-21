@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +66,15 @@ var setSymbolProps = types.Function(types.FunctionProperties{
 	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 })
 
+var setHoverDoc = doc.New(
+	doc.TitleWithKind("status.set", "Function"),
+	doc.Paragraph("Sets a status notification."),
+	doc.Divider(),
+	doc.Code("arc", `status.set{key_or_name="ox_alarm", message="Overpressure", variant="error"}`),
+	doc.Divider(),
+	doc.Paragraph("Accepted variants: "+allowedVariantsList+"."),
+).Render()
+
 var SymbolResolver = &symbol.ModuleResolver{
 	Name: moduleName,
 	Members: symbol.MapResolver{
@@ -73,6 +83,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 			Kind:              symbol.KindFunction,
 			Exec:              symbol.ExecBoth,
 			Type:              setSymbolProps,
+			Doc:               setHoverDoc,
 			AnalyzeCall:       analyzeStatusSetCall,
 			AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
 		},

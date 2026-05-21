@@ -80,7 +80,7 @@ func deprecatedDoc(old, replacement, example string) string {
 }
 
 func (s *Server) Hover(
-	_ context.Context,
+	ctx context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
 	d, ok := s.getDocument(params.TextDocument.URI)
@@ -123,10 +123,10 @@ func (s *Server) Hover(
 	)
 	var contents string
 	if qualifiedWord != word {
-		contents = s.getHoverContents(qualifiedWord)
+		contents = s.getHoverContents(ctx, qualifiedWord)
 	}
 	if contents == "" {
-		contents = s.getHoverContents(word)
+		contents = s.getHoverContents(ctx, word)
 	}
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
@@ -327,14 +327,6 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
 	).Render(),
-	"status.set": doc.New(
-		doc.TitleWithKind("status.set", "Function"),
-		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
-		doc.Divider(),
-		arcCode("sensor -> status.set{key_or_name=\"ox_alarm\", message=\"Overpressure\", variant=\"error\"}"),
-		doc.Divider(),
-		doc.Paragraph("Accepted variants: success, info, warning, error, loading, disabled."),
-	).Render(),
 	"math.avg": doc.New(
 		doc.TitleWithKind("math.avg", "Function"),
 		doc.Paragraph("Computes a running average of input values."),
@@ -392,7 +384,14 @@ func (s *Server) getOperatorHoverContents(op string) string {
 	return operatorDocs[op]
 }
 
-func (s *Server) getHoverContents(word string) string {
+// getHoverContents returns the hover doc for word, preferring Symbol.Doc from
+// the GlobalResolver (so STL modules own their docs) before keywordDocs.
+func (s *Server) getHoverContents(ctx context.Context, word string) string {
+	if s.cfg.GlobalResolver != nil {
+		if sym, err := s.cfg.GlobalResolver.Resolve(ctx, word); err == nil && sym.Doc != "" {
+			return sym.Doc
+		}
+	}
 	return keywordDocs[word]
 }
 
