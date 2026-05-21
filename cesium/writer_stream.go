@@ -351,10 +351,8 @@ func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
 		auths[i] = cfg.authority(i)
 	}
 	for i, k := range chans {
-		for _, idx := range w.internal {
-			if idx.setDataAuth(k, auths[i]) {
-				break
-			}
+		if idx, ok := w.keyToIdx[k]; ok {
+			idx.setDataAuth(k, auths[i])
 		}
 	}
 indexLoop:
@@ -491,9 +489,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 	t0 := max(now, w.idx.autoStampClock+1)
 	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
 	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
-	// through NewSeriesV(stamps...) would allocate a separate []TimeStamp and then copy
-	// it into the Series's []byte; this folds the two allocations into one and skips
-	// the intermediate copy on the per-Write hot path.
+	// through NewSeriesV(stamps...) would perform two allocations instead of one.
 	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
 	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
 	for j := range stamps {
