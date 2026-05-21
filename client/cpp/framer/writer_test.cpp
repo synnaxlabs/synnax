@@ -96,8 +96,8 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
 }
 
-/// @brief it should generate server-side timestamps for an auto-indexing writer
-/// opened with only a data channel.
+/// @brief it should generate server-side timestamps for an auto-indexing writer opened
+/// with only a data channel.
 TEST(WriterTests, testAutoIndexingDataOnly) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);

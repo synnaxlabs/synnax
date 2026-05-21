@@ -33,6 +33,7 @@ package compiler
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
@@ -41,11 +42,14 @@ import (
 	"github.com/synnaxlabs/arc/compiler/statement"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
+
+const FmtStrSyntheticPrefix = "fmt$"
 
 type compiledFunction struct {
 	scopeName string
@@ -94,6 +98,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	var compiled []compiledFunction
 	for _, i := range program.Functions {
+		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
+			cf, err := compileFmtStrSynthetic(compCtx, i)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
 		params := slices.Concat(i.Config, i.Inputs)
 		var returnType types.Type
 		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
@@ -201,6 +213,31 @@ func compileItem(
 func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 	_, err := expression.Compile(ctx)
 	return err
+}
+
+// compileFmtStrSynthetic emits a zero-param WASM body returning the
+// formatted string handle for an analyzer-synthesized backtick Function.
+func compileFmtStrSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+) (compiledFunction, error) {
+	segments, err := literal.FmtStrParse(fn.Body.Raw)
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	ctx := rootCtx.WithNewWriter()
+	funcT := wasm.FunctionType{
+		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
+	}
+	typeIdx := ctx.Module.AddType(funcT)
+	if _, err := expression.EmitFmtSegments(ctx, segments); err != nil {
+		return compiledFunction{}, err
+	}
+	return compiledFunction{
+		scopeName: fn.Key,
+		typeIdx:   typeIdx,
+		writer:    ctx.Writer,
+	}, nil
 }
 
 func collectLocals(scope *symbol.Scope) []wasm.ValueType {

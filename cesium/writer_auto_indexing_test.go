@@ -47,14 +47,13 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 
 					before := telem.Now()
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 					after := telem.Now()
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
@@ -76,7 +75,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: idx, Name: "auto_idx_2", IsIndex: true, DataType: telem.TimeStampT},
 						cesium.Channel{Key: data, Name: "auto_data_2", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
@@ -84,7 +83,6 @@ var _ = Describe("Writer AutoIndexing", func() {
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](4, 5, 6))))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
@@ -106,7 +104,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: idx, Name: "mix_idx_1", IsIndex: true, DataType: telem.TimeStampT},
 						cesium.Channel{Key: data, Name: "mix_data_1", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
@@ -120,7 +118,6 @@ var _ = Describe("Writer AutoIndexing", func() {
 						},
 					)))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, (100 * telem.SecondTS).Range(103*telem.SecondTS), idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
@@ -142,7 +139,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data, Name: "mix_data_2", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
 					future := telem.Now() + telem.HourTS
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
@@ -156,7 +153,6 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](2))))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
@@ -179,7 +175,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 						cesium.Channel{Key: data1, Name: "shared_data_1", Index: idx, DataType: telem.Float64T},
 						cesium.Channel{Key: data2, Name: "shared_data_2", Index: idx, DataType: telem.Float64T},
 					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data1, data2},
 						AutoIndexing: new(true),
 						Sync:         new(true),
@@ -192,11 +188,124 @@ var _ = Describe("Writer AutoIndexing", func() {
 						},
 					)))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
 					Expect(ts).To(HaveLen(3))
+				})
+			})
+
+			Describe("Multiple indexes in one writer", func() {
+				It("Should size each implicit index to its own referencing data channel", func(ctx SpecContext) {
+					var (
+						idx1  = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						idx2  = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx1, Name: "multi_idx_a", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "multi_data_a", Index: idx1, DataType: telem.Float64T},
+						cesium.Channel{Key: idx2, Name: "multi_idx_b", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data2, Name: "multi_data_b", Index: idx2, DataType: telem.Float64T},
+					)).To(Succeed())
+					before := telem.Now()
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data1, data2},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{data1, data2},
+						[]telem.Series{
+							telem.NewSeriesV[float64](1, 2, 3),
+							telem.NewSeriesV[float64](10, 20, 30, 40),
+						},
+					)))
+					MustSucceed(w.Commit())
+
+					ts1 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx1)).SeriesAt(0))
+					Expect(ts1).To(HaveLen(3))
+					Expect(ts1[0]).To(BeNumerically(">=", before))
+					Expect(ts1[1]).To(Equal(ts1[0] + 1))
+					Expect(ts1[2]).To(Equal(ts1[0] + 2))
+
+					ts2 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx2)).SeriesAt(0))
+					Expect(ts2).To(HaveLen(4))
+				})
+
+				It("Should generate co-aligned timestamps across distinct indexes in the same write", func(ctx SpecContext) {
+					var (
+						idx1  = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						idx2  = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx1, Name: "coalign_idx_a", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "coalign_data_a", Index: idx1, DataType: telem.Float64T},
+						cesium.Channel{Key: idx2, Name: "coalign_idx_b", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data2, Name: "coalign_data_b", Index: idx2, DataType: telem.Float64T},
+					)).To(Succeed())
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{data1, data2},
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{data1, data2},
+						[]telem.Series{
+							telem.NewSeriesV[float64](1, 2, 3),
+							telem.NewSeriesV[float64](4, 5, 6),
+						},
+					)))
+					MustSucceed(w.Commit())
+
+					ts1 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx1)).SeriesAt(0))
+					ts2 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx2)).SeriesAt(0))
+					Expect(ts1).To(Equal(ts2))
+				})
+
+				It("Should auto-stamp one index while passing through a user-provided value for another", func(ctx SpecContext) {
+					var (
+						idx1  = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						idx2  = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx1, Name: "mixed_multi_idx_a", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "mixed_multi_data_a", Index: idx1, DataType: telem.Float64T},
+						cesium.Channel{Key: idx2, Name: "mixed_multi_idx_b", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data2, Name: "mixed_multi_data_b", Index: idx2, DataType: telem.Float64T},
+					)).To(Succeed())
+					before := telem.Now()
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:     []cesium.ChannelKey{idx1, data1, data2},
+						Start:        100 * telem.SecondTS,
+						AutoIndexing: new(true),
+						Sync:         new(true),
+					}))
+					MustSucceed(w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idx1, data1, data2},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(100, 101),
+							telem.NewSeriesV[float64](1, 2),
+							telem.NewSeriesV[float64](3, 4),
+						},
+					)))
+					MustSucceed(w.Commit())
+
+					ts1 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, (100 * telem.SecondTS).Range(102*telem.SecondTS), idx1)).SeriesAt(0))
+					Expect(ts1).To(Equal([]telem.TimeStamp{100 * telem.SecondTS, 101 * telem.SecondTS}))
+
+					ts2 := telem.UnmarshalSeries[telem.TimeStamp](MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx2)).SeriesAt(0))
+					Expect(ts2).To(HaveLen(2))
+					Expect(ts2[0]).To(BeNumerically(">=", before))
+					Expect(ts2[1]).To(Equal(ts2[0] + 1))
 				})
 			})
 
@@ -213,14 +322,13 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)).To(Succeed())
 
 					before := telem.Now()
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+					w := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels:     []cesium.ChannelKey{data},
 						AutoIndexing: new(true),
 						Sync:         new(true),
 					}))
 					MustSucceed(w.Write(telem.UnaryFrame(data, telem.NewSeriesV[float64](1, 2, 3))))
 					MustSucceed(w.Commit())
-					Expect(w.Close()).To(Succeed())
 
 					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
@@ -281,7 +389,7 @@ var _ = Describe("Writer AutoIndexing", func() {
 					MustSucceed(w.Commit())
 					Expect(w.Close()).To(Succeed())
 
-					f := MustSucceed(db.Read(ctx, (50*telem.SecondTS).Range(102*telem.SecondTS), idx))
+					f := MustSucceed(db.Read(ctx, (50 * telem.SecondTS).Range(102*telem.SecondTS), idx))
 					ts := telem.UnmarshalSeries[telem.TimeStamp](f.SeriesAt(0))
 					Expect(ts).To(Equal([]telem.TimeStamp{
 						100 * telem.SecondTS,
@@ -452,6 +560,102 @@ var _ = Describe("Writer AutoIndexing", func() {
 					)))).To(BeFalse())
 				})
 
+				It("Lowers the implicit index when both referencing data channels are lowered", func(ctx SpecContext) {
+					var (
+						idx   = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "auth_lower_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "auth_lower_data1", Index: idx, DataType: telem.Float64T},
+						cesium.Channel{Key: data2, Name: "auth_lower_data2", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{data1, data2},
+						Authorities: []control.Authority{
+							control.Authority(200),
+							control.Authority(200),
+						},
+						AutoIndexing:   new(true),
+						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
+						ControlSubject: control.Subject{Key: "wA_lower"},
+					}))
+
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{idx},
+						Authorities:    []control.Authority{control.Authority(150)},
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "wB_lower"},
+					}))
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(10),
+					)))).To(BeFalse())
+
+					Expect(wA.SetAuthority(cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{data1, data2},
+						Authorities: []control.Authority{
+							control.Authority(50),
+							control.Authority(50),
+						},
+					})).To(Succeed())
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(11),
+					)))).To(BeTrue())
+				})
+
+				It("Propagates from a broadcast SetAuthority through subsequent per-channel calls", func(ctx SpecContext) {
+					var (
+						idx   = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx, Name: "auth_chain_idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "auth_chain_data1", Index: idx, DataType: telem.Float64T},
+						cesium.Channel{Key: data2, Name: "auth_chain_data2", Index: idx, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					wA := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{data1, data2},
+						Authorities:    []control.Authority{control.Authority(50)},
+						AutoIndexing:   new(true),
+						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
+						ControlSubject: control.Subject{Key: "wA_chain"},
+					}))
+
+					wB := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{idx},
+						Authorities:    []control.Authority{control.Authority(150)},
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "wB_chain"},
+					}))
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(10),
+					)))).To(BeTrue())
+
+					Expect(wA.SetAuthority(cesium.WriterConfig{
+						Authorities: []control.Authority{control.Authority(100)},
+					})).To(Succeed())
+
+					Expect(wA.SetAuthority(cesium.WriterConfig{
+						Channels:    []cesium.ChannelKey{data1},
+						Authorities: []control.Authority{control.Authority(200)},
+					})).To(Succeed())
+
+					Expect(MustSucceed(wB.Write(telem.UnaryFrame(
+						idx, telem.NewSeriesSecondsTSV(11),
+					)))).To(BeFalse())
+				})
+
 				It("Leaves the index alone when explicitly named in SetAuthority", func(ctx SpecContext) {
 					var (
 						idx  = GenerateChannelKey()
@@ -583,6 +787,54 @@ var _ = Describe("Writer AutoIndexing", func() {
 					Expect(MustSucceed(wAbove.Write(telem.UnaryFrame(
 						idx, telem.NewSeriesSecondsTSV(11),
 					)))).To(BeTrue())
+				})
+
+				It("Resolves authority per-index when distinct indexes are implicit", func(ctx SpecContext) {
+					var (
+						idx1  = GenerateChannelKey()
+						data1 = GenerateChannelKey()
+						idx2  = GenerateChannelKey()
+						data2 = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: idx1, Name: "open_perindex_idx_a", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data1, Name: "open_perindex_data_a", Index: idx1, DataType: telem.Float64T},
+						cesium.Channel{Key: idx2, Name: "open_perindex_idx_b", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data2, Name: "open_perindex_data_b", Index: idx2, DataType: telem.Float64T},
+					)).To(Succeed())
+
+					MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{data1, data2},
+						Authorities: []control.Authority{
+							control.Authority(80),
+							control.Authority(180),
+						},
+						AutoIndexing:   new(true),
+						Sync:           new(true),
+						Start:          1 * telem.SecondTS,
+						ControlSubject: control.Subject{Key: "open_perindex_wA"},
+					}))
+
+					wIdx1 := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{idx1},
+						Authorities:    []control.Authority{control.Authority(100)},
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "open_perindex_wIdx1"},
+					}))
+					Expect(MustSucceed(wIdx1.Write(telem.UnaryFrame(
+						idx1, telem.NewSeriesSecondsTSV(10),
+					)))).To(BeTrue())
+
+					wIdx2 := MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:       []cesium.ChannelKey{idx2},
+						Authorities:    []control.Authority{control.Authority(100)},
+						Sync:           new(true),
+						ControlSubject: control.Subject{Key: "open_perindex_wIdx2"},
+					}))
+					Expect(MustSucceed(wIdx2.Write(telem.UnaryFrame(
+						idx2, telem.NewSeriesSecondsTSV(10),
+					)))).To(BeFalse())
 				})
 			})
 		})

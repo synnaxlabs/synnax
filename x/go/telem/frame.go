@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -387,6 +388,16 @@ func (f Frame[K]) Get(key K) MultiSeries {
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)
 	f.series = append(f.series, series)
+	return f
+}
+
+// Grow ensures the frame has capacity for at least n additional entries beyond its
+// current length, allocating a larger backing array if necessary. Useful for callers
+// that know in advance how many Append calls they will make and want to avoid
+// repeated slice growth in a hot path.
+func (f Frame[K]) Grow(n int) Frame[K] {
+	f.keys = slices.Grow(f.keys, n)
+	f.series = slices.Grow(f.series, n)
 	return f
 }
 

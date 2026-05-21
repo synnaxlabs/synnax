@@ -90,7 +90,7 @@ type Config struct {
 	// telemetry occupying the given timestamp already exists for the provided keys, the
 	// writer will fail to open.
 	//
-	// [REQUIRED]
+	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndexing is true.
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -103,12 +103,12 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
-	// AutoIndexing causes each leaseholder to generate timestamps for any index
-	// channel local to it (and in the writer's Keys) whose series is omitted from a
-	// Write frame. The first sample in each Write call is stamped with telem.Now() on
-	// the leaseholder that owns the index; remaining samples in the same call are
-	// spaced 1ns apart. A per-leaseholder high-water mark guarantees strict
-	// monotonicity across Write calls for indexes owned by that leaseholder.
+	// AutoIndexing causes each leaseholder to generate timestamps for any index channel
+	// local to it (and in the writer's Keys) whose series is omitted from a Write
+	// frame. The first sample in each Write call is stamped with telem.Now() on the
+	// leaseholder that owns the index; remaining samples in the same call are spaced
+	// 1ns apart. A per-leaseholder high-water mark guarantees strict monotonicity
+	// across Write calls for indexes owned by that leaseholder.
 	//
 	// When AutoIndexing is true and the caller's Keys reference data channels whose
 	// index channels are not also in Keys, those index channels are implicitly added to
