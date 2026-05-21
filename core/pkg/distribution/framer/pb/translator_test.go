@@ -55,7 +55,7 @@ var _ = Describe("Translator", func() {
 					Mode:                     ts.WriterModePersistStream,
 					EnableAutoCommit:         new(false),
 					AutoIndexPersistInterval: telem.TimeSpan(5000),
-					AutoIndexing:             new(true),
+					AutoIndex:             new(true),
 				},
 				Frame: testFrame(),
 			}
@@ -73,7 +73,7 @@ var _ = Describe("Translator", func() {
 			Expect(result.Config.AutoIndexPersistInterval).To(
 				Equal(original.Config.AutoIndexPersistInterval),
 			)
-			Expect(*result.Config.AutoIndexing).To(BeTrue())
+			Expect(*result.Config.AutoIndex).To(BeTrue())
 			Expect(result.Frame.Count()).To(Equal(2))
 		})
 
@@ -89,8 +89,8 @@ var _ = Describe("Translator", func() {
 			result := MustSucceed(t.Backward(ctx, pb))
 			Expect(result.Config.ErrOnUnauthorized).ToNot(BeNil())
 			Expect(result.Config.EnableAutoCommit).ToNot(BeNil())
-			Expect(result.Config.AutoIndexing).ToNot(BeNil())
-			Expect(*result.Config.AutoIndexing).To(BeFalse())
+			Expect(result.Config.AutoIndex).ToNot(BeNil())
+			Expect(*result.Config.AutoIndex).To(BeFalse())
 		})
 	})
 

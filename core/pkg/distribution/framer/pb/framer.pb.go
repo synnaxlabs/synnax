@@ -392,7 +392,7 @@ type WriterConfig struct {
 	Mode                     uint32                 `protobuf:"varint,6,opt,name=mode,proto3" json:"mode,omitempty"`
 	EnableAutoCommit         bool                   `protobuf:"varint,7,opt,name=enable_auto_commit,json=enableAutoCommit,proto3" json:"enable_auto_commit,omitempty"`
 	AutoIndexPersistInterval int64                  `protobuf:"varint,8,opt,name=auto_index_persist_interval,json=autoIndexPersistInterval,proto3" json:"auto_index_persist_interval,omitempty"`
-	AutoIndexing             bool                   `protobuf:"varint,9,opt,name=auto_indexing,json=autoIndexing,proto3" json:"auto_indexing,omitempty"`
+	AutoIndex                bool                   `protobuf:"varint,9,opt,name=auto_index,json=autoIndex,proto3" json:"auto_index,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -483,9 +483,9 @@ func (x *WriterConfig) GetAutoIndexPersistInterval() int64 {
 	return 0
 }
 
-func (x *WriterConfig) GetAutoIndexing() bool {
+func (x *WriterConfig) GetAutoIndex() bool {
 	if x != nil {
-		return x.AutoIndexing
+		return x.AutoIndex
 	}
 	return false
 }
@@ -649,7 +649,7 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12@\n" +
 	"\x06config\x18\x02 \x01(\v2(.synnax.distribution.framer.WriterConfigR\x06config\x12'\n" +
-	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\"\xf0\x02\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\"\xea\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05start\x18\x02 \x01(\x03R\x05start\x12 \n" +
@@ -658,8 +658,9 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\x13err_on_unauthorized\x18\x05 \x01(\bR\x11errOnUnauthorized\x12\x12\n" +
 	"\x04mode\x18\x06 \x01(\rR\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\a \x01(\bR\x10enableAutoCommit\x12=\n" +
-	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\x12#\n" +
-	"\rauto_indexing\x18\t \x01(\bR\fautoIndexing\"\x90\x01\n" +
+	"\x1bauto_index_persist_interval\x18\b \x01(\x03R\x18autoIndexPersistInterval\x12\x1d\n" +
+	"\n" +
+	"auto_index\x18\t \x01(\bR\tautoIndex\"\x90\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x17\n" +
 	"\aseq_num\x18\x02 \x01(\x05R\x06seqNum\x12\x19\n" +

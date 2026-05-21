@@ -473,7 +473,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Auto-Indexing", func() {
+	Describe("Auto-Index", func() {
 		It("Should auto-stamp from the leaseholder when the data channel lives on a peer", func(ctx SpecContext) {
 			builder := DeferClose(mock.ProvisionCluster(ctx, 2))
 			gw := builder.Nodes[1]
@@ -504,10 +504,10 @@ var _ = Describe("Writer", func() {
 
 			before := telem.Now()
 			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
-				Keys:         []channel.Key{data.Key()},
-				Sync:         new(true),
-				AutoIndexing: new(true),
-				Start:        1 * telem.SecondTS,
+				Keys:      []channel.Key{data.Key()},
+				Sync:      new(true),
+				AutoIndex: new(true),
+				Start:     1 * telem.SecondTS,
 			}))
 			Expect((w.Write(frame.NewUnary(
 				data.Key(),

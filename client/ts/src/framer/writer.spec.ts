@@ -115,13 +115,13 @@ describe("Writer", () => {
       expect(true).toBe(true);
     });
 
-    test("auto-indexing generates server-side timestamps for data-only writes", async () => {
+    test("auto-index generates server-side timestamps for data-only writes", async () => {
       const [index, data] = await newIndexedPair(client);
       const before = TimeStamp.now();
       const writer = await client.openWriter({
         start: before,
         channels: [data.key],
-        autoIndexing: true,
+        autoIndex: true,
       });
       try {
         await writer.write(data.key, randomSeries(5, data.dataType));
@@ -136,14 +136,14 @@ describe("Writer", () => {
       expect(f.length).toEqual(5);
     });
 
-    test("auto-indexing mixes user-provided and generated timestamps in one writer", async () => {
+    test("auto-index mixes user-provided and generated timestamps in one writer", async () => {
       const [index, data] = await newIndexedPair(client);
       const userStamps = secondsLinspace(200, 2);
       const beforeAuto = TimeStamp.now();
       const writer = await client.openWriter({
         start: TimeStamp.seconds(200),
         channels: [index.key, data.key],
-        autoIndexing: true,
+        autoIndex: true,
       });
       try {
         await writer.write({
@@ -167,12 +167,12 @@ describe("Writer", () => {
       expect(autoF.length).toEqual(3);
     });
 
-    test("auto-indexing leaves user-provided index data untouched", async () => {
+    test("auto-index leaves user-provided index data untouched", async () => {
       const [index, data] = await newIndexedPair(client);
       const writer = await client.openWriter({
         start: TimeStamp.seconds(200),
         channels: [index.key, data.key],
-        autoIndexing: true,
+        autoIndex: true,
       });
       try {
         await writer.write({

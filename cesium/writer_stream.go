@@ -174,7 +174,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 	if len(cfg.Authorities) == 0 {
 		return nil
 	}
-	if *w.AutoIndexing {
+	if *w.AutoIndex {
 		cfg = w.propagateAuthority(cfg)
 	}
 	var (
@@ -241,7 +241,7 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
-	if *w.AutoIndexing {
+	if *w.AutoIndex {
 		req.Frame = w.autoStamp(req.Frame)
 	}
 	var (
@@ -477,7 +477,7 @@ type idxWriter struct {
 	lastCommitEnd telem.TimeStamp
 	// dataAuth tracks the most recent control authority for each data channel in this
 	// group (i.e. the keys of internal excluding the index itself). Populated only when
-	// the streamWriter has AutoIndexing enabled and writingToIdx is true; updated by
+	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
 	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
 	// authority as the max across its referencing data channels.
 	dataAuth map[ChannelKey]xcontrol.Authority
@@ -533,17 +533,17 @@ func (w *idxWriter) setDataAuth(k ChannelKey, auth xcontrol.Authority) bool {
 // broadcastDataAuth sets every data channel's authority in this group to auth. Used
 // when the caller issues a writer-wide SetAuthority (cfg.Channels empty), which the
 // downstream layer applies to every channel; this keeps the per-data-channel record
-// consistent so a subsequent per-channel SetAuthority computes the implicit index's
-// max correctly.
+// consistent so a subsequent per-channel SetAuthority computes the implicit index's max
+// correctly.
 func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
 	for k := range w.dataAuth {
 		w.dataAuth[k] = auth
 	}
 }
 
-// maxDataAuth returns the maximum recorded authority across this group's data
-// channels. Returns 0 when the group has no data channels (which cannot occur for a
-// writingToIdx idxWriter under AutoIndexing).
+// maxDataAuth returns the maximum recorded authority across this group's data channels.
+// Returns 0 when the group has no data channels (which cannot occur for a writingToIdx
+// idxWriter under AutoIndex).
 func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 	var max xcontrol.Authority
 	for _, a := range w.dataAuth {

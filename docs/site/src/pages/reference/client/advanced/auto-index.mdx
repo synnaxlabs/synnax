@@ -1,6 +1,6 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Auto-Indexing"
+title: "Auto-Index"
 description: "Let Synnax generate timestamps for you when writing data."
 next: "Write Authorities"
 nextURL: "/reference/client/advanced/write-authorities"
@@ -17,14 +17,14 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 By default, every write to a data channel must include a matching series of timestamps
-for that channel's index. When <Client.Var client:load py="auto_indexing"
-ts="autoIndexing" /> is enabled, Synnax generates those timestamps for you. This is
-useful when the exact time of each sample doesn't matter and you'd rather have Synnax
-stamp the data when it arrives.
+for that channel's index. When <Client.Var client:load py="auto_index" ts="autoIndex" />
+is enabled, Synnax generates those timestamps for you. This is useful when the exact
+time of each sample doesn't matter and you'd rather have Synnax stamp the data when it
+arrives.
 
 ## How It Works
 
-When <Client.Var client:load py="auto_indexing" ts="autoIndexing" /> is set to
+When <Client.Var client:load py="auto_index" ts="autoIndex" /> is set to
 
 <Client.Var client:load py="True" ts="true" />, every write call goes through the
 following process:
@@ -47,8 +47,8 @@ adds the index channel to the writer for you so it can stamp the data.
 
 The simplest case is opening a writer with only a data channel and letting Synnax stamp
 every sample. The Python client requires a `start` argument, but it's just a placeholder
-when auto-indexing is on — pass `start=0` and Synnax will supply the real timestamps.
-The TypeScript client makes `start` optional.
+when auto-index is on — pass `start=0` and Synnax will supply the real timestamps. The
+TypeScript client makes `start` optional.
 
 <Client.Tabs client:load exclude={["cpp","console"]}>
 
@@ -58,7 +58,7 @@ The TypeScript client makes `start` optional.
 with client.open_writer(
     start=0,
     channels=["temperature"],
-    auto_indexing=True,
+    auto_index=True,
 ) as writer:
     for i in range(100):
         writer.write({"temperature": i * 0.1})
@@ -73,7 +73,7 @@ with client.open_writer(
 ```typescript
 const writer = await client.openWriter({
   channels: ["temperature"],
-  autoIndexing: true,
+  autoIndex: true,
 });
 try {
   for (let i = 0; i < 100; i++) await writer.write("temperature", i * 0.1);
@@ -103,7 +103,7 @@ timestamps you supplied.
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
-    auto_indexing=True,
+    auto_index=True,
 ) as writer:
     # User-provided timestamps for this write.
     writer.write({
@@ -123,7 +123,7 @@ with client.open_writer(
 const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
-  autoIndexing: true,
+  autoIndex: true,
 });
 try {
   // User-provided timestamps for this write.
@@ -141,16 +141,16 @@ try {
 
 <Divider.Divider x />
 
-## When to Use Auto-Indexing
+## When to Use Auto-Index
 
-Auto-indexing is a good fit when:
+Auto-index is a good fit when:
 
 - You're recording data where the exact sample time isn't critical — log lines, status
   values, event-style data.
 - You want a simpler write path and don't want to manage timestamps yourself.
 - You're prototyping and don't yet have a clear story for sample timing.
 
-Auto-indexing is **not** a good fit when:
+Auto-index is **not** a good fit when:
 
 - You need timestamps that reflect the actual moment a sample was taken at the source
   (e.g., a sensor with its own clock). Generated timestamps reflect arrival time, not

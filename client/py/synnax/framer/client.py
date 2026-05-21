@@ -78,44 +78,43 @@ class Client:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
-        auto_indexing: bool = False,
+        auto_index: bool = False,
         err_on_extra_chans: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
         :param start: Sets the starting timestamp for the first sample in the writer. If
-        this timestamp overlaps with existing data for ANY of the provided channels,
-        the writer will fail to open.
-        :param channels: The channels to write to. This can be a single channel name,
-        a list of channel names, a single channel key, or a list of channel keys.
-        :param authorities: The control authority to set for each channel on the writer.
-        Defaults to absolute authority. If not working with concurrent control,
-        it's best to leave this as the default.
+        this timestamp overlaps with existing data for ANY of the provided channels, the
+        writer will fail to open.
+        :param channels: The channels to write to. This can be a single channel name, a
+        list of channel names, a single channel key, or a list of channel keys. :param
+        authorities: The control authority to set for each channel on the writer.
+        Defaults to absolute authority. If not working with concurrent control, it's
+        best to leave this as the default.
         :param name: The name of the writer used in control subject.
         :param strict: Sets whether the writer will fail to write if the data for a
-        particular channel does not exactly match this data type. When False,
-        the default, the writer will automatically convert the data to the correct
-        type if possible.
-        :param suppress_warnings: Suppress various print warnings that may be emitted
-        by the writer.
+        particular channel does not exactly match this data type. When False, the
+        default, the writer will automatically convert the data to the correct type if
+        possible.
+        :param suppress_warnings: Suppress various print warnings that may be emitted by
+        the writer.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
-        :param err_on_unauthorized: sets whether the writer should return an error if
-        it attempts to write to a channel it does not have control over.
-        :param enable_auto_commit: determines whether the writer will automatically
-        commit. If enable_auto_commit is true, then the writer will commit after each
-        write, and will flush that commit to index after the specified
-        auto_index_persist_interval.
+        :param err_on_unauthorized: sets whether the writer should return an error if it
+        attempts to write to a channel it does not have control over. :param
+        enable_auto_commit: determines whether the writer will automatically commit. If
+        enable_auto_commit is true, then the writer will commit after each write, and
+        will flush that commit to index after the specified auto_index_persist_interval.
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
-        :param auto_indexing: when True, Synnax automatically generates timestamps for
-        any index channel that is not included in a write call. The first sample in
-        each write is stamped at the time the write is received, and subsequent
-        samples are spaced 1 nanosecond apart. Generated timestamps are guaranteed to
-        be strictly monotonic across all writes on the writer. If you open the writer
-        with data channels whose index channels are not included, those index channels
-        are added to the writer implicitly.
+        :param auto_index: when True, Synnax automatically generates timestamps for any
+        index channel that is not included in a write call. The first sample in each
+        write is stamped at the time the write is received, and subsequent samples are
+        spaced 1 nanosecond apart. Generated timestamps are guaranteed to be strictly
+        monotonic across all writes on the writer. If you open the writer with data
+        channels whose index channels are not included, those index channels are added
+        to the writer implicitly.
         """
         adapter = WriteFrameAdapter(
             retriever=self._channels,
@@ -135,7 +134,7 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
-            auto_indexing=auto_indexing,
+            auto_index=auto_index,
         )
 
     def open_iterator(
