@@ -92,6 +92,10 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		return
 	}
 
+	// Dual-shape ExecBoth (see symbol.ExecBoth): upstream is a trigger, not
+	// a typed input.
+	upstreamIsTrigger := funcType.Exec == symbol.ExecBoth && len(funcType.Type.Config) > 0
+
 	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
 		idName := prevIDNode.IDENTIFIER().GetText()
 		idSym, err := ctx.Resolve(idName)
@@ -104,7 +108,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			ctx.Diagnostics.Add(diagnostics.Errorf(prevIDNode, "%s is not a channel", idName))
 			return
 		}
-		if len(funcType.Type.Inputs) > 0 {
+		if !upstreamIsTrigger && len(funcType.Type.Inputs) > 0 {
 			param := funcType.Type.Inputs[0]
 			if idSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
@@ -133,7 +137,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
 		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap()
-		if len(funcType.Type.Inputs) > 0 {
+		if !upstreamIsTrigger && len(funcType.Type.Inputs) > 0 {
 			param := funcType.Type.Inputs[0]
 			if err := atypes.Check(
 				ctx.Constraints,
@@ -168,11 +172,11 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 
-		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 1 {
+		if !upstreamIsTrigger && !hasRoutingTableBetween && len(funcType.Type.Inputs) > 1 {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s has more than one parameter", name))
 			return
 		}
-		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
+		if !upstreamIsTrigger && !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
 			t := funcType.Type.Inputs[0].Type
 			var prevOutputType types.Type
 			if outputType, ok := prevFuncType.Type.Outputs.Get(ir.DefaultOutputParam); ok {

@@ -65,7 +65,9 @@ const (
 	ExecWASM ExecContext = 1 << iota
 	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
 	ExecFlow
-	// ExecBoth marks a symbol as usable in both contexts.
+	// ExecBoth marks a symbol as usable in both contexts. Inputs must mirror
+	// Config one-for-one (N=0 allowed); upstream edges in flow form are
+	// triggers, not typed inputs. Invariant enforced in stl_test.go.
 	ExecBoth = ExecWASM | ExecFlow
 )
 

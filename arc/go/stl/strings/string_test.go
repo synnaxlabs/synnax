@@ -185,6 +185,7 @@ var _ = Describe("Strings", func() {
 			},
 			Entry("simple decimal", float32(3.14), "3.14"),
 			Entry("zero", float32(0.0), "0"),
+			Entry("negative zero", float32(math.Copysign(0, -1)), "-0"),
 			Entry("negative", float32(-2.5), "-2.5"),
 			Entry("1.0 (integer-valued)", float32(1.0), "1"),
 			Entry("10.0 (integer-valued)", float32(10.0), "10"),
@@ -221,6 +222,7 @@ var _ = Describe("Strings", func() {
 			},
 			Entry("simple decimal", float64(3.14159), "3.14159"),
 			Entry("zero", float64(0.0), "0"),
+			Entry("negative zero", math.Copysign(0, -1), "-0"),
 			Entry("negative", float64(-2.5), "-2.5"),
 			Entry("high precision", float64(0.1234567890123456), "0.1234567890123456"),
 			Entry("1.0 (integer-valued)", float64(1.0), "1"),
@@ -248,6 +250,81 @@ var _ = Describe("Strings", func() {
 		It("Should format negative infinity", func(ctx SpecContext) {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(-1)))
 			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+		})
+	})
+
+	Describe("format_* spec read failures", func() {
+		writeSpec := func(spec string) (uint32, uint32) {
+			mem.Write(0, []byte(spec))
+			return 0, uint32(len(spec))
+		}
+
+		It("Should format an i32 against a spec read from memory", func(ctx SpecContext) {
+			ptr, length := writeSpec("05d")
+			h := callU32(ctx, "format_i32", testutil.I32(7), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("00007"))
+		})
+
+		It("Should format an f64 against a spec read from memory", func(ctx SpecContext) {
+			ptr, length := writeSpec(".2f")
+			h := callU32(ctx, "format_f64", testutil.F64(3.14159), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("3.14"))
+		})
+
+		DescribeTable("Should return a handle to an empty string when the spec read is out-of-bounds",
+			func(ctx SpecContext, fn string, value uint64) {
+				h := callU32(ctx, fn, value, testutil.U32(1<<30), testutil.U32(4))
+				Expect(h).ToNot(BeZero())
+				Expect(MustBeOk(ss.Get(h))).To(BeEmpty())
+			},
+			Entry("format_i32 with OOB spec", "format_i32", testutil.I32(42)),
+			Entry("format_u32 with OOB spec", "format_u32", testutil.U32(42)),
+			Entry("format_i64 with OOB spec", "format_i64", testutil.I64(42)),
+			Entry("format_u64 with OOB spec", "format_u64", testutil.U64(42)),
+			Entry("format_f32 with OOB spec", "format_f32", testutil.F32(3.14)),
+			Entry("format_f64 with OOB spec", "format_f64", testutil.F64(3.14)),
+		)
+	})
+
+	Describe("format_string", func() {
+		writeSpec := func(spec string) (uint32, uint32) {
+			mem.Write(0, []byte(spec))
+			return 0, uint32(len(spec))
+		}
+
+		It("Should format a string handle against a spec read from memory", func(ctx SpecContext) {
+			h := ss.Create("hi")
+			ptr, length := writeSpec("5s")
+			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(rh))).To(Equal("   hi"))
+		})
+
+		It("Should return 0 for an unknown handle", func(ctx SpecContext) {
+			ptr, length := writeSpec("q")
+			rh := callU32(ctx, "format_string", testutil.U32(9999), testutil.U32(ptr), testutil.U32(length))
+			Expect(rh).To(BeZero())
+		})
+
+		It("Should return a handle to an empty string when the spec read is out-of-bounds", func(ctx SpecContext) {
+			h := ss.Create("hi")
+			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))
+			Expect(rh).ToNot(BeZero())
+			Expect(MustBeOk(ss.Get(rh))).To(BeEmpty())
+		})
+	})
+
+	Describe("Module.SetMemory", func() {
+		It("Should swap the backing memory used by format_*", func(ctx SpecContext) {
+			rt2 := testutil.NewRuntime(ctx)
+			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+			ss2 := strings.NewProgramState()
+			m := MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
+			rt2.Passthrough(ctx, "string")
+			mem2 := wazerotest.NewMemory(1)
+			m.SetMemory(mem2)
+			mem2.Write(0, []byte("05d"))
+			res := rt2.Call(ctx, "string", "format_i32", testutil.I32(7), testutil.U32(0), testutil.U32(3))
+			Expect(MustBeOk(ss2.Get(testutil.AsU32(res[0])))).To(Equal("00007"))
 		})
 	})
 

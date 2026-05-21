@@ -325,24 +325,44 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 // EmitNumericToString emits a call to the string.from_* host fn matching
 // the source numeric type. Shared by the str() typecast and f-strings.
 func (r *Resolver) EmitNumericToString(w *wasm.Writer, wID int, from types.Type) error {
-	var suffix string
-	switch from.Kind {
-	case types.KindI8, types.KindI16, types.KindI32:
-		suffix = "i32"
-	case types.KindU8, types.KindU16, types.KindU32:
-		suffix = "u32"
-	case types.KindI64:
-		suffix = "i64"
-	case types.KindU64:
-		suffix = "u64"
-	case types.KindF32:
-		suffix = "f32"
-	case types.KindF64:
-		suffix = "f64"
-	default:
-		return errors.Newf("cannot convert %s to str", from)
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
 	}
 	return r.EmitFixedCall(w, wID, "string.from_"+suffix)
+}
+
+func (r *Resolver) EmitNumericFormat(w *wasm.Writer, wID int, from types.Type) error {
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
+	}
+	return r.EmitFixedCall(w, wID, "string.format_"+suffix)
+}
+
+// EmitStringFormat emits a call to string.format_string.
+func (r *Resolver) EmitStringFormat(w *wasm.Writer, wID int) error {
+	return r.EmitFixedCall(w, wID, "string.format_string")
+}
+
+func numericSuffix(t types.Type) (string, error) {
+	switch t.Kind {
+	case types.KindI8, types.KindI16, types.KindI32:
+		return "i32", nil
+	case types.KindU8, types.KindU16, types.KindU32:
+		return "u32", nil
+	case types.KindI64, types.KindIntegerConstant:
+		return "i64", nil
+	case types.KindU64:
+		return "u64", nil
+	case types.KindF32:
+		return "f32", nil
+	case types.KindF64,
+		types.KindFloatConstant, types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
+		return "f64", nil
+	}
+	return "", errors.Newf("cannot convert %s to str", t)
 }
 
 // EmitMathPow emits a call to math.pow for the given type.
