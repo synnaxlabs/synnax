@@ -390,6 +390,39 @@ output is in units per second (e.g., psi/second if pressure is in psi).
 
 <Divider.Divider x />
 
+## Formatting Status Strings
+
+[Format strings](/reference/control/arc/reference/syntax#format-strings) build
+human-readable status messages from live channel values. Placeholders inside `{...}`
+accept any expression, and a `:spec` after the expression controls formatting:
+
+```arc
+func fmt_pressure(value f64) str {
+    return f"Pressure: {value:.2f} psi"
+}
+
+pressure -> fmt_pressure{} -> pressure_status
+```
+
+Each time `pressure` updates, `pressure_status` receives a string like
+`"Pressure: 523.70 psi"`. Format specs are validated against the placeholder type at
+compile time, so a `.2f` against an integer is caught before the program runs.
+
+Format strings are useful for writing diagnostic outputs:
+
+```arc
+func alert(value f64) str {
+    if value > 800.0 {
+        return f"HIGH PRESSURE: {value:.1f} psi"
+    }
+    return f"pressure nominal: {value:.1f} psi"
+}
+
+pressure -> alert{} -> log
+```
+
+<Divider.Divider x />
+
 ## Putting It Together
 
 Here's a complete pipeline that reads a pressure sensor, converts units, smooths the

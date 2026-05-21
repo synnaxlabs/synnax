@@ -249,19 +249,22 @@ var _ = Describe("Formatter", func() {
 		Entry("preserve string escapes", `x := "hello\nworld"`, "x := \"hello\\nworld\"\n"),
 	)
 
-	DescribeTable("Raw String Literals",
+	DescribeTable("Raw, Multi-Line, and Format String Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("bare raw literal", "`hello`", "`hello`\n"),
-		Entry("simple raw in assignment", "x := `hello`", "x := `hello`\n"),
-		Entry("tight raw in assignment adds spaces", "x:=`hi`", "x := `hi`\n"),
-		Entry("raw in func call", "log(`hi`)", "log(`hi`)\n"),
+		Entry("bare format literal", `f"hello"`, "f\"hello\"\n"),
+		Entry("simple raw in assignment", `x := r"hello"`, "x := r\"hello\"\n"),
+		Entry("tight raw in assignment adds spaces", `x:=r"hi"`, "x := r\"hi\"\n"),
+		Entry("format string in func call", `log(f"hi")`, "log(f\"hi\")\n"),
 		Entry("multi-line preserves newlines", "x := `a\nb`", "x := `a\nb`\n"),
 		Entry("multi-line preserves indentation", "x := `\n    indent`", "x := `\n    indent`\n"),
-		Entry("embedded double quotes preserved", "x := `say \"hi\"`", "x := `say \"hi\"`\n"),
-		Entry("spacing raw next to identifier", "x:=`y`", "x := `y`\n"),
-		Entry("escaped backtick preserved", "x := `say \\`hi\\``", "x := `say \\`hi\\``\n"),
+		Entry("embedded escaped quotes preserved", `x := "say \"hi\""`, "x := \"say \\\"hi\\\"\"\n"),
+		Entry("spacing format next to identifier", `x:=f"y"`, "x := f\"y\"\n"),
+		Entry("rf prefix preserved", `x := rf"path: {p}"`, "x := rf\"path: {p}\"\n"),
+		Entry("format multi-line with placeholder", "x := f`a={p}\nb={q}`", "x := f`a={p}\nb={q}`\n"),
+		Entry("raw multi-line preserved", "x := r`a\\nb\nc`", "x := r`a\\nb\nc`\n"),
+		Entry("rf multi-line preserved", "x := rf`path\\to\n{p}`", "x := rf`path\\to\n{p}`\n"),
 	)
 
 	DescribeTable("Global Constants",
