@@ -82,7 +82,7 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []sym
 		s := channels[i]
 		root.Parent.AddChild(&s)
 	}
-	analyzerCtx := acontext.CreateRoot(bCtx, expr, root)
+	analyzerCtx := acontext.NewRoot(bCtx, expr, root)
 	autoImportSTL(bCtx, analyzerCtx.Scope)
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
@@ -92,7 +92,7 @@ func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []sym
 			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
 		}
 	}
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
+	compilerCtx := ccontext.NewRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
 	return FinalizeContext(compilerCtx), exprType
 }
@@ -162,7 +162,7 @@ func expectSeriesLiteralWithHint(
 		s := extras[i]
 		root.Parent.AddChild(&s)
 	}
-	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, root)
+	analyzerCtx := acontext.NewRoot(bCtx, parsedExpr, root)
 	aexpression.Analyze(analyzerCtx)
 	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 
@@ -179,7 +179,7 @@ func expectSeriesLiteralWithHint(
 		}
 	}
 
-	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
+	compilerCtx := ccontext.NewRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, resolve.NewResolver())
 	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
 	Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(expectedOpcodes...))
 	Expect(exprType).To(Equal(hint))

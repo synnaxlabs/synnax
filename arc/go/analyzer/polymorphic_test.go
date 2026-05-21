@@ -57,7 +57,7 @@ var _ = Describe("Polymorphic func Analysis", func() {
 	DescribeTable("Simple Polymorphic Flow",
 		func(sCtx SpecContext, tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
-			ctx := acontext.CreateRoot(sCtx, ast, root)
+			ctx := acontext.NewRoot(sCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 

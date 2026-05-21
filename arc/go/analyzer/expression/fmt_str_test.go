@@ -41,7 +41,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 
 	analyze := func(specCtx SpecContext, code string) diagnostics.Diagnostics {
 		ast := MustSucceed(parser.Parse(code))
-		ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
+		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
 		analyzer.AnalyzeProgram(ctx)
 		return *ctx.Diagnostics
 	}
@@ -336,7 +336,7 @@ trig -> f{}`
 			// Mutate token text to drop the delimiters. This is unreachable via
 			// the grammar but exercises the StripQuotes guard.
 			strTerm.GetSymbol().SetText("no_quotes")
-			ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
+			ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
 			expression.AnalyzeFmtStrLiteral(ctx, strTerm)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(findError(*ctx.Diagnostics, "invalid string literal")).

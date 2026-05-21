@@ -83,7 +83,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	resolver := resolve.NewResolver()
 
-	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, resolver)
+	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))

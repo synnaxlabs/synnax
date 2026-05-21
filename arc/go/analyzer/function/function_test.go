@@ -28,7 +28,7 @@ import (
 // returning the context for further assertions.
 func analyzeProgram(bCtx SpecContext, src string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, resolver...))
+	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }

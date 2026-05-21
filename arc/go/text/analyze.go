@@ -631,7 +631,7 @@ func Analyze(
 	root *symbol.Symbol,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		aCtx = acontext.CreateRoot(ctx, t.AST, root)
+		aCtx = acontext.NewRoot(ctx, t.AST, root)
 		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
 

@@ -400,7 +400,7 @@ func (s *Server) analyze(
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
-			aCtx := acontext.CreateRoot[parser.IBlockContext](
+			aCtx := acontext.NewRoot[parser.IBlockContext](
 				ctx, t, s.cfg.NewRoot(),
 			)
 			statement.AnalyzeFunctionBody(aCtx)

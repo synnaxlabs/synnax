@@ -40,7 +40,7 @@ var _ = Describe("Analyze", func() {
 
 		It("Should infer the correct type when referencing a float32 channel", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
@@ -50,7 +50,7 @@ var _ = Describe("Analyze", func() {
 
 		It("Should infer the correct type when referencing an int64 channel", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10},
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + 1"}
@@ -60,8 +60,8 @@ var _ = Describe("Analyze", func() {
 
 		It("Should infer the correct type when referencing multiple channels", func(ctx SpecContext) {
 			r := StaticResolver{
-				"a": {Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
-				"b": {Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
+				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
@@ -80,7 +80,7 @@ var _ = Describe("Analyze", func() {
 
 		It("Should return the key of a single referenced channel", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
@@ -90,8 +90,8 @@ var _ = Describe("Analyze", func() {
 
 		It("Should return keys for multiple referenced channels", func(ctx SpecContext) {
 			r := StaticResolver{
-				"a": {Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
-				"b": {Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
+				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
@@ -101,7 +101,7 @@ var _ = Describe("Analyze", func() {
 
 		It("Should not duplicate a channel referenced multiple times", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + sensor"}
@@ -225,7 +225,7 @@ var _ = Describe("Analyze", func() {
 	Describe("Derivative Operation Type Override", func() {
 		It("Should infer float64 DataType when derivative is the last operation", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{
@@ -242,7 +242,7 @@ var _ = Describe("Analyze", func() {
 
 		It("Should not override DataType when avg is the last operation", func(ctx SpecContext) {
 			r := StaticResolver{
-				"sensor2": {Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
+				{Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{
@@ -261,7 +261,7 @@ var _ = Describe("Analyze", func() {
 	Describe("Resolver Fallback", func() {
 		It("Should fall back to the underlying resolver for symbols not in the temp cache", func(ctx SpecContext) {
 			r := StaticResolver{
-				"external": {Name: "external", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+				{Name: "external", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return external * 2.0"}

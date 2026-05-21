@@ -153,7 +153,7 @@ var _ = Describe("Symbol Suggestions", func() {
 		It("should not trigger Search on global resolver during Add", func(bCtx SpecContext) {
 			tracker := &searchTracker{
 				inner: StaticResolver{
-					"builtin_fn": {Name: "builtin_fn", Kind: symbol.KindFunction},
+					{Name: "builtin_fn", Kind: symbol.KindFunction},
 				},
 			}
 			root := symbol.NewRoot(tracker)

@@ -28,12 +28,12 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		block parser.IBlockContext,
 		resolver []symbol.Symbol,
 	) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, NewRoot(nil, resolver...))
+		return context.NewRoot(bCtx, block, NewRoot(nil, resolver...))
 	}
 
 	// Helper to create a context without a resolver
 	createContext := func(bCtx SpecContext, block parser.IBlockContext) context.Context[parser.IBlockContext] {
-		return context.CreateRoot(bCtx, block, NewRoot(nil))
+		return context.NewRoot(bCtx, block, NewRoot(nil))
 	}
 
 	// Helper to analyze function body and expect success

@@ -37,7 +37,7 @@ func FunctionScope(ctx context.Context) *symbol.Symbol {
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
 	scope := FunctionScope(ctx)
-	return ccontext.CreateRoot(ctx, scope, make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver())
+	return ccontext.NewRoot(ctx, scope, make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver())
 }
 
 // FinalizeContext calls FinalizeAndPatch on the context's Resolver and returns

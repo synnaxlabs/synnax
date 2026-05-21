@@ -66,7 +66,7 @@ func Analyze(
 	root *symbol.Symbol,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	// Step 1: Build Root Context and Register All Functions
-	aCtx := acontext.CreateRoot[antlr.ParserRuleContext](ctx, nil, root)
+	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root)
 	for _, fn := range g.Functions {
 		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
 			Name: fn.Key,

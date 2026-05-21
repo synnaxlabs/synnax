@@ -114,7 +114,7 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 	return c
 }
 
-func CreateRoot(
+func NewRoot(
 	ctx context.Context,
 	symbols *symbol.Symbol,
 	typeMap map[antlr.ParserRuleContext]types.Type,

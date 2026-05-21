@@ -59,39 +59,58 @@ func FirstChildOfKind(s *symbol.Symbol, kind symbol.Kind) (*symbol.Symbol, error
 	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 }
 
-// StaticResolver is a test-only map-backed implementation of
+// StaticResolver is a test-only slice-backed implementation of
 // symbol.Resolver. Tests use it to stand in for a real dynamic resolver
 // (production cluster channels) when only a fixed snapshot is needed
-// for analysis.
+// for analysis. Mutate via Add and Remove when a test needs to simulate
+// external state changes.
 //
 // Production cluster code implements its own symbol.Resolver against
 // live channel state; StaticResolver is not part of that surface and
 // must not be imported from production packages.
-type StaticResolver map[string]symbol.Symbol
+type StaticResolver []symbol.Symbol
 
-// Resolve looks up name in the underlying map. Returns query.ErrNotFound
+// Add appends s to the resolver. Uses a pointer receiver so the mutation
+// is visible to callers that later read the resolver via a captured
+// variable (e.g., LSP tests that simulate external changes).
+func (r *StaticResolver) Add(s symbol.Symbol) { *r = append(*r, s) }
+
+// Remove deletes the first entry whose Name matches name. No-op when no
+// entry matches.
+func (r *StaticResolver) Remove(name string) {
+	for i := range *r {
+		if (*r)[i].Name == name {
+			*r = append((*r)[:i], (*r)[i+1:]...)
+			return
+		}
+	}
+}
+
+// Resolve looks up name by scanning the slice. Returns query.ErrNotFound
 // (wrapped) when the name is absent.
 func (r StaticResolver) Resolve(_ context.Context, name string) (*symbol.Symbol, error) {
-	if s, ok := r[name]; ok {
-		sym := s
-		return &sym, nil
+	for i := range r {
+		if r[i].Name == name {
+			sym := r[i]
+			return &sym, nil
+		}
 	}
 	return nil, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
 }
 
 // Search returns entries whose name has the given prefix or is within a
-// Levenshtein distance of 2 from the term (matching the prior
-// MapResolver behavior that several test suites depend on).
+// Levenshtein distance of 2 from the term.
 func (r StaticResolver) Search(_ context.Context, term string) ([]*symbol.Symbol, error) {
 	var results []*symbol.Symbol
-	for name, sym := range r {
+	for i := range r {
+		name := r[i].Name
 		if strings.HasPrefix(name, term) {
-			s := sym
+			s := r[i]
 			results = append(results, &s)
 			continue
 		}
 		if len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2 {
-			s := sym
+			s := r[i]
 			results = append(results, &s)
 		}
 	}

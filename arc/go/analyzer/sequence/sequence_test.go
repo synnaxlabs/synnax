@@ -61,7 +61,7 @@ var resolver = []symbol.Symbol{
 // analyzeAndExpectSuccess parses the source, analyzes it, and expects success.
 func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, NewRoot(nil, resolver...))
+	ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
@@ -69,7 +69,7 @@ func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 // analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
 func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, ast, NewRoot(nil, resolver...))
+	ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))

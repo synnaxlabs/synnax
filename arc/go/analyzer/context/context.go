@@ -173,7 +173,7 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 	))
 }
 
-// CreateRoot creates a new root context for program analysis. CreateRoot
+// NewRoot creates a new root context for program analysis. NewRoot
 // initializes the shared state (Diagnostics, Constraints, TypeMap) and uses
 // the supplied root symbol as the lexical scope.
 //
@@ -186,7 +186,7 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 // When root is nil, an empty root is created. This is suitable for tests
 // that need to construct a hand-rolled scope without STL or external
 // resolvers.
-func CreateRoot[ASTNode antlr.ParserRuleContext](
+func NewRoot[ASTNode antlr.ParserRuleContext](
 	ctx context.Context,
 	ast ASTNode,
 	root *symbol.Symbol,

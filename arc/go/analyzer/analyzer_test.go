@@ -32,7 +32,7 @@ func analyzeAndExpect(bCtx SpecContext, source string) context.Context[parser.IP
 
 func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, resolver...))
+	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	return ctx
@@ -40,7 +40,7 @@ func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []sy
 
 func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
-	ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, resolver...))
+	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeFalse())
 	return ctx
@@ -55,7 +55,7 @@ var _ = Describe("Analyzer Integration", func() {
 					dog := 1
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -96,7 +96,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return min
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, globalResolver...))
+			ctx := context.NewRoot(bCtx, prog, NewRoot(nil, globalResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 		})
@@ -111,7 +111,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return value
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, globalResolver...))
+			ctx := context.NewRoot(bCtx, prog, NewRoot(nil, globalResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
@@ -131,7 +131,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return y
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, NewRoot(nil, globalResolver...))
+			ctx := context.NewRoot(bCtx, prog, NewRoot(nil, globalResolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
@@ -284,7 +284,7 @@ var _ = Describe("Analyzer Integration", func() {
 					return unknownFunc(5)
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -295,7 +295,7 @@ var _ = Describe("Analyzer Integration", func() {
 	Describe("AnalyzeStatement", func() {
 		It("Should analyze a valid variable declaration statement", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("x := 42"))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
+			ctx := context.NewRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
@@ -305,7 +305,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should diagnose undefined symbol in statement", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("x := undefined_var"))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
+			ctx := context.NewRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -314,7 +314,7 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should handle type unification in statement analysis", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
-			ctx := context.CreateRoot(bCtx, stmt, nil)
+			ctx := context.NewRoot(bCtx, stmt, nil)
 			analyzer.AnalyzeStatement(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
@@ -336,7 +336,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`))
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			block := funcDecl.Block()
-			progCtx := context.CreateRoot(bCtx, prog, nil)
+			progCtx := context.NewRoot(bCtx, prog, nil)
 			blockCtx := context.Child(progCtx, block)
 			analyzer.AnalyzeBlock(blockCtx)
 			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
@@ -351,7 +351,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`))
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			block := funcDecl.Block()
-			progCtx := context.CreateRoot(bCtx, prog, nil)
+			progCtx := context.NewRoot(bCtx, prog, nil)
 			blockCtx := context.Child(progCtx, block)
 			analyzer.AnalyzeBlock(blockCtx)
 			Expect(blockCtx.Diagnostics.Ok()).To(BeFalse())
@@ -368,7 +368,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`))
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			block := funcDecl.Block()
-			progCtx := context.CreateRoot(bCtx, prog, nil)
+			progCtx := context.NewRoot(bCtx, prog, nil)
 			blockCtx := context.Child(progCtx, block)
 			analyzer.AnalyzeBlock(blockCtx)
 			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
@@ -1151,7 +1151,7 @@ var _ = Describe("Analyzer Integration", func() {
 				func a() { x := undefined1 }
 				func b() { y := undefined2 }
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
@@ -1166,7 +1166,7 @@ var _ = Describe("Analyzer Integration", func() {
 					y := x + 1
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no "undefined x" cascade
@@ -1181,7 +1181,7 @@ var _ = Describe("Analyzer Integration", func() {
 					y := x + "string"
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no type mismatch cascade
@@ -1199,7 +1199,7 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))

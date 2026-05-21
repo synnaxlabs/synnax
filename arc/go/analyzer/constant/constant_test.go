@@ -31,7 +31,7 @@ func analyzeProgram(
 	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(src))
-	ctx := acontext.CreateRoot(specCtx, prog, NewRoot(resolver))
+	ctx := acontext.NewRoot(specCtx, prog, NewRoot(resolver))
 	analyzer.AnalyzeProgram(ctx)
 	return ctx
 }

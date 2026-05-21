@@ -358,7 +358,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		func(bCtx SpecContext, source string) {
 			expr, diag := parser.ParseExpression(source)
 			Expect(diag).To(BeNil())
-			analyzerCtx := acontext.CreateRoot(bCtx, expr, NewRoot(nil))
+			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
 			aexpression.Analyze(analyzerCtx)
 			Expect(analyzerCtx.Diagnostics.Ok()).To(BeFalse())
 			Expect(analyzerCtx.Diagnostics.String()).To(ContainSubstring("cannot cast"))

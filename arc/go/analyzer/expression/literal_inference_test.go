@@ -139,7 +139,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 2.2 * integer_sensor
 				}
 			`))
-			ctx := acontext.CreateRoot(specCtx, program, root)
+			ctx := acontext.NewRoot(specCtx, program, root)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
@@ -225,7 +225,7 @@ var _ = Describe("Literal Type Inference", func() {
 					return 1000 - f32_ch
 				}
 			`))
-			aCtx := acontext.CreateRoot(ctx, program, root)
+			aCtx := acontext.NewRoot(ctx, program, root)
 			analyzer.AnalyzeProgram(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 		})

@@ -30,7 +30,7 @@ func inferExprType(
 	expr string,
 ) types.Type {
 	parsed := MustSucceed(parser.ParseExpression(expr))
-	ctx := acontext.CreateRoot(bCtx, parsed, NewRoot(nil, resolver...))
+	ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, resolver...))
 	return atypes.InferFromExpression(ctx)
 }
 
@@ -711,7 +711,7 @@ var _ = Describe("Type Inference", func() {
 	Describe("Qualified Identifier Type Inference", func() {
 		It("should infer the return type of time.now()", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("time.now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, NewRoot(nil))
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
 			timeMod := aCtx.Scope.Parent.FindChild("time")
 			MustSucceed(aCtx.Scope.Add(ctx, symbol.Symbol{
 				Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
@@ -722,14 +722,14 @@ var _ = Describe("Type Inference", func() {
 
 		It("should infer the return type of bare now() (deprecated)", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, NewRoot(nil))
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t).To(Equal(types.TimeStamp()))
 		})
 
 		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
-			aCtx := acontext.CreateRoot(ctx, parsed, NewRoot(nil))
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t.IsValid()).To(BeFalse())
 		})
