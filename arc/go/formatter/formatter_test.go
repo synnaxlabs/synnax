@@ -291,6 +291,9 @@ var _ = Describe("Formatter", func() {
 		Entry("flow with multiple config values",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output\n"),
+		Entry("dotted identifier with anonymous config in flow stays on one line",
+			`time.interval{1s} -> "hello" -> arc_string_test`,
+			"time.interval{1s} -> \"hello\" -> arc_string_test\n"),
 	)
 
 	DescribeTable("Next Statement",
