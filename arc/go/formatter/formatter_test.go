@@ -294,6 +294,9 @@ var _ = Describe("Formatter", func() {
 		Entry("dotted identifier with anonymous config in flow stays on one line",
 			`time.interval{1s} -> "hello" -> arc_string_test`,
 			"time.interval{1s} -> \"hello\" -> arc_string_test\n"),
+		Entry("plain identifier with anonymous config in flow stays on one line",
+			"interval{1s} -> output",
+			"interval{1s} -> output\n"),
 	)
 
 	DescribeTable("Next Statement",
