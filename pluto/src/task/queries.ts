@@ -290,7 +290,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status as task.NewStatus<S["statusData"]>,
+          status: value.status,
         },
         schemas,
       );
