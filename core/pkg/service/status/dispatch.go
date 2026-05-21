@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/identifier"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -24,13 +23,18 @@ import (
 // ErrInvalidVariant signals a variant string outside xstatus.AllowedVariants.
 var ErrInvalidVariant = errors.New("invalid status variant")
 
-// SetByKeyOrName upserts by name or updates by UUID key (returns query.ErrNotFound
-// on miss). Both paths wrap retrieve + write in WithTx so a concurrent delete
-// can't turn the write into a silent revive.
+// ErrEmptyKeyOrName signals a missing key_or_name parameter.
+var ErrEmptyKeyOrName = errors.New("key_or_name is required")
+
+// SetByKeyOrName tries to update a row whose Key equals keyOrName, then a row
+// whose Name matches, and finally creates a new row with Key=Name=keyOrName.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
+	if keyOrName == "" {
+		return "", false, ErrEmptyKeyOrName
+	}
 	if !slices.Contains(xstatus.AllowedVariants, variant) {
 		return "", false, ErrInvalidVariant
 	}
@@ -40,43 +44,60 @@ func (s *Service) SetByKeyOrName(
 		st.Time = telem.Now()
 		return nil
 	}
-	if identifier.IsKey(keyOrName) {
-		return keyOrName, false, s.WithTx(ctx, func(tx gorp.Tx) error {
-			return s.NewWriter(tx).Update(ctx, keyOrName, overlay)
-		})
-	}
 	err = s.WithTx(ctx, func(tx gorp.Tx) error {
-		var ierr error
-		key, multipleMatches, ierr = s.NewWriter(tx).UpsertByName(ctx, keyOrName, overlay)
-		return ierr
+		w := s.NewWriter(tx)
+		if uerr := w.Update(ctx, keyOrName, overlay); uerr == nil {
+			key = keyOrName
+			return nil
+		} else if !errors.Is(uerr, query.ErrNotFound) {
+			return uerr
+		}
+		matches, merr := w.retrieveByName(ctx, keyOrName)
+		if merr != nil {
+			return merr
+		}
+		if len(matches) > 0 {
+			matched := matches[0]
+			multipleMatches = len(matches) > 1
+			if oerr := overlay(&matched); oerr != nil {
+				return oerr
+			}
+			key = matched.Key
+			return w.Set(ctx, &matched)
+		}
+		fresh := Status[any]{Key: keyOrName, Name: keyOrName, Variant: xstatus.VariantInfo}
+		if oerr := overlay(&fresh); oerr != nil {
+			return oerr
+		}
+		key = keyOrName
+		return w.Set(ctx, &fresh)
 	})
 	return key, multipleMatches, err
 }
 
-// DeleteByKeyOrName deletes a status by UUID key (count 0 or 1) or by name
-// (count = matches; deletes all on multi-match). Both paths run their
-// retrieve + delete in a single transaction so concurrent deletes can't
-// produce a stale count.
+// DeleteByKeyOrName deletes a row whose Key equals keyOrName (count 0 or 1) or,
+// failing that, all rows whose Name matches (count = matches).
 func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (int, error) {
+	if keyOrName == "" {
+		return 0, ErrEmptyKeyOrName
+	}
 	var count int
 	err := s.WithTx(ctx, func(tx gorp.Tx) error {
-		if identifier.IsKey(keyOrName) {
-			var st Status[any]
-			rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
-			if errors.Is(rerr, query.ErrNotFound) {
-				return nil
-			}
-			if rerr != nil {
-				return rerr
-			}
-			if derr := s.NewWriter(tx).Delete(ctx, keyOrName); derr != nil {
+		w := s.NewWriter(tx)
+		var st Status[any]
+		rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+		if rerr == nil {
+			if derr := w.Delete(ctx, keyOrName); derr != nil {
 				return derr
 			}
 			count = 1
 			return nil
 		}
+		if !errors.Is(rerr, query.ErrNotFound) {
+			return rerr
+		}
 		var ierr error
-		count, ierr = s.NewWriter(tx).DeleteByName(ctx, keyOrName)
+		count, ierr = w.DeleteByName(ctx, keyOrName)
 		return ierr
 	})
 	return count, err

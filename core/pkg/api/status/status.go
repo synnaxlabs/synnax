@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/identifier"
 	xstatus "github.com/synnaxlabs/x/status"
 )
 
@@ -95,26 +94,7 @@ func (s *Service) Set(
 	})
 }
 
-// enforceKeyOrName enforces access for a single-status key-or-name operation.
-// UUID inputs enforce on the specific row; name inputs enforce on the status
-// resource type (row-level grants don't apply to by-name lookups).
-func (s *Service) enforceKeyOrName(
-	ctx context.Context,
-	action access.Action,
-	keyOrName string,
-) error {
-	obj := ontology.ID{Type: ontology.ResourceTypeStatus}
-	if identifier.IsKey(keyOrName) {
-		obj = status.OntologyID(keyOrName)
-	}
-	return s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  action,
-		Objects: []ontology.ID{obj},
-	})
-}
-
-// SetByKeyOrNameRequest is a request to upsert a status by UUID key or by name.
+// SetByKeyOrNameRequest is a request to upsert a status by key or by name.
 type SetByKeyOrNameRequest struct {
 	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
 	Message   string `json:"message" msgpack:"message"`
@@ -127,14 +107,18 @@ type SetByKeyOrNameResponse struct {
 	MultipleMatches bool   `json:"multiple_matches" msgpack:"multiple_matches"`
 }
 
-// SetByKeyOrName updates a status by UUID or upserts a status by name. UUID-based
-// requests return an error if the row does not exist. On by-name multi-match,
-// writes to the first by key order and returns multiple_matches=true.
+// SetByKeyOrName tries to update by key, then by name, then creates a new row
+// with Key=Name=req.KeyOrName. On by-name multi-match, writes to the first
+// match and returns multiple_matches=true.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	req SetByKeyOrNameRequest,
 ) (SetByKeyOrNameResponse, error) {
-	if err := s.enforceKeyOrName(ctx, access.ActionCreate, req.KeyOrName); err != nil {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
+	}); err != nil {
 		return SetByKeyOrNameResponse{}, err
 	}
 	key, multi, err := s.internal.SetByKeyOrName(ctx, req.KeyOrName, req.Message, req.Variant)
@@ -144,7 +128,7 @@ func (s *Service) SetByKeyOrName(
 	return SetByKeyOrNameResponse{Key: key, MultipleMatches: multi}, nil
 }
 
-// DeleteByKeyOrNameRequest is a request to delete statuses by UUID key or name.
+// DeleteByKeyOrNameRequest is a request to delete statuses by key or by name.
 type DeleteByKeyOrNameRequest struct {
 	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
 }
@@ -154,13 +138,17 @@ type DeleteByKeyOrNameResponse struct {
 	Count int `json:"count" msgpack:"count"`
 }
 
-// DeleteByKeyOrName deletes a status by UUID key (count 0 or 1) or by name
-// (deletes all matches; count = matches).
+// DeleteByKeyOrName deletes by trying key first, then name (deleting all
+// matches; count = matches).
 func (s *Service) DeleteByKeyOrName(
 	ctx context.Context,
 	req DeleteByKeyOrNameRequest,
 ) (DeleteByKeyOrNameResponse, error) {
-	if err := s.enforceKeyOrName(ctx, access.ActionDelete, req.KeyOrName); err != nil {
+	if err := s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
+	}); err != nil {
 		return DeleteByKeyOrNameResponse{}, err
 	}
 	count, err := s.internal.DeleteByKeyOrName(ctx, req.KeyOrName)

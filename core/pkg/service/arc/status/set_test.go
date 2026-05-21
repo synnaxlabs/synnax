@@ -495,9 +495,8 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	It("Should warn with a 'status.set:' prefix when the service returns an error", func(ctx SpecContext) {
-		// Force the by-key path against an unknown UUID, which propagates query.ErrNotFound from Update.
-		missing := uuid.NewString()
-		n, state := build(ctx, missing, "msg", "info")
+		// Empty keyOrName trips the service-side ErrEmptyKeyOrName guard.
+		n, state := build(ctx, "", "msg", "info")
 		n.Next(nodeCtx(ctx))
 
 		calls := rep.get()
@@ -505,7 +504,6 @@ var _ = Describe("setNode.Next", func() {
 		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 
-		// Output(0) carries an empty string on error.
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
 	})
 })

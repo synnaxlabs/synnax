@@ -78,9 +78,9 @@ func (s *deleteNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// dispatchDelete deletes a status by key (UUID) or by name. Returns true if at
-// least one row was deleted. Reports warnings on not-found, multi-match
-// (deletes all), or other failures.
+// dispatchDelete deletes a status by key or by name. Returns true if at least
+// one row was deleted. Reports warnings on not-found, multi-match (deletes
+// all), or other failures.
 func dispatchDelete(
 	ctx context.Context,
 	stat *status.Service,

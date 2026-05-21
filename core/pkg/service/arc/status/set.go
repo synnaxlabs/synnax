@@ -213,8 +213,8 @@ func (s *setNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// dispatchSet upserts a status by key (UUID) or by name. Failures use
-// VariantWarning so the task continues running.
+// dispatchSet upserts a status by key, by name, or creates a fresh row when
+// neither matches. Failures use VariantWarning so the task continues running.
 func dispatchSet(
 	ctx context.Context,
 	stat *status.Service,

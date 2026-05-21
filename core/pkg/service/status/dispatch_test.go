@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -63,7 +62,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 	})
 
 	Describe("SetByKeyOrName", func() {
-		Describe("Invalid variant", func() {
+		Describe("Input validation", func() {
 			It("Should return ErrInvalidVariant for an unknown variant", func(ctx SpecContext) {
 				key, multi, err := svc.SetByKeyOrName(ctx, "dispatch_iv_a", "msg", "bogus")
 				Expect(err).To(MatchError(status.ErrInvalidVariant))
@@ -81,6 +80,13 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(err).To(MatchError(status.ErrInvalidVariant))
 			})
 
+			It("Should return ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+				key, multi, err := svc.SetByKeyOrName(ctx, "", "msg", string(xstatus.VariantInfo))
+				Expect(err).To(MatchError(status.ErrEmptyKeyOrName))
+				Expect(key).To(BeEmpty())
+				Expect(multi).To(BeFalse())
+			})
+
 			It("Should not write anything to the store when the variant is invalid", func(ctx SpecContext) {
 				name := "dispatch_iv_unwritten"
 				_, _, _ = svc.SetByKeyOrName(ctx, name, "msg", "bogus")
@@ -90,8 +96,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 			})
 		})
 
-		Describe("By-key path (UUID input)", func() {
-			It("Should update an existing row by UUID", func(ctx SpecContext) {
+		Describe("By-key path", func() {
+			It("Should update an existing row whose Key matches the input", func(ctx SpecContext) {
 				key := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
 					Key: key, Name: "by_key_orig", Variant: xstatus.VariantInfo,
@@ -109,34 +115,37 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(s.Time).ToNot(BeZero())
 			})
 
-			// By-key path returns the input UUID alongside the error (not "");
-			// pinned so a future "normalize on error" refactor trips this spec.
-			It("Should propagate query.ErrNotFound when the UUID is unknown", func(ctx SpecContext) {
-				missing := uuid.NewString()
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, missing, "x", string(xstatus.VariantInfo))
-				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
-				Expect(gotKey).To(Equal(missing))
+			It("Should match arbitrary (non-UUID) string keys", func(ctx SpecContext) {
+				key := "by_key_plain_string"
+				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key: key, Name: "by_key_plain_orig", Variant: xstatus.VariantInfo,
+					Message: "old", Time: telem.Now(),
+				})).To(Succeed())
+
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, key, "new", string(xstatus.VariantSuccess)))
+				Expect(gotKey).To(Equal(key))
+				Expect(multi).To(BeFalse())
+			})
+
+			It("Should prefer the by-key match over a by-name match for the same input", func(ctx SpecContext) {
+				shared := "shared_token"
+				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key: shared, Name: "by_key_winner", Variant: xstatus.VariantInfo,
+					Message: "key", Time: telem.Now(),
+				})).To(Succeed())
+				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key: uuid.NewString(), Name: shared, Variant: xstatus.VariantInfo,
+					Message: "name", Time: telem.Now(),
+				})).To(Succeed())
+
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, shared, "updated", string(xstatus.VariantWarning)))
+				Expect(gotKey).To(Equal(shared))
 				Expect(multi).To(BeFalse())
 			})
 		})
 
 		Describe("By-name path", func() {
-			It("Should create a fresh row when no match exists", func(ctx SpecContext) {
-				name := "by_name_fresh_a"
-				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "hello", string(xstatus.VariantInfo)))
-				Expect(gotKey).ToNot(BeEmpty())
-				MustSucceed(uuid.Parse(gotKey))
-				Expect(multi).To(BeFalse())
-
-				var s status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-				Expect(s.Name).To(Equal(name))
-				Expect(s.Variant).To(Equal(xstatus.VariantInfo))
-				Expect(s.Message).To(Equal("hello"))
-			})
-
-			It("Should update in place when there is a single match", func(ctx SpecContext) {
+			It("Should update in place when there is a single name match", func(ctx SpecContext) {
 				name := "by_name_single"
 				existingKey := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
@@ -154,8 +163,6 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(s.Message).To(Equal("now bad"))
 			})
 
-			// matches come out of writer.retrieveByName in gorp insert order; the
-			// first key returned drives the upsert.
 			It("Should report multipleMatches and update only the first match", func(ctx SpecContext) {
 				name := "by_name_multi"
 				firstKey := uuid.NewString()
@@ -173,7 +180,6 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(multi).To(BeTrue())
 				Expect(gotKey).To(SatisfyAny(Equal(firstKey), Equal(secondKey)))
 
-				// One row carries the new variant; the other still has the original.
 				var rows []status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](firstKey, secondKey)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
 				Expect(rows).To(HaveLen(2))
@@ -190,32 +196,62 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(info).To(Equal(1))
 			})
 
-			// Empty keyOrName routes to by-name path; writer.validate only
-			// forbids empty Key, so name="" is accepted today.
-			It("Should create a row with empty name when keyOrName is empty", func(ctx SpecContext) {
-				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, "", "x", string(xstatus.VariantInfo)))
-				Expect(gotKey).ToNot(BeEmpty())
-				Expect(multi).To(BeFalse())
-				var s status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-				Expect(s.Name).To(BeEmpty())
-			})
-
-			// writer.validate doesn't constrain Message; pin current behavior
-			// so a future tighten-up trips this spec.
-			It("Should accept an empty message", func(ctx SpecContext) {
+			It("Should accept an empty message on the by-name path", func(ctx SpecContext) {
 				name := "by_name_empty_msg"
+				existingKey := uuid.NewString()
+				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
+					Key: existingKey, Name: name, Variant: xstatus.VariantInfo,
+					Message: "old", Time: telem.Now(),
+				})).To(Succeed())
 				gotKey, _ := MustSucceed2(svc.SetByKeyOrName(ctx, name, "", string(xstatus.VariantInfo)))
+				Expect(gotKey).To(Equal(existingKey))
 				var s status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 				Expect(s.Message).To(BeEmpty())
 			})
 		})
+
+		Describe("Create path", func() {
+			It("Should create a row with Key=Name=input when nothing matches", func(ctx SpecContext) {
+				input := "fresh_row_a"
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, input, "hello", string(xstatus.VariantInfo)))
+				Expect(gotKey).To(Equal(input))
+				Expect(multi).To(BeFalse())
+
+				var s status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](input)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+				Expect(s.Key).To(Equal(input))
+				Expect(s.Name).To(Equal(input))
+				Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+				Expect(s.Message).To(Equal("hello"))
+			})
+
+			It("Should produce a row that subsequent SetByKeyOrName calls update by key", func(ctx SpecContext) {
+				input := "fresh_row_then_update"
+				MustSucceed2(svc.SetByKeyOrName(ctx, input, "first", string(xstatus.VariantInfo)))
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, input, "second", string(xstatus.VariantWarning)))
+				Expect(gotKey).To(Equal(input))
+				Expect(multi).To(BeFalse())
+
+				var s status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](input)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+				Expect(s.Message).To(Equal("second"))
+				Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+			})
+		})
 	})
 
 	Describe("DeleteByKeyOrName", func() {
+		Describe("Input validation", func() {
+			It("Should return ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+				count, err := svc.DeleteByKeyOrName(ctx, "")
+				Expect(err).To(MatchError(status.ErrEmptyKeyOrName))
+				Expect(count).To(Equal(0))
+			})
+		})
+
 		Describe("By-key path", func() {
-			It("Should delete a row by UUID and return count=1", func(ctx SpecContext) {
+			It("Should delete a row whose Key matches the input and return count=1", func(ctx SpecContext) {
 				key := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
 					Key: key, Name: "del_by_key", Variant: xstatus.VariantInfo,
@@ -229,7 +265,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					To(MatchError(query.ErrNotFound))
 			})
 
-			It("Should return count=0 with no error when the UUID is unknown", func(ctx SpecContext) {
+			It("Should return count=0 with no error when no row matches", func(ctx SpecContext) {
 				count := MustSucceed(svc.DeleteByKeyOrName(ctx, uuid.NewString()))
 				Expect(count).To(Equal(0))
 			})

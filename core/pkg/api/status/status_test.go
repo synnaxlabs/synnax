@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -25,12 +24,13 @@ import (
 )
 
 // statusTypeOnly is the type-level ontology ID for granting access across all
-// statuses. By-name requests enforce against this (not a specific row).
+// statuses. Row-level grants must match the input key exactly; type-level grants
+// cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
 var _ = Describe("api/status SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
-		It("Should upsert a fresh row by name", func(ctx SpecContext) {
+		It("Should create a row with Key=Name=input when nothing matches", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
@@ -41,16 +41,17 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Message:   "hello",
 				Variant:   string(xstatus.VariantInfo),
 			}))
-			Expect(res.Key).ToNot(BeEmpty())
+			Expect(res.Key).To(Equal(name))
 			Expect(res.MultipleMatches).To(BeFalse())
 
 			var s status.Status[any]
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](res.Key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Key).To(Equal(name))
 			Expect(s.Name).To(Equal(name))
 			Expect(s.Message).To(Equal("hello"))
 		})
 
-		It("Should update an existing row by UUID and return the same key", func(ctx SpecContext) {
+		It("Should update an existing row when the input matches its Key", func(ctx SpecContext) {
 			key := uuid.NewString()
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 				Key: key, Name: "api_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
@@ -101,7 +102,21 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Message:   "x",
 				Variant:   "bogus",
 			})
-			Expect(errors.Is(err, status.ErrInvalidVariant)).To(BeTrue())
+			Expect(err).To(MatchError(status.ErrInvalidVariant))
+			Expect(res).To(Equal(SetByKeyOrNameResponse{}))
+		})
+
+		It("Should propagate ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+			grantOn(ctx, user.OntologyID(author.Key),
+				[]access.Action{access.ActionCreate},
+				statusTypeOnly)
+
+			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+				KeyOrName: "",
+				Message:   "x",
+				Variant:   string(xstatus.VariantInfo),
+			})
+			Expect(err).To(MatchError(status.ErrEmptyKeyOrName))
 			Expect(res).To(Equal(SetByKeyOrNameResponse{}))
 		})
 
@@ -121,7 +136,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should deny by-name when the caller only has a row-level grant", func(ctx SpecContext) {
+		It("Should deny when a row-level grant does not match the input key", func(ctx SpecContext) {
 			name := "api_rowlevel_" + uuid.New().String()
 			anon := freshUser(ctx)
 			grantOn(ctx, user.OntologyID(anon.Key),
