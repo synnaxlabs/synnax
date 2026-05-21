@@ -20,6 +20,8 @@
 
 namespace arc::stl::str {
 
+inline constexpr const char *MODULE_NAME = "string";
+
 /// Formats v as the shortest round-trippable decimal, matching Go's
 /// strconv.FormatFloat(v, 'g', -1, bitSize). NaN and ±Inf are emitted as
 /// "NaN", "+Inf", "-Inf" to match Go's output exactly.
@@ -55,7 +57,7 @@ public:
         auto ss = this->str_state;
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_literal",
                 [self, ss](uint32_t ptr, uint32_t len) -> uint32_t {
                     if (!self->memory || !self->store) {
@@ -85,7 +87,7 @@ public:
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "concat",
                 [ss](uint32_t h1, uint32_t h2) -> uint32_t {
                     const std::string s1 = ss->get(h1);
@@ -97,7 +99,7 @@ public:
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "equal",
                 [ss](uint32_t h1, uint32_t h2) -> uint32_t {
                     if (!ss->exists(h1) || !ss->exists(h2)) return 0;
@@ -107,7 +109,7 @@ public:
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "len",
                 [ss](uint32_t handle) -> uint64_t {
                     return static_cast<uint64_t>(ss->get(handle).length());
@@ -116,42 +118,42 @@ public:
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_i32",
                 [ss](int32_t v) -> uint32_t { return ss->create(std::to_string(v)); }
             )
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_u32",
                 [ss](uint32_t v) -> uint32_t { return ss->create(std::to_string(v)); }
             )
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_i64",
                 [ss](int64_t v) -> uint32_t { return ss->create(std::to_string(v)); }
             )
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_u64",
                 [ss](uint64_t v) -> uint32_t { return ss->create(std::to_string(v)); }
             )
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_f32",
                 [ss](float v) -> uint32_t { return ss->create(format_float(v)); }
             )
             .unwrap();
         linker
             .func_wrap(
-                "string",
+                MODULE_NAME,
                 "from_f64",
                 [ss](double v) -> uint32_t { return ss->create(format_float(v)); }
             )

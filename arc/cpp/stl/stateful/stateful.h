@@ -19,6 +19,8 @@
 
 namespace arc::stl::stateful {
 
+inline constexpr const char *MODULE_NAME = "state";
+
 class Module : public stl::Module {
     std::shared_ptr<Variables> vars;
     std::shared_ptr<series::State> series_state;
@@ -88,7 +90,7 @@ private:
         auto v = this->vars;
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "load_" + suffix,
                 [v, loader](uint32_t var_id, W init) -> W {
                     return static_cast<W>(loader(*v, var_id, static_cast<T>(init)));
@@ -97,7 +99,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "store_" + suffix,
                 [v, storer](uint32_t var_id, W value) {
                     storer(*v, var_id, static_cast<T>(value));
@@ -111,7 +113,7 @@ private:
         auto ss = this->str_state;
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "load_str",
                 [v, ss](uint32_t var_id, uint32_t init_handle) -> uint32_t {
                     return v->load_str(var_id, init_handle, *ss);
@@ -120,7 +122,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "store_str",
                 [v, ss](uint32_t var_id, uint32_t handle) {
                     v->store_str(var_id, handle, *ss);
@@ -134,7 +136,7 @@ private:
         auto ss = this->series_state;
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "load_series_" + suffix,
                 [v, ss](uint32_t var_id, uint32_t init_handle) -> uint32_t {
                     return v->load_series(var_id, init_handle, *ss);
@@ -143,7 +145,7 @@ private:
             .unwrap();
         linker
             .func_wrap(
-                "state",
+                MODULE_NAME,
                 "store_series_" + suffix,
                 [v, ss](uint32_t var_id, uint32_t handle) {
                     v->store_series(var_id, handle, *ss);
