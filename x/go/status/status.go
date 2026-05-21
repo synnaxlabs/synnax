@@ -16,14 +16,13 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// AllowedVariants is the canonical list of variant strings.
-var AllowedVariants = []string{
-	string(VariantSuccess),
-	string(VariantInfo),
-	string(VariantWarning),
-	string(VariantError),
-	string(VariantLoading),
-	string(VariantDisabled),
+// IsVariant reports whether s names a known status variant.
+func IsVariant(s string) bool {
+	switch Variant(s) {
+	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+		return true
+	}
+	return false
 }
 
 // String returns a formatted string representation of the Status.

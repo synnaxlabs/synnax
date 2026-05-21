@@ -202,4 +202,29 @@ var _ = Describe("Status", func() {
 			})
 		})
 	})
+
+	Describe("IsVariant", func() {
+		DescribeTable("known variants",
+			func(v status.Variant) {
+				Expect(status.IsVariant(string(v))).To(BeTrue())
+			},
+			Entry("success", status.VariantSuccess),
+			Entry("info", status.VariantInfo),
+			Entry("warning", status.VariantWarning),
+			Entry("error", status.VariantError),
+			Entry("loading", status.VariantLoading),
+			Entry("disabled", status.VariantDisabled),
+		)
+
+		DescribeTable("rejected strings",
+			func(s string) {
+				Expect(status.IsVariant(s)).To(BeFalse())
+			},
+			Entry("empty", ""),
+			Entry("unknown", "bogus"),
+			Entry("upper-cased", "SUCCESS"),
+			Entry("title-cased", "Info"),
+			Entry("trailing whitespace", "info "),
+		)
+	})
 })

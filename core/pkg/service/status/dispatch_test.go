@@ -47,20 +47,6 @@ var _ = Describe("Dispatch", Ordered, func() {
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 
-	Describe("AllowedVariants", func() {
-		It("Should contain exactly the six allowed variant strings", func() {
-			Expect(xstatus.AllowedVariants).To(HaveLen(6))
-			Expect(xstatus.AllowedVariants).To(ContainElements(
-				string(xstatus.VariantSuccess),
-				string(xstatus.VariantInfo),
-				string(xstatus.VariantWarning),
-				string(xstatus.VariantError),
-				string(xstatus.VariantLoading),
-				string(xstatus.VariantDisabled),
-			))
-		})
-	})
-
 	Describe("SetByKeyOrName", func() {
 		Describe("Input validation", func() {
 			It("Should return ErrInvalidVariant for an unknown variant", func(ctx SpecContext) {

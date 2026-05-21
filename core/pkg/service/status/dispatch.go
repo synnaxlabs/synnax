@@ -11,7 +11,6 @@ package status
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -20,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// ErrInvalidVariant signals a variant string outside xstatus.AllowedVariants.
+// ErrInvalidVariant signals a variant string rejected by xstatus.IsVariant.
 var ErrInvalidVariant = errors.New("invalid status variant")
 
 // ErrEmptyKeyOrName signals a missing key_or_name parameter.
@@ -35,7 +34,7 @@ func (s *Service) SetByKeyOrName(
 	if keyOrName == "" {
 		return "", false, ErrEmptyKeyOrName
 	}
-	if !slices.Contains(xstatus.AllowedVariants, variant) {
+	if !xstatus.IsVariant(variant) {
 		return "", false, ErrInvalidVariant
 	}
 	overlay := func(st *Status[any]) error {

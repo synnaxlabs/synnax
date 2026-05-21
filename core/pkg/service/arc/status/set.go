@@ -12,8 +12,6 @@ package status
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -48,6 +46,10 @@ const (
 	setMultiMatchMsg     = "status.set: multiple statuses named %q; updated first match (%s)"
 	setFailureMsg        = "status.set: %v"
 )
+
+// allowedVariantsList is the human-readable list used in compile-time and
+// runtime diagnostics. xstatus.IsVariant is the source of truth for membership.
+const allowedVariantsList = "success, info, warning, error, loading, disabled"
 
 // setParams is the shared Inputs/Config list. Empty-string defaults mark the
 // inputs optional so flow-form usage (Config-fulfilled, no edges) analyzes.
@@ -226,7 +228,7 @@ func dispatchSet(
 	if errors.Is(err, status.ErrInvalidVariant) {
 		ins.L.Error("invalid status variant",
 			zap.String("variant", variantStr),
-			zap.Strings("allowed", xstatus.AllowedVariants))
+			zap.String("allowed", allowedVariantsList))
 		report(ctx, xstatus.VariantWarning,
 			fmt.Sprintf(setInvalidVariantMsg, variantStr))
 		return ""
@@ -294,11 +296,11 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || slices.Contains(xstatus.AllowedVariants, value) {
+	if !ok || xstatus.IsVariant(value) {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,
 		"%q is not a valid status variant: [%s]",
-		value, strings.Join(xstatus.AllowedVariants, ", "),
+		value, allowedVariantsList,
 	))
 }
