@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -376,16 +377,19 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Observe with non-int32 keys", func() {
+		// Each spec opens its own *gorp.DB so that committed entries don't leak into
+		// the suite-wide db and pollute other specs (e.g. the iteration tests above,
+		// which scan all entries of a given type).
 		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
-			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: db}))
+			localDB := DeferClose(gorp.Wrap(memkv.New()))
+			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: localDB}))
 			defer func() { Expect(uint64Table.Close()).To(Succeed()) }()
 
 			Expect(gorp.NewCreate[uint64, uint64Entry]().
 				Entry(&uint64Entry{ID: math.MaxUint64, Data: "data"}).
-				Exec(ctx, db)).To(Succeed())
+				Exec(ctx, localDB)).To(Succeed())
 
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			tx := DeferClose(localDB.OpenTx())
 			Expect(gorp.NewDelete[uint64, uint64Entry]().
 				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).Exec(ctx, tx)).To(Succeed())
 
@@ -403,11 +407,11 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		It("Should decode int16 keys on set notifications", func(ctx SpecContext) {
-			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: db}))
+			localDB := DeferClose(gorp.Wrap(memkv.New()))
+			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: localDB}))
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
+			tx := DeferClose(localDB.OpenTx())
 			Expect(gorp.NewCreate[int16, int16Entry]().
 				Entry(&int16Entry{ID: -500, Data: "data"}).
 				Exec(ctx, tx)).To(Succeed())
