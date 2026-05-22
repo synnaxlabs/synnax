@@ -193,7 +193,7 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 	root *symbol.Symbol,
 ) Context[ASTNode] {
 	if root == nil {
-		root = symbol.NewRoot(nil)
+		root = symbol.NewRoot(nil, nil)
 	}
 	return Context[ASTNode]{
 		Context:     ctx,

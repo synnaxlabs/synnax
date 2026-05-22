@@ -227,14 +227,11 @@ type Symbol struct {
 // where STL symbols, test channels, and custom modules belong.
 //
 // Each ambient global is shallow-copied before being attached so the
-// per-root Parent assignment does not mutate the caller's symbol. STL
-// packages expose their modules as package-level singletons, and
-// concurrent NewRoot calls (e.g. an LSP server analyzing two documents
-// at once) would otherwise race on those shared Parent fields. Module
-// children stay shared across roots — they are read-only after
-// construction and the seal at KindModule means Parent-walks inside a
-// module never observe the per-root Parent of the wrapper.
-func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
+// per-root Parent assignment does not mutate the caller's symbol. This
+// matters when a caller reuses the same slice across multiple roots:
+// without the copy, the second NewRoot call would re-parent symbols
+// away from the first root's ambient.
+func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,
@@ -341,15 +338,18 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	return child, nil
 }
 
-// AddChild appends an already-constructed child to s.children and sets its
-// Parent. Used by builders (e.g., STL module construction) that prepare
-// children before attaching them. Does not check for naming conflicts and
-// does not assign IDs; callers are responsible for these when constructing
-// tree fragments directly.
-func (s *Symbol) AddChild(child *Symbol) *Symbol {
-	child.Parent = s
-	s.children = append(s.children, child)
-	return child
+// AddChild appends each already-constructed child to s.children and sets
+// its Parent to s. Used by builders (e.g., STL module construction) that
+// prepare children before attaching them. Does not check for naming
+// conflicts and does not assign IDs; callers are responsible for these
+// when constructing tree fragments directly. Returns s so calls can be
+// chained.
+func (s *Symbol) AddChild(children ...*Symbol) *Symbol {
+	for _, child := range children {
+		child.Parent = s
+		s.children = append(s.children, child)
+	}
+	return s
 }
 
 // AutoImportModules aliases each non-Internal KindModule in root's
@@ -382,8 +382,8 @@ func AutoImportModules(root *Symbol) {
 // is hidden from user code. Used by STL packages to declare host bindings
 // (channels.read, state.load, etc.) with the common shape factored out:
 // every WASM host shim is Kind=KindFunction, Exec=ExecWASM, Internal=true.
-func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
-	return Symbol{
+func InternalHostFunc(name string, inputs, outputs types.Params) *Symbol {
+	return &Symbol{
 		Name:     name,
 		Kind:     KindFunction,
 		Exec:     ExecWASM,
@@ -393,44 +393,6 @@ func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
 			Outputs: outputs,
 		}),
 	}
-}
-
-// NewModule constructs a sealed module symbol with the given name, hover
-// documentation, and the supplied members as children. Parent is nil so
-// name resolution from outside cannot see the module's siblings, and
-// lookup from inside cannot escape the module's namespace. Pass a zero
-// doc.Doc{} when the module is Internal (compiler-only) and has no
-// user-facing hover.
-func NewModule(name string, body doc.Doc, members ...Symbol) *Symbol {
-	mod := &Symbol{Name: name, Kind: KindModule, Doc: body}
-	for i := range members {
-		child := members[i]
-		child.Parent = mod
-		mod.children = append(mod.children, &child)
-	}
-	return mod
-}
-
-// MarkInternal sets Internal=true on s and returns s for chaining. Used
-// to hide a symbol from user code while keeping it reachable from the
-// compiler via IncludeInternal. Applied to STL modules whose surface is
-// meant for the compiler only (channels, strings, series, stateful) —
-// host shims that user code is not allowed to call directly.
-func (s *Symbol) MarkInternal() *Symbol {
-	s.Internal = true
-	return s
-}
-
-// Deprecate returns a heap-allocated copy of s with Deprecated set to
-// replacement. Used by STL packages to build the bare-name aliases
-// (`avg`, `interval`, ...) that point at their canonical module members
-// (`math.avg`, `time.interval`, ...). The copy's Doc is cleared because
-// the hover renderer reads the canonical's Doc through Deprecated; keeping
-// a second copy on the alias would let the two drift.
-func (s Symbol) Deprecate(replacement *Symbol) *Symbol {
-	s.Deprecated = replacement
-	s.Doc = doc.Doc{}
-	return &s
 }
 
 func (s *Symbol) addIndex() int {
