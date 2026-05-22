@@ -24,22 +24,7 @@ export const IsoFilter = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div className={CSS(CSS.B("iso-filter"), className)} {...rest}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={95}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={5}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={5} right={95} />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

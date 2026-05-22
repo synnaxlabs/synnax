@@ -24,22 +24,7 @@ export const Strainer = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div {...rest} className={CSS(CSS.B("strainer"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={6.06}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={93.04}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

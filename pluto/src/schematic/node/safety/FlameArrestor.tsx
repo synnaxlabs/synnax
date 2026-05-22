@@ -25,22 +25,7 @@ export const FlameArrestor = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={7.575}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={92.425}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={7.575} right={92.425} />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

@@ -25,21 +25,6 @@ export const Primitive = ({
 }: Props): ReactElement => (
   <Base.Div orientation={orientation}>
     <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={0}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={100}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={0} right={100} />
   </Base.Div>
 );

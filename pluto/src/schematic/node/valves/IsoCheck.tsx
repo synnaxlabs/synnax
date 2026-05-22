@@ -26,22 +26,7 @@ export const IsoCheck = ({
   const colorStr = color.cssString(colorVal);
   return (
     <Base.Div {...rest} orientation={orientation}>
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle
-          location="left"
-          orientation={orientation}
-          left={8.3333}
-          top={50}
-          id="1"
-        />
-        <Handle.Handle
-          location="right"
-          orientation={orientation}
-          left={96.4286}
-          top={50}
-          id="2"
-        />
-      </Handle.Boundary>
+      <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
       <Base.SVG
         dimensions={DIMENSIONS}
         color={colorVal}

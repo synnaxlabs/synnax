@@ -28,22 +28,12 @@ export const Check = ({
     className={CSS(CSS.B("check-valve"), className)}
     {...rest}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4.2222}
-        top={48.8372}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={94.2038}
-        top={48.8372}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear
+      orientation={orientation}
+      left={4.2222}
+      right={94.2038}
+      top={48.8372}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

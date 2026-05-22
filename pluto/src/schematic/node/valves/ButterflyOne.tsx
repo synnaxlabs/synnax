@@ -32,22 +32,7 @@ export const ButterflyOne = ({
     className={CSS(CSS.B("butterfly-valve-one"), className)}
     enabled={enabled}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2.2989}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.7011}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}

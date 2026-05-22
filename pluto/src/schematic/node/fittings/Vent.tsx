@@ -24,22 +24,7 @@ export const Vent = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div className={CSS(CSS.B("vent"), className)} {...rest}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={22.7273}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={80}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={22.7273} right={80} />
     <Base.SVG
       color={color}
       dimensions={DIMENSIONS}

@@ -31,22 +31,12 @@ export const CheckWithArrow = ({
       className={CSS(CSS.B("check-valve-with-arrow"), className)}
       {...rest}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle
-          location="left"
-          orientation={orientation}
-          left={8.602}
-          top={60.65}
-          id="1"
-        />
-        <Handle.Handle
-          location="right"
-          orientation={orientation}
-          left={96.775}
-          top={60.65}
-          id="2"
-        />
-      </Handle.Boundary>
+      <Handle.Linear
+        orientation={orientation}
+        left={8.602}
+        right={96.775}
+        top={60.65}
+      />
       <Base.SVG
         dimensions={DIMENSIONS}
         color={colorVal}

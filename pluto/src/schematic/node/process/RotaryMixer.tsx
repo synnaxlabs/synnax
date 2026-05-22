@@ -29,22 +29,7 @@ export const RotaryMixer = ({
     className={CSS(CSS.B("rotary-mixer"), className)}
     orientation={orientation}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2}
-        top={48.4849}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.5}
-        top={48.4849}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={2} right={97.5} top={48.4849} />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

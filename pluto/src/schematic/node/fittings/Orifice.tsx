@@ -24,22 +24,7 @@ export const Orifice = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div className={CSS(CSS.B("orifice"), className)} {...rest}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2.8571}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.1429}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={2.8571} right={97.1429} />
     <Base.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}

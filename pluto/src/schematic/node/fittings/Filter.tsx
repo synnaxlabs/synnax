@@ -24,22 +24,7 @@ export const Filter = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div className={CSS(CSS.B("filter"), className)} {...rest}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={11.5385}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={88.4615}
-        top={50}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear orientation={orientation} left={11.5385} right={88.4615} />
     <Base.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}

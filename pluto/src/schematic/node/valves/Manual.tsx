@@ -31,22 +31,12 @@ export const Manual = ({
     className={CSS(CSS.B("manual-valve"), className)}
     enabled={enabled}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={2.2989}
-        top={56.25}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={97.7011}
-        top={56.25}
-        id="2"
-      />
-    </Handle.Boundary>
+    <Handle.Linear
+      orientation={orientation}
+      left={2.2989}
+      right={97.7011}
+      top={56.25}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
