@@ -667,11 +667,12 @@ func getImportPathCompletions(
 }
 
 // isModuleImportedInSource reports whether the document text contains a
-// top-level `import moduleName` statement (loose or block form). This is
-// the textual fallback used when the analyzer's symbol tree is unavailable
-// because the document has a parse error. The lexer succeeds even when the
-// parser fails, so this scan stays accurate while the user is mid-typing a
-// dot completion.
+// top-level import of moduleName (loose or block form). Matching is on the
+// importPath, not the AS alias — `import (math as t)` matches "math" but
+// not "t". This is the textual fallback used when the analyzer's symbol
+// tree is unavailable because the document has a parse error. The lexer
+// succeeds even when the parser fails, so this scan stays accurate while
+// the user is mid-typing a dot completion.
 func isModuleImportedInSource(content, moduleName string) bool {
 	// tokenizeContent keeps whitespace and comment tokens, so filter them
 	// down to the parser's view before scanning for import statements.
@@ -695,21 +696,57 @@ func isModuleImportedInSource(content, moduleName string) bool {
 		if i >= len(tokens) {
 			break
 		}
-		if tokens[i].GetTokenType() == parser.ArcLexerLPAREN {
-			for i++; i < len(tokens) && tokens[i].GetTokenType() != parser.ArcLexerRPAREN; i++ {
-				if tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-					tokens[i].GetText() == moduleName {
-					return true
-				}
+		if tokens[i].GetTokenType() != parser.ArcLexerLPAREN {
+			if path, _ := readImportPath(tokens, i); path == moduleName {
+				return true
 			}
 			continue
 		}
-		if tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER &&
-			tokens[i].GetText() == moduleName {
-			return true
+		i++
+		for i < len(tokens) && tokens[i].GetTokenType() != parser.ArcLexerRPAREN {
+			path, next := readImportPath(tokens, i)
+			if next == i {
+				i++
+				continue
+			}
+			if path == moduleName {
+				return true
+			}
+			i = next
+			if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerAS {
+				i++
+				if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
+					i++
+				}
+			}
 		}
 	}
 	return false
+}
+
+// readImportPath reads tokens at start as an importPath
+// (importPathHead (DOT IDENTIFIER)*) and returns its dotted text along with
+// the index of the first token past the path. Returns ("", start) when
+// tokens[start] is not a valid importPath head.
+func readImportPath(tokens []antlr.Token, start int) (string, int) {
+	if start >= len(tokens) {
+		return "", start
+	}
+	head := tokens[start].GetTokenType()
+	if head != parser.ArcLexerIDENTIFIER && head != parser.ArcLexerAUTHORITY {
+		return "", start
+	}
+	var b strings.Builder
+	b.WriteString(tokens[start].GetText())
+	i := start + 1
+	for i+1 < len(tokens) &&
+		tokens[i].GetTokenType() == parser.ArcLexerDOT &&
+		tokens[i+1].GetTokenType() == parser.ArcLexerIDENTIFIER {
+		b.WriteByte('.')
+		b.WriteString(tokens[i+1].GetText())
+		i += 2
+	}
+	return b.String(), i
 }
 
 // applyInvocationSuffix appends an invocation snippet — `($0)` in an
