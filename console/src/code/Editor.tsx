@@ -127,17 +127,13 @@ interface UseReturn {
   cursorRenameable: boolean;
 }
 
-// ILanguageFeaturesService is exported as both a value (ServiceIdentifier)
-// and an interface; using the bare name here picks up the interface.
-type LanguageFeaturesService = ILanguageFeaturesService;
-
 // Query the registered rename providers for the model and ask each one
 // whether the symbol at position can be renamed (LSP prepareRename). Any
 // non-null, non-rejection result means the editor's rename action would
 // succeed at that position. Returns false if no provider opts in.
 const checkRenameAvailable = async (
   monaco: typeof Monaco,
-  features: LanguageFeaturesService,
+  features: ILanguageFeaturesService,
   model: Monaco.editor.ITextModel,
   position: Monaco.Position,
   signal: AbortSignal,
@@ -234,7 +230,7 @@ const use = ({
     // across the editor's lifetime, so re-resolving on each cursor move is
     // wasted work. checks scheduled before resolution buffer their request
     // via the latest-args debounce and run once the service lands.
-    let features: LanguageFeaturesService | null = null;
+    let features: ILanguageFeaturesService | null = null;
     const featuresPromise = getService(ILanguageFeaturesService);
     featuresPromise.then((s) => (features = s)).catch(() => {});
 
@@ -249,7 +245,7 @@ const use = ({
         setCursorRenameable(false);
         return;
       }
-      const exec = (svc: LanguageFeaturesService) =>
+      const exec = (svc: ILanguageFeaturesService) =>
         checkRenameAvailable(monaco, svc, m, position, ctrl.signal)
           .then((renameable) => {
             if (!ctrl.signal.aborted) setCursorRenameable(renameable);
