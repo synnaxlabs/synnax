@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	bareSymbolName      = "set_authority"
-	qualifiedMemberName = "set_authority"
-	name                = "control"
+	symbolName = "set_authority"
+	name       = "control"
 )
 
 var (
@@ -61,22 +60,19 @@ func newSymbolProps() types.Type {
 // contributes: the control module plus the deprecated bare alias
 // (set_authority) whose Deprecated field points at the canonical member.
 func NewSymbols() []*symbol.Symbol {
-	member := symbol.Symbol{
-		Name: qualifiedMemberName,
+	member := &symbol.Symbol{
+		Name: symbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: newSymbolProps(),
 		Doc:  memberDoc,
 	}
-	mod := symbol.NewModule(name, moduleDoc, member)
-	bare := &symbol.Symbol{
-		Name:       bareSymbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Type:       newSymbolProps(),
-		Deprecated: mod.FindChild(qualifiedMemberName),
-	}
-	return []*symbol.Symbol{mod, bare}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := *member
+	bare.Parent = nil
+	bare.Deprecated = mod.FindChild(symbolName)
+	return []*symbol.Symbol{mod, &bare}
 }
 
 // Host is the runtime host-side support for the control module: it acts as
@@ -92,7 +88,7 @@ type Host struct {
 func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
+	if cfg.Node.Type != symbolName && cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig

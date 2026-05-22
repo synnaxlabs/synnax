@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -94,7 +93,7 @@ sensor_i64 -> simple{} -> out_i64`
 var _ = Describe("Polymorphic func in module - cross-analysis", func() {
 	buildExtras := func() []symbol.Symbol {
 		c := types.NumericConstraint()
-		simple := symbol.Symbol{
+		simple := &symbol.Symbol{
 			Name: "simple",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
@@ -104,7 +103,8 @@ var _ = Describe("Polymorphic func in module - cross-analysis", func() {
 				},
 			}),
 		}
-		mod := symbol.NewModule("mymod", doc.Doc{}, simple)
+		mod := &symbol.Symbol{Name: "mymod", Kind: symbol.KindModule}
+		mod.AddChild(simple)
 		return []symbol.Symbol{
 			*mod,
 			{Name: "sensor_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},

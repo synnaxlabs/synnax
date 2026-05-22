@@ -17,7 +17,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/doc"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -254,10 +253,21 @@ var _ = Describe("Scope", func() {
 			Expect(parent.FindChild("host_fn")).To(Equal(child))
 		})
 
-		It("Should return the child for chaining", func() {
+		It("Should return the receiver for chaining", func() {
 			parent := symbol.NewRoot(nil, nil)
 			child := &symbol.Symbol{Name: "host_fn", Kind: symbol.KindFunction}
-			Expect(parent.AddChild(child)).To(Equal(child))
+			Expect(parent.AddChild(child)).To(Equal(parent))
+		})
+
+		It("Should append every child when called variadically", func() {
+			parent := symbol.NewRoot(nil, nil)
+			first := &symbol.Symbol{Name: "first", Kind: symbol.KindFunction}
+			second := &symbol.Symbol{Name: "second", Kind: symbol.KindFunction}
+			parent.AddChild(first, second)
+			Expect(first.Parent).To(Equal(parent))
+			Expect(second.Parent).To(Equal(parent))
+			Expect(parent.FindChild("first")).To(Equal(first))
+			Expect(parent.FindChild("second")).To(Equal(second))
 		})
 
 		It("Should append in insertion order", func() {
@@ -399,7 +409,8 @@ var _ = Describe("Scope", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".
 			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
-				timeMod := symbol.NewModule("time", doc.Doc{}, symbol.Symbol{
+				timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
+				timeMod.AddChild(&symbol.Symbol{
 					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
 				})
 				ambient := &symbol.Symbol{Kind: symbol.KindAmbient}

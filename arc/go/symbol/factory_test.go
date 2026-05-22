@@ -17,44 +17,11 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Factories", func() {
-	Describe("NewModule", func() {
-		It("Should construct a sealed module with the given name", func() {
-			mod := symbol.NewModule("time", doc.Doc{})
-			Expect(mod.Name).To(Equal("time"))
-			Expect(mod.Kind).To(Equal(symbol.KindModule))
-			Expect(mod.Parent).To(BeNil())
-		})
-
-		It("Should set each member's Parent to the module", func() {
-			mod := symbol.NewModule("time", doc.Doc{},
-				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
-				symbol.Symbol{Name: "sleep", Kind: symbol.KindFunction, Type: types.F64()},
-			)
-			Expect(mod.Children()).To(HaveLen(2))
-			for _, child := range mod.Children() {
-				Expect(child.Parent).To(Equal(mod))
-			}
-		})
-
-		It("Should copy each member so caller mutations do not leak", func() {
-			member := symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()}
-			mod := symbol.NewModule("time", doc.Doc{}, member)
-			member.Name = "mutated"
-			Expect(mod.Children()[0].Name).To(Equal("now"))
-		})
-
-		It("Should permit construction with no members", func() {
-			mod := symbol.NewModule("empty", doc.Doc{})
-			Expect(mod.Children()).To(BeEmpty())
-		})
-	})
-
 	Describe("InternalHostFunc", func() {
 		It("Should build a KindFunction symbol flagged Internal and Exec=WASM", func() {
 			sym := symbol.InternalHostFunc(
@@ -84,37 +51,10 @@ var _ = Describe("Factories", func() {
 		})
 	})
 
-	Describe("Deprecate", func() {
-		It("Should return a copy with Deprecated set to the replacement", func() {
-			replacement := &symbol.Symbol{Name: "math.avg", Kind: symbol.KindFunction}
-			deprecated := symbol.Symbol{
-				Name: "avg", Kind: symbol.KindFunction, Type: types.F64(),
-			}.Deprecate(replacement)
-			Expect(deprecated.Name).To(Equal("avg"))
-			Expect(deprecated.Deprecated).To(Equal(replacement))
-		})
-
-		It("Should not mutate the input symbol", func() {
-			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()}
-			input.Deprecate(&symbol.Symbol{Name: "math.avg"})
-			Expect(input.Deprecated).To(BeNil())
-		})
-
-		It("Should return a heap-allocated pointer the caller can mutate independently", func() {
-			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction}
-			first := input.Deprecate(&symbol.Symbol{Name: "math.avg"})
-			second := input.Deprecate(&symbol.Symbol{Name: "stats.avg"})
-			Expect(first).ToNot(Equal(second))
-			Expect(first.Deprecated.Name).To(Equal("math.avg"))
-			Expect(second.Deprecated.Name).To(Equal("stats.avg"))
-		})
-	})
-
 	Describe("QualifiedName", func() {
 		It("Should prefix the module name for a module member", func() {
-			mod := symbol.NewModule("math", doc.Doc{},
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction},
-			)
+			mod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{Name: "avg", Kind: symbol.KindFunction})
 			Expect(mod.FindChild("avg").QualifiedName()).To(Equal("math.avg"))
 		})
 
@@ -148,12 +88,10 @@ var _ = Describe("Factories", func() {
 
 	Describe("AutoImportModules", func() {
 		It("Should install a KindModuleAlias child for each module in the ambient prelude", func() {
-			timeMod := symbol.NewModule("time", doc.Doc{},
-				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
-			)
-			mathMod := symbol.NewModule("math", doc.Doc{},
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
-			)
+			timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
+			timeMod.AddChild(&symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()})
+			mathMod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+			mathMod.AddChild(&symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()})
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(timeMod)
 			ambient.AddChild(mathMod)
@@ -180,7 +118,7 @@ var _ = Describe("Factories", func() {
 		It("Should skip non-module children of the ambient prelude", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
-			ambient.AddChild(symbol.NewModule("time", doc.Doc{}))
+			ambient.AddChild(&symbol.Symbol{Name: "time", Kind: symbol.KindModule})
 			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 

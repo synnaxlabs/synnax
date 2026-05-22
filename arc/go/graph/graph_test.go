@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -1250,7 +1249,8 @@ var _ = Describe("Graph", func() {
 					{Name: ir.DefaultOutputParam, Type: types.U8()},
 				},
 			})
-			statusModule := symbol.NewModule("status", doc.Doc{}, symbol.Symbol{
+			statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+			statusModule.AddChild(&symbol.Symbol{
 				Name: "set",
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecFlow,

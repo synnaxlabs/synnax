@@ -59,9 +59,8 @@ func NewSymbols() []*symbol.Symbol {
 	rScalarIn := types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}
 	seriesBinIn := types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}
 	resultOut := types.Params{{Name: "result", Type: i32}}
-	mod := symbol.NewModule(
-		Name,
-		doc.Doc{},
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
 		symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
@@ -124,7 +123,7 @@ func NewSymbols() []*symbol.Symbol {
 			types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}},
 			resultOut,
 		),
-	).MarkInternal()
+	)
 	return []*symbol.Symbol{mod, newUserLenSymbol()}
 }
 

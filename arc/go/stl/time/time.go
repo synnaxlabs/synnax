@@ -62,8 +62,11 @@ var (
 	)
 )
 
-func newIntervalSymbol() symbol.Symbol {
-	return symbol.Symbol{
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the time module plus the deprecated bare aliases (interval,
+// wait, now) whose Deprecated fields point at the canonical members.
+func NewSymbols() []*symbol.Symbol {
+	interval := &symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -73,10 +76,7 @@ func newIntervalSymbol() symbol.Symbol {
 		}),
 		Doc: intervalDoc,
 	}
-}
-
-func newWaitSymbol() symbol.Symbol {
-	return symbol.Symbol{
+	wait := &symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -86,10 +86,7 @@ func newWaitSymbol() symbol.Symbol {
 		}),
 		Doc: waitDoc,
 	}
-}
-
-func newNowSymbol() symbol.Symbol {
-	return symbol.Symbol{
+	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
@@ -98,22 +95,15 @@ func newNowSymbol() symbol.Symbol {
 		}),
 		Doc: nowDoc,
 	}
-}
-
-// NewSymbols returns a fresh slice of ambient prelude symbols this package
-// contributes: the time module plus the deprecated bare aliases (interval,
-// wait, now) whose Deprecated fields point at the canonical members.
-func NewSymbols() []*symbol.Symbol {
-	interval := newIntervalSymbol()
-	wait := newWaitSymbol()
-	now := newNowSymbol()
-	mod := symbol.NewModule(name, moduleDoc, interval, wait, now)
-	return []*symbol.Symbol{
-		mod,
-		interval.Deprecate(mod.FindChild(intervalSymbolName)),
-		wait.Deprecate(mod.FindChild(waitSymbolName)),
-		now.Deprecate(mod.FindChild(nowSymbolName)),
-	}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(interval, wait, now)
+	intervalBare := *interval
+	intervalBare.Deprecated = interval
+	waitBare := *wait
+	waitBare.Deprecated = wait
+	nowBare := *now
+	nowBare.Deprecated = now
+	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
 }
 
 // Host is the runtime host-side support for the time module: it registers

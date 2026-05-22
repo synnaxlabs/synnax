@@ -53,8 +53,8 @@ type (
 	)
 )
 
-func createBaseSymbol(name string) symbol.Symbol {
-	return symbol.Symbol{
+func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -71,13 +71,8 @@ func createBaseSymbol(name string) symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
 			},
 		}),
+		Doc: doc,
 	}
-}
-
-func reductionSymbol(name string, body doc.Doc) symbol.Symbol {
-	s := createBaseSymbol(name)
-	s.Doc = body
-	return s
 }
 
 var (
@@ -122,8 +117,8 @@ var (
 	)
 )
 
-func newPowSymbol() symbol.Symbol {
-	return symbol.Symbol{
+func newPowSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name:     powSymbolName,
 		Kind:     symbol.KindFunction,
 		Exec:     symbol.ExecWASM,
@@ -135,8 +130,8 @@ func newPowSymbol() symbol.Symbol {
 	}
 }
 
-func newDerivativeSymbol() symbol.Symbol {
-	return symbol.Symbol{
+func newDerivativeSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -160,26 +155,21 @@ const name = "math"
 // member. Every call allocates new Symbol values so analyses can mutate
 // them (e.g. apply type substitutions) without corrupting other analyses.
 func NewSymbols() []*symbol.Symbol {
-	avg := reductionSymbol(avgSymbolName, avgDoc)
-	min := reductionSymbol(minSymbolName, minDoc)
-	max := reductionSymbol(maxSymbolName, maxDoc)
+	avg := createBaseSymbol(avgSymbolName, avgDoc)
+	min := createBaseSymbol(minSymbolName, minDoc)
+	max := createBaseSymbol(maxSymbolName, maxDoc)
 	derivative := newDerivativeSymbol()
-	mod := symbol.NewModule(
-		name,
-		moduleDoc,
-		newPowSymbol(),
-		avg,
-		min,
-		max,
-		derivative,
-	)
-	return []*symbol.Symbol{
-		mod,
-		avg.Deprecate(mod.FindChild(avgSymbolName)),
-		min.Deprecate(mod.FindChild(minSymbolName)),
-		max.Deprecate(mod.FindChild(maxSymbolName)),
-		derivative.Deprecate(mod.FindChild(derivativeSymbolName)),
-	}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(newPowSymbol(), avg, min, max, derivative)
+	avgBare := *avg
+	avgBare.Deprecated = avg
+	minBare := *min
+	minBare.Deprecated = min
+	maxBare := *max
+	maxBare.Deprecated = max
+	derivativeBare := *derivative
+	derivativeBare.Deprecated = derivative
+	return []*symbol.Symbol{mod, &avgBare, &minBare, &maxBare, &derivativeBare}
 }
 
 // Host is the runtime host-side support for math: it registers the WASM

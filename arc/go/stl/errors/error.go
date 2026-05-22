@@ -14,15 +14,19 @@ import (
 
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
 
 const name = "error"
 
-func newPanicSymbol() symbol.Symbol {
-	return symbol.Symbol{
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the error module containing panic. Both module and member
+// are Internal — panic is emitted by lowering passes (e.g., out-of-bounds
+// checks), not called from user source.
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(&symbol.Symbol{
 		Name:     "panic",
 		Kind:     symbol.KindFunction,
 		Exec:     symbol.ExecWASM,
@@ -30,15 +34,7 @@ func newPanicSymbol() symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
 		}),
-	}
-}
-
-// NewSymbols returns a fresh slice of ambient prelude symbols this package
-// contributes: the error module containing panic. Both module and member
-// are Internal — panic is emitted by lowering passes (e.g., out-of-bounds
-// checks), not called from user source.
-func NewSymbols() []*symbol.Symbol {
-	mod := symbol.NewModule(name, doc.Doc{}, newPanicSymbol()).MarkInternal()
+	})
 	return []*symbol.Symbol{mod}
 }
 

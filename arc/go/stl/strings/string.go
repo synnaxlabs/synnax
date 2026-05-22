@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -25,7 +24,7 @@ import (
 // Name is the module name.
 const Name = "strings"
 
-func formatHostFunc(t types.Type) symbol.Symbol {
+func formatHostFunc(t types.Type) *symbol.Symbol {
 	return symbol.InternalHostFunc(
 		"format_"+t.String(),
 		types.Params{
@@ -40,9 +39,8 @@ func formatHostFunc(t types.Type) symbol.Symbol {
 // NewSymbols returns a fresh slice of ambient prelude symbols this package
 // contributes. Strings contributes only its module (no bare globals).
 func NewSymbols() []*symbol.Symbol {
-	mod := symbol.NewModule(
-		Name,
-		doc.Doc{},
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
 		symbol.InternalHostFunc(
 			"from_literal",
 			types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
@@ -100,7 +98,7 @@ func NewSymbols() []*symbol.Symbol {
 		formatHostFunc(types.F32()),
 		formatHostFunc(types.F64()),
 		formatHostFunc(types.String()),
-	).MarkInternal()
+	)
 	return []*symbol.Symbol{mod}
 }
 

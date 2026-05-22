@@ -48,27 +48,27 @@ var (
 	)
 )
 
-func newSymbol() *symbol.Symbol {
-	return &symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-			Outputs: types.Params{
-				{Name: TrueOutputParam, Type: types.U8()},
-				{Name: FalseOutputParam, Type: types.U8()},
-			},
-		}),
-		Doc: symbolDoc,
-	}
-}
-
 // NewSymbols returns a fresh slice of ambient prelude symbols this package
 // contributes: the `select` builtin installed at root scope.
-func NewSymbols() []*symbol.Symbol { return []*symbol.Symbol{newSymbol()} }
+func NewSymbols() []*symbol.Symbol {
+	return []*symbol.Symbol{
+		{
+			Name: symbolName,
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Inputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+				Outputs: types.Params{
+					{Name: TrueOutputParam, Type: types.U8()},
+					{Name: FalseOutputParam, Type: types.U8()},
+				},
+			}),
+			Doc: symbolDoc,
+		},
+	}
+}
 
 // Host is the runtime host-side support for `select`: a node factory only.
 // No WASM bindings, no per-program state.

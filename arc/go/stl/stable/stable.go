@@ -57,22 +57,20 @@ func newSymbolType() types.Type {
 // contributes: the stable module plus the deprecated `stable_for` bare
 // alias whose Deprecated field points at the canonical stable.for member.
 func NewSymbols() []*symbol.Symbol {
-	member := symbol.Symbol{
+	member := &symbol.Symbol{
 		Name: qualifiedMemberName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: newSymbolType(),
 		Doc:  memberDoc,
 	}
-	mod := symbol.NewModule(name, moduleDoc, member)
-	bare := &symbol.Symbol{
-		Name:       bareSymbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Type:       newSymbolType(),
-		Deprecated: mod.FindChild(qualifiedMemberName),
-	}
-	return []*symbol.Symbol{mod, bare}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := *member
+	bare.Parent = nil
+	bare.Name = bareSymbolName
+	bare.Deprecated = mod.FindChild(qualifiedMemberName)
+	return []*symbol.Symbol{mod, &bare}
 }
 
 // Host is the runtime host-side support for the stable module: a node

@@ -17,65 +17,58 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 )
 
-var numConstraint = types.NumericConstraint()
-
 // Name is the module name.
 const Name = "channels"
-
-func newUserOnSymbol() *symbol.Symbol {
-	return &symbol.Symbol{
-		Name: "on",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-			Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
-		}),
-	}
-}
-
-func newUserWriteSymbol() *symbol.Symbol {
-	return &symbol.Symbol{
-		Name: "write",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
-		}),
-	}
-}
 
 // NewSymbols returns a fresh slice of ambient prelude symbols this package
 // contributes: the channels module plus `on` and `write` as bare globals so
 // flow-mode programs can reference them without an import.
 func NewSymbols() []*symbol.Symbol {
-	mod := symbol.NewModule(
-		Name,
-		doc.Doc{},
+	numConstraint := new(types.NumericConstraint())
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
 		symbol.InternalHostFunc(
 			"read",
 			types.Params{{Name: "ch", Type: types.I32()}},
-			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+			types.Params{{Name: "value", Type: types.Variable("T", numConstraint)}},
 		),
 		symbol.InternalHostFunc(
 			"write",
 			types.Params{
 				{Name: "ch", Type: types.I32()},
-				{Name: "value", Type: types.Variable("T", &numConstraint)},
+				{Name: "value", Type: types.Variable("T", numConstraint)},
 			},
 			nil,
 		),
-	).MarkInternal()
-	return []*symbol.Symbol{mod, newUserOnSymbol(), newUserWriteSymbol()}
+	)
+	return []*symbol.Symbol{
+		mod,
+		{
+			Name: "on",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
+				Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+			}),
+		},
+		{
+			Name: "write",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+				Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
+			}),
+		},
+	}
 }
 
 // Host is the runtime host-side support for the channels module: it

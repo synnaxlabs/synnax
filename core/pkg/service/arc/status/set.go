@@ -65,14 +65,15 @@ func newSymbolProps() types.Type {
 // contributes: the status module plus the deprecated `set_status` bare
 // global whose Deprecated field points at the canonical status.set member.
 func NewSymbols() []*symbol.Symbol {
-	member := symbol.Symbol{
+	member := &symbol.Symbol{
 		Name: qualifiedMemberName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: newSymbolProps(),
 		Doc:  memberDoc,
 	}
-	mod := symbol.NewModule(moduleName, moduleDoc, member)
+	mod := &symbol.Symbol{Name: moduleName, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
 	bare := &symbol.Symbol{
 		Name:       bareSymbolName,
 		Kind:       symbol.KindFunction,
