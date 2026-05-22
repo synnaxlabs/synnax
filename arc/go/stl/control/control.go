@@ -88,7 +88,7 @@ type Host struct {
 func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName && cfg.Node.Type != symbolName {
+	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig

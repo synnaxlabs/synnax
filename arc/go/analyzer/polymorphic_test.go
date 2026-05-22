@@ -88,6 +88,25 @@ sensor_i64 -> simple{} -> out_i64`
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})
+
+	// Pins the prev-freshening contract: at each func→func boundary, the
+	// previous function is re-freshened with the same position-derived key
+	// used when it was the current function, so its solved type variables
+	// resolve through the constraint store from the earlier node analysis.
+	// A chain of three polymorphic functions hits this path twice and would
+	// silently mis-propagate types if constraint retention regressed.
+	It("Should propagate types through a chain of three polymorphic funcs", func(sCtx SpecContext) {
+		chainExtras := []symbol.Symbol{
+			{Name: "out_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+		}
+		root = NewRoot(nil, append(extras, chainExtras...)...)
+		src := `sensor_f32 -> simple{} -> simple{} -> simple{} -> out_f32`
+		ast := MustSucceed(parser.Parse(src))
+		ctx := acontext.NewRoot(sCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Substitutions).To(ContainElement(types.F32()))
+	})
 })
 
 var _ = Describe("Polymorphic func in module - cross-analysis", func() {
