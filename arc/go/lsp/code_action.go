@@ -45,6 +45,14 @@ func (s *Server) CodeAction(
 				actions = append(actions, *action)
 			}
 		}
+		// Missing-import is offered for any diagnostic whose range contains
+		// a leading identifier that names an unimported ambient module.
+		// The handler's own filters (local resolution succeeds, no ambient
+		// match, already imported) reject non-candidates, so we don't need
+		// a separate code to gate it.
+		if action := s.missingImportQuickFix(ctx, doc, diag); action != nil {
+			actions = append(actions, *action)
+		}
 	}
 	return actions, nil
 }
@@ -403,4 +411,83 @@ func replacementModule(repl *symbol.Symbol) string {
 		return ""
 	}
 	return repl.Parent.Name
+}
+
+// missingImportQuickFix offers `Add import 'X'` when the diagnostic range
+// references an ambient module that is not yet in scope. The candidate
+// identifier is the first IDENTIFIER token inside the range; it must (a)
+// fail to resolve at that position, (b) match a non-Internal KindModule
+// reachable through the ambient prelude, and (c) not already be imported
+// in the document. Failing any of the three returns nil, which makes the
+// handler safe to run for every diagnostic without code-matching.
+func (s *Server) missingImportQuickFix(
+	ctx context.Context,
+	doc *Document,
+	diag protocol.Diagnostic,
+) *protocol.CodeAction {
+	if doc.IR.Symbols == nil {
+		return nil
+	}
+	token := firstIdentifierInRange(doc.Content, diag.Range)
+	if token == nil {
+		return nil
+	}
+	name := token.GetText()
+	pos := protocol.Position{
+		Line:      uint32(token.GetLine() - 1),
+		Character: uint32(token.GetColumn()),
+	}
+	scope := doc.findScopeAtPosition(pos)
+	if scope == nil {
+		return nil
+	}
+	if sym, err := scope.Resolve(ctx, name); err == nil && sym != nil {
+		return nil
+	}
+	if !isAmbientModuleInScope(scope, name) {
+		return nil
+	}
+	edits := buildAutoImportEdit(doc, name)
+	if len(edits) == 0 {
+		return nil
+	}
+	return &protocol.CodeAction{
+		Title:       fmt.Sprintf("Add import '%s'", name),
+		Kind:        protocol.QuickFix,
+		Diagnostics: []protocol.Diagnostic{diag},
+		IsPreferred: true,
+		Edit: &protocol.WorkspaceEdit{
+			Changes: map[protocol.DocumentURI][]protocol.TextEdit{doc.URI: edits},
+		},
+	}
+}
+
+// firstIdentifierInRange returns the first IDENTIFIER token whose start
+// position falls inside r, or nil when none does.
+func firstIdentifierInRange(content string, r protocol.Range) antlr.Token {
+	for _, t := range tokenizeContent(content) {
+		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
+			continue
+		}
+		if tokenInRange(t, r) {
+			return t
+		}
+	}
+	return nil
+}
+
+// isAmbientModuleInScope reports whether name matches a non-Internal
+// KindModule child of an ancestor KindAmbient scope reachable from start.
+// This duplicates symbol.isAmbientModule, which is unexported.
+func isAmbientModuleInScope(start *symbol.Symbol, name string) bool {
+	for cur := start; cur != nil; cur = cur.Parent {
+		if cur.Kind != symbol.KindAmbient {
+			continue
+		}
+		child := cur.FindChild(name)
+		if child != nil && child.Kind == symbol.KindModule && !child.Internal {
+			return true
+		}
+	}
+	return false
 }

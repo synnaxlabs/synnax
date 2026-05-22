@@ -200,4 +200,63 @@ var _ = Describe("CodeAction", func() {
 			Expect(deprecated).To(BeEmpty())
 		})
 	})
+
+	Describe("Missing import quick fix", func() {
+		findActionByTitle := func(actions []protocol.CodeAction, title string) *protocol.CodeAction {
+			for i := range actions {
+				if actions[i].Title == title {
+					return &actions[i]
+				}
+			}
+			return nil
+		}
+
+		It("should add an import when a qualified call references an unimported ambient module", func(ctx SpecContext) {
+			content := "sequence main {\n    math.avg{}\n}\n"
+			OpenArcDocument(server, ctx, uri, content)
+
+			diags := client.Diagnostics()
+			Expect(diags).ToNot(BeEmpty())
+
+			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			action := findActionByTitle(actions, "Add import 'math'")
+			Expect(action).ToNot(BeNil())
+			Expect(action.Kind).To(Equal(protocol.QuickFix))
+			Expect(action.IsPreferred).To(BeTrue())
+
+			edits := action.Edit.Changes[uri]
+			Expect(edits).To(HaveLen(1))
+			Expect(edits[0].NewText).To(ContainSubstring("import math"))
+			Expect(edits[0].Range.Start).To(Equal(protocol.Position{Line: 0, Character: 0}))
+		})
+
+		It("should not offer the fix when the module is already imported", func(ctx SpecContext) {
+			content := "import math\n\nsequence main {\n    math.avg{}\n}\n"
+			OpenArcDocument(server, ctx, uri, content)
+
+			diags := client.Diagnostics()
+			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			Expect(findActionByTitle(actions, "Add import 'math'")).To(BeNil())
+		})
+
+		It("should not offer the fix for an undefined symbol that is not an ambient module", func(ctx SpecContext) {
+			content := "func test() i64 {\n    return notARealModule\n}\n"
+			OpenArcDocument(server, ctx, uri, content)
+
+			diags := client.Diagnostics()
+			Expect(diags).ToNot(BeEmpty())
+
+			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			for _, a := range actions {
+				Expect(a.Title).ToNot(HavePrefix("Add import"))
+			}
+		})
+
+		It("should return no action when context has no diagnostics", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "sequence main {\n    math.avg{}\n}\n")
+
+			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(nil)))
+			Expect(actions).To(BeEmpty())
+		})
+	})
 })
