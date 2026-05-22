@@ -48,8 +48,8 @@
     }
 
     .console-schematic__symbols-group {
-        overflow: auto;
-        height: 100%;
+        overflow: hidden;
+
         & > .pluto-list__virtualizer {
             height: fit-content;
         }
@@ -58,6 +58,7 @@
     .console-schematic-symbols__button {
         padding: 2rem 1rem;
         align-items: stretch;
+
         & > small {
             height: calc(var(--pluto-small-line-height) * 2);
             display: block;
@@ -66,6 +67,7 @@
             text-align: center;
             white-space: wrap;
         }
+
         &.pluto-list__item {
             width: 90px;
             min-height: 100px;
@@ -76,6 +78,7 @@
 
         .pluto-symbol-primitive {
             transform: scale(0.75);
+
             & svg {
                 max-height: 80px !important;
                 max-width: 90px !important;
