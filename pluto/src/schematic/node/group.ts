@@ -11,8 +11,8 @@ import { type group } from "@synnaxlabs/client";
 
 import { type Icon } from "@/icon";
 import { Fittings } from "@/schematic/node/fittings";
+import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
-import { Meters } from "@/schematic/node/meters";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { type Variant } from "@/schematic/node/registry";
@@ -30,7 +30,7 @@ export const GROUPS: Group[] = [
   Vessels.GROUP,
   Valves.GROUP,
   Pumps.GROUP,
-  Meters.GROUP,
+  Flowmeters.GROUP,
   Process.GROUP,
   Safety.GROUP,
   Fittings.GROUP,

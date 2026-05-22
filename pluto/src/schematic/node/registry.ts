@@ -19,8 +19,8 @@ import {
   customStaticSpec,
 } from "@/schematic/node/custom/configs";
 import { Fittings } from "@/schematic/node/fittings";
+import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
-import { Meters } from "@/schematic/node/meters";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
@@ -30,8 +30,8 @@ import { Vessels } from "@/schematic/node/vessels";
 
 export const REGISTRY = {
   ...Fittings.REGISTRY,
+  ...Flowmeters.REGISTRY,
   ...General.REGISTRY,
-  ...Meters.REGISTRY,
   ...Process.REGISTRY,
   ...Pumps.REGISTRY,
   ...Safety.REGISTRY,
@@ -47,8 +47,8 @@ export type Variant = keyof typeof REGISTRY;
 
 export const configZ = z.discriminatedUnion("variant", [
   ...Fittings.configZ.options,
+  ...Flowmeters.configZ.options,
   ...General.configZ.options,
-  ...Meters.configZ.options,
   ...Process.configZ.options,
   ...Pumps.configZ.options,
   ...Safety.configZ.options,
