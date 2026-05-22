@@ -36,8 +36,8 @@ const crossBeamAgitator = defineToggle({
 });
 const flatBladeAgitator = defineToggle({
   variant: "flatBladeAgitator",
-  name: "Flat Blad Agitator",
-  label: "Flat Blad Agitator",
+  name: "Flat Blade Agitator",
+  label: "Flat Blade Agitator",
   Primitive: FlatBladeAgitator,
 });
 const heatExchangerGeneral = defineStatic({
