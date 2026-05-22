@@ -31,7 +31,7 @@ const RIGHT_HANDLE_STYLE: CSSProperties = { zIndex: 5 };
 export const Primitive = ({
   className,
   orientation = "left",
-  color: colorVal,
+  color,
   value,
   onChange,
   onSend,
@@ -88,7 +88,7 @@ export const Primitive = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ color: colorVal, size }}
+          triggerProps={{ color, size }}
           style={{ minWidth: inlineSize }}
         />
         {onSend != null && (
@@ -98,7 +98,7 @@ export const Primitive = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
-            color={colorVal}
+            color={color}
             disabled={disabled}
           >
             Send

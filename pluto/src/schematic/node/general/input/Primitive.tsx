@@ -28,7 +28,7 @@ export const Primitive = ({
   className,
   initialValue = "",
   orientation = "left",
-  color: colorVal,
+  color,
   size,
   onSend,
   disabled,
@@ -52,13 +52,13 @@ export const Primitive = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={colorVal}
+        color={color}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
-          color={colorVal}
+          color={color}
         >
           Send
         </BaseButton.Button>

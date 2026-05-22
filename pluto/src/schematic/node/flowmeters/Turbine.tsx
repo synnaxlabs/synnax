@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { type Props } from "@/schematic/node/flowmeters/props";
 
 const DIMENSIONS = { width: 71, height: 36 };
 
@@ -21,7 +21,7 @@ export const Turbine = ({
   id,
   className,
   orientation = "right",
-  color: colorVal,
+  color,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Turbine = ({
     />
     <Base.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      color={color}
       orientation={orientation}
       scale={scale}
     >
@@ -53,7 +53,7 @@ export const Turbine = ({
         d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
         strokeWidth="2"
       />
-      <Label color={colorVal} />
+      <Label color={color} />
     </Base.SVG>
   </Base.Div>
 );

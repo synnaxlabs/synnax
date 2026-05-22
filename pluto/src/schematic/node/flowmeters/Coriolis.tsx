@@ -13,16 +13,16 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
-
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { type Props } from "@/schematic/node/flowmeters/props";
 
 const DIMENSIONS = { width: 71, height: 36 };
+const LABELS = { x: 58, y: 29 };
 
 export const Coriolis = ({
   id,
   className,
   orientation = "right",
-  color: colorVal,
+  color,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -36,7 +36,7 @@ export const Coriolis = ({
     />
     <Base.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      color={color}
       orientation={orientation}
       scale={scale}
     >
@@ -49,7 +49,7 @@ export const Coriolis = ({
       <Base.Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
       <Base.Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
       <Base.Path d="M43.5 17.6024H69" strokeLinecap="round" />
-      <Label position={{ x: 58, y: 29 }} color={colorVal} />
+      <Label position={LABELS} color={color} />
     </Base.SVG>
   </Base.Div>
 );

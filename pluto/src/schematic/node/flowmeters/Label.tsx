@@ -16,7 +16,8 @@ export interface LabelProps {
 }
 
 export const Label = ({ position, color: colorVal }: LabelProps): ReactElement => {
-  const style = useMemo(() => ({ fill: color.cssString(colorVal) }), [colorVal]);
+  const colorStr = color.cssString(colorVal);
+  const style = useMemo(() => ({ fill: colorStr }), [colorStr]);
   return (
     <text x={position?.x ?? 57} y={position?.y ?? 27} style={style} stroke="none">
       F

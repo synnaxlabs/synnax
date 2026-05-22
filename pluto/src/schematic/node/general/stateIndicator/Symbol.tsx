@@ -20,7 +20,7 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, options, color: colorVal, inlineSize },
+  config: { label, source, options, color, inlineSize },
 }: NodeProps<Config>): ReactElement => {
   const { key: optKey } = StateIndicator.use({ aetherKey: nodeKey, source, options });
   return (
@@ -29,7 +29,7 @@ export const Symbol = ({
       <Primitive
         matchedOptionKey={optKey}
         options={options}
-        color={colorVal}
+        color={color}
         inlineSize={inlineSize}
       />
     </Grid.Grid>

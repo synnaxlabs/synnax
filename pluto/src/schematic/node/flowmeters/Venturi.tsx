@@ -13,16 +13,16 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { type Props } from "@/schematic/node/flowmeters/props";
 
 const DIMENSIONS = { width: 71, height: 36 };
-const LABEL_POSITION = { x: 56, y: 29 };
+const LABELS = { x: 56, y: 29 };
 
 export const Venturi = ({
   id,
   className,
   orientation = "right",
-  color: colorVal,
+  color,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -36,7 +36,7 @@ export const Venturi = ({
     />
     <Base.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      color={color}
       orientation={orientation}
       scale={scale}
     >
@@ -45,7 +45,7 @@ export const Venturi = ({
       <Base.Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
       <Base.Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
       <Base.Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
-      <Label position={LABEL_POSITION} color={colorVal} />
+      <Label position={LABELS} color={color} />
     </Base.SVG>
   </Base.Div>
 );

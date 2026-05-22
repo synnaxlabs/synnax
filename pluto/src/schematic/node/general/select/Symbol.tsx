@@ -25,7 +25,7 @@ export const Symbol = ({
     label,
     orientation = "left",
     control,
-    color: colorVal,
+    color,
     sink,
     options,
     size,
@@ -45,7 +45,7 @@ export const Symbol = ({
         value={selectedKey}
         onChange={handleSelectionChange}
         onSend={set}
-        color={colorVal}
+        color={color}
         orientation={orientation}
         disabled={disabled}
         options={options}

@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { type Props } from "@/schematic/node/flowmeters/props";
 
 const DIMENSIONS = { width: 71, height: 36 };
 
@@ -21,7 +21,7 @@ export const Pulse = ({
   id,
   className,
   orientation = "right",
-  color: colorVal,
+  color,
   scale = 1,
   ...rest
 }: Props): ReactElement => (
@@ -35,7 +35,7 @@ export const Pulse = ({
     />
     <Base.SVG
       dimensions={DIMENSIONS}
-      color={colorVal}
+      color={color}
       orientation={orientation}
       scale={scale}
     >
@@ -45,7 +45,7 @@ export const Pulse = ({
       <Base.Path d="M39 21.5H47" strokeLinecap="round" />
       <Base.Path d="M39 13.5V21.5" strokeLinecap="round" />
       <Base.Path d="M31 13.5V21.5" strokeLinecap="round" />
-      <Label color={colorVal} />
+      <Label color={color} />
     </Base.SVG>
   </Base.Div>
 );
