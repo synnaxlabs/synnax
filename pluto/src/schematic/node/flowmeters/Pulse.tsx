@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 71, height: 36 };
@@ -45,7 +45,7 @@ export const Pulse = ({
       <Base.Path d="M39 21.5H47" strokeLinecap="round" />
       <Base.Path d="M39 13.5V21.5" strokeLinecap="round" />
       <Base.Path d="M31 13.5V21.5" strokeLinecap="round" />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
@@ -51,7 +51,7 @@ export const PositiveDisplacement = ({
         d="M41 22C41 24.4853 38.9853 26.5 36.5 26.5C34.0147 26.5 32 24.4853 32 22C32 19.5147 34.0147 17.5 36.5 17.5C38.9853 17.5 41 19.5147 41 22Z"
         strokeWidth="2"
       />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

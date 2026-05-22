@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 71, height: 36 };
@@ -53,7 +53,7 @@ export const Turbine = ({
         d="M38.5 26C38.5 26.7956 38.1839 27.5587 37.6213 28.1213C37.0587 28.6839 36.2956 29 35.5 29C34.7044 29 33.9413 28.6839 33.3787 28.1213C32.8161 27.5587 32.5 26.7956 32.5 26"
         strokeWidth="2"
       />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

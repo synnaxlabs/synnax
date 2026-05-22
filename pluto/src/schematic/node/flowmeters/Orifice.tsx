@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
@@ -42,7 +42,7 @@ export const Orifice = ({
       <Base.Rect x="2.5" y="2" width="67" height="31" rx="2" />
       <Base.Path d="M24.5 2V7.5V13" strokeLinecap="round" />
       <Base.Path d="M24.5 33V22" strokeLinecap="round" />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
@@ -49,7 +49,7 @@ export const Coriolis = ({
       <Base.Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
       <Base.Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
       <Base.Path d="M43.5 17.6024H69" strokeLinecap="round" />
-      <Flowmeter.Label position={{ x: 58, y: 29 }} color={colorVal} />
+      <Label position={{ x: 58, y: 29 }} color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

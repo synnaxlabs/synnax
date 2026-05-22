@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 71, height: 36 };
@@ -42,7 +42,7 @@ export const VariableArea = ({
       <Base.Path d="M23 13V22" />
       <Base.Path d="M23 13L46 10" />
       <Base.Path d="M23 22L46 25" />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );

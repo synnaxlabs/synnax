@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Flowmeter } from "@/schematic/node/common/flowmeter";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Label } from "@/schematic/node/flowmeters/Label";
 export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 71, height: 36 };
@@ -44,7 +44,7 @@ export const FloatSensor = ({
       <Base.Path d="M31 27H40" strokeLinecap="round" />
       <Base.Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
       <Base.Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
-      <Flowmeter.Label color={colorVal} />
+      <Label color={colorVal} />
     </Base.SVG>
   </Base.Div>
 );
