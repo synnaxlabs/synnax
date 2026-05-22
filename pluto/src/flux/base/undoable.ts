@@ -95,7 +95,7 @@ export interface Transaction<Action> {
 }
 
 /** Sends an already-processed action list to the server. Used by transaction
- *  commit so the substrate can bind client/sessionKey at hook-call time. */
+ *  commit so the substrate can bind client/dispatchKey at hook-call time. */
 export type DispatchSend<Action> = (actions: Action[]) => Promise<void>;
 
 /**
@@ -103,11 +103,15 @@ export type DispatchSend<Action> = (actions: Action[]) => Promise<void>;
  * `schema` must produce this shape (use a zod transform if the server emits
  * differently-named fields). `seq` is a per-key monotonic sequence stamped by
  * the originating server node and is used by the store to skip echoes that
- * are stale relative to its high-water mark — see `applyRemote`.
+ * are stale relative to its high-water mark — see `applyRemote`. `dispatchKey`
+ * is the client-generated batch identifier the originator registered as
+ * outstanding before sending; the substrate uses it to recognize own echoes
+ * race-safely so it can skip a redundant reduce when no foreign action
+ * interleaved.
  */
 export interface DispatchFrame<Key, Action> {
   key: Key;
-  sessionKey: string;
+  dispatchKey: string;
   seq: number;
   actions: Action[];
 }
@@ -157,7 +161,7 @@ export interface UndoableUnaryStore<
   prepareRedo(key: Key): Reversal<Action> | null;
   /**
    * Stage actions to commit atomically as one undoable. The substrate
-   * supplies `send` so the store doesn't depend on client/sessionKey.
+   * supplies `send` so the store doesn't depend on the Synnax client.
    */
   beginTransaction(
     key: Key,
@@ -165,17 +169,25 @@ export interface UndoableUnaryStore<
     kind?: string,
   ): Transaction<Action>;
   /**
-   * Apply a remote frame. The frame is dropped if its seq does not exceed the
-   * high-water mark previously applied for this key. Stamps the affected
-   * targets as remote-touched only when isOwnEcho is false, so a user's own
-   * confirming echo does not poison their own undo stack.
+   * Register a dispatch as outstanding so when its broadcast echo arrives the
+   * substrate can recognize it as own and skip a redundant reduce. Called by
+   * the dispatcher *before* the network send so the registration always wins
+   * the race against a fast echo. A registration whose echo has already been
+   * applied (seq advanced past it) is silently dropped; that's the safe
+   * fallback when the echo arrives before the dispatch promise resolves.
    */
-  applyRemote(
-    key: Key,
-    seq: number,
-    actions: Action[],
-    opts?: { isOwnEcho?: boolean },
-  ): void;
+  registerOutstandingDispatch(key: Key, dispatchKey: string): void;
+  /**
+   * Apply a remote frame. The frame is dropped if its seq does not exceed the
+   * high-water mark previously applied for this key. If `dispatchKey` matches
+   * an entry the originator registered as outstanding, the substrate has
+   * already applied these actions via replay: if no foreign action
+   * interleaved during the outstanding window, skip the reduce; otherwise
+   * re-run it to recover from the foreign overwrite. A foreign frame (one
+   * whose dispatchKey is unknown) always reduces and marks every outstanding
+   * own dispatch with a greater seq as needing recovery.
+   */
+  applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void;
   /** Mark internal keys as remote-touched at the given ts (default: now). */
   markRemoteTouched(
     key: Key,
@@ -212,6 +224,17 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
   // is treated as "unstamped" and always applies — that covers frames from
   // servers that predate the field.
   private readonly lastAppliedSeq = new Map<Key, number>();
+  // outstandingDispatches tracks per-key dispatches the originator has
+  // applied locally via replay but whose broadcast echo has not yet arrived.
+  // Each entry's `disturbed` flag is flipped to true when a foreign echo
+  // lands during the outstanding window; on own-echo arrival, an entry that
+  // is not disturbed skips the reduce (the local replay was authoritative)
+  // and an entry that is disturbed re-runs to recover from the foreign
+  // overwrite.
+  private readonly outstandingDispatches = new Map<
+    Key,
+    Map<string, { disturbed: boolean }>
+  >();
 
   constructor(opts: UndoableStoreConfig<Key, State, Action>) {
     this.config = {
@@ -395,23 +418,51 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
     });
   }
 
+  registerOutstandingDispatch(key: Key, dispatchKey: string): void {
+    let bucket = this.outstandingDispatches.get(key);
+    if (bucket == null) {
+      bucket = new Map();
+      this.outstandingDispatches.set(key, bucket);
+    }
+    bucket.set(dispatchKey, { disturbed: false });
+  }
+
   applyRemote(
     scope: string,
     key: Key,
     seq: number,
+    dispatchKey: string,
     actions: Action[],
-    opts: { isOwnEcho?: boolean } = {},
   ): void {
     if (seq !== 0) {
       const last = this.lastAppliedSeq.get(key) ?? 0;
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
+    const bucket = this.outstandingDispatches.get(key);
+    const ownEntry = bucket?.get(dispatchKey);
+    const isOwnEcho = ownEntry != null;
+    if (ownEntry != null) {
+      bucket?.delete(dispatchKey);
+      // Local replay was authoritative; nothing interleaved.
+      if (!ownEntry.disturbed) return;
+      // Fall through to reduce: a foreign echo overwrote state during the
+      // outstanding window, so we must re-apply to recover.
+    } else if (bucket != null)
+      // Foreign echo: any outstanding own dispatch represents a local replay
+      // that the server has not yet broadcast back. We don't know each
+      // entry's server-stamped seq yet (the echo carrying it hasn't arrived),
+      // so we can't tell whether the foreign was applied before or after it
+      // on the server — mark every outstanding entry as disturbed. Entries
+      // whose seq turns out to be greater than this foreign's seq genuinely
+      // need recovery; entries whose seq was lower will re-run idempotently
+      // and converge to the same value.
+      for (const entry of bucket.values()) entry.disturbed = true;
     const current = this.docs.get(key);
     if (current == null) return;
     const { next, targets } = this.config.reduce(current, actions);
     this.docs.set(scope, key, next);
-    if (!opts.isOwnEcho) this.markRemoteTouched(scope, key, targets);
+    if (!isOwnEcho) this.markRemoteTouched(scope, key, targets);
   }
 
   cascadeDelete(
@@ -473,8 +524,10 @@ class UndoableStore<Key extends record.Key, State extends Data, Action> {
       prepareRedo: (key) => this.prepareRedo(scope, key),
       beginTransaction: (key, send, kind) =>
         this.beginTransaction(scope, key, send, kind),
-      applyRemote: (key, seq, actions, opts) =>
-        this.applyRemote(scope, key, seq, actions, opts),
+      registerOutstandingDispatch: (key, dispatchKey) =>
+        this.registerOutstandingDispatch(key, dispatchKey),
+      applyRemote: (key, seq, dispatchKey, actions) =>
+        this.applyRemote(scope, key, seq, dispatchKey, actions),
       markRemoteTouched: (key, targets, ts) =>
         this.markRemoteTouched(scope, key, targets, ts),
       hasUndo: (key) => this.hasUndo(key),
@@ -519,11 +572,13 @@ export const createUndoableStore = <
   > = {
     channel,
     schema,
-    onChange: ({ changed, store, client }) => {
-      const isOwnEcho = changed.sessionKey === client?.key;
-      store[storeKey].applyRemote(changed.key, changed.seq, changed.actions, {
-        isOwnEcho,
-      });
+    onChange: ({ changed, store }) => {
+      store[storeKey].applyRemote(
+        changed.key,
+        changed.seq,
+        changed.dispatchKey,
+        changed.actions,
+      );
     },
   };
   return {
