@@ -129,8 +129,8 @@ const (
 //
 // ID Assignment: Symbols whose Kind allocates a runtime slot (KindVariable,
 // KindStatefulVariable, KindChannel, KindInput, KindOutput, KindConfig,
-// KindLoopVariable) receive a unique ID from the nearest ancestor that owns a
-// Counter (the root and each function or sequence).
+// KindLoopVariable) receive a unique ID from the nearest ancestor that owns an
+// ID counter (the root and each function or sequence).
 type Symbol struct {
 	// Type is the symbol's type from Arc's type system.
 	Type types.Type
@@ -199,9 +199,9 @@ type Symbol struct {
 	// uses FindChild to obtain the alias and works with its
 	// fields directly.
 	children []*Symbol
-	// Counter assigns unique IDs to slot-allocating descendants. Non-nil on
+	// counter assigns unique IDs to slot-allocating descendants. Non-nil on
 	// the root and on each function and sequence; nil elsewhere.
-	Counter *int
+	counter *int
 	// Channels tracks which Synnax channels this symbol's AST node reads
 	// from and writes to. Populated for function symbols.
 	Channels types.Channels
@@ -213,10 +213,10 @@ type Symbol struct {
 	// other Kinds leave it false because nothing reads it and writing to
 	// shared STL members would race across concurrent NewRoot calls.
 	Used bool
-	// GlobalResolver provides on-demand lookups for symbols not pre-materialized
+	// globalResolver provides on-demand lookups for symbols not pre-materialized
 	// in the symbol tree (e.g., global channels). Consulted by Resolve
-	// when a name is not found among Children. Typically set on the root only.
-	GlobalResolver Resolver
+	// when a name is not found among Children. Set on the root only via NewRoot.
+	globalResolver Resolver
 }
 
 // NewRoot creates a user-program root attached to an empty ambient
@@ -235,8 +235,8 @@ func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,
-		Counter:        new(int),
-		GlobalResolver: dynamicResolver,
+		counter:        new(int),
+		globalResolver: dynamicResolver,
 	}
 	ambient.AddChild(root)
 	for _, sym := range ambientGlobals {
@@ -321,7 +321,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	*child = sym
 	child.Parent = s
 	if sym.Kind == KindFunction || sym.Kind == KindSequence {
-		child.Counter = new(int)
+		child.counter = new(int)
 	}
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
@@ -396,9 +396,9 @@ func InternalHostFunc(name string, inputs, outputs types.Params) *Symbol {
 }
 
 func (s *Symbol) addIndex() int {
-	if s.Counter != nil {
-		v := *s.Counter
-		*s.Counter++
+	if s.counter != nil {
+		v := *s.counter
+		*s.counter++
 		return v
 	}
 	return s.Parent.addIndex()
@@ -451,7 +451,7 @@ type resolveOpts struct {
 func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
-// GlobalResolver → parent. The walk stops at a KindModule scope — inside
+// global resolver → parent. The walk stops at a KindModule scope — inside
 // a module, lookup cannot escape outward. That seal is what gives module
 // members their member-only semantics. By default the walk also skips
 // KindModule entries encountered along the way: bare module names are
@@ -486,7 +486,7 @@ func (s *Symbol) Resolve(
 // of by Name. The Arc lexer forbids identifiers starting with a digit,
 // so an all-numeric input is unambiguously an ID reference (graph
 // configs, channel-key literals in source). The branches share the walk
-// shape (children → GlobalResolver → parent) so a caller passing either
+// shape (children → global resolver → parent) so a caller passing either
 // kind of key gets the same scoping semantics.
 //
 // Resolving on a KindModuleAlias transparently dispatches to its
@@ -516,8 +516,8 @@ func (s *Symbol) resolve(
 			return child, nil
 		}
 	}
-	if s.GlobalResolver != nil {
-		if sym, err := s.GlobalResolver.Resolve(ctx, name); err == nil {
+	if s.globalResolver != nil {
+		if sym, err := s.globalResolver.Resolve(ctx, name); err == nil {
 			if opts.includeInternal || !sym.Internal {
 				return sym, nil
 			}
@@ -546,8 +546,8 @@ func (s *Symbol) Search(ctx context.Context, term string) ([]*Symbol, error) {
 			seen.Add(child.Name)
 		}
 	}
-	if s.GlobalResolver != nil {
-		matches, err := s.GlobalResolver.Search(ctx, term)
+	if s.globalResolver != nil {
+		matches, err := s.globalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range matches {
 				if sym.Internal {

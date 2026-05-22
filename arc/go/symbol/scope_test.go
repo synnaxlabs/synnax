@@ -24,15 +24,13 @@ var _ = Describe("Scope", func() {
 	Describe("Root", func() {
 		It("Should create a new root scope", func() {
 			s := symbol.NewRoot(nil, nil)
-			Expect(s.GlobalResolver).To(BeNil())
 			Expect(s.Children()).To(BeEmpty())
-			Expect(s.Counter).ToNot(BeNil())
-			Expect(*s.Counter).To(Equal(0))
 		})
 
-		It("Should create a new root scope with a global resolver", func() {
-			s := symbol.NewRoot(StaticResolver{}, nil)
-			Expect(s.GlobalResolver).ToNot(BeNil())
+		It("Should resolve through the given global resolver on a miss", func(bCtx SpecContext) {
+			ch := symbol.Symbol{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())}
+			s := symbol.NewRoot(StaticResolver{ch}, nil)
+			Expect(MustSucceed(s.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
 		})
 	})
 
@@ -45,9 +43,6 @@ var _ = Describe("Scope", func() {
 			))
 			Expect(varScope.Name).To(Equal("x"))
 			Expect(varScope.Type).To(Equal(types.I32()))
-			By("Not creating a counter for variables")
-			Expect(varScope.Counter).To(BeNil())
-			Expect(varScope.GlobalResolver).To(BeNil())
 			Expect(varScope.Children()).To(BeEmpty())
 			By("Using the root scope counter for it's ID")
 			Expect(varScope.ID).To(Equal(0))
@@ -60,9 +55,6 @@ var _ = Describe("Scope", func() {
 				symbol.Symbol{Name: "my_func", Kind: symbol.KindFunction},
 			))
 			Expect(funcScope.Name).To(Equal("my_func"))
-			By("Creating a counter for functions")
-			Expect(funcScope.Counter).ToNot(BeNil())
-			Expect(*funcScope.Counter).To(Equal(0))
 		})
 
 		It("Should add a new func scope", func(bCtx SpecContext) {
@@ -96,14 +88,12 @@ var _ = Describe("Scope", func() {
 			Entry("LoopVariable", symbol.KindLoopVariable),
 		)
 
-		It("Should give KindSequence its own Counter", func(bCtx SpecContext) {
+		It("Should give KindSequence its own ID space", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
 			seqScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "my_seq", Kind: symbol.KindSequence},
 			))
-			Expect(seqScope.Counter).ToNot(BeNil())
-			Expect(*seqScope.Counter).To(Equal(0))
 			inner := MustSucceed(seqScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -141,7 +131,6 @@ var _ = Describe("Scope", func() {
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
 			Expect(firstVarScope.ID).To(Equal(0))
-			Expect(firstVarScope.Counter).To(BeNil())
 			Expect(firstVarScope.Parent).ToNot(BeNil())
 			Expect(firstVarScope.Parent).To(Equal(funcScope))
 			secondVarScope := MustSucceed(funcScope.Add(
@@ -149,7 +138,6 @@ var _ = Describe("Scope", func() {
 				symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.I32()},
 			))
 			Expect(secondVarScope.ID).To(Equal(1))
-			Expect(secondVarScope.Counter).To(BeNil())
 			Expect(secondVarScope.Parent).ToNot(BeNil())
 			Expect(secondVarScope.Parent).To(Equal(funcScope))
 		})

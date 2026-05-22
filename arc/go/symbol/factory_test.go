@@ -157,10 +157,9 @@ var _ = Describe("Factories", func() {
 			Expect(attachedB.Parent).To(BeIdenticalTo(rootB.Parent))
 		})
 
-		It("Should install the given dynamic resolver on the root", func(bCtx SpecContext) {
+		It("Should consult the given dynamic resolver on root.Resolve misses", func(bCtx SpecContext) {
 			resolver := &recordingResolver{}
 			root := symbol.NewRoot(resolver, nil)
-			Expect(root.GlobalResolver).To(Equal(resolver))
 			_, _ = root.Resolve(bCtx, "missing")
 			Expect(resolver.resolveCalls).To(Equal(1))
 		})
