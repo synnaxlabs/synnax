@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -26,7 +26,7 @@ export const RingPiston = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-RingPiston"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -57,16 +57,16 @@ export const RingPiston = ({
         id="3"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Base.Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
-      <Base.Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Circle cx="36.5" cy="17.5" r="10.5" strokeWidth="2" />
+      <Primitive.Circle cx="36.5" cy="21.5" r="6.5" strokeWidth="2" />
       <Label position={LABELS} color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

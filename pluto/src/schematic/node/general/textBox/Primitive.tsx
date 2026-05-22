@@ -14,7 +14,7 @@ import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
 import { Text } from "@/text";
 
@@ -23,7 +23,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   onChange?: (value: string) => void;
 }
 
-export const Primitive = ({
+export const TextBox = ({
   className,
   orientation = "left",
   width,
@@ -42,7 +42,7 @@ export const Primitive = ({
   else divStyle.width = autoFit ? "fit-content" : width;
 
   return (
-    <Base.Div
+    <Primitive.Div
       style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
@@ -61,6 +61,6 @@ export const Primitive = ({
         value={value ?? ""}
         onChange={onChange}
       />
-    </Base.Div>
+    </Primitive.Div>
   );
 };

@@ -16,7 +16,7 @@ import { Icon } from "@/icon";
 import { Note } from "@/note";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Symbol } from "@/schematic/symbol";
 import { Text } from "@/text";
 
@@ -55,7 +55,7 @@ export const Static = ({
     );
   const handles = spec?.handles ?? [];
   return (
-    <Base.Div
+    <Primitive.Div
       ref={setContainer}
       orientation={orientation}
       className={CSS(CSS.BM("symbol", "custom"), CSS.B("custom-static"), className)}
@@ -72,6 +72,6 @@ export const Static = ({
           />
         ))}
       </Handle.Boundary>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

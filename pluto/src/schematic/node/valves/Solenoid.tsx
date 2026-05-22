@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {
   normallyOpen?: boolean;
 }
 
@@ -75,18 +75,18 @@ export const Solenoid = ({
         id="5"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Path
+      <Primitive.Path
         className={CSS.B("body")}
         d="M43.5 48L6.35453 29.2035C4.35901 28.1937 2 29.6438 2 31.8803V64.1197C2 66.3562 4.35901 67.8063 6.35453 66.7965L43.5 48ZM43.5 48L80.6455 29.2035C82.641 28.1937 85 29.6438 85 31.8803V64.1197C85 66.3562 82.641 67.8063 80.6455 66.7965L43.5 48Z"
       />
-      <Base.Line x1={43.5} x2={43.5} y1={24.5333} y2={48} />
-      <Base.Rect x="29" y="2" width="29" height="22.5333" rx="1" />
-    </Base.SVG>
+      <Primitive.Line x1={43.5} x2={43.5} y1={24.5333} y2={48} />
+      <Primitive.Rect x="29" y="2" width="29" height="22.5333" rx="1" />
+    </Primitive.SVG>
   </Toggle.Button>
 );

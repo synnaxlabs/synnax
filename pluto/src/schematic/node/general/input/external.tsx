@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/input/config";
 import { InputForm } from "@/schematic/node/general/input/Form";
-import { Primitive } from "@/schematic/node/general/input/Primitive";
+import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -37,7 +37,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = ({ color }: Config): ReactElement => (
-  <Primitive
+  <Input
     initialValue="send message"
     color={color}
     disabled

@@ -12,9 +12,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 42 };
 
@@ -33,15 +33,15 @@ export const ButterflyTwo = ({
     enabled={enabled}
   >
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-      <Base.Rect x="2" y="2" width="83" height="38" rx="1" />
-      <Base.Path d="M2.29001 2.29004L84.7069 39.676" />
-    </Base.SVG>
+      <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
+      <Primitive.Rect x="2" y="2" width="83" height="38" rx="1" />
+      <Primitive.Path d="M2.29001 2.29004L84.7069 39.676" />
+    </Primitive.SVG>
   </Toggle.Button>
 );

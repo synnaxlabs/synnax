@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/select/config";
 import { SelectForm } from "@/schematic/node/general/select/Form";
-import { Primitive } from "@/schematic/node/general/select/Primitive";
+import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -39,7 +39,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = ({ color }: Config): ReactElement => (
-  <Primitive
+  <Select
     onChange={() => {}}
     options={[]}
     color={color}

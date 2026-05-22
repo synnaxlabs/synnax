@@ -13,7 +13,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/box/config";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Primitive as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({
   nodeKey,

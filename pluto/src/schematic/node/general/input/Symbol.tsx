@@ -13,7 +13,7 @@ import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/input/config";
-import { Primitive } from "@/schematic/node/general/input/Primitive";
+import { Input } from "@/schematic/node/general/input/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Input as InputTelem } from "@/vis/input";
 
@@ -28,7 +28,7 @@ export const Symbol = ({
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive onSend={set} {...rest} />
+      <Input onSend={set} {...rest} />
     </Grid.Grid>
   );
 };

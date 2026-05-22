@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 63, height: 69 };
 
@@ -24,21 +24,21 @@ export const FlameArrestorDetonation = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
     <Handle.Linear orientation={orientation} left={3.333} right={96.667} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2.5" width="28" height="64" rx="3" />
-      <Base.Path d="M16 2.5L16 66.5" />
-      <Base.Path d="M2 34.5H30" />
-      <Base.Path d="M2 19H30" />
-      <Base.Path d="M2 50H30" />
-      <Base.Path d="M29.121 3.37903L61 34.5" />
-      <Base.Path d="M29.12 65.62L61 34.5" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Rect x="2" y="2.5" width="28" height="64" rx="3" />
+      <Primitive.Path d="M16 2.5L16 66.5" />
+      <Primitive.Path d="M2 34.5H30" />
+      <Primitive.Path d="M2 19H30" />
+      <Primitive.Path d="M2 50H30" />
+      <Primitive.Path d="M29.121 3.37903L61 34.5" />
+      <Primitive.Path d="M29.12 65.62L61 34.5" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

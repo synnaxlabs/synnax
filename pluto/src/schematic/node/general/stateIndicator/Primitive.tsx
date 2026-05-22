@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -24,7 +24,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   matchedOptionKey?: string | null;
 }
 
-export const Primitive = ({
+export const StateIndicator = ({
   className,
   orientation = "left",
   matchedOptionKey,
@@ -45,7 +45,7 @@ export const Primitive = ({
       : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("state-indicator"), className)}
       style={{ borderColor, backgroundColor, minWidth: inlineSize }}
     >
@@ -61,6 +61,6 @@ export const Primitive = ({
           {label}
         </Text.Text>
       </div>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

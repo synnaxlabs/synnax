@@ -9,7 +9,7 @@
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -24,7 +24,7 @@ export const General = ({
   scale = 1,
   ...rest
 }: Props) => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-general"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-general"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}
@@ -32,14 +32,14 @@ export const General = ({
       right={98}
       bottom={91}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
       <Label position={LABELS} color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

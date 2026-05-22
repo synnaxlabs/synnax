@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 50, height: 33 };
 
@@ -30,14 +30,14 @@ export const RotaryMixer = ({
     orientation={orientation}
   >
     <Handle.Linear orientation={orientation} left={2} right={97.5} top={48.4849} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
-      <Base.Line
+      <Primitive.Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
+      <Primitive.Line
         x1="32"
         y1="16"
         x2="40"
@@ -45,7 +45,7 @@ export const RotaryMixer = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Base.Line
+      <Primitive.Line
         x1="32"
         y1="16"
         x2="28"
@@ -53,7 +53,7 @@ export const RotaryMixer = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Base.Line
+      <Primitive.Line
         x1="32"
         y1="16"
         x2="28"
@@ -61,6 +61,6 @@ export const RotaryMixer = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-    </Base.SVG>
+    </Primitive.SVG>
   </Toggle.Button>
 );

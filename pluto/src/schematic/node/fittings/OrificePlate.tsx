@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.SVGBasedProps, Base.DivProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
 
@@ -23,17 +23,17 @@ export const OrificePlate = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(CSS.B("orifice_plate"), className)} {...rest}>
+  <Primitive.Div className={CSS(CSS.B("orifice_plate"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={3.125} right={96.875} />
-    <Base.SVG
+    <Primitive.SVG
       color={color}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2.5" y="2" width="67" height="31" rx="2" />
-      <Base.Path d="M24.5 2V7.5V13" strokeLinecap="round" />
-      <Base.Path d="M24.5 33V22" strokeLinecap="round" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Rect x="2.5" y="2" width="67" height="31" rx="2" />
+      <Primitive.Path d="M24.5 2V7.5V13" strokeLinecap="round" />
+      <Primitive.Path d="M24.5 33V22" strokeLinecap="round" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

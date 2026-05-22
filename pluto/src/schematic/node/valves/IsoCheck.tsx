@@ -11,8 +11,8 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 84, height: 42 };
 
@@ -25,20 +25,20 @@ export const IsoCheck = ({
 }: Props): ReactElement => {
   const colorStr = color.cssString(colorVal);
   return (
-    <Base.Div {...rest} orientation={orientation}>
+    <Primitive.Div {...rest} orientation={orientation}>
       <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
-      <Base.SVG
+      <Primitive.SVG
         dimensions={DIMENSIONS}
         color={colorVal}
         orientation={orientation}
         scale={scale}
       >
-        <Base.Circle cx="7" cy="7" r="4" fill={colorStr} />
-        <Base.Path
+        <Primitive.Circle cx="7" cy="7" r="4" fill={colorStr} />
+        <Primitive.Path
           d="M7 39.5V11.5941C7 9.42886 9.22384 7.97669 11.2063 8.84738L76.7937 37.6526C78.7762 38.5233 81 37.0711 81 34.9059V6"
           strokeLinecap="round"
         />
-      </Base.SVG>
-    </Base.Div>
+      </Primitive.SVG>
+    </Primitive.Div>
   );
 };

@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -25,7 +25,7 @@ export const Nozzle = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Nozzle"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}
@@ -33,18 +33,18 @@ export const Nozzle = ({
       right={98}
       bottom={91}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Base.Path d="M24 2V7V12" strokeLinecap="round" />
-      <Base.Path d="M24 12H34" strokeLinecap="round" />
-      <Base.Path d="M24 23H29H34" strokeLinecap="round" />
-      <Base.Path d="M24 33V23" strokeLinecap="round" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Path d="M24 2V7V12" strokeLinecap="round" />
+      <Primitive.Path d="M24 12H34" strokeLinecap="round" />
+      <Primitive.Path d="M24 23H29H34" strokeLinecap="round" />
+      <Primitive.Path d="M24 33V23" strokeLinecap="round" />
       <Label color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

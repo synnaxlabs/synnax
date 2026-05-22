@@ -11,20 +11,20 @@ import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   onClick?: MouseEventHandler<HTMLElement>;
 }
 
-export const Primitive = ({
+export const Switch = ({
   enabled = false,
   onClick,
   orientation = "left",
 }: Props): ReactElement => (
-  <Base.Div orientation={orientation}>
+  <Primitive.Div orientation={orientation}>
     <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
     <Handle.Linear orientation={orientation} left={0} right={100} />
-  </Base.Div>
+  </Primitive.Div>
 );

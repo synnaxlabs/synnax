@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.SVGBasedProps, Base.DivProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 52, height: 34 };
 
@@ -23,15 +23,15 @@ export const Filter = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(CSS.B("filter"), className)} {...rest}>
+  <Primitive.Div className={CSS(CSS.B("filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={11.5385} right={88.4615} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Base.Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

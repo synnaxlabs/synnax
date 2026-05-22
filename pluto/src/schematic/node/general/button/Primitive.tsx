@@ -11,7 +11,7 @@ import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 
 interface RenderProps extends Omit<Config, "variant"> {
@@ -21,7 +21,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export const Primitive = ({
+export const Button = ({
   onClick,
   onMouseDown,
   onMouseUp,
@@ -32,7 +32,7 @@ export const Primitive = ({
   level,
   onClickDelay: delay,
 }: RenderProps): ReactElement => (
-  <Base.Div orientation={orientation}>
+  <Primitive.Div orientation={orientation}>
     <BaseButton.Button
       variant="filled"
       onClick={onClick}
@@ -52,5 +52,5 @@ export const Primitive = ({
       right={100}
       bottom={100}
     />
-  </Base.Div>
+  </Primitive.Div>
 );

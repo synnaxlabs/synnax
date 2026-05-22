@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Props as AgitatorProps } from "@/schematic/node/process/Agitator";
 export interface Props extends AgitatorProps {}
@@ -35,18 +35,18 @@ export const CrossBeamAgitator = ({
         id="4"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Line x1="43" y1="1" x2="43" y2="49" strokeLinecap="round" />
-      <Base.Line x1="3" y1="49" x2="83" y2="49" strokeLinecap="round" />
-      <Base.Line x1="3" y1="83" x2="83" y2="83" strokeLinecap="round" />
-      <Base.Line x1="43" y1="49" x2="43" y2="83" strokeLinecap="round" />
+      <Primitive.Line x1="43" y1="1" x2="43" y2="49" strokeLinecap="round" />
+      <Primitive.Line x1="3" y1="49" x2="83" y2="49" strokeLinecap="round" />
+      <Primitive.Line x1="3" y1="83" x2="83" y2="83" strokeLinecap="round" />
+      <Primitive.Line x1="43" y1="49" x2="43" y2="83" strokeLinecap="round" />
       {/* We need this rectangle here because so that when a user hovers above to click the agitator, the rectangle changes color */}
-      <Base.Rect x="3" y="49" width="80" height="34" strokeWidth={0} />
-    </Base.SVG>
+      <Primitive.Rect x="3" y="49" width="80" height="34" strokeWidth={0} />
+    </Primitive.SVG>
   </Toggle.Button>
 );

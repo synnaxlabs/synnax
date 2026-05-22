@@ -9,10 +9,10 @@
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/vessels/tJunction/config";
-import { Primitive } from "@/schematic/node/vessels/tJunction/Primitive";
+import { TJunction } from "@/schematic/node/vessels/tJunction/Primitive";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/vessels/tJunction/config";
@@ -21,15 +21,15 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   color: t.colors.gray.l11,
   label: Label.defaultConfig(""),
-  ...BasePrimitive.ZERO_PROPS,
+  ...Primitive.ZERO_PROPS,
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "T Junction",
   Form: Form.StyleForm,
-  Node: Label.createLabeled<Config>(Primitive),
-  Preview: Primitive,
+  Node: Label.createLabeled<Config>(TJunction),
+  Preview: TJunction,
   defaultConfig,
   zIndex: 24,
 };

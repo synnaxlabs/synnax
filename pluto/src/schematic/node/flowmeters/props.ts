@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive as Base } from "@/schematic/node/common/primitive";
+import { type Primitive } from "@/schematic/node/common/primitive";
 
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}

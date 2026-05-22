@@ -13,7 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/value/config";
-import { Primitive } from "@/schematic/node/general/value/Primitive";
+import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Text } from "@/text";
@@ -84,7 +84,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive
+      <Value
         color={color}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}

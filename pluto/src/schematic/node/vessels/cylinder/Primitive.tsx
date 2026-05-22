@@ -13,7 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
 import { Theming } from "@/theming";
 
@@ -22,7 +22,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   onResize?: (dimensions: dimensions.Dimensions) => void;
 }
 
-export const Primitive = ({
+export const Cylinder = ({
   className,
   dimensions = Border.DEFAULT_DIMENSIONS,
   borderRadius = Border.DEFAULT_RADIUS,
@@ -50,7 +50,10 @@ export const Primitive = ({
   const transform = `scale(${widthScale},${heightScale})`;
 
   return (
-    <Base.Div className={CSS(className, CSS.B("cylinder"))} style={{ ...dimensions }}>
+    <Primitive.Div
+      className={CSS(className, CSS.B("cylinder"))}
+      style={{ ...dimensions }}
+    >
       <svg
         width="100%"
         height="100%"
@@ -86,6 +89,6 @@ export const Primitive = ({
         <Handle.Handle location="left" orientation="left" left={4} top={80} id="7" />
         <Handle.Handle location="right" orientation="left" left={96} top={80} id="8" />
       </Handle.Boundary>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

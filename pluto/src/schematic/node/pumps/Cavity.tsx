@@ -11,10 +11,10 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 64 };
 
@@ -37,33 +37,33 @@ export const Cavity = ({
       right={96.875}
       bottom={96.875}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Circle cx="32" cy="32" r="30" />
-      <Base.Line
+      <Primitive.Circle cx="32" cy="32" r="30" />
+      <Primitive.Line
         x1="32"
         y1="2"
         x2="62"
         y2="32"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Base.Line
+      <Primitive.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Base.Path
+      <Primitive.Path
         d="M 17 26 C 17 20.6667 23 20.6667 23 26 C 23 31.3333 29 31.3333 29 26 C 29 20.6667 35 20.6667 35 26"
         strokeLinecap="round"
         transform="translate(6, 6)"
         className={CSS(CSS.M("detail"), className)}
       />
-    </Base.SVG>
+    </Primitive.SVG>
   </Toggle.Button>
 );

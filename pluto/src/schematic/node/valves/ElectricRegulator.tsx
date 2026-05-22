@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 69 };
 
@@ -23,7 +23,7 @@ export const ElectricRegulator = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(className, CSS.B("regulator"))} {...rest}>
+  <Primitive.Div className={CSS(className, CSS.B("regulator"))} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -61,16 +61,16 @@ export const ElectricRegulator = ({
         id="5"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Base.Path d="M43.5 49L6.35453 30.2035C4.35901 29.1937 2 30.6438 2 32.8803V65.1197C2 67.3562 4.35901 68.8063 6.35453 67.7965L43.5 49ZM43.5 49L80.6455 30.2035C82.641 29.1937 85 30.6438 85 32.8803V65.1197C85 67.3562 82.641 68.8063 80.6455 67.7965L43.5 49Z" />
-      <Base.Rect x="21" y="6.5" width="44" height="18" rx="2" />
-      <Base.Path d="M43 6.5V4C43 2.34315 44.3431 1 46 1H79C80.6569 1 82 2.34315 82 4V20.4281C82 21.4126 81.517 22.3344 80.7076 22.8947L43 49" />
-      <Base.Line x1="43" y1="49" x2="43" y2="24.5" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Path d="M43.5 49L6.35453 30.2035C4.35901 29.1937 2 30.6438 2 32.8803V65.1197C2 67.3562 4.35901 68.8063 6.35453 67.7965L43.5 49ZM43.5 49L80.6455 30.2035C82.641 29.1937 85 30.6438 85 32.8803V65.1197C85 67.3562 82.641 68.8063 80.6455 67.7965L43.5 49Z" />
+      <Primitive.Rect x="21" y="6.5" width="44" height="18" rx="2" />
+      <Primitive.Path d="M43 6.5V4C43 2.34315 44.3431 1 46 1H79C80.6569 1 82 2.34315 82 4V20.4281C82 21.4126 81.517 22.3344 80.7076 22.8947L43 49" />
+      <Primitive.Line x1="43" y1="49" x2="43" y2="24.5" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

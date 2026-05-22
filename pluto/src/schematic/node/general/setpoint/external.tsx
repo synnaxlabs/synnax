@@ -13,7 +13,7 @@ import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/setpoint/config";
 import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
-import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
+import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -43,7 +43,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = ({ ...rest }: Config): ReactElement => (
-  <Primitive
+  <Setpoint
     value={12}
     onChange={() => {}}
     units="mV"

@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.SVGBasedProps, Base.DivProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 60, height: 42 };
 
@@ -23,18 +23,18 @@ export const IsoFilter = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(CSS.B("iso-filter"), className)} {...rest}>
+  <Primitive.Div className={CSS(CSS.B("iso-filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={5} right={95} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="3" y="3" width="54" height="36" rx="3" ry="3" />
-      <Base.Line x1="30" y1="3" x2="30" y2="13" strokeLinecap="round" />
-      <Base.Line x1="30" y1="17" x2="30" y2="25" strokeLinecap="round" />
-      <Base.Line x1="30" y1="29" x2="30" y2="39" strokeLinecap="round" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Rect x="3" y="3" width="54" height="36" rx="3" ry="3" />
+      <Primitive.Line x1="30" y1="3" x2="30" y2="13" strokeLinecap="round" />
+      <Primitive.Line x1="30" y1="17" x2="30" y2="25" strokeLinecap="round" />
+      <Primitive.Line x1="30" y1="29" x2="30" y2="39" strokeLinecap="round" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

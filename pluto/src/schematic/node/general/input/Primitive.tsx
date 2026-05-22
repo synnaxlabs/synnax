@@ -15,7 +15,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
 
 interface PrimitiveProps extends Omit<Config, "variant"> {
@@ -24,7 +24,7 @@ interface PrimitiveProps extends Omit<Config, "variant"> {
   onSend?: (value: string) => void;
 }
 
-export const Primitive = ({
+export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
@@ -35,7 +35,7 @@ export const Primitive = ({
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
   return (
-    <Base.Div
+    <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("input-symbol"), className)}
     >
@@ -63,6 +63,6 @@ export const Primitive = ({
           Send
         </BaseButton.Button>
       </BaseInput.Text>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

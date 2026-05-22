@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 36, height: 72 };
 
@@ -24,7 +24,7 @@ export const IsoBurstDisc = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("symbol"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("symbol"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -34,17 +34,17 @@ export const IsoBurstDisc = ({
         id="1"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS} // Reduced to ~2/3 of original size (50x108)
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="4" y="4" width="28" height="64" rx="2" strokeWidth="2" />
-      <Base.Path
+      <Primitive.Rect x="4" y="4" width="28" height="64" rx="2" strokeWidth="2" />
+      <Primitive.Path
         d="M13 68V47C13 46.4477 13.4489 45.9892 13.9928 45.8933C16.1351 45.5152 21 43.7981 21 36C21 28.2019 16.1351 26.4848 13.9928 26.1068C13.4489 26.0108 13 25.5523 13 25V4"
         strokeWidth="2"
       />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

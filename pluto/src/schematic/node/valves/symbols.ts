@@ -17,7 +17,7 @@ import {
 } from "@/schematic/node/common/define";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/Angled";
@@ -182,7 +182,7 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
     color: t.colors.gray.l11,
     label: Label.defaultConfig("Solenoid Valve"),
     normallyOpen: false,
-    ...BasePrimitive.ZERO_PROPS,
+    ...Primitive.ZERO_PROPS,
     ...Toggle.ZERO_TOGGLE_DEFAULTS,
   }),
   zIndex: 4,

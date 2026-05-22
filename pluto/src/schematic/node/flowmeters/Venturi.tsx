@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -26,7 +26,7 @@ export const Venturi = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -57,18 +57,18 @@ export const Venturi = ({
         id="3"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Base.Path d="M8 33L26.5329 22.3" strokeLinecap="round" />
-      <Base.Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
-      <Base.Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
-      <Base.Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Path d="M8 33L26.5329 22.3" strokeLinecap="round" />
+      <Primitive.Path d="M8 2L26.5329 12.7" strokeLinecap="round" />
+      <Primitive.Path d="M56 33L26.5876 22.2948" strokeLinecap="round" />
+      <Primitive.Path d="M56 2L26.5876 12.7052" strokeLinecap="round" />
       <Label position={LABELS} color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

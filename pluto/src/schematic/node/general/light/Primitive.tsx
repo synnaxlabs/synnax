@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/light/config";
 
 interface RenderProps extends Omit<Config, "variant"> {
@@ -21,14 +21,14 @@ interface RenderProps extends Omit<Config, "variant"> {
 
 const DIMENSIONS = { width: 64, height: 64 };
 
-export const Primitive = ({
+export const Light = ({
   className,
   color,
   orientation = "left",
   enabled,
   scale,
 }: RenderProps): ReactElement => (
-  <Base.Div
+  <Primitive.Div
     orientation={orientation}
     className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
   >
@@ -39,13 +39,13 @@ export const Primitive = ({
       right={96.875}
       bottom={96.75}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Circle cx="32" cy="32" r="30" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Circle cx="32" cy="32" r="30" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

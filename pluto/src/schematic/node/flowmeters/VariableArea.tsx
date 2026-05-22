@@ -9,7 +9,7 @@
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -23,7 +23,7 @@ export const VariableArea = ({
   scale = 1,
   ...rest
 }: Props) => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-VariableArea"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}
@@ -31,18 +31,18 @@ export const VariableArea = ({
       right={98}
       bottom={91}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Base.Path d="M46 10V25" />
-      <Base.Path d="M23 13V22" />
-      <Base.Path d="M23 13L46 10" />
-      <Base.Path d="M23 22L46 25" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Path d="M46 10V25" />
+      <Primitive.Path d="M23 13V22" />
+      <Primitive.Path d="M23 13L46 10" />
+      <Primitive.Path d="M23 22L46 25" />
       <Label color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

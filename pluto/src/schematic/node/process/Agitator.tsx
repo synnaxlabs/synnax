@@ -11,9 +11,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 88, height: 86 };
 
@@ -33,14 +33,14 @@ export const Agitator = ({
         id="4"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Path d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44" />
-      <Base.Path d="M43 1L45 65" />
-    </Base.SVG>
+      <Primitive.Path d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44" />
+      <Primitive.Path d="M43 1L45 65" />
+    </Primitive.SVG>
   </Toggle.Button>
 );

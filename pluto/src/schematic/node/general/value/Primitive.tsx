@@ -14,7 +14,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -25,7 +25,7 @@ interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant"
   unitsLevel?: Text.Level;
 }
 
-export const Primitive = ({
+export const Value = ({
   className,
   color: colorVal,
   dimensions,
@@ -44,7 +44,7 @@ export const Primitive = ({
           color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
         );
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("value"), className)}
       style={{
         borderColor,
@@ -77,6 +77,6 @@ export const Primitive = ({
           {units}
         </Text.Text>
       </div>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

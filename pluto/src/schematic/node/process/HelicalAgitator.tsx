@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Props as AgitatorProps } from "@/schematic/node/process/Agitator";
 export interface Props extends AgitatorProps {}
@@ -35,17 +35,17 @@ export const HelicalAgitator = ({
         id="4"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Line x1={43} y1={1} x2={43} y2={60} strokeLinecap="round" />
-      <Base.Path
+      <Primitive.Line x1={43} y1={1} x2={43} y2={60} strokeLinecap="round" />
+      <Primitive.Path
         d="M5.375 36L70.8204 48.7138C74.0584 49.3428 74.0573 53.9765 70.8189 54.6039L14.7952 65.4584C11.5729 66.0827 11.5494 70.6856 14.7651 71.3429L81.5208 84.9873"
         strokeLinecap="round"
       />
-    </Base.SVG>
+    </Primitive.SVG>
   </Toggle.Button>
 );

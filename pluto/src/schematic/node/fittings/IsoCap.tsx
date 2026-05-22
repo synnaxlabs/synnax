@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.SVGBasedProps, Base.DivProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 36, height: 48 };
 
@@ -23,7 +23,7 @@ export const IsoCap = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(CSS.B("cap"), className)} {...rest}>
+  <Primitive.Div className={CSS(CSS.B("cap"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -33,16 +33,16 @@ export const IsoCap = ({
         id="1"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       color={color}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale * 0.6}
     >
-      <Base.Path
+      <Primitive.Path
         d="M3 3H30C31.6569 3 33 4.34315 33 6V42C33 43.6569 31.6569 45 30 45H3"
         strokeLinecap="round"
       />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

@@ -12,9 +12,9 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
+export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 42 };
 
@@ -33,15 +33,15 @@ export const ButterflyOne = ({
     enabled={enabled}
   >
     <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
-      <Base.Path d="M43.5 2V40" />
-      <Base.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-    </Base.SVG>
+      <Primitive.Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
+      <Primitive.Path d="M43.5 2V40" />
+      <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
+    </Primitive.SVG>
   </Toggle.Button>
 );

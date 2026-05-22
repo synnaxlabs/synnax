@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Label } from "@/schematic/node/flowmeters/Label";
 import { type Props } from "@/schematic/node/flowmeters/props";
 
@@ -25,7 +25,7 @@ export const FloatSensor = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("flowmeter-FloatSensor"), className)}>
     <Handle.Rectangle
       orientation={orientation}
       left={4}
@@ -33,18 +33,18 @@ export const FloatSensor = ({
       right={98}
       bottom={91}
     />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Base.Path d="M25 8H46" strokeLinecap="round" />
-      <Base.Path d="M31 27H40" strokeLinecap="round" />
-      <Base.Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
-      <Base.Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
+      <Primitive.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Primitive.Path d="M25 8H46" strokeLinecap="round" />
+      <Primitive.Path d="M31 27H40" strokeLinecap="round" />
+      <Primitive.Path d="M31 27L25.046 8.11641" strokeLinecap="round" />
+      <Primitive.Path d="M40 27L45.954 8.11641" strokeLinecap="round" />
       <Label color={color} />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

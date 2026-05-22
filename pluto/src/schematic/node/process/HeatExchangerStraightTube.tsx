@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 199, height: 48 };
 
@@ -24,7 +24,7 @@ export const HeatExchangerStraightTube = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("heat-exchanger-M"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("heat-exchanger-M"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="top"
@@ -69,15 +69,22 @@ export const HeatExchangerStraightTube = ({
         id="6"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="3" y="3" width="193" height="42" rx="1" strokeWidth="2" />
-      <Base.Rect x="32.397" y="3" width="134.206" height="42" rx="1" strokeWidth="2" />
-      <Base.Rect
+      <Primitive.Rect x="3" y="3" width="193" height="42" rx="1" strokeWidth="2" />
+      <Primitive.Rect
+        x="32.397"
+        y="3"
+        width="134.206"
+        height="42"
+        rx="1"
+        strokeWidth="2"
+      />
+      <Primitive.Rect
         x="32.397"
         y="13.5"
         width="134.206"
@@ -85,7 +92,7 @@ export const HeatExchangerStraightTube = ({
         rx="1"
         strokeWidth="2"
       />
-      <Base.Line x1="32.3769" y1="24" x2="166.623" y2="24" strokeWidth="2" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Line x1="32.3769" y1="24" x2="166.623" y2="24" strokeWidth="2" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

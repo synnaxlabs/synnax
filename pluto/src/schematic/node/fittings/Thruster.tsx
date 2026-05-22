@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 81, height: 42 };
 
@@ -23,7 +23,7 @@ export const Thruster = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("thruster"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("thruster"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle
         location="left"
@@ -54,18 +54,18 @@ export const Thruster = ({
         id="4"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2.5" y="2" width="38" height="38" rx="3" />
-      <Base.Path d="M78.5 37.5117V4.51172" />
-      <Base.Path d="M40.5 11.5L76.0072 2.6232" />
-      <Base.Path d="M40.5 30.5L76.0072 39.3768" />
-      <Base.Path d="M75.6192 2.71597C75.9231 2.56695 76.2597 2.49745 76.5977 2.51399C76.9357 2.53052 77.264 2.63256 77.5518 2.81053C77.8397 2.98851 78.0776 3.23661 78.2435 3.53161C78.4093 3.82661 78.4975 4.15886 78.4999 4.49726" />
-      <Base.Path d="M78.4994 37.5101C78.4914 37.8382 78.4028 38.1592 78.2414 38.445C78.0801 38.7307 77.8509 38.9723 77.574 39.1486C77.2972 39.3248 76.9813 39.4302 76.6541 39.4555C76.3269 39.4808 75.9986 39.4252 75.698 39.2936" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Rect x="2.5" y="2" width="38" height="38" rx="3" />
+      <Primitive.Path d="M78.5 37.5117V4.51172" />
+      <Primitive.Path d="M40.5 11.5L76.0072 2.6232" />
+      <Primitive.Path d="M40.5 30.5L76.0072 39.3768" />
+      <Primitive.Path d="M75.6192 2.71597C75.9231 2.56695 76.2597 2.49745 76.5977 2.51399C76.9357 2.53052 77.264 2.63256 77.5518 2.81053C77.8397 2.98851 78.0776 3.23661 78.2435 3.53161C78.4093 3.82661 78.4975 4.15886 78.4999 4.49726" />
+      <Primitive.Path d="M78.4994 37.5101C78.4914 37.8382 78.4028 38.1592 78.2414 38.445C78.0801 38.7307 77.8509 38.9723 77.574 39.1486C77.2972 39.3248 76.9813 39.4302 76.6541 39.4555C76.3269 39.4808 75.9986 39.4252 75.698 39.2936" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

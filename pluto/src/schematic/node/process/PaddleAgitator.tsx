@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Props as AgitatorProps } from "@/schematic/node/process/Agitator";
 export interface Props extends AgitatorProps {}
@@ -35,15 +35,15 @@ export const PaddleAgitator = ({
         id="4"
       />
     </Handle.Boundary>
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Line x1="43" y1="1" x2="43" y2="49" />
-      <Base.Rect x="3" y="49" width="80" height="34" rx="3" />
-      <Base.Line
+      <Primitive.Line x1="43" y1="1" x2="43" y2="49" />
+      <Primitive.Rect x="3" y="49" width="80" height="34" rx="3" />
+      <Primitive.Line
         x1="3.8"
         y1="82.1"
         x2="43"
@@ -51,7 +51,7 @@ export const PaddleAgitator = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-      <Base.Line
+      <Primitive.Line
         x1="43"
         y1="49"
         x2="43"
@@ -59,7 +59,7 @@ export const PaddleAgitator = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-      <Base.Line
+      <Primitive.Line
         x1="43"
         y1="83"
         x2="82.2"
@@ -67,6 +67,6 @@ export const PaddleAgitator = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-    </Base.SVG>
+    </Primitive.SVG>
   </Toggle.Button>
 );

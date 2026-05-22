@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.SVGBasedProps, Base.DivProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 22, height: 32 };
 
@@ -23,18 +23,18 @@ export const Vent = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div className={CSS(CSS.B("vent"), className)} {...rest}>
+  <Primitive.Div className={CSS(CSS.B("vent"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={22.7273} right={80} />
-    <Base.SVG
+    <Primitive.SVG
       color={color}
       dimensions={DIMENSIONS}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Path
+      <Primitive.Path
         d="M5 3L16.6325 13.8016C17.9107 14.9885 17.9107 17.0115 16.6325 18.1984L5 29"
         strokeLinecap="round"
       />
-    </Base.SVG>
-  </Base.Div>
+    </Primitive.SVG>
+  </Primitive.Div>
 );

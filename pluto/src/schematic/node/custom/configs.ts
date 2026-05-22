@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { Actuator } from "@/schematic/node/custom/Actuator";
 import { Static } from "@/schematic/node/custom/Static";
@@ -43,7 +43,7 @@ export const customActuatorSpec: Spec<
     variant: CUSTOM_ACTUATOR_VARIANT,
     specKey: "",
     stateOverrides: [],
-    ...BasePrimitive.ZERO_PROPS,
+    ...Primitive.ZERO_PROPS,
     ...Toggle.ZERO_TOGGLE_DEFAULTS,
     label: Label.defaultConfig("Custom Actuator"),
   }),
@@ -72,7 +72,7 @@ export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticCo
       variant: CUSTOM_STATIC_VARIANT,
       specKey: "",
       stateOverrides: [],
-      ...BasePrimitive.ZERO_PROPS,
+      ...Primitive.ZERO_PROPS,
       label: Label.defaultConfig("Custom Static"),
     }),
     zIndex: 4,

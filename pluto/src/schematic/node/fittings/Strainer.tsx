@@ -11,8 +11,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
-export interface Props extends Base.DivProps, Base.SVGBasedProps {}
+import { Primitive } from "@/schematic/node/common/primitive";
+export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 33, height: 69 };
 
@@ -23,16 +23,16 @@ export const Strainer = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Base.Div {...rest} className={CSS(CSS.B("strainer"), className)}>
+  <Primitive.Div {...rest} className={CSS(CSS.B("strainer"), className)}>
     <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
-    <Base.SVG
+    <Primitive.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Base.Rect x="2" y="2" width="29" height="65" rx="1" />
-      <Base.Path d="M2.293 2.29297L29.9383 66.7986" strokeDasharray="6 6" />
-    </Base.SVG>
-  </Base.Div>
+      <Primitive.Rect x="2" y="2" width="29" height="65" rx="1" />
+      <Primitive.Path d="M2.293 2.29297L29.9383 66.7986" strokeDasharray="6 6" />
+    </Primitive.SVG>
+  </Primitive.Div>
 );

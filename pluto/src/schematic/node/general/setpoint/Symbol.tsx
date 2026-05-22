@@ -13,9 +13,9 @@ import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/setpoint/config";
-import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
+import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Setpoint } from "@/vis/setpoint";
+import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 
 export const Symbol = ({
   nodeKey,
@@ -33,12 +33,12 @@ export const Symbol = ({
     disabled,
   },
 }: NodeProps<Config>): ReactElement => {
-  const { value, set } = Setpoint.use({ aetherKey: nodeKey, source, sink });
+  const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, source, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive
+      <Setpoint
         value={value}
         onChange={set}
         units={units}
