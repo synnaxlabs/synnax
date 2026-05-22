@@ -16,11 +16,16 @@ package stratifier
 
 import (
 	"context"
+	"strings"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
+
+// inlineRoutingSynthPrefix must match analyzer/sequence.SynthInlinePrefix; the
+// stratifier uses it to identify synth scopes for a custom ordering rule.
+const inlineRoutingSynthPrefix = "__inline_"
 
 // Stratify walks the Scope tree rooted at prog.Root and assigns strata to
 // every parallel scope in depth-first order. Any pre-existing strata layout
@@ -113,6 +118,11 @@ func stratifyParallel(
 		}
 		for i, m := range members {
 			if m.Scope == nil || m.Scope.Activation == nil {
+				continue
+			}
+			// Inline synths must walk before their activator so cross-scope
+			// transitions see fresh marks; skip the implicit dep.
+			if strings.HasPrefix(m.Scope.Key, inlineRoutingSynthPrefix) {
 				continue
 			}
 			src, ok := ownership[m.Scope.Activation.Node]

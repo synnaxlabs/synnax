@@ -84,6 +84,18 @@ func (f *seqFrame) nextMember() string {
 type shellBuilder struct {
 	stack       []*seqFrame
 	activations map[string]ir.Handle
+	rootInlines []rootInline
+	// inlineBodyBases records the stack length at the entry of each enclosing
+	// inline routing case body; `next` is rejected if no frame was pushed since.
+	inlineBodyBases []int
+}
+
+// rootInline is an inline routing case body whose IR was lowered while an
+// enclosing sequence frame was live and is queued for emission at root level.
+type rootInline struct {
+	scope ir.Scope
+	nodes []ir.Node
+	edges []ir.Edge
 }
 
 func newShellBuilder() *shellBuilder {
@@ -111,6 +123,23 @@ func (s *shellBuilder) top() *seqFrame {
 		return nil
 	}
 	return s.stack[len(s.stack)-1]
+}
+
+// inlineBoundaryBlocksNext returns true inside an inline stage body (no own
+// frame) or at the last step of an inline sequence body (no further step).
+func (s *shellBuilder) inlineBoundaryBlocksNext() bool {
+	n := len(s.inlineBodyBases)
+	if n == 0 {
+		return false
+	}
+	base := s.inlineBodyBases[n-1]
+	if len(s.stack) == base {
+		return true
+	}
+	if len(s.stack) == base+1 && s.stack[len(s.stack)-1].nextMember() == "" {
+		return true
+	}
+	return false
 }
 
 // addTransition appends a transition to the innermost sequence frame. Panics
@@ -167,7 +196,7 @@ func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionInte
 		s.addTransitionTo(frame, ir.Transition{On: on, TargetKey: new(intent.memberKey)})
 	case intent.activateKey != "":
 		s.registerActivation(intent.activateKey, on)
-		if s.top() != nil {
+		if s.top() != nil && !intent.suppressExit {
 			s.addTransition(ir.Transition{On: on})
 		}
 	}
@@ -214,6 +243,9 @@ type transitionIntent struct {
 	// should be set to the firing handle. Combined with an exit transition
 	// when the intent is consumed inside a sequence.
 	activateKey string
+	// suppressExit skips the activateKey exit transition so the enclosing
+	// sequence keeps running instead of deactivating.
+	suppressExit bool
 }
 
 // flowNodeResult is what analyzeFlowNode returns: either an actual IR node
@@ -435,6 +467,11 @@ func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
+	if shell.inlineBoundaryBlocksNext() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"'next' is not valid inside an inline routing case body"))
+		return flowNodeResult{}, false
+	}
 	frame := shell.top()
 	if frame == nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"))
@@ -714,6 +751,19 @@ func Analyze(
 		}
 	}
 
+	// Emit each lowered inline body as a Root.Strata[0] member, walked first
+	// so enclosing-frame transitions see fresh marks in the same cycle.
+	if len(shell.rootInlines) > 0 {
+		synthMembers := make(ir.Members, 0, len(shell.rootInlines))
+		for idx := range shell.rootInlines {
+			ri := &shell.rootInlines[idx]
+			synthMembers = append(synthMembers, ir.Member{Scope: &ri.scope})
+			i.Nodes = append(i.Nodes, ri.nodes...)
+			i.Edges = append(i.Edges, ri.edges...)
+		}
+		rootMembers = append(synthMembers, rootMembers...)
+	}
+
 	if len(rootMembers) > 0 {
 		i.Root.Strata = []ir.Members{rootMembers}
 	}
@@ -954,6 +1004,9 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	p.nodes = append(p.nodes, newNodes...)
 	p.edges = append(p.edges, newEdges...)
 	p.prevNode = nil
+	// Routing entries dispatch via their own transitions/activations; suppress
+	// the enclosing sequence's auto-advance so it does not double-fire.
+	p.transitionEmitted = true
 	return true
 }
 
@@ -1085,6 +1138,67 @@ func extractConfigValues(
 	return config, true
 }
 
+// inlineRoutingAST returns the inline stage/sequence parse tree for an entry,
+// or nil if the entry is the regular flow-chain form.
+func inlineRoutingAST(entry parser.IRoutingEntryContext) antlr.ParserRuleContext {
+	if s := entry.StageDeclaration(); s != nil {
+		return s
+	}
+	if s := entry.SequenceDeclaration(); s != nil {
+		return s
+	}
+	return nil
+}
+
+// findSynthInlineByAST returns the synth scope whose AST is ast, or nil.
+func findSynthInlineByAST(root *symbol.Symbol, ast antlr.ParserRuleContext) *symbol.Symbol {
+	for _, child := range root.Children() {
+		if child.AST == ast {
+			return child
+		}
+		if found := findSynthInlineByAST(child, ast); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// processInlineBody lowers an inline routing case body to IR with the current
+// shell stack live, then queues the result for emission as a root-level scope.
+func processInlineBody(
+	ctx acontext.Context[parser.IRoutingTableContext],
+	synth *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) bool {
+	shell.inlineBodyBases = append(shell.inlineBodyBases, len(shell.stack))
+	defer func() {
+		shell.inlineBodyBases = shell.inlineBodyBases[:len(shell.inlineBodyBases)-1]
+	}()
+	var (
+		scope ir.Scope
+		nodes []ir.Node
+		edges []ir.Edge
+		ok    bool
+	)
+	switch decl := synth.AST.(type) {
+	case parser.IStageDeclarationContext:
+		scope, nodes, edges, ok = analyzeTopLevelStage(
+			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell)
+	case parser.ISequenceDeclarationContext:
+		scope, nodes, edges, ok = analyzeSequence(
+			acontext.Child(ctx, decl).WithScope(synth.Parent), kg, shell)
+	}
+	if !ok {
+		return false
+	}
+	scope.Liveness = ir.LivenessGated
+	shell.rootInlines = append(shell.rootInlines, rootInline{
+		scope: scope, nodes: nodes, edges: edges,
+	})
+	return true
+}
+
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
@@ -1106,6 +1220,19 @@ func analyzeOutputRoutingTable(
 				outputName,
 			))
 			return nil, nil, false
+		}
+
+		if inlineAST := inlineRoutingAST(entry); inlineAST != nil {
+			synth := findSynthInlineByAST(ctx.Scope.Root(), inlineAST)
+			sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
+			shell.applyTransitionIntent(sourceOutput, transitionIntent{
+				activateKey:  synth.Name,
+				suppressExit: true,
+			})
+			if !processInlineBody(ctx, synth, kg, shell) {
+				return nil, nil, false
+			}
+			continue
 		}
 
 		flowNodes := entry.AllFlowNode()

@@ -175,8 +175,14 @@ routingTable
     : LBRACE routingEntry (COMMA routingEntry)* COMMA? RBRACE
     ;
 
+// Case body can be: an inline (anonymous) stage, an inline (anonymous) sequence,
+// or a chain of flow nodes. Inline stages/sequences are disambiguated at parse
+// time by the STAGE/SEQUENCE keywords; the analyzer rejects any provided name
+// to keep them strictly anonymous and one-shot.
 routingEntry
-    : IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
+    : IDENTIFIER COLON stageDeclaration
+    | IDENTIFIER COLON sequenceDeclaration
+    | IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
     ;
 
 flowNode
