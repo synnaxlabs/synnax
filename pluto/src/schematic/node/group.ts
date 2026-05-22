@@ -10,14 +10,14 @@
 import { type group } from "@synnaxlabs/client";
 
 import { type Icon } from "@/icon";
-import { GROUP as fittings } from "@/schematic/node/fittings/group";
+import { GROUP as fittings } from "@/schematic/node/fittings";
 import { GROUP as general } from "@/schematic/node/general/group";
-import { GROUP as meters } from "@/schematic/node/meters/group";
-import { GROUP as process } from "@/schematic/node/process/group";
-import { GROUP as pumps } from "@/schematic/node/pumps/group";
+import { GROUP as meters } from "@/schematic/node/meters";
+import { GROUP as process } from "@/schematic/node/process";
+import { GROUP as pumps } from "@/schematic/node/pumps";
 import { type Variant } from "@/schematic/node/registry";
-import { GROUP as safety } from "@/schematic/node/safety/group";
-import { GROUP as valves } from "@/schematic/node/valves/group";
+import { GROUP as safety } from "@/schematic/node/safety";
+import { GROUP as valves } from "@/schematic/node/valves";
 import { GROUP as vessels } from "@/schematic/node/vessels/group";
 
 export interface Group extends group.Group {
