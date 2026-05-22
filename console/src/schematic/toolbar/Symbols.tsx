@@ -263,7 +263,7 @@ const RemoteListEmptyContent = ({
   return (
     <EmptyAction
       message="No symbols found."
-      action="Create Symbol"
+      action="Create symbol"
       onClick={createSymbol}
     />
   );
