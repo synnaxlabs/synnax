@@ -42,7 +42,28 @@ const MinTolerance = 5 * telem.Millisecond
 const unsetBaseInterval = telem.TimeSpanMax
 
 var (
-	intervalSymbol = symbol.Symbol{
+	intervalDoc = doc.New(
+		doc.Paragraph("Fires repeatedly at a specified period."),
+		doc.Divider(),
+		doc.Code("arc", "time.interval{period=1s} -> tick"),
+	)
+	waitDoc = doc.New(
+		doc.Paragraph("Fires once after a specified duration."),
+		doc.Divider(),
+		doc.Code("arc", "time.wait{duration=500ms} -> done"),
+	)
+	nowDoc = doc.New(
+		doc.Paragraph("Returns the current timestamp."),
+		doc.Divider(),
+		doc.Code("arc", "t := time.now()"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
+	)
+)
+
+func newIntervalSymbol() symbol.Symbol {
+	return symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -50,13 +71,12 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-		Doc: doc.New(
-			doc.Paragraph("Fires repeatedly at a specified period."),
-			doc.Divider(),
-			doc.Code("arc", "time.interval{period=1s} -> tick"),
-		),
+		Doc: intervalDoc,
 	}
-	waitSymbol = symbol.Symbol{
+}
+
+func newWaitSymbol() symbol.Symbol {
+	return symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -64,48 +84,36 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-		Doc: doc.New(
-			doc.Paragraph("Fires once after a specified duration."),
-			doc.Divider(),
-			doc.Code("arc", "time.wait{duration=500ms} -> done"),
-		),
+		Doc: waitDoc,
 	}
-	nowSymbol = symbol.Symbol{
+}
+
+func newNowSymbol() symbol.Symbol {
+	return symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-		Doc: doc.New(
-			doc.Paragraph("Returns the current timestamp."),
-			doc.Divider(),
-			doc.Code("arc", "t := time.now()"),
-		),
+		Doc: nowDoc,
 	}
-)
+}
 
-// module is the time module, built once at package init. Its children are
-// the canonical time.<name> functions and serve as Deprecated targets for
-// the bare globals below.
-var module = symbol.NewModule(
-	name,
-	doc.New(
-		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
-	),
-	intervalSymbol,
-	waitSymbol,
-	nowSymbol,
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the time module plus the deprecated bare aliases (interval,
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the time module plus the deprecated bare aliases (interval,
 // wait, now) whose Deprecated fields point at the canonical members.
-var Symbols = []*symbol.Symbol{
-	module,
-	intervalSymbol.Deprecate(module.FindChild(intervalSymbolName)),
-	waitSymbol.Deprecate(module.FindChild(waitSymbolName)),
-	nowSymbol.Deprecate(module.FindChild(nowSymbolName)),
+func NewSymbols() []*symbol.Symbol {
+	interval := newIntervalSymbol()
+	wait := newWaitSymbol()
+	now := newNowSymbol()
+	mod := symbol.NewModule(name, moduleDoc, interval, wait, now)
+	return []*symbol.Symbol{
+		mod,
+		interval.Deprecate(mod.FindChild(intervalSymbolName)),
+		wait.Deprecate(mod.FindChild(waitSymbolName)),
+		now.Deprecate(mod.FindChild(nowSymbolName)),
+	}
 }
 
 // Host is the runtime host-side support for the time module: it registers

@@ -119,7 +119,7 @@ var _ = Describe("Factories", func() {
 		})
 
 		It("Should return the bare name for a top-level symbol", func(bCtx SpecContext) {
-			rootScope := symbol.NewRoot(nil)
+			rootScope := symbol.NewRoot(nil, nil)
 			sym := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -128,7 +128,7 @@ var _ = Describe("Factories", func() {
 		})
 
 		It("Should return the bare name when the parent is not a module", func(bCtx SpecContext) {
-			rootScope := symbol.NewRoot(nil)
+			rootScope := symbol.NewRoot(nil, nil)
 			funcScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "f", Kind: symbol.KindFunction},
@@ -157,7 +157,7 @@ var _ = Describe("Factories", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(timeMod)
 			ambient.AddChild(mathMod)
-			root := symbol.NewRoot(nil)
+			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
@@ -181,7 +181,7 @@ var _ = Describe("Factories", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
 			ambient.AddChild(symbol.NewModule("time", doc.Doc{}))
-			root := symbol.NewRoot(nil)
+			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
@@ -194,7 +194,7 @@ var _ = Describe("Factories", func() {
 	Describe("NewRoot", func() {
 		It("Should attach ambient globals as siblings of the root", func() {
 			channel := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			root := symbol.NewRoot(nil, channel)
+			root := symbol.NewRoot(nil, []*symbol.Symbol{channel})
 			Expect(root.Parent).ToNot(BeNil())
 			Expect(root.Parent.Kind).To(Equal(symbol.KindAmbient))
 			Expect(root.Parent.FindChild("sensor")).ToNot(BeNil())
@@ -202,7 +202,7 @@ var _ = Describe("Factories", func() {
 
 		It("Should shallow-copy each ambient global so callers can reuse them across roots", func() {
 			original := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			root := symbol.NewRoot(nil, original)
+			root := symbol.NewRoot(nil, []*symbol.Symbol{original})
 			attached := root.Parent.FindChild("sensor")
 			Expect(attached.Parent).To(Equal(root.Parent))
 			Expect(original.Parent).To(BeNil())
@@ -210,8 +210,8 @@ var _ = Describe("Factories", func() {
 
 		It("Should isolate Parent assignment between concurrent roots", func() {
 			shared := &symbol.Symbol{Name: "shared", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			rootA := symbol.NewRoot(nil, shared)
-			rootB := symbol.NewRoot(nil, shared)
+			rootA := symbol.NewRoot(nil, []*symbol.Symbol{shared})
+			rootB := symbol.NewRoot(nil, []*symbol.Symbol{shared})
 			attachedA := rootA.Parent.FindChild("shared")
 			attachedB := rootB.Parent.FindChild("shared")
 			Expect(attachedA).ToNot(BeIdenticalTo(attachedB))
@@ -221,7 +221,7 @@ var _ = Describe("Factories", func() {
 
 		It("Should install the given dynamic resolver on the root", func(bCtx SpecContext) {
 			resolver := &recordingResolver{}
-			root := symbol.NewRoot(resolver)
+			root := symbol.NewRoot(resolver, nil)
 			Expect(root.GlobalResolver).To(Equal(resolver))
 			_, _ = root.Resolve(bCtx, "missing")
 			Expect(resolver.resolveCalls).To(Equal(1))

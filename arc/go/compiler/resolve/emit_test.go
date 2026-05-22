@@ -23,8 +23,8 @@ import (
 // root so qualified lookups like "string.from_i32" resolve through the
 // same scope-tree walk the real compiler uses.
 func stringScope() *symbol.Symbol {
-	root := symbol.NewRoot(nil)
-	for _, s := range stlstrings.Symbols {
+	root := symbol.NewRoot(nil, nil)
+	for _, s := range stlstrings.NewSymbols() {
 		root.AddChild(s)
 	}
 	return root

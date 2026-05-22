@@ -71,53 +71,31 @@ const (
 	notSymbolName = "not"
 )
 
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude. Operators are root-level (no module) — they install directly at
-// the root scope so lowering passes can emit calls without imports.
-var Symbols = []*symbol.Symbol{
-	comparison(geSymbolName, doc.New(
-		doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"),
-	)),
-	comparison(gtSymbolName, doc.New(
-		doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "gt(a, b)  // equivalent to: a > b"),
-	)),
-	comparison(leSymbolName, doc.New(
-		doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "le(a, b)  // equivalent to: a <= b"),
-	)),
-	comparison(ltSymbolName, doc.New(
-		doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "lt(a, b)  // equivalent to: a < b"),
-	)),
-	comparison(eqSymbolName, doc.New(
-		doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "eq(a, b)  // equivalent to: a == b"),
-	)),
-	comparison(neSymbolName, doc.New(
-		doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "ne(a, b)  // equivalent to: a != b"),
-	)),
-	logical(andSymbolName, doc.New(
-		doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "and(a, b)  // equivalent to: a && b"),
-	)),
-	logical(orSymbolName, doc.New(
-		doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "or(a, b)  // equivalent to: a || b"),
-	)),
-	not(notSymbolName, doc.New(
-		doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."),
-		doc.Divider(),
-		doc.Code("arc", "not(a)  // equivalent to: !a"),
-	)),
+var (
+	geDoc  = doc.New(doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"))
+	gtDoc  = doc.New(doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "gt(a, b)  // equivalent to: a > b"))
+	leDoc  = doc.New(doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "le(a, b)  // equivalent to: a <= b"))
+	ltDoc  = doc.New(doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "lt(a, b)  // equivalent to: a < b"))
+	eqDoc  = doc.New(doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "eq(a, b)  // equivalent to: a == b"))
+	neDoc  = doc.New(doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ne(a, b)  // equivalent to: a != b"))
+	andDoc = doc.New(doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "and(a, b)  // equivalent to: a && b"))
+	orDoc  = doc.New(doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "or(a, b)  // equivalent to: a || b"))
+	notDoc = doc.New(doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."), doc.Divider(), doc.Code("arc", "not(a)  // equivalent to: !a"))
+)
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes. Operators are root-level (no module) — they install directly
+// at the root scope so lowering passes can emit calls without imports.
+func NewSymbols() []*symbol.Symbol {
+	return []*symbol.Symbol{
+		comparison(geSymbolName, geDoc),
+		comparison(gtSymbolName, gtDoc),
+		comparison(leSymbolName, leDoc),
+		comparison(ltSymbolName, ltDoc),
+		comparison(eqSymbolName, eqDoc),
+		comparison(neSymbolName, neDoc),
+		logical(andSymbolName, andDoc),
+		logical(orSymbolName, orDoc),
+		not(notSymbolName, notDoc),
+	}
 }

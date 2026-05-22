@@ -378,7 +378,7 @@ var _ = Describe("StableFor", func() {
 
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, stable.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, stable.NewSymbols()) })
 		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
 			sym := MustSucceed(root.Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))

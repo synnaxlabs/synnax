@@ -37,71 +37,72 @@ func formatHostFunc(t types.Type) symbol.Symbol {
 	)
 }
 
-var module = symbol.NewModule(
-	Name,
-	doc.Doc{},
-	symbol.InternalHostFunc(
-		"from_literal",
-		types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-		types.Params{{Name: "handle", Type: types.I32()}},
-	),
-	symbol.InternalHostFunc(
-		"concat",
-		types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"equal",
-		types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-	),
-	symbol.InternalHostFunc(
-		"len",
-		types.Params{{Name: "handle", Type: types.String()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-	),
-	symbol.InternalHostFunc(
-		"from_i32",
-		types.Params{{Name: "value", Type: types.I32()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"from_u32",
-		types.Params{{Name: "value", Type: types.U32()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"from_i64",
-		types.Params{{Name: "value", Type: types.I64()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"from_u64",
-		types.Params{{Name: "value", Type: types.U64()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"from_f32",
-		types.Params{{Name: "value", Type: types.F32()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	symbol.InternalHostFunc(
-		"from_f64",
-		types.Params{{Name: "value", Type: types.F64()}},
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-	),
-	formatHostFunc(types.I32()),
-	formatHostFunc(types.U32()),
-	formatHostFunc(types.I64()),
-	formatHostFunc(types.U64()),
-	formatHostFunc(types.F32()),
-	formatHostFunc(types.F64()),
-	formatHostFunc(types.String()),
-).MarkInternal()
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude. Strings contributes only its module (no bare globals).
-var Symbols = []*symbol.Symbol{module}
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes. Strings contributes only its module (no bare globals).
+func NewSymbols() []*symbol.Symbol {
+	mod := symbol.NewModule(
+		Name,
+		doc.Doc{},
+		symbol.InternalHostFunc(
+			"from_literal",
+			types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+			types.Params{{Name: "handle", Type: types.I32()}},
+		),
+		symbol.InternalHostFunc(
+			"concat",
+			types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"equal",
+			types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+		),
+		symbol.InternalHostFunc(
+			"len",
+			types.Params{{Name: "handle", Type: types.String()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+		),
+		symbol.InternalHostFunc(
+			"from_i32",
+			types.Params{{Name: "value", Type: types.I32()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"from_u32",
+			types.Params{{Name: "value", Type: types.U32()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"from_i64",
+			types.Params{{Name: "value", Type: types.I64()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"from_u64",
+			types.Params{{Name: "value", Type: types.U64()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"from_f32",
+			types.Params{{Name: "value", Type: types.F32()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		symbol.InternalHostFunc(
+			"from_f64",
+			types.Params{{Name: "value", Type: types.F64()}},
+			types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		),
+		formatHostFunc(types.I32()),
+		formatHostFunc(types.U32()),
+		formatHostFunc(types.I64()),
+		formatHostFunc(types.U64()),
+		formatHostFunc(types.F32()),
+		formatHostFunc(types.F64()),
+		formatHostFunc(types.String()),
+	).MarkInternal()
+	return []*symbol.Symbol{mod}
+}
 
 func registerFrom[T any](
 	builder wazero.HostModuleBuilder,

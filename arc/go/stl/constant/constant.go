@@ -24,7 +24,10 @@ var (
 	symName    = "constant"
 	constraint = types.NumericConstraint()
 	typeVar    = types.Variable("T", &constraint)
-	sym        = symbol.Symbol{
+)
+
+func newSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name:     symName,
 		Kind:     symbol.KindFunction,
 		Exec:     symbol.ExecFlow,
@@ -34,13 +37,13 @@ var (
 			Config:  types.Params{{Name: "value", Type: typeVar}},
 		}),
 	}
-)
+}
 
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the `constant` builtin installed at root scope. The symbol is
-// Internal — it is emitted by graph-mode lowering of literal flow nodes,
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the `constant` builtin installed at root scope. The symbol
+// is Internal — it is emitted by graph-mode lowering of literal flow nodes,
 // not called directly from user source.
-var Symbols = []*symbol.Symbol{&sym}
+func NewSymbols() []*symbol.Symbol { return []*symbol.Symbol{newSymbol()} }
 
 // Host is the runtime host-side support for the constant builtin: a node
 // factory only. No WASM bindings, no per-program state.

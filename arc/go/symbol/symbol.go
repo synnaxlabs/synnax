@@ -227,14 +227,11 @@ type Symbol struct {
 // where STL symbols, test channels, and custom modules belong.
 //
 // Each ambient global is shallow-copied before being attached so the
-// per-root Parent assignment does not mutate the caller's symbol. STL
-// packages expose their modules as package-level singletons, and
-// concurrent NewRoot calls (e.g. an LSP server analyzing two documents
-// at once) would otherwise race on those shared Parent fields. Module
-// children stay shared across roots — they are read-only after
-// construction and the seal at KindModule means Parent-walks inside a
-// module never observe the per-root Parent of the wrapper.
-func NewRoot(dynamicResolver Resolver, ambientGlobals ...*Symbol) *Symbol {
+// per-root Parent assignment does not mutate the caller's symbol. This
+// matters when a caller reuses the same slice across multiple roots:
+// without the copy, the second NewRoot call would re-parent symbols
+// away from the first root's ambient.
+func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,

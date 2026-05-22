@@ -260,7 +260,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -2210,7 +2210,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)

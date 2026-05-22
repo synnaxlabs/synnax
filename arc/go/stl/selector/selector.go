@@ -40,8 +40,16 @@ const (
 )
 
 var (
-	symbolName   = "select"
-	symbolSelect = symbol.Symbol{
+	symbolName = "select"
+	symbolDoc  = doc.New(
+		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Divider(),
+		doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	)
+)
+
+func newSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -54,17 +62,13 @@ var (
 				{Name: FalseOutputParam, Type: types.U8()},
 			},
 		}),
-		Doc: doc.New(
-			doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
-			doc.Divider(),
-			doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
-		),
+		Doc: symbolDoc,
 	}
-)
+}
 
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the `select` builtin installed at root scope.
-var Symbols = []*symbol.Symbol{&symbolSelect}
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the `select` builtin installed at root scope.
+func NewSymbols() []*symbol.Symbol { return []*symbol.Symbol{newSymbol()} }
 
 // Host is the runtime host-side support for `select`: a node factory only.
 // No WASM bindings, no per-program state.
