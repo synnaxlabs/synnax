@@ -112,7 +112,7 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority{}"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority"))
 		})
 
 		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
@@ -177,22 +177,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.for"))
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
-		})
-
-		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
-			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 17},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### status.set"))
-			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
@@ -788,16 +772,16 @@ func add(a i32, b i32) i32 {
 			Expect(foundInput).To(BeTrue())
 		})
 
-		It("should tokenize sequence names as sequence type", func(ctx SpecContext) {
+		It("should tokenize sequence names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
-			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeSequence)))
+			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
-		It("should tokenize stage names as stage type", func(ctx SpecContext) {
+		It("should tokenize stage names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -811,7 +795,7 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(stageKeywordIdx).ToNot(Equal(-1))
-			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeStage)))
+			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
 		It("should tokenize stateful variables as statefulVariable type", func(ctx SpecContext) {

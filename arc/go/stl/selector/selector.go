@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -53,7 +54,11 @@ var (
 				{Name: FalseOutputParam, Type: types.U8()},
 			},
 		}),
-	}
+	}.WithDoc(
+		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Divider(),
+		symbol.Arc("flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	)
 )
 
 // Symbols are the symbols this package contributes to a program's ambient

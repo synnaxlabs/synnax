@@ -395,6 +395,30 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
 		})
 
+		It("routes sequence and stage names to the function token type", func(ctx SpecContext) {
+			// Sequence and stage names should share the same highlight
+			// color as function names — they are declarations of named,
+			// callable scopes.
+			OpenArcDocument(server, ctx, uri, "sequence main {\n    stage first {\n    }\n}")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			var mainTok, firstTok *decodedToken
+			for i := range tokens {
+				t := tokens[i]
+				if t.Line == 0 && t.StartChar == 9 && t.Length == 4 {
+					mainTok = &t
+				}
+				if t.Line == 1 && t.StartChar == 10 && t.Length == 5 {
+					firstTok = &t
+				}
+			}
+			Expect(mainTok).ToNot(BeNil(), "sequence name token not emitted")
+			Expect(firstTok).ToNot(BeNil(), "stage name token not emitted")
+			Expect(mainTok.TokenType).To(Equal(tokenTypeFunction),
+				"sequence name must be the function token type")
+			Expect(firstTok.TokenType).To(Equal(tokenTypeFunction),
+				"stage name must be the function token type")
+		})
+
 		It("routes import and as alongside func and authority to the keyword token type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, `import time as t
 

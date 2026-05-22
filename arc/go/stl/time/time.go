@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -49,7 +50,11 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-	}
+	}.WithDoc(
+		doc.Paragraph("Fires repeatedly at a specified period."),
+		doc.Divider(),
+		symbol.Arc("time.interval{period=1s} -> tick"),
+	)
 	waitSymbol = symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
@@ -58,7 +63,11 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-	}
+	}.WithDoc(
+		doc.Paragraph("Fires once after a specified duration."),
+		doc.Divider(),
+		symbol.Arc("time.wait{duration=500ms} -> done"),
+	)
 	nowSymbol = symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -66,7 +75,11 @@ var (
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-	}
+	}.WithDoc(
+		doc.Paragraph("Returns the current timestamp."),
+		doc.Divider(),
+		symbol.Arc("t := time.now()"),
+	)
 )
 
 // module is the time module, built once at package init. Its children are
@@ -77,6 +90,8 @@ var module = symbol.NewModule(
 	intervalSymbol,
 	waitSymbol,
 	nowSymbol,
+).Document(
+	doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
 )
 
 // Symbols are the symbols this package contributes to a program's ambient
@@ -84,9 +99,9 @@ var module = symbol.NewModule(
 // wait, now) whose Deprecated fields point at the canonical members.
 var Symbols = []*symbol.Symbol{
 	module,
-	symbol.Deprecate(intervalSymbol, module.FindChild(intervalSymbolName)),
-	symbol.Deprecate(waitSymbol, module.FindChild(waitSymbolName)),
-	symbol.Deprecate(nowSymbol, module.FindChild(nowSymbolName)),
+	intervalSymbol.Deprecate(module.FindChild(intervalSymbolName)),
+	waitSymbol.Deprecate(module.FindChild(waitSymbolName)),
+	nowSymbol.Deprecate(module.FindChild(nowSymbolName)),
 }
 
 // Host is the runtime host-side support for the time module: it registers

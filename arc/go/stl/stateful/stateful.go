@@ -81,7 +81,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	bindScalarI32[uint8](builder, h, h.stateU8, "u8")
 	bindScalarI32[uint16](builder, h, h.stateU16, "u16")
 	bindScalarI32[uint32](builder, h, h.stateU32, "u32")
@@ -111,10 +111,11 @@ func NewHost(
 
 var numConstraint = types.NumericConstraint()
 
-const name = "state"
+// Name is the module name.
+const Name = "stateful"
 
 var module = symbol.NewModule(
-	name,
+	Name,
 	symbol.InternalHostFunc(
 		"load",
 		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
@@ -135,7 +136,7 @@ var module = symbol.NewModule(
 		types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
 		nil,
 	),
-)
+).MarkInternal()
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the state module only (no bare globals).

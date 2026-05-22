@@ -21,7 +21,8 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-const name = "strings"
+// Name is the module name.
+const Name = "strings"
 
 func formatHostFunc(t types.Type) symbol.Symbol {
 	return symbol.InternalHostFunc(
@@ -36,7 +37,7 @@ func formatHostFunc(t types.Type) symbol.Symbol {
 }
 
 var module = symbol.NewModule(
-	name,
+	Name,
 	symbol.InternalHostFunc(
 		"from_literal",
 		types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
@@ -94,7 +95,7 @@ var module = symbol.NewModule(
 	formatHostFunc(types.F32()),
 	formatHostFunc(types.F64()),
 	formatHostFunc(types.String()),
-)
+).MarkInternal()
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude. Strings contributes only its module (no bare globals).
@@ -160,7 +161,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr uint32, length uint32) uint32 {
 			if h.memory == nil {

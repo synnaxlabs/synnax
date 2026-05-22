@@ -348,10 +348,11 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeOutput
 	case symbol.KindChannel:
 		tokenType = SemanticTokenTypeChannel
-	case symbol.KindSequence:
-		tokenType = SemanticTokenTypeSequence
-	case symbol.KindStage:
-		tokenType = SemanticTokenTypeStage
+	case symbol.KindSequence, symbol.KindStage:
+		// Sequence and stage names share the function highlight: they are
+		// declarations of named, callable scopes, and using the function
+		// color keeps them visually consistent with `func` declarations.
+		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = SemanticTokenTypeBlock
 	case symbol.KindLoopVariable:

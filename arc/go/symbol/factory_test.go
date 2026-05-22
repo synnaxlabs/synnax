@@ -86,24 +86,23 @@ var _ = Describe("Factories", func() {
 	Describe("Deprecate", func() {
 		It("Should return a copy with Deprecated set to the replacement", func() {
 			replacement := &symbol.Symbol{Name: "math.avg", Kind: symbol.KindFunction}
-			deprecated := symbol.Deprecate(
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
-				replacement,
-			)
+			deprecated := symbol.Symbol{
+				Name: "avg", Kind: symbol.KindFunction, Type: types.F64(),
+			}.Deprecate(replacement)
 			Expect(deprecated.Name).To(Equal("avg"))
 			Expect(deprecated.Deprecated).To(Equal(replacement))
 		})
 
 		It("Should not mutate the input symbol", func() {
 			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()}
-			symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
+			input.Deprecate(&symbol.Symbol{Name: "math.avg"})
 			Expect(input.Deprecated).To(BeNil())
 		})
 
 		It("Should return a heap-allocated pointer the caller can mutate independently", func() {
 			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction}
-			first := symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
-			second := symbol.Deprecate(input, &symbol.Symbol{Name: "stats.avg"})
+			first := input.Deprecate(&symbol.Symbol{Name: "math.avg"})
+			second := input.Deprecate(&symbol.Symbol{Name: "stats.avg"})
 			Expect(first).ToNot(Equal(second))
 			Expect(first.Deprecated.Name).To(Equal("math.avg"))
 			Expect(second.Deprecated.Name).To(Equal("stats.avg"))

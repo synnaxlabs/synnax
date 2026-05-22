@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/telem/op"
 	"github.com/tetratelabs/wazero"
@@ -38,7 +39,11 @@ var userLenSymbol = symbol.Symbol{
 		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 	}),
-}
+}.WithDoc(
+	doc.Paragraph("Returns the length of a series or string as i64."),
+	doc.Divider(),
+	symbol.Arc("length := len(data)"),
+)
 
 var (
 	scalarArithIn = types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}
@@ -47,10 +52,11 @@ var (
 	resultOut     = types.Params{{Name: "result", Type: i32}}
 )
 
-const name = "series"
+// Name is the module name.
+const Name = "series"
 
 var module = symbol.NewModule(
-	name,
+	Name,
 	symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
 	symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
 	symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
@@ -113,7 +119,7 @@ var module = symbol.NewModule(
 		types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}},
 		resultOut,
 	),
-)
+).MarkInternal()
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the series module plus the bare `len` global (a user-facing
@@ -139,7 +145,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	builder = bindU8(builder, s)
 	builder = bindU16(builder, s)
 	builder = bindU32(builder, s)

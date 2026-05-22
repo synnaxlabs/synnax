@@ -25,9 +25,10 @@ var (
 	constraint = types.NumericConstraint()
 	typeVar    = types.Variable("T", &constraint)
 	sym        = symbol.Symbol{
-		Name: symName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
+		Name:     symName,
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecFlow,
+		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
 			Config:  types.Params{{Name: "value", Type: typeVar}},
@@ -36,7 +37,9 @@ var (
 )
 
 // Symbols are the symbols this package contributes to a program's ambient
-// prelude: the `constant` builtin installed at root scope.
+// prelude: the `constant` builtin installed at root scope. The symbol is
+// Internal — it is emitted by graph-mode lowering of literal flow nodes,
+// not called directly from user source.
 var Symbols = []*symbol.Symbol{&sym}
 
 // Host is the runtime host-side support for the constant builtin: a node

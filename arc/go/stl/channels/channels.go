@@ -49,10 +49,11 @@ var userWriteSymbol = symbol.Symbol{
 	}),
 }
 
-const name = "channels"
+// Name is the module name.
+const Name = "channels"
 
 var module = symbol.NewModule(
-	name,
+	Name,
 	symbol.InternalHostFunc(
 		"read",
 		types.Params{{Name: "ch", Type: types.I32()}},
@@ -66,7 +67,7 @@ var module = symbol.NewModule(
 		},
 		nil,
 	),
-)
+).MarkInternal()
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the channels module plus `on` and `write` as bare globals so
@@ -94,7 +95,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	builder = bindI32[uint8](builder, cs, "u8")
 	builder = bindI32[uint16](builder, cs, "u16")
 	builder = bindI32[uint32](builder, cs, "u32")

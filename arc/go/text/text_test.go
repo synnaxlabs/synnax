@@ -2943,11 +2943,10 @@ time.wait{duration=500ms} -> output`
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
-			import error
 			func print{} () {
 			}
 
-			sensor -> error.panic{} -> print{}
+			sensor -> len{} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))

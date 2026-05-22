@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
@@ -175,6 +176,12 @@ type Symbol struct {
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
 	// compiler routes the emitted call to Deprecated rather than s.
 	Deprecated *Symbol
+	// Doc is the user-facing documentation body for this symbol. The LSP
+	// hover renderer appends it after the auto-generated title and
+	// signature. Contains only the description and examples — the title,
+	// kind annotation, and signature are derived from Name / Kind / Type
+	// and must not be duplicated here. Empty Doc is rendered as nothing.
+	Doc doc.Doc
 
 	// --- Tree structure (zero on leaf symbols, populated on containers) ---
 
@@ -345,18 +352,20 @@ func (s *Symbol) AddChild(child *Symbol) *Symbol {
 	return child
 }
 
-// AutoImportModules aliases each KindModule in root's ambient as a
-// KindModuleAlias child of root. Used by graph mode and other entry
-// points that reference module-qualified names (`control.set_authority`,
-// `time.interval`) without producing `import` statements. Text-mode
-// callers do not call this — the analyzer installs aliases from
-// source-level import declarations.
+// AutoImportModules aliases each non-Internal KindModule in root's
+// ambient as a KindModuleAlias child of root. Used by graph mode and
+// other entry points that reference module-qualified names
+// (`control.set_authority`, `time.interval`) without producing `import`
+// statements. Internal modules are skipped — they are compiler-only and
+// must not become reachable by name from user code. Text-mode callers
+// do not call this — the analyzer installs aliases from source-level
+// import declarations.
 func AutoImportModules(root *Symbol) {
 	if root.Parent == nil {
 		return
 	}
 	for _, child := range root.Parent.children {
-		if child.Kind != KindModule {
+		if child.Kind != KindModule || child.Internal {
 			continue
 		}
 		alias := &Symbol{
@@ -400,13 +409,26 @@ func NewModule(name string, members ...Symbol) *Symbol {
 	return mod
 }
 
-// Deprecate returns a heap-allocated copy of sym with Deprecated set to
+// MarkInternal sets Internal=true on s and returns s for chaining. Used
+// to hide a symbol from user code while keeping it reachable from the
+// compiler via IncludeInternal. Applied to STL modules whose surface is
+// meant for the compiler only (channels, strings, series, stateful) —
+// host shims that user code is not allowed to call directly.
+func (s *Symbol) MarkInternal() *Symbol {
+	s.Internal = true
+	return s
+}
+
+// Deprecate returns a heap-allocated copy of s with Deprecated set to
 // replacement. Used by STL packages to build the bare-name aliases
 // (`avg`, `interval`, ...) that point at their canonical module members
-// (`math.avg`, `time.interval`, ...).
-func Deprecate(sym Symbol, replacement *Symbol) *Symbol {
-	sym.Deprecated = replacement
-	return &sym
+// (`math.avg`, `time.interval`, ...). The copy's Doc is cleared because
+// the hover renderer reads the canonical's Doc through Deprecated; keeping
+// a second copy on the alias would let the two drift.
+func (s Symbol) Deprecate(replacement *Symbol) *Symbol {
+	s.Deprecated = replacement
+	s.Doc = doc.Doc{}
+	return &s
 }
 
 func (s *Symbol) addIndex() int {

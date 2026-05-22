@@ -30,6 +30,16 @@ func isRenameable(sym *symbol.Symbol, err error) bool {
 	if errors.Is(err, query.ErrNotFound) || sym == nil {
 		return false
 	}
+	// A positional module alias (`import (math)`) carries the canonical
+	// module name as its own — renaming the source text just breaks the
+	// import, since no module by the new name exists. An `as` clause
+	// (`import (math as t)`) introduces a user-chosen local name, which
+	// is fair game to rename.
+	if sym.Kind == symbol.KindModuleAlias &&
+		sym.Target != nil &&
+		sym.Name == sym.Target.Name {
+		return false
+	}
 	// Source-defined symbols rename via text edits alone. Resolver-supplied
 	// symbols opt in via Symbol.Renameable; the host's OnRename callback is
 	// responsible for propagating the rename to the underlying resource.

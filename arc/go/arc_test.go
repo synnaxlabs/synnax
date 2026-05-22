@@ -441,7 +441,7 @@ trigger -> counter{} -> output_b
 		Expect(imports).ToNot(BeEmpty())
 
 		for _, imp := range imports {
-			if imp.module == "state" {
+			if imp.module == "stateful" {
 				// Every state import must have a type suffix (e.g., load_i64, store_i64)
 				Expect(imp.name).ToNot(Equal("load"),
 					"state::load should be state::load_i64 (missing type suffix)")

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -84,9 +85,37 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
 	}
-	avgSymbol        = createBaseSymbol(avgSymbolName)
-	minSymbol        = createBaseSymbol(minSymbolName)
-	maxSymbol        = createBaseSymbol(maxSymbolName)
+	avgSymbol = createBaseSymbol(avgSymbolName).WithDoc(
+		doc.Paragraph("Computes a running average of input values."),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.avg{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
+		doc.Divider(),
+		doc.Paragraph("An optional reset input clears the accumulated average:"),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
+	)
+	minSymbol = createBaseSymbol(minSymbolName).WithDoc(
+		doc.Paragraph("Tracks the running minimum of input values."),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.min{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
+	)
+	maxSymbol = createBaseSymbol(maxSymbolName).WithDoc(
+		doc.Paragraph("Tracks the running maximum of input values."),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.max{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
+	)
 	derivativeSymbol = symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
@@ -99,7 +128,11 @@ var (
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
-	}
+	}.WithDoc(
+		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
+		doc.Divider(),
+		symbol.Arc("sensor -> math.derivative{} -> rate_output"),
+	)
 )
 
 const name = "math"
@@ -114,6 +147,8 @@ var module = symbol.NewModule(
 	minSymbol,
 	maxSymbol,
 	derivativeSymbol,
+).Document(
+	doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
 )
 
 // Symbols are the symbols this package contributes to a program's ambient
@@ -122,10 +157,10 @@ var module = symbol.NewModule(
 // canonical module member.
 var Symbols = []*symbol.Symbol{
 	module,
-	symbol.Deprecate(avgSymbol, module.FindChild(avgSymbolName)),
-	symbol.Deprecate(minSymbol, module.FindChild(minSymbolName)),
-	symbol.Deprecate(maxSymbol, module.FindChild(maxSymbolName)),
-	symbol.Deprecate(derivativeSymbol, module.FindChild(derivativeSymbolName)),
+	avgSymbol.Deprecate(module.FindChild(avgSymbolName)),
+	minSymbol.Deprecate(module.FindChild(minSymbolName)),
+	maxSymbol.Deprecate(module.FindChild(maxSymbolName)),
+	derivativeSymbol.Deprecate(module.FindChild(derivativeSymbolName)),
 }
 
 // Host is the runtime host-side support for math: it registers the WASM

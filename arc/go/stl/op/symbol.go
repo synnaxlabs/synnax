@@ -13,6 +13,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 )
 
 func binaryOp(name string, outputs types.Params) *symbol.Symbol {
@@ -71,13 +72,49 @@ const (
 // prelude. Operators are root-level (no module) — they install directly at
 // the root scope so lowering passes can emit calls without imports.
 var Symbols = []*symbol.Symbol{
-	comparison(geSymbolName),
-	comparison(gtSymbolName),
-	comparison(leSymbolName),
-	comparison(ltSymbolName),
-	comparison(eqSymbolName),
-	comparison(neSymbolName),
-	logical(andSymbolName),
-	logical(orSymbolName),
-	not(notSymbolName),
+	comparison(geSymbolName).Document(
+		doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("ge(a, b)  // equivalent to: a >= b"),
+	),
+	comparison(gtSymbolName).Document(
+		doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("gt(a, b)  // equivalent to: a > b"),
+	),
+	comparison(leSymbolName).Document(
+		doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("le(a, b)  // equivalent to: a <= b"),
+	),
+	comparison(ltSymbolName).Document(
+		doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("lt(a, b)  // equivalent to: a < b"),
+	),
+	comparison(eqSymbolName).Document(
+		doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("eq(a, b)  // equivalent to: a == b"),
+	),
+	comparison(neSymbolName).Document(
+		doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("ne(a, b)  // equivalent to: a != b"),
+	),
+	logical(andSymbolName).Document(
+		doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("and(a, b)  // equivalent to: a && b"),
+	),
+	logical(orSymbolName).Document(
+		doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("or(a, b)  // equivalent to: a || b"),
+	),
+	not(notSymbolName).Document(
+		doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."),
+		doc.Divider(),
+		symbol.Arc("not(a)  // equivalent to: !a"),
+	),
 }

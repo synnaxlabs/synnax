@@ -50,15 +50,16 @@ func (e *UndefinedSymbolError) GetHint() string {
 	return ""
 }
 
-// isAmbientModule reports whether name matches a KindModule child of an
-// ancestor scope of kind KindAmbient. Used to suggest missing imports
-// when an unimported module path appears in user code.
+// isAmbientModule reports whether name matches a non-Internal KindModule
+// child of an ancestor scope of kind KindAmbient. Used to suggest missing
+// imports when an unimported module path appears in user code; Internal
+// modules are excluded because user code cannot import them.
 func (s *Symbol) isAmbientModule(name string) bool {
 	for cur := s; cur != nil; cur = cur.Parent {
 		if cur.Kind != KindAmbient {
 			continue
 		}
-		if child := cur.FindChild(name); child != nil && child.Kind == KindModule {
+		if child := cur.FindChild(name); child != nil && child.Kind == KindModule && !child.Internal {
 			return true
 		}
 	}

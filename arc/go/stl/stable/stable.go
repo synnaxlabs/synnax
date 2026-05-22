@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -44,8 +45,14 @@ var (
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: symbolType,
-	}
-	module     = symbol.NewModule(name, memberSymbol)
+	}.WithDoc(
+		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
+		doc.Divider(),
+		symbol.Arc("sensor -> stable.for{duration=5s} -> output"),
+	)
+	module = symbol.NewModule(name, memberSymbol).Document(
+		doc.Paragraph("Debouncing helpers that emit only after values remain stable for a duration."),
+	)
 	bareSymbol = symbol.Symbol{
 		Name:       bareSymbolName,
 		Kind:       symbol.KindFunction,
