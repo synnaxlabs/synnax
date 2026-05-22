@@ -94,6 +94,68 @@ func (s *Service) Set(
 	})
 }
 
+// SetByKeyOrNameRequest is a request to upsert a status by key or by name.
+type SetByKeyOrNameRequest struct {
+	// KeyOrName is either an existing status key or a status name to match.
+	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
+	// Message is the new status message.
+	Message string `json:"message" msgpack:"message"`
+	// Variant is the new status variant.
+	Variant string `json:"variant" msgpack:"variant"`
+}
+
+// SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
+type SetByKeyOrNameResponse struct {
+	// Key is the key of the upserted status.
+	Key string `json:"key" msgpack:"key"`
+	// MultipleMatches reports whether multiple statuses matched by name.
+	MultipleMatches bool `json:"multiple_matches" msgpack:"multiple_matches"`
+}
+
+// SetByKeyOrName upserts a status by key or by name.
+func (s *Service) SetByKeyOrName(
+	ctx context.Context,
+	req SetByKeyOrNameRequest,
+) (res SetByKeyOrNameResponse, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
+	}); err != nil {
+		return res, err
+	}
+	res.Key, res.MultipleMatches, err = s.internal.SetByKeyOrName(ctx, req.KeyOrName, req.Message, req.Variant)
+	return res, err
+}
+
+// DeleteByKeyOrNameRequest is a request to delete statuses by key or by name.
+type DeleteByKeyOrNameRequest struct {
+	// KeyOrName is either an existing status key or a status name to match.
+	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
+}
+
+// DeleteByKeyOrNameResponse is a response to a DeleteByKeyOrNameRequest.
+type DeleteByKeyOrNameResponse struct {
+	// Count is the number of statuses deleted.
+	Count int `json:"count" msgpack:"count"`
+}
+
+// DeleteByKeyOrName deletes statuses matched by key or by name.
+func (s *Service) DeleteByKeyOrName(
+	ctx context.Context,
+	req DeleteByKeyOrNameRequest,
+) (res DeleteByKeyOrNameResponse, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
+	}); err != nil {
+		return res, err
+	}
+	res.Count, err = s.internal.DeleteByKeyOrName(ctx, req.KeyOrName)
+	return res, err
+}
+
 type RetrieveRequest struct {
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`

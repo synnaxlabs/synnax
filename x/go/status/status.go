@@ -16,6 +16,15 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// IsVariant reports whether s names a known status variant.
+func IsVariant(s string) bool {
+	switch Variant(s) {
+	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+		return true
+	}
+	return false
+}
+
 // String returns a formatted string representation of the Status.
 func (s Status[D]) String() string {
 	var b strings.Builder

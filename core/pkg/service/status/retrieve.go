@@ -18,8 +18,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xlabel "github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/status"
 )
 
@@ -151,6 +153,18 @@ func MatchLabels[D any](matchLabels ...xlabel.Key) Filter[D] {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})
+}
+
+// retrieveByName returns all statuses sharing the given name.
+func retrieveByName[D any](ctx context.Context, tx gorp.Tx, name string) ([]Status[D], error) {
+	var matches []Status[D]
+	err := gorp.NewRetrieve[string, status.Status[D]]().
+		Where(gorp.Match(func(_ gorp.Context, s *status.Status[D]) (bool, error) {
+			return s.Name == name, nil
+		})).
+		Entries(&matches).
+		Exec(ctx, tx)
+	return matches, errors.Skip(err, query.ErrNotFound)
 }
 
 // Exec executes the query and fills the results into the provided Status or slice of

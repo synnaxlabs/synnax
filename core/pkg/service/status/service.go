@@ -20,15 +20,25 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	xstatus "github.com/synnaxlabs/x/status"
 	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+)
+
+var (
+	// ErrInvalidVariant signals a variant string rejected by xstatus.IsVariant.
+	ErrInvalidVariant = errors.New("invalid status variant")
+	// ErrEmptyKeyOrName signals a missing key_or_name parameter.
+	ErrEmptyKeyOrName = errors.New("key_or_name is required")
 )
 
 type ServiceConfig struct {
@@ -152,6 +162,83 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, t
 
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
+
+// SetByKeyOrName tries to update a row whose Key equals keyOrName, then a row
+// whose Name matches, and finally creates a new row with Key=Name=keyOrName.
+// On multi-name-match, writes to the first match by key order and reports
+// multipleMatches=true so callers can surface the ambiguity.
+func (s *Service) SetByKeyOrName(
+	ctx context.Context,
+	keyOrName, message, variant string,
+) (key string, multipleMatches bool, err error) {
+	if keyOrName == "" {
+		return "", false, ErrEmptyKeyOrName
+	}
+	if !xstatus.IsVariant(variant) {
+		return "", false, ErrInvalidVariant
+	}
+	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.NewWriter(tx)
+		var st Status[any]
+		rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+		if errors.Is(rerr, query.ErrNotFound) {
+			matches, merr := retrieveByName[any](ctx, tx, keyOrName)
+			if merr != nil {
+				return merr
+			}
+			if len(matches) > 0 {
+				st = matches[0]
+				multipleMatches = len(matches) > 1
+			} else {
+				st = Status[any]{Key: keyOrName, Name: keyOrName, Variant: xstatus.VariantInfo}
+			}
+		} else if rerr != nil {
+			return rerr
+		}
+		st.Message = message
+		st.Variant = xstatus.Variant(variant)
+		st.Time = telem.Now()
+		key = st.Key
+		return w.Set(ctx, &st)
+	})
+	return key, multipleMatches, err
+}
+
+// DeleteByKeyOrName deletes a row whose Key equals keyOrName (count 0 or 1) or,
+// failing that, all rows whose Name matches (count = matches).
+func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (int, error) {
+	if keyOrName == "" {
+		return 0, ErrEmptyKeyOrName
+	}
+	var count int
+	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.NewWriter(tx)
+		var st Status[any]
+		rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+		if rerr == nil {
+			if derr := w.Delete(ctx, keyOrName); derr != nil {
+				return derr
+			}
+			count = 1
+			return nil
+		}
+		if !errors.Is(rerr, query.ErrNotFound) {
+			return rerr
+		}
+		matches, merr := retrieveByName[any](ctx, tx, keyOrName)
+		if merr != nil {
+			return merr
+		}
+		for _, m := range matches {
+			if derr := w.Delete(ctx, m.Key); derr != nil {
+				return derr
+			}
+		}
+		count = len(matches)
+		return nil
+	})
+	return count, err
+}
 
 func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	return Writer[D]{
