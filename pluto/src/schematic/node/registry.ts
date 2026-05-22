@@ -63,7 +63,7 @@ export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
-  return spec as unknown as Spec<Variant, Config>;
+  return spec as Spec<Variant, Config>;
 };
 
 /// CustomVariant is the union of Variants that reference a user-defined

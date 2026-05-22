@@ -20,7 +20,7 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { Symbol } from "@/schematic/symbol";
 import { Text } from "@/text";
 
-export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
+export interface ActuatorProps extends Omit<Toggle.ButtonProps, "onClick"> {
   specKey: string;
   onClick?: MouseEventHandler<HTMLElement>;
   onClickDelay?: CrudeTimeSpan;
@@ -37,7 +37,7 @@ export const Actuator = ({
   className,
   stateOverrides,
   ...rest
-}: Props): ReactElement => {
+}: ActuatorProps): ReactElement => {
   const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
   const spec = result.variant === "success" ? result.data.data : undefined;
   const setContainer = Custom.useRender({

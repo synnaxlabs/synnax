@@ -67,20 +67,8 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Input.Item label="Output channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Base.NumericField
-          label="Activation delay"
-          path="onClickDelay"
-          inputProps={Form.ACTIVATION_DELAY_INPUT_PROPS}
-          hideIfNull
-          padHelpText={false}
-        />
-        <Base.SwitchField
-          path="control.show"
-          label="Show control chip"
-          hideIfNull
-          optional
-          padHelpText={false}
-        />
+        <Form.ActivationDelayField />
+        <Form.ControlChipField />
       </Flex.Box>
       <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
         {({ value, onChange }) => (

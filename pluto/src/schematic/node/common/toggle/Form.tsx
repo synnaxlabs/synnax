@@ -15,7 +15,8 @@ import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
-import { ACTIVATION_DELAY_INPUT_PROPS } from "@/schematic/node/common/form/input";
+import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
+import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -95,23 +96,8 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
         </Input.Item>
       </Flex.Box>
       <Flex.Box x grow>
-        {!omit.includes("onClickDelay") && (
-          <Base.NumericField
-            label="Activation delay"
-            path="onClickDelay"
-            grow
-            inputProps={ACTIVATION_DELAY_INPUT_PROPS}
-            hideIfNull
-            padHelpText={false}
-          />
-        )}
-        <Base.SwitchField
-          path="control.show"
-          label="Show control chip"
-          hideIfNull
-          optional
-          padHelpText={false}
-        />
+        {!omit.includes("onClickDelay") && <ActivationDelayField grow />}
+        <ControlChipField />
       </Flex.Box>
     </Wrapper>
   );

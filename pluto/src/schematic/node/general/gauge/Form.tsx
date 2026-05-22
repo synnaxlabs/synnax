@@ -52,12 +52,7 @@ export const GaugeForm = (): ReactElement => {
               <Label.Form path="label" />
               <Flex.Box x>
                 <Form.ColorField path="color" />
-                <Base.TextField
-                  path="units"
-                  label="Units"
-                  align="start"
-                  padHelpText={false}
-                />
+                <Form.UnitsField />
                 <Base.NumericField
                   path="bounds.lower"
                   label="Min value"

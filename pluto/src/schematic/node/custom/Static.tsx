@@ -20,7 +20,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { Symbol } from "@/schematic/symbol";
 import { Text } from "@/text";
 
-export interface Props {
+export interface StaticProps {
   specKey: string;
   orientation?: location.Outer;
   scale?: number;
@@ -34,7 +34,7 @@ export const Static = ({
   scale = 1,
   className,
   stateOverrides,
-}: Props): ReactElement => {
+}: StaticProps): ReactElement => {
   const result = Symbol.useRetrieve({ key: specKey }, { addStatusOnFailure: false });
   const spec = result.variant === "success" ? result.data.data : undefined;
   const setContainer = Custom.useRender({
