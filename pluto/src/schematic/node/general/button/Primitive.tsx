@@ -9,12 +9,12 @@
 
 import { type MouseEventHandler, type ReactElement } from "react";
 
-import { Button as BaseButton } from "@/button";
+import { Button as Base } from "@/button";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
@@ -31,9 +31,9 @@ export const Button = ({
   size,
   level,
   onClickDelay: delay,
-}: RenderProps): ReactElement => (
+}: ButtonProps): ReactElement => (
   <Primitive.Div orientation={orientation}>
-    <BaseButton.Button
+    <Base.Button
       variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
@@ -41,10 +41,11 @@ export const Button = ({
       color={color}
       size={size}
       level={level}
+      direction={label?.direction}
       onClickDelay={delay}
     >
       {label?.label ?? ""}
-    </BaseButton.Button>
+    </Base.Button>
     <Handle.Rectangle
       orientation={orientation}
       left={0}
