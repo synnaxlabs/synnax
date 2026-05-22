@@ -10,7 +10,7 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import z from "zod";
 
-import * as Fittings from "@/schematic/node/fittings";
+import { Fittings } from "@/schematic/node/fittings";
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
@@ -27,12 +27,12 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { Switch } from "@/schematic/node/general/switch";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
-import * as Meters from "@/schematic/node/meters";
-import * as Process from "@/schematic/node/process";
-import * as Pumps from "@/schematic/node/pumps";
-import * as Safety from "@/schematic/node/safety";
+import { Meters } from "@/schematic/node/meters";
+import { Process } from "@/schematic/node/process";
+import { Pumps } from "@/schematic/node/pumps";
+import { Safety } from "@/schematic/node/safety";
 import { type Spec } from "@/schematic/node/spec";
-import * as Valves from "@/schematic/node/valves";
+import { Valves } from "@/schematic/node/valves";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";

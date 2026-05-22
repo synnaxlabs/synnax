@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { GROUP } from "@/schematic/node/process/group";
-export { configZ, REGISTRY } from "@/schematic/node/process/symbols";
+export * as Process from "@/schematic/node/process/external";

@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Meters from "@/schematic/node/meters/external";
+export { GROUP } from "@/schematic/node/pumps/group";
+export { configZ, REGISTRY } from "@/schematic/node/pumps/symbols";

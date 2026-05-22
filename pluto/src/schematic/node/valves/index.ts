@@ -7,5 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { GROUP } from "@/schematic/node/valves/group";
-export { configZ, REGISTRY } from "@/schematic/node/valves/symbols";
+export * as Valves from "@/schematic/node/valves/external";
