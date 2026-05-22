@@ -28,7 +28,12 @@ export const Symbol = ({
     borderRadius,
   },
 }: NodeProps<Config>): ReactElement => (
-  <Grid.Grid editable={selected} nodeKey={nodeKey}>
+  <Grid.Grid
+    editable={selected}
+    nodeKey={nodeKey}
+    orientation={orientation}
+    onRotate={onConfigChange}
+  >
     <Label.Label config={label} onChange={onConfigChange} />
     <Cylinder
       onResize={(dimensions) => onConfigChange({ dimensions })}

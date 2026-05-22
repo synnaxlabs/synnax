@@ -37,6 +37,6 @@ export const CylinderForm = (): ReactElement => (
         />
       </Flex.Box>
     </Flex.Box>
-    <Orientation.Field path="" hideInner />
+    <Orientation.Field path="" />
   </Form.Wrapper>
 );

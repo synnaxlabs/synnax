@@ -19,6 +19,7 @@ import { Theming } from "@/theming";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
+  scale?: number;
   onResize?: (dimensions: dimensions.Dimensions) => void;
 }
 
@@ -28,11 +29,13 @@ export const Cylinder = ({
   borderRadius = Border.DEFAULT_RADIUS,
   color: colorVal,
   backgroundColor,
+  orientation = "left",
+  scale,
 }: RenderProps): ReactElement => {
   const detailedRadius = Border.parseRadius(borderRadius);
   const t = Theming.use();
   const refreshDeps = useMemo(
-    () => [dimensions, borderRadius, detailedRadius],
+    () => [dimensions, borderRadius, detailedRadius, orientation],
     [
       detailedRadius.bottomLeft,
       detailedRadius.bottomRight,
@@ -40,28 +43,20 @@ export const Cylinder = ({
       detailedRadius.topRight,
       dimensions.height,
       dimensions.width,
+      orientation,
     ],
   );
   const boardColor = color.cssString(colorVal ?? t.colors.gray.l11);
   const bgColor =
     backgroundColor == null ? undefined : color.cssString(backgroundColor);
-  const widthScale = dimensions.width / 66;
-  const heightScale = dimensions.height / 180;
-  const transform = `scale(${widthScale},${heightScale})`;
+  const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
 
   return (
     <Primitive.Div
+      orientation={orientation}
       className={CSS(className, CSS.B("cylinder"))}
-      style={{ ...dimensions }}
     >
-      <svg
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        transform={transform}
-      >
+      <Primitive.SVG dimensions={dimensions} orientation={orientation} scale={scale}>
         <path
           d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"
           vectorEffect="non-scaling-stroke"
@@ -70,24 +65,78 @@ export const Cylinder = ({
           transform={transform}
           fill={bgColor}
         />
-      </svg>
-      <Handle.Boundary refreshDeps={refreshDeps} orientation="left">
-        <Handle.Handle location="top" orientation="left" left={50} top={2} id="1" />
-        <Handle.Handle location="left" orientation="left" left={35} top={10} id="9" />
-        <Handle.Handle location="right" orientation="left" left={65} top={10} id="10" />
+      </Primitive.SVG>
+      <Handle.Boundary refreshDeps={refreshDeps} orientation={orientation}>
+        <Handle.Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={2}
+          id="1"
+        />
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={35}
+          top={10}
+          id="9"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={65}
+          top={10}
+          id="10"
+        />
         <Handle.Handle
           location="bottom"
-          orientation="left"
+          orientation={orientation}
           left={50}
           top={98.3333}
           id="2"
         />
-        <Handle.Handle location="left" orientation="left" left={4} top={40} id="3" />
-        <Handle.Handle location="right" orientation="left" left={96} top={40} id="4" />
-        <Handle.Handle location="left" orientation="left" left={4} top={60} id="5" />
-        <Handle.Handle location="right" orientation="left" left={96} top={60} id="6" />
-        <Handle.Handle location="left" orientation="left" left={4} top={80} id="7" />
-        <Handle.Handle location="right" orientation="left" left={96} top={80} id="8" />
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={4}
+          top={40}
+          id="3"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={96}
+          top={40}
+          id="4"
+        />
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={4}
+          top={60}
+          id="5"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={96}
+          top={60}
+          id="6"
+        />
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={4}
+          top={80}
+          id="7"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={96}
+          top={80}
+          id="8"
+        />
       </Handle.Boundary>
     </Primitive.Div>
   );
