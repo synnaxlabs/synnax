@@ -167,10 +167,10 @@ const solenoidConfigZ = Toggle.toggleConfigZ.extend({
   normallyOpen: z.boolean().optional(),
 });
 type SolenoidConfig = z.infer<typeof solenoidConfigZ>;
-// Solenoid is the one valve whose config carries an extra `normallyOpen` field, so
-// it is built directly rather than through defineToggle. The spec is given an
-// explicit Spec annotation (not `satisfies`) to widen Form to FC<FormProps> —
-// otherwise the concrete ToggleForm type leaks ToggleFormProps into REGISTRY.
+// Solenoid is the one valve whose config carries an extra `normallyOpen` field, so it
+// is built directly rather than through defineToggle. The spec is given an explicit
+// Spec annotation (not `satisfies`) to widen Form to FC<FormProps> — otherwise the
+// concrete ToggleForm type leaks ToggleFormProps into REGISTRY.
 const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   key: "solenoidValve",
   name: "Solenoid",
@@ -187,7 +187,6 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   }),
   zIndex: 4,
 };
-const solenoid = { configZ: solenoidConfigZ, spec: solenoidSpec };
 const springLoadedRelief = defineDummyToggle({
   variant: "springLoadedReliefValve",
   name: "Spring Loaded Relief",
@@ -233,7 +232,7 @@ export const REGISTRY = {
   regulator: regulator.spec,
   regulatorManual: regulatorManual.spec,
   reliefValve: relief.spec,
-  solenoidValve: solenoid.spec,
+  solenoidValve: solenoidSpec,
   springLoadedReliefValve: springLoadedRelief.spec,
   threeWayValve: threeWay.spec,
   threeWayBallValve: threeWayBall.spec,
@@ -260,7 +259,7 @@ export const configZ = z.discriminatedUnion("variant", [
   regulator.configZ,
   regulatorManual.configZ,
   relief.configZ,
-  solenoid.configZ,
+  solenoidConfigZ,
   springLoadedRelief.configZ,
   threeWay.configZ,
   threeWayBall.configZ,
