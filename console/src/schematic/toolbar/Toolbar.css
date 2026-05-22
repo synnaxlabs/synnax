@@ -48,7 +48,8 @@
     }
 
     .console-schematic__symbols-group {
-        overflow: hidden;
+        overflow: auto;
+        height: 100%;
 
         & > .pluto-list__virtualizer {
             height: fit-content;
