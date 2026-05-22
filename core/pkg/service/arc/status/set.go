@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -53,11 +54,24 @@ var memberSymbol = symbol.Symbol{
 	Kind: symbol.KindFunction,
 	Exec: symbol.ExecFlow,
 	Type: symbolProps,
+	Doc: doc.New(
+		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+		doc.Divider(),
+		doc.Paragraph("Accepted variants: success, error, warning, info."),
+	),
 }
 
 // module is the status module, built once at package init. Its sole child
 // is the `set` function above.
-var module = symbol.NewModule(moduleName, memberSymbol)
+var module = symbol.NewModule(
+	moduleName,
+	doc.New(
+		doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	),
+	memberSymbol,
+)
 
 // bareSymbolPtr is the deprecated `set_status` bare global. Its
 // Deprecated field points at the module's `set` member so warnings name
