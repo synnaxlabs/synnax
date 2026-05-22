@@ -107,6 +107,14 @@
     border-radius: 0 !important;
     padding: 0 1.5rem 1.5rem !important;
     border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
+    /* A markdown row needs top padding when nothing above it provides one:
+       when it's the first row of the popup, and when it follows a marker
+       row (which butts its own box up against the row boundary). We
+       require .markdown-hover so that the status-bar row (View Problem /
+       Quick Fix actions) doesn't pick up the inset. */
+    &:first-child:has(.markdown-hover) {
+        padding-top: 1.5rem !important;
+    }
     &:last-child {
         border-bottom: none !important;
     }
@@ -183,6 +191,17 @@
     border-top-right-radius: 0 !important;
 }
 
+/* Markdown row following a marker row: the marker's box ends flush with
+   the row boundary, so the markdown heading needs its own top inset.
+   Scoped to .markdown-hover so the status-bar row (action buttons) below
+   a marker-only popup doesn't pick up an extra gap. */
+.monaco-editor
+    .monaco-hover
+    .hover-row:has(.marker.hover-contents)
+    + .hover-row:has(.markdown-hover) {
+    padding-top: 1.5rem !important;
+}
+
 /* Markdown hover content (type info, docs) */
 .monaco-editor .monaco-hover .markdown-hover {
     font-family: var(--pluto-font-family) !important;
@@ -207,6 +226,9 @@
     font-weight: 500 !important;
     color: var(--pluto-primary-z) !important;
     line-height: 1.3 !important;
+    display: inline-block !important;
+    margin: 0 0.75rem 0 0 !important;
+    vertical-align: baseline !important;
 }
 
 /* Subheadings (type labels like "Function", "Variable") */
@@ -219,6 +241,13 @@
     line-height: 1.3 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
+}
+
+/* When a kind label immediately follows the name, render the pair
+   side-by-side on a shared baseline instead of stacked. */
+.monaco-editor .monaco-hover h4 + h5 {
+    display: inline-block !important;
+    vertical-align: baseline !important;
 }
 
 /* Paragraphs */
