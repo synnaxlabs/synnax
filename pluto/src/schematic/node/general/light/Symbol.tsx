@@ -20,13 +20,18 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, ...rest },
+  config: { label, source, orientation = "left", ...rest },
 }: NodeProps<Config>): ReactElement => {
   const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
   return (
-    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
+    <Grid.Grid
+      orientation={orientation}
+      onRotate={onConfigChange}
+      editable={selected}
+      nodeKey={nodeKey}
+    >
       <Label.Label config={label} onChange={onConfigChange} />
-      <Light enabled={enabled} {...rest} />
+      <Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );
 };
