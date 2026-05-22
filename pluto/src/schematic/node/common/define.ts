@@ -26,7 +26,7 @@ interface SymbolArgs<V extends string> {
   /// label is the default text rendered beneath the symbol on the canvas.
   label: string;
   /// Primitive renders the symbol's SVG; it also serves as the toolbar preview.
-  Primitive: FC<any>;
+  Primitive: FC<BasePrimitive.SVGBasedProps>;
   /// zIndex controls canvas draw order. Defaults to 4.
   zIndex?: number;
 }

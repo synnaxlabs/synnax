@@ -21,6 +21,7 @@ import { z } from "zod";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
+import { type Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Text } from "@/text";
 import { text } from "@/text/base";
@@ -107,9 +108,13 @@ interface LabeledOverrides {
 }
 
 export const createLabeled = <C extends LabeledConfig>(
-  BaseSymbol: FC<any>,
+  BaseSymbol: FC<Omit<C, "label"> & BasePrimitive.SVGBasedProps>,
   overrides?: LabeledOverrides,
 ): FC<NodeProps<C>> => {
+  // BaseSymbol's prop type is derived from C so callers are checked, but the node
+  // only renders it with the shared SVG props; the config's symbol-specific fields
+  // reach it at runtime via the rest spread.
+  const Sym = BaseSymbol as FC<BasePrimitive.SVGBasedProps>;
   const Inner = ({
     nodeKey,
     onConfigChange,
@@ -124,7 +129,7 @@ export const createLabeled = <C extends LabeledConfig>(
       onRotate={onConfigChange}
     >
       <Label config={label} onChange={onConfigChange} />
-      <BaseSymbol orientation={orientation} {...rest} />
+      <Sym orientation={orientation} {...rest} />
     </Grid.Grid>
   );
   const M = memo(Inner) as FC<NodeProps<C>>;
