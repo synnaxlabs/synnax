@@ -10,3 +10,4 @@
 export * from "@/schematic/node/common/handle/Boundary";
 export * from "@/schematic/node/common/handle/Handle";
 export * from "@/schematic/node/common/handle/position";
+export * from "@/schematic/node/common/handle/Rectangle";

@@ -32,36 +32,13 @@ export const FourWay = ({
       orientation={orientation}
       className={CSS(CSS.B("four-way-valve"), className)}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle
-          location="left"
-          orientation={orientation}
-          left={12.037}
-          top={50}
-          id="1"
-        />
-        <Handle.Handle
-          location="right"
-          orientation={orientation}
-          left={87.963}
-          top={50}
-          id="2"
-        />
-        <Handle.Handle
-          location="top"
-          orientation={orientation}
-          left={50}
-          top={7.2916}
-          id="3"
-        />
-        <Handle.Handle
-          location="bottom"
-          orientation={orientation}
-          left={50}
-          top={92.6084}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={12.037}
+        top={7.2916}
+        right={87.963}
+        bottom={92.6084}
+      />
       <Base.SVG
         dimensions={DIMENSIONS}
         color={colorVal}

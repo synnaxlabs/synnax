@@ -29,36 +29,13 @@ export const PositiveDisplacement = ({
     {...rest}
     className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={98}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={6}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={91}
-        id="4"
-      />
-    </Handle.Boundary>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={4}
+      top={6}
+      right={98}
+      bottom={91}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}

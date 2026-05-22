@@ -28,36 +28,13 @@ export const StaticMixer = ({
     className={CSS(CSS.B("static-mixer"), className)}
     orientation={orientation}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={1.5152}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={98.4848}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={3.3333}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={96.6667}
-        id="4"
-      />
-    </Handle.Boundary>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={1.5152}
+      top={3.3333}
+      right={98.4848}
+      bottom={96.6667}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

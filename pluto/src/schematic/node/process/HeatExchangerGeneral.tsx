@@ -25,36 +25,13 @@ export const HeatExchangerGeneral = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div {...rest} className={CSS(CSS.B("heat-exchanger-general"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4.545}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={95.454}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={4.545}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={95.454}
-        id="4"
-      />
-    </Handle.Boundary>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={4.545}
+      top={4.545}
+      right={95.454}
+      bottom={95.454}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}

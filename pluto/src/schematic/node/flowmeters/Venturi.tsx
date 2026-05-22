@@ -27,36 +27,13 @@ export const Venturi = ({
   ...rest
 }: Props): ReactElement => (
   <Base.Div {...rest} className={CSS(CSS.B("flowmeter-Venturi"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={98.3333}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={5.714}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={94.386}
-        id="3"
-      />
-    </Handle.Boundary>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={4}
+      top={5.714}
+      right={98.3333}
+      bottom={94.386}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}

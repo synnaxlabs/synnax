@@ -29,36 +29,13 @@ export const LiquidRing = ({
     className={CSS(CSS.B("pump"), className)}
     orientation={orientation}
   >
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={4.55}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={95.45}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={4.55}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={95.45}
-        id="4"
-      />
-    </Handle.Boundary>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={4.55}
+      top={4.55}
+      right={95.45}
+      bottom={95.45}
+    />
     <Base.SVG
       dimensions={DIMENSIONS}
       color={color}

@@ -49,18 +49,13 @@ export const Primitive = ({
       className={CSS(CSS.B("state-indicator"), className)}
       style={{ borderColor, backgroundColor, minWidth: inlineSize }}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle.Handle location="right" orientation="left" left={100} top={50} id="2" />
-        <Handle.Handle location="top" orientation="left" left={50} top={-2} id="3" />
-        <Handle.Handle
-          location="bottom"
-          orientation="left"
-          left={50}
-          top={102}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={-2}
+        right={100}
+        bottom={102}
+      />
       <div className={CSS.BE("state-indicator", "content")}>
         <Text.Text level="p" color={textColor} variant="code">
           {label}

@@ -62,18 +62,13 @@ export const Primitive = ({
       >
         {children}
       </div>
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle.Handle location="right" orientation="left" left={100} top={50} id="2" />
-        <Handle.Handle location="top" orientation="left" left={50} top={-2} id="3" />
-        <Handle.Handle
-          location="bottom"
-          orientation="left"
-          left={50}
-          top={102}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={-2}
+        right={100}
+        bottom={102}
+      />
       <div
         className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
         style={{ background: borderColor }}
