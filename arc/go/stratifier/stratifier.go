@@ -120,13 +120,14 @@ func stratifyParallel(
 			if m.Scope == nil || m.Scope.Activation == nil {
 				continue
 			}
-			// Inline synths must walk before their activator so cross-scope
-			// transitions see fresh marks; skip the implicit dep.
-			if strings.HasPrefix(m.Scope.Key, inlineRoutingSynthPrefix) {
-				continue
-			}
 			src, ok := ownership[m.Scope.Activation.Node]
 			if !ok || src == i {
+				continue
+			}
+			// Inline synths skip this dep so their bodies pre-walk for cross-scope
+			// marks, except when activated by another inline (must walk after it).
+			if strings.HasPrefix(m.Scope.Key, inlineRoutingSynthPrefix) &&
+				!strings.HasPrefix(members[src].Key(), inlineRoutingSynthPrefix) {
 				continue
 			}
 			if stratum[src] >= stratum[i] {
