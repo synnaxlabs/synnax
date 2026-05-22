@@ -93,7 +93,7 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res device.Device
-			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(d.Key)).Entry(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
@@ -253,7 +253,7 @@ var _ = Describe("Device", func() {
 
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(deviceStatus.Name).To(Equal("New Name"))
@@ -278,7 +278,7 @@ var _ = Describe("Device", func() {
 
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantSuccess))
@@ -532,7 +532,7 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			var res device.Device
-			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(d.Key)).Entry(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res.Key).To(Equal(d.Key))
 		})
@@ -565,7 +565,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
 			var res []device.Device
-			Expect(svc.NewRetrieve().WhereModels("B").Entries(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchModels("B")).Entries(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
@@ -597,7 +597,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
 			var res []device.Device
-			Expect(svc.NewRetrieve().WhereMakes("B").Entries(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchMakes("B")).Entries(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
@@ -626,7 +626,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			var res []device.Device
 			Expect(
-				svc.NewRetrieve().WhereLocations("dev12").Entries(&res).Exec(ctx, tx),
+				svc.NewRetrieve().Where(device.MatchLocations("dev12")).Entries(&res).Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(ConsistOf(d2a))
 		})
@@ -642,11 +642,11 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
 			var res device.Device
-			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(d.Key)).Entry(&res).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 			var deletedStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -720,7 +720,7 @@ var _ = Describe("Device", func() {
 			Eventually(func(g Gomega) {
 				var deviceStatus device.Status
 				g.Expect(status.NewRetrieve[device.StatusDetails](stat).
-					WhereKeys(device.OntologyID(d.Key).String()).
+					Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -783,7 +783,7 @@ var _ = Describe("Device", func() {
 
 			var restoredStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -841,7 +841,7 @@ var _ = Describe("Device", func() {
 
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				WhereKeys(device.OntologyID(d.Key).String()).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))

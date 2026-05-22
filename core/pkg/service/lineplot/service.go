@@ -12,7 +12,6 @@ package lineplot
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -67,7 +66,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying line plots from Synnax.
 type Service struct {
 	ServiceConfig
-	table *gorp.Table[uuid.UUID, LinePlot]
+	table *gorp.Table[Key, LinePlot]
 }
 
 // OpenService instantiates a new line plot service using the provided configurations.
@@ -78,9 +77,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, LinePlot](ctx, gorp.TableConfig[LinePlot]{
+	table, err := gorp.OpenTable[Key, LinePlot](ctx, gorp.TableConfig[Key, LinePlot]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, LinePlot]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, LinePlot]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

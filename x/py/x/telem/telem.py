@@ -1019,7 +1019,9 @@ class DataType(str):
 
     @property
     def is_variable(self) -> bool:
-        return self == DataType.STRING or self == DataType.JSON
+        return (
+            self == DataType.STRING or self == DataType.JSON or self == DataType.BYTES
+        )
 
     @property
     def has_np(self) -> bool:
@@ -1052,6 +1054,7 @@ class DataType(str):
     STRING: DataType
     JSON: DataType
     BOOL: DataType
+    BYTES: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1074,6 +1077,7 @@ DataType.UINT8 = DataType("uint8")
 DataType.JSON = DataType("json")
 DataType.STRING = DataType("string")
 DataType.BOOL = DataType("bool")
+DataType.BYTES = DataType("bytes")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1089,6 +1093,7 @@ DataType.ALL = (
     DataType.STRING,
     DataType.JSON,
     DataType.BOOL,
+    DataType.BYTES,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1150,6 +1155,7 @@ DataType._DENSITIES = {
     DataType.STRING: Density.UNKNOWN,
     DataType.JSON: Density.UNKNOWN,
     DataType.BOOL: Density.BIT8,
+    DataType.BYTES: Density.UNKNOWN,
 }
 
 

@@ -93,8 +93,7 @@ struct Channel {
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
     /// each
-    /// value with a timestamp. If zero, the channel's data will be indexed using its
-    /// rate.
+    /// value with a timestamp.
     Key index = 0;
     /// @brief alias is an optional alternate name for the channel within a specific
     /// context.

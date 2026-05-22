@@ -69,6 +69,7 @@ class WriterConfig(BaseModel):
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+    auto_index: bool = False
 
 
 class WriterRequest(BaseModel):
@@ -189,13 +190,12 @@ class Writer:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
-        use_experimental_codec: bool = True,
+        auto_index: bool = False,
         group: int = 0,
     ) -> None:
         self.start = start
         self._adapter = adapter
-        if use_experimental_codec:
-            client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
@@ -206,6 +206,7 @@ class Writer:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            auto_index=auto_index,
         )
         exc = self._stream.send(
             WriterRequest(command=WriterCommand.OPEN, config=config)

@@ -61,7 +61,7 @@ type CoreConfig struct {
 	alamos.Instrumentation
 	dataPath             string
 	verifier             string
-	rootCredentials      auth.InsecureCredentials
+	rootCredentials      auth.Credentials
 	listenAddress        address.Address
 	peers                []address.Address
 	disabledIntegrations []string
@@ -243,10 +243,13 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 
 	// Configure the HTTP Layer AspenTransport.
-	r := http.NewRouter(http.RouterConfig{
+	var r *http.Router
+	if r, err = http.NewRouter(http.RouterConfig{
 		Instrumentation:     cfg.Instrumentation,
 		StreamWriteDeadline: cfg.slowConsumerTimeout,
-	})
+	}); !ok(err, nil) {
+		return err
+	}
 	apiLayer.BindTo(httpapi.NewTransport(r, distributionLayer.Channel))
 
 	// Configure the GRPC Layer AspenTransport.

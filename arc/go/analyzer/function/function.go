@@ -56,6 +56,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
 				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
 				Type: types.Function(types.FunctionProperties{
 					Config:  config,
 					Inputs:  inputs,
@@ -239,7 +240,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 func addOutputsToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if outputType == nil {
 		return
@@ -391,7 +392,7 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 func addConfigToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	configBlock parser.IConfigBlockContext,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if configBlock == nil || configBlock.ConfigList() == nil {
 		return

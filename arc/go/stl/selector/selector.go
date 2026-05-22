@@ -43,6 +43,7 @@ var (
 	symbolSelect = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -53,22 +54,20 @@ var (
 			},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
-type Module struct{}
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the `select` builtin installed at root scope.
+var Symbols = []*symbol.Symbol{&symbolSelect}
 
-func NewModule() *Module { return &Module{} }
+// Host is the runtime host-side support for `select`: a node factory only.
+// No WASM bindings, no per-program state.
+type Host struct{}
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
+// NewHost constructs a selector Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

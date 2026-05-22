@@ -27,25 +27,52 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	symbolName = "set_status"
-	symbolSet  = symbol.Symbol{
-		Name: "set_status",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "status_key", Type: types.String()},
-				{Name: "variant", Type: types.String()},
-				{Name: "message", Type: types.String()},
-				{Name: "name", Type: types.String(), Value: ""},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-		}),
-	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
+const (
+	bareSymbolName      = "set_status"
+	qualifiedMemberName = "set"
+	moduleName          = "status"
 )
+
+var symbolProps = types.Function(types.FunctionProperties{
+	Config: types.Params{
+		{Name: "status_key", Type: types.String()},
+		{Name: "variant", Type: types.String()},
+		{Name: "message", Type: types.String()},
+		{Name: "name", Type: types.String(), Value: ""},
+	},
+	Inputs: types.Params{
+		{Name: ir.DefaultOutputParam, Type: types.U8()},
+	},
+})
+
+// memberSymbol is the canonical status.set symbol that lives inside the
+// status module. The deprecated bare global below points at it via
+// Deprecated so analyzer hints can name the replacement.
+var memberSymbol = symbol.Symbol{
+	Name: qualifiedMemberName,
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecFlow,
+	Type: symbolProps,
+}
+
+// module is the status module, built once at package init. Its sole child
+// is the `set` function above.
+var module = symbol.NewModule(moduleName, memberSymbol)
+
+// bareSymbolPtr is the deprecated `set_status` bare global. Its
+// Deprecated field points at the module's `set` member so warnings name
+// the qualified replacement.
+var bareSymbolPtr = &symbol.Symbol{
+	Name:       bareSymbolName,
+	Kind:       symbol.KindFunction,
+	Exec:       symbol.ExecFlow,
+	Type:       symbolProps,
+	Deprecated: module.FindChild(qualifiedMemberName),
+}
+
+// Symbols are the symbols this package contributes to a program's
+// ambient prelude: the status module plus the deprecated bare global.
+var Symbols = []*symbol.Symbol{module, bareSymbolPtr}
 
 type Module struct {
 	stat *status.Service
@@ -55,16 +82,10 @@ func NewModule(stat *status.Service) *Module {
 	return &Module{stat: stat}
 }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
+func (m *Module) ModuleName() string { return moduleName }
 
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg setNodeConfig
@@ -73,12 +94,13 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 	}
 	var stat status.Status[any]
 	if err := m.stat.NewRetrieve().
-		WhereKeys(nodeCfg.StatusKey).
+		Where(status.MatchKeys[any](nodeCfg.StatusKey)).
 		Entry(&stat).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey
+	stat.Name = nodeCfg.Name
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setNode{ins: cfg.Instrumentation, stat: stat, statusSvc: m.stat}, nil
@@ -88,12 +110,14 @@ type setNodeConfig struct {
 	StatusKey string `json:"status_key"`
 	Message   string `json:"message"`
 	Variant   string `json:"variant"`
+	Name      string `json:"name"`
 }
 
 var setNodeConfigSchema = zyn.Object(map[string]zyn.Schema{
 	"status_key": zyn.String(),
 	"message":    zyn.String(),
 	"variant":    zyn.String(),
+	"name":       zyn.String().Optional(),
 })
 
 type setNode struct {

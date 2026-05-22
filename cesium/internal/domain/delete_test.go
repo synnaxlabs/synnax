@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,22 +42,20 @@ func fixedOffsetAndTimeStamp(offset telem.Size, ts telem.TimeStamp) domain.Offse
 }
 
 var _ = Describe("Delete", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
 				db      *domain.DB
 				fs      fs.FS
-				cleanUp func() error
 				density = telem.Uint8T.Density()
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = MustSucceed(domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}))
 
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Context("Single Pointer", func() {

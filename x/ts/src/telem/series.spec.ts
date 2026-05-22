@@ -394,6 +394,155 @@ describe("Series", () => {
     });
   });
 
+  describe("asString", () => {
+    it("should return the string value for a string series", () => {
+      const series = new Series({
+        data: ["apple", "banana"],
+        dataType: DataType.STRING,
+      });
+      expect(series.asString(0, true)).toEqual("apple");
+      expect(series.asString(1, true)).toEqual("banana");
+    });
+
+    it("should return the raw JSON string without parsing for a JSON series", () => {
+      const series = new Series({
+        data: [{ a_b: 1, c_d: "apple" }],
+        dataType: DataType.JSON,
+      });
+      const result = series.asString(0, true);
+      expect(result).toEqual('{"a_b":1,"c_d":"apple"}');
+    });
+
+    it("should preserve raw snake_case keys while at() converts them to camelCase", () => {
+      const series = new Series({
+        data: [{ user_id: 1, first_name: "alice" }],
+        dataType: DataType.JSON,
+      });
+      expect(series.asString(0, true)).toEqual('{"user_id":1,"first_name":"alice"}');
+      expect(series.at(0, true)).toEqual({ userId: 1, firstName: "alice" });
+    });
+
+    it("should decode UTF-8 bytes for a BYTES series", () => {
+      const payload = new TextEncoder().encode("hello world");
+      const buf = new ArrayBuffer(4 + payload.byteLength);
+      new DataView(buf).setUint32(0, payload.byteLength, true);
+      new Uint8Array(buf).set(payload, 4);
+      const series = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(series.asString(0, true)).toEqual("hello world");
+    });
+
+    it("should emit the U+FFFD replacement character for invalid UTF-8 in a BYTES series", () => {
+      const payload = new Uint8Array([0xff, 0xfe]);
+      const buf = new ArrayBuffer(4 + payload.byteLength);
+      new DataView(buf).setUint32(0, payload.byteLength, true);
+      new Uint8Array(buf).set(payload, 4);
+      const series = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(series.asString(0, true)).toEqual("��");
+    });
+
+    it("should return a string representation for a numeric series", () => {
+      const series = new Series({
+        data: new Float32Array([3.5, 7]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("3.5");
+      expect(series.asString(1, true)).toEqual("7");
+    });
+
+    it("should return the shortest f32-roundtrippable decimal for typical FLOAT32 values", () => {
+      const series = new Series({
+        data: new Float32Array([1.234, 0.1, 100.5, -1.234, 3.14, -0]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("1.234");
+      expect(series.asString(1, true)).toEqual("0.1");
+      expect(series.asString(2, true)).toEqual("100.5");
+      expect(series.asString(3, true)).toEqual("-1.234");
+      expect(series.asString(4, true)).toEqual("3.14");
+      expect(series.asString(5, true)).toEqual("0");
+    });
+
+    it("should stringify integer-valued FLOAT32 values without decimals", () => {
+      const series = new Series({
+        data: new Float32Array([0, 1, -1, 1000000, -1000000]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("0");
+      expect(series.asString(1, true)).toEqual("1");
+      expect(series.asString(2, true)).toEqual("-1");
+      expect(series.asString(3, true)).toEqual("1000000");
+      expect(series.asString(4, true)).toEqual("-1000000");
+    });
+
+    it("should preserve f32 representation for very small FLOAT32 values", () => {
+      const subnormal = Math.fround(1e-40);
+      const series = new Series({
+        data: new Float32Array([Number.MIN_VALUE, subnormal]),
+        dataType: DataType.FLOAT32,
+      });
+      // Number.MIN_VALUE (5e-324) underflows to 0 in f32.
+      expect(series.asString(0, true)).toEqual("0");
+      expect(Math.fround(parseFloat(series.asString(1, true)))).toBe(subnormal);
+    });
+
+    it("should preserve f32 representation for very large FLOAT32 values", () => {
+      const maxF32 = Math.fround(3.4e38);
+      const large = Math.fround(1e30);
+      const series = new Series({
+        data: new Float32Array([maxF32, large]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(Math.fround(parseFloat(series.asString(0, true)))).toBe(maxF32);
+      expect(Math.fround(parseFloat(series.asString(1, true)))).toBe(large);
+    });
+
+    it("should stringify non-finite FLOAT32 values", () => {
+      const series = new Series({
+        data: new Float32Array([NaN, Infinity, -Infinity]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("NaN");
+      expect(series.asString(1, true)).toEqual("Infinity");
+      expect(series.asString(2, true)).toEqual("-Infinity");
+    });
+
+    it("should produce idempotent stringification under FLOAT32 round-trip", () => {
+      const cases = [1.234, 0.1, 100.5, -1.234, 1.2339999675750732, Math.PI, 1e-20];
+      for (const v of cases) {
+        const s1 = new Series({
+          data: new Float32Array([v]),
+          dataType: DataType.FLOAT32,
+        }).asString(0, true);
+        const s2 = new Series({
+          data: new Float32Array([parseFloat(s1)]),
+          dataType: DataType.FLOAT32,
+        }).asString(0, true);
+        expect(s2).toBe(s1);
+      }
+    });
+
+    it("should return undefined when index is out of bounds", () => {
+      const series = new Series({
+        data: ["apple"],
+        dataType: DataType.STRING,
+      });
+      expect(series.asString(5)).toBeUndefined();
+    });
+
+    it("should throw when index is out of bounds and required is true", () => {
+      const series = new Series({
+        data: ["apple"],
+        dataType: DataType.STRING,
+      });
+      expect(() => series.asString(5, true)).toThrow();
+    });
+
+    it("should return the UUID string for a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.asString(0, true)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+    });
+  });
+
   describe("atAlignment", () => {
     it("should return the value at a particular alignment", () => {
       const series = new Series({
@@ -404,6 +553,40 @@ describe("Series", () => {
       expect(series.atAlignment(1n)).toEqual(1);
       expect(series.atAlignment(2n)).toEqual(2);
       expect(series.atAlignment(3n)).toEqual(3);
+    });
+  });
+
+  describe("bigint sampleOffset precision", () => {
+    it("preserves precision in at when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.at(0)).toBe(offset);
+      expect(series.at(1)).toBe(offset + 1n);
+      expect(series.at(2)).toBe(offset + 2n);
+    });
+
+    it("preserves precision in max when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.max).toBe(offset + 2n);
+    });
+
+    it("preserves precision in min when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.min).toBe(offset);
     });
   });
 

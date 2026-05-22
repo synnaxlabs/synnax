@@ -29,17 +29,13 @@ import (
 )
 
 var _ = Describe("Meta", func() {
-	for fsName, makeFS := range FileSystems {
+	for fsName, openFS := range FileSystems {
 		var (
-			fs      fs.FS
-			cleanUp func() error
-			codec   encoding.Codec
+			fs fs.FS
 		)
 		BeforeEach(func() {
-			fs, cleanUp = makeFS()
-			codec = json.Codec
+			fs = openFS()
 		})
-		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, func() {
 			Describe("Corrupted Meta file", func() {
 				Specify("Corrupted meta.json", func(ctx SpecContext) {
@@ -54,7 +50,7 @@ var _ = Describe("Meta", func() {
 							Virtual:  true,
 							DataType: telem.Int64T,
 						},
-						codec,
+						json.Codec,
 					))
 					Expect(ch.Key).To(Equal(key))
 
@@ -62,7 +58,7 @@ var _ = Describe("Meta", func() {
 					Expect(f.Write([]byte("heheheha"))).To(Equal(8))
 					Expect(f.Close()).To(Succeed())
 
-					Expect(meta.Open(ctx, subFs, ch, codec)).Error().
+					Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
 						To(MatchError(ContainSubstring(
 							"error decoding meta in folder for channel %d",
 							key,
@@ -84,15 +80,15 @@ var _ = Describe("Meta", func() {
 								Virtual:  true,
 								DataType: telem.Int64T,
 							},
-							codec),
+							json.Codec),
 					)
 					Expect(createdChannel.Key).To(Equal(key))
 
 					f := MustSucceed(subFs.Open("meta.json", os.O_WRONLY))
-					Expect(codec.EncodeStream(ctx, f, ch)).To(Succeed())
+					Expect(json.Codec.EncodeStream(ctx, f, ch)).To(Succeed())
 					Expect(f.Close()).To(Succeed())
 
-					Expect(meta.Open(ctx, subFs, ch, codec)).Error().
+					Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
 						To(MatchError(ContainSubstring(badField)))
 				},
 					Entry(
@@ -138,7 +134,7 @@ var _ = Describe("Meta", func() {
 						Virtual:  true,
 						DataType: telem.Int64T,
 					},
-					codec,
+					json.Codec,
 				))
 				Expect(ch.Key).To(Equal(key))
 
@@ -151,7 +147,7 @@ var _ = Describe("Meta", func() {
 				Expect(subFs.Exists("meta.json")).To(BeTrue())
 				Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
 
-				ch2 := MustSucceed(meta.Read(ctx, subFs, codec))
+				ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
 				Expect(ch2.Key).To(Equal(key))
 				Expect(ch2.Name).To(Equal("Faraday"))
 				Expect(ch2.Virtual).To(BeTrue())
@@ -166,7 +162,7 @@ type brokenCodec struct{}
 
 var _ encoding.Codec = (*brokenCodec)(nil)
 
-var errEncoding = errors.New("broken codec")
+var errEncoding = errors.New("broken json.Codec")
 
 func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
 	return nil, errEncoding

@@ -22,10 +22,10 @@ import (
 
 // ProvisionResult contains the keys of all provisioned built-in roles.
 type ProvisionResult struct {
-	OwnerKey    uuid.UUID
-	EngineerKey uuid.UUID
-	OperatorKey uuid.UUID
-	ViewerKey   uuid.UUID
+	OwnerKey    role.Key
+	EngineerKey role.Key
+	OperatorKey role.Key
+	ViewerKey   role.Key
 }
 
 // Provision creates or updates all built-in roles and their associated policies.
@@ -62,14 +62,14 @@ func provisionRole(
 	tx gorp.Tx,
 	policySvc *policy.Service,
 	roleSvc *role.Service,
-) (uuid.UUID, error) {
-	policyKeys := make([]uuid.UUID, 0, len(policies))
+) (role.Key, error) {
+	policyKeys := make([]policy.Key, 0, len(policies))
 	for i := range policies {
 		pol := &policies[i]
 		desiredObjects := pol.Objects
 		desiredActions := pol.Actions
 		if err := policySvc.NewRetrieve().
-			WhereNames(pol.Name).
+			Where(policy.MatchNames(pol.Name)).
 			Entry(pol).
 			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return uuid.Nil, err
@@ -82,7 +82,7 @@ func provisionRole(
 		policyKeys = append(policyKeys, pol.Key)
 	}
 	if err := roleSvc.NewRetrieve().
-		WhereName(rol.Name).
+		Where(role.MatchNames(rol.Name)).
 		Entry(&rol).
 		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return uuid.Nil, err

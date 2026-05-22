@@ -40,6 +40,10 @@ func Analyze(
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		authBlock := item.AuthorityBlock()
 		if authBlock == nil {
+			// Imports may freely precede the authority block.
+			if item.ImportStatement() != nil {
+				continue
+			}
 			seenDeclaration = true
 			continue
 		}
@@ -93,7 +97,7 @@ func analyzeEntry(
 			))
 			return
 		}
-		sym, err := ctx.Scope.Resolve(ctx, name)
+		sym, err := ctx.Resolve(name)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,

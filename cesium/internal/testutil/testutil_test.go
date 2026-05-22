@@ -53,10 +53,10 @@ var _ = Describe("Test Util Test", func() {
 	})
 
 	Describe("CopyFS", func() {
-		for fsName, makeFS := range FileSystems {
+		for fsName, openFS := range FileSystems {
 			Context("FS: "+fsName, func() {
 				It("Should copy one fs entirely from one place to another", func() {
-					fs, cleanUp := makeFS()
+					fs := openFS()
 					sub1 := MustSucceed(fs.Sub("sub1"))
 					sub2 := MustSucceed(fs.Sub("sub2"))
 
@@ -96,7 +96,6 @@ var _ = Describe("Test Util Test", func() {
 					subsubsub2list := lo.Map(MustSucceed(sub2.List("subsub1/subsubsub1")), infoToName)
 					Expect(subsubsub1list).To(Equal(subsubsub2list))
 
-					Expect(cleanUp()).To(Succeed())
 				})
 			})
 		}

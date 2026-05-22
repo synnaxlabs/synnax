@@ -27,7 +27,7 @@ import (
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack:   uint32(r.Rack),
-		Device: r.Device,
+		Device: string(r.Device),
 	}
 	return pb, nil
 }
@@ -39,7 +39,7 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 		return r, nil
 	}
 	r.Rack = rack.Key(pb.Rack)
-	r.Device = pb.Device
+	r.Device = device.Key(pb.Device)
 	return r, nil
 }
 

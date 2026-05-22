@@ -7,9 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import uuid4
+
 import pytest
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 @pytest.mark.view
@@ -86,6 +89,33 @@ class TestView:
         )
         views = client.views.retrieve(keys=[v1.key, v2.key])
         assert len(views) == 2
+
+    def test_retrieve_with_search_term(self, client: sy.Synnax):
+        """Should search for views by name."""
+        prefix = f"searchable-view-{uuid4()}"
+        client.views.create(
+            [
+                sy.View(
+                    key=sy.view.Key(int=0),
+                    name=f"{prefix}-1",
+                    type="lineplot",
+                    query={},
+                ),
+                sy.View(
+                    key=sy.view.Key(int=0),
+                    name=f"{prefix}-2",
+                    type="table",
+                    query={},
+                ),
+            ]
+        )
+
+        def check() -> None:
+            results = client.views.retrieve(search_term=prefix)
+            assert len(results) >= 2
+            assert all(prefix in v.name for v in results)
+
+        assert_eventually(check)
 
     def test_retrieve_by_type(self, client: sy.Synnax):
         """Should retrieve views filtered by type."""

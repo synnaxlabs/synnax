@@ -9,3 +9,4 @@
 
 export * from "@/errors/Boundary";
 export * from "@/errors/Fallback";
+export * from "@/errors/SuspenseBoundary";

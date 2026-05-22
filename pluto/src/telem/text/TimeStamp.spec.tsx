@@ -20,7 +20,7 @@ describe("TimeStamp", () => {
       .add(TimeSpan.minutes(30))
       .add(TimeSpan.seconds(45));
     const c = render(
-      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp suppliedTimeZone="UTC" displayTimeZone="UTC">
         {ts}
       </Telem.Text.TimeStamp>,
     );
@@ -32,7 +32,7 @@ describe("TimeStamp", () => {
       "UTC",
     );
     const c = render(
-      <Telem.Text.TimeStamp format="time" suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp format="time" suppliedTimeZone="UTC" displayTimeZone="UTC">
         {ts}
       </Telem.Text.TimeStamp>,
     );
@@ -41,7 +41,7 @@ describe("TimeStamp", () => {
   it("should handle timezone conversion", () => {
     const ts = XTimeStamp.ZERO;
     const c = render(
-      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
+      <Telem.Text.TimeStamp suppliedTimeZone="UTC" displayTimeZone="UTC" format="time">
         {ts}
       </Telem.Text.TimeStamp>,
     );
@@ -53,7 +53,7 @@ describe("TimeStamp", () => {
       .add(TimeSpan.seconds(45))
       .valueOf();
     const c = render(
-      <Telem.Text.TimeStamp suppliedTZ="UTC" displayTZ="UTC" format="time">
+      <Telem.Text.TimeStamp suppliedTimeZone="UTC" displayTimeZone="UTC" format="time">
         {ts}
       </Telem.Text.TimeStamp>,
     );
@@ -62,7 +62,12 @@ describe("TimeStamp", () => {
   it("should pass through text props", () => {
     const ts = new XTimeStamp([2024, 1, 1], "UTC");
     const c = render(
-      <Telem.Text.TimeStamp level="h1" color={5} suppliedTZ="UTC" displayTZ="UTC">
+      <Telem.Text.TimeStamp
+        level="h1"
+        color={5}
+        suppliedTimeZone="UTC"
+        displayTimeZone="UTC"
+      >
         {ts}
       </Telem.Text.TimeStamp>,
     );

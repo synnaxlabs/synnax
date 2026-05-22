@@ -127,7 +127,7 @@ export class Task<S extends Schemas = Schemas> {
       ({
         type: z.string(),
         config: z.unknown(),
-        statusData: z.unknown(),
+        statusData: z.unknown().optional(),
       } as unknown as S);
     this.internal = internal;
     this.snapshot = snapshot;
@@ -282,7 +282,7 @@ export class Client {
     const res = await sendRequired(
       this.client,
       "/task/create",
-      { tasks: array.toArray(task) } as z.infer<typeof createReq>,
+      { tasks: array.toArray(task) },
       createReq,
       createRes,
     );

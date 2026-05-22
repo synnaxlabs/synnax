@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <sstream>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -39,6 +38,16 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
 }
 
 x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
+    if (this->seq_num >= 1) {
+        const auto &cur = this->states[this->seq_num].keys;
+        if (cur.size() == keys.size() &&
+            std::all_of(keys.begin(), keys.end(), [&](const channel::Key k) {
+                return cur.contains(k);
+            }))
+            return x::errors::NIL;
+    } else if (keys.empty())
+        return x::errors::NIL;
+
     this->seq_num++;
     auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
@@ -132,7 +141,11 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                 "frame contains extra key " + std::to_string(k) +
                     "not provided when opening the writer"
             );
-        if (dt->second != ser.data_type())
+        const bool is_equivalent = (dt->second == x::telem::INT64_T ||
+                                    dt->second == x::telem::TIMESTAMP_T) &&
+                                   (ser.data_type() == x::telem::INT64_T ||
+                                    ser.data_type() == x::telem::TIMESTAMP_T);
+        if (dt->second != ser.data_type() && !is_equivalent)
             return x::errors::Error(
                 x::errors::VALIDATION,
                 "data type " + dt->second + " for channel + " + std::to_string(k) +

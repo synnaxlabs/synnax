@@ -13,10 +13,10 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -35,12 +35,12 @@ type Reader struct {
 // ranges.
 func (r Reader) Retrieve(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	ch channel.Key,
 ) (string, error) {
 	var res Alias
 	err := r.table.NewRetrieve().
-		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
+		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -64,7 +64,7 @@ func (r Reader) Retrieve(
 // recursively check parent ranges.
 func (r Reader) Resolve(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	alias string,
 ) (channel.Key, error) {
 	var res Alias
@@ -78,7 +78,7 @@ func (r Reader) Resolve(
 		}
 	}
 	err = r.table.NewRetrieve().
-		Where(matcher).
+		Where(gorp.Match(matcher)).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -105,7 +105,7 @@ func (r Reader) Resolve(
 // ones.
 func (r Reader) List(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 ) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
 	if err := r.listAliases(ctx, rng, res); err != nil {
@@ -116,14 +116,14 @@ func (r Reader) List(
 
 func (r Reader) listAliases(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	accumulated map[channel.Key]string,
 ) error {
 	var aliases []Alias
 	if err := r.table.NewRetrieve().
-		Where(func(_ gorp.Context, a *Alias) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == rng, nil
-		}).
+		})).
 		Entries(&aliases).
 		Exec(ctx, r.tx); err != nil {
 		return err
@@ -147,7 +147,7 @@ func (r Reader) listAliases(
 // specified range.
 func (r Reader) Search(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	term string,
 ) ([]channel.Key, error) {
 	ids, err := r.search.Search(

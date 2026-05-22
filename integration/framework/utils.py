@@ -91,6 +91,19 @@ def create_indexed_channel(
     )
 
 
+def create_indexed_pair(
+    client: sy.Synnax,
+    name: str,
+    data_type: sy.DataType = sy.DataType.FLOAT64,
+) -> sy.Channel:
+    """Create a time index channel and a data channel indexed to it.
+
+    The index channel is named ``{name}_time``. Returns the data channel.
+    """
+    idx = create_time_index(client, f"{name}_time")
+    return create_indexed_channel(client, name, data_type, idx.key)
+
+
 LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 

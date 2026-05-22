@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/wasm"
@@ -43,7 +42,7 @@ import (
 
 type calcState struct {
 	nodes   *node.ProgramState
-	channel *stlchannel.ProgramState
+	channel *stlchannels.ProgramState
 	series  *series.ProgramState
 	strings *stlstrings.ProgramState
 }
@@ -96,22 +95,27 @@ func Open(
 	}
 
 	var cs calcState
-	cs.channel = stlchannel.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
+	cs.channel = stlchannels.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
 
-	channelMod, err := stlchannel.NewModule(ctx, cs.channel, cs.strings, nil)
+	channelMod, err := stlchannels.NewHost(ctx, nil, cs.channel, cs.strings)
+	if err != nil {
+		return nil, err
+	}
+
+	mathMod, err := stlmath.NewHost(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	f := node.CompoundFactory{
 		channelMod,
-		selector.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		stable.NewModule(),
-		&stat.Module{},
+		selector.NewHost(),
+		constant.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
+		mathMod,
 	}
 
 	var closers io.MultiCloser
@@ -122,26 +126,26 @@ func Open(
 	}()
 
 	if len(cfg.Module.WASM) > 0 {
-		var statefulMod *stateful.Module
-		var stringsMod *stlstrings.Module
-		var errorsMod *stlerrors.Module
+		var statefulMod *stateful.Host
+		var stringsMod *stlstrings.Host
+		var errorsMod *stlerrors.Host
 		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
-		if statefulMod, err = stateful.NewModule(ctx, cs.series, cs.strings, wasmRT); err != nil {
+		if statefulMod, err = stateful.NewHost(ctx, wasmRT, cs.series, cs.strings); err != nil {
 			return nil, err
 		}
-		if _, err = series.NewModule(ctx, cs.series, wasmRT); err != nil {
+		if _, err = series.NewHost(ctx, wasmRT, cs.series); err != nil {
 			return nil, err
 		}
-		if stringsMod, err = stlstrings.NewModule(ctx, cs.strings, wasmRT, nil); err != nil {
+		if stringsMod, err = stlstrings.NewHost(ctx, wasmRT, cs.strings, nil); err != nil {
 			return nil, err
 		}
-		if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
+		if _, err = stlmath.NewHost(ctx, wasmRT); err != nil {
 			return nil, err
 		}
-		if errorsMod, err = stlerrors.NewModule(ctx, nil, wasmRT); err != nil {
+		if errorsMod, err = stlerrors.NewHost(ctx, wasmRT, nil); err != nil {
 			return nil, err
 		}
 

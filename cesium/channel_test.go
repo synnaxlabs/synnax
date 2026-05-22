@@ -27,21 +27,19 @@ import (
 )
 
 var _ = Describe("Channel", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db      *cesium.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Create", func() {
@@ -453,7 +451,6 @@ var _ = Describe("Channel", Ordered, func() {
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 						meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-						codec = json.Codec
 						buf   = make([]byte, MustSucceed(meta.Stat()).Size())
 						newCh cesium.Channel
 					)
@@ -461,7 +458,7 @@ var _ = Describe("Channel", Ordered, func() {
 					MustSucceed(meta.Read(buf))
 					Expect(meta.Close()).To(Succeed())
 
-					Expect(codec.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(json.Codec.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
 				It("Should correctly rename multiple channels", func(ctx SpecContext) {

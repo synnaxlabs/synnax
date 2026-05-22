@@ -28,13 +28,20 @@ import {
   Portal,
   Status,
   Synnax,
-  type Tabs,
+  Tabs,
   Text,
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
+import {
+  type ComponentType,
+  memo,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
@@ -171,12 +178,50 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
 
 const contextMenu = Component.renderProp(ContextMenu);
 
+interface CustomTabNameProps extends Tabs.NameProps {
+  useName: Layout.UseName;
+}
+
+const CustomTabName = ({
+  useName,
+  tabKey,
+  name,
+  onRename: propsOnRename,
+  ...rest
+}: CustomTabNameProps): ReactElement => {
+  const handleLayoutRename = useCallback(
+    (name: string) => propsOnRename?.(tabKey, name),
+    [tabKey, propsOnRename],
+  );
+  const { onRename, retrieve } = useName(tabKey, handleLayoutRename);
+  useEffect(() => {
+    retrieve();
+  }, [retrieve]);
+  const handleRename = useCallback(
+    (_: string, name: string) => {
+      handleLayoutRename(name);
+      onRename(name);
+    },
+    [handleLayoutRename, onRename],
+  );
+  return (
+    <Tabs.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
+  );
+};
+
+const TabName: ComponentType<Tabs.NameProps> = (props) => {
+  const type = Layout.useSelectType(props.tabKey);
+  const useName = Layout.useNameHook(type);
+  if (useName != null) return <CustomTabName key={type} useName={useName} {...props} />;
+  return <Tabs.DefaultName {...props} />;
+};
+
 interface MosaicProps {
   windowKey: string;
   mosaic: Base.Node;
 }
 
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();
@@ -256,7 +301,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   );
 
   const handleResize = useDebouncedCallback(
-    (key, size) => {
+    (key: number, size: number) => {
       dispatch(Layout.resizeMosaicTab({ key, size, windowKey }));
     },
     RESIZE_DEBOUNCE,
@@ -342,6 +387,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onFileDrop={handleFileDrop}
         addTooltip="Create component"
         className={CSS.B("mosaic")}
+        Name={TabName}
       >
         {renderProp}
       </Base.Mosaic>

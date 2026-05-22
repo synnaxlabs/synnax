@@ -10,3 +10,4 @@
 export * from "@/user/Avatar";
 export * from "@/user/Icons";
 export * from "@/user/queries";
+export * from "@/user/types";

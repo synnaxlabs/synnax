@@ -93,6 +93,7 @@ var _ = Describe("Confluence", func() {
 			i.Inlet() <- 1
 			_, ok := <-o.Outlet()
 			Expect(ok).To(BeFalse())
+			Expect(ctx.Wait()).To(MatchError(ContainSubstring("got 1")))
 			Expect(a.Value()).To(BeEquivalentTo(10))
 		})
 	})

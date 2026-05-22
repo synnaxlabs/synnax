@@ -9,10 +9,12 @@
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { type Form } from "@/form";
+import { useSyncedRef } from "@/hooks/ref";
 import { type Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
@@ -132,11 +134,30 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     },
   });
 
-export const { useRetrieve } = createRetrieve();
+export const { useRetrieve, useRetrieveObservable } = createRetrieve();
 
-export interface ListQuery extends task.RetrieveMultipleParams {}
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<
+  Flux.UseRetrieveObservableParams<RetrieveQuery, task.Task | null>,
+  "onChange"
+> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success" || result.data == null) return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
-const unknownStatusZ = task.statusZ(z.unknown());
+export type ListQuery = task.RetrieveMultipleParams;
+
+const unknownStatusZ = task.statusZ(z.unknown().optional());
 
 export const useList = Flux.createList<ListQuery, task.Key, task.Task, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
@@ -210,9 +231,9 @@ export interface InitialValues<
   key?: task.Key;
 }
 
-export interface FormQuery {
+export type FormQuery = {
   key?: task.Key;
-}
+};
 
 const taskToFormValues = <S extends task.Schemas = task.Schemas>(
   t: InitialValues<S>,
@@ -269,7 +290,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status as task.NewStatus<S["statusData"]>,
+          status: value.status,
         },
         schemas,
       );
@@ -286,7 +307,11 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       store.statuses.onSet((status) => {
         const prevKey = get<string>("key", { optional: true })?.value;
         if (prevKey == null || status.key !== task.statusKey(prevKey)) return;
-        set("status", task.statusZ(z.unknown()).parse(status), RESET_OPTIONS);
+        set(
+          "status",
+          task.statusZ(z.unknown().optional()).parse(status),
+          RESET_OPTIONS,
+        );
       }),
     ],
   });

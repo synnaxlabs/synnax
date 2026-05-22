@@ -35,7 +35,8 @@ var _ = Describe("Stream", func() {
 
 		})
 		Describe("Communication", func() {
-			var stream = NewStream[int](1)
+			var stream *Stream[int]
+			BeforeEach(func() { stream = NewStream[int](1) })
 			It("Should return the correct channel when calling Inlet", func() {
 				stream.Inlet() <- 1
 				Expect(<-stream.Outlet()).To(Equal(1))

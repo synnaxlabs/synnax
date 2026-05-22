@@ -22,13 +22,13 @@
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/runtime/wasm/node.h"
-#include "arc/cpp/stl/channel/channel.h"
-#include "arc/cpp/stl/channel/state.h"
+#include "arc/cpp/stl/channels/channels.h"
+#include "arc/cpp/stl/channels/state.h"
 #include "arc/cpp/stl/error/error.h"
 #include "arc/cpp/stl/math/math.h"
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stateful/stateful.h"
-#include "arc/cpp/stl/str/str.h"
+#include "arc/cpp/stl/strings/strings.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
@@ -75,16 +75,16 @@ node::Context make_context() {
 
 /// @brief Builds a set of STL modules from the given state.
 std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
-    const std::shared_ptr<stl::channel::State> &channel_st,
-    const std::shared_ptr<stl::str::State> &str_st,
+    const std::shared_ptr<stl::channels::State> &channel_st,
+    const std::shared_ptr<stl::strings::State> &str_st,
     const std::shared_ptr<stl::series::State> &series_st,
     const std::shared_ptr<stl::stateful::Variables> &var_st
 ) {
     return {
-        std::make_shared<stl::channel::Module>(channel_st, str_st),
+        std::make_shared<stl::channels::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
         std::make_shared<stl::series::Module>(series_st),
-        std::make_shared<stl::str::Module>(str_st),
+        std::make_shared<stl::strings::Module>(str_st),
         std::make_shared<stl::math::Module>(),
         std::make_shared<stl::time::Module>(),
         std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
@@ -142,10 +142,10 @@ T call_func(
         throw std::runtime_error("Failed to create channel: " + err.message());
     auto source = func_def + "\n" + func_name + "{} -> " + ch.name;
 
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1187,7 +1187,7 @@ func counter(trigger i64) i64 {
 
     auto mod = compile_arc(client, source);
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {index_ch.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -1195,7 +1195,7 @@ func counter(trigger i64) i64 {
             {output_b_ch.key, x::telem::INT64_T, index_ch.key}
         }
     );
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
@@ -1360,7 +1360,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
         static_cast<int32_t>(data_ch.key)
     ) << "Config param value should be the channel ID";
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {trigger_idx.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::UINT8_T, trigger_idx.key},
@@ -1370,7 +1370,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
             {output_ch.key, x::telem::FLOAT32_T, output_idx.key}
         }
     );
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
@@ -1486,10 +1486,10 @@ func str_len(s str) i64 {
 )" + input_name + " -> str_len{} -> " +
                                output_name;
 
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1561,7 +1561,7 @@ func str_len(s str) i64 {
 }
 
 /// @brief Node handles string-typed named outputs without panicking on Density().
-TEST(NodeTest, DISABLED_NamedStringOutputMemoryLayout) {
+TEST(NodeTest, NamedStringOutputMemoryLayout) {
     const auto client = new_test_client();
 
     auto idx_name = random_name("time");
@@ -1611,12 +1611,13 @@ func labeler(x i64) (label str, value i64) {
     value = x * 2
 }
 )arc" + input_name +
-        " -> labeler{} -> " + value_out_name;
+        " -> labeler{} -> {label: " + label_out_name + ", value: " + value_out_name +
+        "}";
 
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1687,7 +1688,7 @@ func labeler(x i64) (label str, value i64) {
     }
 }
 
-/// @brief Node converts string channel input to handles for qualified string.len().
+/// @brief Node converts string channel input to handles for len().
 TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     const auto client = new_test_client();
 
@@ -1723,18 +1724,17 @@ TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     };
     ASSERT_NIL(client.channels.create(output_ch));
 
-    // Uses qualified string.len() instead of builtin len()
     const std::string source = R"(
 func qstr_len(s str) i64 {
-    return string.len(s)
+    return len(s)
 }
 )" + input_name + " -> qstr_len{} -> " +
                                output_name;
 
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1804,7 +1804,144 @@ func qstr_len(s str) i64 {
     EXPECT_EQ(output->at<int64_t>(2), 0); // ""
 }
 
-/// @brief Node converts string channel inputs to handles for qualified string.concat().
+/// @brief Flow expressions returning a string single default output materialize the
+/// handle returned on the WASM stack (base == 0 path) instead of dropping it.
+TEST(NodeTest, FlowExpressionStringDefaultOutput) {
+    const auto client = new_test_client();
+
+    auto output_name = random_name("str_output");
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func produce_str() str {
+    return str(42)
+}
+produce_str{} -> )" + output_name;
+
+    auto str_st = std::make_shared<stl::strings::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto channel_st = std::make_shared<stl::channels::State>();
+    auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({
+            .program = mod,
+            .modules = stl_modules,
+            .strings = str_st,
+        })
+    );
+
+    const auto *func_node = find_node_by_type(mod, "produce_str");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {{output_ch.key, x::telem::STRING_T, 0}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("produce_str"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(changed_outputs.size(), 1);
+
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), "42");
+}
+
+/// @brief Flow expressions returning a concatenated string default output preserve the
+/// resulting handle through the WASM stack (base == 0 path), mirroring the integration
+/// test pattern: trigger -> "value=" + str(42) + " items" -> str_chan.
+TEST(NodeTest, FlowExpressionStringConcatDefaultOutput) {
+    const auto client = new_test_client();
+
+    auto output_name = random_name("str_output");
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func produce_str() str {
+    return "value=" + str(42) + " items"
+}
+produce_str{} -> )" + output_name;
+
+    auto str_st = std::make_shared<stl::strings::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto channel_st = std::make_shared<stl::channels::State>();
+    auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({
+            .program = mod,
+            .modules = stl_modules,
+            .strings = str_st,
+        })
+    );
+
+    const auto *func_node = find_node_by_type(mod, "produce_str");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {{output_ch.key, x::telem::STRING_T, 0}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("produce_str"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(changed_outputs.size(), 1);
+
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), "value=42 items");
+}
+
+/// @brief Node converts string channel inputs to handles for + operator.
 TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     const auto client = new_test_client();
 
@@ -1846,15 +1983,15 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
 
     const std::string source = R"(
 func concat_len(a str, b str) i64 {
-    return string.len(string.concat(a, b))
+    return len(a + b)
 }
 )" + input_a_name + ", " + input_b_name +
                                " -> concat_len{} -> " + output_name;
 
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channel::State>();
+    auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
     auto mod = compile_arc(client, source);
@@ -1930,115 +2067,91 @@ func concat_len(a str, b str) i64 {
     EXPECT_EQ(output->at<int64_t>(0), 11);
 }
 
-/// @brief string.len() with literal via qualified syntax.
+/// @brief len() with string literal.
 TEST(QualifiedCallTest, StringLenLiteral) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func str_len() i64 { return string.len("hello") })arc");
+func str_len() i64 { return len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
-/// @brief string.concat() with literals via qualified syntax.
-TEST(QualifiedCallTest, StringConcatLiteral) {
+/// @brief ^ operator (const, const) with i64 literals.
+TEST(BinaryOpTest, PowConstConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func concat_len() i64 { return string.len(string.concat("ab", "cd")) })arc");
-    EXPECT_EQ(v, 4);
-}
-
-/// @brief string.equal() returns 1 for identical strings.
-TEST(QualifiedCallTest, StringEqualTrue) {
-    const auto client = new_test_client();
-    const auto v = call_func<int32_t>(client, R"arc(
-func str_eq() i32 { return string.equal("abc", "abc") })arc");
-    EXPECT_EQ(v, 1);
-}
-
-/// @brief string.equal() returns 0 for different strings.
-TEST(QualifiedCallTest, StringEqualFalse) {
-    const auto client = new_test_client();
-    const auto v = call_func<int32_t>(client, R"arc(
-func str_neq() i32 { return string.equal("abc", "def") })arc");
-    EXPECT_EQ(v, 0);
-}
-
-/// @brief math.pow(const, const) with i64 literals.
-TEST(QualifiedCallTest, MathPowConstConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func pow_ii() i64 { return math.pow(2, 10) })arc");
+func pow_ii() i64 { return 2 ^ 10 })arc");
     EXPECT_EQ(v, 1024);
 }
 
-/// @brief math.pow(const, const) with f64 literals.
-TEST(QualifiedCallTest, MathPowConstConstF64) {
+/// @brief ^ operator (const, const) with f64 literals.
+TEST(BinaryOpTest, PowConstConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(client, R"arc(
-func pow_ff() f64 { return math.pow(2.0, 3.0) })arc");
+func pow_ff() f64 { return 2.0 ^ 3.0 })arc");
     EXPECT_DOUBLE_EQ(v, 8.0);
 }
 
-/// @brief math.pow(chan, const) with f64 channel base.
-TEST(QualifiedCallTest, MathPowChanConstF64) {
+/// @brief ^ operator (chan, const) with f64 channel base.
+TEST(BinaryOpTest, PowChanConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func squared(x f64) f64 { return math.pow(x, 2) })arc",
+        R"arc(func squared(x f64) f64 { return x ^ 2 })arc",
         {3.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief math.pow(chan, const) with i64 channel base.
-TEST(QualifiedCallTest, MathPowChanConstI64) {
+/// @brief ^ operator (chan, const) with i64 channel base.
+TEST(BinaryOpTest, PowChanConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func cubed(x i64) i64 { return math.pow(x, 3) })arc",
+        R"arc(func cubed(x i64) i64 { return x ^ 3 })arc",
         {static_cast<int64_t>(5)}
     );
     EXPECT_EQ(v, 125);
 }
 
-/// @brief math.pow(const, chan) with f64 channel exponent.
-TEST(QualifiedCallTest, MathPowConstChanF64) {
+/// @brief ^ operator (const, chan) with f64 channel exponent.
+TEST(BinaryOpTest, PowConstChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func base3(exp f64) f64 { return math.pow(3.0, exp) })arc",
+        R"arc(func base3(exp f64) f64 { return 3.0 ^ exp })arc",
         {2.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief math.pow(const, chan) with i64 channel exponent.
-TEST(QualifiedCallTest, MathPowConstChanI64) {
+/// @brief ^ operator (const, chan) with i64 channel exponent.
+TEST(BinaryOpTest, PowConstChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func base2(exp i64) i64 { return math.pow(2, exp) })arc",
+        R"arc(func base2(exp i64) i64 { return 2 ^ exp })arc",
         {static_cast<int64_t>(4)}
     );
     EXPECT_EQ(v, 16);
 }
 
-/// @brief math.pow(chan, chan) with f64 channels.
-TEST(QualifiedCallTest, MathPowChanChanF64) {
+/// @brief ^ operator (chan, chan) with f64 channels.
+TEST(BinaryOpTest, PowChanChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func pow_ff(base f64, exp f64) f64 { return math.pow(base, exp) })arc",
+        R"arc(func pow_ff(base f64, exp f64) f64 { return base ^ exp })arc",
         {4.0, 0.5}
     );
     EXPECT_DOUBLE_EQ(v, 2.0);
 }
 
-/// @brief math.pow(chan, chan) with i64 channels.
-TEST(QualifiedCallTest, MathPowChanChanI64) {
+/// @brief ^ operator (chan, chan) with i64 channels.
+TEST(BinaryOpTest, PowChanChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func pow_ii(base i64, exp i64) i64 { return math.pow(base, exp) })arc",
+        R"arc(func pow_ii(base i64, exp i64) i64 { return base ^ exp })arc",
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);
@@ -2538,7 +2651,7 @@ func loop_state(trigger i64) i64 {
 )" + trigger_name + " -> loop_state{} -> " +
                                output_name;
 
-    auto channel_st = std::make_shared<stl::channel::State>(
+    auto channel_st = std::make_shared<stl::channels::State>(
         std::vector<state::ChannelDigest>{
             {index_ch.key, x::telem::TIMESTAMP_T, 0},
             {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -2546,7 +2659,7 @@ func loop_state(trigger i64) i64 {
             {output_ch.key, x::telem::INT64_T, output_idx.key}
         }
     );
-    auto str_st = std::make_shared<stl::str::State>();
+    auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);

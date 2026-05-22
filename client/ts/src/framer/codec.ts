@@ -21,7 +21,7 @@ import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
-import { WriterCommand } from "@/framer/types.gen";
+import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 const BITS_PER_BYTE = 8;
@@ -91,7 +91,7 @@ interface CodecState {
 }
 
 export class Codec {
-  contentType: string = "application/sy-framer";
+  contentType: string = CONTENT_TYPE;
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;
@@ -300,19 +300,12 @@ export class Codec {
       index += ALIGNMENT_SIZE;
     }
 
-    if (channelFlag) returnFrame.keys = [...state.keys];
-    state.keys.forEach((k, i) => {
-      if (!channelFlag) {
-        if (index >= view.byteLength) return;
-        const frameKey = view.getUint32(index, true);
-        if (frameKey !== k) return;
-        index += KEY_SIZE;
-        returnFrame.keys.push(k);
-      }
-      const dataType = state.keyDataTypes.get(k) as DataType;
+    const decodeSeries = (k: channel.Key): boolean => {
+      const dataType = state.keyDataTypes.get(k);
+      if (dataType == null) return false;
       currSize = 0;
       if (!sizeFlag) {
-        if (index + DATA_LENGTH_SIZE > view.byteLength) return;
+        if (index + DATA_LENGTH_SIZE > view.byteLength) return false;
         currSize = view.getUint32(index, true);
         index += DATA_LENGTH_SIZE;
       } else currSize = sizeRepresentation;
@@ -321,10 +314,7 @@ export class Codec {
       if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
       const isBool = dataType.equals(DataType.BOOLEAN);
       const wireByteLength = isBool ? bitPackedByteCount(currSize) : dataByteLength;
-      if (index + wireByteLength > view.byteLength) {
-        returnFrame.keys.splice(i, 1);
-        return;
-      }
+      if (index + wireByteLength > view.byteLength) return false;
       const wireBytes = src.slice(index, index + wireByteLength);
       const currSeries: SeriesPayload = {
         dataType,
@@ -332,7 +322,7 @@ export class Codec {
       };
       index += wireByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
-        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
+        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return false;
         const start = view.getBigUint64(index, true);
         index += TIMESTAMP_SIZE;
         const end = view.getBigUint64(index, true);
@@ -346,7 +336,7 @@ export class Codec {
       else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
 
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
-        if (index + ALIGNMENT_SIZE > view.byteLength) return;
+        if (index + ALIGNMENT_SIZE > view.byteLength) return false;
         currAlignment = view.getBigUint64(index, true);
         index += ALIGNMENT_SIZE;
         currSeries.alignment = currAlignment;
@@ -354,16 +344,27 @@ export class Codec {
       else currSeries.alignment = 0n;
 
       returnFrame.series.push(currSeries);
-    });
+      returnFrame.keys.push(k);
+      return true;
+    };
+
+    if (channelFlag) state.keys.forEach((k) => decodeSeries(k));
+    else
+      while (index < view.byteLength) {
+        if (index + KEY_SIZE > view.byteLength) break;
+        const frameKey = view.getUint32(index, true);
+        index += KEY_SIZE;
+        if (!decodeSeries(frameKey)) break;
+      }
     return returnFrame;
   }
 }
 
-export const LOW_PER_SPECIAL_CHAR = 254;
-const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
+export const LOW_PERF_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PERF_SPECIAL_CHAR]);
 export const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
-const CONTENT_TYPE = "application/sy-framer";
+const CONTENT_TYPE = "application/vnd.synnax.frame";
 
 export class WSWriterCodec implements binary.Codec {
   contentType = CONTENT_TYPE;
@@ -392,7 +393,7 @@ export class WSWriterCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
@@ -418,11 +419,43 @@ export class WSStreamerCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<StreamerResponse> = {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
+    };
+    return v as z.infer<P>;
+  }
+}
+
+export class WSIteratorCodec implements binary.Codec {
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
+    return this.lowPerfCodec.encode(payload);
+  }
+
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PERF_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<unknown> = {
+      type: "data",
+      payload: {
+        variant: IteratorResponseVariant.Data,
+        ack: false,
+        command: 0,
+        frame: this.base.decode(data, 1),
+      },
     };
     return v as z.infer<P>;
   }

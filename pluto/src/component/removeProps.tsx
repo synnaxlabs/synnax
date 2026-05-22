@@ -40,7 +40,7 @@ export const removeProps = <P extends object>(
   propsToRemove.forEach((prop) => (omitted[prop] = undefined as never));
   const C = (props: P) => {
     const { ...restProps } = { ...props, ...omitted };
-    return <WrappedComponent {...(restProps as P)} />;
+    return <WrappedComponent {...restProps} />;
   };
   C.displayName = `RemoveProps(${WrappedComponent.displayName})`;
   return C;

@@ -578,7 +578,7 @@ func (g *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channe
 	var channels []channel.Channel
 	if err := g.cfg.Channel.NewRetrieve().
 		Entries(&channels).
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}

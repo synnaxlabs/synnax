@@ -68,12 +68,13 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"maps"
 	"math"
 	"slices"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // IsRead returns true if the direction includes read.
@@ -547,6 +548,18 @@ func Equal(t Type, v Type) bool {
 		return false
 	}
 	return t.Unit.Equal(*v.Unit)
+}
+
+// UnitsAssignable reports whether a value with unit a may be assigned to a
+// target with unit b. A nil unit on either side is treated as a wildcard,
+// matching the WASM and Cesium representation where i64 and i64 ns share the
+// same wire type (timestamp <-> int64). Two non-nil units must match exactly,
+// so f32 psi vs f32 bar still fails.
+func UnitsAssignable(a, b *Unit) bool {
+	if a == nil || b == nil {
+		return true
+	}
+	return a.Equal(*b)
 }
 
 func paramsEqual(a, b Params) bool {

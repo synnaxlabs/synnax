@@ -15,6 +15,7 @@ from tests.arc.arc_case import ArcConsoleCase
 from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
+import ( stable status time )
 
 PRESS_HIGH_LIMIT f32 := 25
 PRESS_LOW_LIMIT f32 := 5
@@ -31,14 +32,14 @@ func event_log{msg str} () {
     lifecycle_log = msg
 }
 
-press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
-    true: set_status{
+press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
+    true: status.set{
         status_key="lifecycle_press_alarm",
         name="Lifecycle Press Alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
-    false: set_status{
+    false: status.set{
         status_key="lifecycle_press_normal",
         name="Lifecycle Press Normal",
         variant="warning",
@@ -59,7 +60,7 @@ func nested_write_2(val f32) {
     nested_write_3(val)
 }
 
-interval{100ms} -> nested_write_1{}
+time.interval{100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
@@ -71,7 +72,7 @@ sequence main {
 
     stage maintain {
         0 -> press_vlv_cmd
-        wait{1s} => vent
+        time.wait{1s} => vent
     }
 
     stage vent {
@@ -97,7 +98,7 @@ sequence signal_ctrl {
     }
     stage stop {
         "stop" -> signal_stage_log
-        wait{250ms} => yield
+        time.wait{250ms} => yield
     }
     stage yield {
         "yield" -> signal_stage_log
@@ -205,7 +206,7 @@ class Lifecycle(ArcConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  #  > 2 * wait{250ms}
+        sy.sleep(0.501)  #  > 2 * time.wait{250ms}
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
 
         # Confirm a fresh start signal correctly re-enters start.

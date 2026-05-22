@@ -57,7 +57,7 @@ export const ZERO_ALERT_TASK_CONFIG: AlertTaskConfig = {
 export const ALERT_SCHEMAS = {
   type: z.literal(ALERT_TYPE),
   config: alertTaskConfigZ,
-  statusData: z.unknown(),
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
 
 export type AlertSchemas = typeof ALERT_SCHEMAS;

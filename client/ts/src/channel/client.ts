@@ -12,10 +12,12 @@ import {
   array,
   type CrudeDensity,
   type CrudeTimeRange,
+  type CrudeTimeSpan,
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
   status,
+  TimeSpan,
   type TypedArray,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -387,8 +389,7 @@ export class Client {
    */
   async delete(params: Params): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
-    if (variant === "keys")
-      return await this.writer.delete({ keys: normalized as Key[] });
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
     return await this.writer.delete({ names: normalized as string[] });
   }
 
@@ -398,7 +399,9 @@ export class Client {
     return await this.writer.rename(array.toArray(keys), array.toArray(names));
   }
 
-  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+  createDebouncedBatchRetriever(
+    deb: CrudeTimeSpan = TimeSpan.milliseconds(10),
+  ): Retriever {
     return new CacheRetriever(
       new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
     );

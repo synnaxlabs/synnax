@@ -721,6 +721,7 @@ var _ = Describe("Primitive Helpers", func() {
 			Expect(resolution.IsConstraint(name)).To(Equal(expected))
 		},
 		Entry("comparable", "comparable", true),
+		Entry("numeric", "numeric", true),
 		Entry("string is not a constraint", "string", false),
 		Entry("unknown is not a constraint", "Unknown", false),
 		Entry("empty string", "", false),

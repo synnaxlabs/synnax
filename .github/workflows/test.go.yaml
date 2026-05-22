@@ -72,9 +72,10 @@ jobs:
 
       - name: Test
         run: >-
-          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending --keep-going --cover --coverprofile=cover.out --race --trace
-          --github-output ${{ inputs.ginkgo_flags }}
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --cover
+          --coverprofile=cover.out --race --trace --github-output ${{
+          inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage

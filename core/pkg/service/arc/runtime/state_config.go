@@ -16,7 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/set"
 )
@@ -24,7 +24,7 @@ import (
 type ExtendedStateConfig struct {
 	Reads          set.Set[channel.Key]
 	Writes         set.Set[channel.Key]
-	ChannelDigests []stlchannel.Digest
+	ChannelDigests []stlchannels.Digest
 	IR             ir.IR
 }
 
@@ -35,7 +35,7 @@ func retrieveChannels(
 ) ([]channel.Channel, error) {
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func retrieveChannels(
 	})
 	indexChannels := make([]channel.Channel, 0, len(indexes))
 	if err := channelSvc.NewRetrieve().
-		WhereKeys(indexes...).
+		Where(channel.MatchKeys(indexes...)).
 		Entries(&indexChannels).Exec(ctx, nil); err != nil {
 		return nil, err
 	}
@@ -76,9 +76,9 @@ func NewStateConfig(
 	if err != nil {
 		return ExtendedStateConfig{}, err
 	}
-	channelDigests := make([]stlchannel.Digest, 0, len(channels))
+	channelDigests := make([]stlchannels.Digest, 0, len(channels))
 	for _, ch := range channels {
-		channelDigests = append(channelDigests, stlchannel.Digest{
+		channelDigests = append(channelDigests, stlchannels.Digest{
 			Key:      uint32(ch.Key()),
 			DataType: ch.DataType,
 			Index:    uint32(ch.Index()),

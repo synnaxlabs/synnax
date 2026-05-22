@@ -145,4 +145,17 @@ describe("copy", () => {
       expect(copied.uint8).not.toBe(uint8);
     } else expect(Array.from(copied.uint8 as Uint8Array)).toEqual([1, 2, 3]);
   });
+
+  // Mirrors the immer Draft scenario: callers store snapshots of mutable
+  // proxy state in long-lived structures (e.g., undo entries) that outlive
+  // the proxy. The snapshot must own its data so it survives revocation.
+  it("should produce a snapshot detached from a revocable proxy source", () => {
+    const target = { nested: { value: 1 }, list: [1, 2, 3] };
+    const { proxy, revoke } = Proxy.revocable(target, {});
+    const copied = deep.copy(proxy);
+    revoke();
+    expect(copied).toEqual({ nested: { value: 1 }, list: [1, 2, 3] });
+    expect(copied.nested).not.toBe(target.nested);
+    expect(copied.list).not.toBe(target.list);
+  });
 });

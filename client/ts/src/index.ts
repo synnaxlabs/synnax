@@ -68,6 +68,6 @@ export {
   TimeSpan,
   TimeStamp,
   type TimeStampStringFormat,
+  type TimeZone,
   type TypedArray,
-  type TZInfo,
 } from "@synnaxlabs/x";

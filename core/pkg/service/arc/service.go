@@ -13,15 +13,17 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
+	"github.com/synnaxlabs/arc/stl"
+	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -95,19 +97,41 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table  *gorp.Table[uuid.UUID, Arc]
+	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
 }
 
+// NewChannelResolver returns the dynamic resolver that the analyzer
+// consults for cluster channels not statically known to the program.
+func (s *Service) NewChannelResolver(tx gorp.Tx) *symbol.ChannelResolver {
+	return symbol.NewChannelResolver(s.cfg.Channel, tx)
+}
+
+// NewSymbolResolver is the dynamic resolver attached to a program root's
+// GlobalResolver. It resolves cluster channels by name or numeric key.
+// Static prelude symbols (STL, status module) are attached to the
+// ambient by NewRoot rather than chained behind this resolver.
 func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return symbol.NewResolver(s.cfg.Channel, tx)
+	return s.NewChannelResolver(tx)
+}
+
+// NewRoot builds a program root populated with STL + status module +
+// the cluster channel resolver attached as the dynamic resolver. This
+// is the production analysis root: tx is consulted for channel lookups,
+// nil means "use the service DB directly."
+func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
+	syms := make([]*arcsymbol.Symbol, 0, len(stl.Symbols)+len(arcstatus.Symbols))
+	syms = append(syms, stl.Symbols...)
+	syms = append(syms, arcstatus.Symbols...)
+	return arcsymbol.NewRoot(s.NewChannelResolver(tx), syms...)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
-		GlobalResolver:  s.NewSymbolResolver(nil),
+		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		OnRename:        channelRename(s.cfg.Channel),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
@@ -124,18 +148,17 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
+func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	var entry Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&entry).Exec(ctx, nil)
+	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
-	resolverOpt := arc.WithResolver(s.NewSymbolResolver(nil))
 	var prog arc.Program
 	if entry.Mode == "text" {
-		prog, err = arc.CompileText(ctx, entry.Text, resolverOpt)
+		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil))
 	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, resolverOpt)
+		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
 	}
 	if err != nil {
 		return Arc{}, err
@@ -155,12 +178,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
+	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Key, Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[uuid.UUID, arcv54.Arc]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
+				gorp.NewEntryMigration[Key, Key, arcv54.Arc, Arc](
 					"v54_drop_program_status",
 					MigrateArc,
 				),

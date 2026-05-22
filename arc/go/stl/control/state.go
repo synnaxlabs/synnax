@@ -10,7 +10,7 @@
 package control
 
 // AuthorityChange represents a buffered authority change request.
-// It is produced by set_authority nodes during reactive execution and consumed
+// It is produced by control.set_authority nodes during reactive execution and consumed
 // by the runtime task when flushing state.
 type AuthorityChange struct {
 	// Channel is the specific channel to change authority for.

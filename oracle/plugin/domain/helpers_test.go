@@ -207,6 +207,56 @@ var _ = Describe("HasExpr", func() {
 	})
 })
 
+var _ = Describe("HasExprFromField", func() {
+	It("should return true when expression exists on field", func() {
+		f := makeField("name", map[string]resolution.Domain{
+			"validate": {
+				Name:        "validate",
+				Expressions: resolution.Expressions{{Name: "required"}},
+			},
+		})
+		Expect(domain.HasExprFromField(f, "validate", "required")).To(BeTrue())
+	})
+
+	It("should return false when expression is missing on field", func() {
+		f := makeField("name", map[string]resolution.Domain{
+			"validate": {
+				Name:        "validate",
+				Expressions: resolution.Expressions{{Name: "min"}},
+			},
+		})
+		Expect(domain.HasExprFromField(f, "validate", "required")).To(BeFalse())
+	})
+})
+
+var _ = Describe("HasDomainFromType", func() {
+	It("should return true when domain is present on type", func() {
+		t := makeType("User", map[string]resolution.Domain{
+			"go": {Name: "go"},
+		})
+		Expect(domain.HasDomainFromType(t, "go")).To(BeTrue())
+	})
+
+	It("should return false when domain is missing on type", func() {
+		t := makeType("User", map[string]resolution.Domain{})
+		Expect(domain.HasDomainFromType(t, "go")).To(BeFalse())
+	})
+})
+
+var _ = Describe("HasDomainFromField", func() {
+	It("should return true when domain is present on field", func() {
+		f := makeField("name", map[string]resolution.Domain{
+			"validate": {Name: "validate"},
+		})
+		Expect(domain.HasDomainFromField(f, "validate")).To(BeTrue())
+	})
+
+	It("should return false when domain is missing on field", func() {
+		f := makeField("name", map[string]resolution.Domain{})
+		Expect(domain.HasDomainFromField(f, "validate")).To(BeFalse())
+	})
+})
+
 var _ = Describe("GetName", func() {
 	It("should return domain name override when present", func() {
 		t := makeType("User", map[string]resolution.Domain{

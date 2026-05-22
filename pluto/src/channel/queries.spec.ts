@@ -104,13 +104,15 @@ describe("queries", () => {
           { signal: controller.signal },
         );
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-      expect(
-        result.current.data
-          .map((key: channel.Key) => result.current.getItem(key)?.name)
-          .includes(`${prefix}_special_channel`),
-      ).toBe(true);
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
+        expect(
+          result.current.data
+            .map((key: channel.Key) => result.current.getItem(key)?.name)
+            .includes(`${prefix}_special_channel`),
+        ).toBe(true);
+      });
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -747,24 +749,6 @@ describe("queries", () => {
       expect(result.current.form.validate()).toBe(false);
       expect(result.current.form.get("index").status.message).toContain(
         "Data channel must have an index",
-      );
-    });
-
-    it("should validate that persisted channels have fixed-size data types", async () => {
-      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.STRING.toString());
-        result.current.form.set("virtual", false);
-        result.current.form.set("isIndex", false);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("dataType").status.message).toContain(
-        "Persisted channels must have a fixed-size data type",
       );
     });
 

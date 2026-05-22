@@ -18,6 +18,7 @@ import * as v4 from "@/layout/types/v4";
 import * as v5 from "@/layout/types/v5";
 import * as v6 from "@/layout/types/v6";
 import * as v7 from "@/layout/types/v7";
+import * as v9 from "@/layout/types/v9";
 
 const STATES: AnySliceState[] = [
   v0.ZERO_SLICE_STATE,
@@ -37,6 +38,45 @@ describe("migrations", () => {
         const migrated = migrateSlice(state);
         expect(migrated).toEqual(ZERO_SLICE_STATE);
       });
+    });
+
+    it("should drop getStarted layouts and tabs when migrating from v9", () => {
+      const stateWithGetStarted: v9.SliceState = {
+        ...v9.ZERO_SLICE_STATE,
+        layouts: {
+          ...v9.ZERO_SLICE_STATE.layouts,
+          getStarted: {
+            name: "Get Started",
+            key: "getStarted",
+            location: "mosaic",
+            type: "getStarted",
+            windowKey: "main",
+          },
+        },
+        mosaics: {
+          ...v9.ZERO_SLICE_STATE.mosaics,
+          main: {
+            ...v9.ZERO_SLICE_STATE.mosaics.main,
+            activeTab: "getStarted",
+            root: {
+              key: 1,
+              tabs: [
+                {
+                  tabKey: "getStarted",
+                  name: "Get Started",
+                  closable: true,
+                  editable: false,
+                },
+              ],
+              selected: "getStarted",
+            },
+          },
+        },
+      };
+      const migrated = migrateSlice(stateWithGetStarted);
+      expect(migrated.layouts.getStarted).toBeUndefined();
+      expect(migrated.mosaics.main.activeTab).toBeNull();
+      expect(migrated.mosaics.main.root.tabs).toEqual([]);
     });
   });
 });

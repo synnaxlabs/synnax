@@ -26,6 +26,7 @@ namespace arc::stl::constant {
 /// or after reset() has been called.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
+    x::telem::MonoClock clock;
     x::telem::SampleValue value;
     bool initialized = false;
 
@@ -49,7 +50,7 @@ public:
             o->set(0, this->value);
         }
         o_time->resize(1);
-        o_time->set(0, x::telem::TimeStamp::now());
+        o_time->set(0, this->clock.now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }

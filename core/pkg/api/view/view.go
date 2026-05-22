@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -76,11 +75,11 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	SearchTerm string      `json:"search_term" msgpack:"search_term"`
-	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
-	Types      []string    `json:"types" msgpack:"types"`
-	Limit      int         `json:"limit" msgpack:"limit"`
-	Offset     int         `json:"offset" msgpack:"offset"`
+	SearchTerm string     `json:"search_term" msgpack:"search_term"`
+	Keys       []view.Key `json:"keys" msgpack:"keys"`
+	Types      []string   `json:"types" msgpack:"types"`
+	Limit      int        `json:"limit" msgpack:"limit"`
+	Offset     int        `json:"offset" msgpack:"offset"`
 }
 
 type RetrieveResponse struct {
@@ -102,10 +101,10 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(view.MatchKeys(req.Keys...))
 	}
 	if len(req.Types) != 0 {
-		q = q.WhereTypes(req.Types...)
+		q = q.Where(view.MatchTypes(req.Types...))
 	}
 
 	var views []view.View
@@ -123,7 +122,7 @@ func (s *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []view.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(

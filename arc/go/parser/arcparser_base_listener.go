@@ -41,6 +41,30 @@ func (s *BaseArcParserListener) EnterTopLevelItem(ctx *TopLevelItemContext) {}
 // ExitTopLevelItem is called when production topLevelItem is exited.
 func (s *BaseArcParserListener) ExitTopLevelItem(ctx *TopLevelItemContext) {}
 
+// EnterImportStatement is called when production importStatement is entered.
+func (s *BaseArcParserListener) EnterImportStatement(ctx *ImportStatementContext) {}
+
+// ExitImportStatement is called when production importStatement is exited.
+func (s *BaseArcParserListener) ExitImportStatement(ctx *ImportStatementContext) {}
+
+// EnterImportItem is called when production importItem is entered.
+func (s *BaseArcParserListener) EnterImportItem(ctx *ImportItemContext) {}
+
+// ExitImportItem is called when production importItem is exited.
+func (s *BaseArcParserListener) ExitImportItem(ctx *ImportItemContext) {}
+
+// EnterImportPath is called when production importPath is entered.
+func (s *BaseArcParserListener) EnterImportPath(ctx *ImportPathContext) {}
+
+// ExitImportPath is called when production importPath is exited.
+func (s *BaseArcParserListener) ExitImportPath(ctx *ImportPathContext) {}
+
+// EnterImportPathHead is called when production importPathHead is entered.
+func (s *BaseArcParserListener) EnterImportPathHead(ctx *ImportPathHeadContext) {}
+
+// ExitImportPathHead is called when production importPathHead is exited.
+func (s *BaseArcParserListener) ExitImportPathHead(ctx *ImportPathHeadContext) {}
+
 // EnterAuthorityBlock is called when production authorityBlock is entered.
 func (s *BaseArcParserListener) EnterAuthorityBlock(ctx *AuthorityBlockContext) {}
 

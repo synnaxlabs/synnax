@@ -11,34 +11,38 @@ package resolve
 
 import (
 	"context"
-	"strings"
 
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
-// DeriveWASMCoordinates maps a qualified Arc name to a per-module WASM import
-// coordinate. The qualified name is split on the last dot to produce the WASM
-// module name and function base name. If the original symbol has type variables,
-// a type suffix is appended based on the concrete type.
+// DeriveWASMCoordinates returns the per-module WASM import coordinate for a
+// host-import reference. wasmModule is ref.module verbatim; wasmFuncName is
+// ref.name, with a type suffix appended when the underlying symbol is
+// polymorphic (or when an explicit suffix was supplied via
+// ResolveImportWithSuffix). Panics on a local reference (ref.module == "")
+// since locals are not WASM imports.
 func DeriveWASMCoordinates(
-	symbols symbol.Resolver,
+	ctx context.Context,
+	scope *symbol.Symbol,
 	ref pendingRef,
 ) (wasmModule string, wasmFuncName string) {
-	if idx := strings.LastIndex(ref.qualifiedName, "."); idx >= 0 {
-		wasmModule = ref.qualifiedName[:idx]
-		wasmFuncName = ref.qualifiedName[idx+1:]
-	} else {
-		panic("unqualified host function name: " + ref.qualifiedName)
+	if ref.module == "" {
+		panic("DeriveWASMCoordinates called on local reference: " + ref.name)
 	}
+	wasmModule = ref.module
+	wasmFuncName = ref.name
 	var suffix string
 	if ref.typeSuffix != "" {
 		suffix = ref.typeSuffix
-	} else if symbols != nil {
-		original, err := symbols.Resolve(context.Background(), ref.qualifiedName)
-		if err == nil && original.Type.Kind == types.KindFunction {
-			suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
+	} else if scope != nil {
+		modSym, err := scope.Resolve(ctx, ref.module, symbol.IncludeInternal)
+		if err == nil {
+			original, err := modSym.Resolve(ctx, ref.name, symbol.IncludeInternal)
+			if err == nil && original.Type.Kind == types.KindFunction {
+				suffix = DeriveTypeSuffix(original.Type, ref.concreteType)
+			}
 		}
 	}
 	if suffix != "" {
@@ -57,18 +61,27 @@ func DeriveTypeSuffix(originalType, concreteType types.Type) string {
 	for i, inp := range originalType.Inputs {
 		if inp.Type.Kind == types.KindVariable {
 			if i < len(concreteType.Inputs) {
-				return concreteType.Inputs[i].Type.String()
+				return suffixForType(concreteType.Inputs[i].Type)
 			}
 		}
 	}
 	for i, out := range originalType.Outputs {
 		if out.Type.Kind == types.KindVariable {
 			if i < len(concreteType.Outputs) {
-				return concreteType.Outputs[i].Type.String()
+				return suffixForType(concreteType.Outputs[i].Type)
 			}
 		}
 	}
 	return ""
+}
+
+// suffixForType returns the WASM coordinate suffix for a concrete type. Units
+// are stripped because WASM types (i32/i64/f32/f64) are unit-blind, so a
+// timestamp (i64 ns) channel and an int64 channel both bind to the same
+// write_i64 host function.
+func suffixForType(t types.Type) string {
+	t.Unit = nil
+	return t.String()
 }
 
 // DeriveWASMFuncType converts an Arc function type to a WASM FunctionType.

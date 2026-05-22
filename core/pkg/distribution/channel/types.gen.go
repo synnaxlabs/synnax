@@ -12,7 +12,7 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -65,7 +65,7 @@ type Channel struct {
 	Name Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
-	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this channel is an index channel. Index channels must have int64
@@ -75,7 +75,7 @@ type Channel struct {
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index this channel's values, associating each value
-	// with a timestamp. If zero, the channel's data will be indexed using its rate.
+	// with a timestamp.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is true if this channel does not persist data and is used only for streaming.
 	Virtual bool `json:"virtual" msgpack:"virtual"`

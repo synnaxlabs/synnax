@@ -34,7 +34,7 @@ export const AES256_SHA256_RSAPSS_SECURITY_POLICY =
 export type SecurityPolicy = v0.SecurityPolicy;
 
 export const connectionConfigZ = v0.connectionConfigZ;
-export interface ConnectionConfig extends v0.ConnectionConfig {}
+export type ConnectionConfig = v0.ConnectionConfig;
 export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
 export const propertiesZ: z.ZodType<v1.Properties> = v1.propertiesZ.or(

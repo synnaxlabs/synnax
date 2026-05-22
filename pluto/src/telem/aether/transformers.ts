@@ -12,6 +12,7 @@ import {
   bounds,
   color,
   id,
+  type math,
   MultiSeries,
   notation,
   scale,
@@ -89,7 +90,7 @@ export class SetPoint
   }
 }
 
-export const withinBoundsProps = z.object({ trueBound: bounds.boundsZ });
+export const withinBoundsProps = z.object({ trueBound: bounds.boundsZ() });
 
 export type WithinBoundsProps = z.infer<typeof withinBoundsProps>;
 
@@ -177,7 +178,7 @@ export const stringifyNumberProps = z.object({
 });
 
 export class StringifyNumber extends UnarySourceTransformer<
-  number,
+  math.Numeric,
   string,
   typeof stringifyNumberProps
 > {
@@ -185,8 +186,8 @@ export class StringifyNumber extends UnarySourceTransformer<
   static readonly propsZ = stringifyNumberProps;
   schema = StringifyNumber.propsZ;
 
-  protected transform(value: number): string {
-    if (isNaN(value)) return "";
+  protected transform(value: math.Numeric): string {
+    if (typeof value === "number" && isNaN(value)) return "";
     const { precision, prefix, suffix, notation: pNotation } = this.props;
     return `${prefix}${notation.stringifyNumber(value, precision, pNotation)}${suffix}`;
   }
@@ -206,7 +207,7 @@ export const rollingAverageProps = z.object({
 });
 
 export class RollingAverage extends UnarySourceTransformer<
-  number,
+  math.Numeric,
   number,
   typeof rollingAverageProps
 > {
@@ -215,15 +216,16 @@ export class RollingAverage extends UnarySourceTransformer<
   schema = rollingAverageProps;
   private values: number[] = [];
 
-  protected transform(value: number): number {
-    if (this.props.windowSize < 2 || isNaN(value)) return value;
+  protected transform(value: math.Numeric): number {
+    const num = Number(value);
+    if (this.props.windowSize < 2 || isNaN(num)) return num;
     return this.values.reduce((a, b) => a + b, 0) / this.values.length;
   }
 
-  protected shouldNotify(value: number): boolean {
+  protected shouldNotify(value: math.Numeric): boolean {
     if (this.props.windowSize < 2) return true;
     if (this.values.length > this.props.windowSize) this.values = [];
-    this.values.push(value);
+    this.values.push(Number(value));
     return this.values.length === this.props.windowSize;
   }
 }
@@ -269,7 +271,7 @@ export const scaleNumberProps = z.object({
 });
 
 export class ScaleNumber extends UnarySourceTransformer<
-  number,
+  math.Numeric,
   number,
   typeof scaleNumberProps
 > {
@@ -277,10 +279,11 @@ export class ScaleNumber extends UnarySourceTransformer<
   static readonly propsZ = scaleNumberProps;
   schema = ScaleNumber.propsZ;
 
-  protected transform(value: number): number {
-    if (isNaN(value)) return value;
+  protected transform(value: math.Numeric): number {
+    const num = Number(value);
+    if (isNaN(num)) return num;
     const { offset, scale } = this.props.scale;
-    return value * scale + offset;
+    return num * scale + offset;
   }
 }
 

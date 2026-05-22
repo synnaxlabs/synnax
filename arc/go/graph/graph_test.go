@@ -16,8 +16,9 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -90,11 +91,11 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, nil)
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(1))
 			funcScope := MustSucceed(inter.Symbols.Resolve(ctx, "add"))
-			Expect(funcScope.Children).To(HaveLen(4))
+			Expect(funcScope.Children()).To(HaveLen(4))
 			params := funcScope.FilterChildrenByKind(symbol.KindInput)
 			Expect(params).To(HaveLen(2))
 			Expect(params[0].Name).To(Equal("a"))
@@ -138,16 +139,16 @@ var _ = Describe("Graph", func() {
 					},
 				},
 			}
-			resolver := symbol.MapResolver{
-				"12": symbol.Symbol{
-					Name: "ox_pt_1",
-					Type: types.Chan(types.F32()),
-					Kind: symbol.KindChannel,
-					ID:   12,
-				},
-			}
+			root := symbol.NewRoot(nil, stl.Symbols...)
+			root.Parent.AddChild(&symbol.Symbol{
+				Name: "ox_pt_1",
+				Type: types.Chan(types.F32()),
+				Kind: symbol.KindChannel,
+				ID:   12,
+			})
+			symbol.AutoImportModules(root)
 			g = MustSucceed(graph.Parse(g))
-			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			inter, diagnostics := graph.Analyze(ctx, g, root)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(2))
 			Expect(inter.Nodes).To(HaveLen(2))
@@ -199,7 +200,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// The fact that analysis succeeded without errors indicates
@@ -262,7 +263,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Check that the multiplier node instance has concrete resolved types
@@ -335,7 +336,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				// Both node instances should have concrete F64 types
@@ -392,7 +393,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				// This should fail because poly_add expects both parameters to be the same type T
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
@@ -430,7 +431,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				// This should fail because string doesn't satisfy NumericConstraint
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("is not compatible with"))
@@ -464,7 +465,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("edge target node 'nonexistent' not found"))
 			})
@@ -497,7 +498,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("missing required input 'input'"))
 			})
@@ -530,7 +531,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 			})
@@ -697,7 +698,7 @@ var _ = Describe("Graph", func() {
 				Expect(parsed.Edges).To(HaveLen(6))
 
 				// Analyze the graph
-				inter, diagnostics := graph.Analyze(ctx, parsed, nil)
+				inter, diagnostics := graph.Analyze(ctx, parsed, NewGraphRoot(nil))
 
 				// The analysis should succeed
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -784,19 +785,54 @@ var _ = Describe("Graph", func() {
 					},
 				},
 			}
-			resolver := symbol.CompoundResolver{
-				control.SymbolResolver,
-				symbol.MapResolver{
-					"10057": symbol.Symbol{
-						Name: "f64_sensor",
-						Type: types.WriteChan(types.F64()),
-						Kind: symbol.KindChannel,
-						ID:   10057,
+			resolver := []symbol.Symbol{{
+				Name: "f64_sensor",
+				Type: types.WriteChan(types.F64()),
+				Kind: symbol.KindChannel,
+				ID:   10057,
+			}}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should analyze control.set_authority with a non-uint8 channel", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 10057},
+					},
+					{
+						Key:  "set_auth",
+						Type: "control.set_authority",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 10057,
+						},
 					},
 				},
 			}
+			resolver := []symbol.Symbol{{
+				Name: "f64_sensor",
+				Type: types.WriteChan(types.F64()),
+				Kind: symbol.KindChannel,
+				ID:   10057,
+			}}
 			g = MustSucceed(graph.Parse(g))
-			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
@@ -813,19 +849,14 @@ var _ = Describe("Graph", func() {
 					},
 				},
 			}
-			resolver := symbol.CompoundResolver{
-				control.SymbolResolver,
-				symbol.MapResolver{
-					"10058": symbol.Symbol{
-						Name: "f64_sensor",
-						Type: types.ReadChan(types.F64()),
-						Kind: symbol.KindChannel,
-						ID:   10058,
-					},
-				},
-			}
+			resolver := []symbol.Symbol{{
+				Name: "f64_sensor",
+				Type: types.ReadChan(types.F64()),
+				Kind: symbol.KindChannel,
+				ID:   10058,
+			}}
 			g = MustSucceed(graph.Parse(g))
-			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeFalse())
 		})
 
@@ -859,7 +890,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse())
 					Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
 				})
@@ -901,7 +932,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Edges).To(HaveLen(2))
 				})
@@ -923,7 +954,7 @@ var _ = Describe("Graph", func() {
 						Edges: []ir.Edge{},
 					}
 					g = MustSucceed(graph.Parse(g))
-					inter, diagnostics := graph.Analyze(ctx, g, nil)
+					inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 					Expect(inter.Nodes).To(HaveLen(2))
 				})
@@ -959,7 +990,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 					Expect(diagnostics).To(MatchError(ContainSubstring("missing required input 'b'")))
 				})
@@ -993,7 +1024,7 @@ var _ = Describe("Graph", func() {
 						},
 					}
 					g = MustSucceed(graph.Parse(g))
-					_, diagnostics := graph.Analyze(ctx, g, nil)
+					_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				})
 
@@ -1037,7 +1068,7 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				_, diagnostics := graph.Analyze(ctx, g, nil)
+				_, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(ContainSubstring("multiple edges"))
 			})
@@ -1075,11 +1106,172 @@ var _ = Describe("Graph", func() {
 					},
 				}
 				g = MustSucceed(graph.Parse(g))
-				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 				Expect(inter.Edges).To(HaveLen(2))
 			})
 		})
 
+	})
+
+	Describe("Qualified Module Names", func() {
+		It("Should analyze bare select", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "sel",
+						Type: "select",
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sel", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+			resolver := []symbol.Symbol{{
+				Name: "flag",
+				Type: types.Chan(types.U8()),
+				Kind: symbol.KindChannel,
+				ID:   100,
+			}}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
+
+		It("Should analyze stable.for with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "sf",
+						Type: "stable.for",
+						Config: map[string]any{
+							"duration": int(telem.Millisecond),
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sf", Param: ir.DefaultInputParam},
+					},
+				},
+			}
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Type: types.Chan(types.U8()),
+				Kind: symbol.KindChannel,
+				ID:   100,
+			}}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
+		It("Should analyze status.set with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "ss",
+						Type: "status.set",
+						Config: map[string]any{
+							"status_key": "ox_alarm",
+							"variant":    "error",
+							"message":    "Overpressure",
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ss", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+			statusFnType := types.Function(types.FunctionProperties{
+				Config: types.Params{
+					{Name: "status_key", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+					{Name: "message", Type: types.String()},
+				},
+				Inputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+			})
+			statusModule := symbol.NewModule("status", symbol.Symbol{
+				Name: "set",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: statusFnType,
+			})
+			channels := []symbol.Symbol{
+				{Name: "sensor", Type: types.Chan(types.U8()), Kind: symbol.KindChannel, ID: 100},
+			}
+			root := symbol.NewRoot(nil, stl.Symbols...)
+			for i := range channels {
+				s := channels[i]
+				root.Parent.AddChild(&s)
+			}
+			symbol.AutoImportModules(root)
+			root.Parent.AddChild(statusModule)
+			root.AddChild(&symbol.Symbol{
+				Name: "status", Kind: symbol.KindModuleAlias, Target: statusModule, Parent: root,
+			})
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, root)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
 	})
 })

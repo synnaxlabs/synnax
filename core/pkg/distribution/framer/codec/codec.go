@@ -241,7 +241,7 @@ func newCodec(opts ...Option) *Codec {
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := c.channels.NewRetrieve().
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
 	}
@@ -547,7 +547,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				channel.TryToRetrieveStringer(ctx, c.channels, key),
 			)
 		}
-		if dt != s.DataType {
+		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
+			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
+		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
 				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
@@ -598,9 +600,21 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		fgs.equalLens = false
 	}
 
-	// Check if all original keys are present in merged series
-	if len(mergedSeries) != len(currState.keys) {
-		fgs.allChannelsPresent = false
+	// allChannelsPresent is true only when the merged series form a 1-to-1
+	// correspondence with currState.keys (each state key has exactly one series in the
+	// same order). Multi-domain frames that produce multiple series for the same key
+	// would otherwise be silently miscounted into a flag that tells the decoder to skip
+	// per-series keys on the wire.
+	fgs.allChannelsPresent = len(mergedSeries) == len(currState.keys)
+	if fgs.allChannelsPresent {
+		for i, msi := range mergedSeries {
+			if msi.key != currState.keys[i] {
+				fgs.allChannelsPresent = false
+				break
+			}
+		}
+	}
+	if !fgs.allChannelsPresent {
 		byteArraySize += len(mergedSeries) * 4
 	}
 

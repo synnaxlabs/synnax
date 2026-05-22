@@ -32,7 +32,7 @@ var _ = Describe("Diagnostic Locations", func() {
 
 	runDiagnosticTest := func(bCtx SpecContext, tc diagnosticCase) {
 		prog := MustSucceed(parser.Parse(tc.source))
-		ctx := context.CreateRoot(bCtx, prog, nil)
+		ctx := context.NewRoot(bCtx, prog, nil)
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -280,7 +280,7 @@ func test() {
 	a := undefined1
 	b := undefined2
 }`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
+			ctx := context.NewRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(2))

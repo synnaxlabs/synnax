@@ -23,8 +23,8 @@ func compileLiteral(
 	if num := ctx.AST.NumericLiteral(); num != nil {
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
-	if str := ctx.AST.STR_LITERAL(); str != nil {
-		return compileStringLiteral(ctx, str.GetText())
+	if strTerm := parser.StringTerminal(ctx.AST); strTerm != nil {
+		return compileStringLiteral(ctx, strTerm.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
@@ -36,15 +36,26 @@ func compileStringLiteral(
 	ctx context.Context[parser.ILiteralContext],
 	text string,
 ) (types.Type, error) {
-	parsed, err := literal.ParseString(text, types.String())
-	if err != nil {
-		return types.Type{}, err
+	body, flags, ok := literal.StripQuotes(text)
+	if !ok {
+		return types.Type{}, errors.Newf("invalid string literal: %s", text)
 	}
-	strBytes := []byte(parsed.Value.(string))
-	offset := ctx.Module.AddData(strBytes)
-	ctx.Writer.WriteI32Const(int32(offset))
-	ctx.Writer.WriteI32Const(int32(len(strBytes)))
-	ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
+	value := body
+	if !flags.Raw {
+		var err error
+		value, err = literal.UnescapeString(body, flags.Multi)
+		if err != nil {
+			return types.Type{}, errors.Wrapf(err, "invalid string literal %s", text)
+		}
+	}
+	if flags.Format {
+		segments, err := literal.FmtStrParse(value)
+		if err != nil {
+			return types.Type{}, err
+		}
+		return EmitFmtSegments(ctx, segments)
+	}
+	emitLiteralSegment(ctx, value)
 	return types.String(), nil
 }
 
@@ -96,7 +107,8 @@ func compileNumericLiteral(
 ) (types.Type, error) {
 	targetType := ctx.Hint
 
-	if !targetType.IsValid() {
+	if !targetType.IsValid() || !targetType.IsNumeric() {
+		targetType = types.Type{}
 		if parent := ctx.AST.GetParent(); parent != nil {
 			if litCtx, ok := parent.(parser.ILiteralContext); ok {
 				if inferredType, ok := ctx.TypeMap[litCtx]; ok {

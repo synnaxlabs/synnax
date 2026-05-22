@@ -19,7 +19,6 @@ import (
 var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypeLabel},
 	{Type: ontology.ResourceTypeLog},
-	{Type: ontology.ResourceTypeCluster},
 	{Type: ontology.ResourceTypeNode},
 	{Type: ontology.ResourceTypeChannel},
 	{Type: ontology.ResourceTypeGroup},
@@ -71,7 +70,6 @@ var (
 			Objects: []ontology.ID{
 				{Type: ontology.ResourceTypeLabel},
 				{Type: ontology.ResourceTypeLog},
-				{Type: ontology.ResourceTypeCluster},
 				{Type: ontology.ResourceTypeNode},
 				{Type: ontology.ResourceTypeChannel},
 				{Type: ontology.ResourceTypeGroup},

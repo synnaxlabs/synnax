@@ -10,12 +10,13 @@
 package alamos
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/exp/slices"
 )
 
 // LoggerConfig is the config for a Logger.

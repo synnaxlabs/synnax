@@ -25,83 +25,121 @@ var numConstraint = types.NumericConstraint()
 
 func tv() types.Type { return types.Variable("T", &numConstraint) }
 
-func polyFunc(inputs, outputs types.Params) types.Type {
-	return types.Function(types.FunctionProperties{Inputs: inputs, Outputs: outputs})
-}
-
 var i32 = types.I32()
 var i64 = types.I64()
 
-var userSymbols = symbol.MapResolver{
-	"len": {
-		Name: "len",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-		}),
-	},
+// userLenSymbol is the user-facing `len(series) i64` builtin installed at
+// root scope so programs can use it without an import.
+var userLenSymbol = symbol.Symbol{
+	Name: "len",
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecWASM,
+	Type: types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+	}),
 }
 
-func hostSym(name string, t types.Type) symbol.Symbol {
-	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Internal: true, Type: t}
-}
+var (
+	scalarArithIn = types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}
+	rScalarIn     = types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}
+	seriesBinIn   = types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}
+	resultOut     = types.Params{{Name: "result", Type: i32}}
+)
 
-var hostSymbols = symbol.MapResolver{
-	"element_add":       hostSym("element_add", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"element_sub":       hostSym("element_sub", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"element_mul":       hostSym("element_mul", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"element_div":       hostSym("element_div", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"element_mod":       hostSym("element_mod", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"element_radd":      hostSym("element_radd", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"element_rsub":      hostSym("element_rsub", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"element_rmul":      hostSym("element_rmul", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"element_rdiv":      hostSym("element_rdiv", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"element_rmod":      hostSym("element_rmod", polyFunc(types.Params{{Name: "scalar", Type: tv()}, {Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"series_add":        hostSym("series_add", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"series_sub":        hostSym("series_sub", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"series_mul":        hostSym("series_mul", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"series_div":        hostSym("series_div", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"series_mod":        hostSym("series_mod", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_gt":        hostSym("compare_gt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_lt":        hostSym("compare_lt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_ge":        hostSym("compare_ge", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_le":        hostSym("compare_le", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_eq":        hostSym("compare_eq", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_ne":        hostSym("compare_ne", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_gt_scalar": hostSym("compare_gt_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_lt_scalar": hostSym("compare_lt_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_ge_scalar": hostSym("compare_ge_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_le_scalar": hostSym("compare_le_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_eq_scalar": hostSym("compare_eq_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"compare_ne_scalar": hostSym("compare_ne_scalar", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"create_empty":      hostSym("create_empty", polyFunc(types.Params{{Name: "len", Type: i32}}, types.Params{{Name: "handle", Type: i32}})),
-	"set_element":       hostSym("set_element", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
-	"index":             hostSym("index", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})),
-	"negate":            hostSym("negate", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"not_u8":            hostSym("not_u8", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"len":               hostSym("len", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})),
-	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-}
+const name = "series"
 
-var SymbolResolver = symbol.CompoundResolver{
-	userSymbols,
-	&symbol.ModuleResolver{Name: "series", Members: hostSymbols},
-}
+var module = symbol.NewModule(
+	name,
+	symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("element_div", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("element_mod", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("element_radd", rScalarIn, resultOut),
+	symbol.InternalHostFunc("element_rsub", rScalarIn, resultOut),
+	symbol.InternalHostFunc("element_rmul", rScalarIn, resultOut),
+	symbol.InternalHostFunc("element_rdiv", rScalarIn, resultOut),
+	symbol.InternalHostFunc("element_rmod", rScalarIn, resultOut),
+	symbol.InternalHostFunc("series_add", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("series_sub", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("series_mul", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("series_div", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("series_mod", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_gt", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_lt", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_ge", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_le", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_eq", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_ne", seriesBinIn, resultOut),
+	symbol.InternalHostFunc("compare_gt_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("compare_lt_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("compare_ge_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
+	symbol.InternalHostFunc(
+		"create_empty",
+		types.Params{{Name: "len", Type: i32}},
+		types.Params{{Name: "handle", Type: i32}},
+	),
+	symbol.InternalHostFunc(
+		"set_element",
+		types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}},
+		resultOut,
+	),
+	symbol.InternalHostFunc(
+		"index",
+		types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}},
+		types.Params{{Name: "value", Type: tv()}},
+	),
+	symbol.InternalHostFunc(
+		"negate",
+		types.Params{{Name: "handle", Type: i32}},
+		resultOut,
+	),
+	symbol.InternalHostFunc(
+		"not_u8",
+		types.Params{{Name: "handle", Type: i32}},
+		resultOut,
+	),
+	symbol.InternalHostFunc(
+		"len",
+		types.Params{{Name: "handle", Type: i32}},
+		types.Params{{Name: "length", Type: i64}},
+	),
+	symbol.InternalHostFunc(
+		"slice",
+		types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}},
+		resultOut,
+	),
+)
 
-type Module struct {
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the series module plus the bare `len` global (a user-facing
+// builtin reachable without an import).
+var Symbols = []*symbol.Symbol{module, &userLenSymbol}
+
+// Host is the runtime host-side support for the series module: it
+// registers the WASM host bindings that allocate and manipulate series
+// handles against a series ProgramState.
+type Host struct {
 	series *ProgramState
 }
 
-func NewModule(
+// NewHost registers the series module's WASM host bindings with rt. The
+// bindings allocate, read, and mutate series handles against ps.
+func NewHost(
 	ctx context.Context,
-	s *ProgramState,
-	rat wazero.Runtime,
-) (*Module, error) {
-	if rat == nil {
-		return &Module{series: s}, nil
+	rt wazero.Runtime,
+	ps *ProgramState,
+) (*Host, error) {
+	h := &Host{series: ps}
+	s := ps
+	if rt == nil {
+		return h, nil
 	}
-	builder := rat.NewHostModuleBuilder("series")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = bindU8(builder, s)
 	builder = bindU16(builder, s)
 	builder = bindU32(builder, s)
@@ -157,7 +195,7 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return &Module{series: s}, nil
+	return h, nil
 }
 
 // i32Scalar is used for types that map to i32 in WASM.

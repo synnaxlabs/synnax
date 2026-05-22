@@ -57,9 +57,9 @@ export const useRelationshipDeleteSynchronizer = (
   );
 };
 
-interface DependentQuery extends List.PagerParams {
+type DependentQuery = List.PagerParams & {
   id?: ontology.ID;
-}
+};
 
 export const createDependentsListHook = (
   direction: ontology.RelationshipDirection,
@@ -115,7 +115,7 @@ export const useListChildren = createDependentsListHook(
   PLURAL_CHILDREN_RESOURCE_NAME,
 );
 
-export interface ListQuery extends ontology.RetrieveRequest {}
+export type ListQuery = ontology.RetrieveRequest;
 
 export const useResourceList = Flux.createList<
   ListQuery,
@@ -155,9 +155,9 @@ export const retrieveCachedParentID = (
   return res[0].from;
 };
 
-export interface RetrieveParentIDQuery {
+export type RetrieveParentIDQuery = {
   id: ontology.ID;
-}
+};
 
 export const retrieveParentID = async ({
   client,
@@ -234,9 +234,11 @@ export const renameFluxResource = (
   name: string,
 ) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
 
-export interface RetrieveChildrenQuery extends ontology.RetrieveOptions {
+export type RetrieveChildrenQuery = {
+  [K in keyof ontology.RetrieveOptions]: ontology.RetrieveOptions[K];
+} & {
   id: ontology.ID;
-}
+};
 
 export const {
   useRetrieve: useRetrieveChildren,
@@ -250,9 +252,9 @@ export const {
   },
 });
 
-interface RetrieveResourceQuery {
+type RetrieveResourceQuery = {
   ids: ontology.ID[];
-}
+};
 
 export const {
   useRetrieve: useRetrieveResource,

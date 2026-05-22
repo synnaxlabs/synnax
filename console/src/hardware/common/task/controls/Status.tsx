@@ -79,7 +79,7 @@ export const Status = ({
               level="small"
               color={8}
               format="time"
-              displayTZ="local"
+              displayTimeZone="local"
             >
               {stat.time}
             </Telem.Text.TimeStamp>

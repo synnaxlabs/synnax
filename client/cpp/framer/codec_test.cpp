@@ -482,6 +482,44 @@ TEST(CodecTests, EncodeMismatchedDataType) {
     ASSERT_TRUE(err.message().find("data type") != std::string::npos);
 }
 
+/// @brief it should accept an int64 series for a timestamp channel, mirroring the
+/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// and frame codec.
+TEST(CodecTests, EncodeInt64SeriesForTimestampChannel) {
+    const std::vector data_types = {x::telem::TIMESTAMP_T};
+    const std::vector<channel::Key> channels = {65537};
+    Codec codec(channels, data_types);
+
+    auto frame = x::telem::Frame(1);
+    auto series = x::telem::Series(std::vector<int64_t>{1778020940471336961LL});
+    series.time_range = {x::telem::TimeStamp(1000), x::telem::TimeStamp(2000)};
+    series.alignment = x::telem::Alignment(10);
+    frame.emplace(65537, std::move(series));
+
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(codec.encode(frame, encoded));
+    ASSERT_FALSE(encoded.empty());
+}
+
+/// @brief it should accept a timestamp series for an int64 channel, mirroring the
+/// Int64T <-> TimeStampT equivalence applied by the server-side writer validator
+/// and frame codec.
+TEST(CodecTests, EncodeTimestampSeriesForInt64Channel) {
+    const std::vector data_types = {x::telem::INT64_T};
+    const std::vector<channel::Key> channels = {65537};
+    Codec codec(channels, data_types);
+
+    auto frame = x::telem::Frame(1);
+    auto series = x::telem::Series(x::telem::TimeStamp(x::telem::SECOND));
+    series.time_range = {x::telem::TimeStamp(1000), x::telem::TimeStamp(2000)};
+    series.alignment = x::telem::Alignment(10);
+    frame.emplace(65537, std::move(series));
+
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(codec.encode(frame, encoded));
+    ASSERT_FALSE(encoded.empty());
+}
+
 /// @brief it should return a validation erorr when the frame has a key that was not
 /// provided to the codec.
 TEST(CodecTests, EncodeFrameUnknownKey) {

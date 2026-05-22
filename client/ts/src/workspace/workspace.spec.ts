@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { createTestClient } from "@/testutil/client";
@@ -56,6 +56,19 @@ describe("Workspace", () => {
       });
       await client.workspaces.delete(ws.key);
       await expect(client.workspaces.retrieve(ws.key)).rejects.toThrow();
+    });
+  });
+  describe("retrieve", () => {
+    test("retrieve workspaces by search term", async () => {
+      const prefix = `searchable-workspace-${id.create()}`;
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.workspaces.create(names.map((name) => ({ name, layout: {} })));
+      await expect
+        .poll(async () => {
+          const results = await client.workspaces.retrieve({ searchTerm: prefix });
+          return results.map((w) => w.name).sort();
+        })
+        .toEqual(names);
     });
   });
   describe("case preservation", () => {

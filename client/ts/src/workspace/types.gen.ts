@@ -13,6 +13,7 @@ import { caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+import { user } from "@/user";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -28,7 +29,7 @@ export const workspaceZ = z.object({
   /** name is a human-readable name for the workspace. */
   name: z.string().min(1, "Name is required"),
   /** author is the UUID of the user who created this workspace. */
-  author: z.uuid().optional(),
+  author: user.keyZ.optional(),
   /**
    * layout is the mosaic tree structure that defines how visualizations are
    * arranged. Contains tab layout, split configurations, and window

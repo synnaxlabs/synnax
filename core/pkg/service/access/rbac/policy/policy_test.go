@@ -146,7 +146,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().WhereKeys(policies[0].Key).Entry(&p).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(policy.MatchKeys(policies[0].Key)).Entry(&p).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -155,7 +155,7 @@ var _ = Describe("Writer", func() {
 
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key, policies[1].Key).
+				Where(policy.MatchKeys(policies[0].Key, policies[1].Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(ps).To(BeEmpty())
@@ -258,7 +258,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve a single policy by key", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key).
+				Where(policy.MatchKeys(policies[0].Key)).
 				Entry(&p).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Key).To(Equal(policies[0].Key))
@@ -268,7 +268,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve multiple policies by keys", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key, policies[1].Key).
+				Where(policy.MatchKeys(policies[0].Key, policies[1].Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
@@ -277,18 +277,18 @@ var _ = Describe("Retriever", func() {
 		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
 			err := svc.NewRetrieve().
-				WhereKeys(uuid.New()).
+				Where(policy.MatchKeys(uuid.New())).
 				Entry(&p).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 
-	Describe("WhereNames", func() {
+	Describe("MatchNames", func() {
 		It("Should retrieve a policy by name", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereNames("alpha-policy").
+				Where(policy.MatchNames("alpha-policy")).
 				Entry(&p).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Name).To(Equal("alpha-policy"))
@@ -297,14 +297,14 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve multiple policies by names", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereNames("alpha-policy", "beta-policy").
+				Where(policy.MatchNames("alpha-policy", "beta-policy")).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
 		})
 	})
 
-	Describe("WhereSubjects", func() {
+	Describe("MatchSubjects", func() {
 		var (
 			r        *role.Role
 			subject1 ontology.ID
@@ -327,23 +327,20 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Should retrieve policies for a subject via role", func(ctx SpecContext) {
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1))
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereSubjects(subject1).
+				Where(policy.MatchKeys(keys...)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
-			keys := []uuid.UUID{ps[0].Key, ps[1].Key}
-			Expect(keys).To(ContainElements(policies[0].Key, policies[1].Key))
+			gotKeys := []uuid.UUID{ps[0].Key, ps[1].Key}
+			Expect(gotKeys).To(ContainElements(policies[0].Key, policies[1].Key))
 		})
 
 		It("Should return empty when subject has no roles", func(ctx SpecContext) {
-			var ps []policy.Policy
-			Expect(svc.NewRetrieve().
-				WhereSubjects(subject2).
-				Entries(&ps).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(BeEmpty())
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject2))
+			Expect(keys).To(BeEmpty())
 		})
 
 		It("Should retrieve policies for multiple subjects", func(ctx SpecContext) {
@@ -356,9 +353,10 @@ var _ = Describe("Retriever", func() {
 			Expect(w.SetOnRole(ctx, r2.Key, policies[2].Key)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject2, r2.Key)).To(Succeed())
 
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1, subject2))
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereSubjects(subject1, subject2).
+				Where(policy.MatchKeys(keys...)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(3))
@@ -395,7 +393,7 @@ var _ = Describe("Retriever", func() {
 		})
 	})
 
-	Describe("WhereInternal", func() {
+	Describe("MatchInternal", func() {
 		var internalPolicy, regularPolicy policy.Policy
 		BeforeEach(func(ctx SpecContext) {
 			internalWriter := svc.NewWriter(tx, true)
@@ -418,7 +416,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(true).
+				Where(policy.MatchInternal(true)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {
@@ -430,13 +428,86 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only non-internal policies", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(false).
+				Where(policy.MatchInternal(false)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			for _, p := range ps {
 				Expect(p.Internal).To(BeFalse())
 			}
 			Expect(ps).To(ContainElement(HaveField("Key", regularPolicy.Key)))
+		})
+	})
+
+	Describe("Combinators", func() {
+		var internalPolicy, regularPolicy policy.Policy
+		BeforeEach(func(ctx SpecContext) {
+			internalWriter := svc.NewWriter(tx, true)
+			internalPolicy = policy.Policy{
+				Name:     "combo-internal",
+				Objects:  []ontology.ID{{Type: "channel", Key: "cix"}},
+				Actions:  []access.Action{access.ActionRetrieve},
+				Internal: true,
+			}
+			regularPolicy = policy.Policy{
+				Name:    "combo-regular",
+				Objects: []ontology.ID{{Type: "channel", Key: "crg"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(internalWriter.Create(ctx, &internalPolicy)).To(Succeed())
+			Expect(internalWriter.Create(ctx, &regularPolicy)).To(Succeed())
+		})
+		It("Should compose filters with And", func(ctx SpecContext) {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.And(
+				policy.MatchNames("combo-internal", "combo-regular"),
+				policy.MatchInternal(true),
+			)).Entries(&ps).Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(HaveLen(1))
+			Expect(ps[0].Key).To(Equal(internalPolicy.Key))
+		})
+		It("Should compose filters with Or", func(ctx SpecContext) {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.Or(
+				policy.MatchNames("combo-internal"),
+				policy.MatchNames("combo-regular"),
+			)).Entries(&ps).Exec(ctx, tx)).To(Succeed())
+			names := make([]string, len(ps))
+			for i, p := range ps {
+				names[i] = p.Name
+			}
+			Expect(names).To(ContainElements("combo-internal", "combo-regular"))
+		})
+		It("Should invert a filter with Not", func(ctx SpecContext) {
+			var ps []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.And(
+				policy.MatchNames("combo-internal", "combo-regular"),
+				policy.Not(policy.MatchInternal(true)),
+			)).Entries(&ps).Exec(ctx, tx)).To(Succeed())
+			Expect(ps).To(HaveLen(1))
+			Expect(ps[0].Key).To(Equal(regularPolicy.Key))
+		})
+	})
+
+	Describe("Count and Exists", func() {
+		It("Should count policies matching a filter", func(ctx SpecContext) {
+			p1 := policy.Policy{Name: "count-a", Objects: []ontology.ID{{Type: "channel", Key: "a"}}, Actions: []access.Action{access.ActionRetrieve}}
+			p2 := policy.Policy{Name: "count-b", Objects: []ontology.ID{{Type: "channel", Key: "b"}}, Actions: []access.Action{access.ActionRetrieve}}
+			Expect(svc.NewWriter(tx, false).Create(ctx, &p1)).To(Succeed())
+			Expect(svc.NewWriter(tx, false).Create(ctx, &p2)).To(Succeed())
+			n := MustSucceed(svc.NewRetrieve().
+				Where(policy.MatchNames("count-a", "count-b")).
+				Count(ctx, tx))
+			Expect(n).To(Equal(2))
+		})
+		It("Should report existence with Exists", func(ctx SpecContext) {
+			p := policy.Policy{Name: "exists-policy", Objects: []ontology.ID{{Type: "channel", Key: "x"}}, Actions: []access.Action{access.ActionRetrieve}}
+			Expect(svc.NewWriter(tx, false).Create(ctx, &p)).To(Succeed())
+			Expect(MustSucceed(svc.NewRetrieve().
+				Where(policy.MatchNames("exists-policy")).
+				Exists(ctx, tx))).To(BeTrue())
+			Expect(MustSucceed(svc.NewRetrieve().
+				Where(policy.MatchNames("nope-policy")).
+				Exists(ctx, tx))).To(BeFalse())
 		})
 	})
 })

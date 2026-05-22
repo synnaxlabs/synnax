@@ -35,7 +35,7 @@ import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
-  Schema extends z.ZodType<base.Shape>,
+  Schema extends z.ZodType<base.Data>,
   ScopedStore extends base.Store = {},
 >
   extends
@@ -43,15 +43,15 @@ export interface FormUpdateParams<
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 export interface FormRetrieveParams<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store = {},
 >
   extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
 
 export interface CreateFormParams<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > {
   name: string;
@@ -64,7 +64,7 @@ export interface CreateFormParams<
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
-export type UseFormReturn<Schema extends z.ZodType<base.Shape>> = Omit<
+export type UseFormReturn<Schema extends z.ZodType<base.Data>> = Omit<
   Result<z.infer<Schema>>,
   "data"
 > & {
@@ -73,36 +73,36 @@ export type UseFormReturn<Schema extends z.ZodType<base.Shape>> = Omit<
 };
 
 export interface FormBeforeSaveParams<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 >
   extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
 
 interface FormMountListenersParams<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 >
   extends
     Form.UseReturn<Schema>,
-    Omit<RetrieveMountListenersParams<Query, base.Shape, Store>, "onChange"> {}
+    Omit<RetrieveMountListenersParams<Query, base.Data, Store>, "onChange"> {}
 
 export interface AfterSaveParams<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 export interface BeforeValidateArgs<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 export interface UseFormArgs<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
@@ -115,8 +115,8 @@ export interface UseFormArgs<
 }
 
 export interface UseForm<
-  Query extends base.Shape,
-  Schema extends z.ZodType<base.Shape>,
+  Query extends base.Query,
+  Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > {
   (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
@@ -129,8 +129,8 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 
 export const createForm =
   <
-    Query extends base.Shape,
-    Schema extends z.ZodType<base.Shape>,
+    Query extends base.Query,
+    Schema extends z.ZodType<base.Data>,
     Store extends base.Store = {},
   >({
     name,

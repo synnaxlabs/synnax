@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type policy } from "@/access/policy/aether";
@@ -54,9 +54,9 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_WORKSPACE_LISTENER, DELETE_WORKSPACE_LISTENER],
 };
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: workspace.Key;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -82,10 +82,10 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams {
+export type ListParams = {
   offset?: number;
   limit?: number;
-}
+};
 
 export const useList = Flux.createList<
   ListParams,
@@ -138,7 +138,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export interface RetrieveGroupQuery {}
+export type RetrieveGroupQuery = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
@@ -209,4 +209,64 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     await client.workspaces.setLayout(key, layout);
     return data;
   },
+});
+
+export type RetrieveChildrenQuery = {
+  resourceID?: ontology.ID;
+  types: ontology.ResourceType[];
+};
+
+const collectChildren = async (
+  client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
+  parentID: ontology.ID,
+  types: ontology.ResourceType[],
+  exclude?: string,
+): Promise<record.KeyedNamed[]> => {
+  const children = await client.ontology.retrieveChildren(parentID, {
+    types: [...types, "group"],
+  });
+  const results: record.KeyedNamed[] = [];
+  for (const child of children)
+    if (types.includes(child.id.type) && child.id.key !== exclude)
+      results.push({ key: child.id.key, name: child.name });
+    else if (child.id.type === "group")
+      results.push(...(await collectChildren(client, child.id, types, exclude)));
+  return results;
+};
+
+const findWorkspaceAncestor = async (
+  client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
+  resourceID: ontology.ID,
+): Promise<ontology.ID | null> => {
+  const parents = await client.ontology.retrieveParents(resourceID);
+  for (const parent of parents) {
+    if (parent.id.type === "workspace") return parent.id;
+    if (parent.id.type === "group") return findWorkspaceAncestor(client, parent.id);
+  }
+  return null;
+};
+
+const retrieveChildrenImpl = async ({
+  client,
+  query: { resourceID, types },
+}: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>): Promise<
+  record.KeyedNamed[]
+> => {
+  if (resourceID == null) return [];
+  const workspaceID = await findWorkspaceAncestor(client, resourceID);
+  if (workspaceID == null) return [];
+  return await collectChildren(client, workspaceID, types, resourceID.key);
+};
+
+export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
+  RetrieveChildrenQuery,
+  record.KeyedNamed[],
+  FluxSubStore
+>({
+  name: "workspace children",
+  retrieve: retrieveChildrenImpl,
+  mountListeners: ({ store, onChange }) => [
+    store.relationships.onSet(() => onChange(undefined)),
+    store.resources.onSet(() => onChange(undefined)),
+  ],
 });

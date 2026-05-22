@@ -180,7 +180,8 @@ const readStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .nullish();
+  .nullish()
+  .optional();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -242,7 +243,7 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: z.object({}).nullish(),
+  statusData: z.object({}).nullish().optional(),
 } as const satisfies task.Schemas;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

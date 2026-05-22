@@ -7,26 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/toolbar/Toolbar.css";
+
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Breadcrumb,
+  Flex,
+  Icon,
+  Key,
+  Schematic as PSchematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
-  useSelectIsSnapshot,
-  useSelectSelectedElementNames,
+  useSelectPendingUpload,
+  useSelectSelected,
   useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
-import { PropertiesControls } from "@/schematic/toolbar/Properties";
+import { Properties } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
 const TABS = [
@@ -41,7 +52,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const dispatch = useDispatch();
   const controlState = useSelectControlStatus(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const isEditable = hasUpdatePermission && !isSnapshot;
   const name = Layout.useSelectRequired(layoutKey).name;
   return (
@@ -66,15 +77,27 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  PSchematic.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar(layoutKey);
+  const activeTab = toolbar?.activeTab;
   const editMode = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
-  const selectedNames = useSelectSelectedElementNames(layoutKey);
+  const selected = useSelectSelected(layoutKey);
+  const singleSelectedConfig = PSchematic.useSelectElementConfig({
+    key: layoutKey,
+    elKey: selected.length === 1 ? selected[0] : "",
+  });
+  const singleSelectedName =
+    selected.length === 1 &&
+    singleSelectedConfig != null &&
+    "label" in singleSelectedConfig
+      ? (singleSelectedConfig.label?.label ?? null)
+      : null;
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
-  const isSnapshot = useSelectIsSnapshot(layoutKey);
+  const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const hasEditPermission = hasUpdatePermission && !isSnapshot;
   const canEdit = hasEditPermission && editMode;
   const content = useCallback(
@@ -82,11 +105,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
-          return <Symbols layoutKey={layoutKey} />;
+          return <Symbols />;
         case "control":
           return <Control layoutKey={layoutKey} />;
         default:
-          return <PropertiesControls layoutKey={layoutKey} />;
+          return <Properties layoutKey={layoutKey} />;
       }
     },
     [layoutKey, canEdit],
@@ -100,42 +123,51 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const value = useMemo(
     () => ({
       tabs: TABS,
-      selected: toolbar?.activeTab,
+      selected: activeTab,
       onSelect: handleTabSelect,
       content,
     }),
-    [toolbar?.activeTab, content, handleTabSelect],
+    [activeTab, content, handleTabSelect],
   );
   return (
     <Tabs.Provider value={value}>
-      <Base.Content>
-        <Base.Header>
-          <Breadcrumb.Breadcrumb level="h5">
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
-              <Icon.Schematic />
-              {name}
-            </Breadcrumb.Segment>
-            {selectedNames.length === 1 && selectedNames[0] !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="small">
-                {selectedNames[0]}
+      <Key.Provider value={layoutKey}>
+        <Base.Content>
+          <Base.Header>
+            <Breadcrumb.Breadcrumb level="h5">
+              <Breadcrumb.Segment weight={500} color={10} level="h5">
+                <Icon.Schematic />
+                {name}
               </Breadcrumb.Segment>
-            )}
-          </Breadcrumb.Breadcrumb>
-          <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
-              <Cluster.CopyLinkToolbarButton
-                name={name}
-                ontologyID={schematic.ontologyID(layoutKey)}
-              />
+              {singleSelectedName !== null && (
+                <Breadcrumb.Segment weight={400} color={8} level="small">
+                  {singleSelectedName}
+                </Breadcrumb.Segment>
+              )}
+            </Breadcrumb.Breadcrumb>
+            <Flex.Box x align="center" empty>
+              <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
+                <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+                <Cluster.CopyLinkToolbarButton
+                  name={name}
+                  ontologyID={schematic.ontologyID(layoutKey)}
+                />
+              </Flex.Box>
+              {hasEditPermission && (
+                <Tabs.Selector
+                  className={CSS.BE("schematic", "toolbar", "tab-selector")}
+                />
+              )}
             </Flex.Box>
-            {hasEditPermission && (
-              <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
-            )}
-          </Flex.Box>
-        </Base.Header>
-        <Tabs.Content />
-      </Base.Content>
+          </Base.Header>
+          <Tabs.Content />
+        </Base.Content>
+      </Key.Provider>
     </Tabs.Provider>
   );
+};
+
+export const Toolbar = (props: ToolbarProps) => {
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  return pendingUpload == null ? <Internal {...props} /> : null;
 };

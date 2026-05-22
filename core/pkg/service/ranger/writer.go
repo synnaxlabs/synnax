@@ -26,7 +26,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Range]
+	table     *gorp.Table[Key, Range]
 }
 
 // Create creates a new range within the DB, assigning it a unique key if it does not
@@ -56,7 +56,7 @@ func (w Writer) CreateWithParent(
 	}
 	exists, err := w.table.
 		NewRetrieve().
-		WhereKeys(r.Key).
+		Where(gorp.MatchKeys[Key, Range](r.Key)).
 		Exists(ctx, w.tx)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
@@ -137,17 +137,17 @@ func (w Writer) CreateManyWithParent(
 }
 
 // Rename renames the range with the given key.
-func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.
 		NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[Key, Range](key)).
 		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
 }
 
 // Delete deletes the range with the given key. Delete will also delete all children of
 // the range. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
+func (w Writer) Delete(ctx context.Context, key Key) error {
 	// Query the ontology to find all children of the range and delete them as well
 	var children []ontology.Resource
 	if err := w.
@@ -180,7 +180,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	}
 	if err := w.table.
 		NewDelete().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[Key, Range](key)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}

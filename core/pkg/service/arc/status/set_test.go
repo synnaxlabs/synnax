@@ -26,57 +26,51 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("SymbolResolver", func() {
-	Describe("Resolve", func() {
-		It("Should resolve set_status by name", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
-			Expect(sym.Name).To(Equal("set_status"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-		})
+var _ = Describe("Symbols", func() {
+	findByName := func(name string) *symbol.Symbol {
+		for _, s := range arcstatus.Symbols {
+			if s.Name == name {
+				return s
+			}
+			if s.Kind == symbol.KindModule {
+				for _, c := range s.Children() {
+					if c.Name == name {
+						return c
+					}
+				}
+			}
+		}
+		return nil
+	}
 
-		It("Should return an error for an unknown name", func(ctx SpecContext) {
-			Expect(arcstatus.SymbolResolver.Resolve(ctx, "unknown")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
+	It("Should expose set_status as a deprecated bare global", func() {
+		sym := findByName("set_status")
+		Expect(sym).ToNot(BeNil())
+		Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		Expect(sym.Deprecated).ToNot(BeNil())
 	})
 
-	Describe("Search", func() {
-		It("Should return set_status when searching with a matching term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set_status"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set_status"))
-		})
-
-		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "nonexistent"))
-			Expect(results).To(BeEmpty())
-		})
+	It("Should expose set as a member of the status module", func() {
+		sym := findByName("set")
+		Expect(sym).ToNot(BeNil())
+		Expect(sym.Kind).To(Equal(symbol.KindFunction))
 	})
 
-	Describe("Type Signature", func() {
-		It("Should have the correct function type", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
-			Expect(sym.Type.Kind).To(Equal(types.KindFunction))
-		})
+	It("Should declare four config parameters on set_status", func() {
+		sym := findByName("set_status")
+		Expect(sym.Type.Kind).To(Equal(types.KindFunction))
+		Expect(sym.Type.Config).To(HaveLen(4))
+		Expect(sym.Type.Config[0].Name).To(Equal("status_key"))
+		Expect(sym.Type.Config[1].Name).To(Equal("variant"))
+		Expect(sym.Type.Config[2].Name).To(Equal("message"))
+		Expect(sym.Type.Config[3].Name).To(Equal("name"))
+	})
 
-		It("Should have four config parameters", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
-			Expect(sym.Type.Config).To(HaveLen(4))
-			Expect(sym.Type.Config[0].Name).To(Equal("status_key"))
-			Expect(sym.Type.Config[1].Name).To(Equal("variant"))
-			Expect(sym.Type.Config[2].Name).To(Equal("message"))
-			Expect(sym.Type.Config[3].Name).To(Equal("name"))
-		})
-
-		It("Should have a single u8 input parameter", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
-			Expect(sym.Type.Inputs).To(HaveLen(1))
-			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
-			Expect(sym.Type.Inputs[0].Type).To(Equal(types.U8()))
-		})
+	It("Should declare a single u8 input on set_status", func() {
+		sym := findByName("set_status")
+		Expect(sym.Type.Inputs).To(HaveLen(1))
+		Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
+		Expect(sym.Type.Inputs[0].Type).To(Equal(types.U8()))
 	})
 })
 
@@ -85,32 +79,6 @@ var _ = Describe("Module", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		mod = arcstatus.NewModule(statSvc)
-	})
-
-	Describe("Resolve", func() {
-		It("Should resolve set_status", func(ctx SpecContext) {
-			sym := MustSucceed(mod.Resolve(ctx, "set_status"))
-			Expect(sym.Name).To(Equal("set_status"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-		})
-
-		It("Should return an error for an unknown symbol", func(ctx SpecContext) {
-			Expect(mod.Resolve(ctx, "nonexistent")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Search", func() {
-		It("Should return set_status for a matching term", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "set_status"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set_status"))
-		})
-
-		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "nonexistent"))
-			Expect(results).To(BeEmpty())
-		})
 	})
 
 	Describe("Create", func() {
@@ -171,6 +139,21 @@ var _ = Describe("Module", func() {
 				},
 			}
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
+		})
+
+		It("Should create a node with the qualified member type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "set",
+					Config: types.Params{
+						{Name: "status_key", Value: "test_alarm"},
+						{Name: "variant", Value: "success"},
+						{Name: "message", Value: "All systems nominal"},
+					},
+				},
+			}
+			n := MustSucceed(mod.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
 		})
 
 		It("Should populate the status from an existing entry in the service", func(ctx SpecContext) {
@@ -239,7 +222,7 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("next_test").
+					Where(status.MatchKeys[any]("next_test")).
 					Entry(&retrieved).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(retrieved.Key).To(Equal("next_test"))
@@ -254,14 +237,14 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var first status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("timestamp_test").
+					Where(status.MatchKeys[any]("timestamp_test")).
 					Entry(&first).
 					Exec(ctx, nil)).To(Succeed())
 
 				n.Next(nodeCtx)
 				var second status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("timestamp_test").
+					Where(status.MatchKeys[any]("timestamp_test")).
 					Entry(&second).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(second.Time).To(BeNumerically(">=", first.Time))
@@ -273,7 +256,7 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("variant_test").
+					Where(status.MatchKeys[any]("variant_test")).
 					Entry(&retrieved).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(retrieved.Variant).To(Equal(xstatus.VariantError))

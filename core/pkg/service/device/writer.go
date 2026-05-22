@@ -32,7 +32,7 @@ type Writer struct {
 	otg    ontology.Writer
 	group  group.Group
 	status status.Writer[StatusDetails]
-	table  *gorp.Table[string, Device]
+	table  *gorp.Table[Key, Device]
 }
 
 func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
@@ -76,7 +76,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	var existing Device
 	err := w.table.
 		NewRetrieve().
-		WhereKeys(device.Key).
+		Where(gorp.MatchKeys[Key, Device](device.Key)).
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	isNotFound := errors.Is(err, query.ErrNotFound)
@@ -128,12 +128,12 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 }
 
 // Delete deletes the device with the given key and its associated status.
-func (w Writer) Delete(ctx context.Context, key string) error {
+func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
 		return err
 	}
-	return w.table.NewDelete().WhereKeys(key).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Device](key)).Exec(ctx, w.tx)
 }

@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -27,7 +27,7 @@ import (
 )
 
 type MigrationConfig struct {
-	HostProvider cluster.HostProvider
+	HostProvider node.HostProvider
 	Status       *status.Service
 }
 
@@ -118,7 +118,7 @@ func backfillStatuses(
 	}
 	var existingStatuses []status.Status[StatusDetails]
 	if err = status.NewRetrieve[StatusDetails](cfg.Status).
-		WhereKeys(statusKeys...).
+		Where(status.MatchKeys[StatusDetails](statusKeys...)).
 		Entries(&existingStatuses).
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err

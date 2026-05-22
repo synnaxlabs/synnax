@@ -14,3 +14,5 @@ export interface Destructor {
 export interface Async {
   (): Promise<void>;
 }
+
+export const NOOP = () => {};

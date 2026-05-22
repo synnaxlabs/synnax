@@ -32,7 +32,7 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
 	AST      ASTNode
 	Resolver *resolve.Resolver
-	Scope    *symbol.Scope
+	Scope    *symbol.Symbol
 	Writer   *wasm.Writer
 	Module   *wasm.Module
 	TypeMap  map[antlr.ParserRuleContext]types.Type
@@ -70,7 +70,7 @@ func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
 	return c
 }
 
-func (c Context[AstNode]) WithScope(scope *symbol.Scope) Context[AstNode] {
+func (c Context[AstNode]) WithScope(scope *symbol.Symbol) Context[AstNode] {
 	c.Scope = scope
 	return c
 }
@@ -114,9 +114,9 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 	return c
 }
 
-func CreateRoot(
+func NewRoot(
 	ctx context.Context,
-	symbols *symbol.Scope,
+	symbols *symbol.Symbol,
 	typeMap map[antlr.ParserRuleContext]types.Type,
 	resolver *resolve.Resolver,
 ) Context[antlr.ParserRuleContext] {

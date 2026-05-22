@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/runtime/download";
+export * from "@/runtime/externalLinks";
 export * from "@/runtime/isMainWindow";
 export * from "@/runtime/runtime";

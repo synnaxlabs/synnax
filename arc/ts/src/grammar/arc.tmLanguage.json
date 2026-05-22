@@ -108,7 +108,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|sequence|stage|next|authority)\\b"
+          "match": "\\b(func|sequence|stage|next|authority|import|as)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
@@ -123,24 +123,28 @@
     "strings": {
       "patterns": [
         {
-          "name": "string.quoted.double.arc",
-          "begin": "\"",
-          "end": "\"",
+          "name": "string.quoted.arc",
+          "begin": "(rf|fr|f|r)?(\"|`)",
+          "end": "\\2",
+          "beginCaptures": {
+            "1": { "name": "storage.type.string.arc" }
+          },
           "patterns": [
             {
               "name": "constant.character.escape.arc",
-              "match": "\\\\([\\\\\"/bfnrt]|u[0-9a-fA-F]{4})"
-            }
-          ]
-        },
-        {
-          "name": "string.quoted.single.arc",
-          "begin": "'",
-          "end": "'",
-          "patterns": [
+              "match": "\\\\([\\\\\"`/bfnrt]|u[0-9a-fA-F]{4})"
+            },
             {
-              "name": "constant.character.escape.arc",
-              "match": "\\\\([\\\\'bfnrt]|u[0-9a-fA-F]{4})"
+              "name": "meta.template.expression.arc",
+              "begin": "\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.begin.arc" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.end.arc" }
+              },
+              "patterns": [{ "include": "$self" }]
             }
           ]
         }
