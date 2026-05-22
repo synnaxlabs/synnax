@@ -15,6 +15,7 @@ package arc
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
@@ -46,11 +47,7 @@ type (
 // allocated per call so no analysis can corrupt another's view of the
 // standard library.
 func NewRoot(resolver SymbolResolver, extras ...*symbol.Symbol) *symbol.Symbol {
-	stlSyms := stl.NewSymbols()
-	syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(extras))
-	syms = append(syms, stlSyms...)
-	syms = append(syms, extras...)
-	return symbol.NewRoot(resolver, syms)
+	return symbol.NewRoot(resolver, slices.Concat(stl.NewSymbols(), extras))
 }
 
 // CompileGraph parses, analyzes, and compiles a graph-mode program

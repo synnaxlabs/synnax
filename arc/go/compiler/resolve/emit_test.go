@@ -24,20 +24,20 @@ var _ = Describe("Emit", func() {
 		scope      *symbol.Symbol
 		resolver   *resolve.Resolver
 		writer     *wasm.Writer
-		writerId   int
+		writerID   int
 		wasmModule *wasm.Module
 	)
 	BeforeEach(func() {
 		scope = symbol.NewRoot(nil, stlstrings.NewSymbols())
 		resolver = resolve.NewResolver()
 		writer = wasm.NewWriter()
-		writerId = resolver.TrackWriter(writer)
+		writerID = resolver.TrackWriter(writer)
 		wasmModule = wasm.NewModule()
 	})
 	Describe("EmitNumericToString", func() {
 		DescribeTable("Should dispatch to the host fn matching the source type",
 			func(ctx SpecContext, from types.Type, wantWASMName string) {
-				Expect(resolver.EmitNumericToString(ctx, writer, writerId, scope, from)).To(Succeed())
+				Expect(resolver.EmitNumericToString(ctx, writer, writerID, scope, from)).To(Succeed())
 				resolver.Finalize(wasmModule)
 				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
 			},
@@ -54,7 +54,7 @@ var _ = Describe("Emit", func() {
 		)
 
 		It("Should return an error for non-numeric source types", func(ctx SpecContext) {
-			Expect(resolver.EmitNumericToString(ctx, writer, writerId, scope, types.String())).
+			Expect(resolver.EmitNumericToString(ctx, writer, writerID, scope, types.String())).
 				To(MatchError(ContainSubstring("cannot convert")))
 		})
 	})
@@ -62,7 +62,7 @@ var _ = Describe("Emit", func() {
 	Describe("EmitNumericFormat", func() {
 		DescribeTable("Should dispatch to the format_<type> host fn matching the source type",
 			func(ctx SpecContext, from types.Type, wantWASMName string) {
-				Expect(resolver.EmitNumericFormat(ctx, writer, writerId, scope, from)).To(Succeed())
+				Expect(resolver.EmitNumericFormat(ctx, writer, writerID, scope, from)).To(Succeed())
 				resolver.Finalize(wasmModule)
 				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
 			},
@@ -79,38 +79,38 @@ var _ = Describe("Emit", func() {
 		)
 
 		It("Should return an error for non-numeric source types", func(ctx SpecContext) {
-			Expect(resolver.EmitNumericFormat(ctx, writer, writerId, scope, types.String())).
+			Expect(resolver.EmitNumericFormat(ctx, writer, writerID, scope, types.String())).
 				To(MatchError(ContainSubstring("cannot convert")))
 		})
 	})
 
 	Describe("EmitStringFormat", func() {
 		It("Should emit an import for string.format_str", func(ctx SpecContext) {
-			Expect(resolver.EmitStringFormat(ctx, writer, writerId, scope)).To(Succeed())
+			Expect(resolver.EmitStringFormat(ctx, writer, writerID, scope)).To(Succeed())
 			resolver.Finalize(wasmModule)
 			Expect(wasmModule.ImportNames()).To(ConsistOf("format_str"))
 		})
 
 		It("Should return an error when scope is nil", func(ctx SpecContext) {
-			Expect(resolver.EmitStringFormat(ctx, writer, writerId, nil)).
+			Expect(resolver.EmitStringFormat(ctx, writer, writerID, nil)).
 				To(MatchError(ContainSubstring("no scope")))
 		})
 	})
 
 	Describe("EmitFixedImportCall", func() {
 		It("Should resolve the signature from the scope and emit an import", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerId, scope, "strings", "from_i32")).To(Succeed())
+			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, scope, "strings", "from_i32")).To(Succeed())
 			resolver.Finalize(wasmModule)
 			Expect(wasmModule.ImportNames()).To(ConsistOf("from_i32"))
 		})
 
 		It("Should return an error when the symbol does not exist", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerId, scope, "strings", "does_not_exist")).
+			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, scope, "strings", "does_not_exist")).
 				To(MatchError(ContainSubstring("resolve strings.does_not_exist")))
 		})
 
 		It("Should return an error when no scope is configured", func(ctx SpecContext) {
-			Expect(resolver.EmitFixedImportCall(ctx, writer, writerId, nil, "strings", "from_i32")).
+			Expect(resolver.EmitFixedImportCall(ctx, writer, writerID, nil, "strings", "from_i32")).
 				To(MatchError(ContainSubstring("no scope")))
 		})
 	})
