@@ -17,7 +17,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 93, height: 57 };
 
-export const Primitive = ({
+export const CheckWithArrow = ({
   className,
   orientation = "left",
   color: colorVal,

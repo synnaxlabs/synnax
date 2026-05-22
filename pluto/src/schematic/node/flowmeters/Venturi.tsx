@@ -18,7 +18,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 const DIMENSIONS = { width: 71, height: 36 };
 const LABEL_POSITION = { x: 56, y: 29 };
 
-export const Primitive = ({
+export const Venturi = ({
   id,
   className,
   orientation = "right",

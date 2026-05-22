@@ -17,7 +17,7 @@ export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 79 };
 
-export const Primitive = ({
+export const AngledRelief = ({
   color,
   className,
   orientation = "left",

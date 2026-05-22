@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 66, height: 66 };
 
-export const Primitive = ({
+export const HeatExchangerM = ({
   id,
   className,
   orientation = "right",

@@ -10,19 +10,19 @@
 import { z } from "zod";
 
 import { defineToggle } from "@/schematic/node/define";
-import { Primitive as Cavity } from "@/schematic/node/pumps/Cavity";
-import { Primitive as Centrifugal } from "@/schematic/node/pumps/Centrifugal";
-import { Primitive as Compressor } from "@/schematic/node/pumps/Compressor";
-import { Primitive as Diaphragm } from "@/schematic/node/pumps/Diaphragm";
-import { Primitive as Ejection } from "@/schematic/node/pumps/Ejection";
-import { Primitive as Ejector } from "@/schematic/node/pumps/Ejector";
-import { Primitive as LiquidRing } from "@/schematic/node/pumps/LiquidRing";
-import { Primitive as Piston } from "@/schematic/node/pumps/Piston";
-import { Primitive as Pump } from "@/schematic/node/pumps/Pump";
-import { Primitive as RollerVane } from "@/schematic/node/pumps/RollerVane";
-import { Primitive as Screw } from "@/schematic/node/pumps/Screw";
-import { Primitive as Turbo } from "@/schematic/node/pumps/Turbo";
-import { Primitive as Vacuum } from "@/schematic/node/pumps/Vacuum";
+import { Cavity } from "@/schematic/node/pumps/Cavity";
+import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
+import { Compressor } from "@/schematic/node/pumps/Compressor";
+import { Diaphragm } from "@/schematic/node/pumps/Diaphragm";
+import { Ejection } from "@/schematic/node/pumps/Ejection";
+import { Ejector } from "@/schematic/node/pumps/Ejector";
+import { LiquidRing } from "@/schematic/node/pumps/LiquidRing";
+import { Piston } from "@/schematic/node/pumps/Piston";
+import { Pump } from "@/schematic/node/pumps/Pump";
+import { RollerVane } from "@/schematic/node/pumps/RollerVane";
+import { Screw } from "@/schematic/node/pumps/Screw";
+import { Turbo } from "@/schematic/node/pumps/Turbo";
+import { Vacuum } from "@/schematic/node/pumps/Vacuum";
 
 const cavity = defineToggle({
   variant: "cavityPump",

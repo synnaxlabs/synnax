@@ -16,7 +16,7 @@ export interface Props extends Base.SVGBasedProps, Base.DivProps {}
 
 const DIMENSIONS = { width: 36, height: 48 };
 
-export const Primitive = ({
+export const IsoCap = ({
   className,
   orientation = "left",
   color,

@@ -28,7 +28,7 @@ export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   stateOverrides?: schematic.symbol.State[];
 }
 
-export const Primitive = ({
+export const Actuator = ({
   specKey,
   enabled = false,
   triggered = false,

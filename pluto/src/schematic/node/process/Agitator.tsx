@@ -17,7 +17,7 @@ export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 88, height: 86 };
 
-export const Primitive = ({
+export const Agitator = ({
   orientation = "left",
   color,
   scale,

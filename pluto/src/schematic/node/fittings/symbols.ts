@@ -10,19 +10,19 @@
 import { z } from "zod";
 
 import { defineStatic, defineToggle } from "@/schematic/node/define";
-import { Primitive as Cap } from "@/schematic/node/fittings/Cap";
-import { Primitive as Filter } from "@/schematic/node/fittings/Filter";
-import { Primitive as FlowStraightener } from "@/schematic/node/fittings/FlowStraightener";
-import { Primitive as HeaterElement } from "@/schematic/node/fittings/HeaterElement";
-import { Primitive as IsoCap } from "@/schematic/node/fittings/IsoCap";
-import { Primitive as IsoFilter } from "@/schematic/node/fittings/IsoFilter";
-import { Primitive as Nozzle } from "@/schematic/node/fittings/Nozzle";
-import { Primitive as Orifice } from "@/schematic/node/fittings/Orifice";
-import { Primitive as OrificePlate } from "@/schematic/node/fittings/OrificePlate";
-import { Primitive as Strainer } from "@/schematic/node/fittings/Strainer";
-import { Primitive as StrainerCone } from "@/schematic/node/fittings/StrainerCone";
-import { Primitive as Thruster } from "@/schematic/node/fittings/Thruster";
-import { Primitive as Vent } from "@/schematic/node/fittings/Vent";
+import { Cap } from "@/schematic/node/fittings/Cap";
+import { Filter } from "@/schematic/node/fittings/Filter";
+import { FlowStraightener } from "@/schematic/node/fittings/FlowStraightener";
+import { HeaterElement } from "@/schematic/node/fittings/HeaterElement";
+import { IsoCap } from "@/schematic/node/fittings/IsoCap";
+import { IsoFilter } from "@/schematic/node/fittings/IsoFilter";
+import { Nozzle } from "@/schematic/node/fittings/Nozzle";
+import { Orifice } from "@/schematic/node/fittings/Orifice";
+import { OrificePlate } from "@/schematic/node/fittings/OrificePlate";
+import { Strainer } from "@/schematic/node/fittings/Strainer";
+import { StrainerCone } from "@/schematic/node/fittings/StrainerCone";
+import { Thruster } from "@/schematic/node/fittings/Thruster";
+import { Vent } from "@/schematic/node/fittings/Vent";
 
 const cap = defineStatic({
   variant: "cap",

@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 70, height: 34 };
 
-export const Primitive = ({
+export const Orifice = ({
   className,
   orientation = "left",
   scale,

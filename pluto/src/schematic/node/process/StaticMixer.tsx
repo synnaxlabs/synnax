@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 66, height: 30 };
 
-export const Primitive = ({
+export const StaticMixer = ({
   color,
   className,
   orientation = "left",

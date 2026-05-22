@@ -17,7 +17,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 63, height: 69 };
 
-export const Primitive = ({
+export const FlameArrestorFireRes = ({
   color,
   className,
   orientation = "left",

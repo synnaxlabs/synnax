@@ -28,7 +28,7 @@ export interface Props {
   stateOverrides?: schematic.symbol.State[];
 }
 
-export const Primitive = ({
+export const Static = ({
   specKey,
   orientation = "left",
   scale = 1,

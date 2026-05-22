@@ -18,7 +18,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 40, height: 48 };
 
-export const Primitive = ({
+export const BurstDisc = ({
   className,
   color: colorVal,
   orientation = "left",

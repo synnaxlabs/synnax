@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 102 };
 
-export const Primitive = ({
+export const ElectricRegulatorMotorized = ({
   className,
   orientation = "left",
   color,

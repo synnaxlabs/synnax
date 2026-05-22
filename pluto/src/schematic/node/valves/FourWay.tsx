@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 108, height: 96 };
 
-export const Primitive = ({
+export const FourWay = ({
   className,
   orientation = "left",
   scale,

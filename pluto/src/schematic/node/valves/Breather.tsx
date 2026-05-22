@@ -18,7 +18,7 @@ export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 99, height: 57 };
 
-export const Primitive = ({
+export const Breather = ({
   color: colorVal,
   className,
   orientation = "left",

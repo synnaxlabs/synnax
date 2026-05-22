@@ -17,7 +17,7 @@ export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 50, height: 33 };
 
-export const Primitive = ({
+export const RotaryMixer = ({
   color,
   className,
   orientation = "left",

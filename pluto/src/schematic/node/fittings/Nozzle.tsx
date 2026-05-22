@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 126 };
 
-export const Primitive = ({
+export const Nozzle = ({
   color,
   className,
   orientation = "left",

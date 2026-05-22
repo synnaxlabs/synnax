@@ -10,13 +10,13 @@
 import { z } from "zod";
 
 import { defineStatic } from "@/schematic/node/define";
-import { Primitive as BurstDisc } from "@/schematic/node/safety/BurstDisc";
-import { Primitive as FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
-import { Primitive as FlameArrestorDetonation } from "@/schematic/node/safety/FlameArrestorDetonation";
-import { Primitive as FlameArrestorExplosion } from "@/schematic/node/safety/FlameArrestorExplosion";
-import { Primitive as FlameArrestorFireRes } from "@/schematic/node/safety/FlameArrestorFireRes";
-import { Primitive as FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
-import { Primitive as IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
+import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
+import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
+import { FlameArrestorDetonation } from "@/schematic/node/safety/FlameArrestorDetonation";
+import { FlameArrestorExplosion } from "@/schematic/node/safety/FlameArrestorExplosion";
+import { FlameArrestorFireRes } from "@/schematic/node/safety/FlameArrestorFireRes";
+import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
+import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
 
 const burstDisc = defineStatic({
   variant: "burstDisc",

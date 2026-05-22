@@ -10,17 +10,17 @@
 import { z } from "zod";
 
 import { defineStatic, defineToggle } from "@/schematic/node/define";
-import { Primitive as Agitator } from "@/schematic/node/process/Agitator";
-import { Primitive as CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
-import { Primitive as FlatBladeAgitator } from "@/schematic/node/process/FlatBladeAgitator";
-import { Primitive as HeatExchangerGeneral } from "@/schematic/node/process/HeatExchangerGeneral";
-import { Primitive as HeatExchangerM } from "@/schematic/node/process/HeatExchangerM";
-import { Primitive as HeatExchangerStraightTube } from "@/schematic/node/process/HeatExchangerStraightTube";
-import { Primitive as HelicalAgitator } from "@/schematic/node/process/HelicalAgitator";
-import { Primitive as PaddleAgitator } from "@/schematic/node/process/PaddleAgitator";
-import { Primitive as PropellerAgitator } from "@/schematic/node/process/PropellerAgitator";
-import { Primitive as RotaryMixer } from "@/schematic/node/process/RotaryMixer";
-import { Primitive as StaticMixer } from "@/schematic/node/process/StaticMixer";
+import { Agitator } from "@/schematic/node/process/Agitator";
+import { CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
+import { FlatBladeAgitator } from "@/schematic/node/process/FlatBladeAgitator";
+import { HeatExchangerGeneral } from "@/schematic/node/process/HeatExchangerGeneral";
+import { HeatExchangerM } from "@/schematic/node/process/HeatExchangerM";
+import { HeatExchangerStraightTube } from "@/schematic/node/process/HeatExchangerStraightTube";
+import { HelicalAgitator } from "@/schematic/node/process/HelicalAgitator";
+import { PaddleAgitator } from "@/schematic/node/process/PaddleAgitator";
+import { PropellerAgitator } from "@/schematic/node/process/PropellerAgitator";
+import { RotaryMixer } from "@/schematic/node/process/RotaryMixer";
+import { StaticMixer } from "@/schematic/node/process/StaticMixer";
 
 const agitator = defineToggle({
   variant: "agitator",

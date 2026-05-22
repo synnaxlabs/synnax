@@ -15,8 +15,8 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { Primitive as Actuator } from "@/schematic/node/custom/Actuator";
-import { Primitive as Static } from "@/schematic/node/custom/Static";
+import { Actuator } from "@/schematic/node/custom/Actuator";
+import { Static } from "@/schematic/node/custom/Static";
 import { type Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "customActuator";

@@ -16,7 +16,7 @@ export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 33, height: 69 };
 
-export const Primitive = ({
+export const StrainerCone = ({
   color,
   className,
   orientation = "left",

@@ -10,18 +10,18 @@
 import { z } from "zod";
 
 import { defineStatic } from "@/schematic/node/define";
-import { Primitive as Coriolis } from "@/schematic/node/flowmeters/Coriolis";
-import { Primitive as Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
-import { Primitive as FloatSensor } from "@/schematic/node/flowmeters/FloatSensor";
-import { Primitive as General } from "@/schematic/node/flowmeters/General";
-import { Primitive as Nozzle } from "@/schematic/node/flowmeters/Nozzle";
-import { Primitive as Orifice } from "@/schematic/node/flowmeters/Orifice";
-import { Primitive as PositiveDisplacement } from "@/schematic/node/flowmeters/PositiveDisplacement";
-import { Primitive as Pulse } from "@/schematic/node/flowmeters/Pulse";
-import { Primitive as RingPiston } from "@/schematic/node/flowmeters/RingPiston";
-import { Primitive as Turbine } from "@/schematic/node/flowmeters/Turbine";
-import { Primitive as VariableArea } from "@/schematic/node/flowmeters/VariableArea";
-import { Primitive as Venturi } from "@/schematic/node/flowmeters/Venturi";
+import { Coriolis } from "@/schematic/node/flowmeters/Coriolis";
+import { Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
+import { FloatSensor } from "@/schematic/node/flowmeters/FloatSensor";
+import { General } from "@/schematic/node/flowmeters/General";
+import { Nozzle } from "@/schematic/node/flowmeters/Nozzle";
+import { Orifice } from "@/schematic/node/flowmeters/Orifice";
+import { PositiveDisplacement } from "@/schematic/node/flowmeters/PositiveDisplacement";
+import { Pulse } from "@/schematic/node/flowmeters/Pulse";
+import { RingPiston } from "@/schematic/node/flowmeters/RingPiston";
+import { Turbine } from "@/schematic/node/flowmeters/Turbine";
+import { VariableArea } from "@/schematic/node/flowmeters/VariableArea";
+import { Venturi } from "@/schematic/node/flowmeters/Venturi";
 
 const general = defineStatic({
   variant: "flowmeterGeneral",

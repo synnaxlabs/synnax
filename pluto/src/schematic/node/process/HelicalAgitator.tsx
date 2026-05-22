@@ -18,7 +18,7 @@ export interface Props extends AgitatorProps {}
 
 const DIMENSIONS = { width: 87, height: 87 };
 
-export const Primitive = ({
+export const HelicalAgitator = ({
   className,
   orientation = "left",
   color,
