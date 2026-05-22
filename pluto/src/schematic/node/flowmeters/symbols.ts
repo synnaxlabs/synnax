@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic } from "@/schematic/node/define";
+import { defineStatic } from "@/schematic/node/common/define";
 import { Coriolis } from "@/schematic/node/flowmeters/Coriolis";
 import { Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
 import { FloatSensor } from "@/schematic/node/flowmeters/FloatSensor";

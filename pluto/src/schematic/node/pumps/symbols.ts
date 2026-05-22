@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineToggle } from "@/schematic/node/define";
+import { defineToggle } from "@/schematic/node/common/define";
 import { Cavity } from "@/schematic/node/pumps/Cavity";
 import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
 import { Compressor } from "@/schematic/node/pumps/Compressor";

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic, defineToggle } from "@/schematic/node/define";
+import { defineStatic, defineToggle } from "@/schematic/node/common/define";
 import { Agitator } from "@/schematic/node/process/Agitator";
 import { CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
 import { FlatBladeAgitator } from "@/schematic/node/process/FlatBladeAgitator";

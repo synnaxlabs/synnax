@@ -42,7 +42,7 @@ export const REGISTRY = {
 } as const;
 
 const VARIANTS = Object.keys(REGISTRY);
-export const variantZ = z.enum(VARIANTS as [string, ...string[]]);
+export const variantZ = z.enum(VARIANTS);
 export type Variant = keyof typeof REGISTRY;
 
 export const configZ = z.discriminatedUnion("variant", [

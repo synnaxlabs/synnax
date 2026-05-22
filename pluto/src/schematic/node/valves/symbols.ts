@@ -10,11 +10,15 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import {
+  defineDummyToggle,
+  defineStatic,
+  defineToggle,
+} from "@/schematic/node/common/define";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import { defineDummyToggle, defineStatic, defineToggle } from "@/schematic/node/define";
 import { type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/Angled";
 import { AngledRelief } from "@/schematic/node/valves/AngledRelief";

@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic } from "@/schematic/node/define";
+import { defineStatic } from "@/schematic/node/common/define";
 import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
 import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
 import { FlameArrestorDetonation } from "@/schematic/node/safety/FlameArrestorDetonation";

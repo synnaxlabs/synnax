@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic, defineToggle } from "@/schematic/node/define";
+import { defineStatic, defineToggle } from "@/schematic/node/common/define";
 import { Cap } from "@/schematic/node/fittings/Cap";
 import { Filter } from "@/schematic/node/fittings/Filter";
 import { FlowStraightener } from "@/schematic/node/fittings/FlowStraightener";
