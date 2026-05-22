@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -152,11 +154,35 @@ func (s *Service) Retrieve(
 		if err = status.NewRetrieve[task.StatusDetails](s.status).
 			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
 			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
+			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 			return res, err
 		}
-		for i, stat := range statuses {
-			res.Tasks[i].Status = &stat
+		byKey := make(map[string]*task.Status, len(statuses))
+		for i := range statuses {
+			byKey[statuses[i].Key] = &statuses[i]
+		}
+		var missing []int
+		for i := range res.Tasks {
+			if stat, ok := byKey[task.OntologyID(res.Tasks[i].Key).String()]; ok {
+				res.Tasks[i].Status = stat
+			} else {
+				missing = append(missing, i)
+			}
+		}
+		if len(missing) > 0 {
+			if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := s.task.NewWriter(tx)
+				for _, i := range missing {
+					fresh, err := w.SetDefaultStatus(ctx, &res.Tasks[i])
+					if err != nil {
+						return err
+					}
+					res.Tasks[i].Status = fresh
+				}
+				return nil
+			}); err != nil {
+				return res, err
+			}
 		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
