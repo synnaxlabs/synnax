@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
@@ -24,22 +25,22 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Type Inference", func() {
 		It("Should infer the correct type for integer literal expressions", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Int64T))
 		})
 
 		It("Should infer the correct type for float literal expressions", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1.0 + 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float64T))
 		})
 
 		It("Should infer the correct type when referencing a float32 channel", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			r := StaticResolver{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
@@ -48,8 +49,8 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should infer the correct type when referencing an int64 channel", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10},
+			r := StaticResolver{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + 1"}
@@ -58,9 +59,9 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should infer the correct type when referencing multiple channels", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"a": {Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
-				"b": {Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
+			r := StaticResolver{
+				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
@@ -71,15 +72,15 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Deps", func() {
 		It("Should return no deps for a pure literal expression", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return 1 + 2"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.Deps).To(BeEmpty())
 		})
 
 		It("Should return the key of a single referenced channel", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+			r := StaticResolver{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor * 2.0"}
@@ -88,9 +89,9 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should return keys for multiple referenced channels", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"a": {Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
-				"b": {Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
+			r := StaticResolver{
+				{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+				{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 20},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return a + b"}
@@ -99,8 +100,8 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should not duplicate a channel referenced multiple times", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
+			r := StaticResolver{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return sensor + sensor"}
@@ -109,7 +110,7 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should resolve deps from the temp cache for previously analyzed channels", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			first := channel.Channel{
 				Name:        "first",
 				Expression:  "return 1.0",
@@ -128,7 +129,7 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Channel Caching", func() {
 		It("Should resolve a previously analyzed channel by name", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			sensor := channel.Channel{
 				Name:        "sensor",
 				Expression:  "return 1.0",
@@ -147,7 +148,7 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should cache multiple channels and resolve a chain of dependencies", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			first := channel.Channel{
 				Name:        "first",
 				Expression:  "return 1.0",
@@ -173,7 +174,7 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should still resolve by name when the channel has key 0", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			sensor := channel.Channel{
 				Name:       "sensor",
 				Expression: "return 1.0",
@@ -190,13 +191,13 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Error Handling", func() {
 		It("Should return an error for invalid syntax", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
 			Expect(a.Analyze(ctx, ch)).Error().To(MatchError(ContainSubstring("extraneous input")))
 		})
 
 		It("Should return an error for an undefined channel reference", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
@@ -204,7 +205,7 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should return zero Result on parse error", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("extraneous input")))
@@ -212,7 +213,7 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {
-			a := analyzer.New(symbol.MapResolver{})
+			a := analyzer.New(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
@@ -223,8 +224,8 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Derivative Operation Type Override", func() {
 		It("Should infer float64 DataType when derivative is the last operation", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
+			r := StaticResolver{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{
@@ -240,8 +241,8 @@ var _ = Describe("Analyze", func() {
 		})
 
 		It("Should not override DataType when avg is the last operation", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"sensor2": {Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
+			r := StaticResolver{
+				{Name: "sensor2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{
@@ -259,8 +260,8 @@ var _ = Describe("Analyze", func() {
 
 	Describe("Resolver Fallback", func() {
 		It("Should fall back to the underlying resolver for symbols not in the temp cache", func(ctx SpecContext) {
-			r := symbol.MapResolver{
-				"external": {Name: "external", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			r := StaticResolver{
+				{Name: "external", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
 			a := analyzer.New(r)
 			ch := channel.Channel{Name: "calc", Expression: "return external * 2.0"}

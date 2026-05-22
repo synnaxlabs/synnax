@@ -238,7 +238,7 @@ var _ = Describe("Writer", func() {
 			seen := rec.snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(s.Key))
-			Expect(seen[0].SessionKey).To(Equal("client-xyz"))
+			Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 			Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
 			Expect(seen[0].Actions).To(HaveLen(2))
 			Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeSetNode))

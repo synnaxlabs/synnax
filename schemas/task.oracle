@@ -59,7 +59,7 @@ NewStatusDetails struct<Data? = record> {
     cmd     string? {
         @doc value "is the command being executed."
     }
-    data    Data    {
+    data    Data??  {
         @doc value "contains task-specific status data."
     }
 

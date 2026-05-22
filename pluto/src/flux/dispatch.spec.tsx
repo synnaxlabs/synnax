@@ -9,7 +9,7 @@
 
 import { createTestClient, schematic } from "@synnaxlabs/client";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -78,7 +78,7 @@ const primeCache = async (Wrapper: FC<PropsWithChildren>, key: schematic.Key) =>
     );
   });
   await waitFor(() => {
-    expect(utils.queryByTestId("ready")?.textContent).toBe("ok");
+    expect(within(utils.container).queryByTestId("ready")?.textContent).toBe("ok");
   });
 };
 

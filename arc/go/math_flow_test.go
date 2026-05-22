@@ -12,7 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -25,8 +25,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `my_sensor -> avg{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -53,8 +53,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"avg_out": {types.I32(), 200},
 			})
 			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Int32T},
-				channel.Digest{Key: 200, DataType: telem.Int32T},
+				channels.Digest{Key: 100, DataType: telem.Int32T},
+				channels.Digest{Key: 200, DataType: telem.Int32T},
 			)
 			defer h.Close(ctx)
 
@@ -76,9 +76,10 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.avg{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+			h := newRuntimeHarness(ctx, `import math
+my_sensor -> math.avg{} -> output_sensor`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -97,8 +98,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"avg_out": {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `sensor -> avg{count=3} -> avg_out`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -130,8 +131,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"avg_out": {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -165,8 +166,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `my_sensor -> min{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -189,9 +190,10 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.min{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+			h := newRuntimeHarness(ctx, `import math
+my_sensor -> math.min{} -> output_sensor`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -212,8 +214,8 @@ var _ = Describe("Math Flow Chains", func() {
 				"output_sensor": {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `my_sensor -> max{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -236,9 +238,10 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor":     {types.F64(), 100},
 				"output_sensor": {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.max{} -> output_sensor`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+			h := newRuntimeHarness(ctx, `import math
+my_sensor -> math.max{} -> output_sensor`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -259,9 +262,9 @@ var _ = Describe("Math Flow Chains", func() {
 				"rate_out":  {types.F64(), 200},
 			})
 			h := newRuntimeHarness(ctx, `my_sensor -> derivative{} -> rate_out`, resolver,
-				channel.Digest{Key: 99, DataType: telem.TimeStampT},
-				channel.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 99, DataType: telem.TimeStampT},
+				channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -287,10 +290,11 @@ var _ = Describe("Math Flow Chains", func() {
 				"my_sensor": {types.F64(), 100},
 				"rate_out":  {types.F64(), 200},
 			})
-			h := newRuntimeHarness(ctx, `my_sensor -> math.derivative{} -> rate_out`, resolver,
-				channel.Digest{Key: 99, DataType: telem.TimeStampT},
-				channel.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+			h := newRuntimeHarness(ctx, `import math
+my_sensor -> math.derivative{} -> rate_out`, resolver,
+				channels.Digest{Key: 99, DataType: telem.TimeStampT},
+				channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 

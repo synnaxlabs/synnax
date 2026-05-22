@@ -19,11 +19,19 @@ import (
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	name string,
+	head, tail string,
 ) (types.Type, error) {
-	scope, err := ctx.Scope.Resolve(ctx, name)
+	scope, err := ctx.Scope.Resolve(ctx, head)
 	if err != nil {
 		return types.Type{}, err
+	}
+	name := head
+	if tail != "" {
+		scope, err = scope.Resolve(ctx, tail)
+		if err != nil {
+			return types.Type{}, err
+		}
+		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
 	switch scope.Kind {

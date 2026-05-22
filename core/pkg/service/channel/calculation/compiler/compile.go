@@ -79,7 +79,7 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	return arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
 }
 
 // Module is the compiled output for a single calculated channel, ready for
@@ -196,7 +196,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		})
 	}
 
-	program, err := arc.CompileGraph(ctx, g, arc.WithResolver(cfg.SymbolResolver))
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
 	if err != nil {
 		return Module{}, err
 	}

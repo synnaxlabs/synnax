@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
+func binaryOp(name string, outputs types.Params) *symbol.Symbol {
 	constraint := types.NumericConstraint()
-	return symbol.Symbol{
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -31,39 +31,28 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 	}
 }
 
-func createComparisonSymbol(name string) symbol.Symbol {
-	return createBinaryOpSymbol(
-		name,
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-	)
+func comparison(name string) *symbol.Symbol {
+	return binaryOp(name, types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}})
 }
 
-func createLogicalSymbol(name string) symbol.Symbol {
+func logical(name string) *symbol.Symbol {
 	constraint := types.NumericConstraint()
-	return createBinaryOpSymbol(
+	return binaryOp(
 		name,
 		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
 	)
 }
 
-func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params) symbol.Symbol {
-	return symbol.Symbol{
+func not(name string) *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: inputType}},
-			Outputs: outputs,
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 		}),
 	}
-}
-
-func createNotSymbol(name string) symbol.Symbol {
-	return createUnaryOpSymbol(
-		name,
-		types.U8(),
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-	)
 }
 
 const (
@@ -78,14 +67,17 @@ const (
 	notSymbolName = "not"
 )
 
-var SymbolResolver = symbol.MapResolver{
-	geSymbolName:  createComparisonSymbol(geSymbolName),
-	gtSymbolName:  createComparisonSymbol(gtSymbolName),
-	leSymbolName:  createComparisonSymbol(leSymbolName),
-	ltSymbolName:  createComparisonSymbol(ltSymbolName),
-	eqSymbolName:  createComparisonSymbol(eqSymbolName),
-	neSymbolName:  createComparisonSymbol(neSymbolName),
-	andSymbolName: createLogicalSymbol(andSymbolName),
-	orSymbolName:  createLogicalSymbol(orSymbolName),
-	notSymbolName: createNotSymbol(notSymbolName),
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude. Operators are root-level (no module) — they install directly at
+// the root scope so lowering passes can emit calls without imports.
+var Symbols = []*symbol.Symbol{
+	comparison(geSymbolName),
+	comparison(gtSymbolName),
+	comparison(leSymbolName),
+	comparison(ltSymbolName),
+	comparison(eqSymbolName),
+	comparison(neSymbolName),
+	logical(andSymbolName),
+	logical(orSymbolName),
+	not(notSymbolName),
 }

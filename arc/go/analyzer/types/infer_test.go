@@ -17,8 +17,8 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -26,11 +26,11 @@ import (
 // inferExprType is a helper that parses an expression and infers its type.
 func inferExprType(
 	bCtx context.Context,
-	resolver symbol.MapResolver,
+	resolver []symbol.Symbol,
 	expr string,
 ) types.Type {
 	parsed := MustSucceed(parser.ParseExpression(expr))
-	ctx := acontext.CreateRoot(bCtx, parsed, resolver)
+	ctx := acontext.NewRoot(bCtx, parsed, NewRoot(nil, resolver...))
 	return atypes.InferFromExpression(ctx)
 }
 
@@ -41,45 +41,45 @@ func parseTypeFromDecl(decl string) parser.ITypeContext {
 }
 
 var _ = Describe("Type Inference", func() {
-	var testResolver symbol.MapResolver
+	var testResolver []symbol.Symbol
 
 	BeforeEach(func() {
-		testResolver = symbol.MapResolver{
-			"temp_sensor": symbol.Symbol{
+		testResolver = []symbol.Symbol{
+			{
 				Name: "temp_sensor",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   1,
 			},
-			"pressure": symbol.Symbol{
+			{
 				Name: "pressure",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 				ID:   2,
 			},
-			"i32_ch": symbol.Symbol{
+			{
 				Name: "i32_ch",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I32()),
 				ID:   3,
 			},
-			"i64_ch": symbol.Symbol{
+			{
 				Name: "i64_ch",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.I64()),
 				ID:   4,
 			},
-			"float_var": symbol.Symbol{
+			{
 				Name: "float_var",
 				Kind: symbol.KindVariable,
 				Type: types.F32(),
 			},
-			"data_series": symbol.Symbol{
+			{
 				Name: "data_series",
 				Kind: symbol.KindVariable,
 				Type: types.Series(types.I64()),
 			},
-			"my_func": symbol.Symbol{
+			{
 				Name: "my_func",
 				Kind: symbol.KindVariable,
 				Type: types.Function(types.FunctionProperties{
@@ -172,13 +172,13 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should handle function with no return type", func(bCtx SpecContext) {
-				testResolver["void_func"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "void_func",
 					Kind: symbol.KindVariable,
 					Type: types.Function(types.FunctionProperties{
 						Inputs: types.Params{{Name: "x", Type: types.I32()}},
 					}),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "void_func(5)")
 				Expect(t.Kind).To(Equal(types.KindInvalid))
 			})
@@ -326,11 +326,11 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should handle incompatible scalar types", func(bCtx SpecContext) {
-				testResolver["int_var"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "int_var",
 					Kind: symbol.KindVariable,
 					Type: types.I32(),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "float_var * int_var")
 				Expect(t.Kind).To(Equal(types.KindF32))
 			})
@@ -352,21 +352,21 @@ var _ = Describe("Type Inference", func() {
 
 		Context("edge cases", func() {
 			It("should handle division of incompatible types", func(bCtx SpecContext) {
-				testResolver["f32_series"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "f32_series",
 					Kind: symbol.KindVariable,
 					Type: types.Series(types.F32()),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "f32_series / data_series")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 			})
 
 			It("should handle modulo with incompatible series", func(bCtx SpecContext) {
-				testResolver["f64_series"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "f64_series",
 					Kind: symbol.KindVariable,
 					Type: types.Series(types.F64()),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "data_series % f64_series")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 			})
@@ -377,11 +377,11 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should return invalid type for identifier with invalid type", func(bCtx SpecContext) {
-				testResolver["invalid_var"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "invalid_var",
 					Kind: symbol.KindVariable,
 					Type: types.Type{},
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "invalid_var")
 				Expect(t.Kind).To(Equal(types.KindInvalid))
 			})
@@ -423,11 +423,11 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should infer series with typed variable as series of that type", func(bCtx SpecContext) {
-				testResolver["int_var"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "int_var",
 					Kind: symbol.KindVariable,
 					Type: types.I32(),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "[int_var, 1, 2]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
@@ -435,11 +435,11 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should prefer concrete type over type variable in series", func(bCtx SpecContext) {
-				testResolver["i64_var"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "i64_var",
 					Kind: symbol.KindVariable,
 					Type: types.I64(),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "[1, i64_var]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
@@ -453,11 +453,11 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should infer series with variable expression", func(bCtx SpecContext) {
-				testResolver["i32_var"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "i32_var",
 					Kind: symbol.KindVariable,
 					Type: types.I32(),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "[i32_var + 1, i32_var * 2]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
@@ -479,13 +479,13 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should infer series with function call", func(bCtx SpecContext) {
-				testResolver["get_value"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "get_value",
 					Kind: symbol.KindVariable,
 					Type: types.Function(types.FunctionProperties{
 						Outputs: types.Params{{Type: types.I64()}},
 					}),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "[get_value(), 42]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
@@ -493,16 +493,16 @@ var _ = Describe("Type Inference", func() {
 			})
 
 			It("should infer series with multiple typed variables", func(bCtx SpecContext) {
-				testResolver["a"] = symbol.Symbol{
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "a",
 					Kind: symbol.KindVariable,
 					Type: types.F64(),
-				}
-				testResolver["b"] = symbol.Symbol{
+				})
+				testResolver = append(testResolver, symbol.Symbol{
 					Name: "b",
 					Kind: symbol.KindVariable,
 					Type: types.F64(),
-				}
+				})
 				t := inferExprType(bCtx, testResolver, "[a, b, a + b]")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Elem).ToNot(BeNil())
@@ -711,21 +711,25 @@ var _ = Describe("Type Inference", func() {
 	Describe("Qualified Identifier Type Inference", func() {
 		It("should infer the return type of time.now()", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("time.now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
+			timeMod := aCtx.Scope.Parent.FindChild("time")
+			MustSucceed(aCtx.Scope.Add(ctx, symbol.Symbol{
+				Name: "time", Kind: symbol.KindModuleAlias, Target: timeMod,
+			}))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t).To(Equal(types.TimeStamp()))
 		})
 
 		It("should infer the return type of bare now() (deprecated)", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("now()"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t).To(Equal(types.TimeStamp()))
 		})
 
 		It("should return invalid type for undefined qualified identifier", func(ctx SpecContext) {
 			parsed := MustSucceed(parser.ParseExpression("fake.thing"))
-			aCtx := acontext.CreateRoot(ctx, parsed, stl.SymbolResolver)
+			aCtx := acontext.NewRoot(ctx, parsed, NewRoot(nil))
 			t := atypes.InferFromExpression(aCtx)
 			Expect(t.IsValid()).To(BeFalse())
 		})
