@@ -210,7 +210,6 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	}
 }
 
-
 func analyzeIdentifier(
 	ctx context.Context[parser.IIdentifierContext],
 	prevNode parser.IFlowNodeContext,
