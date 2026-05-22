@@ -762,6 +762,375 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Inline routing case bodies", func() {
+		It("Anonymous top-level stage dispatches into the inline branch matching the routed output", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag":      {types.U8(), 100},
+				"true_out":  {types.U8(), 101},
+				"false_out": {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    flag -> select{} -> {
+				        true: stage { 1 -> true_out },
+				        false: stage { 1 -> false_out }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"true branch inline must fire when flag is truthy")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"false branch inline must not fire when flag is truthy")
+		})
+
+		It("Named gated top-level stage dispatches inline branch only after activation", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"flag":      {types.U8(), 101},
+				"true_out":  {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				stage main {
+				    flag -> select{} -> {
+				        true: stage { 1 -> true_out }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"inline must not fire before main is activated")
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"inline must fire once main is activated and flag is truthy")
+		})
+
+		It("Inline sequence body in a top-level stage runs its sequential steps in order", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag":  {types.U8(), 100},
+				"out_a": {types.U8(), 101},
+				"out_b": {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    flag -> select{} -> {
+				        true: sequence {
+				            1 -> out_a
+				            2 -> out_b
+				        }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 8; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"first sequential step of inline sequence must fire")
+			Expect(lastU8(out, 102)).To(Equal(uint8(2)),
+				"second sequential step of inline sequence must fire")
+		})
+
+		It("Inline routing directly in a sequence body dispatches without duplicate transitions", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"flag":      {types.U8(), 101},
+				"true_out":  {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    flag -> select{} -> {
+				        true: stage { 1 -> true_out }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"inline must fire once when routed directly from a sequence body")
+		})
+
+		It("Inline body transition to a sibling stage advances the enclosing sequence", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"flag":      {types.U8(), 101},
+				"first_out": {types.U8(), 102},
+				"true_out":  {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage first_stage {
+				        flag -> select{} -> {
+				            true: stage {
+				                1 -> first_out,
+				                1 -> true_stage
+				            }
+				        }
+				    }
+				    stage true_stage {
+				        1 -> true_out
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 10; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"inline first_out write must fire")
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"transition from inline body to sibling stage must advance main")
+		})
+
+		It("Inline body navigates to a named sibling stage as its sole write", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":   {types.U8(), 100},
+				"flag":        {types.U8(), 101},
+				"reached_out": {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage first {
+				        flag -> select{} -> {
+				            true: stage { 1 -> following_stage }
+				        }
+				    }
+				    stage following_stage {
+				        1 -> reached_out
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 10; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"following_stage must activate after inline body fires its cross-stage write")
+		})
+
+		It("Completion of inline routing does not auto-advance the enclosing sequence", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":  {types.U8(), 100},
+				"flag":       {types.U8(), 101},
+				"inline_out": {types.U8(), 102},
+				"second_out": {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage first {
+				        flag -> select{} -> {
+				            true: stage { 1 -> inline_out }
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 20; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"inline body must fire its write")
+			Expect(out.Get(103).Series).To(BeEmpty(),
+				"main must remain on 'first' after inline routing completes; "+
+					"'second' must not auto-advance")
+		})
+
+		It("Doubly-nested inline activation fires the inner body in the same cycle", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"inner_out": {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage hold {
+				        1 -> select{} -> {
+				            true: stage {
+				                1 -> select{} -> {
+				                    true: stage { 1 -> inner_out }
+				                }
+				            }
+				        }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			for i := 0; i < 10; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"doubly-nested inline body must activate when outer body fires its inner select")
+		})
+
+		It("Triply-nested inline activation fires the innermost body in the same cycle", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":     {types.U8(), 100},
+				"innermost_out": {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage hold {
+				        1 -> select{} -> {
+				            true: stage {
+				                1 -> select{} -> {
+				                    true: stage {
+				                        1 -> select{} -> {
+				                            true: stage { 1 -> innermost_out }
+				                        }
+				                    }
+				                }
+				            }
+				        }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			for i := 0; i < 10; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"triply-nested inline body must activate via the chain of inline selects")
+		})
+
+		It("Quadruply-nested inline activation fires the innermost body in the same cycle", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":     {types.U8(), 100},
+				"innermost_out": {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				start_cmd => main
+
+				sequence main {
+				    stage hold {
+				        1 -> select{} -> {
+				            true: stage {
+				                1 -> select{} -> {
+				                    true: stage {
+				                        1 -> select{} -> {
+				                            true: stage {
+				                                1 -> select{} -> {
+				                                    true: stage { 1 -> innermost_out }
+				                                }
+				                            }
+				                        }
+				                    }
+				                }
+				            }
+				        }
+				    }
+				}`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			for i := 0; i < 10; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"quadruply-nested inline body must activate via the chain of inline selects")
+		})
+
+	})
+
 	Describe("Reactive flows", func() {
 		It("Top-level interval drives a function call repeatedly", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
