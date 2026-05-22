@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as CustomStatic from "@/schematic/node/general/customStatic/external";
+export { GROUP } from "@/schematic/node/general/group";
+export { configZ, REGISTRY } from "@/schematic/node/general/symbols";

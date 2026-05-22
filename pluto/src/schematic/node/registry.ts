@@ -10,23 +10,16 @@
 import { NotFoundError } from "@synnaxlabs/client";
 import z from "zod";
 
+import {
+  CUSTOM_ACTUATOR_VARIANT,
+  CUSTOM_STATIC_VARIANT,
+  customActuatorConfigZ,
+  customActuatorSpec,
+  customStaticConfigZ,
+  customStaticSpec,
+} from "@/schematic/node/custom/configs";
 import { Fittings } from "@/schematic/node/fittings";
-import { Box } from "@/schematic/node/general/box";
-import { Button } from "@/schematic/node/general/button";
-import { Circle } from "@/schematic/node/general/circle";
-import { CustomActuator } from "@/schematic/node/general/customActuator";
-import { CustomStatic } from "@/schematic/node/general/customStatic";
-import { Gauge } from "@/schematic/node/general/gauge";
-import { Input } from "@/schematic/node/general/input";
-import { Light } from "@/schematic/node/general/light";
-import { OffPageReference } from "@/schematic/node/general/offPageReference";
-import { Polygon } from "@/schematic/node/general/polygon";
-import { Select } from "@/schematic/node/general/select";
-import { Setpoint } from "@/schematic/node/general/setpoint";
-import { StateIndicator } from "@/schematic/node/general/stateIndicator";
-import { Switch } from "@/schematic/node/general/switch";
-import { TextBox } from "@/schematic/node/general/textBox";
-import { Value } from "@/schematic/node/general/value";
+import { General } from "@/schematic/node/general";
 import { Meters } from "@/schematic/node/meters";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
@@ -40,27 +33,14 @@ import { TJunction } from "@/schematic/node/vessels/tJunction";
 
 export const REGISTRY = {
   ...Fittings.REGISTRY,
+  ...General.REGISTRY,
   ...Meters.REGISTRY,
   ...Process.REGISTRY,
   ...Pumps.REGISTRY,
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
-  box: Box.spec,
-  button: Button.spec,
-  circle: Circle.spec,
-  customActuator: CustomActuator.spec,
-  customStatic: CustomStatic.spec,
-  gauge: Gauge.spec,
-  input: Input.spec,
-  light: Light.spec,
-  offPageReference: OffPageReference.spec,
-  polygon: Polygon.spec,
-  select: Select.spec,
-  setpoint: Setpoint.spec,
-  stateIndicator: StateIndicator.spec,
-  switch: Switch.spec,
-  textBox: TextBox.spec,
-  value: Value.spec,
+  customActuator: customActuatorSpec,
+  customStatic: customStaticSpec,
   crossJunction: CrossJunction.spec,
   cylinder: Cylinder.spec,
   tank: Tank.spec,
@@ -73,27 +53,14 @@ export type Variant = keyof typeof REGISTRY;
 
 export const configZ = z.discriminatedUnion("variant", [
   ...Fittings.configZ.options,
+  ...General.configZ.options,
   ...Meters.configZ.options,
   ...Process.configZ.options,
   ...Pumps.configZ.options,
   ...Safety.configZ.options,
   ...Valves.configZ.options,
-  Box.configZ,
-  Button.configZ,
-  Circle.configZ,
-  CustomActuator.configZ,
-  CustomStatic.configZ,
-  Gauge.configZ,
-  Input.configZ,
-  Light.configZ,
-  OffPageReference.configZ,
-  Polygon.configZ,
-  Select.configZ,
-  Setpoint.configZ,
-  StateIndicator.configZ,
-  Switch.configZ,
-  TextBox.configZ,
-  Value.configZ,
+  customActuatorConfigZ,
+  customStaticConfigZ,
   CrossJunction.configZ,
   Cylinder.configZ,
   Tank.configZ,
@@ -110,15 +77,17 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
 
 /// CustomVariant is the union of Variants that reference a user-defined
 /// symbol spec via specKey rather than rendering a hard-coded SVG.
-export type CustomVariant = typeof CustomActuator.VARIANT | typeof CustomStatic.VARIANT;
+export type CustomVariant =
+  | typeof CUSTOM_ACTUATOR_VARIANT
+  | typeof CUSTOM_STATIC_VARIANT;
 export type CustomConfig = ConfigOf<CustomVariant>;
 
 /// CUSTOM_VARIANTS is the set form of CustomVariant. Prefer the isCustomVariant
 /// / isCustomConfig guards at call sites; expose the set for cases that need
 /// to iterate the membership directly (e.g. tests).
 export const CUSTOM_VARIANTS: ReadonlySet<Variant> = new Set<Variant>([
-  CustomActuator.VARIANT,
-  CustomStatic.VARIANT,
+  CUSTOM_ACTUATOR_VARIANT,
+  CUSTOM_STATIC_VARIANT,
 ]);
 
 export const isCustomVariant = (
