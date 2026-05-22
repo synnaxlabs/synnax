@@ -88,6 +88,6 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label Size")).toBeDefined();
+    expect(getByText("Label size")).toBeDefined();
   });
 });

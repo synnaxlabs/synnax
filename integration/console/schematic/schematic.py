@@ -350,7 +350,7 @@ class Schematic(ConsolePage):
 
         if show_control_legend is not None:
             legend_toggle = (
-                self.page.locator("text=Show Control State Legend")
+                self.page.locator("text=Show control state legend")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -479,7 +479,7 @@ class Schematic(ConsolePage):
         control_authority = int(self.layout.get_input_field("Control Authority"))
 
         try:
-            show_control_legend = self.layout.get_toggle("Show Control State Legend")
+            show_control_legend = self.layout.get_toggle("Show control state legend")
         except PlaywrightTimeoutError:
             show_control_legend = True
 
