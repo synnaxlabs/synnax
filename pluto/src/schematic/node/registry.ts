@@ -26,10 +26,7 @@ import { Pumps } from "@/schematic/node/pumps";
 import { Safety } from "@/schematic/node/safety";
 import { type Spec } from "@/schematic/node/spec";
 import { Valves } from "@/schematic/node/valves";
-import { CrossJunction } from "@/schematic/node/vessels/crossJunction";
-import { Cylinder } from "@/schematic/node/vessels/cylinder";
-import { Tank } from "@/schematic/node/vessels/tank";
-import { TJunction } from "@/schematic/node/vessels/tJunction";
+import { Vessels } from "@/schematic/node/vessels";
 
 export const REGISTRY = {
   ...Fittings.REGISTRY,
@@ -39,12 +36,9 @@ export const REGISTRY = {
   ...Pumps.REGISTRY,
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
+  ...Vessels.REGISTRY,
   customActuator: customActuatorSpec,
   customStatic: customStaticSpec,
-  crossJunction: CrossJunction.spec,
-  cylinder: Cylinder.spec,
-  tank: Tank.spec,
-  tJunction: TJunction.spec,
 } as const;
 
 const VARIANTS = Object.keys(REGISTRY);
@@ -59,12 +53,9 @@ export const configZ = z.discriminatedUnion("variant", [
   ...Pumps.configZ.options,
   ...Safety.configZ.options,
   ...Valves.configZ.options,
+  ...Vessels.configZ.options,
   customActuatorConfigZ,
   customStaticConfigZ,
-  CrossJunction.configZ,
-  Cylinder.configZ,
-  Tank.configZ,
-  TJunction.configZ,
 ]);
 export type Config = z.infer<typeof configZ>;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;

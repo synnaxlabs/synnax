@@ -11,14 +11,14 @@ import { type group } from "@synnaxlabs/client";
 
 import { type Icon } from "@/icon";
 import { Fittings } from "@/schematic/node/fittings";
-import { GROUP as general } from "@/schematic/node/general/group";
+import { General } from "@/schematic/node/general";
 import { Meters } from "@/schematic/node/meters";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
 import { type Variant } from "@/schematic/node/registry";
 import { Safety } from "@/schematic/node/safety";
 import { Valves } from "@/schematic/node/valves";
-import { GROUP as vessels } from "@/schematic/node/vessels/group";
+import { Vessels } from "@/schematic/node/vessels";
 
 export interface Group extends group.Group {
   Icon: Icon.FC;
@@ -26,8 +26,8 @@ export interface Group extends group.Group {
 }
 
 export const GROUPS: Group[] = [
-  general,
-  vessels,
+  General.GROUP,
+  Vessels.GROUP,
   Valves.GROUP,
   Pumps.GROUP,
   Meters.GROUP,
