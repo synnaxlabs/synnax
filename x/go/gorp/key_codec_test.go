@@ -377,19 +377,20 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Observe with non-int32 keys", func() {
-		// Each spec opens its own *gorp.DB so that committed entries don't leak into
-		// the suite-wide db and pollute other specs (e.g. the iteration tests above,
-		// which scan all entries of a given type).
+		var notifyDB *gorp.DB
+		BeforeEach(func() {
+			notifyDB = DeferClose(gorp.Wrap(memkv.New()))
+			tx = DeferClose(notifyDB.OpenTx())
+		})
+
 		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
-			localDB := DeferClose(gorp.Wrap(memkv.New()))
-			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: localDB}))
+			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: notifyDB}))
 			defer func() { Expect(uint64Table.Close()).To(Succeed()) }()
 
 			Expect(gorp.NewCreate[uint64, uint64Entry]().
 				Entry(&uint64Entry{ID: math.MaxUint64, Data: "data"}).
-				Exec(ctx, localDB)).To(Succeed())
+				Exec(ctx, notifyDB)).To(Succeed())
 
-			tx := DeferClose(localDB.OpenTx())
 			Expect(gorp.NewDelete[uint64, uint64Entry]().
 				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).Exec(ctx, tx)).To(Succeed())
 
@@ -407,11 +408,9 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		It("Should decode int16 keys on set notifications", func(ctx SpecContext) {
-			localDB := DeferClose(gorp.Wrap(memkv.New()))
-			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: localDB}))
+			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: notifyDB}))
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
-			tx := DeferClose(localDB.OpenTx())
 			Expect(gorp.NewCreate[int16, int16Entry]().
 				Entry(&int16Entry{ID: -500, Data: "data"}).
 				Exec(ctx, tx)).To(Succeed())
