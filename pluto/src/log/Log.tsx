@@ -24,13 +24,23 @@ import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
-const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
-const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
-const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
+
+type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
+
+const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
+  selectAll: [["Control", "A"]],
+  clearSelection: [["Escape"]],
+  togglePause: [["H"]],
+  default: [],
+  defaultMode: "default",
+};
+
+const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
 export interface LogProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
+  enableTriggers?: boolean | (() => boolean);
 }
 
 export const Log = ({
@@ -50,6 +60,7 @@ export const Log = ({
   color,
   telem,
   extraContextMenuItems,
+  enableTriggers,
   ...rest
 }: LogProps): ReactElement | null => {
   const { state, setState } = use({
@@ -153,45 +164,31 @@ export const Log = ({
   }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
 
   Triggers.use({
-    triggers: [ESCAPE_TRIGGER],
+    triggers: FLATTENED_TRIGGERS,
     callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
+      ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        setState((s) => ({
-          ...s,
-          selectionStart: -1,
-          selectionEnd: -1,
-          selectedText: "",
-        }));
+        if (enableTriggers === false) return;
+        if (typeof enableTriggers === "function" && !enableTriggers()) return;
+        const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
+        if (mode === "selectAll") {
+          if (entryCount === 0) return;
+          setState((s) => ({
+            ...s,
+            selectionStart: 0,
+            selectionEnd: entryCount - 1,
+          }));
+        } else if (mode === "clearSelection")
+          setState((s) => ({
+            ...s,
+            selectionStart: -1,
+            selectionEnd: -1,
+            selectedText: "",
+          }));
+        else if (mode === "togglePause")
+          setState((s) => ({ ...s, scrolling: !s.scrolling }));
       },
-      [setState],
-    ),
-  });
-
-  Triggers.use({
-    triggers: [PAUSE_TRIGGER],
-    region: containerRef,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        setState((s) => ({ ...s, scrolling: !s.scrolling }));
-      },
-      [setState],
-    ),
-  });
-
-  Triggers.use({
-    triggers: [SELECT_ALL_TRIGGER],
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || entryCount === 0) return;
-        setState((s) => ({
-          ...s,
-          selectionStart: 0,
-          selectionEnd: entryCount - 1,
-        }));
-      },
-      [entryCount, setState],
+      [entryCount, setState, enableTriggers],
     ),
   });
 

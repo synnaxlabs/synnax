@@ -11,6 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
@@ -29,6 +30,7 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { Selector } from "@/selector";
+import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -60,6 +62,12 @@ const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
+  const store = useStore<RootState>();
+
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
+    [store, layoutKey],
+  );
 
   const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
@@ -87,6 +95,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       showReceiptTimestamp={log.showReceiptTimestamp}
       timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
+      enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <EmptyAction
