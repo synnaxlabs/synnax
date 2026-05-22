@@ -70,6 +70,13 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
       <Input.Item label="Command channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
+      <Base.SwitchField
+        path="control.show"
+        label="Show control chip"
+        hideIfNull
+        optional
+        padHelpText={false}
+      />
     </Form.Wrapper>
   );
 };
