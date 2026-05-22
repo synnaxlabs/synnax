@@ -22,7 +22,6 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -260,7 +259,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -690,7 +689,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", doc.Doc{}, symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -726,7 +726,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", doc.Doc{}, symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -2210,7 +2211,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)

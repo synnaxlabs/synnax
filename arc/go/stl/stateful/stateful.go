@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
@@ -115,34 +114,34 @@ var numConstraint = types.NumericConstraint()
 // Name is the module name.
 const Name = "stateful"
 
-var module = symbol.NewModule(
-	Name,
-	doc.Doc{},
-	symbol.InternalHostFunc(
-		"load",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
-		types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-	),
-	symbol.InternalHostFunc(
-		"store",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
-		nil,
-	),
-	symbol.InternalHostFunc(
-		"load_series",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
-		types.Params{{Name: "handle", Type: types.I32()}},
-	),
-	symbol.InternalHostFunc(
-		"store_series",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
-		nil,
-	),
-).MarkInternal()
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the state module only (no bare globals).
-var Symbols = []*symbol.Symbol{module}
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the stateful module only (no bare globals).
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
+		symbol.InternalHostFunc(
+			"load",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+		),
+		symbol.InternalHostFunc(
+			"store",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			nil,
+		),
+		symbol.InternalHostFunc(
+			"load_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{{Name: "handle", Type: types.I32()}},
+		),
+		symbol.InternalHostFunc(
+			"store_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			nil,
+		),
+	)
+	return []*symbol.Symbol{mod}
+}
 
 func (h *Host) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound

@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Symbols", func() {
 	findByName := func(name string) *symbol.Symbol {
-		for _, s := range arcstatus.Symbols {
+		for _, s := range arcstatus.NewSymbols() {
 			if s.Name == name {
 				return s
 			}

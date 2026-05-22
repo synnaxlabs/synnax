@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/lsp/doc"
 )
 
 // mathModuleWithAbs returns a sealed math module with an abs(T) -> T entry
@@ -24,7 +23,8 @@ import (
 // exercise polymorphic suffix derivation.
 func mathModuleWithAbs() *symbol.Symbol {
 	numConstraint := types.NumericConstraint()
-	return symbol.NewModule("math", doc.Doc{}, symbol.Symbol{
+	mod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+	mod.AddChild(&symbol.Symbol{
 		Name: "abs",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -32,11 +32,13 @@ func mathModuleWithAbs() *symbol.Symbol {
 			Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
 		}),
 	})
+	return mod
 }
 
 // monoMathAbs returns a math module with a monomorphic f64 abs entry.
 func monoMathAbs() *symbol.Symbol {
-	return symbol.NewModule("math", doc.Doc{}, symbol.Symbol{
+	mod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+	mod.AddChild(&symbol.Symbol{
 		Name: "abs",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
@@ -44,6 +46,7 @@ func monoMathAbs() *symbol.Symbol {
 			Outputs: types.Params{{Name: "result", Type: types.F64()}},
 		}),
 	})
+	return mod
 }
 
 var _ = Describe("Resolver", func() {

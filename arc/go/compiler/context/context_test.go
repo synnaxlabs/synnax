@@ -27,7 +27,7 @@ var _ = Describe("Context", func() {
 	)
 
 	BeforeEach(func() {
-		scope = symbol.NewRoot(nil)
+		scope = symbol.NewRoot(nil, nil)
 		typeMap = make(map[antlr.ParserRuleContext]types.Type)
 	})
 
@@ -82,14 +82,14 @@ var _ = Describe("Context", func() {
 	Describe("WithScope", func() {
 		It("Should return a context with the scope replaced", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			newScope := symbol.NewRoot(nil)
+			newScope := symbol.NewRoot(nil, nil)
 			withScope := root.WithScope(newScope)
 			Expect(withScope.Scope).To(Equal(newScope))
 		})
 
 		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			newScope := symbol.NewRoot(nil)
+			newScope := symbol.NewRoot(nil, nil)
 			root.WithScope(newScope)
 			Expect(root.Scope).To(Equal(scope))
 		})

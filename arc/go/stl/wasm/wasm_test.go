@@ -189,7 +189,7 @@ func newTextHarness(
 	channelDigests ...channels.Digest,
 ) *testHarness {
 	parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range chans {
 		s := chans[i]
 		root.Parent.AddChild(&s)
