@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -30,7 +31,7 @@ var panicSymbol = symbol.Symbol{
 	}),
 }
 
-var module = symbol.NewModule(name, panicSymbol).MarkInternal()
+var module = symbol.NewModule(name, doc.Doc{}, panicSymbol).MarkInternal()
 
 // Symbols are the symbols this package contributes to a program's ambient
 // prelude: the error module containing panic. Both module and member are

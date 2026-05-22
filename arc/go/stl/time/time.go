@@ -50,11 +50,12 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-	}.WithDoc(
-		doc.Paragraph("Fires repeatedly at a specified period."),
-		doc.Divider(),
-		symbol.Arc("time.interval{period=1s} -> tick"),
-	)
+		Doc: doc.New(
+			doc.Paragraph("Fires repeatedly at a specified period."),
+			doc.Divider(),
+			doc.Code("arc", "time.interval{period=1s} -> tick"),
+		),
+	}
 	waitSymbol = symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
@@ -63,11 +64,12 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-	}.WithDoc(
-		doc.Paragraph("Fires once after a specified duration."),
-		doc.Divider(),
-		symbol.Arc("time.wait{duration=500ms} -> done"),
-	)
+		Doc: doc.New(
+			doc.Paragraph("Fires once after a specified duration."),
+			doc.Divider(),
+			doc.Code("arc", "time.wait{duration=500ms} -> done"),
+		),
+	}
 	nowSymbol = symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
@@ -75,11 +77,12 @@ var (
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-	}.WithDoc(
-		doc.Paragraph("Returns the current timestamp."),
-		doc.Divider(),
-		symbol.Arc("t := time.now()"),
-	)
+		Doc: doc.New(
+			doc.Paragraph("Returns the current timestamp."),
+			doc.Divider(),
+			doc.Code("arc", "t := time.now()"),
+		),
+	}
 )
 
 // module is the time module, built once at package init. Its children are
@@ -87,11 +90,12 @@ var (
 // the bare globals below.
 var module = symbol.NewModule(
 	name,
+	doc.New(
+		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
+	),
 	intervalSymbol,
 	waitSymbol,
 	nowSymbol,
-).Document(
-	doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
 )
 
 // Symbols are the symbols this package contributes to a program's ambient

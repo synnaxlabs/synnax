@@ -45,13 +45,18 @@ var (
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: symbolType,
-	}.WithDoc(
-		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
-		doc.Divider(),
-		symbol.Arc("sensor -> stable.for{duration=5s} -> output"),
-	)
-	module = symbol.NewModule(name, memberSymbol).Document(
-		doc.Paragraph("Debouncing helpers that emit only after values remain stable for a duration."),
+		Doc: doc.New(
+			doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
+			doc.Divider(),
+			doc.Code("arc", "sensor -> stable.for{duration=5s} -> output"),
+		),
+	}
+	module = symbol.NewModule(
+		name,
+		doc.New(
+			doc.Paragraph("Debouncing helpers that emit only after values remain stable for a duration."),
+		),
+		memberSymbol,
 	)
 	bareSymbol = symbol.Symbol{
 		Name:       bareSymbolName,

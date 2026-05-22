@@ -74,6 +74,12 @@ func createBaseSymbol(name string) symbol.Symbol {
 	}
 }
 
+func reductionSymbol(name string, body doc.Doc) symbol.Symbol {
+	s := createBaseSymbol(name)
+	s.Doc = body
+	return s
+}
+
 var (
 	powSymbol = symbol.Symbol{
 		Name:     powSymbolName,
@@ -85,37 +91,37 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
 	}
-	avgSymbol = createBaseSymbol(avgSymbolName).WithDoc(
+	avgSymbol = reductionSymbol(avgSymbolName, doc.New(
 		doc.Paragraph("Computes a running average of input values."),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.avg{} -> output"),
+		doc.Code("arc", "sensor -> math.avg{} -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
+		doc.Code("arc", "sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
 		doc.Divider(),
 		doc.Paragraph("An optional reset input clears the accumulated average:"),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
-	)
-	minSymbol = createBaseSymbol(minSymbolName).WithDoc(
+		doc.Code("arc", "sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
+	))
+	minSymbol = reductionSymbol(minSymbolName, doc.New(
 		doc.Paragraph("Tracks the running minimum of input values."),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.min{} -> output"),
+		doc.Code("arc", "sensor -> math.min{} -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
-	)
-	maxSymbol = createBaseSymbol(maxSymbolName).WithDoc(
+		doc.Code("arc", "sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
+	))
+	maxSymbol = reductionSymbol(maxSymbolName, doc.New(
 		doc.Paragraph("Tracks the running maximum of input values."),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.max{} -> output"),
+		doc.Code("arc", "sensor -> math.max{} -> output"),
 		doc.Divider(),
 		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
 		doc.Divider(),
-		symbol.Arc("sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
-	)
+		doc.Code("arc", "sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
+	))
 	derivativeSymbol = symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
@@ -128,11 +134,12 @@ var (
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
-	}.WithDoc(
-		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
-		doc.Divider(),
-		symbol.Arc("sensor -> math.derivative{} -> rate_output"),
-	)
+		Doc: doc.New(
+			doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
+			doc.Divider(),
+			doc.Code("arc", "sensor -> math.derivative{} -> rate_output"),
+		),
+	}
 )
 
 const name = "math"
@@ -142,13 +149,14 @@ const name = "math"
 // bare globals' Deprecated field.
 var module = symbol.NewModule(
 	name,
+	doc.New(
+		doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
+	),
 	powSymbol,
 	avgSymbol,
 	minSymbol,
 	maxSymbol,
 	derivativeSymbol,
-).Document(
-	doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
 )
 
 // Symbols are the symbols this package contributes to a program's ambient

@@ -54,11 +54,12 @@ var (
 				{Name: FalseOutputParam, Type: types.U8()},
 			},
 		}),
-	}.WithDoc(
-		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
-		doc.Divider(),
-		symbol.Arc("flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
-	)
+		Doc: doc.New(
+			doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+			doc.Divider(),
+			doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+		),
+	}
 )
 
 // Symbols are the symbols this package contributes to a program's ambient

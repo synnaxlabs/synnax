@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -689,7 +690,7 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := symbol.NewModule("status", doc.Doc{}, symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -725,7 +726,7 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := symbol.NewModule("status", doc.Doc{}, symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,

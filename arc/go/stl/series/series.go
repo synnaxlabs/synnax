@@ -39,11 +39,12 @@ var userLenSymbol = symbol.Symbol{
 		Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 	}),
-}.WithDoc(
-	doc.Paragraph("Returns the length of a series or string as i64."),
-	doc.Divider(),
-	symbol.Arc("length := len(data)"),
-)
+	Doc: doc.New(
+		doc.Paragraph("Returns the length of a series or string as i64."),
+		doc.Divider(),
+		doc.Code("arc", "length := len(data)"),
+	),
+}
 
 var (
 	scalarArithIn = types.Params{{Name: "handle", Type: i32}, {Name: "scalar", Type: tv()}}
@@ -57,6 +58,7 @@ const Name = "series"
 
 var module = symbol.NewModule(
 	Name,
+	doc.Doc{},
 	symbol.InternalHostFunc("element_add", scalarArithIn, resultOut),
 	symbol.InternalHostFunc("element_sub", scalarArithIn, resultOut),
 	symbol.InternalHostFunc("element_mul", scalarArithIn, resultOut),

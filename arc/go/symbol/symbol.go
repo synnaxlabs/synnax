@@ -395,12 +395,14 @@ func InternalHostFunc(name string, inputs, outputs types.Params) Symbol {
 	}
 }
 
-// NewModule constructs a sealed module symbol with the given name and the
-// supplied members as children. Parent is nil so name resolution from
-// outside cannot see the module's siblings, and lookup from inside cannot
-// escape the module's namespace.
-func NewModule(name string, members ...Symbol) *Symbol {
-	mod := &Symbol{Name: name, Kind: KindModule}
+// NewModule constructs a sealed module symbol with the given name, hover
+// documentation, and the supplied members as children. Parent is nil so
+// name resolution from outside cannot see the module's siblings, and
+// lookup from inside cannot escape the module's namespace. Pass a zero
+// doc.Doc{} when the module is Internal (compiler-only) and has no
+// user-facing hover.
+func NewModule(name string, body doc.Doc, members ...Symbol) *Symbol {
+	mod := &Symbol{Name: name, Kind: KindModule, Doc: body}
 	for i := range members {
 		child := members[i]
 		child.Parent = mod

@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -87,7 +88,7 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 			child.AST,
 			"imported module %q is unused",
 			child.Name,
-		))
+		).WithCode(codes.UnusedImport))
 	}
 }
 

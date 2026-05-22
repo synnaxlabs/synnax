@@ -150,6 +150,9 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentFormattingProvider:      true,
 			DocumentRangeFormattingProvider: true,
 			FoldingRangeProvider:            true,
+			CodeActionProvider: &protocol.CodeActionOptions{
+				CodeActionKinds: []protocol.CodeActionKind{protocol.QuickFix},
+			},
 			RenameProvider: protocol.RenameOptions{
 				PrepareProvider: true,
 			},

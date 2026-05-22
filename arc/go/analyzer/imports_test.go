@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,7 +30,7 @@ var _ = Describe("Import Pass", func() {
 		dynChannels := StaticResolver{
 			{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10},
 		}
-		timeModule := symbol.NewModule("time", symbol.Symbol{
+		timeModule := symbol.NewModule("time", doc.Doc{}, symbol.Symbol{
 			Name: "now",
 			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{

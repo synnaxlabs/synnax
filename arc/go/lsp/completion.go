@@ -776,7 +776,7 @@ func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
 	var (
 		existingNames []string
 		stmts         []antlr.ParserRuleContext
-		seenStmts     = make(map[antlr.ParserRuleContext]bool)
+		seenStmts     = set.New[antlr.ParserRuleContext]()
 	)
 	if doc.IR.Symbols != nil {
 		for _, child := range doc.IR.Symbols.Children() {
@@ -788,10 +788,10 @@ func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
 			}
 			existingNames = append(existingNames, child.Name)
 			parent, ok := child.AST.GetParent().(antlr.ParserRuleContext)
-			if !ok || seenStmts[parent] {
+			if !ok || seenStmts.Contains(parent) {
 				continue
 			}
-			seenStmts[parent] = true
+			seenStmts.Add(parent)
 			stmts = append(stmts, parent)
 		}
 	}

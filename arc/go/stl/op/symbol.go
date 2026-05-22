@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 )
 
-func binaryOp(name string, outputs types.Params) *symbol.Symbol {
+func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return &symbol.Symbol{
 		Name: name,
@@ -29,22 +29,24 @@ func binaryOp(name string, outputs types.Params) *symbol.Symbol {
 			},
 			Outputs: outputs,
 		}),
+		Doc: body,
 	}
 }
 
-func comparison(name string) *symbol.Symbol {
-	return binaryOp(name, types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}})
+func comparison(name string, body doc.Doc) *symbol.Symbol {
+	return binaryOp(name, types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}, body)
 }
 
-func logical(name string) *symbol.Symbol {
+func logical(name string, body doc.Doc) *symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return binaryOp(
 		name,
 		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
+		body,
 	)
 }
 
-func not(name string) *symbol.Symbol {
+func not(name string, body doc.Doc) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
@@ -53,6 +55,7 @@ func not(name string) *symbol.Symbol {
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 		}),
+		Doc: body,
 	}
 }
 
@@ -72,49 +75,49 @@ const (
 // prelude. Operators are root-level (no module) — they install directly at
 // the root scope so lowering passes can emit calls without imports.
 var Symbols = []*symbol.Symbol{
-	comparison(geSymbolName).Document(
+	comparison(geSymbolName, doc.New(
 		doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("ge(a, b)  // equivalent to: a >= b"),
-	),
-	comparison(gtSymbolName).Document(
+		doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"),
+	)),
+	comparison(gtSymbolName, doc.New(
 		doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("gt(a, b)  // equivalent to: a > b"),
-	),
-	comparison(leSymbolName).Document(
+		doc.Code("arc", "gt(a, b)  // equivalent to: a > b"),
+	)),
+	comparison(leSymbolName, doc.New(
 		doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("le(a, b)  // equivalent to: a <= b"),
-	),
-	comparison(ltSymbolName).Document(
+		doc.Code("arc", "le(a, b)  // equivalent to: a <= b"),
+	)),
+	comparison(ltSymbolName, doc.New(
 		doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("lt(a, b)  // equivalent to: a < b"),
-	),
-	comparison(eqSymbolName).Document(
+		doc.Code("arc", "lt(a, b)  // equivalent to: a < b"),
+	)),
+	comparison(eqSymbolName, doc.New(
 		doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("eq(a, b)  // equivalent to: a == b"),
-	),
-	comparison(neSymbolName).Document(
+		doc.Code("arc", "eq(a, b)  // equivalent to: a == b"),
+	)),
+	comparison(neSymbolName, doc.New(
 		doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("ne(a, b)  // equivalent to: a != b"),
-	),
-	logical(andSymbolName).Document(
+		doc.Code("arc", "ne(a, b)  // equivalent to: a != b"),
+	)),
+	logical(andSymbolName, doc.New(
 		doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("and(a, b)  // equivalent to: a && b"),
-	),
-	logical(orSymbolName).Document(
+		doc.Code("arc", "and(a, b)  // equivalent to: a && b"),
+	)),
+	logical(orSymbolName, doc.New(
 		doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("or(a, b)  // equivalent to: a || b"),
-	),
-	not(notSymbolName).Document(
+		doc.Code("arc", "or(a, b)  // equivalent to: a || b"),
+	)),
+	not(notSymbolName, doc.New(
 		doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."),
 		doc.Divider(),
-		symbol.Arc("not(a)  // equivalent to: !a"),
-	),
+		doc.Code("arc", "not(a)  // equivalent to: !a"),
+	)),
 }

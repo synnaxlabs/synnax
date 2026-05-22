@@ -17,6 +17,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -398,7 +399,7 @@ var _ = Describe("Scope", func() {
 			// buildAmbientRoot constructs a root with a synthetic ambient
 			// prelude that has a single "time" module containing "now".
 			buildAmbientRoot := func(bCtx SpecContext) *symbol.Symbol {
-				timeMod := symbol.NewModule("time", symbol.Symbol{
+				timeMod := symbol.NewModule("time", doc.Doc{}, symbol.Symbol{
 					Name: "now", Kind: symbol.KindFunction, Type: types.F64(),
 				})
 				ambient := &symbol.Symbol{Kind: symbol.KindAmbient}

@@ -43,19 +43,24 @@ var (
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: symbolProps,
-	}.WithDoc(
-		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
-		doc.Divider(),
-		symbol.Arc("control.set_authority{value=255}"),
-		doc.Divider(),
-		doc.Paragraph("Set authority for a specific channel:"),
-		doc.Divider(),
-		symbol.Arc("control.set_authority{value=255, channel=valve_cmd}"),
-		doc.Divider(),
-		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
-	)
-	module = symbol.NewModule(name, memberSymbol).Document(
-		doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+		Doc: doc.New(
+			doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+			doc.Divider(),
+			doc.Code("arc", "control.set_authority{value=255}"),
+			doc.Divider(),
+			doc.Paragraph("Set authority for a specific channel:"),
+			doc.Divider(),
+			doc.Code("arc", "control.set_authority{value=255, channel=valve_cmd}"),
+			doc.Divider(),
+			doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+		),
+	}
+	module = symbol.NewModule(
+		name,
+		doc.New(
+			doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+		),
+		memberSymbol,
 	)
 	bareSymbol = symbol.Symbol{
 		Name:       bareSymbolName,

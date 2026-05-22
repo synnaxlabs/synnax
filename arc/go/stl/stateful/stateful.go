@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
@@ -116,6 +117,7 @@ const Name = "stateful"
 
 var module = symbol.NewModule(
 	Name,
+	doc.Doc{},
 	symbol.InternalHostFunc(
 		"load",
 		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},

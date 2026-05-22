@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -38,6 +39,7 @@ func formatHostFunc(t types.Type) symbol.Symbol {
 
 var module = symbol.NewModule(
 	Name,
+	doc.Doc{},
 	symbol.InternalHostFunc(
 		"from_literal",
 		types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
