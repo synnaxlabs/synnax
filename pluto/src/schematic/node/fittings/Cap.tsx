@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface CapProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 26, height: 48 };
 
@@ -22,7 +23,7 @@ export const Cap = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: CapProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("cap"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

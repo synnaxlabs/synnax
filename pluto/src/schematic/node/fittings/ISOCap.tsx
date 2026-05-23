@@ -12,17 +12,18 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface ISOCapProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 36, height: 48 };
 
-export const IsoCap = ({
+export const ISOCap = ({
   className,
   orientation = "left",
   color,
   scale = 1,
   ...rest
-}: Props): ReactElement => (
+}: ISOCapProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("cap"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

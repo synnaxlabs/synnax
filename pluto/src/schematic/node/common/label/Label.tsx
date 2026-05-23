@@ -111,9 +111,9 @@ export const createLabeled = <C extends LabeledConfig>(
   BaseSymbol: FC<Omit<C, "label"> & Primitive.SVGBasedProps>,
   overrides?: LabeledOverrides,
 ): FC<NodeProps<C>> => {
-  // BaseSymbol's prop type is derived from C so callers are checked, but the node
-  // only renders it with the shared SVG props; the config's symbol-specific fields
-  // reach it at runtime via the rest spread.
+  // BaseSymbol's prop type is derived from C so callers are checked, but the node only
+  // renders it with the shared SVG props; the config's symbol-specific fields reach it
+  // at runtime via the rest spread.
   const Sym = BaseSymbol as FC<Primitive.SVGBasedProps>;
   const Inner = ({
     nodeKey,

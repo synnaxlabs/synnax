@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface ThrusterProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 81, height: 42 };
 
@@ -22,7 +23,7 @@ export const Thruster = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => (
+}: ThrusterProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS(CSS.B("thruster"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

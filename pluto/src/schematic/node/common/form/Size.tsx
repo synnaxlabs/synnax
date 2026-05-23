@@ -22,8 +22,8 @@ export const SizeField = (
     padHelpText={false}
     {...props}
   >
-    {({ value, onChange }) => (
-      <Component.SelectSize value={value} onChange={onChange} />
-    )}
+    {selectSize}
   </Form.Field>
 );
+
+const selectSize = Component.renderProp(Component.SelectSize);

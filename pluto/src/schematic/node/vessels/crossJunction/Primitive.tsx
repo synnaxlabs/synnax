@@ -13,7 +13,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface CrossJunctionProps
+  extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 39, height: 39 };
 
@@ -23,7 +25,7 @@ export const CrossJunction = ({
   color: colorVal,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: CrossJunctionProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("t-junction"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

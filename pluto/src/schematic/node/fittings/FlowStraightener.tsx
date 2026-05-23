@@ -12,7 +12,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface FlowStraightenerProps
+  extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
 
@@ -22,7 +24,7 @@ export const FlowStraightener = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: FlowStraightenerProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
     <Handle.Rectangle
       orientation={orientation}

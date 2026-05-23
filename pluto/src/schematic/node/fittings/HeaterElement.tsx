@@ -12,7 +12,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface HeaterElementProps
+  extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 21, height: 36 };
 
@@ -22,7 +24,7 @@ export const HeaterElement = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: HeaterElementProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("heater-element"), className)} {...rest}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

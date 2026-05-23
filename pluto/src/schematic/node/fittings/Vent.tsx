@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface VentProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 22, height: 32 };
 
@@ -22,7 +23,7 @@ export const Vent = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: VentProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("vent"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={22.7273} right={80} />
     <Primitive.SVG

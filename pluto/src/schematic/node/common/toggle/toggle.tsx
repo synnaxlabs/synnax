@@ -63,9 +63,9 @@ export const createToggle = <C extends ToggleConfig>(
     grid?: Partial<Omit<Grid.GridProps, "editable">>;
   },
 ): FC<NodeProps<C>> => {
-  // BaseSymbol's prop type is derived from C so callers are checked, but the node
-  // only renders it with the shared button props; the config's symbol-specific
-  // fields reach it at runtime via the rest spread.
+  // BaseSymbol's prop type is derived from C so callers are checked, but the node only
+  // renders it with the shared button props; the config's symbol-specific fields reach
+  // it at runtime via the rest spread.
   const Sym = BaseSymbol as FC<ButtonProps>;
   const Inner = ({
     nodeKey,

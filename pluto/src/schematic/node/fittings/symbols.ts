@@ -14,8 +14,8 @@ import { Cap } from "@/schematic/node/fittings/Cap";
 import { Filter } from "@/schematic/node/fittings/Filter";
 import { FlowStraightener } from "@/schematic/node/fittings/FlowStraightener";
 import { HeaterElement } from "@/schematic/node/fittings/HeaterElement";
-import { IsoCap } from "@/schematic/node/fittings/IsoCap";
-import { IsoFilter } from "@/schematic/node/fittings/IsoFilter";
+import { ISOCap } from "@/schematic/node/fittings/ISOCap";
+import { ISOFilter } from "@/schematic/node/fittings/ISOFilter";
 import { Nozzle } from "@/schematic/node/fittings/Nozzle";
 import { Orifice } from "@/schematic/node/fittings/Orifice";
 import { OrificePlate } from "@/schematic/node/fittings/OrificePlate";
@@ -52,13 +52,13 @@ const isoCap = defineStatic({
   variant: "isoCap",
   name: "ISO Cap",
   label: "ISO Cap",
-  Primitive: IsoCap,
+  Primitive: ISOCap,
 });
 const isoFilter = defineStatic({
   variant: "isoFilter",
   name: "ISO Filter",
   label: "ISO Filter",
-  Primitive: IsoFilter,
+  Primitive: ISOFilter,
 });
 const nozzle = defineStatic({
   variant: "nozzle",

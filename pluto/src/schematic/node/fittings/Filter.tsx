@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface FilterProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 52, height: 34 };
 
@@ -22,7 +23,7 @@ export const Filter = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: FilterProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={11.5385} right={88.4615} />
     <Primitive.SVG

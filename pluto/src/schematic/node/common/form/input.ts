@@ -12,11 +12,6 @@ import { type bounds, type xy } from "@synnaxlabs/x";
 import { type Input } from "@/input";
 import { type Tabs } from "@/tabs";
 
-export const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
-  endContent: "ms",
-  min: 0,
-};
-
 export const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
   { tabKey: "style", name: "Style" },
   { tabKey: "control", name: "Control" },

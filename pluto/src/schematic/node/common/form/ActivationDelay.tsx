@@ -10,7 +10,12 @@
 import { type ReactElement } from "react";
 
 import { Form } from "@/form";
-import { ACTIVATION_DELAY_INPUT_PROPS } from "@/schematic/node/common/form/input";
+import { type Input } from "@/input";
+
+const ACTIVATION_DELAY_INPUT_PROPS: Partial<Input.NumericProps> = {
+  endContent: "ms",
+  min: 0,
+};
 
 export const ActivationDelayField = (
   props: Partial<Form.NumericFieldProps>,

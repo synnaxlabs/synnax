@@ -18,7 +18,7 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-interface SymbolArgs<V extends string> {
+export interface SymbolArgs<V extends string> {
   /// variant is the unique discriminant identifying the symbol in the registry.
   variant: V;
   /// name is the human-readable name shown in the symbols toolbar.
@@ -31,17 +31,17 @@ interface SymbolArgs<V extends string> {
   zIndex?: number;
 }
 
-/// Definition is the pair produced by every factory: the symbol's discriminated
-/// config schema and its registry Spec. Groups collect these into a REGISTRY map
-/// and a discriminated-union configZ.
+/// Definition is the pair produced by every factory: the symbol's discriminated config
+/// schema and its registry Spec. Groups collect these into a REGISTRY map and a
+/// discriminated-union configZ.
 export interface Definition<V extends string, Config extends object> {
   configZ: z.ZodType<Config>;
   spec: Spec<V, Config>;
 }
 
-/// defineStatic builds a non-interactive labeled symbol: a styled SVG with a
-/// label, color, and scale, edited via the shared StyleForm. This is the most
-/// common archetype (meters, fittings, safety, process, vessels).
+/// defineStatic builds a non-interactive labeled symbol: a styled SVG with a label,
+/// color, and scale, edited via the shared StyleForm. This is the most common archetype
+/// (meters, fittings, safety, process, vessels).
 export const defineStatic = <V extends string>({
   variant,
   name,
@@ -74,10 +74,10 @@ export const defineStatic = <V extends string>({
 };
 
 interface ToggleArgs<V extends string> extends SymbolArgs<V> {
-  /// node selects how the symbol renders. "toggle" (default) renders an
-  /// interactive toggle bound to the configured telemetry. "labeled" renders a
-  /// static labeled symbol while retaining the toggle telemetry config — used by
-  /// symbols that carry control config but do not expose an interactive toggle.
+  /// node selects how the symbol renders. "toggle" (default) renders an interactive
+  /// toggle bound to the configured telemetry. "labeled" renders a static labeled
+  /// symbol while retaining the toggle telemetry config — used by symbols that carry
+  /// control config but do not expose an interactive toggle.
   node?: "toggle" | "labeled";
 }
 
@@ -119,9 +119,9 @@ export const defineToggle = <V extends string>({
   return { configZ, spec };
 };
 
-/// defineDummyToggle builds a symbol that toggles its appearance purely from
-/// local config (enabled/clickable) without binding to telemetry, edited via the
-/// shared DummyToggleForm (manual and relief valves).
+/// defineDummyToggle builds a symbol that toggles its appearance purely from local
+/// config (enabled/clickable) without binding to telemetry, edited via the shared
+/// DummyToggleForm (manual and relief valves).
 export const defineDummyToggle = <V extends string>({
   variant,
   name,

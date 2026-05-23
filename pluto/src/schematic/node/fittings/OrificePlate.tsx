@@ -12,7 +12,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface OrificePlateProps
+  extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
 
@@ -22,7 +24,7 @@ export const OrificePlate = ({
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: OrificePlateProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("orifice_plate"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={3.125} right={96.875} />
     <Primitive.SVG

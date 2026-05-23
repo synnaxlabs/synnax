@@ -26,8 +26,8 @@ export interface LinearProps {
 
 /// Linear renders the two opposing edge handles common to in-line, pass-through
 /// symbols: one on the left edge and one on the right, sharing a vertical position.
-/// Handle ids are fixed by side — left "1", right "2" — so connections stay
-/// consistent across every symbol that uses it.
+/// Handle ids are fixed by side — left "1", right "2" — so connections stay consistent
+/// across every symbol that uses it.
 export const Linear = ({
   orientation,
   left,

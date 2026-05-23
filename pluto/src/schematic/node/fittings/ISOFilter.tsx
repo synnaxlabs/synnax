@@ -12,17 +12,18 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.SVGBasedProps, Primitive.DivProps {}
+
+export interface ISOFilterProps extends Primitive.SVGBasedProps, Primitive.DivProps {}
 
 const DIMENSIONS = { width: 60, height: 42 };
 
-export const IsoFilter = ({
+export const ISOFilter = ({
   className,
   orientation = "left",
   color,
   scale,
   ...rest
-}: Props): ReactElement => (
+}: ISOFilterProps): ReactElement => (
   <Primitive.Div className={CSS(CSS.B("iso-filter"), className)} {...rest}>
     <Handle.Linear orientation={orientation} left={5} right={95} />
     <Primitive.SVG

@@ -12,7 +12,8 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface NozzleProps extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 126 };
 
@@ -22,7 +23,7 @@ export const Nozzle = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => (
+}: NozzleProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS(CSS.B("nozzle"), className)}>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

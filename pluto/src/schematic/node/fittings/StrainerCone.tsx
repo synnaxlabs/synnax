@@ -12,7 +12,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
+
+export interface StrainerConeProps
+  extends Primitive.DivProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 33, height: 69 };
 
@@ -22,7 +24,7 @@ export const StrainerCone = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => (
+}: StrainerConeProps): ReactElement => (
   <Primitive.Div {...rest} className={CSS(CSS.B("strainer"), className)}>
     <Handle.Linear orientation={orientation} left={6.06} right={93.04} />
     <Primitive.SVG
