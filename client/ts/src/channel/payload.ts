@@ -28,7 +28,25 @@ export const paramsZ = z.union([
   zod.toArray(nameZ),
   zod.toArray(payloadZ).transform((p) => p.map((c) => c.key)),
 ]);
+
+/**
+ * Param identifies a single channel by its key, its name, or the channel object itself
+ * (either a {@link Payload} or a retrieved {@link Channel}). Wherever a channel key or
+ * name is accepted, the channel object may be passed directly instead.
+ */
+export type Param = Key | Name | Payload;
 export type Params = PrimitiveParams | Payload | Payload[];
+
+/**
+ * isPayload reports whether the given param is a channel object (a {@link Payload} or
+ * {@link Channel}) as opposed to a bare key or name. Arrays are not considered
+ * payloads.
+ */
+export const isPayload = (param: unknown): param is Payload =>
+  typeof param === "object" &&
+  param !== null &&
+  !Array.isArray(param) &&
+  "key" in param;
 
 const CHAR_REGEX = /[a-zA-Z0-9_]/;
 

@@ -145,6 +145,69 @@ describe("Iterator", () => {
       await iter.close();
     }
   });
+  describe("passing channel objects directly", () => {
+    test("should open an iterator using a single channel object", async () => {
+      const [idx_ch, data_ch] = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.SECOND,
+        channels: [idx_ch, data_ch],
+      });
+      try {
+        await writer.write({
+          [idx_ch.key]: secondsLinspace(1, 10),
+          [data_ch.key]: randomSeries(10, data_ch.dataType),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const iter = await client.openIterator(
+        new TimeRange(TimeStamp.SECOND, TimeSpan.seconds(30)),
+        data_ch,
+      );
+      try {
+        expect(await iter.seekFirst()).toBe(true);
+        let count = 0;
+        while (await iter.next(AUTO_SPAN)) count += iter.value.get(data_ch.key).length;
+        expect(count).toEqual(10);
+      } finally {
+        await iter.close();
+      }
+    });
+    test("should open an iterator using an array of channel objects", async () => {
+      const [idx_ch, data_ch] = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.SECOND,
+        channels: [idx_ch, data_ch],
+      });
+      try {
+        await writer.write({
+          [idx_ch.key]: secondsLinspace(1, 10),
+          [data_ch.key]: randomSeries(10, data_ch.dataType),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const iter = await client.openIterator(
+        new TimeRange(TimeStamp.SECOND, TimeSpan.seconds(30)),
+        [idx_ch, data_ch],
+      );
+      try {
+        expect(await iter.seekFirst()).toBe(true);
+        let idxCount = 0;
+        let dataCount = 0;
+        while (await iter.next(AUTO_SPAN)) {
+          idxCount += iter.value.get(idx_ch.key).length;
+          dataCount += iter.value.get(data_ch.key).length;
+        }
+        expect(idxCount).toEqual(10);
+        expect(dataCount).toEqual(10);
+      } finally {
+        await iter.close();
+      }
+    });
+  });
   test("no downsample when factor is 1", async () => {
     const channels = await newIndexedPair(client);
     const [idx_ch, data_ch] = channels;

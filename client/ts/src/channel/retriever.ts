@@ -12,7 +12,7 @@ import { array, type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
-import { type Params, type PrimitiveParams } from "@/channel/payload";
+import { isPayload, type Params, type PrimitiveParams } from "@/channel/payload";
 import { type Key, keyZ, type Name, type Payload, payloadZ } from "@/channel/types.gen";
 import { QueryError } from "@/errors";
 import { keyZ as rangeKeyZ } from "@/ranger/types.gen";
@@ -48,7 +48,7 @@ export const analyzeParams = (
 ): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
   if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
     channels = (channels as Payload[]).map((c) => c.key);
-  else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
+  else if (isPayload(channels)) channels = channels.key;
   return analyzeParameters(channels as PrimitiveParams, {
     number: "keys",
     string: "names",

@@ -12,6 +12,60 @@ import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 
+const newChannel = (key: channel.Key, name: string): channel.Channel =>
+  new channel.Channel({ key, name, dataType: DataType.FLOAT32 });
+
+describe("isPayload", () => {
+  it("should return true for a channel object", () => {
+    expect(channel.isPayload(newChannel(7, "temp"))).toBe(true);
+  });
+  it("should return true for a plain payload object", () => {
+    expect(channel.isPayload(newChannel(7, "temp").payload)).toBe(true);
+  });
+  it("should return false for a key", () => {
+    expect(channel.isPayload(5)).toBe(false);
+  });
+  it("should return false for a name", () => {
+    expect(channel.isPayload("temp")).toBe(false);
+  });
+  it("should return false for an array of channels", () => {
+    expect(channel.isPayload([newChannel(1, "a")])).toBe(false);
+  });
+});
+
+describe("analyzeParams", () => {
+  it("should treat a single key as a single key", () => {
+    const res = channel.analyzeParams(5);
+    expect(res.single).toBe(true);
+    expect(res.variant).toBe("keys");
+    expect(res.normalized).toEqual([5]);
+  });
+  it("should treat a single name as a single name", () => {
+    const res = channel.analyzeParams("temp");
+    expect(res.single).toBe(true);
+    expect(res.variant).toBe("names");
+    expect(res.normalized).toEqual(["temp"]);
+  });
+  it("should normalize a single channel object to its key and remain single", () => {
+    const res = channel.analyzeParams(newChannel(7, "temp"));
+    expect(res.single).toBe(true);
+    expect(res.variant).toBe("keys");
+    expect(res.normalized).toEqual([7]);
+  });
+  it("should normalize an array of channel objects to their keys", () => {
+    const res = channel.analyzeParams([newChannel(1, "a"), newChannel(2, "b")]);
+    expect(res.single).toBe(false);
+    expect(res.variant).toBe("keys");
+    expect(res.normalized).toEqual([1, 2]);
+  });
+  it("should treat an array of keys as not single", () => {
+    const res = channel.analyzeParams([1, 2]);
+    expect(res.single).toBe(false);
+    expect(res.variant).toBe("keys");
+    expect(res.normalized).toEqual([1, 2]);
+  });
+});
+
 describe("nameZ", () => {
   describe("valid names", () => {
     const validNames = [

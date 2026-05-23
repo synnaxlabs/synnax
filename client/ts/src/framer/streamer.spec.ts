@@ -41,6 +41,18 @@ describe("Streamer", () => {
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
     });
+    test("should open a streamer using a channel object directly", async () => {
+      const ch = await newVirtualChannel(client);
+      const streamer = await client.openStreamer(ch);
+      const writer = await client.openWriter({ start: TimeStamp.now(), channels: ch });
+      try {
+        await writer.write(ch, new Float64Array([1, 2, 3]));
+      } finally {
+        await writer.close();
+      }
+      const d = await streamer.read();
+      expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+    });
     test("should preserve non-zero time ranges through codec round-trip", async () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);

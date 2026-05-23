@@ -52,6 +52,66 @@ describe("Client", () => {
       await client.write(start, data.key, 1);
     });
   });
+  describe("passing channel objects directly", () => {
+    it("should write and read using channel objects", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      await client.write(start, data, 1);
+      const series = await client.read(
+        { start, end: start.add(TimeSpan.seconds(1)) },
+        data,
+      );
+      expect(Array.from(series)).toEqual([1]);
+    });
+    it("should write and read a frame using an array of channel objects", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      await client.write(start, [time, data], [[start], [1]]);
+      const frame = await client.read({ start, end: start.add(TimeSpan.seconds(1)) }, [
+        time,
+        data,
+      ]);
+      expect(Array.from(frame.get(time.key))).toEqual([start.valueOf()]);
+      expect(Array.from(frame.get(data.key))).toEqual([1]);
+    });
+    it("should read the latest samples using a channel object", async () => {
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const start = TimeStamp.now();
+      await client.write(start, {
+        [time.key]: [start, start.add(TimeSpan.seconds(1))],
+        [data.key]: [1, 2],
+      });
+      const result = await client.readLatest(data, 1);
+      expect(Array.from(result)).toEqual([2]);
+    });
+  });
   describe("retrieveGroup", () => {
     it("should correctly retrieve the main channel group", async () => {
       const group = await client.channels.retrieveGroup();

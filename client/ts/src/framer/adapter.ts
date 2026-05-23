@@ -159,6 +159,10 @@ export class WriteAdapter {
       | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
+    // A single channel object paired with series behaves like its key. Records and
+    // frames are always passed without a series argument, so they never reach here.
+    if (series != null && channel.isPayload(columnsOrData))
+      columnsOrData = columnsOrData.key;
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {
       if (series == null)
         throw new ValidationError(`

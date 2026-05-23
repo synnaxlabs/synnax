@@ -226,9 +226,9 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: channel.Key | channel.Name, data: CrudeSeries): Promise<void>;
+  async write(channel: channel.Param, data: CrudeSeries): Promise<void>;
   async write(
-    channel: channel.Key[] | channel.Name[],
+    channels: channel.Key[] | channel.Name[] | channel.Payload[],
     data: CrudeSeries[],
   ): Promise<void>;
   async write(

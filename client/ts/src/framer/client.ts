@@ -50,7 +50,8 @@ export class Client {
    * Opens a new iterator over the given channels within the provided time range.
    *
    * @param tr - A time range to iterate over.
-   * @param channels - A list of channels (by name or key) to iterate over.
+   * @param channels - The channels to iterate over, specified as keys, names, or
+   * channel objects (any mix of single values or arrays thereof).
    * @param opts - see {@link IteratorConfig}
    * @returns a new {@link Iterator}.
    */
@@ -77,11 +78,11 @@ export class Client {
    * Opens a new streamer with the provided configuration.
    *
    * @param config - Configuration parameters for the streamer.
-   * @param config.channels - The channels to stream values from. Can be a key, name,
-   * list of keys, or list of names.
-   * @param config.from - If this parameter is set and is before the current time,
-   * the streamer will first read and receive historical data from before this point
-   * and then will start reading new values.
+   * @param config.channels - The channels to stream values from. Can be a key, name, or
+   * channel object, or a list of any of these.
+   * @param config.from - If this parameter is set and is before the current time, the
+   * streamer will first read and receive historical data from before this point and
+   * then will start reading new values.
    *
    */
   async openStreamer(config: StreamerConfig): Promise<Streamer> {
@@ -90,13 +91,13 @@ export class Client {
 
   async write(
     start: CrudeTimeStamp,
-    channel: channel.Key | channel.Name,
+    channel: channel.Param,
     data: CrudeSeries,
   ): Promise<void>;
 
   async write(
     start: CrudeTimeStamp,
-    channels: channel.Key[] | channel.Name[],
+    channels: channel.Key[] | channel.Name[] | channel.Payload[],
     data: CrudeSeries[],
   ): Promise<void>;
 
@@ -108,10 +109,11 @@ export class Client {
   /**
    * Writes telemetry to the given channel starting at the given timestamp.
    *
-   * @param channels - The key of the channel to write to.
+   * @param channels - The channel(s) to write to, specified as keys, names, or channel
+   * objects.
    * @param start - The starting timestamp of the first sample in data.
-   * @param data  - The telemetry to write. This telemetry must have the same
-   * data type as the channel.
+   * @param data  - The telemetry to write. This telemetry must have the same data type
+   * as the channel.
    * @throws if the channel does not exist.
    */
   async write(
@@ -142,10 +144,7 @@ export class Client {
     await w.close();
   }
 
-  async read(
-    tr: CrudeTimeRange,
-    channel: channel.Key | channel.Name,
-  ): Promise<MultiSeries>;
+  async read(tr: CrudeTimeRange, channel: channel.Param): Promise<MultiSeries>;
   async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
   async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
@@ -153,9 +152,9 @@ export class Client {
     channels?: channel.Params,
   ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
     if (!("start" in tr)) return this.reader.read(tr);
-    const { single } = channel.analyzeParams(channels!);
+    const { single, normalized } = channel.analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
-    if (single) return fr.get(channels as channel.Key | channel.Name);
+    if (single) return fr.get(normalized[0]);
     return fr;
   }
 
@@ -173,32 +172,28 @@ export class Client {
     return frame;
   }
 
-  async readLatest(
-    channel: channel.Key | channel.Name,
-    n: number,
-  ): Promise<MultiSeries>;
+  async readLatest(channel: channel.Param, n: number): Promise<MultiSeries>;
 
   async readLatest(channels: channel.Params, n: number): Promise<Frame>;
 
   /**
    * Reads the latest n samples from the given channel(s).
    *
-   * If fewer than n samples are available, returns only the samples that
-   * exist.
+   * If fewer than n samples are available, returns only the samples that exist.
    *
-   * @param channels - A single channel key/name or an array of channel
-   * keys/names.
+   * @param channels - A single channel (by key, name, or channel object) or an array of
+   * channels.
    * @param n - The maximum number of samples to read. Defaults to 1.
-   * @returns A MultiSeries when a single channel is provided, or a Frame when
-   * multiple channels are provided.
+   * @returns A MultiSeries when a single channel is provided, or a Frame when multiple
+   * channels are provided.
    */
   async readLatest(
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
+    const { single, normalized } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
-    if (single) return fr.get(channels as channel.Key | channel.Name);
+    if (single) return fr.get(normalized[0]);
     return fr;
   }
 
