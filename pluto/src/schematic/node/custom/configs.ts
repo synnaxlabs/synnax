@@ -28,7 +28,7 @@ export const customActuatorConfigZ = Toggle.toggleConfigZ.extend({
   scale: z.number().optional(),
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),
 });
-interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
+export interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
 
 export const customActuatorSpec: Spec<
   typeof CUSTOM_ACTUATOR_VARIANT,
@@ -59,7 +59,7 @@ export const customStaticConfigZ = Label.labeledConfigZ.extend({
   scale: z.number().optional(),
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),
 });
-interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
+export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
 
 export const customStaticSpec: Spec<typeof CUSTOM_STATIC_VARIANT, CustomStaticConfig> =
   {
