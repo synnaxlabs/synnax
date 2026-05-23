@@ -13,7 +13,8 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
+
+export interface CompressorProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 66, height: 66 };
 
@@ -23,7 +24,7 @@ export const Compressor = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => (
+}: CompressorProps): ReactElement => (
   <Toggle.Button
     {...rest}
     className={CSS(CSS.B("compressor"), className)}

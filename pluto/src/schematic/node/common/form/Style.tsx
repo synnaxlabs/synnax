@@ -32,9 +32,7 @@ export const StyleForm = ({
   hideOuterOrientation,
 }: StyleFormProps): ReactElement => {
   const hasStateOverrides =
-    Form.useFieldValue<string>("stateOverrides", {
-      optional: true,
-    }) != null;
+    Form.useFieldValue<string>("stateOverrides", { optional: true }) != null;
   return (
     <Wrapper x align="stretch" empty>
       <Flex.Box y grow>

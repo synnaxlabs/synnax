@@ -14,7 +14,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 
-export interface Props extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
+export interface CavityProps extends Toggle.ButtonProps, Primitive.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 64 };
 
@@ -24,7 +24,7 @@ export const Cavity = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => (
+}: CavityProps): ReactElement => (
   <Toggle.Button
     {...rest}
     className={CSS(CSS.B("cavity-pump"), className)}
