@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
@@ -28,7 +28,7 @@ interface ChannelFormProps {
 }
 
 export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement => {
-  const { value, onChange } = Base.useField<
+  const { value, onChange } = Form.useField<
     Omit<VisToggle.UseProps, "aetherKey"> & { control: Control.StateProps }
   >(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);

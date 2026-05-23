@@ -9,10 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 
-export const UnitsField = (props: Partial<Base.TextFieldProps>): ReactElement => (
-  <Base.TextField
+export const UnitsField = (props: Partial<Form.TextFieldProps>): ReactElement => (
+  <Form.TextField
     path="units"
     label="Units"
     align="start"

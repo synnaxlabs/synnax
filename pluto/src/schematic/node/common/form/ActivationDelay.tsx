@@ -9,13 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { ACTIVATION_DELAY_INPUT_PROPS } from "@/schematic/node/common/form/input";
 
 export const ActivationDelayField = (
-  props: Partial<Base.NumericFieldProps>,
+  props: Partial<Form.NumericFieldProps>,
 ): ReactElement => (
-  <Base.NumericField
+  <Form.NumericField
     label="Activation delay"
     path="onClickDelay"
     inputProps={ACTIVATION_DELAY_INPUT_PROPS}

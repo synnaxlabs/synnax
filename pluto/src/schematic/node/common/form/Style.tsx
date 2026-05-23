@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
@@ -32,7 +32,7 @@ export const StyleForm = ({
   hideOuterOrientation,
 }: StyleFormProps): ReactElement => {
   const hasStateOverrides =
-    Base.useFieldValue<string>("stateOverrides", {
+    Form.useFieldValue<string>("stateOverrides", {
       optional: true,
     }) != null;
   return (
@@ -41,7 +41,7 @@ export const StyleForm = ({
         <Label.Form omit={omit} path="label" />
         <Flex.Box x grow>
           {!hasStateOverrides && <ColorField path="color" optional />}
-          <Base.SwitchField
+          <Form.SwitchField
             path="normallyOpen"
             label="Normally open"
             padHelpText={false}

@@ -10,12 +10,12 @@
 import { type ReactElement } from "react";
 
 import { Component } from "@/component";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 
 export const SizeField = (
-  props: Partial<Base.FieldProps<Component.Size>>,
+  props: Partial<Form.FieldProps<Component.Size>>,
 ): ReactElement => (
-  <Base.Field<Component.Size>
+  <Form.Field<Component.Size>
     path="size"
     label="Size"
     hideIfNull
@@ -25,5 +25,5 @@ export const SizeField = (
     {({ value, onChange }) => (
       <Component.SelectSize value={value} onChange={onChange} />
     )}
-  </Base.Field>
+  </Form.Field>
 );

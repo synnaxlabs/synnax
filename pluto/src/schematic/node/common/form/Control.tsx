@@ -9,12 +9,12 @@
 
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 
 export const ControlChipField = (
-  props: Partial<Base.SwitchFieldProps>,
+  props: Partial<Form.SwitchFieldProps>,
 ): ReactElement => (
-  <Base.SwitchField
+  <Form.SwitchField
     path="control.show"
     label="Show control chip"
     hideIfNull
