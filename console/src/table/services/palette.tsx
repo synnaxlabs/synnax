@@ -12,10 +12,11 @@ import { Access, Table as PTable } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Palette } from "@/palette";
-import { Table } from "@/table";
+import { useCreate } from "@/table/useCreate";
 
-const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(() => placeLayout(Table.create()), [placeLayout]);
+const CreateCommand: Palette.Command = (listProps) => {
+  const create = useCreate({});
+  const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem
       {...listProps}

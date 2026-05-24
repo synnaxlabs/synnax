@@ -7,27 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, table, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { NotFoundError, ontology, table, type workspace } from "@synnaxlabs/client";
+import { array, id, uuid, type xy } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
+import { CELLS } from "@/table/cells/registry";
+import { Theming } from "@/theming";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  table.Key,
-  table.Table
-> = { listeners: [] };
+export const BASE_ROW_SIZE = 36;
+export const BASE_COL_SIZE = 72;
+export const MIN_CELL_DIM = 32;
 
 export const FLUX_STORE_KEY = "tables";
 const RESOURCE_NAME = "table";
 
-export interface FluxStore extends Flux.UnaryStore<table.Key, table.Table> {}
+export interface FluxStore extends Flux.UndoableUnaryStore<
+  table.Key,
+  table.Table,
+  table.Action
+> {}
 
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -47,23 +51,21 @@ export const retrieveSingle = async ({
   return t;
 };
 
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveQuery,
-  table.Table,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.tables.onSet(onChange, key),
-    // TODO : Using the ontology resources store to propagate name changes is a bit
-    // hacky, and shpould be removed once visualizations are strongly typed.
-    store.resources.onSet(
-      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-      ontology.idToString(table.ontologyID(key)),
-    ),
-  ],
-});
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+  Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, query: { key }, onChange }) => [
+      store.tables.onSet(onChange, key),
+      // Names propagate through the ontology resources store; this listener
+      // forwards the renamed name back into the retrieved snapshot so consumers
+      // observing the table see the new name without a full refetch.
+      store.resources.onSet(
+        (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
+        ontology.idToString(table.ontologyID(key)),
+      ),
+    ],
+  });
 
 export const useRetrieveObservableName = ({
   onChange,
@@ -81,6 +83,53 @@ export const useRetrieveObservableName = ({
   });
 };
 
+export interface SelectKeyArgs {
+  key: table.Key;
+}
+
+const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
+  const t = store.tables.get(key);
+  if (t == null) throw new NotFoundError(`Table with key ${key} not found`);
+  return t;
+};
+
+export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+  select: (store, { key }) => requireTable(store, key).name,
+});
+
+export const useSelectRows = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  table.Row[]
+>({
+  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+  select: (store, { key }) => requireTable(store, key).rows,
+});
+
+export const useSelectColumns = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  table.Column[]
+>({
+  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+  select: (store, { key }) => requireTable(store, key).columns,
+});
+
+export interface SelectCellArgs {
+  key: table.Key;
+  cellKey: string;
+}
+
+export const useSelectCell = Flux.createSelector<
+  FluxSubStore,
+  SelectCellArgs,
+  table.Cell | undefined
+>({
+  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+  select: (store, { key, cellKey }) => store.tables.get(key)?.cells?.[cellKey],
+});
+
 export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
@@ -97,11 +146,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
 });
 
 export interface CreateParams extends table.New {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export interface CreateOutput extends table.Table {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -111,10 +160,12 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store }) => {
+  update: async ({ client, data, store, rollbacks }) => {
+    data.key ??= uuid.create();
     const { workspace, ...rest } = data;
-    const t = await client.tables.create(workspace, rest);
-    store.tables.set(t.key, t);
+    rollbacks.push(store.tables.set(data.key, data as table.Table));
+    const t = await client.tables.create(workspace ?? uuid.ZERO, rest);
+    store.tables.set(t);
     return { ...t, workspace };
   },
 });
@@ -135,3 +186,179 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
     return data;
   },
 });
+
+// kindOfTransaction classifies an action batch for the undoable store's
+// per-kind coalesce window. Continuous resize gestures (a stream of
+// resize_row or resize_col actions) collapse into a single undo step;
+// successive set_cell actions on the same cell coalesce per-cell so typing
+// inside one cell collapses to one undo step but switching cells starts a
+// fresh entry; everything else is treated as a discrete user action.
+const kindOfTransaction = (actions: table.Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))
+    return "resize";
+  if (actions.length === 1) {
+    const a = actions[0];
+    if (a.type === "set_cell") return `set_cell:${a.setCell.cell.key}`;
+    return a.type;
+  }
+  return "transaction";
+};
+
+export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
+  table.Key,
+  table.Table,
+  table.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  reduce: table.reduceAll,
+  channel: table.SET_CHANNEL_NAME,
+  schema: table.scopedActionZ,
+  isUndoable: table.isUndoable,
+  kindOf: kindOfTransaction,
+});
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  table.Key,
+  table.Table,
+  table.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.tables.dispatch(key, dispatchKey, actions),
+});
+
+// findCellPosition returns the (x, y) grid coordinates of the cell with the
+// given key in the given rows, or null if the cell isn't referenced by any
+// row.
+export const findCellPosition = (rows: table.Row[], cellKey: string): xy.XY | null => {
+  for (let y = 0; y < rows.length; y++) {
+    const x = rows[y].cells.indexOf(cellKey);
+    if (x !== -1) return { x, y };
+  }
+  return null;
+};
+
+// cellsInRegion returns the cell keys inside the inclusive axis-aligned
+// rectangle defined by start and end. Rows or row slots outside the rectangle
+// are skipped silently; ragged rows produce a sparse region.
+export const cellsInRegion = (
+  rows: table.Row[],
+  start: xy.XY,
+  end: xy.XY,
+): string[] => {
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  const out: string[] = [];
+  for (let y = minY; y <= maxY; y++) {
+    const row = rows[y];
+    if (row == null) continue;
+    for (let x = minX; x <= maxX; x++) if (row.cells[x] != null) out.push(row.cells[x]);
+  }
+  return out;
+};
+
+export const useCellPosition = ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
+  const rows = useSelectRows({ key });
+  return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
+};
+
+const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
+  key: id.create(),
+  variant: "text",
+  props: CELLS.text.defaultProps(theme),
+});
+
+export interface UseAddRowReturn {
+  (atIndex?: number): void;
+}
+
+// useAddRow returns a callback that inserts a new row at the given index with
+// one default text cell per existing column. If the table has no columns yet,
+// the dispatch also inserts an initial column so the row's cells have a
+// matching column to live in.
+export const useAddRow = ({ key }: SelectKeyArgs): UseAddRowReturn => {
+  const { dispatch } = useDispatch();
+  const columns = useSelectColumns({ key });
+  const rows = useSelectRows({ key });
+  const theme = Theming.use();
+  return useCallback(
+    (atIndex?: number) => {
+      const colCount = Math.max(columns.length, 1);
+      const cells = Array.from({ length: colCount }, () => newDefaultCell(theme));
+      const actions: table.Action[] = [];
+      if (columns.length === 0)
+        actions.push(table.addCol({ index: 0, size: BASE_COL_SIZE, cells: [] }));
+      actions.push(
+        table.addRow({
+          index: atIndex ?? rows.length,
+          size: BASE_ROW_SIZE,
+          cells,
+        }),
+      );
+      dispatch({ key, actions });
+    },
+    [dispatch, key, columns, rows.length, theme],
+  );
+};
+
+export interface UseAddColReturn {
+  (atIndex?: number): void;
+}
+
+// useAddCol returns a callback that inserts a new column at the given index
+// with one default text cell per existing row. If the table has no rows yet,
+// the dispatch also inserts an initial row so the column has somewhere to
+// land.
+export const useAddCol = ({ key }: SelectKeyArgs): UseAddColReturn => {
+  const { dispatch } = useDispatch();
+  const columns = useSelectColumns({ key });
+  const rows = useSelectRows({ key });
+  const theme = Theming.use();
+  return useCallback(
+    (atIndex?: number) => {
+      const rowCount = Math.max(rows.length, 1);
+      const cells = Array.from({ length: rowCount }, () => newDefaultCell(theme));
+      const actions: table.Action[] = [];
+      if (rows.length === 0)
+        actions.push(table.addRow({ index: 0, size: BASE_ROW_SIZE, cells: [] }));
+      actions.push(
+        table.addCol({
+          index: atIndex ?? columns.length,
+          size: BASE_COL_SIZE,
+          cells,
+        }),
+      );
+      dispatch({ key, actions });
+    },
+    [dispatch, key, rows, columns.length, theme],
+  );
+};
+
+export interface UseRemoveAtIndexReturn {
+  (atIndex: number): void;
+}
+
+export const useRemoveRow = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => {
+  const { dispatch } = useDispatch();
+  return useCallback(
+    (atIndex: number) =>
+      dispatch({ key, actions: [table.removeRow({ index: atIndex })] }),
+    [dispatch, key],
+  );
+};
+
+export const useRemoveCol = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => {
+  const { dispatch } = useDispatch();
+  return useCallback(
+    (atIndex: number) =>
+      dispatch({ key, actions: [table.removeCol({ index: atIndex })] }),
+    [dispatch, key],
+  );
+};

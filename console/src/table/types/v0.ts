@@ -12,7 +12,7 @@ import { TableCells, Theming } from "@synnaxlabs/pluto";
 import { id, type record, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-const VERSION = "0.0.0";
+export const VERSION = "0.0.0";
 
 const cellLayoutZ = z.object({ key: z.string() });
 

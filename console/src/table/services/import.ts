@@ -7,21 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
+import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
-import { stateZ } from "@/table/slice";
-import { create } from "@/table/Table";
+import { create, LAYOUT_TYPE } from "@/table/layout";
 
-export const ingest: Import.FileIngester = (
+export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client },
+  { layout, placeLayout, store, client, workspaceKey },
 ) => {
-  const state = stateZ.parse(data);
   if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import tables");
-  // create with an undefined key so we do not have to worry about the key that was from
-  // the imported data overwriting existing tables in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout }));
+  if (client == null) throw new DisconnectedError();
+  const parsed = table.tableZ.parse(data);
+  const { key: _ignoredKey, name, ...rest } = parsed;
+  const created = await client.tables.create(workspaceKey ?? uuid.ZERO, {
+    ...rest,
+    name: layout?.name ?? name,
+  });
+  store.tables.set(created.key, created);
+  placeLayout(
+    create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
+  );
 };

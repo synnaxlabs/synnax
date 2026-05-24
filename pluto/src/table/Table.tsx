@@ -9,11 +9,12 @@
 
 import "@/table/Table.css";
 
-import { box, direction } from "@synnaxlabs/x";
+import { table } from "@synnaxlabs/client";
+import { box, clamp, dimensions, direction, type record, xy } from "@synnaxlabs/x";
 import {
-  type ComponentPropsWithoutRef,
-  type ComponentPropsWithRef,
+  memo,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -25,38 +26,206 @@ import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Menu } from "@/menu";
-import { table } from "@/table/aether";
+import { table as aetherTable } from "@/table/aether";
+import { CELLS } from "@/table/cells/registry";
+import {
+  cellsInRegion,
+  findCellPosition,
+  MIN_CELL_DIM,
+  useDispatch,
+  useEnsureRetrieved,
+  useSelectCell,
+  useSelectColumns,
+  useSelectRows,
+} from "@/table/queries";
 import { Text } from "@/text";
 import { stopPropagation } from "@/util/event";
 import { Canvas } from "@/vis/canvas";
 
-export interface TableProps
-  extends
-    ComponentPropsWithoutRef<"table">,
-    Pick<z.infer<typeof table.Table.stateZ>, "visible"> {}
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// getCellColumn maps a 0-based column index to a spreadsheet-style letter
+// ("A", "B", "C", ...). Defined here so consumers building UI chrome (e.g.,
+// breadcrumb labels in a toolbar) can label cells using the same convention
+// the table renders.
+export const getCellColumn = (index: number): string => ALPHABET[index];
+
+export interface ContextMenuTarget {
+  // cellKey identifies the cell that was right-clicked, or null when the
+  // user right-clicked a resizer or the empty area of the table.
+  cellKey: string | null;
+  // rowResizerIndex identifies a right-clicked row resizer, or null when
+  // the target isn't a row resizer.
+  rowResizerIndex: number | null;
+  // colResizerIndex identifies a right-clicked column resizer, or null when
+  // the target isn't a column resizer.
+  colResizerIndex: number | null;
+}
+
+export interface TableProps extends Pick<
+  z.infer<typeof aetherTable.Table.stateZ>,
+  "visible"
+> {
+  // resourceKey is the table key the component reads from the Pluto flux
+  // store. The table data must be loaded into flux before the component
+  // mounts; useEnsureRetrieved kicks off the fetch.
+  resourceKey: table.Key;
+  // selected is the set of cell keys currently selected. The component
+  // never owns selection state itself; it only reflects this prop visually
+  // and emits onSelectionChange in response to user gestures.
+  selected?: string[];
+  // onSelectionChange fires when a user interaction would alter the
+  // selection. The component computes the next array (including
+  // shift-click region geometry) and hands it to the consumer to store.
+  onSelectionChange?: (next: string[]) => void;
+  // editable gates whether cell content edits, resize gestures, and select
+  // gestures fire dispatch and selection changes.
+  editable?: boolean;
+  // onContextMenu fires when the user right-clicks anywhere inside the
+  // table. The metadata identifies the click target (cell, row resizer,
+  // column resizer, or empty area) so consumers can render the appropriate
+  // menu items.
+  onContextMenu?: (e: React.MouseEvent, target: ContextMenuTarget) => void;
+  // className passes through to the rendered <table> element.
+  className?: string;
+  // children renders inside the table's <tbody> after the row indicators
+  // and rows.
+  children?: ReactNode;
+}
 
 export const Table = ({
-  children,
-  className,
+  resourceKey,
+  selected = [],
+  onSelectionChange,
+  editable = false,
   visible,
-  ...rest
+  onContextMenu,
+  className,
+  children,
 }: TableProps): ReactElement => {
+  useEnsureRetrieved({ key: resourceKey });
+  const rows = useSelectRows({ key: resourceKey });
+  const columns = useSelectColumns({ key: resourceKey });
+  const { dispatch } = useDispatch();
+
   const [{ path }, , setState] = Aether.use({
-    type: table.Table.TYPE,
-    schema: table.Table.stateZ,
+    type: aetherTable.Table.TYPE,
+    schema: aetherTable.Table.stateZ,
     initialState: { region: box.ZERO, visible },
   });
 
-  useEffect(() => {
-    setState((s) => ({ ...s, visible }));
-  }, [visible]);
+  useEffect(() => setState((s) => ({ ...s, visible })), [visible]);
 
-  const ref = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
+  const canvasRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
 
+  const selectedRef = useSyncedRef(selected);
+  const lastSelectedRef = useRef<string | null>(null);
+  const rowsRef = useSyncedRef(rows);
+
+  const handleCellSelect = useCallback(
+    (cellKey: string, ev: MouseEvent) => {
+      if (!editable) return;
+      const { shiftKey, ctrlKey, metaKey } = ev;
+      if (shiftKey && lastSelectedRef.current != null) {
+        const start = findCellPosition(rowsRef.current, lastSelectedRef.current);
+        const end = findCellPosition(rowsRef.current, cellKey);
+        if (start != null && end != null) {
+          onSelectionChange?.(cellsInRegion(rowsRef.current, start, end));
+          return;
+        }
+      }
+      if (ctrlKey || metaKey) {
+        const next = new Set(selectedRef.current);
+        if (next.has(cellKey)) next.delete(cellKey);
+        else next.add(cellKey);
+        lastSelectedRef.current = cellKey;
+        onSelectionChange?.(Array.from(next));
+        return;
+      }
+      lastSelectedRef.current = cellKey;
+      onSelectionChange?.([cellKey]);
+    },
+    [editable, onSelectionChange],
+  );
+
+  const handleRowSelect = useCallback(
+    (index: number) => {
+      if (!editable) return;
+      const row = rowsRef.current[index];
+      if (row == null) return;
+      lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+      onSelectionChange?.(row.cells);
+    },
+    [editable, onSelectionChange],
+  );
+
+  const handleColSelect = useCallback(
+    (index: number) => {
+      if (!editable) return;
+      const colCells = rowsRef.current
+        .map((r) => r.cells[index])
+        .filter((k): k is string => k != null);
+      lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+      onSelectionChange?.(colCells);
+    },
+    [editable, onSelectionChange],
+  );
+
+  const handleRowResize = useCallback(
+    (size: number, index: number) => {
+      if (!editable) return;
+      dispatch({
+        key: resourceKey,
+        actions: [table.resizeRow({ index, size: clamp(size, MIN_CELL_DIM) })],
+      });
+    },
+    [dispatch, editable, resourceKey],
+  );
+
+  const handleColResize = useCallback(
+    (size: number, index: number) => {
+      if (!editable) return;
+      dispatch({
+        key: resourceKey,
+        actions: [table.resizeCol({ index, size: clamp(size, MIN_CELL_DIM) })],
+      });
+    },
+    [dispatch, editable, resourceKey],
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (onContextMenu == null) return;
+      const targetEl = e.target as HTMLElement;
+      const tdEl = targetEl.closest<HTMLElement>("td[id]");
+      let cellKey: string | null = null;
+      let rowResizerIndex: number | null = null;
+      let colResizerIndex: number | null = null;
+      if (tdEl != null) {
+        const id = tdEl.id;
+        if (id.startsWith("resizer-")) {
+          const [, dir, idx] = id.split("-");
+          const parsed = Number.parseInt(idx, 10);
+          if (Number.isFinite(parsed)) 
+            if (dir === "x") colResizerIndex = parsed;
+            else if (dir === "y") rowResizerIndex = parsed;
+          
+        } else cellKey = id;
+      }
+      onContextMenu(e, { cellKey, rowResizerIndex, colResizerIndex });
+    },
+    [onContextMenu],
+  );
+
+  const colSizes = columns.map((c) => c.size);
+  const totalCol = colSizes.reduce((a, s) => a + s, 0);
+  const totalRow = rows.reduce((a, r) => a + r.size, 0);
+
+  let rowYCursor = 3.5 * 6;
   return (
     <>
       <div
-        ref={ref}
+        ref={canvasRef}
         style={{
           right: 0,
           bottom: 0,
@@ -65,55 +234,163 @@ export const Table = ({
           left: 6,
         }}
       />
-      <table className={CSS(CSS.B("table"), className)} {...rest}>
+      <table
+        className={CSS(CSS.B("table"), className)}
+        style={{ width: totalCol, height: totalRow }}
+        onContextMenu={handleContextMenu}
+      >
         <tbody>
-          <Aether.Composite path={path}>{children}</Aether.Composite>
+          <Aether.Composite path={path}>
+            <ColumnIndicators
+              columns={colSizes}
+              rows={rows}
+              selected={selected}
+              onSelect={handleColSelect}
+              onResize={handleColResize}
+            />
+            {rows.map((row, rowIndex) => {
+              const yPos = rowYCursor;
+              rowYCursor += row.size;
+              return (
+                <Row
+                  key={rowIndex}
+                  index={rowIndex}
+                  resourceKey={resourceKey}
+                  cells={row.cells}
+                  columns={colSizes}
+                  position={yPos}
+                  size={row.size}
+                  selected={selected}
+                  onSelect={handleRowSelect}
+                  onResize={handleRowResize}
+                  onCellSelect={handleCellSelect}
+                />
+              );
+            })}
+            {children}
+          </Aether.Composite>
         </tbody>
       </table>
     </>
   );
 };
 
-export interface RowProps extends Omit<
-  ComponentPropsWithoutRef<"tr">,
-  "size" | "onResize" | "onSelect"
-> {
+interface RowProps {
   index: number;
   size: number;
   position: number;
-  onResize?: (size: number, index: number) => void;
+  resourceKey: table.Key;
+  cells: string[];
+  columns: number[];
+  selected: string[];
+  onResize: (size: number, index: number) => void;
   onSelect: (index: number) => void;
+  onCellSelect: (cellKey: string, ev: MouseEvent) => void;
 }
 
-export const Row = ({
-  children,
-  className,
-  size,
+const Row = ({
   index,
+  size,
+  position,
+  resourceKey,
+  cells,
+  columns,
+  selected,
   onResize,
   onSelect,
-  position,
-  ...rest
-}: RowProps): ReactElement => (
-  <tr className={CSS(CSS.BE("table", "row"), className)} {...rest}>
-    {onResize != null && (
+  onCellSelect,
+}: RowProps): ReactElement => {
+  let xCursor = 3.5 * 6;
+  return (
+    <tr className={CSS(CSS.BE("table", "row"))}>
       <Indicator
-        onSelect={onSelect}
+        direction="y"
         index={index}
         value={size}
-        onChange={onResize}
         position={position}
-        direction="y"
+        onChange={onResize}
+        onSelect={onSelect}
       />
-    )}
-    {children}
-  </tr>
-);
+      {cells.map((cellKey, i) => {
+        const xPos = xCursor;
+        xCursor += columns[i];
+        return (
+          <VariantCell
+            key={cellKey}
+            resourceKey={resourceKey}
+            cellKey={cellKey}
+            box={box.construct(
+              xy.construct({ x: xPos, y: position }),
+              dimensions.construct(columns[i], size),
+            )}
+            selected={selected.includes(cellKey)}
+            onSelect={onCellSelect}
+          />
+        );
+      })}
+    </tr>
+  );
+};
 
-export interface CellProps extends ComponentPropsWithRef<"td"> {
+interface VariantCellProps {
+  resourceKey: table.Key;
+  cellKey: string;
+  box: box.Box;
+  selected: boolean;
+  onSelect: (cellKey: string, ev: MouseEvent) => void;
+}
+
+// VariantCell is the bridge between the connected Table and the per-variant
+// cell components in @/table/cells. The variant component renders its own
+// <td> (via the exported Cell primitive below); VariantCell wires it to flux
+// state and a dispatch-backed onChange handler.
+const VariantCell = memo(
+  ({
+    resourceKey,
+    cellKey,
+    box,
+    selected,
+    onSelect,
+  }: VariantCellProps): ReactElement | null => {
+    const cell = useSelectCell({ key: resourceKey, cellKey });
+    const { dispatch } = useDispatch();
+    const handleChange = useCallback(
+      (props: record.Unknown) => {
+        if (cell == null) return;
+        dispatch({
+          key: resourceKey,
+          actions: [
+            table.setCell({ cell: { key: cellKey, variant: cell.variant, props } }),
+          ],
+        });
+      },
+      [dispatch, resourceKey, cellKey, cell],
+    );
+    if (cell == null) return null;
+    const Spec = CELLS[cell.variant as keyof typeof CELLS];
+    if (Spec == null) return null;
+    return (
+      <Spec.Cell
+        cellKey={cellKey}
+        box={box}
+        selected={selected}
+        onSelect={onSelect}
+        onChange={handleChange}
+        {...cell.props}
+      />
+    );
+  },
+);
+VariantCell.displayName = "VariantCell";
+
+export interface CellProps extends React.ComponentPropsWithRef<"td"> {
   selected?: boolean;
 }
 
+// Cell is the primitive <td> wrapper used by variant cell components in
+// @/table/cells. The connected Table renders cell content through the
+// variant registry; variant components compose this primitive to get
+// consistent styling and selection visuals.
 export const Cell = ({
   ref,
   children,
@@ -130,29 +407,70 @@ export const Cell = ({
   </td>
 );
 
-interface ResizerCellProps {
+interface ColumnIndicatorsProps {
+  columns: number[];
+  rows: table.Row[];
+  selected: string[];
+  onSelect: (index: number) => void;
+  onResize: (size: number, index: number) => void;
+}
+
+const ColumnIndicators = ({
+  columns,
+  rows,
+  selected,
+  onSelect,
+  onResize,
+}: ColumnIndicatorsProps): ReactElement => {
+  const selectedSet = new Set(selected);
+  const selectedCols = new Set<number>();
+  for (const row of rows)
+    row.cells.forEach((k, i) => {
+      if (selectedSet.has(k)) selectedCols.add(i);
+    });
+  let xCursor = 2.5 * 6;
+  return (
+    <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+      <td />
+      {columns.map((size, i) => {
+        const xPos = xCursor;
+        xCursor += size;
+        return (
+          <Indicator
+            key={i}
+            direction="x"
+            index={i}
+            value={size}
+            position={xPos}
+            selected={selectedCols.has(i)}
+            onChange={onResize}
+            onSelect={onSelect}
+          />
+        );
+      })}
+    </tr>
+  );
+};
+
+interface IndicatorProps {
   direction: direction.Direction;
-  value: number;
   index: number;
-  selected?: boolean;
+  value: number;
   position: number;
+  selected?: boolean;
   onChange: (size: number, index: number) => void;
   onSelect: (index: number) => void;
 }
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-export const getCellColumn = (index: number): string => ALPHABET[index];
-
 const Indicator = ({
-  value,
-  selected = false,
+  direction: dir,
   index,
-  onChange,
+  value,
   position,
-  direction: dir = "x",
+  selected = false,
+  onChange,
   onSelect,
-}: ResizerCellProps) => {
+}: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
   const onDragStart = useCursorDrag({
@@ -161,7 +479,7 @@ const Indicator = ({
     }, []),
     onMove: useCallback(
       (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), index),
-      [onChange, index],
+      [onChange, index, dir],
     ),
   });
   return (
@@ -188,42 +506,5 @@ const Indicator = ({
         draggable
       />
     </td>
-  );
-};
-
-interface ColumnIndicators {
-  selected: number[];
-  columns: number[];
-  onResize: (size: number, index: number) => void;
-  onSelect: (index: number) => void;
-}
-
-export const ColumnIndicators = ({
-  selected,
-  onSelect,
-  columns,
-  onResize,
-}: ColumnIndicators) => {
-  let currPos = 2.5 * 6;
-  return (
-    <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-      <td />
-      {columns.map((size, i) => {
-        const pos = currPos;
-        currPos += size;
-        return (
-          <Indicator
-            onSelect={onSelect}
-            key={i}
-            position={pos}
-            selected={selected.includes(i)}
-            index={i}
-            value={size}
-            onChange={(size) => onResize(size, i)}
-            direction="x"
-          />
-        );
-      })}
-    </tr>
   );
 };

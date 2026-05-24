@@ -10,256 +10,83 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Icon,
-  Menu,
-  Table as Base,
-  TableCells,
-  Triggers,
-} from "@synnaxlabs/pluto";
-import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useRef } from "react";
+import { Access, Button, Icon, Menu, Table as Base } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
-import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { Selector } from "@/selector";
-import {
-  select,
-  useSelectCell,
-  useSelectEditable,
-  useSelectIsRemoteCreated,
-  useSelectLayout,
-  useSelectSelectedColumns,
-  useSelectVersion,
-} from "@/table/selectors";
-import {
-  addCol,
-  addRow,
-  type CellLayout,
-  clearSelected,
-  copySelected,
-  deleteCol,
-  deleteRow,
-  fromWire,
-  internalCreate,
-  pasteSelected,
-  resizeCol,
-  resizeRow,
-  selectCells,
-  selectCol,
-  type SelectionMode,
-  selectRow,
-  setCellProps,
-  setEditable,
-  setRemoteCreated,
-  type State,
-  toWire,
-  ZERO_STATE,
-} from "@/table/slice";
-import { Workspace } from "@/workspace";
+import { useSelectEditable, useSelectSelectedCellKeys } from "@/table/selectors";
+import { setEditable, setSelectedCells } from "@/table/slice";
 
-export const LAYOUT_TYPE = "table";
-export type LayoutType = typeof LAYOUT_TYPE;
-
-const parseContextKey = (key: string): string | number => {
-  if (key.startsWith("resizer")) {
-    const [, , index] = key.split("-");
-    return parseInt(index, 10);
-  }
-  return key;
-};
-
-const parseRowCalArgs = <L extends location.Outer | undefined>(
-  tableKey: string,
-  keys: string[],
-  loc?: L,
-): { key: string; index?: number; cellKey?: string; loc: L } => {
-  const cellKey = parseContextKey(keys[0]);
-  if (typeof cellKey === "number")
-    return { key: tableKey, index: cellKey, loc: loc as L };
-  return { key: tableKey, cellKey: keys[0], loc: loc as L };
-};
-
-export const useSyncComponent = Workspace.createSyncComponent(
-  "Table",
-  async ({ key, workspace, store, fluxStore, client }) => {
-    const storeState = store.getState();
-    if (!Access.updateGranted({ id: table.ontologyID(key), store: fluxStore, client }))
-      return;
-    const data = select(storeState, key);
-    if (data == null) return;
-    const layout = Layout.selectRequired(storeState, key);
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.tables.create(workspace, toWire(data, layout.name));
-  },
-);
+export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const layout = useSelectLayout(layoutKey);
-  const syncDispatch = useSyncComponent(layoutKey);
-  const editMode = useSelectEditable(layoutKey);
+  const editable = useSelectEditable(layoutKey);
+  const selected = useSelectSelectedCellKeys(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
-  const canEdit = hasUpdatePermission && editMode;
+  const canEdit = hasUpdatePermission && editable;
+  const dispatch = useDispatch();
 
-  const handleAddRow = () => {
-    syncDispatch(addRow({ key: layoutKey }));
-  };
+  const addRow = Base.useAddRow({ key: layoutKey });
+  const addCol = Base.useAddCol({ key: layoutKey });
+  const removeRow = Base.useRemoveRow({ key: layoutKey });
+  const removeCol = Base.useRemoveCol({ key: layoutKey });
 
-  const handleAddCol = () => {
-    syncDispatch(addCol({ key: layoutKey }));
-  };
-
-  const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
-    <ContextMenu.Menu>
-      {keys.length > 0 && (
-        <>
-          <Menu.Item
-            size="small"
-            itemKey="addRowBelow"
-            onClick={() =>
-              syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "bottom")))
-            }
-          >
-            <Icon.Add />
-            Add row below
-          </Menu.Item>
-          <Menu.Item
-            size="small"
-            itemKey="addRowAbove"
-            onClick={() =>
-              syncDispatch(addRow(parseRowCalArgs(layoutKey, keys, "top")))
-            }
-          >
-            <Icon.Add />
-            Add row above
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item
-            size="small"
-            itemKey="addColRight"
-            onClick={() =>
-              syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "right")))
-            }
-          >
-            <Icon.Add />
-            Add column right
-          </Menu.Item>
-          <Menu.Item
-            size="small"
-            itemKey="addColLeft"
-            onClick={() =>
-              syncDispatch(addCol(parseRowCalArgs(layoutKey, keys, "left")))
-            }
-          >
-            <Icon.Add />
-            Add column left
-          </Menu.Item>
-          <Menu.Divider />
-          <Menu.Item
-            size="small"
-            itemKey="deleteRow"
-            onClick={() => syncDispatch(deleteRow(parseRowCalArgs(layoutKey, keys)))}
-          >
-            <Icon.Delete />
-            Delete row
-          </Menu.Item>
-          <Menu.Item
-            size="small"
-            itemKey="deleteCol"
-            onClick={() => syncDispatch(deleteCol(parseRowCalArgs(layoutKey, keys)))}
-          >
-            <Icon.Delete />
-            Delete column
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
-      {canEdit && (
-        <Menu.Item
-          itemKey="toggleEdit"
-          onClick={() => syncDispatch(setEditable({ key: layoutKey }))}
-        >
-          {editMode ? <Icon.EditOff /> : <Icon.Edit />}
-          {`${editMode ? "Disable" : "Enable"} editing`}
-        </Menu.Item>
-      )}
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
+  const handleSelectionChange = useCallback(
+    (cells: string[]) =>
+      dispatch(
+        setSelectedCells({ key: layoutKey, cells, anchor: cells.at(-1) ?? null }),
+      ),
+    [dispatch, layoutKey],
   );
 
+  const [menuTarget, setMenuTarget] = useState<Base.ContextMenuTarget | null>(null);
   const menuProps = Menu.useContextMenu();
 
-  const handleColResize = useCallback((size: number, index: number) => {
-    syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
-  }, []);
+  const handleTableContextMenu = useCallback(
+    (e: React.MouseEvent, target: Base.ContextMenuTarget) => {
+      setMenuTarget(target);
+      menuProps.open(e);
+    },
+    [menuProps],
+  );
 
-  const handleDoubleClick = useCallback(() => {
-    if (!canEdit) return;
-    syncDispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
-  }, [canEdit]);
+  const handleAddRowAt = useCallback((atIndex: number) => addRow(atIndex), [addRow]);
+  const handleAddColAt = useCallback((atIndex: number) => addCol(atIndex), [addCol]);
 
-  const colSizes = layout.columns.map((col) => col.size);
-  const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
-  const totalRowSizes = layout.rows.reduce((acc, row) => acc + row.size, 0);
+  // The context menu uses cellKey to derive the row/col index of the
+  // right-clicked cell. For that derivation we need rows from flux; defer
+  // to a child that calls the selector so the context menu only mounts
+  // when open.
+  const contextMenu = () =>
+    menuTarget == null ? null : (
+      <TableContextMenu
+        layoutKey={layoutKey}
+        target={menuTarget}
+        canEdit={canEdit}
+        hasUpdatePermission={hasUpdatePermission}
+        onAddRowAt={handleAddRowAt}
+        onAddColAt={handleAddColAt}
+        onRemoveRow={removeRow}
+        onRemoveCol={removeCol}
+      />
+    );
 
-  const ref = useRef<HTMLDivElement>(null);
-
-  Triggers.use({
-    triggers: [["Control", "V"], ["Control", "C"], ["Delete"], ["Backspace"]],
-    region: ref,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (ref.current == null || stage !== "start") return;
-        const isCopy = triggers.some((t) => t.includes("C"));
-        const isDelete = triggers.some(
-          (t) => t.includes("Delete") || t.includes("Backspace"),
-        );
-        const isPaste = triggers.some((t) => t.includes("V"));
-        if (isCopy) syncDispatch(copySelected({ key: layoutKey }));
-        if (isDelete) syncDispatch(clearSelected({ key: layoutKey }));
-        if (isPaste) syncDispatch(pasteSelected({ key: layoutKey }));
-      },
-      [syncDispatch, layoutKey],
-    ),
-  });
-
-  let currPos = 3.5 * 6;
   return (
-    <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
+    <div className={CSS.B("table")}>
       <Menu.ContextMenu menu={contextMenu} {...menuProps}>
         <Base.Table
+          resourceKey={layoutKey}
+          selected={selected}
+          onSelectionChange={handleSelectionChange}
+          editable={canEdit}
           visible={visible}
-          style={{ width: totalColSizes, height: totalRowSizes }}
-          onContextMenu={menuProps.open}
+          onContextMenu={handleTableContextMenu}
           className={menuProps.className}
-        >
-          <ColResizer
-            tableKey={layoutKey}
-            onResize={handleColResize}
-            columns={colSizes}
-          />
-          {layout.rows.map((row, rowIndex) => {
-            const pos = currPos;
-            currPos += layout.rows[rowIndex].size;
-            return (
-              <Row
-                key={rowIndex}
-                tableKey={layoutKey}
-                index={rowIndex}
-                cells={row.cells}
-                position={pos}
-                columns={colSizes}
-                size={row.size}
-              />
-            );
-          })}
-        </Base.Table>
+        />
         {canEdit && (
           <>
             <Button.Button
@@ -268,7 +95,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               align="center"
               size="tiny"
               variant="filled"
-              onClick={handleAddCol}
+              onClick={() => addCol()}
             >
               <Icon.Add />
             </Button.Button>
@@ -278,7 +105,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               variant="filled"
               align="center"
               size="tiny"
-              onClick={handleAddRow}
+              onClick={() => addRow()}
             >
               <Icon.Add />
             </Button.Button>
@@ -290,21 +117,136 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-interface TableControls {
+interface TableContextMenuProps {
+  layoutKey: string;
+  target: Base.ContextMenuTarget;
+  canEdit: boolean;
+  hasUpdatePermission: boolean;
+  onAddRowAt: (atIndex: number) => void;
+  onAddColAt: (atIndex: number) => void;
+  onRemoveRow: (atIndex: number) => void;
+  onRemoveCol: (atIndex: number) => void;
+}
+
+const TableContextMenu = ({
+  layoutKey,
+  target,
+  canEdit,
+  hasUpdatePermission,
+  onAddRowAt,
+  onAddColAt,
+  onRemoveRow,
+  onRemoveCol,
+}: TableContextMenuProps): ReactElement => {
+  const cellPos = Base.useCellPosition({
+    key: layoutKey,
+    cellKey: target.cellKey ?? "",
+  });
+  const rowIdx = target.rowResizerIndex ?? cellPos?.y ?? null;
+  const colIdx = target.colResizerIndex ?? cellPos?.x ?? null;
+  return (
+    <ContextMenu.Menu>
+      {canEdit && rowIdx != null && (
+        <>
+          <Menu.Item
+            size="small"
+            itemKey="addRowBelow"
+            onClick={() => onAddRowAt(rowIdx + 1)}
+          >
+            <Icon.Add />
+            Add row below
+          </Menu.Item>
+          <Menu.Item
+            size="small"
+            itemKey="addRowAbove"
+            onClick={() => onAddRowAt(rowIdx)}
+          >
+            <Icon.Add />
+            Add row above
+          </Menu.Item>
+        </>
+      )}
+      {canEdit && colIdx != null && (
+        <>
+          <Menu.Divider />
+          <Menu.Item
+            size="small"
+            itemKey="addColRight"
+            onClick={() => onAddColAt(colIdx + 1)}
+          >
+            <Icon.Add />
+            Add column right
+          </Menu.Item>
+          <Menu.Item
+            size="small"
+            itemKey="addColLeft"
+            onClick={() => onAddColAt(colIdx)}
+          >
+            <Icon.Add />
+            Add column left
+          </Menu.Item>
+        </>
+      )}
+      {canEdit && rowIdx != null && (
+        <>
+          <Menu.Divider />
+          <Menu.Item
+            size="small"
+            itemKey="deleteRow"
+            onClick={() => onRemoveRow(rowIdx)}
+          >
+            <Icon.Delete />
+            Delete row
+          </Menu.Item>
+        </>
+      )}
+      {canEdit && colIdx != null && (
+        <Menu.Item size="small" itemKey="deleteCol" onClick={() => onRemoveCol(colIdx)}>
+          <Icon.Delete />
+          Delete column
+        </Menu.Item>
+      )}
+      {canEdit && (rowIdx != null || colIdx != null) && <Menu.Divider />}
+      {hasUpdatePermission && <EditToggleMenuItem layoutKey={layoutKey} />}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
+interface EditToggleMenuItemProps {
+  layoutKey: string;
+}
+
+const EditToggleMenuItem = ({ layoutKey }: EditToggleMenuItemProps): ReactElement => {
+  const editable = useSelectEditable(layoutKey);
+  const dispatch = useDispatch();
+  const handleClick = useCallback(
+    () => dispatch(setEditable({ key: layoutKey })),
+    [dispatch, layoutKey],
+  );
+  return (
+    <Menu.Item itemKey="toggleEdit" onClick={handleClick}>
+      {editable ? <Icon.EditOff /> : <Icon.Edit />}
+      {`${editable ? "Disable" : "Enable"} editing`}
+    </Menu.Item>
+  );
+};
+
+interface TableControlsProps {
   tableKey: string;
 }
 
-const TableControls = ({ tableKey }: TableControls) => {
-  const dispatch = useDispatch();
-  const editMode = useSelectEditable(tableKey);
+const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null => {
+  const editable = useSelectEditable(tableKey);
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(tableKey));
-  const canEdit = hasUpdatePermission && editMode;
-  const handleEdit = useCallback(() => {
-    dispatch(setEditable({ key: tableKey }));
-  }, []);
-
+  const dispatch = useDispatch();
+  const handleEdit = useCallback(
+    () => dispatch(setEditable({ key: tableKey })),
+    [dispatch, tableKey],
+  );
   if (!hasUpdatePermission) return null;
-
+  const canEdit = hasUpdatePermission && editable;
   return (
     <Controls>
       <Button.Toggle
@@ -320,162 +262,9 @@ const TableControls = ({ tableKey }: TableControls) => {
   );
 };
 
-interface RowProps {
-  tableKey: string;
-  index: number;
-  size: number;
-  cells: CellLayout[];
-  position: number;
-  columns: number[];
-}
-
-const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
-  const dispatch = useDispatch();
-  const handleResize = useCallback((size: number, index: number) => {
-    dispatch(resizeRow({ key: tableKey, index, size: clamp(size, 32) }));
-  }, []);
-  const handleSelect = useCallback(() => {
-    dispatch(selectRow({ key: tableKey, index }));
-  }, []);
-  let currPos = 3.5 * 6;
-  return (
-    <Base.Row
-      index={index}
-      position={position}
-      size={size}
-      onResize={handleResize}
-      onSelect={handleSelect}
-    >
-      {cells.map((cell, i) => {
-        const pos = currPos;
-        currPos += columns[i];
-        return (
-          <Cell
-            key={cell.key}
-            tableKey={tableKey}
-            box={box.construct(
-              xy.construct({ y: position, x: pos }),
-              dimensions.construct(columns[i], size),
-            )}
-            cellKey={cell.key}
-          />
-        );
-      })}
-    </Base.Row>
-  );
-};
-
-interface CellContainerProps {
-  box: box.Box;
-  tableKey: string;
-  cellKey: string;
-}
-
-export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
-
-export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Table", location = "mosaic", window, tab, ...rest } = initial;
-    const key = table.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ ...ZERO_STATE, ...rest, key }));
-    return {
-      key,
-      type: LAYOUT_TYPE,
-      icon: "Table",
-      name,
-      location,
-      window,
-      tab,
-    };
-  };
-
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
-  const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
-
-  if (!hasCreatePermission) return null;
-
-  return (
-    <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Table"
-      icon={<Icon.Table />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
-
-interface ColResizerProps {
-  tableKey: string;
-  columns: number[];
-  onResize: (size: number, index: number) => void;
-}
-
-const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
-  const dispatch = useDispatch();
-  const selectedCols = useSelectSelectedColumns(tableKey);
-  const handleSelect = useCallback((index: number) => {
-    dispatch(selectCol({ key: tableKey, index }));
-  }, []);
-
-  return (
-    <Base.ColumnIndicators
-      onSelect={handleSelect}
-      selected={selectedCols}
-      onResize={onResize}
-      columns={columns}
-    />
-  );
-};
-
-const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement => {
-  const state = useSelectCell(tableKey, cellKey);
-  const dispatch = useDispatch();
-  const handleSelect = (
-    cellKey: string,
-    { shiftKey, ctrlKey, metaKey }: MouseEvent,
-  ) => {
-    let mode: SelectionMode = "replace";
-    if (shiftKey) mode = "region";
-    if (ctrlKey || metaKey) mode = "add";
-    dispatch(selectCells({ key: tableKey, mode, cells: [cellKey] }));
-  };
-  const handleChange = (props: record.Unknown) =>
-    dispatch(setCellProps({ key: tableKey, cellKey, props }));
-  const C = TableCells.CELLS[state.variant];
-  return (
-    <C.Cell
-      cellKey={cellKey}
-      box={box}
-      onChange={handleChange}
-      onSelect={handleSelect}
-      selected={state.selected}
-      {...state.props}
-    />
-  );
-});
-Cell.displayName = "Cell";
-
-const useLoadRemote = createLoadRemote<table.Table>({
-  useRetrieve: Base.useRetrieveObservable,
-  targetVersion: ZERO_STATE.version,
-  useSelectVersion,
-  actionCreator: (v) => internalCreate(fromWire(v)),
-});
-
-export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
-  const table = useLoadRemote(layoutKey);
-  if (table == null) return null;
-  return <Loaded layoutKey={layoutKey} {...rest} />;
-};
+export const Table: Layout.Renderer = (props) => <Loaded {...props} />;
 
 Table.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
-  useSelectIsRemoteCreated,
 );

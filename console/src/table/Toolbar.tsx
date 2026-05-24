@@ -13,28 +13,21 @@ import {
   Flex,
   Form,
   Icon,
-  Table,
+  Table as Base,
   TableCells,
   Text,
-  useSyncedRef,
 } from "@synnaxlabs/pluto";
 import { deep, record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { type ReactElement, useCallback, useMemo } from "react";
+import { useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Base } from "@/components";
+import { Toolbar as Tb } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
-import {
-  selectCell,
-  useSelectSelectedCellPos,
-  useSelectSelectedCells,
-} from "@/table/selectors";
-import { type CellState, setCellProps, setCellType } from "@/table/slice";
-import { useSyncComponent } from "@/table/Table";
+import { useSelectSelectedCellKeys } from "@/table/selectors";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -42,42 +35,41 @@ export interface ToolbarProps {
 
 const TOOLBAR_BUTTONS_STYLE = { width: 66 };
 
+const cellPositionInRows = (
+  rows: table.Row[],
+  cellKey: string,
+): { x: number; y: number } | null => {
+  for (let y = 0; y < rows.length; y++) {
+    const x = rows[y].cells.indexOf(cellKey);
+    if (x !== -1) return { x, y };
+  }
+  return null;
+};
+
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
-  const selectedCells = useSelectSelectedCells(layoutKey);
-  const selectedCellMeta = useSelectSelectedCellPos(layoutKey);
-
-  const firstCell = selectedCells[0];
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
-  const handleVariantChange = (variant: TableCells.Variant, cellKey: string): void => {
-    const storeState = store.getState();
-    const theme = Layout.selectTheme(storeState);
-    const cellState = selectCell(storeState, layoutKey, cellKey);
-    if (variant === cellState.variant) return;
-    if (theme == null) throw new Error("Theme is null");
-    const spec = TableCells.CELLS[variant];
-    const nextProps = deep.overrideValidItems(
-      cellState.props,
-      spec.defaultProps(theme),
-      spec.schema,
-    );
-    dispatch(setCellType({ key: layoutKey, cellKey, variant, nextProps }));
-  };
+  const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
+  const rows = Base.useSelectRows({ key: layoutKey });
+  const firstSelectedKey = selectedCellKeys[0];
+  const selectedCellPos = useMemo(
+    () =>
+      firstSelectedKey != null ? cellPositionInRows(rows, firstSelectedKey) : null,
+    [firstSelectedKey, rows],
+  );
   const handleExport = useExport();
   return (
-    <Base.Content>
-      <Base.Header>
+    <Tb.Content>
+      <Tb.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
             <Breadcrumb.Segment weight={500} color={9} level="h5">
               <Icon.Table />
               {name}
             </Breadcrumb.Segment>
-            {selectedCellMeta != null && (
+            {selectedCellPos != null && (
               <Breadcrumb.Segment color={8}>
-                {Table.getCellColumn(selectedCellMeta.x)}
-                {selectedCellMeta.y + 1}
+                {Base.getCellColumn(selectedCellPos.x)}
+                {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
@@ -89,61 +81,84 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
             ontologyID={table.ontologyID(layoutKey)}
           />
         </Flex.Box>
-      </Base.Header>
+      </Tb.Header>
       <Flex.Box full>
-        {selectedCells.length === 0 ? (
+        {firstSelectedKey == null ? (
           <EmptyContent />
         ) : (
           <CellForm
+            key={firstSelectedKey}
             tableKey={layoutKey}
-            cell={firstCell}
-            // trigger re-render if you select a different cell
-            key={firstCell.key}
-            onVariantChange={(variant) => handleVariantChange(variant, firstCell.key)}
+            cellKey={firstSelectedKey}
           />
         )}
       </Flex.Box>
-    </Base.Content>
+    </Tb.Content>
   );
 };
 
 interface CellFormProps {
   tableKey: string;
-  cell: CellState;
-  onVariantChange: (variant: TableCells.Variant) => void;
+  cellKey: string;
 }
 
-const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElement => {
-  const tableRef = useSyncedRef(tableKey);
-  const cellRef = useSyncedRef(cell?.key);
-  const dispatchSync = useSyncComponent(tableKey);
+const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => {
+  const cell = Base.useSelectCell({ key: tableKey, cellKey });
+  const { dispatch } = Base.useDispatch();
+  const store = useStore<RootState>();
+
+  const handleVariantChange = useCallback(
+    (variant: TableCells.Variant) => {
+      if (cell == null || variant === cell.variant) return;
+      const theme = Layout.selectTheme(store.getState());
+      if (theme == null) throw new Error("Theme is null");
+      const spec = TableCells.CELLS[variant];
+      const nextProps = deep.overrideValidItems(
+        cell.props,
+        spec.defaultProps(theme),
+        spec.schema,
+      );
+      dispatch({
+        key: tableKey,
+        actions: [table.setCell({ cell: { key: cellKey, variant, props: nextProps } })],
+      });
+    },
+    [cell, cellKey, dispatch, store, tableKey],
+  );
+
   const handleChange = useCallback(
     ({ values }: Form.OnChangeArgs<ReturnType<typeof record.unknownZ>>) => {
-      dispatchSync(
-        setCellProps({
-          key: tableRef.current,
-          cellKey: cellRef.current,
-          props: deep.copy(values),
-        }),
-      );
+      if (cell == null) return;
+      dispatch({
+        key: tableKey,
+        actions: [
+          table.setCell({
+            cell: { key: cellKey, variant: cell.variant, props: deep.copy(values) },
+          }),
+        ],
+      });
     },
-    [],
+    [cell, cellKey, dispatch, tableKey],
   );
+
   const methods = Form.use<ReturnType<typeof record.unknownZ>>({
-    values: deep.copy(cell.props),
+    values: cell != null ? deep.copy(cell.props) : {},
     schema: record.unknownZ(),
     onChange: handleChange,
     sync: true,
   });
-  const F = TableCells.CELLS[cell.variant].Form;
+
+  if (cell == null) return null;
+  const F = TableCells.CELLS[cell.variant as keyof typeof TableCells.CELLS]?.Form;
+  if (F == null) return null;
   return (
     <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
-      <F onVariantChange={onVariantChange} />
+      <F onVariantChange={handleVariantChange} />
     </Form.Form>
   );
 };
 
-const EmptyContent = () => (
+const EmptyContent = (): ReactElement => (
   <Text.Text status="disabled" center>
     No cell selected. Select a cell to view its properties.
   </Text.Text>
