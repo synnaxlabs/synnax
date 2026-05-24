@@ -181,7 +181,7 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
-{{- if .IsOptionalStruct}}
+{{- if or .IsOptionalStruct .IsOptionalEnum}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
 			return {{$goType}}{}, err
@@ -396,7 +396,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
-{{- if .IsOptionalStruct}}
+{{- if or .IsOptionalStruct .IsOptionalEnum}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
 			return {{$goType}}{}, err

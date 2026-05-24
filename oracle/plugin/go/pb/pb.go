@@ -342,6 +342,7 @@ func (p *Plugin) processFieldForTranslation(
 	isHardOptional := field.IsHardOptional
 	isOptional := isHardOptional
 	isOptionalStruct := isOptional && isStructType(field.Type, data.table)
+	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
@@ -353,6 +354,7 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
 		IsOptionalStruct: isOptionalStruct,
+		IsOptionalEnum:   isOptionalEnum,
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
@@ -543,6 +545,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 				BackwardCast:     backwardCast,
 				IsOptional:       isOptional,
 				IsOptionalStruct: isOptional && isStructType(*typeRef.TypeParam.Default, data.table),
+				IsOptionalEnum:   isOptional && isEnumType(*typeRef.TypeParam.Default, data.table),
 				HasError:         hasError,
 				HasBackwardError: hasBackwardError,
 			}, false
@@ -576,6 +579,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
 		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
+		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}, false
@@ -877,7 +881,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName)
+		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.IsHardOptional)
 		return f, b, "", true, true
 	}
 
@@ -1027,10 +1031,10 @@ func (p *Plugin) generateStructConversion(
 		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
 	}
 
-	if actualForm.IsGeneric() {
-		return goField, pbField, "", false
-	}
-
+	// A fully-defaulted generic struct (every type param has a default and the
+	// caller supplied no args) emits a non-generic Go pb translator under its
+	// bare name, so the call site falls through to the regular non-generic
+	// branch below instead of returning the raw field names.
 	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	if isHardOptional {
@@ -1165,8 +1169,13 @@ func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
+	isHardOptional bool,
 ) (forward, backward string) {
 	enumName := resolved.Name
+	forwardArg := goField
+	if isHardOptional {
+		forwardArg = "*" + goField
+	}
 
 	if resolved.Namespace != data.Namespace {
 		pbPath := findEnumPBPath(resolved, data.table)
@@ -1175,7 +1184,7 @@ func (p *Plugin) generateEnumConversion(
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
 				data.imports.AddInternal(alias, importPath)
-				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, goField),
+				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
 					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, pbField)
 			}
 		}
@@ -1185,7 +1194,7 @@ func (p *Plugin) generateEnumConversion(
 		data.usedEnums[resolved.QualifiedName] = &resolved
 	}
 
-	return fmt.Sprintf("%sToPB(%s)", enumName, goField),
+	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
 		fmt.Sprintf("%sFromPB(%s)", enumName, pbField)
 }
 
@@ -1615,6 +1624,23 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		return true
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if target, ok := aliasForm.Target.Resolve(table); ok {
+			_, isEnum := target.Form.(resolution.EnumForm)
+			return isEnum
+		}
+	}
+	return false
+}
+
 func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
@@ -1686,6 +1712,10 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
+	// IsOptionalEnum is true for a hard-optional field whose underlying type is an
+	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
+	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
+	IsOptionalEnum bool
 	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
 	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool

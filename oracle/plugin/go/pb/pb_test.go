@@ -380,6 +380,99 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("if r.Name != nil {").
 					ToContain("if pb.Name != nil {")
 			})
+
+			It("Should deref the pointer on forward and rebind on backward for hard-optional string enums", func(ctx SpecContext) {
+				// Regression: a hard-optional enum field was emitting
+				// `pb.Type, err = TickTypeToPB(r.Type)` even though r.Type
+				// is *TickType and TickTypeToPB takes a value. Backward
+				// emitted `r.Type = TickTypeFromPB(pb.Type)` ignoring both
+				// the returned error and the pointer target type. The fix
+				// derefs in the forward call and uses the same val/&val
+				// dance the optional struct branch already had.
+				source := `
+					@go output "core/test"
+					@pb
+
+					TickType enum {
+						linear = "linear"
+						time   = "time"
+					}
+
+					Axis struct {
+						key   string
+						type  TickType??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("TickTypeToPB(*r.Type)")
+				content.ToContain("val, err := TickTypeFromPB(pb.Type)")
+				content.ToContain("r.Type = &val")
+				content.ToNotContain("TickTypeToPB(r.Type)")
+				content.ToNotContain("r.Type = TickTypeFromPB(pb.Type)")
+			})
+
+			It("Should deref the pointer on forward and rebind on backward for hard-optional integer enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Level enum {
+						low    = 0
+						medium = 1
+						high   = 2
+					}
+
+					Item struct {
+						key   string
+						level Level??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("LevelToPB(*r.Level)")
+				content.ToContain("val, err := LevelFromPB(pb.Level)")
+				content.ToContain("r.Level = &val")
+				content.ToNotContain("LevelToPB(r.Level)")
+			})
+		})
+
+		Context("generic struct with all-defaulted type params", func() {
+			It("Should emit a non-generic translator call when every type param is defaulted and no args are provided", func(ctx SpecContext) {
+				// Regression: a field whose type is a generic struct with a
+				// fully-defaulted parameter list (e.g. Bounds<T extends
+				// numeric = float64>) used to short-circuit to a raw
+				// `pb.Bounds = r.Bounds` assignment because the generic
+				// branch required at least one explicit type arg, and the
+				// non-generic branch was guarded behind an early return.
+				// The fix falls through to the regular non-generic
+				// translator call, which matches the Go pb shape that
+				// itself emits a concrete BoundsToPB signature for the
+				// defaulted instantiation.
+				source := `
+					@go output "core/test"
+					@pb
+
+					Bounds struct<T extends numeric = float64> {
+						lower T
+						upper T
+					}
+
+					Axis struct {
+						key    string
+						bounds Bounds
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("BoundsToPB(r.Bounds)")
+				content.ToContain("BoundsFromPB(pb.Bounds)")
+				content.ToNotContain("pb.Bounds = r.Bounds")
+				content.ToNotContain("r.Bounds = pb.Bounds")
+			})
 		})
 
 		Context("struct reference fields", func() {
