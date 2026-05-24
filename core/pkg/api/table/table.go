@@ -108,6 +108,33 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	})
 }
 
+// DispatchRequest carries an action sequence to apply to a single table.
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding on the originator before the request is sent. The server echoes
+// it verbatim on the broadcast frame so the originator can recognize its own
+// echo race-safely.
+type DispatchRequest struct {
+	Key         table.Key      `json:"key" msgpack:"key"`
+	DispatchKey string         `json:"dispatch_key" msgpack:"dispatch_key"`
+	Actions     []table.Action `json:"actions" msgpack:"actions"`
+}
+
+// Dispatch applies the action sequence to the target table atomically.
+// Subscribers to the table action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{table.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	})
+}
+
 type (
 	RetrieveRequest struct {
 		Keys []table.Key `json:"keys" msgpack:"keys"`

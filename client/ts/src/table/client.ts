@@ -11,15 +11,41 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, actionZ } from "@/table/actions.gen";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
+
+export const SET_CHANNEL_NAME = "sy_table_set";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const setDataBodyZ = tableZ.omit({ key: true, name: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
+const dispatchReqZ = z.object({
+  key: keyZ,
+  dispatch_key: z.string(),
+  actions: actionZ.array(),
+});
+
+// The server emits this frame as snake_case JSON, but the framer's JSON codec
+// runs snakeToCamel before handing the value to the schema, so this stays in
+// camelCase. seq is the server's monotonic high-water mark used by the store
+// to drop stale echoes; it defaults to 0 to keep frames from servers that
+// predate the field parseable. dispatchKey is the client-generated batch ID
+// the originator registered as outstanding before sending; the substrate
+// matches the echo against that set to recognize its own dispatches
+// race-safely.
+export const scopedActionZ = z.object({
+  key: keyZ,
+  dispatchKey: z.string(),
+  seq: z.number().int().nonnegative().default(0),
+  actions: actionZ.array(),
+});
+
+export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
+
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -79,6 +105,16 @@ export class Client {
       "/table/set-data",
       { key, data },
       setDataReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      "/table/dispatch",
+      { key, dispatch_key: dispatchKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }

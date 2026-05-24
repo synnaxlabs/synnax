@@ -11,11 +11,13 @@ package table
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Writer is used to create, update, and delete tables within Synnax. The writer
@@ -27,6 +29,15 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	tbl       *gorp.Table[Key, Table]
+	// actionObserver is notified after a successful Dispatch so the cluster
+	// signals subsystem can broadcast the action sequence on the table
+	// channels. Nil when the service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
+	// seq points at the service-level monotonic sequence counter. Each
+	// Dispatch increments it once and stamps the resulting value onto the
+	// emitted ScopedAction so clients can dedupe echoes by ordering rather
+	// than session identity.
+	seq *atomic.Uint64
 }
 
 // Create creates the given table within the workspace provided. If the table does not
@@ -93,6 +104,37 @@ func (w Writer) SetData(
 			data.Name = t.Name
 			return data
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the table with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+		ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+			return Reduce(t, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver == nil {
+		return nil
+	}
+	w.actionObserver.Notify(ctx, ScopedAction{
+		Key:         key,
+		DispatchKey: dispatchKey,
+		Seq:         w.seq.Add(1),
+		Actions:     actions,
+	})
+	return nil
 }
 
 // Delete deletes the tables with the given keys.

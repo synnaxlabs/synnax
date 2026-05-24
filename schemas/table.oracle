@@ -85,6 +85,82 @@ Table struct {
         @ts preserve_case
     }
 
+    action Rename {
+        name string
+
+        @doc value "renames the table."
+    }
+
+    action AddRow {
+        index uint32
+        size  float64
+        cells Cell[]
+
+        @doc value """
+            inserts a row at the given index with the provided cell values.
+            cells carries one Cell per column in left-to-right order; each
+            cell is added to the table's cells map and its key is appended to
+            the new row's cells list. Out-of-range indices clamp to the end.
+        """
+    }
+
+    action RemoveRow {
+        index uint32
+
+        @doc value """
+            removes the row at the given index. All cells referenced by the
+            removed row are also dropped from the cells map. No-op if the
+            index is out of range.
+        """
+    }
+
+    action AddCol {
+        index uint32
+        size  float64
+        cells Cell[]
+
+        @doc value """
+            inserts a column at the given index with the provided cell values.
+            cells carries one Cell per row in top-to-bottom order; each cell
+            is added to the table's cells map and its key is inserted into
+            the corresponding row's cells list at the column index.
+            Out-of-range indices clamp to the end.
+        """
+    }
+
+    action RemoveCol {
+        index uint32
+
+        @doc value """
+            removes the column at the given index. All cells in that column
+            (across every row) are dropped from the cells map. No-op if the
+            index is out of range.
+        """
+    }
+
+    action ResizeRow {
+        index uint32
+        size  float64
+
+        @doc value "resizes the row at the given index. No-op if the index is out of range."
+    }
+
+    action ResizeCol {
+        index uint32
+        size  float64
+
+        @doc value "resizes the column at the given index. No-op if the index is out of range."
+    }
+
+    action SetCell {
+        cell Cell
+
+        @doc value """
+            replaces the cell at cell.key with the provided value. No-op if
+            no cell with that key exists in the table.
+        """
+    }
+
     @doc value     """
         is a tabular data display component for viewing structured telemetry
         data. Tables support multiple columns, channel data sources, and
