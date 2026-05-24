@@ -23,7 +23,7 @@ import (
 
 func TestPlugin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Suite")
+	RunSpecs(t, "Plugin Suite")
 }
 
 var _ = Describe("Check Utilities", func() {

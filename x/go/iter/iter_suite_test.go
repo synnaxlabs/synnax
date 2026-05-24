@@ -18,5 +18,5 @@ import (
 
 func TestIter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Iter Suite")
+	RunSpecs(t, "Iter Suite")
 }

@@ -19,7 +19,7 @@ import (
 
 func TestKV(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen KV Suite")
+	RunSpecs(t, "KV Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

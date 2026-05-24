@@ -18,5 +18,5 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Analyzer Types Suite")
+	RunSpecs(t, "Analyzer Types Suite")
 }

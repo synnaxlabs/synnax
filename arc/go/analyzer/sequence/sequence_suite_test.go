@@ -18,5 +18,5 @@ import (
 
 func TestSequence(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Analyzer Sequence Suite")
+	RunSpecs(t, "Analyzer Sequence Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestWasm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL WASM Suite")
+	RunSpecs(t, "STL WASM Suite")
 }

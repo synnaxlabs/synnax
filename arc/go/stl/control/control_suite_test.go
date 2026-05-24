@@ -18,5 +18,5 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL Control Suite")
+	RunSpecs(t, "STL Control Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestParser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Parser Suite")
+	RunSpecs(t, "Parser Suite")
 }

@@ -21,7 +21,7 @@ import (
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Distribution Signals Suite")
+	RunSpecs(t, "Distribution Signals Suite")
 }
 
 var dist mock.Node

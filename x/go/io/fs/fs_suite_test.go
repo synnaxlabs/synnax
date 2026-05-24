@@ -18,5 +18,5 @@ import (
 
 func TestFS(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X IO FS Suite")
+	RunSpecs(t, "IO FS Suite")
 }

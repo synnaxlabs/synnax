@@ -18,5 +18,5 @@ import (
 
 func TestSnapshot(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Snapshot Suite")
+	RunSpecs(t, "Snapshot Suite")
 }

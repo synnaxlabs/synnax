@@ -18,5 +18,5 @@ import (
 
 func TestOverride(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Override Suite")
+	RunSpecs(t, "Override Suite")
 }

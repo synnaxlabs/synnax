@@ -18,5 +18,5 @@ import (
 
 func TestOntology(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Domain Ontology Suite")
+	RunSpecs(t, "Domain Ontology Suite")
 }

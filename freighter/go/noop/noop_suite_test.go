@@ -18,5 +18,5 @@ import (
 
 func TestNoop(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freighter Noop Suite")
+	RunSpecs(t, "Noop Suite")
 }

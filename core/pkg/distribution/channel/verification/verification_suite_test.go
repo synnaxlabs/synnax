@@ -18,5 +18,5 @@ import (
 
 func TestVerification(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Distribution Channel Verification Suite")
+	RunSpecs(t, "Distribution Channel Verification Suite")
 }

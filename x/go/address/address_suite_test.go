@@ -18,5 +18,5 @@ import (
 
 func TestAddress(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Address Suite")
+	RunSpecs(t, "Address Suite")
 }

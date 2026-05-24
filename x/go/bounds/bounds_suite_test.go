@@ -18,5 +18,5 @@ import (
 
 func TestBounds(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Bounds Suite")
+	RunSpecs(t, "Bounds Suite")
 }

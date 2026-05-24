@@ -23,7 +23,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Py Types Suite")
+	RunSpecs(t, "Plugin Py Types Suite")
 }
 
 var _ = Describe("PyFormatter", func() {

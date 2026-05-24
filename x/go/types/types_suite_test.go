@@ -18,5 +18,5 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Types Suite")
+	RunSpecs(t, "Types Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestOS(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X OS Suite")
+	RunSpecs(t, "OS Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestDiagnostics(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Diagnostics Suite")
+	RunSpecs(t, "Diagnostics Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestStore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Store Suite")
+	RunSpecs(t, "Store Suite")
 }

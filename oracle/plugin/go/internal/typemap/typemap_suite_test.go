@@ -18,5 +18,5 @@ import (
 
 func TestTypemap(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Go TypeMap Suite")
+	RunSpecs(t, "Plugin Go TypeMap Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestPlumber(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Confluence Plumber Suite")
+	RunSpecs(t, "Confluence Plumber Suite")
 }

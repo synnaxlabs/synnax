@@ -18,5 +18,5 @@ import (
 
 func TestText(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Text Suite")
+	RunSpecs(t, "Text Suite")
 }

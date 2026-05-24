@@ -18,5 +18,5 @@ import (
 
 func TestTestutil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Compiler Testutil Suite")
+	RunSpecs(t, "Compiler Testutil Suite")
 }

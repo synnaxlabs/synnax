@@ -20,7 +20,7 @@ import (
 
 func TestTSActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin TS Actions Suite")
+	RunSpecs(t, "Plugin TS Actions Suite")
 }
 
 var _ = Describe("TS Actions Plugin", func() {

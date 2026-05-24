@@ -19,7 +19,7 @@ import (
 
 func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen Node Suite")
+	RunSpecs(t, "Node Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

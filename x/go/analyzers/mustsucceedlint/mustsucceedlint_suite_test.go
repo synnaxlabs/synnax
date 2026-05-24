@@ -18,5 +18,5 @@ import (
 
 func TestMustsucceedlint(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Analyzers MustSucceedLint Suite")
+	RunSpecs(t, "Analyzers MustSucceedLint Suite")
 }

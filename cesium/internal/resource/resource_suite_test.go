@@ -19,7 +19,7 @@ import (
 
 func TestResource(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Resource Suite")
+	RunSpecs(t, "Resource Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -28,5 +28,5 @@ var _ = BeforeSuite(func() {
 
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Cmd Suite")
+	RunSpecs(t, "Cmd Suite")
 }

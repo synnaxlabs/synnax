@@ -18,5 +18,5 @@ import (
 
 func TestConsole(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Console Suite")
+	RunSpecs(t, "Console Suite")
 }

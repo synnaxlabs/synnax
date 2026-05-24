@@ -18,5 +18,5 @@ import (
 
 func TestOutput(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Output Suite")
+	RunSpecs(t, "Plugin Output Suite")
 }

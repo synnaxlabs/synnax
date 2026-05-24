@@ -18,5 +18,5 @@ import (
 
 func TestDoc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Domain Doc Suite")
+	RunSpecs(t, "Domain Doc Suite")
 }

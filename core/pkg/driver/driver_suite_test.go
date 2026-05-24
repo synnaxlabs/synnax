@@ -27,7 +27,7 @@ var mockBinaryPath string
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Driver Suite")
+	RunSpecs(t, "Driver Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -18,5 +18,5 @@ import (
 
 func TestValidate(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Validate Suite")
+	RunSpecs(t, "Validate Suite")
 }

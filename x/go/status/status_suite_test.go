@@ -18,5 +18,5 @@ import (
 
 func TestStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Status Suite")
+	RunSpecs(t, "Status Suite")
 }

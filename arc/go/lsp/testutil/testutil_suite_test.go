@@ -18,5 +18,5 @@ import (
 
 func TestTestUtil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc LSP Testutil Suite")
+	RunSpecs(t, "LSP Testutil Suite")
 }

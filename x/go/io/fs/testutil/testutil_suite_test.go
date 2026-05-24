@@ -18,5 +18,5 @@ import (
 
 func TestTestutil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X IO FS Testutil Suite")
+	RunSpecs(t, "IO FS Testutil Suite")
 }

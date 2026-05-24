@@ -18,5 +18,5 @@ import (
 
 func TestSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Symbol Suite")
+	RunSpecs(t, "Symbol Suite")
 }

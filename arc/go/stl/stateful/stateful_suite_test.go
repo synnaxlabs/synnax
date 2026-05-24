@@ -18,5 +18,5 @@ import (
 
 func TestVars(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL Stateful Suite")
+	RunSpecs(t, "STL Stateful Suite")
 }

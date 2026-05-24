@@ -18,5 +18,5 @@ import (
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Distribution Channel Suite")
+	RunSpecs(t, "Distribution Channel Suite")
 }

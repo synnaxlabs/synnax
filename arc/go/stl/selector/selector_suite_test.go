@@ -18,5 +18,5 @@ import (
 
 func TestSelect(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL Selector Suite")
+	RunSpecs(t, "STL Selector Suite")
 }

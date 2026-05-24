@@ -18,5 +18,5 @@ import (
 
 func TestKeywords(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Cpp Keywords Suite")
+	RunSpecs(t, "Plugin Cpp Keywords Suite")
 }

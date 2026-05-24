@@ -20,7 +20,7 @@ import (
 
 func TestPrimitives(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Primitives Suite")
+	RunSpecs(t, "Plugin Primitives Suite")
 }
 
 var _ = Describe("Primitives", func() {

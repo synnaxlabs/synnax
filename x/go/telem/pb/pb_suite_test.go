@@ -18,5 +18,5 @@ import (
 
 func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Telem PB Suite")
+	RunSpecs(t, "Telem PB Suite")
 }

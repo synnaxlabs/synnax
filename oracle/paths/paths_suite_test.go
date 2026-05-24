@@ -18,5 +18,5 @@ import (
 
 func TestPaths(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Paths Suite")
+	RunSpecs(t, "Paths Suite")
 }

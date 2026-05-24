@@ -64,7 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Service Access RBAC Suite")
+	RunSpecs(t, "Service Access RBAC Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

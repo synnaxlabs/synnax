@@ -18,5 +18,5 @@ import (
 
 func TestErrors(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL Errors Suite")
+	RunSpecs(t, "STL Errors Suite")
 }

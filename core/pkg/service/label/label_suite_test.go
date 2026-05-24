@@ -19,7 +19,7 @@ import (
 
 func TestLabel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Service Label Suite")
+	RunSpecs(t, "Service Label Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

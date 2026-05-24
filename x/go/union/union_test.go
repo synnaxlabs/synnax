@@ -20,7 +20,7 @@ import (
 
 func TestUnion(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Union Suite")
+	RunSpecs(t, "Union Suite")
 }
 
 var _ = Describe("MissingPayload", func() {

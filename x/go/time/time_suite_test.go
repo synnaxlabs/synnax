@@ -18,5 +18,5 @@ import (
 
 func TestTime(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Time Suite")
+	RunSpecs(t, "Time Suite")
 }

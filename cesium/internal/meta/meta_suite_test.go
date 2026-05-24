@@ -19,7 +19,7 @@ import (
 
 func TestMeta(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Meta Suite")
+	RunSpecs(t, "Meta Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

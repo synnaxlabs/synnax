@@ -64,5 +64,5 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func TestRole(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Service Access RBAC Role Suite")
+	RunSpecs(t, "Service Access RBAC Role Suite")
 }

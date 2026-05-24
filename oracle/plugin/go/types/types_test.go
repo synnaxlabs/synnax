@@ -23,7 +23,7 @@ import (
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Go Types Suite")
+	RunSpecs(t, "Plugin Go Types Suite")
 }
 
 var _ = Describe("Go Types Plugin", func() {

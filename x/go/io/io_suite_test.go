@@ -18,5 +18,5 @@ import (
 
 func TestIO(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X IO Suite")
+	RunSpecs(t, "IO Suite")
 }

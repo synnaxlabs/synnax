@@ -18,5 +18,5 @@ import (
 
 func TestData(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Set Suite")
+	RunSpecs(t, "Set Suite")
 }

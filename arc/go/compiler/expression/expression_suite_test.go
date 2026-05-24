@@ -187,5 +187,5 @@ func expectSeriesLiteralWithHint(
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Compiler Expression Suite")
+	RunSpecs(t, "Compiler Expression Suite")
 }

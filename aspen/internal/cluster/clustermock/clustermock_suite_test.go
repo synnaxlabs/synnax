@@ -19,7 +19,7 @@ import (
 
 func TestClustermock(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen Cluster ClusterMock Suite")
+	RunSpecs(t, "Cluster ClusterMock Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

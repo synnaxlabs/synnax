@@ -18,5 +18,5 @@ import (
 
 func TestContext(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Analyzer Context Suite")
+	RunSpecs(t, "Analyzer Context Suite")
 }

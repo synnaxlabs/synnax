@@ -18,5 +18,5 @@ import (
 
 func TestCodegen(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Codegen Suite")
+	RunSpecs(t, "Codegen Suite")
 }

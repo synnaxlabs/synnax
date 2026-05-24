@@ -18,5 +18,5 @@ import (
 
 func TestCrypto(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Crypto Suite")
+	RunSpecs(t, "Crypto Suite")
 }

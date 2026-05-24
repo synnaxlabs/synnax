@@ -18,5 +18,5 @@ import (
 
 func TestStratifier(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc Stratifier Suite")
+	RunSpecs(t, "Stratifier Suite")
 }

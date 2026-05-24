@@ -18,5 +18,5 @@ import (
 
 func TestBinary(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Binary Suite")
+	RunSpecs(t, "Binary Suite")
 }

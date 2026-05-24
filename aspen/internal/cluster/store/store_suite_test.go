@@ -19,7 +19,7 @@ import (
 
 func TestStore(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Aspen Cluster Store Suite")
+	RunSpecs(t, "Cluster Store Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

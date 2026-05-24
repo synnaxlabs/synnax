@@ -18,5 +18,5 @@ import (
 
 func TestOp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Telem Op Suite")
+	RunSpecs(t, "Telem Op Suite")
 }

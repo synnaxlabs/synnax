@@ -19,7 +19,7 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Control Suite")
+	RunSpecs(t, "Control Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

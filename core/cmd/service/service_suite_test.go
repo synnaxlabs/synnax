@@ -18,5 +18,5 @@ import (
 
 func TestService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Cmd Service Suite")
+	RunSpecs(t, "Cmd Service Suite")
 }

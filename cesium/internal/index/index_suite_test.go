@@ -19,7 +19,7 @@ import (
 
 func TestIndex(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Index Suite")
+	RunSpecs(t, "Index Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

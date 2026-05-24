@@ -20,7 +20,7 @@ import (
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Migrate Suite")
+	RunSpecs(t, "Migrate Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

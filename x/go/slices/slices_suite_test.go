@@ -18,5 +18,5 @@ import (
 
 func TestSlices(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Slices Suite")
+	RunSpecs(t, "Slices Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestLabel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Label Suite")
+	RunSpecs(t, "Label Suite")
 }

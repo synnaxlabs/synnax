@@ -18,5 +18,5 @@ import (
 
 func TestRand(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Rand Suite")
+	RunSpecs(t, "Rand Suite")
 }

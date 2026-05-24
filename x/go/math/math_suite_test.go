@@ -18,5 +18,5 @@ import (
 
 func TestMath(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Math Suite")
+	RunSpecs(t, "Math Suite")
 }

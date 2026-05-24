@@ -18,5 +18,5 @@ import (
 
 func TestEncoding(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Encoding Suite")
+	RunSpecs(t, "Encoding Suite")
 }

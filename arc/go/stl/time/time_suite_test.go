@@ -18,5 +18,5 @@ import (
 
 func TestTime(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Arc STL Time Suite")
+	RunSpecs(t, "STL Time Suite")
 }

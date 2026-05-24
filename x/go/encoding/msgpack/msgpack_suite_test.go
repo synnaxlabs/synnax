@@ -18,5 +18,5 @@ import (
 
 func TestMsgpack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Encoding MsgPack Suite")
+	RunSpecs(t, "Encoding MsgPack Suite")
 }

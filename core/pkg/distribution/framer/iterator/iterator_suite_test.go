@@ -19,7 +19,7 @@ import (
 
 func TestIterator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Distribution Framer Iterator Suite")
+	RunSpecs(t, "Distribution Framer Iterator Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

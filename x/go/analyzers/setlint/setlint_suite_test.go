@@ -18,5 +18,5 @@ import (
 
 func TestSetlint(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Analyzers SetLint Suite")
+	RunSpecs(t, "Analyzers SetLint Suite")
 }

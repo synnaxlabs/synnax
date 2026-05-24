@@ -18,5 +18,5 @@ import (
 
 func TestGoQuery(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Go Query Suite")
+	RunSpecs(t, "Plugin Go Query Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestPool(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "X Pool Suite")
+	RunSpecs(t, "Pool Suite")
 }

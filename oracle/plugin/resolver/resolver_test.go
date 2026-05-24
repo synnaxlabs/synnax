@@ -22,7 +22,7 @@ import (
 
 func TestResolver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Plugin Resolver Suite")
+	RunSpecs(t, "Plugin Resolver Suite")
 }
 
 // MockImportAdder implements ImportAdder for testing.

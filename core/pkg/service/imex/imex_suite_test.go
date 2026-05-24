@@ -26,7 +26,7 @@ import (
 
 func TestImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Core Service IMEX Suite")
+	RunSpecs(t, "Service IMEX Suite")
 }
 
 const (

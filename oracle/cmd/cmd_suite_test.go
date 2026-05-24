@@ -18,5 +18,5 @@ import (
 
 func TestCmd(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Oracle Cmd Suite")
+	RunSpecs(t, "Cmd Suite")
 }
