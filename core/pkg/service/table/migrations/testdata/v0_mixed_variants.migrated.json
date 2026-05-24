@@ -4,17 +4,11 @@
   "rows": [
     {
       "size": 36,
-      "cells": [
-        "cell1",
-        "cell2"
-      ]
+      "cells": ["cell1", "cell2"]
     },
     {
       "size": 50,
-      "cells": [
-        "cell3",
-        "cell4"
-      ]
+      "cells": ["cell3", "cell4"]
     }
   ],
   "columns": [
