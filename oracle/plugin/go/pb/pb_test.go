@@ -408,11 +408,11 @@ var _ = Describe("Go PB Plugin", func() {
 				content := ExpectContent(resp, "translator.gen.go")
 				content.ToContain("val, err := TickTypeToPB(*r.Type)")
 				content.ToContain("pb.Type = &val")
-				content.ToContain("val, err := TickTypeFromPB(pb.Type)")
+				content.ToContain("val, err := TickTypeFromPB(*pb.Type)")
 				content.ToContain("r.Type = &val")
 				content.ToNotContain("TickTypeToPB(r.Type)")
 				content.ToNotContain("pb.Type, err = TickTypeToPB")
-				content.ToNotContain("r.Type = TickTypeFromPB(pb.Type)")
+				content.ToNotContain("TickTypeFromPB(pb.Type)")
 			})
 
 			It("Should deref the pointer on forward and rebind on backward for hard-optional integer enums", func(ctx SpecContext) {
@@ -436,10 +436,11 @@ var _ = Describe("Go PB Plugin", func() {
 				content := ExpectContent(resp, "translator.gen.go")
 				content.ToContain("val, err := LevelToPB(*r.Level)")
 				content.ToContain("pb.Level = &val")
-				content.ToContain("val, err := LevelFromPB(pb.Level)")
+				content.ToContain("val, err := LevelFromPB(*pb.Level)")
 				content.ToContain("r.Level = &val")
 				content.ToNotContain("LevelToPB(r.Level)")
 				content.ToNotContain("pb.Level, err = LevelToPB")
+				content.ToNotContain("LevelFromPB(pb.Level)")
 			})
 		})
 

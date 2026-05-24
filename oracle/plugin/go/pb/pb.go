@@ -1173,8 +1173,10 @@ func (p *Plugin) generateEnumConversion(
 ) (forward, backward string) {
 	enumName := resolved.Name
 	forwardArg := goField
+	backwardArg := pbField
 	if isHardOptional {
 		forwardArg = "*" + goField
+		backwardArg = "*" + pbField
 	}
 
 	if resolved.Namespace != data.Namespace {
@@ -1185,7 +1187,7 @@ func (p *Plugin) generateEnumConversion(
 				alias := strings.ToLower(resolved.Namespace) + "pb"
 				data.imports.AddInternal(alias, importPath)
 				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
-					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, pbField)
+					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
 			}
 		}
 	}
@@ -1195,7 +1197,7 @@ func (p *Plugin) generateEnumConversion(
 	}
 
 	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
-		fmt.Sprintf("%sFromPB(%s)", enumName, pbField)
+		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
 }
 
 func findEnumPBPath(e resolution.Type, table *resolution.Table) string {
