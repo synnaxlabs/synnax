@@ -37,7 +37,7 @@ import (
 // with a Get they cannot benefit from.
 type filterPersist struct {
 	confluence.BatchSwitch[TxRequest, TxRequest]
-	db         xkv.Atomic
+	db         xkv.DB
 	acceptedTo address.Address
 	rejectedTo address.Address
 	Config
@@ -62,65 +62,52 @@ func (fp *filterPersist) _switch(
 	_ context.Context,
 	b TxRequest,
 	o map[address.Address]TxRequest,
-) (err error) {
+) error {
 	ctx, span := fp.T.Debug(b.Context, "tx-filter-persist")
 	defer span.End()
 
-	var (
-		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
-		rejected = TxRequest{Sender: b.Sender, Context: b.Context, span: b.span}
-	)
+	accepted := TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
+	rejected := TxRequest{Sender: b.Sender, Context: b.Context, span: b.span}
 
-	txn := fp.db.OpenTx()
-	defer func() {
-		if err != nil {
-			err = errors.Combine(err, txn.Close())
-		} else if commitErr := txn.Commit(ctx); commitErr != nil {
-			err = errors.Combine(commitErr, txn.Close())
+	err := xkv.WithTx(ctx, fp.db, func(txn xkv.Tx) error {
+		for _, op := range b.Operations {
+			if !supersedes(ctx, txn, op) {
+				rejected.Operations = append(rejected.Operations, op)
+				continue
+			}
+			if err := op.apply(ctx, txn); err != nil {
+				return err
+			}
+			if err := op.Digest().apply(ctx, txn); err != nil {
+				return err
+			}
+			accepted.Operations = append(accepted.Operations, op)
 		}
-		accepted.done(err)
-	}()
+		return nil
+	})
+	accepted.done(err)
 
-	for _, op := range b.Operations {
-		keep, filterErr := fp.filter(ctx, txn, op)
-		if filterErr != nil {
-			err = filterErr
-			return
-		}
-		if !keep {
-			rejected.Operations = append(rejected.Operations, op)
-			continue
-		}
-		if applyErr := op.apply(ctx, txn); applyErr != nil {
-			err = applyErr
-			return
-		}
-		if digestErr := op.Digest().apply(ctx, txn); digestErr != nil {
-			err = digestErr
-			return
-		}
-		accepted.Operations = append(accepted.Operations, op)
-	}
-
-	if len(accepted.Operations) > 0 {
+	if err == nil && !accepted.empty() {
 		o[fp.acceptedTo] = accepted
 	}
-	if len(rejected.Operations) > 0 {
+	if !rejected.empty() {
 		o[fp.rejectedTo] = rejected
 	}
 	return nil
 }
 
-func (fp *filterPersist) filter(ctx context.Context, r xkv.Reader, op Operation) (bool, error) {
+// supersedes reports whether op should replace the digest stored for op.Key in
+// r. An op supersedes when its version is strictly newer, or when versions tie
+// and its leaseholder wins the higher-key tiebreak. A missing digest is treated
+// as superseded. Any other read error is treated as not-superseding so a
+// transient read failure cannot cause an op to overwrite stored state.
+func supersedes(ctx context.Context, r xkv.Reader, op Operation) bool {
 	dig, err := getDigestFromKV(ctx, r, op.Key)
 	if err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return true, nil
-		}
-		return false, err
+		return errors.Is(err, query.ErrNotFound)
 	}
 	if op.Version.EqualTo(dig.Version) {
-		return op.Leaseholder > dig.Leaseholder, nil
+		return op.Leaseholder > dig.Leaseholder
 	}
-	return op.Version.NewerThan(dig.Version), nil
+	return op.Version.NewerThan(dig.Version)
 }
