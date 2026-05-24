@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -254,7 +255,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
 	if p.isFixedSizeUint8Array(field.Type, data.table) {
 		return fieldData{
-			Name:       toSnakeCase(field.Name),
+			Name:       casing.FieldSnake(field.Name),
 			Doc:        doc.Get(field.Domains),
 			Type:       "bytes",
 			Number:     number,
@@ -271,7 +272,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
 		}
 		return fieldData{
-			Name:       toSnakeCase(field.Name),
+			Name:       casing.FieldSnake(field.Name),
 			Doc:        doc.Get(field.Domains),
 			Type:       wrapperName,
 			Number:     number,
@@ -286,7 +287,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 	}
 
 	return fieldData{
-		Name:       toSnakeCase(field.Name),
+		Name:       casing.FieldSnake(field.Name),
 		Doc:        doc.Get(field.Domains),
 		Type:       protoType,
 		Number:     number,
@@ -570,10 +571,6 @@ func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) 
 
 func getPBName(typ resolution.Type) string {
 	return domain.GetStringFromType(typ, "pb", "name")
-}
-
-func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
 }
 
 func toScreamingSnake(s string) string {

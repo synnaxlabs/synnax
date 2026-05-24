@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -160,7 +161,7 @@ func processField(
 	return fieldData{
 		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
-		JSONName:       lo.SnakeCase(field.Name),
+		JSONName:       casing.FieldSnake(field.Name),
 		IsHardOptional: field.IsHardOptional,
 	}
 }
