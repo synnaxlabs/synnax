@@ -27,3 +27,5 @@ export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;
 export const ZERO_CELL_STATE = v0.ZERO_CELL_STATE;
 export const ZERO_CELL_PROPS = v0.ZERO_TEXT_CELL_PROPS;
 export const stateZ = v0.stateZ;
+export const fromWire = v0.fromWire;
+export const toWire = v0.toWire;

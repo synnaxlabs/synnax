@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
@@ -17,10 +17,9 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
+const setDataBodyZ = tableZ.omit({ key: true, name: true });
+export type SetDataBody = z.input<typeof setDataBodyZ>;
+const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -74,7 +73,7 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
+  async setData(key: Key, data: SetDataBody): Promise<void> {
     await sendRequired(
       this.client,
       "/table/set-data",
@@ -111,3 +110,10 @@ export class Client {
     );
   }
 }
+
+export const ZERO_NEW: New = {
+  name: "",
+  rows: [],
+  columns: [],
+  cells: {},
+};

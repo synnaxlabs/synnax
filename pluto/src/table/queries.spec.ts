@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, table as tableNS } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -31,8 +31,8 @@ describe("table queries", () => {
         layout: {},
       });
       const table = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "retrieve_test",
-        data: {},
       });
 
       const { result } = renderHook(() => Table.useRetrieve({ key: table.key }), {
@@ -51,8 +51,8 @@ describe("table queries", () => {
         layout: {},
       });
       const table = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "cached_table",
-        data: {},
       });
 
       const { result: result1 } = renderHook(
@@ -82,10 +82,10 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
+          ...tableNS.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "created_table",
-          data: {},
         });
       });
 
@@ -110,10 +110,10 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
+          ...tableNS.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "stored_table",
-          data: {},
         });
       });
 
@@ -132,8 +132,8 @@ describe("table queries", () => {
         layout: {},
       });
       const table = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "original_name",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -165,8 +165,8 @@ describe("table queries", () => {
         layout: {},
       });
       const table = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "cache_original",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -198,8 +198,8 @@ describe("table queries", () => {
         layout: {},
       });
       const table = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "delete_single",
-        data: {},
       });
 
       const { result } = renderHook(() => Table.useDelete(), { wrapper });
@@ -219,12 +219,12 @@ describe("table queries", () => {
         layout: {},
       });
       const table1 = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "delete_multi_1",
-        data: {},
       });
       const table2 = await client.tables.create(workspace.key, {
+        ...tableNS.ZERO_NEW,
         name: "delete_multi_2",
-        data: {},
       });
 
       const { result } = renderHook(() => Table.useDelete(), { wrapper });

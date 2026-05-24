@@ -12,7 +12,7 @@ import { DisconnectedError } from "@synnaxlabs/client";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { select } from "@/table/selectors";
-import { type State } from "@/table/slice";
+import { fromWire } from "@/table/slice";
 import { LAYOUT_TYPE } from "@/table/Table";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
@@ -22,7 +22,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
     const table = await client.tables.retrieve({ key });
-    state ??= { ...(table.data as State), key: table.key };
+    state ??= fromWire(table);
     name ??= table.name;
   }
   return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };

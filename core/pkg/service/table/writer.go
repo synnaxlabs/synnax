@@ -78,17 +78,20 @@ func (w Writer) Rename(
 		Exec(ctx, w.tx)
 }
 
-// SetData sets the data of the table with the given key to the provided data.
+// SetData replaces the body of the table with the given key with the provided
+// value. Key and Name are preserved from the existing entry; Rows, Columns,
+// and Cells on data overwrite the stored entry verbatim.
 func (w Writer) SetData(
 	ctx context.Context,
 	key Key,
-	data map[string]any,
+	data Table,
 ) error {
 	return w.tbl.NewUpdate().
 		Where(gorp.MatchKeys[Key, Table](key)).
 		Change(func(_ gorp.Context, t Table) Table {
-			t.Data = data
-			return t
+			data.Key = t.Key
+			data.Name = t.Name
+			return data
 		}).Exec(ctx, w.tx)
 }
 

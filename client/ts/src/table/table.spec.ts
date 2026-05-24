@@ -11,6 +11,7 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { table } from "@/table";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -19,88 +20,109 @@ describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.tables.create(ws.key, {
+      const t = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
         name: "Table",
-        data: { one: 1 },
       });
-      expect(table.name).toEqual("Table");
-      expect(table.key).not.toEqual(uuid.ZERO);
-      expect(table.data.one).toEqual(1);
+      expect(t.name).toEqual("Table");
+      expect(t.key).not.toEqual(uuid.ZERO);
+      const retrieved = await client.tables.retrieve({ key: t.key });
+      expect(retrieved.key).toEqual(t.key);
     });
   });
+
   describe("rename", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.tables.create(ws.key, {
+      const t = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
         name: "Table",
-        data: { one: 1 },
       });
-      await client.tables.rename(table.key, "Table2");
-      const res = await client.tables.retrieve({ key: table.key });
+      await client.tables.rename(t.key, "Table2");
+      const res = await client.tables.retrieve({ key: t.key });
       expect(res.name).toEqual("Table2");
     });
   });
+
   describe("setData", () => {
-    test("set data", async () => {
+    test("set data replaces body fields while preserving key and name", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.tables.create(ws.key, {
+      const t = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
         name: "Table",
-        data: { one: 1 },
       });
-      await client.tables.setData(table.key, { two: 2 });
-      const res = await client.tables.retrieve({ key: table.key });
-      expect(res.data.two).toEqual(2);
+      await client.tables.setData(t.key, {
+        rows: [{ size: 40, cells: ["a", "b"] }],
+        columns: [{ size: 80 }, { size: 100 }],
+        cells: {
+          a: { key: "a", variant: "text", props: { value: "hello" } },
+          b: { key: "b", variant: "value", props: { units: "psi" } },
+        },
+      });
+      const res = await client.tables.retrieve({ key: t.key });
+      expect(res.name).toEqual("Table");
+      expect(res.rows).toHaveLength(1);
+      expect(res.rows[0].cells).toEqual(["a", "b"]);
+      expect(res.columns).toHaveLength(2);
+      expect(res.cells.a.variant).toEqual("text");
+      expect((res.cells.a.props as Record<string, unknown>).value).toEqual("hello");
+      expect(res.cells.b.variant).toEqual("value");
     });
   });
+
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const table = await client.tables.create(ws.key, {
+      const t = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
         name: "Table",
-        data: { one: 1 },
       });
-      await client.tables.delete(table.key);
-      await expect(client.tables.retrieve({ key: table.key })).rejects.toThrow(
+      await client.tables.delete(t.key);
+      await expect(client.tables.retrieve({ key: t.key })).rejects.toThrow(
         NotFoundError,
       );
     });
   });
-  describe("case preservation", () => {
-    test("should preserve key casing in data field on create/retrieve cycle", async () => {
+
+  describe("cell props case preservation", () => {
+    test("preserves arbitrary key casing within cell props values", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const table = await client.tables.create(ws.key, {
+      const t = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
         name: "CaseTest",
-        data: {
-          camelCaseKey: "value1",
-          PascalCaseKey: "value2",
-          snake_case_key: "value3",
-          nested: {
-            innerCamelCase: 123,
-            InnerPascalCase: { deepKey: true },
+        cells: {
+          a: {
+            key: "a",
+            variant: "value",
+            props: {
+              camelCaseKey: "value1",
+              PascalCaseKey: "value2",
+              snake_case_key: "value3",
+              nested: {
+                innerCamelCase: 123,
+                InnerPascalCase: { deepKey: true },
+              },
+            },
           },
         },
       });
-
-      const retrieved = await client.tables.retrieve({ key: table.key });
-
-      const data = retrieved.data as Record<string, unknown>;
-      expect(data.camelCaseKey).toEqual("value1");
-      expect(data.PascalCaseKey).toEqual("value2");
-      expect(data.snake_case_key).toEqual("value3");
-      expect((data.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
+      const retrieved = await client.tables.retrieve({ key: t.key });
+      const props = retrieved.cells.a.props as Record<string, unknown>;
+      expect(props.camelCaseKey).toEqual("value1");
+      expect(props.PascalCaseKey).toEqual("value2");
+      expect(props.snake_case_key).toEqual("value3");
+      expect((props.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
       expect(
         (
-          (data.nested as Record<string, unknown>).InnerPascalCase as Record<
+          (props.nested as Record<string, unknown>).InnerPascalCase as Record<
             string,
             unknown
           >
         ).deepKey,
       ).toEqual(true);
-      expect(Object.keys(data)).toContain("camelCaseKey");
-      expect(Object.keys(data)).toContain("PascalCaseKey");
-      expect(Object.keys(data)).toContain("snake_case_key");
-      expect(Object.keys(data)).not.toContain("camel_case_key");
-      expect(Object.keys(data)).not.toContain("pascal_case_key");
+      expect(Object.keys(props)).toContain("camelCaseKey");
+      expect(Object.keys(props)).toContain("PascalCaseKey");
+      expect(Object.keys(props)).toContain("snake_case_key");
     });
   });
 });
