@@ -66,6 +66,7 @@ import {
   type AxesState,
   type AxisState,
   internalCreate,
+  linePlotBody,
   type LineState,
   setActiveToolbarTab,
   setAxis,
@@ -82,6 +83,7 @@ import {
   setYChannels,
   shouldDisplayAxis,
   type State,
+  stateFromLinePlot,
   storeViewport,
   ZERO_STATE,
 } from "@/lineplot/slice";
@@ -101,7 +103,11 @@ const useSyncComponent = Workspace.createSyncComponent(
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.lineplots.create(workspace, { key, name: la.name, data });
+    await client.lineplots.create(workspace, {
+      key,
+      name: la.name,
+      ...linePlotBody(data),
+    });
   },
 );
 
@@ -509,7 +515,7 @@ const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(stateFromLinePlot(v)),
 });
 
 export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {

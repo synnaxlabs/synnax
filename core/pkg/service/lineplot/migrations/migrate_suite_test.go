@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlot } from "@/lineplot";
-import { stateFromLinePlot } from "@/lineplot/slice";
-import { type Link } from "@/link";
+package migrations_test
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const linePlot = await client.lineplots.retrieve({ key });
-  placeLayout(LinePlot.create({ ...stateFromLinePlot(linePlot), name: linePlot.name }));
-};
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestLinePlotMigrations(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "LinePlot Migrations Suite")
+}

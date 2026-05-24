@@ -54,6 +54,8 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
+export const linePlotBody = latest.linePlotBody;
+export const stateFromLinePlot = latest.stateFromLinePlot;
 
 export const SLICE_NAME = "line";
 
@@ -367,12 +369,8 @@ export const { actions, reducer } = createSlice({
       { payload }: PayloadAction<{ key: string; ruleKey: string | string[] }>,
     ) => {
       const plot = state.plots[payload.key];
-      const keys = array.toArray(payload.ruleKey);
-      plot.rules = plot.rules.map((rule) => ({
-        ...rule,
-        selected: keys.includes(rule.key),
-      }));
-      state.plots[payload.key].toolbar.activeTab = "annotations";
+      plot.selectedRules = array.toArray(payload.ruleKey);
+      plot.toolbar.activeTab = "annotations";
     },
     setMeasureMode: (state, { payload }: PayloadAction<SetMeasureModePayload>) => {
       state.plots[payload.key].measure.mode = payload.mode;

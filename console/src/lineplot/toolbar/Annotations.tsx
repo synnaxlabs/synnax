@@ -26,7 +26,12 @@ import { useDispatch } from "react-redux";
 import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
-import { useSelectAxes, useSelectRule, useSelectRules } from "@/lineplot/selectors";
+import {
+  useSelectAxes,
+  useSelectRule,
+  useSelectRules,
+  useSelectSelectedRules,
+} from "@/lineplot/selectors";
 import { removeRule, type RuleState, setRule, setSelectedRule } from "@/lineplot/slice";
 
 interface EmptyContentProps {
@@ -219,9 +224,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const axes = useSelectAxes(linePlotKey);
   const rules = useSelectRules(linePlotKey);
   const theme = Layout.useSelectTheme();
-  const selectedRuleKeys = rules
-    .filter((rule) => rule.selected)
-    .map((rule) => rule.key);
+  const selectedRuleKeys = useSelectSelectedRules(linePlotKey);
   const dispatch = useDispatch();
   const setSelectedRuleKeys = (keys: string[]): void => {
     dispatch(setSelectedRule({ key: linePlotKey, ruleKey: keys }));

@@ -13,20 +13,668 @@ package pb
 
 import (
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"google.golang.org/protobuf/types/known/structpb"
+	"github.com/synnaxlabs/x/errors"
+	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 )
+
+// TitleToPB converts Title to Title.
+func TitleToPB(r lineplot.Title) (*Title, error) {
+	levelVal, err := TextLevelToPB(r.Level)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Title{
+		Visible: r.Visible,
+		Level:   levelVal,
+	}
+	return pb, nil
+}
+
+// TitleFromPB converts Title to Title.
+func TitleFromPB(pb *Title) (lineplot.Title, error) {
+	var r lineplot.Title
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Level, err = TextLevelFromPB(pb.Level)
+	if err != nil {
+		return lineplot.Title{}, err
+	}
+	r.Visible = pb.Visible
+	return r, nil
+}
+
+// TitlesToPB converts a slice of Title to Title.
+func TitlesToPB(rs []lineplot.Title) ([]*Title, error) {
+	result := make([]*Title, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TitleToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TitlesFromPB converts a slice of Title to Title.
+func TitlesFromPB(pbs []*Title) ([]lineplot.Title, error) {
+	result := make([]lineplot.Title, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TitleFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LegendToPB converts Legend to Legend.
+func LegendToPB(r lineplot.Legend) (*Legend, error) {
+	positionVal, err := spatialpb.StickyXYToPB(r.Position)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Legend{
+		Visible:  r.Visible,
+		Position: positionVal,
+	}
+	return pb, nil
+}
+
+// LegendFromPB converts Legend to Legend.
+func LegendFromPB(pb *Legend) (lineplot.Legend, error) {
+	var r lineplot.Legend
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Position, err = spatialpb.StickyXYFromPB(pb.Position)
+	if err != nil {
+		return lineplot.Legend{}, err
+	}
+	r.Visible = pb.Visible
+	return r, nil
+}
+
+// LegendsToPB converts a slice of Legend to Legend.
+func LegendsToPB(rs []lineplot.Legend) ([]*Legend, error) {
+	result := make([]*Legend, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = LegendToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LegendsFromPB converts a slice of Legend to Legend.
+func LegendsFromPB(pbs []*Legend) ([]lineplot.Legend, error) {
+	result := make([]lineplot.Legend, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = LegendFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChannelsToPB converts Channels to Channels.
+func ChannelsToPB(r lineplot.Channels) (*Channels, error) {
+	pb := &Channels{
+		X1: r.X1,
+		X2: r.X2,
+		Y1: r.Y1,
+		Y2: r.Y2,
+		Y3: r.Y3,
+		Y4: r.Y4,
+	}
+	return pb, nil
+}
+
+// ChannelsFromPB converts Channels to Channels.
+func ChannelsFromPB(pb *Channels) (lineplot.Channels, error) {
+	var r lineplot.Channels
+	if pb == nil {
+		return r, nil
+	}
+	r.X1 = pb.X1
+	r.X2 = pb.X2
+	r.Y1 = pb.Y1
+	r.Y2 = pb.Y2
+	r.Y3 = pb.Y3
+	r.Y4 = pb.Y4
+	return r, nil
+}
+
+// ChannelsListToPB converts a slice of Channels to Channels.
+func ChannelsListToPB(rs []lineplot.Channels) ([]*Channels, error) {
+	result := make([]*Channels, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ChannelsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChannelsListFromPB converts a slice of Channels to Channels.
+func ChannelsListFromPB(pbs []*Channels) ([]lineplot.Channels, error) {
+	result := make([]lineplot.Channels, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ChannelsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangesToPB converts Ranges to Ranges.
+func RangesToPB(r lineplot.Ranges) (*Ranges, error) {
+	pb := &Ranges{
+		X1: lo.Map(r.X1, func(u uuid.UUID, _ int) string { return u.String() }),
+		X2: lo.Map(r.X2, func(u uuid.UUID, _ int) string { return u.String() }),
+	}
+	return pb, nil
+}
+
+// RangesFromPB converts Ranges to Ranges.
+func RangesFromPB(pb *Ranges) (lineplot.Ranges, error) {
+	var r lineplot.Ranges
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.X1, err = func() ([]uuid.UUID, error) {
+		result := make([]uuid.UUID, len(pb.X1))
+		for i, s := range pb.X1 {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = parsed
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return lineplot.Ranges{}, err
+	}
+	r.X2, err = func() ([]uuid.UUID, error) {
+		result := make([]uuid.UUID, len(pb.X2))
+		for i, s := range pb.X2 {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = parsed
+		}
+		return result, nil
+	}()
+	if err != nil {
+		return lineplot.Ranges{}, err
+	}
+	return r, nil
+}
+
+// RangesListToPB converts a slice of Ranges to Ranges.
+func RangesListToPB(rs []lineplot.Ranges) ([]*Ranges, error) {
+	result := make([]*Ranges, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RangesToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RangesListFromPB converts a slice of Ranges to Ranges.
+func RangesListFromPB(pbs []*Ranges) ([]lineplot.Ranges, error) {
+	result := make([]lineplot.Ranges, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RangesFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutoBoundsToPB converts AutoBounds to AutoBounds.
+func AutoBoundsToPB(r lineplot.AutoBounds) (*AutoBounds, error) {
+	pb := &AutoBounds{
+		Lower: r.Lower,
+		Upper: r.Upper,
+	}
+	return pb, nil
+}
+
+// AutoBoundsFromPB converts AutoBounds to AutoBounds.
+func AutoBoundsFromPB(pb *AutoBounds) (lineplot.AutoBounds, error) {
+	var r lineplot.AutoBounds
+	if pb == nil {
+		return r, nil
+	}
+	r.Lower = pb.Lower
+	r.Upper = pb.Upper
+	return r, nil
+}
+
+// AutoBoundsListToPB converts a slice of AutoBounds to AutoBounds.
+func AutoBoundsListToPB(rs []lineplot.AutoBounds) ([]*AutoBounds, error) {
+	result := make([]*AutoBounds, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AutoBoundsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AutoBoundsListFromPB converts a slice of AutoBounds to AutoBounds.
+func AutoBoundsListFromPB(pbs []*AutoBounds) ([]lineplot.AutoBounds, error) {
+	result := make([]lineplot.AutoBounds, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AutoBoundsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AxisToPB converts Axis to Axis.
+func AxisToPB(r lineplot.Axis) (*Axis, error) {
+	keyVal, err := AxisKeyToPB(r.Key)
+	if err != nil {
+		return nil, err
+	}
+	labelDirectionVal, err := spatialpb.DirectionToPB(r.LabelDirection)
+	if err != nil {
+		return nil, err
+	}
+	labelLevelVal, err := TextLevelToPB(r.LabelLevel)
+	if err != nil {
+		return nil, err
+	}
+	boundsVal, err := spatialpb.BoundsToPB(r.Bounds)
+	if err != nil {
+		return nil, err
+	}
+	autoBoundsVal, err := AutoBoundsToPB(r.AutoBounds)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Axis{
+		Label:          r.Label,
+		TickSpacing:    r.TickSpacing,
+		Key:            keyVal,
+		LabelDirection: labelDirectionVal,
+		LabelLevel:     labelLevelVal,
+		Bounds:         boundsVal,
+		AutoBounds:     autoBoundsVal,
+	}
+	if r.Type != nil {
+		val, err := TickTypeToPB(*r.Type)
+		if err != nil {
+			return nil, err
+		}
+		pb.Type = &val
+	}
+	return pb, nil
+}
+
+// AxisFromPB converts Axis to Axis.
+func AxisFromPB(pb *Axis) (lineplot.Axis, error) {
+	var r lineplot.Axis
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = AxisKeyFromPB(pb.Key)
+	if err != nil {
+		return lineplot.Axis{}, err
+	}
+	r.LabelDirection, err = spatialpb.DirectionFromPB(pb.LabelDirection)
+	if err != nil {
+		return lineplot.Axis{}, err
+	}
+	r.LabelLevel, err = TextLevelFromPB(pb.LabelLevel)
+	if err != nil {
+		return lineplot.Axis{}, err
+	}
+	r.Bounds, err = spatialpb.BoundsFromPB(pb.Bounds)
+	if err != nil {
+		return lineplot.Axis{}, err
+	}
+	r.AutoBounds, err = AutoBoundsFromPB(pb.AutoBounds)
+	if err != nil {
+		return lineplot.Axis{}, err
+	}
+	r.Label = pb.Label
+	r.TickSpacing = pb.TickSpacing
+	if pb.Type != nil {
+		val, err := TickTypeFromPB(*pb.Type)
+		if err != nil {
+			return lineplot.Axis{}, err
+		}
+		r.Type = &val
+	}
+	return r, nil
+}
+
+// AxisesToPB converts a slice of Axis to Axis.
+func AxisesToPB(rs []lineplot.Axis) ([]*Axis, error) {
+	result := make([]*Axis, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AxisToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AxisesFromPB converts a slice of Axis to Axis.
+func AxisesFromPB(pbs []*Axis) ([]lineplot.Axis, error) {
+	result := make([]lineplot.Axis, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AxisFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AxesToPB converts Axes to Axes.
+func AxesToPB(r lineplot.Axes) (*Axes, error) {
+	x1Val, err := AxisToPB(r.X1)
+	if err != nil {
+		return nil, err
+	}
+	x2Val, err := AxisToPB(r.X2)
+	if err != nil {
+		return nil, err
+	}
+	y1Val, err := AxisToPB(r.Y1)
+	if err != nil {
+		return nil, err
+	}
+	y2Val, err := AxisToPB(r.Y2)
+	if err != nil {
+		return nil, err
+	}
+	y3Val, err := AxisToPB(r.Y3)
+	if err != nil {
+		return nil, err
+	}
+	y4Val, err := AxisToPB(r.Y4)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Axes{
+		X1: x1Val,
+		X2: x2Val,
+		Y1: y1Val,
+		Y2: y2Val,
+		Y3: y3Val,
+		Y4: y4Val,
+	}
+	return pb, nil
+}
+
+// AxesFromPB converts Axes to Axes.
+func AxesFromPB(pb *Axes) (lineplot.Axes, error) {
+	var r lineplot.Axes
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.X1, err = AxisFromPB(pb.X1)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	r.X2, err = AxisFromPB(pb.X2)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	r.Y1, err = AxisFromPB(pb.Y1)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	r.Y2, err = AxisFromPB(pb.Y2)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	r.Y3, err = AxisFromPB(pb.Y3)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	r.Y4, err = AxisFromPB(pb.Y4)
+	if err != nil {
+		return lineplot.Axes{}, err
+	}
+	return r, nil
+}
+
+// AxesListToPB converts a slice of Axes to Axes.
+func AxesListToPB(rs []lineplot.Axes) ([]*Axes, error) {
+	result := make([]*Axes, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AxesToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AxesListFromPB converts a slice of Axes to Axes.
+func AxesListFromPB(pbs []*Axes) ([]lineplot.Axes, error) {
+	result := make([]lineplot.Axes, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AxesFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LineToPB converts Line to Line.
+func LineToPB(r lineplot.Line) (*Line, error) {
+	downsampleModeVal, err := DownsampleModeToPB(r.DownsampleMode)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Line{
+		Key:            r.Key,
+		Color:          r.Color,
+		StrokeWidth:    r.StrokeWidth,
+		Downsample:     r.Downsample,
+		DownsampleMode: downsampleModeVal,
+	}
+	if r.Label != nil {
+		pb.Label = r.Label
+	}
+	return pb, nil
+}
+
+// LineFromPB converts Line to Line.
+func LineFromPB(pb *Line) (lineplot.Line, error) {
+	var r lineplot.Line
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.DownsampleMode, err = DownsampleModeFromPB(pb.DownsampleMode)
+	if err != nil {
+		return lineplot.Line{}, err
+	}
+	r.Key = pb.Key
+	r.Color = pb.Color
+	r.StrokeWidth = pb.StrokeWidth
+	r.Downsample = pb.Downsample
+	if pb.Label != nil {
+		r.Label = pb.Label
+	}
+	return r, nil
+}
+
+// LinesToPB converts a slice of Line to Line.
+func LinesToPB(rs []lineplot.Line) ([]*Line, error) {
+	result := make([]*Line, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = LineToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LinesFromPB converts a slice of Line to Line.
+func LinesFromPB(pbs []*Line) ([]lineplot.Line, error) {
+	result := make([]lineplot.Line, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = LineFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RuleToPB converts Rule to Rule.
+func RuleToPB(r lineplot.Rule) (*Rule, error) {
+	axisVal, err := AxisKeyToPB(r.Axis)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Rule{
+		Key:       r.Key,
+		Label:     r.Label,
+		Color:     r.Color,
+		LineWidth: r.LineWidth,
+		LineDash:  r.LineDash,
+		Units:     r.Units,
+		Position:  r.Position,
+		Axis:      axisVal,
+	}
+	return pb, nil
+}
+
+// RuleFromPB converts Rule to Rule.
+func RuleFromPB(pb *Rule) (lineplot.Rule, error) {
+	var r lineplot.Rule
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Axis, err = AxisKeyFromPB(pb.Axis)
+	if err != nil {
+		return lineplot.Rule{}, err
+	}
+	r.Key = pb.Key
+	r.Label = pb.Label
+	r.Color = pb.Color
+	r.LineWidth = pb.LineWidth
+	r.LineDash = pb.LineDash
+	r.Units = pb.Units
+	r.Position = pb.Position
+	return r, nil
+}
+
+// RulesToPB converts a slice of Rule to Rule.
+func RulesToPB(rs []lineplot.Rule) ([]*Rule, error) {
+	result := make([]*Rule, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RuleToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RulesFromPB converts a slice of Rule to Rule.
+func RulesFromPB(pbs []*Rule) ([]lineplot.Rule, error) {
+	result := make([]lineplot.Rule, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RuleFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // LinePlotToPB converts LinePlot to LinePlot.
 func LinePlotToPB(r lineplot.LinePlot) (*LinePlot, error) {
-	dataVal, err := structpb.NewStruct(r.Data)
+	titleVal, err := TitleToPB(r.Title)
+	if err != nil {
+		return nil, err
+	}
+	legendVal, err := LegendToPB(r.Legend)
+	if err != nil {
+		return nil, err
+	}
+	channelsVal, err := ChannelsToPB(r.Channels)
+	if err != nil {
+		return nil, err
+	}
+	rangesVal, err := RangesToPB(r.Ranges)
+	if err != nil {
+		return nil, err
+	}
+	axesVal, err := AxesToPB(r.Axes)
+	if err != nil {
+		return nil, err
+	}
+	linesVal, err := LinesToPB(r.Lines)
+	if err != nil {
+		return nil, err
+	}
+	rulesVal, err := RulesToPB(r.Rules)
 	if err != nil {
 		return nil, err
 	}
 	pb := &LinePlot{
-		Name: r.Name,
-		Key:  r.Key.String(),
-		Data: dataVal,
+		Name:     r.Name,
+		Key:      r.Key.String(),
+		Title:    titleVal,
+		Legend:   legendVal,
+		Channels: channelsVal,
+		Ranges:   rangesVal,
+		Axes:     axesVal,
+		Lines:    linesVal,
+		Rules:    rulesVal,
 	}
 	return pb, nil
 }
@@ -43,7 +691,34 @@ func LinePlotFromPB(pb *LinePlot) (lineplot.LinePlot, error) {
 		return lineplot.LinePlot{}, err
 	}
 	r.Key = lineplot.Key(parsedKey)
-	r.Data = pb.Data.AsMap()
+	r.Title, err = TitleFromPB(pb.Title)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Legend, err = LegendFromPB(pb.Legend)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Channels, err = ChannelsFromPB(pb.Channels)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Ranges, err = RangesFromPB(pb.Ranges)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Axes, err = AxesFromPB(pb.Axes)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Lines, err = LinesFromPB(pb.Lines)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
+	r.Rules, err = RulesFromPB(pb.Rules)
+	if err != nil {
+		return lineplot.LinePlot{}, err
+	}
 	r.Name = pb.Name
 	return r, nil
 }
@@ -72,4 +747,136 @@ func LinePlotsFromPB(pbs []*LinePlot) ([]lineplot.LinePlot, error) {
 		}
 	}
 	return result, nil
+}
+
+// AxisKeyToPB converts lineplot.AxisKey to AxisKey.
+func AxisKeyToPB(v lineplot.AxisKey) (AxisKey, error) {
+	switch v {
+	case lineplot.AxisKeyX1:
+		return AxisKey_AXIS_KEY_X_1, nil
+	case lineplot.AxisKeyX2:
+		return AxisKey_AXIS_KEY_X_2, nil
+	case lineplot.AxisKeyY1:
+		return AxisKey_AXIS_KEY_Y_1, nil
+	case lineplot.AxisKeyY2:
+		return AxisKey_AXIS_KEY_Y_2, nil
+	case lineplot.AxisKeyY3:
+		return AxisKey_AXIS_KEY_Y_3, nil
+	case lineplot.AxisKeyY4:
+		return AxisKey_AXIS_KEY_Y_4, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.AxisKey value: %v", v)
+	}
+}
+
+// AxisKeyFromPB converts AxisKey to lineplot.AxisKey.
+func AxisKeyFromPB(v AxisKey) (lineplot.AxisKey, error) {
+	switch v {
+	case AxisKey_AXIS_KEY_X_1:
+		return lineplot.AxisKeyX1, nil
+	case AxisKey_AXIS_KEY_X_2:
+		return lineplot.AxisKeyX2, nil
+	case AxisKey_AXIS_KEY_Y_1:
+		return lineplot.AxisKeyY1, nil
+	case AxisKey_AXIS_KEY_Y_2:
+		return lineplot.AxisKeyY2, nil
+	case AxisKey_AXIS_KEY_Y_3:
+		return lineplot.AxisKeyY3, nil
+	case AxisKey_AXIS_KEY_Y_4:
+		return lineplot.AxisKeyY4, nil
+	default:
+		return lineplot.AxisKey(""), errors.Newf("unrecognized AxisKey value: %v", v)
+	}
+}
+
+// DownsampleModeToPB converts lineplot.DownsampleMode to DownsampleMode.
+func DownsampleModeToPB(v lineplot.DownsampleMode) (DownsampleMode, error) {
+	switch v {
+	case lineplot.DownsampleModeAverage:
+		return DownsampleMode_DOWNSAMPLE_MODE_AVERAGE, nil
+	case lineplot.DownsampleModeDecimate:
+		return DownsampleMode_DOWNSAMPLE_MODE_DECIMATE, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.DownsampleMode value: %v", v)
+	}
+}
+
+// DownsampleModeFromPB converts DownsampleMode to lineplot.DownsampleMode.
+func DownsampleModeFromPB(v DownsampleMode) (lineplot.DownsampleMode, error) {
+	switch v {
+	case DownsampleMode_DOWNSAMPLE_MODE_AVERAGE:
+		return lineplot.DownsampleModeAverage, nil
+	case DownsampleMode_DOWNSAMPLE_MODE_DECIMATE:
+		return lineplot.DownsampleModeDecimate, nil
+	default:
+		return lineplot.DownsampleMode(""), errors.Newf("unrecognized DownsampleMode value: %v", v)
+	}
+}
+
+// TextLevelToPB converts lineplot.TextLevel to TextLevel.
+func TextLevelToPB(v lineplot.TextLevel) (TextLevel, error) {
+	switch v {
+	case lineplot.TextLevelH1:
+		return TextLevel_TEXT_LEVEL_H_1, nil
+	case lineplot.TextLevelH2:
+		return TextLevel_TEXT_LEVEL_H_2, nil
+	case lineplot.TextLevelH3:
+		return TextLevel_TEXT_LEVEL_H_3, nil
+	case lineplot.TextLevelH4:
+		return TextLevel_TEXT_LEVEL_H_4, nil
+	case lineplot.TextLevelH5:
+		return TextLevel_TEXT_LEVEL_H_5, nil
+	case lineplot.TextLevelP:
+		return TextLevel_TEXT_LEVEL_P, nil
+	case lineplot.TextLevelSmall:
+		return TextLevel_TEXT_LEVEL_SMALL, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.TextLevel value: %v", v)
+	}
+}
+
+// TextLevelFromPB converts TextLevel to lineplot.TextLevel.
+func TextLevelFromPB(v TextLevel) (lineplot.TextLevel, error) {
+	switch v {
+	case TextLevel_TEXT_LEVEL_H_1:
+		return lineplot.TextLevelH1, nil
+	case TextLevel_TEXT_LEVEL_H_2:
+		return lineplot.TextLevelH2, nil
+	case TextLevel_TEXT_LEVEL_H_3:
+		return lineplot.TextLevelH3, nil
+	case TextLevel_TEXT_LEVEL_H_4:
+		return lineplot.TextLevelH4, nil
+	case TextLevel_TEXT_LEVEL_H_5:
+		return lineplot.TextLevelH5, nil
+	case TextLevel_TEXT_LEVEL_P:
+		return lineplot.TextLevelP, nil
+	case TextLevel_TEXT_LEVEL_SMALL:
+		return lineplot.TextLevelSmall, nil
+	default:
+		return lineplot.TextLevel(""), errors.Newf("unrecognized TextLevel value: %v", v)
+	}
+}
+
+// TickTypeToPB converts lineplot.TickType to TickType.
+func TickTypeToPB(v lineplot.TickType) (TickType, error) {
+	switch v {
+	case lineplot.TickTypeLinear:
+		return TickType_TICK_TYPE_LINEAR, nil
+	case lineplot.TickTypeTime:
+		return TickType_TICK_TYPE_TIME, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.TickType value: %v", v)
+	}
+}
+
+// TickTypeFromPB converts TickType to lineplot.TickType.
+func TickTypeFromPB(v TickType) (lineplot.TickType, error) {
+	switch v {
+	case TickType_TICK_TYPE_LINEAR:
+		return lineplot.TickTypeLinear, nil
+	case TickType_TICK_TYPE_TIME:
+		return lineplot.TickTypeTime, nil
+	default:
+		return lineplot.TickType(""), errors.Newf("unrecognized TickType value: %v", v)
+	}
 }

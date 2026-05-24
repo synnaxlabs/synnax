@@ -69,17 +69,22 @@ const useCreateLinePlot = ({
   const workspaceID = ids[0];
   const { update } = PLinePlot.useCreate({
     afterSuccess: async ({ data }) => {
-      const { workspace, ...linePlot } = data;
+      const { workspace: _workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
+      placeLayout(
+        LinePlot.create({
+          ...LinePlot.stateFromLinePlot(linePlot),
+          name: linePlot.name,
+        }),
+      );
     },
   });
   return useCallback(
     () =>
       update({
+        ...lineplot.ZERO_NEW,
         workspace: workspaceID.key,
         name: "New Line Plot",
-        data: deep.copy(LinePlot.ZERO_SLICE_STATE),
       }),
     [workspaceID.key],
   );

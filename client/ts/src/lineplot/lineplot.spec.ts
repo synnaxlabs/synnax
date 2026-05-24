@@ -11,9 +11,17 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { lineplot } from "@/lineplot";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
+
+const newPlot = (name: string) => ({ ...lineplot.ZERO_NEW, name });
+
+const bodyOf = (lp: lineplot.LinePlot): lineplot.SetDataBody => {
+  const { key: _k, name: _n, ...body } = lp;
+  return body;
+};
 
 describe("LinePlot", () => {
   describe("create", () => {
@@ -22,13 +30,11 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, {
-        name: "Line Plot",
-        data: { one: 1 },
-      });
+      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
       expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(uuid.ZERO);
-      expect(linePlot.data.one).toEqual(1);
+      expect(linePlot.title.level).toEqual("h4");
+      expect(linePlot.axes.x1.type).toEqual("time");
     });
   });
   describe("rename", () => {
@@ -37,28 +43,36 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, {
-        name: "Line Plot",
-        data: { one: 1 },
-      });
+      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
       await client.lineplots.rename(linePlot.key, "Line Plot2");
       const res = await client.lineplots.retrieve({ key: linePlot.key });
       expect(res.name).toEqual("Line Plot2");
     });
   });
   describe("setData", () => {
-    test("set data", async () => {
+    test("replaces the body while preserving key and name", async () => {
       const ws = await client.workspaces.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, {
-        name: "Line Plot",
-        data: { one: 1 },
-      });
-      await client.lineplots.setData(linePlot.key, { two: 2 });
+      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
+      const next = await client.lineplots.create(ws.key, newPlot("intermediate"));
+      next.title.level = "h2";
+      next.lines = [
+        {
+          key: "l1",
+          color: "#abcdef",
+          strokeWidth: 2,
+          downsample: 1,
+          downsampleMode: "decimate",
+        },
+      ];
+      await client.lineplots.setData(linePlot.key, bodyOf(next));
       const res = await client.lineplots.retrieve({ key: linePlot.key });
-      expect(res.data.two).toEqual(2);
+      expect(res.name).toEqual("Line Plot");
+      expect(res.title.level).toEqual("h2");
+      expect(res.lines).toHaveLength(1);
+      expect(res.lines[0].color).toEqual("#abcdef");
     });
   });
   describe("delete", () => {
@@ -67,54 +81,11 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, {
-        name: "Line Plot",
-        data: { one: 1 },
-      });
+      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve({ key: linePlot.key })).rejects.toThrow(
         NotFoundError,
       );
-    });
-  });
-  describe("case preservation", () => {
-    test("should preserve key casing in data field on create/retrieve cycle", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const linePlot = await client.lineplots.create(ws.key, {
-        name: "CaseTest",
-        data: {
-          camelCaseKey: "value1",
-          PascalCaseKey: "value2",
-          snake_case_key: "value3",
-          nested: {
-            innerCamelCase: 123,
-            InnerPascalCase: { deepKey: true },
-          },
-        },
-      });
-
-      const retrieved = await client.lineplots.retrieve({
-        key: linePlot.key,
-      });
-
-      const data = retrieved.data as Record<string, unknown>;
-      expect(data.camelCaseKey).toEqual("value1");
-      expect(data.PascalCaseKey).toEqual("value2");
-      expect(data.snake_case_key).toEqual("value3");
-      expect((data.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(
-        (
-          (data.nested as Record<string, unknown>).InnerPascalCase as Record<
-            string,
-            unknown
-          >
-        ).deepKey,
-      ).toEqual(true);
-      expect(Object.keys(data)).toContain("camelCaseKey");
-      expect(Object.keys(data)).toContain("PascalCaseKey");
-      expect(Object.keys(data)).toContain("snake_case_key");
-      expect(Object.keys(data)).not.toContain("camel_case_key");
-      expect(Object.keys(data)).not.toContain("pascal_case_key");
     });
   });
 });

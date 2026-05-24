@@ -12,20 +12,374 @@
 package lineplot
 
 import (
-	"encoding/json"
-
+	uuid "github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/spatial"
 )
+
+func (ab AutoBounds) EncodeOrc(w *orc.Writer) error {
+	w.Bool(ab.Lower)
+	w.Bool(ab.Upper)
+	return nil
+}
+
+func (ab *AutoBounds) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if ab.Lower, err = r.Bool(); err != nil {
+		return err
+	}
+	if ab.Upper, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a Axes) EncodeOrc(w *orc.Writer) error {
+	if err := a.X1.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := a.X2.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := a.Y1.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := a.Y2.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := a.Y3.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := a.Y4.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *Axes) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = a.X1.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = a.X2.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = a.Y1.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = a.Y2.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = a.Y3.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = a.Y4.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a Axis) EncodeOrc(w *orc.Writer) error {
+	w.String(string(a.Key))
+	w.String(a.Label)
+	w.String(string(a.LabelDirection))
+	w.String(string(a.LabelLevel))
+	w.Float64(float64(a.Bounds.Lower))
+	w.Float64(float64(a.Bounds.Upper))
+	if err := a.AutoBounds.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Float64(float64(a.TickSpacing))
+	if a.Type != nil {
+		w.Bool(true)
+		w.String(string((*a.Type)))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (a *Axis) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		a.Key = AxisKey(v)
+	}
+	if a.Label, err = r.String(); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		a.LabelDirection = spatial.Direction(v)
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		a.LabelLevel = TextLevel(v)
+	}
+	if a.Bounds.Lower, err = r.Float64(); err != nil {
+		return err
+	}
+	if a.Bounds.Upper, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = a.AutoBounds.DecodeOrc(r); err != nil {
+		return err
+	}
+	if a.TickSpacing, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv TickType
+			{
+				v, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = TickType(v)
+			}
+			a.Type = &hv
+		}
+	}
+	return nil
+}
+
+func (c Channels) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(c.X1))
+	w.Uint32(uint32(c.X2))
+	w.Bool(c.Y1 != nil)
+	if c.Y1 != nil {
+		w.Uint32(uint32(len(c.Y1)))
+		for i := range c.Y1 {
+			w.Uint32(uint32(c.Y1[i]))
+		}
+	}
+	w.Bool(c.Y2 != nil)
+	if c.Y2 != nil {
+		w.Uint32(uint32(len(c.Y2)))
+		for i := range c.Y2 {
+			w.Uint32(uint32(c.Y2[i]))
+		}
+	}
+	w.Bool(c.Y3 != nil)
+	if c.Y3 != nil {
+		w.Uint32(uint32(len(c.Y3)))
+		for i := range c.Y3 {
+			w.Uint32(uint32(c.Y3[i]))
+		}
+	}
+	w.Bool(c.Y4 != nil)
+	if c.Y4 != nil {
+		w.Uint32(uint32(len(c.Y4)))
+		for i := range c.Y4 {
+			w.Uint32(uint32(c.Y4[i]))
+		}
+	}
+	return nil
+}
+
+func (c *Channels) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if c.X1, err = r.Uint32(); err != nil {
+		return err
+	}
+	if c.X2, err = r.Uint32(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Y1 = make([]uint32, n)
+			for i := range c.Y1 {
+				if c.Y1[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Y2 = make([]uint32, n)
+			for i := range c.Y2 {
+				if c.Y2[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Y3 = make([]uint32, n)
+			for i := range c.Y3 {
+				if c.Y3[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			c.Y4 = make([]uint32, n)
+			for i := range c.Y4 {
+				if c.Y4[i], err = r.Uint32(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (lv Legend) EncodeOrc(w *orc.Writer) error {
+	w.Bool(lv.Visible)
+	if err := lv.Position.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (lv *Legend) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if lv.Visible, err = r.Bool(); err != nil {
+		return err
+	}
+	if err = lv.Position.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (lv Line) EncodeOrc(w *orc.Writer) error {
+	w.String(lv.Key)
+	if lv.Label != nil {
+		w.Bool(true)
+		w.String((*lv.Label))
+	} else {
+		w.Bool(false)
+	}
+	w.String(lv.Color)
+	w.Float64(float64(lv.StrokeWidth))
+	w.Uint32(uint32(lv.Downsample))
+	w.String(string(lv.DownsampleMode))
+	return nil
+}
+
+func (lv *Line) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if lv.Key, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			lv.Label = &hv
+		}
+	}
+	if lv.Color, err = r.String(); err != nil {
+		return err
+	}
+	if lv.StrokeWidth, err = r.Float64(); err != nil {
+		return err
+	}
+	if lv.Downsample, err = r.Uint32(); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		lv.DownsampleMode = DownsampleMode(v)
+	}
+	return nil
+}
 
 func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	w.Write(lp.Key[:])
 	w.String(lp.Name)
-	{
-		b, err := json.Marshal(lp.Data)
-		if err != nil {
-			return err
+	if err := lp.Title.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := lp.Legend.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := lp.Channels.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := lp.Ranges.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := lp.Axes.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Bool(lp.Lines != nil)
+	if lp.Lines != nil {
+		w.Uint32(uint32(len(lp.Lines)))
+		for i := range lp.Lines {
+			if err := lp.Lines[i].EncodeOrc(w); err != nil {
+				return err
+			}
 		}
-		w.WriteWithLen(b)
+	}
+	w.Bool(lp.Rules != nil)
+	if lp.Rules != nil {
+		w.Uint32(uint32(len(lp.Rules)))
+		for i := range lp.Rules {
+			if err := lp.Rules[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -38,14 +392,180 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 	if lp.Name, err = r.String(); err != nil {
 		return err
 	}
+	if err = lp.Title.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = lp.Legend.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = lp.Channels.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = lp.Ranges.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = lp.Axes.DecodeOrc(r); err != nil {
+		return err
+	}
 	{
-		b, err := r.ReadWithLen()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lp.Data); err != nil {
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			lp.Lines = make([]Line, n)
+			for i := range lp.Lines {
+				if err = lp.Lines[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
 			return err
 		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			lp.Rules = make([]Rule, n)
+			for i := range lp.Rules {
+				if err = lp.Rules[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (rv Ranges) EncodeOrc(w *orc.Writer) error {
+	w.Bool(rv.X1 != nil)
+	if rv.X1 != nil {
+		w.Uint32(uint32(len(rv.X1)))
+		for i := range rv.X1 {
+			w.Write(rv.X1[i][:])
+		}
+	}
+	w.Bool(rv.X2 != nil)
+	if rv.X2 != nil {
+		w.Uint32(uint32(len(rv.X2)))
+		for i := range rv.X2 {
+			w.Write(rv.X2[i][:])
+		}
+	}
+	return nil
+}
+
+func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.X1 = make([]uuid.UUID, n)
+			for i := range rv.X1 {
+				if _, err := r.Read(rv.X1[i][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.X2 = make([]uuid.UUID, n)
+			for i := range rv.X2 {
+				if _, err := r.Read(rv.X2[i][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (rv Rule) EncodeOrc(w *orc.Writer) error {
+	w.String(rv.Key)
+	w.String(rv.Label)
+	w.String(rv.Color)
+	w.String(string(rv.Axis))
+	w.Float64(float64(rv.LineWidth))
+	w.Float64(float64(rv.LineDash))
+	w.String(rv.Units)
+	w.Float64(float64(rv.Position))
+	return nil
+}
+
+func (rv *Rule) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rv.Key, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Label, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Color, err = r.String(); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.Axis = AxisKey(v)
+	}
+	if rv.LineWidth, err = r.Float64(); err != nil {
+		return err
+	}
+	if rv.LineDash, err = r.Float64(); err != nil {
+		return err
+	}
+	if rv.Units, err = r.String(); err != nil {
+		return err
+	}
+	if rv.Position, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t Title) EncodeOrc(w *orc.Writer) error {
+	w.String(string(t.Level))
+	w.Bool(t.Visible)
+	return nil
+}
+
+func (t *Title) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		t.Level = TextLevel(v)
+	}
+	if t.Visible, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

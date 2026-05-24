@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  lineplot as lineplotClient,
+  NotFoundError,
+} from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -31,8 +35,8 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "retrieve_test",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useRetrieve({ key: plot.key }), {
@@ -51,8 +55,8 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "cached_plot",
-        data: {},
       });
 
       const { result: result1 } = renderHook(
@@ -82,10 +86,10 @@ describe("lineplot queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
+          ...lineplotClient.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "created_plot",
-          data: {},
         });
       });
 
@@ -110,10 +114,10 @@ describe("lineplot queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
+          ...lineplotClient.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "stored_plot",
-          data: {},
         });
       });
 
@@ -133,8 +137,8 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "original_name",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -166,8 +170,8 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "cache_original",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -199,8 +203,8 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "delete_single",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });
@@ -220,12 +224,12 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const plot1 = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "delete_multi_1",
-        data: {},
       });
       const plot2 = await client.lineplots.create(workspace.key, {
+        ...lineplotClient.ZERO_NEW,
         name: "delete_multi_2",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });

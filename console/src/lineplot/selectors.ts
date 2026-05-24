@@ -138,6 +138,12 @@ export const selectRules = (state: StoreState, key: string): RuleState[] =>
 export const useSelectRules = (key: string): RuleState[] =>
   useMemoSelect((state: StoreState) => selectRules(state, key), [key]);
 
+export const selectSelectedRules = (state: StoreState, key: string): string[] =>
+  select(state, key).selectedRules;
+
+export const useSelectSelectedRules = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectSelectedRules(state, key), [key]);
+
 export const selectRule = (
   state: StoreState,
   key: string,

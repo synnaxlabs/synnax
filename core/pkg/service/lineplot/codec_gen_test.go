@@ -21,10 +21,301 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Codec", func() {
+	Describe("AutoBounds", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.AutoBounds) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.AutoBounds
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.AutoBounds{Lower: true, Upper: false}),
+			Entry("zero values", lineplot.AutoBounds{Lower: false, Upper: false}),
+		)
+	})
+	Describe("Axes", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Axes) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Axes
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_3",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    10.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_14",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    21.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_25",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    32.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_36",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    43.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_47",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    54.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_58",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    65.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+			}),
+			Entry("zero values", lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+			}),
+		)
+	})
+	Describe("Axis", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Axis) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Axis
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_2",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    9.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			}),
+			Entry("zero values", lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			}),
+		)
+	})
+	Describe("Channels", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Channels) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Channels
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Channels{
+				X1: 2,
+				X2: 3,
+				Y1: []uint32{4},
+				Y2: []uint32{5},
+				Y3: []uint32{6},
+				Y4: []uint32{7},
+			}),
+			Entry("zero values", lineplot.Channels{
+				X1: 0,
+				X2: 0,
+				Y1: nil,
+				Y2: nil,
+				Y3: nil,
+				Y4: nil,
+			}),
+			Entry("empty collections", lineplot.Channels{
+				X1: 2,
+				X2: 3,
+				Y1: []uint32{},
+				Y2: []uint32{},
+				Y3: []uint32{},
+				Y4: []uint32{},
+			}),
+		)
+	})
+	Describe("Legend", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Legend) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Legend
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Legend{
+				Visible: true,
+				Position: spatial.StickyXY{
+					X: 3.5,
+					Y: 4.5,
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
+				},
+			}),
+			Entry("zero values", lineplot.Legend{
+				Visible: false,
+				Position: spatial.StickyXY{
+					X:     0,
+					Y:     0,
+					Root:  nil,
+					Units: nil,
+				},
+			}),
+		)
+	})
+	Describe("Line", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Line) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Line
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Line{
+				Key:            "test_1",
+				Label:          func() *string { v := string("test_2"); return &v }(),
+				Color:          "test_3",
+				StrokeWidth:    4.5,
+				Downsample:     6,
+				DownsampleMode: lineplot.DownsampleMode("average"),
+			}),
+			Entry("zero values", lineplot.Line{
+				Key:            "",
+				Label:          nil,
+				Color:          "",
+				StrokeWidth:    0,
+				Downsample:     0,
+				DownsampleMode: lineplot.DownsampleMode(""),
+			}),
+		)
+	})
 	Describe("LinePlot", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original lineplot.LinePlot) {
@@ -37,24 +328,700 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", lineplot.LinePlot{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Data: msgpack.EncodedJSON{"key_3": "value_3"},
+				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:  "test_2",
+				Title: lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: true},
+				Legend: lineplot.Legend{
+					Visible: true,
+					Position: spatial.StickyXY{
+						X: 9.5,
+						Y: 10.5,
+						Root: func() *spatial.CornerLocation {
+							v := spatial.CornerLocation{
+								X: spatial.XLocation("left"),
+								Y: spatial.YLocation("top"),
+							}
+							return &v
+						}(),
+						Units: func() *spatial.StickyUnits {
+							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+							return &v
+						}(),
+					},
+				},
+				Channels: lineplot.Channels{
+					X1: 19,
+					X2: 20,
+					Y1: []uint32{21},
+					Y2: []uint32{22},
+					Y3: []uint32{23},
+					Y4: []uint32{24},
+				},
+				Ranges: lineplot.Ranges{
+					X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+					X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+				},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_30",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    37.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_41",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    48.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_52",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    59.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_63",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    70.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_74",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    81.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_85",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    92.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+				},
+				Lines: []lineplot.Line{
+					{
+						Key:            "test_95",
+						Label:          func() *string { v := string("test_96"); return &v }(),
+						Color:          "test_97",
+						StrokeWidth:    98.5,
+						Downsample:     100,
+						DownsampleMode: lineplot.DownsampleMode("average"),
+					},
+				},
+				Rules: []lineplot.Rule{
+					{
+						Key:       "test_102",
+						Label:     "test_103",
+						Color:     "test_104",
+						Axis:      lineplot.AxisKey("x1"),
+						LineWidth: 106.5,
+						LineDash:  107.5,
+						Units:     "test_108",
+						Position:  109.5,
+					},
+				},
 			}),
 			Entry("zero values", lineplot.LinePlot{
-				Key:  uuid.Nil,
-				Name: "",
-				Data: nil,
+				Key:   uuid.Nil,
+				Name:  "",
+				Title: lineplot.Title{Level: lineplot.TextLevel(""), Visible: false},
+				Legend: lineplot.Legend{
+					Visible: false,
+					Position: spatial.StickyXY{
+						X:     0,
+						Y:     0,
+						Root:  nil,
+						Units: nil,
+					},
+				},
+				Channels: lineplot.Channels{
+					X1: 0,
+					X2: 0,
+					Y1: nil,
+					Y2: nil,
+					Y3: nil,
+					Y4: nil,
+				},
+				Ranges: lineplot.Ranges{X1: nil, X2: nil},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
+						Label:          "",
+						LabelDirection: spatial.Direction(""),
+						LabelLevel:     lineplot.TextLevel(""),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						TickSpacing:    0,
+						Type:           nil,
+					},
+				},
+				Lines: nil,
+				Rules: nil,
 			}),
+			Entry("empty collections", lineplot.LinePlot{
+				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:  "test_2",
+				Title: lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: true},
+				Legend: lineplot.Legend{
+					Visible: true,
+					Position: spatial.StickyXY{
+						X: 9.5,
+						Y: 10.5,
+						Root: func() *spatial.CornerLocation {
+							v := spatial.CornerLocation{
+								X: spatial.XLocation("left"),
+								Y: spatial.YLocation("top"),
+							}
+							return &v
+						}(),
+						Units: func() *spatial.StickyUnits {
+							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+							return &v
+						}(),
+					},
+				},
+				Channels: lineplot.Channels{
+					X1: 19,
+					X2: 20,
+					Y1: []uint32{},
+					Y2: []uint32{},
+					Y3: []uint32{},
+					Y4: []uint32{},
+				},
+				Ranges: lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_30",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    37.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_41",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    48.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_52",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    59.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_63",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    70.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_74",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						TickSpacing:    81.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
+						Label:          "test_85",
+						LabelDirection: spatial.Direction("x"),
+						LabelLevel:     lineplot.TextLevel("h1"),
+						Bounds:         spatial.Bounds{},
+						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						TickSpacing:    92.5,
+						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					},
+				},
+				Lines: []lineplot.Line{},
+				Rules: []lineplot.Rule{},
+			}),
+		)
+	})
+	Describe("Ranges", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Ranges) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Ranges
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Ranges{
+				X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+			}),
+			Entry("zero values", lineplot.Ranges{X1: nil, X2: nil}),
+			Entry("empty collections", lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}}),
+		)
+	})
+	Describe("Rule", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Rule) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Rule
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Rule{
+				Key:       "test_1",
+				Label:     "test_2",
+				Color:     "test_3",
+				Axis:      lineplot.AxisKey("x1"),
+				LineWidth: 5.5,
+				LineDash:  6.5,
+				Units:     "test_7",
+				Position:  8.5,
+			}),
+			Entry("zero values", lineplot.Rule{
+				Key:       "",
+				Label:     "",
+				Color:     "",
+				Axis:      lineplot.AxisKey(""),
+				LineWidth: 0,
+				LineDash:  0,
+				Units:     "",
+				Position:  0,
+			}),
+		)
+	})
+	Describe("Title", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.Title) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.Title
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: false}),
+			Entry("zero values", lineplot.Title{Level: lineplot.TextLevel(""), Visible: false}),
 		)
 	})
 })
 
+func BenchmarkEncodeDecodeAutoBounds(b *testing.B) {
+	ab := lineplot.AutoBounds{Lower: true, Upper: false}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ab.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.AutoBounds
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAxes(b *testing.B) {
+	a := lineplot.Axes{
+		X1: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_3",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			TickSpacing:    10.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+		X2: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_14",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			TickSpacing:    21.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+		Y1: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_25",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			TickSpacing:    32.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+		Y2: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_36",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			TickSpacing:    43.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+		Y3: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_47",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			TickSpacing:    54.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+		Y4: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_58",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			TickSpacing:    65.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := a.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Axes
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeAxis(b *testing.B) {
+	a := lineplot.Axis{
+		Key:            lineplot.AxisKey("x1"),
+		Label:          "test_2",
+		LabelDirection: spatial.Direction("x"),
+		LabelLevel:     lineplot.TextLevel("h1"),
+		Bounds:         spatial.Bounds{},
+		AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+		TickSpacing:    9.5,
+		Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := a.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Axis
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeChannels(b *testing.B) {
+	c := lineplot.Channels{
+		X1: 2,
+		X2: 3,
+		Y1: []uint32{4},
+		Y2: []uint32{5},
+		Y3: []uint32{6},
+		Y4: []uint32{7},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := c.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Channels
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLegend(b *testing.B) {
+	lv := lineplot.Legend{
+		Visible: true,
+		Position: spatial.StickyXY{
+			X: 3.5,
+			Y: 4.5,
+			Root: func() *spatial.CornerLocation {
+				v := spatial.CornerLocation{
+					X: spatial.XLocation("left"),
+					Y: spatial.YLocation("top"),
+				}
+				return &v
+			}(),
+			Units: func() *spatial.StickyUnits {
+				v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+				return &v
+			}(),
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Legend
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLine(b *testing.B) {
+	lv := lineplot.Line{
+		Key:            "test_1",
+		Label:          func() *string { v := string("test_2"); return &v }(),
+		Color:          "test_3",
+		StrokeWidth:    4.5,
+		Downsample:     6,
+		DownsampleMode: lineplot.DownsampleMode("average"),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Line
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	lp := lineplot.LinePlot{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Data: msgpack.EncodedJSON{"key_3": "value_3"},
+		Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:  "test_2",
+		Title: lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: true},
+		Legend: lineplot.Legend{
+			Visible: true,
+			Position: spatial.StickyXY{
+				X: 9.5,
+				Y: 10.5,
+				Root: func() *spatial.CornerLocation {
+					v := spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}
+					return &v
+				}(),
+				Units: func() *spatial.StickyUnits {
+					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+					return &v
+				}(),
+			},
+		},
+		Channels: lineplot.Channels{
+			X1: 19,
+			X2: 20,
+			Y1: []uint32{21},
+			Y2: []uint32{22},
+			Y3: []uint32{23},
+			Y4: []uint32{24},
+		},
+		Ranges: lineplot.Ranges{
+			X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+			X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+		},
+		Axes: lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_30",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    37.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_41",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    48.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_52",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    59.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_63",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    70.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_74",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    81.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_85",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    92.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+		},
+		Lines: []lineplot.Line{
+			{
+				Key:            "test_95",
+				Label:          func() *string { v := string("test_96"); return &v }(),
+				Color:          "test_97",
+				StrokeWidth:    98.5,
+				Downsample:     100,
+				DownsampleMode: lineplot.DownsampleMode("average"),
+			},
+		},
+		Rules: []lineplot.Rule{
+			{
+				Key:       "test_102",
+				Label:     "test_103",
+				Color:     "test_104",
+				Axis:      lineplot.AxisKey("x1"),
+				LineWidth: 106.5,
+				LineDash:  107.5,
+				Units:     "test_108",
+				Position:  109.5,
+			},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -71,12 +1038,673 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeRanges(b *testing.B) {
+	rv := lineplot.Ranges{
+		X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Ranges
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRule(b *testing.B) {
+	rv := lineplot.Rule{
+		Key:       "test_1",
+		Label:     "test_2",
+		Color:     "test_3",
+		Axis:      lineplot.AxisKey("x1"),
+		LineWidth: 5.5,
+		LineDash:  6.5,
+		Units:     "test_7",
+		Position:  8.5,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Rule
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeTitle(b *testing.B) {
+	t := lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: false}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := t.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.Title
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeAutoBounds(f *testing.F) {
+	{
+		seed := lineplot.AutoBounds{Lower: true, Upper: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.AutoBounds{Lower: false, Upper: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.AutoBounds
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.AutoBounds
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAxes(f *testing.F) {
+	{
+		seed := lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_3",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    10.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_14",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    21.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_25",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    32.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_36",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    43.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_47",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				TickSpacing:    54.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
+				Label:          "test_58",
+				LabelDirection: spatial.Direction("x"),
+				LabelLevel:     lineplot.TextLevel("h1"),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				TickSpacing:    65.5,
+				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
+				Label:          "",
+				LabelDirection: spatial.Direction(""),
+				LabelLevel:     lineplot.TextLevel(""),
+				Bounds:         spatial.Bounds{},
+				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				TickSpacing:    0,
+				Type:           nil,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Axes
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Axes
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeAxis(f *testing.F) {
+	{
+		seed := lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
+			Label:          "test_2",
+			LabelDirection: spatial.Direction("x"),
+			LabelLevel:     lineplot.TextLevel("h1"),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			TickSpacing:    9.5,
+			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Axis{
+			Key:            lineplot.AxisKey(""),
+			Label:          "",
+			LabelDirection: spatial.Direction(""),
+			LabelLevel:     lineplot.TextLevel(""),
+			Bounds:         spatial.Bounds{},
+			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+			TickSpacing:    0,
+			Type:           nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Axis
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Axis
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeChannels(f *testing.F) {
+	{
+		seed := lineplot.Channels{
+			X1: 2,
+			X2: 3,
+			Y1: []uint32{4},
+			Y2: []uint32{5},
+			Y3: []uint32{6},
+			Y4: []uint32{7},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Channels{
+			X1: 0,
+			X2: 0,
+			Y1: nil,
+			Y2: nil,
+			Y3: nil,
+			Y4: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Channels{
+			X1: 2,
+			X2: 3,
+			Y1: []uint32{},
+			Y2: []uint32{},
+			Y3: []uint32{},
+			Y4: []uint32{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Channels
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Channels
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLegend(f *testing.F) {
+	{
+		seed := lineplot.Legend{
+			Visible: true,
+			Position: spatial.StickyXY{
+				X: 3.5,
+				Y: 4.5,
+				Root: func() *spatial.CornerLocation {
+					v := spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}
+					return &v
+				}(),
+				Units: func() *spatial.StickyUnits {
+					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+					return &v
+				}(),
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Legend{
+			Visible: false,
+			Position: spatial.StickyXY{
+				X:     0,
+				Y:     0,
+				Root:  nil,
+				Units: nil,
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Legend
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Legend
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLine(f *testing.F) {
+	{
+		seed := lineplot.Line{
+			Key:            "test_1",
+			Label:          func() *string { v := string("test_2"); return &v }(),
+			Color:          "test_3",
+			StrokeWidth:    4.5,
+			Downsample:     6,
+			DownsampleMode: lineplot.DownsampleMode("average"),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Line{
+			Key:            "",
+			Label:          nil,
+			Color:          "",
+			StrokeWidth:    0,
+			Downsample:     0,
+			DownsampleMode: lineplot.DownsampleMode(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Line
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Line
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeLinePlot(f *testing.F) {
 	{
 		seed := lineplot.LinePlot{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-			Data: msgpack.EncodedJSON{"key_3": "value_3"},
+			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:  "test_2",
+			Title: lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: true},
+			Legend: lineplot.Legend{
+				Visible: true,
+				Position: spatial.StickyXY{
+					X: 9.5,
+					Y: 10.5,
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
+				},
+			},
+			Channels: lineplot.Channels{
+				X1: 19,
+				X2: 20,
+				Y1: []uint32{21},
+				Y2: []uint32{22},
+				Y3: []uint32{23},
+				Y4: []uint32{24},
+			},
+			Ranges: lineplot.Ranges{
+				X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+				X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
+			},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_30",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    37.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_41",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    48.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_52",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    59.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_63",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    70.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_74",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    81.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_85",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    92.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+			},
+			Lines: []lineplot.Line{
+				{
+					Key:            "test_95",
+					Label:          func() *string { v := string("test_96"); return &v }(),
+					Color:          "test_97",
+					StrokeWidth:    98.5,
+					Downsample:     100,
+					DownsampleMode: lineplot.DownsampleMode("average"),
+				},
+			},
+			Rules: []lineplot.Rule{
+				{
+					Key:       "test_102",
+					Label:     "test_103",
+					Color:     "test_104",
+					Axis:      lineplot.AxisKey("x1"),
+					LineWidth: 106.5,
+					LineDash:  107.5,
+					Units:     "test_108",
+					Position:  109.5,
+				},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -86,9 +1714,194 @@ func FuzzDecodeLinePlot(f *testing.F) {
 	}
 	{
 		seed := lineplot.LinePlot{
-			Key:  uuid.Nil,
-			Name: "",
-			Data: nil,
+			Key:   uuid.Nil,
+			Name:  "",
+			Title: lineplot.Title{Level: lineplot.TextLevel(""), Visible: false},
+			Legend: lineplot.Legend{
+				Visible: false,
+				Position: spatial.StickyXY{
+					X:     0,
+					Y:     0,
+					Root:  nil,
+					Units: nil,
+				},
+			},
+			Channels: lineplot.Channels{
+				X1: 0,
+				X2: 0,
+				Y1: nil,
+				Y2: nil,
+				Y3: nil,
+				Y4: nil,
+			},
+			Ranges: lineplot.Ranges{X1: nil, X2: nil},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
+					Label:          "",
+					LabelDirection: spatial.Direction(""),
+					LabelLevel:     lineplot.TextLevel(""),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    0,
+					Type:           nil,
+				},
+			},
+			Lines: nil,
+			Rules: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.LinePlot{
+			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:  "test_2",
+			Title: lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: true},
+			Legend: lineplot.Legend{
+				Visible: true,
+				Position: spatial.StickyXY{
+					X: 9.5,
+					Y: 10.5,
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
+				},
+			},
+			Channels: lineplot.Channels{
+				X1: 19,
+				X2: 20,
+				Y1: []uint32{},
+				Y2: []uint32{},
+				Y3: []uint32{},
+				Y4: []uint32{},
+			},
+			Ranges: lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_30",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    37.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_41",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    48.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_52",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    59.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_63",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    70.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_74",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					TickSpacing:    81.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
+					Label:          "test_85",
+					LabelDirection: spatial.Direction("x"),
+					LabelLevel:     lineplot.TextLevel("h1"),
+					Bounds:         spatial.Bounds{},
+					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					TickSpacing:    92.5,
+					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				},
+			},
+			Lines: []lineplot.Line{},
+			Rules: []lineplot.Rule{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -108,6 +1921,173 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded lineplot.LinePlot
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRanges(f *testing.F) {
+	{
+		seed := lineplot.Ranges{
+			X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Ranges{X1: nil, X2: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Ranges
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Ranges
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRule(f *testing.F) {
+	{
+		seed := lineplot.Rule{
+			Key:       "test_1",
+			Label:     "test_2",
+			Color:     "test_3",
+			Axis:      lineplot.AxisKey("x1"),
+			LineWidth: 5.5,
+			LineDash:  6.5,
+			Units:     "test_7",
+			Position:  8.5,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Rule{
+			Key:       "",
+			Label:     "",
+			Color:     "",
+			Axis:      lineplot.AxisKey(""),
+			LineWidth: 0,
+			LineDash:  0,
+			Units:     "",
+			Position:  0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Rule
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Rule
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTitle(f *testing.F) {
+	{
+		seed := lineplot.Title{Level: lineplot.TextLevel("h1"), Visible: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.Title{Level: lineplot.TextLevel(""), Visible: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.Title
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.Title
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
