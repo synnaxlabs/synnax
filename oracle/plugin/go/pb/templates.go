@@ -108,6 +108,14 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
 	}
+{{- else if .IsOptionalEnum}}
+	if r.{{.GoName}} != nil {
+		val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &val
+	}
 {{- else}}
 	if r.{{.GoName}} != nil {
 {{- if .HasError}}
@@ -310,6 +318,14 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 	if r.{{.GoName}} != nil {
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
+	}
+{{- else if .IsOptionalEnum}}
+	if r.{{.GoName}} != nil {
+		val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &val
 	}
 {{- else}}
 	if r.{{.GoName}} != nil {

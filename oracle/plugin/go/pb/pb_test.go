@@ -406,10 +406,12 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				content := ExpectContent(resp, "translator.gen.go")
-				content.ToContain("TickTypeToPB(*r.Type)")
+				content.ToContain("val, err := TickTypeToPB(*r.Type)")
+				content.ToContain("pb.Type = &val")
 				content.ToContain("val, err := TickTypeFromPB(pb.Type)")
 				content.ToContain("r.Type = &val")
 				content.ToNotContain("TickTypeToPB(r.Type)")
+				content.ToNotContain("pb.Type, err = TickTypeToPB")
 				content.ToNotContain("r.Type = TickTypeFromPB(pb.Type)")
 			})
 
@@ -432,10 +434,12 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				content := ExpectContent(resp, "translator.gen.go")
-				content.ToContain("LevelToPB(*r.Level)")
+				content.ToContain("val, err := LevelToPB(*r.Level)")
+				content.ToContain("pb.Level = &val")
 				content.ToContain("val, err := LevelFromPB(pb.Level)")
 				content.ToContain("r.Level = &val")
 				content.ToNotContain("LevelToPB(r.Level)")
+				content.ToNotContain("pb.Level, err = LevelToPB")
 			})
 		})
 
