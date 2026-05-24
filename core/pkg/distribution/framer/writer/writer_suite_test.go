@@ -19,7 +19,7 @@ import (
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Writer Suite")
+	RunSpecs(t, "Core Distribution Framer Writer Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

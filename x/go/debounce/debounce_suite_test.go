@@ -18,5 +18,5 @@ import (
 
 func TestDebounce(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Debounce Suite")
+	RunSpecs(t, "X Debounce Suite")
 }

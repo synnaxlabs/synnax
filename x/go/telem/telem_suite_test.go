@@ -24,5 +24,5 @@ var _ = BeforeSuite(func() {
 
 func TestTelem(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Telem Suite")
+	RunSpecs(t, "X Telem Suite")
 }

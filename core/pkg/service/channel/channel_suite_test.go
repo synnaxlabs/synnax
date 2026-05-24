@@ -32,7 +32,7 @@ var (
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Channel Suite")
+	RunSpecs(t, "Core Service Channel Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

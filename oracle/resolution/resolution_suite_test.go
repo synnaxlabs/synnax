@@ -18,5 +18,5 @@ import (
 
 func TestResolution(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Resolution Suite")
+	RunSpecs(t, "Oracle Resolution Suite")
 }

@@ -23,7 +23,7 @@ import (
 
 func TestCppTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ Types Plugin Suite")
+	RunSpecs(t, "Oracle Plugin Cpp Types Suite")
 }
 
 var _ = Describe("CppFormatter", func() {

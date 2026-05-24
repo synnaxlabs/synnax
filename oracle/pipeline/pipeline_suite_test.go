@@ -18,5 +18,5 @@ import (
 
 func TestPipeline(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pipeline Suite")
+	RunSpecs(t, "Oracle Pipeline Suite")
 }

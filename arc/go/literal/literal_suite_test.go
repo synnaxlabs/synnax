@@ -18,5 +18,5 @@ import (
 
 func TestLiteral(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Literal Suite")
+	RunSpecs(t, "Arc Literal Suite")
 }

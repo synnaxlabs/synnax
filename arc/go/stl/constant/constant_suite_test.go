@@ -18,5 +18,5 @@ import (
 
 func TestConstant(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Constant Suite")
+	RunSpecs(t, "Arc STL Constant Suite")
 }

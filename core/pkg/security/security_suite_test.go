@@ -18,5 +18,5 @@ import (
 
 func TestSecurity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Security Suite")
+	RunSpecs(t, "Core Security Suite")
 }

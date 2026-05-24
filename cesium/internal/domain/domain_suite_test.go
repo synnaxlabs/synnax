@@ -19,7 +19,7 @@ import (
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Domain Suite")
+	RunSpecs(t, "Cesium Domain Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

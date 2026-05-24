@@ -18,5 +18,5 @@ import (
 
 func TestSpatial(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Spatial Suite")
+	RunSpecs(t, "X Spatial Suite")
 }

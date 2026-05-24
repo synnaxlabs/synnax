@@ -18,5 +18,5 @@ import (
 
 func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Framer PB Suite")
+	RunSpecs(t, "Core Distribution Framer PB Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestKV(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "KV Suite")
+	RunSpecs(t, "X KV Suite")
 }

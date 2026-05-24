@@ -18,5 +18,5 @@ import (
 
 func TestCompare(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compare Suite")
+	RunSpecs(t, "X Compare Suite")
 }

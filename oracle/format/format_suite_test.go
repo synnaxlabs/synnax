@@ -18,5 +18,5 @@ import (
 
 func TestFormat(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Format Suite")
+	RunSpecs(t, "Oracle Format Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestBit(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Bit Suite")
+	RunSpecs(t, "X Bit Suite")
 }

@@ -27,7 +27,7 @@ var _ = BeforeSuite(func() {
 
 func TestView(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "View Suite")
+	RunSpecs(t, "Core Service View Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

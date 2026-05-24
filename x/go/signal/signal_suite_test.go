@@ -18,5 +18,5 @@ import (
 
 func TestSignal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Signal Suite")
+	RunSpecs(t, "X Signal Suite")
 }

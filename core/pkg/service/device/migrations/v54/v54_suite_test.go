@@ -18,5 +18,5 @@ import (
 
 func TestV54Migration(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Device v54 Migration Suite")
+	RunSpecs(t, "Core Service Device Migrations V54 Suite")
 }

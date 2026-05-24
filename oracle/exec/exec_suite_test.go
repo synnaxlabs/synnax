@@ -18,5 +18,5 @@ import (
 
 func TestExec(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Exec Suite")
+	RunSpecs(t, "Oracle Exec Suite")
 }

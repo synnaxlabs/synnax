@@ -18,5 +18,5 @@ import (
 
 func TestGroup(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Group Suite")
+	RunSpecs(t, "Core Distribution Group Suite")
 }

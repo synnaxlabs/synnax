@@ -18,5 +18,5 @@ import (
 
 func TestLsp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LSP Suite")
+	RunSpecs(t, "Oracle LSP Suite")
 }

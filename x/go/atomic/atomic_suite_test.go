@@ -18,5 +18,5 @@ import (
 
 func TestAtomic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Atomic Suite")
+	RunSpecs(t, "X Atomic Suite")
 }

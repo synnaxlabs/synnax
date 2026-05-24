@@ -35,7 +35,7 @@ var (
 
 func TestUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "User Suite")
+	RunSpecs(t, "Core Service User Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

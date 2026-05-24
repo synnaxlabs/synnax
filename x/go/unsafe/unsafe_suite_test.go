@@ -18,5 +18,5 @@ import (
 
 func TestUnsafe(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Unsafe Suite")
+	RunSpecs(t, "X Unsafe Suite")
 }

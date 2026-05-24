@@ -18,5 +18,5 @@ import (
 
 func TestProgram(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Program Suite")
+	RunSpecs(t, "Arc Program Suite")
 }

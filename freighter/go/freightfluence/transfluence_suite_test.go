@@ -18,5 +18,5 @@ import (
 
 func TestFreightfluence(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Freightfluence Suite")
+	RunSpecs(t, "Freighter Freightfluence Suite")
 }

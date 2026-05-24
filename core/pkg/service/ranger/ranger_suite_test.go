@@ -19,7 +19,7 @@ import (
 
 func TestRanger(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ranger Suite")
+	RunSpecs(t, "Core Service Ranger Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

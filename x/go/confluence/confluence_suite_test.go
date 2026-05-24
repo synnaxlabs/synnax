@@ -19,7 +19,7 @@ import (
 
 func TestConfluence(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Confluence Suite")
+	RunSpecs(t, "X Confluence Suite")
 }
 
 var _ = BeforeSuite(func() {

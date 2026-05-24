@@ -20,7 +20,7 @@ import (
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go PB Plugin Suite")
+	RunSpecs(t, "Oracle Plugin Go PB Suite")
 }
 
 var _ = Describe("Go PB Plugin", func() {

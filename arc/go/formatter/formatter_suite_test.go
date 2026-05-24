@@ -18,5 +18,5 @@ import (
 
 func TestFormatter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Formatter Suite")
+	RunSpecs(t, "Arc Formatter Suite")
 }

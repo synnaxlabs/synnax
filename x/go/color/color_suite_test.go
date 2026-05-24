@@ -18,5 +18,5 @@ import (
 
 func TestColor(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Color Suite")
+	RunSpecs(t, "X Color Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Suite")
+	RunSpecs(t, "Freighter GRPC Suite")
 }

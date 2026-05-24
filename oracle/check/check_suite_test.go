@@ -18,5 +18,5 @@ import (
 
 func TestCheck(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Check Suite")
+	RunSpecs(t, "Oracle Check Suite")
 }

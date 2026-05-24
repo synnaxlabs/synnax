@@ -19,7 +19,7 @@ import (
 
 func TestGossip(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gossip Suite")
+	RunSpecs(t, "Aspen Cluster Gossip Suite")
 }
 
 var _ = BeforeSuite(func() {

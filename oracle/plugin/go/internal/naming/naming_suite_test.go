@@ -18,5 +18,5 @@ import (
 
 func TestNaming(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Naming Suite")
+	RunSpecs(t, "Oracle Plugin Go Naming Suite")
 }

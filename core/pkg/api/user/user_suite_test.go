@@ -32,7 +32,7 @@ import (
 
 func TestAPIUser(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API User Suite")
+	RunSpecs(t, "Core API User Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

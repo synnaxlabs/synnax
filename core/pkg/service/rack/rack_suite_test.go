@@ -19,7 +19,7 @@ import (
 
 func TestRack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Rack Suite")
+	RunSpecs(t, "Core Service Rack Suite")
 }
 
 var _ = BeforeSuite(func() {

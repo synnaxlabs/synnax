@@ -18,5 +18,5 @@ import (
 
 func TestStatement(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Statement Analyzer Suite")
+	RunSpecs(t, "Arc Analyzer Statement Suite")
 }

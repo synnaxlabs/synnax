@@ -18,5 +18,5 @@ import (
 
 func TestStringer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Stringer Suite")
+	RunSpecs(t, "X Stringer Suite")
 }

@@ -19,7 +19,7 @@ import (
 
 func TestPluralize(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pluralize Suite")
+	RunSpecs(t, "X Pluralize Suite")
 }
 
 var _ = Describe("Pluralize", func() {

@@ -20,7 +20,7 @@ import (
 
 func TestSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Symbol Suite")
+	RunSpecs(t, "Core Service Arc Symbol Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

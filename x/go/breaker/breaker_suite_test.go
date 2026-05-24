@@ -18,5 +18,5 @@ import (
 
 func TestBreaker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Breaker Suite")
+	RunSpecs(t, "X Breaker Suite")
 }

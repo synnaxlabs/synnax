@@ -18,5 +18,5 @@ import (
 
 func TestImports(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Imports Suite")
+	RunSpecs(t, "Oracle Plugin Go Imports Suite")
 }

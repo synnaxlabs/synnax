@@ -18,5 +18,5 @@ import (
 
 func TestZyn(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Zyn Suite")
+	RunSpecs(t, "X Zyn Suite")
 }

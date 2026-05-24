@@ -19,7 +19,7 @@ import (
 
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Channel Suite")
+	RunSpecs(t, "Cesium Channel Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
