@@ -10,6 +10,7 @@
 package pb_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1701,6 +1702,107 @@ var _ = Describe("Go PB Plugin", func() {
 						"StatusToPB[control.Details]",
 						"StatusFromPB[control.Details]",
 					)
+			})
+		})
+
+		Context("cross-schema namespace collision", func() {
+			It("Should not emit a non-@pb enum into another schema's pb output when the two schemas share a namespace name", func(ctx SpecContext) {
+				// Two schemas, schemas/text.oracle and schemas/arc/text.oracle,
+				// both derive namespace "text" from DeriveNamespace. The first
+				// declares Level without @pb. The second declares a different
+				// type with @pb. Level must not bleed into arc/text/pb because
+				// the enum's own file lacks @pb opt-in.
+				loader.Add("schemas/text.oracle", `
+					@go output "x/go/text"
+
+					Level enum {
+						h1 = "h1"
+						h2 = "h2"
+					}
+				`)
+				loader.Add("schemas/arc/text.oracle", `
+					@go output "arc/go/text"
+					@pb
+
+					Text struct {
+						content string
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				// Translator file is emitted for the @pb schema only.
+				var translatorFiles []string
+				for _, f := range resp.Files {
+					translatorFiles = append(translatorFiles, f.Path)
+					if strings.HasSuffix(f.Path, "/translator.gen.go") {
+						Expect(string(f.Content)).ToNot(
+							ContainSubstring("Level"),
+							"non-@pb Level enum bled into pb output at %s",
+							f.Path,
+						)
+					}
+				}
+				Expect(translatorFiles).To(ConsistOf("arc/go/text/pb/translator.gen.go"))
+			})
+
+			It("Should emit a translator for a schema that declares @pb but only contains enums", func(ctx SpecContext) {
+				// Schemas that only declare enums must still produce a
+				// translator.gen.go so dependent schemas can call the
+				// foreign converter. Without it, a cross-namespace @pb
+				// field referencing the enum cannot serialize.
+				loader.Add("schemas/text.oracle", `
+					@go output "x/go/text"
+					@pb
+
+					Level enum {
+						h1    = "h1"
+						h2    = "h2"
+						small = "small"
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/translator.gen.go"))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("func LevelToPB"))
+				Expect(content).To(ContainSubstring("func LevelFromPB"))
+				Expect(content).To(ContainSubstring("text.LevelH1"))
+			})
+
+			It("Should import the foreign translator when an @pb struct references a cross-namespace @pb enum", func(ctx SpecContext) {
+				loader.Add("schemas/text.oracle", `
+					@go output "x/go/text"
+					@pb
+
+					Level enum {
+						h1 = "h1"
+						h2 = "h2"
+					}
+				`)
+				loader.Add("schemas/lineplot.oracle", `
+					import "schemas/text"
+
+					@go output "core/lineplot"
+					@pb
+
+					Title struct {
+						level text.Level
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				var lineplotTranslator string
+				for _, f := range resp.Files {
+					if f.Path == "core/lineplot/pb/translator.gen.go" {
+						lineplotTranslator = string(f.Content)
+					}
+				}
+				Expect(lineplotTranslator).ToNot(BeEmpty())
+				// Foreign translator is invoked, not redefined locally.
+				Expect(lineplotTranslator).To(ContainSubstring("textpb.LevelToPB"))
+				Expect(lineplotTranslator).To(ContainSubstring("textpb.LevelFromPB"))
+				Expect(lineplotTranslator).ToNot(ContainSubstring("func LevelToPB"))
 			})
 		})
 	})

@@ -14,19 +14,9 @@ syntax = "proto3";
 package service.lineplot.pb;
 
 import "x/go/spatial/pb/spatial.proto";
+import "x/go/text/pb/text.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/lineplot/pb";
-
-// TextLevel is a typography level identifier shared with the pluto text component.
-enum TextLevel {
-  TEXT_LEVEL_H_1 = 0;
-  TEXT_LEVEL_H_2 = 1;
-  TEXT_LEVEL_H_3 = 2;
-  TEXT_LEVEL_H_4 = 3;
-  TEXT_LEVEL_H_5 = 4;
-  TEXT_LEVEL_P = 5;
-  TEXT_LEVEL_SMALL = 6;
-}
 
 // AxisKey names one of the six fixed plot axes.
 enum AxisKey {
@@ -53,7 +43,7 @@ enum DownsampleMode {
 // Title is the plot title configuration.
 message Title {
   // level is the typography level of the title text.
-  TextLevel level = 1;
+  .x.text.pb.Level level = 1;
   // visible is whether the title is shown above the plot.
   bool visible = 2;
 }
@@ -113,7 +103,7 @@ message Axis {
   // label_direction is the orientation in which the label text is laid out.
   .x.spatial.pb.Direction label_direction = 3;
   // label_level is the typography level of the label.
-  TextLevel label_level = 4;
+  .x.text.pb.Level label_level = 4;
   // bounds is the value-space window of the axis. When the matching entry in auto_bounds
   // is true the field is overwritten locally on every render; otherwise it is the
   // user-set fixed bound.
