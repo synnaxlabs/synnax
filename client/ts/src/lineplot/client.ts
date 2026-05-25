@@ -11,6 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, actionZ } from "@/lineplot/actions.gen";
 import {
   type Axis,
   type AxisKey,
@@ -29,6 +30,26 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 export type SetDataBody = Omit<LinePlot, "key" | "name">;
 const setDataBodyZ = linePlotZ.omit({ key: true, name: true });
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
+const dispatchReqZ = z.object({
+  key: keyZ,
+  dispatch_key: z.string(),
+  actions: actionZ.array(),
+});
+
+// The server emits this frame as snake_case JSON, but the framer's JSON codec
+// runs snakeToCamel before handing the value to the schema, so the fields here
+// stay in camelCase. dispatch_key on the wire becomes dispatchKey here; same
+// for every action payload field that the codec normalizes. Listeners use
+// dispatchKey to skip their own echoes and seq to drop stale ones.
+export const scopedActionZ = z.object({
+  key: keyZ,
+  dispatchKey: z.string(),
+  seq: z.number().int().nonnegative().default(0),
+  actions: actionZ.array(),
+});
+
+export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
+
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -88,6 +109,16 @@ export class Client {
       "/lineplot/set-data",
       { key, data },
       setDataReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await sendRequired(
+      this.client,
+      "/lineplot/dispatch",
+      { key, dispatch_key: dispatchKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }

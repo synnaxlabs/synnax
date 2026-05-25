@@ -11,17 +11,27 @@ package lineplot
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 )
 
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
 	table *gorp.Table[Key, LinePlot]
+	// actionObserver is notified after a successful Dispatch so the cluster
+	// signals subsystem can broadcast the action sequence on the line plot
+	// channels. Nil when the service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
+	// seq is the source for the monotonic sequence number assigned to every
+	// dispatched ScopedAction. Pointer-shared with Service so all writers on a
+	// node draw from the same counter.
+	seq *atomic.Uint64
 }
 
 func (w Writer) Create(
@@ -87,6 +97,37 @@ func (w Writer) SetData(
 			data.Name = p.Name
 			return data
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the line plot with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+			return Reduce(p, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver == nil {
+		return nil
+	}
+	w.actionObserver.Notify(ctx, ScopedAction{
+		Key:         key,
+		DispatchKey: dispatchKey,
+		Seq:         w.seq.Add(1),
+		Actions:     actions,
+	})
+	return nil
 }
 
 func (w Writer) Delete(

@@ -107,6 +107,31 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	})
 }
 
+// DispatchRequest carries an action sequence to apply to a single line plot.
+// DispatchKey identifies the originating client's batch so cluster broadcasts
+// can be deduplicated against the local optimistic update.
+type DispatchRequest struct {
+	Key         lineplot.Key      `json:"key" msgpack:"key"`
+	DispatchKey string            `json:"dispatch_key" msgpack:"dispatch_key"`
+	Actions     []lineplot.Action `json:"actions" msgpack:"actions"`
+}
+
+// Dispatch applies the action sequence to the target line plot atomically.
+// Subscribers to the line plot action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	})
+}
+
 type (
 	RetrieveRequest struct {
 		Keys []lineplot.Key `json:"keys" msgpack:"keys"`

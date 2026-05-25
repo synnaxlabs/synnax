@@ -130,6 +130,7 @@ func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
 		LinePlotDelete:   http.NewUnaryServer[lineplot.DeleteRequest, types.Nil](router, "/api/v1/lineplot/delete"),
 		LinePlotRename:   http.NewUnaryServer[lineplot.RenameRequest, types.Nil](router, "/api/v1/lineplot/rename"),
 		LinePlotSetData:  http.NewUnaryServer[lineplot.SetDataRequest, types.Nil](router, "/api/v1/lineplot/set-data"),
+		LinePlotDispatch: http.NewUnaryServer[lineplot.DispatchRequest, types.Nil](router, "/api/v1/lineplot/dispatch"),
 
 		// LOG
 		LogCreate:   http.NewUnaryServer[log.CreateRequest, log.CreateResponse](router, "/api/v1/log/create"),
