@@ -12,7 +12,7 @@ import { color, direction, location, type spatial, type text } from "@synnaxlabs
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type Shade } from "@/theming/base/theme";
+import { type Theming } from "@/theming";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
@@ -21,7 +21,7 @@ export interface CSSType extends BEM {
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  clickable: (shade?: Shade) => string;
+  clickable: (shade?: Theming.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
@@ -37,8 +37,8 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: ((value: Shade) => string) & ((value?: Shade) => string | false);
-  colorVar: (value?: false | Shade | color.Crude) => string | undefined;
+  shade: ((value: Theming.Shade) => string) & ((value?: Theming.Shade) => string | false);
+  colorVar: (value?: false | Theming.Shade | color.Crude) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
 
