@@ -1224,6 +1224,11 @@ func analyzeOutputRoutingTable(
 
 		if inlineAST := inlineRoutingAST(entry); inlineAST != nil {
 			synth := findSynthInlineByAST(ctx.Scope.Root(), inlineAST)
+			if synth == nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(entry,
+					"internal: synth scope not registered for inline routing body"))
+				return nil, nil, false
+			}
 			sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
 			shell.applyTransitionIntent(sourceOutput, transitionIntent{
 				activateKey:  synth.Name,
