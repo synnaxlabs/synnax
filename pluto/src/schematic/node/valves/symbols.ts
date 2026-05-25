@@ -11,10 +11,10 @@ import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  defineDummyToggle,
-  defineStatic,
-  defineToggle,
-} from "@/schematic/node/common/define";
+  createDummyToggle,
+  createStatic,
+  createToggle,
+} from "@/schematic/node/common/create";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -46,115 +46,115 @@ import { ThreeWayBall } from "@/schematic/node/valves/ThreeWayBall";
 import { Valve } from "@/schematic/node/valves/Valve";
 import { type Theming } from "@/theming";
 
-const angled = defineToggle({
+const angled = createToggle({
   variant: "angledValve",
   name: "Angled",
   label: "Angled Valve",
   Primitive: Angled,
 });
-const angledRelief = defineDummyToggle({
+const angledRelief = createDummyToggle({
   variant: "angledReliefValve",
   name: "Angled Relief",
   label: "Angled Relief Valve",
   Primitive: AngledRelief,
 });
-const angledSpringLoadedRelief = defineDummyToggle({
+const angledSpringLoadedRelief = createDummyToggle({
   variant: "angledSpringLoadedReliefValve",
   name: "Angled Spring Loaded Relief",
   label: "Angled Spring Loaded Relief Valve",
   Primitive: AngledSpringLoadedRelief,
 });
-const ball = defineToggle({
+const ball = createToggle({
   variant: "ballValve",
   name: "Ball",
   label: "Ball Valve",
   Primitive: Ball,
 });
-const breather = defineDummyToggle({
+const breather = createDummyToggle({
   variant: "breatherValve",
   name: "Breather",
   label: "Breather Valve",
   Primitive: Breather,
 });
-const butterflyOne = defineToggle({
+const butterflyOne = createToggle({
   variant: "butterflyValveOne",
   name: "Butterfly (Remote)",
   label: "Butterfly Valve (Remote)",
   Primitive: ButterflyOne,
 });
-const butterflyTwo = defineToggle({
+const butterflyTwo = createToggle({
   variant: "butterflyValveTwo",
   name: "Butterfly (Manual)",
   label: "Butterfly Valve (Manual)",
   Primitive: ButterflyTwo,
 });
-const check = defineStatic({
+const check = createStatic({
   variant: "checkValve",
   name: "Check",
   label: "Check Valve",
   Primitive: Check,
 });
-const checkWithArrow = defineStatic({
+const checkWithArrow = createStatic({
   variant: "checkValveWithArrow",
   name: "Check (Arrow)",
   label: "Check Valve",
   Primitive: CheckWithArrow,
 });
-const electricRegulator = defineStatic({
+const electricRegulator = createStatic({
   variant: "electricRegulator",
   name: "Electric",
   label: "Electric Regulator",
   Primitive: ElectricRegulator,
 });
-const electricRegulatorMotorized = defineStatic({
+const electricRegulatorMotorized = createStatic({
   variant: "electricRegulatorMotorized",
   name: "Motorized",
   label: "Electric Regulator Motorized",
   Primitive: ElectricRegulatorMotorized,
 });
-const fourWay = defineToggle({
+const fourWay = createToggle({
   variant: "fourWayValve",
   name: "Four Way",
   label: "Four Way Valve",
   Primitive: FourWay,
 });
-const gate = defineToggle({
+const gate = createToggle({
   variant: "gateValve",
   name: "Gate",
   label: "Gate Valve",
   Primitive: Gate,
 });
-const isoCheck = defineStatic({
+const isoCheck = createStatic({
   variant: "isoCheckValve",
   name: "ISO Check",
   label: "ISO Check Valve",
   Primitive: IsoCheck,
 });
-const manual = defineDummyToggle({
+const manual = createDummyToggle({
   variant: "manualValve",
   name: "Manual",
   label: "Manual Valve",
   Primitive: Manual,
 });
-const needle = defineDummyToggle({
+const needle = createDummyToggle({
   variant: "needleValve",
   name: "Needle",
   label: "Needle Valve",
   Primitive: Needle,
 });
-const regulator = defineStatic({
+const regulator = createStatic({
   variant: "regulator",
   name: "Regulator",
   label: "Regulator",
   Primitive: Regulator,
 });
-const regulatorManual = defineStatic({
+const regulatorManual = createStatic({
   variant: "regulatorManual",
   name: "Manual",
   label: "Manual Regulator",
   Primitive: RegulatorManual,
 });
-const relief = defineDummyToggle({
+const relief = createDummyToggle({
   variant: "reliefValve",
   name: "Relief",
   label: "Relief Valve",
@@ -187,25 +187,25 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   }),
   zIndex: 4,
 };
-const springLoadedRelief = defineDummyToggle({
+const springLoadedRelief = createDummyToggle({
   variant: "springLoadedReliefValve",
   name: "Spring Loaded Relief",
   label: "Spring Loaded Relief Valve",
   Primitive: SpringLoadedRelief,
 });
-const threeWay = defineToggle({
+const threeWay = createToggle({
   variant: "threeWayValve",
   name: "Three Way",
   label: "Three Way",
   Primitive: ThreeWay,
 });
-const threeWayBall = defineToggle({
+const threeWayBall = createToggle({
   variant: "threeWayBallValve",
   name: "Three-Way Ball",
   label: "Three-Way Ball Valve",
   Primitive: ThreeWayBall,
 });
-const valve = defineToggle({
+const valve = createToggle({
   variant: "valve",
   name: "Generic",
   label: "Valve",

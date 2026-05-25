@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic, defineToggle } from "@/schematic/node/common/define";
+import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Cap } from "@/schematic/node/fittings/Cap";
 import { Filter } from "@/schematic/node/fittings/Filter";
 import { FlowStraightener } from "@/schematic/node/fittings/FlowStraightener";
@@ -24,80 +24,80 @@ import { StrainerCone } from "@/schematic/node/fittings/StrainerCone";
 import { Thruster } from "@/schematic/node/fittings/Thruster";
 import { Vent } from "@/schematic/node/fittings/Vent";
 
-const cap = defineStatic({
+const cap = createStatic({
   variant: "cap",
   name: "Cap",
   label: "Cap",
   Primitive: Cap,
 });
-const filter = defineStatic({
+const filter = createStatic({
   variant: "filter",
   name: "Filter",
   label: "Filter",
   Primitive: Filter,
 });
-const flowStraightener = defineStatic({
+const flowStraightener = createStatic({
   variant: "flowStraightener",
   name: "Flow Straightener",
   label: "Flow Straightener",
   Primitive: FlowStraightener,
 });
-const heaterElement = defineStatic({
+const heaterElement = createStatic({
   variant: "heaterElement",
   name: "Heater",
   label: "Heater Element",
   Primitive: HeaterElement,
 });
-const isoCap = defineStatic({
+const isoCap = createStatic({
   variant: "isoCap",
   name: "ISO Cap",
   label: "ISO Cap",
   Primitive: ISOCap,
 });
-const isoFilter = defineStatic({
+const isoFilter = createStatic({
   variant: "isoFilter",
   name: "ISO Filter",
   label: "ISO Filter",
   Primitive: ISOFilter,
 });
-const nozzle = defineStatic({
+const nozzle = createStatic({
   variant: "nozzle",
   name: "Nozzle",
   label: "Nozzle",
   Primitive: Nozzle,
 });
-const orifice = defineStatic({
+const orifice = createStatic({
   variant: "orifice",
   name: "Orifice",
   label: "Orifice",
   Primitive: Orifice,
 });
-const orificePlate = defineStatic({
+const orificePlate = createStatic({
   variant: "orificePlate",
   name: "Plate",
   label: "Orifice Plate",
   Primitive: OrificePlate,
 });
-const strainer = defineStatic({
+const strainer = createStatic({
   variant: "strainer",
   name: "Strainer",
   label: "Strainer",
   Primitive: Strainer,
 });
-const strainerCone = defineStatic({
+const strainerCone = createStatic({
   variant: "strainerCone",
   name: "Cone",
   label: "Strainer Cone",
   Primitive: StrainerCone,
 });
-const thruster = defineToggle({
+const thruster = createToggle({
   variant: "thruster",
   name: "Thruster",
   label: "Thruster",
   Primitive: Thruster,
   node: "labeled",
 });
-const vent = defineStatic({
+const vent = createStatic({
   variant: "vent",
   name: "Vent",
   label: "Vent",

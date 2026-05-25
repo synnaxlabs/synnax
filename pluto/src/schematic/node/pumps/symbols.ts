@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineToggle } from "@/schematic/node/common/define";
+import { createToggle } from "@/schematic/node/common/create";
 import { Cavity } from "@/schematic/node/pumps/Cavity";
 import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
 import { Compressor } from "@/schematic/node/pumps/Compressor";
@@ -24,79 +24,79 @@ import { Screw } from "@/schematic/node/pumps/Screw";
 import { Turbo } from "@/schematic/node/pumps/Turbo";
 import { Vacuum } from "@/schematic/node/pumps/Vacuum";
 
-const cavity = defineToggle({
+const cavity = createToggle({
   variant: "cavityPump",
   name: "Cavity",
   label: "Cavity Pump",
   Primitive: Cavity,
 });
-const centrifugal = defineToggle({
+const centrifugal = createToggle({
   variant: "centrifugalCompressor",
   name: "Centrifugal Compressor",
   label: "Centrifugal Compressor",
   Primitive: Centrifugal,
 });
-const compressor = defineToggle({
+const compressor = createToggle({
   variant: "compressor",
   name: "Compressor",
   label: "Compressor",
   Primitive: Compressor,
 });
-const diaphragm = defineToggle({
+const diaphragm = createToggle({
   variant: "diaphragmPump",
   name: "Diaphragm Pump",
   label: "Diaphragm Pump",
   Primitive: Diaphragm,
 });
-const ejection = defineToggle({
+const ejection = createToggle({
   variant: "ejectionPump",
   name: "Ejection",
   label: "Ejection Pump",
   Primitive: Ejection,
 });
-const ejector = defineToggle({
+const ejector = createToggle({
   variant: "ejectorCompressor",
   name: "Ejector Compressor",
   label: "Ejector Compressor",
   Primitive: Ejector,
 });
-const liquidRing = defineToggle({
+const liquidRing = createToggle({
   variant: "liquidRingCompressor",
   name: "Liquid Ring Compressor",
   label: "Liquid Ring Compressor",
   Primitive: LiquidRing,
 });
-const piston = defineToggle({
+const piston = createToggle({
   variant: "pistonPump",
   name: "Piston",
   label: "Piston Pump",
   Primitive: Piston,
 });
-const pump = defineToggle({
+const pump = createToggle({
   variant: "pump",
   name: "Pump",
   label: "Pump",
   Primitive: Pump,
 });
-const rollerVane = defineToggle({
+const rollerVane = createToggle({
   variant: "rollerVaneCompressor",
   name: "Roller Vane Compressor",
   label: "Roller Vane Compressor",
   Primitive: RollerVane,
 });
-const screw = defineToggle({
+const screw = createToggle({
   variant: "screwPump",
   name: "Screw",
   label: "Screw Pump",
   Primitive: Screw,
 });
-const turbo = defineToggle({
+const turbo = createToggle({
   variant: "turboCompressor",
   name: "Turbo Compressor",
   label: "Turbo Compressor",
   Primitive: Turbo,
 });
-const vacuum = defineToggle({
+const vacuum = createToggle({
   variant: "vacuumPump",
   name: "Vacuum",
   label: "Vacuum Pump",

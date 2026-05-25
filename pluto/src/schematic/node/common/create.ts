@@ -31,18 +31,10 @@ export interface SymbolArgs<V extends string> {
   zIndex?: number;
 }
 
-/// Definition is the pair produced by every factory: the symbol's discriminated config
-/// schema and its registry Spec. Groups collect these into a REGISTRY map and a
-/// discriminated-union configZ.
-export interface Definition<V extends string, Config extends object> {
-  configZ: z.ZodType<Config>;
-  spec: Spec<V, Config>;
-}
-
-/// defineStatic builds a non-interactive labeled symbol: a styled SVG with a label,
+/// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype
 /// (meters, fittings, safety, process, vessels).
-export const defineStatic = <V extends string>({
+export const createStatic = <V extends string>({
   variant,
   name,
   label,
@@ -81,9 +73,9 @@ interface ToggleArgs<V extends string> extends SymbolArgs<V> {
   node?: "toggle" | "labeled";
 }
 
-/// defineToggle builds an actuator symbol backed by a boolean source/sink with a
+/// createToggle builds an actuator symbol backed by a boolean source/sink with a
 /// control chip, edited via the shared ToggleForm (valves, pumps).
-export const defineToggle = <V extends string>({
+export const createToggle = <V extends string>({
   variant,
   name,
   label,
@@ -119,10 +111,10 @@ export const defineToggle = <V extends string>({
   return { configZ, spec };
 };
 
-/// defineDummyToggle builds a symbol that toggles its appearance purely from local
+/// createDummyToggle builds a symbol that toggles its appearance purely from local
 /// config (enabled/clickable) without binding to telemetry, edited via the shared
 /// DummyToggleForm (manual and relief valves).
-export const defineDummyToggle = <V extends string>({
+export const createDummyToggle = <V extends string>({
   variant,
   name,
   label,

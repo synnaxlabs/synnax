@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic } from "@/schematic/node/common/define";
+import { createStatic } from "@/schematic/node/common/create";
 import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
 import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
 import { FlameArrestorDetonation } from "@/schematic/node/safety/FlameArrestorDetonation";
@@ -18,43 +18,43 @@ import { FlameArrestorFireRes } from "@/schematic/node/safety/FlameArrestorFireR
 import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
 import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
 
-const burstDisc = defineStatic({
+const burstDisc = createStatic({
   variant: "burstDisc",
   name: "Standard",
   label: "Burst Disc",
   Primitive: BurstDisc,
 });
-const flameArrestor = defineStatic({
+const flameArrestor = createStatic({
   variant: "flameArrestor",
   name: "Standard",
   label: "Flame Arrestor",
   Primitive: FlameArrestor,
 });
-const flameArrestorDetonation = defineStatic({
+const flameArrestorDetonation = createStatic({
   variant: "flameArrestorDetonation",
   name: "Detonation-Proof",
   label: "Flame Arrestor (Detonation-Proof)",
   Primitive: FlameArrestorDetonation,
 });
-const flameArrestorExplosion = defineStatic({
+const flameArrestorExplosion = createStatic({
   variant: "flameArrestorExplosion",
   name: "Explosion-Proof",
   label: "Flame Arrestor (Explosion-Proof)",
   Primitive: FlameArrestorExplosion,
 });
-const flameArrestorFireRes = defineStatic({
+const flameArrestorFireRes = createStatic({
   variant: "flameArrestorFireRes",
   name: "Fire Resistant",
   label: "Flame Arrestor (Fire Resistant)",
   Primitive: FlameArrestorFireRes,
 });
-const flameArrestorFireResDetonation = defineStatic({
+const flameArrestorFireResDetonation = createStatic({
   variant: "flameArrestorFireResDetonation",
   name: "Fire Resistant & Detonation-Proof",
   label: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
   Primitive: FlameArrestorFireResDetonation,
 });
-const isoBurstDisc = defineStatic({
+const isoBurstDisc = createStatic({
   variant: "isoBurstDisc",
   name: "ISO",
   label: "ISO Burst Disc",

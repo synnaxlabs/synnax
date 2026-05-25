@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic, defineToggle } from "@/schematic/node/common/define";
+import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Agitator } from "@/schematic/node/process/Agitator";
 import { CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
 import { FlatBladeAgitator } from "@/schematic/node/process/FlatBladeAgitator";
@@ -22,67 +22,67 @@ import { PropellerAgitator } from "@/schematic/node/process/PropellerAgitator";
 import { RotaryMixer } from "@/schematic/node/process/RotaryMixer";
 import { StaticMixer } from "@/schematic/node/process/StaticMixer";
 
-const agitator = defineToggle({
+const agitator = createToggle({
   variant: "agitator",
   name: "Agitator",
   label: "Agitator",
   Primitive: Agitator,
 });
-const crossBeamAgitator = defineToggle({
+const crossBeamAgitator = createToggle({
   variant: "crossBeamAgitator",
   name: "Cross Beam Agitator",
   label: "Cross Beam Agitator",
   Primitive: CrossBeamAgitator,
 });
-const flatBladeAgitator = defineToggle({
+const flatBladeAgitator = createToggle({
   variant: "flatBladeAgitator",
   name: "Flat Blade Agitator",
   label: "Flat Blade Agitator",
   Primitive: FlatBladeAgitator,
 });
-const heatExchangerGeneral = defineStatic({
+const heatExchangerGeneral = createStatic({
   variant: "heatExchangerGeneral",
   name: "Heat Exchanger",
   label: "General Heat Exchanger",
   Primitive: HeatExchangerGeneral,
 });
-const heatExchangerM = defineStatic({
+const heatExchangerM = createStatic({
   variant: "heatExchangerM",
   name: "M-Type Heat Exchanger",
   label: "M Heat Exchanger",
   Primitive: HeatExchangerM,
 });
-const heatExchangerStraightTube = defineStatic({
+const heatExchangerStraightTube = createStatic({
   variant: "heatExchangerStraightTube",
   name: "Straight Tube Heat Exchanger",
   label: "Straight Tube Heat Exchanger",
   Primitive: HeatExchangerStraightTube,
 });
-const helicalAgitator = defineToggle({
+const helicalAgitator = createToggle({
   variant: "helicalAgitator",
   name: "Helical Agitator",
   label: "Helical Agitator",
   Primitive: HelicalAgitator,
 });
-const paddleAgitator = defineToggle({
+const paddleAgitator = createToggle({
   variant: "paddleAgitator",
   name: "Paddle Agitator",
   label: "Paddle Agitator",
   Primitive: PaddleAgitator,
 });
-const propellerAgitator = defineToggle({
+const propellerAgitator = createToggle({
   variant: "propellerAgitator",
   name: "Propeller Agitator",
   label: "Propeller Agitator",
   Primitive: PropellerAgitator,
 });
-const rotaryMixer = defineToggle({
+const rotaryMixer = createToggle({
   variant: "rotaryMixer",
   name: "Rotary Mixer",
   label: "Rotary Mixer",
   Primitive: RotaryMixer,
 });
-const staticMixer = defineStatic({
+const staticMixer = createStatic({
   variant: "staticMixer",
   name: "Static Mixer",
   label: "Static Mixer",

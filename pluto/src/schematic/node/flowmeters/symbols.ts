@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { defineStatic } from "@/schematic/node/common/define";
+import { createStatic } from "@/schematic/node/common/create";
 import { Coriolis } from "@/schematic/node/flowmeters/Coriolis";
 import { Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
 import { FloatSensor } from "@/schematic/node/flowmeters/FloatSensor";
@@ -23,73 +23,73 @@ import { Turbine } from "@/schematic/node/flowmeters/Turbine";
 import { VariableArea } from "@/schematic/node/flowmeters/VariableArea";
 import { Venturi } from "@/schematic/node/flowmeters/Venturi";
 
-const general = defineStatic({
+const general = createStatic({
   variant: "flowmeterGeneral",
   name: "General",
   label: "General Flowmeter",
   Primitive: General,
 });
-const electromagnetic = defineStatic({
+const electromagnetic = createStatic({
   variant: "flowmeterElectromagnetic",
   name: "Electromagnetic",
   label: "Electromagnetic Flowmeter",
   Primitive: Electromagnetic,
 });
-const variableArea = defineStatic({
+const variableArea = createStatic({
   variant: "flowmeterVariableArea",
   name: "Variable Area",
   label: "Variable Area Flowmeter",
   Primitive: VariableArea,
 });
-const coriolis = defineStatic({
+const coriolis = createStatic({
   variant: "flowmeterCoriolis",
   name: "Coriolis",
   label: "Coriolis Flowmeter",
   Primitive: Coriolis,
 });
-const nozzle = defineStatic({
+const nozzle = createStatic({
   variant: "flowmeterNozzle",
   name: "Nozzle",
   label: "Nozzle Flowmeter",
   Primitive: Nozzle,
 });
-const venturi = defineStatic({
+const venturi = createStatic({
   variant: "flowmeterVenturi",
   name: "Venturi",
   label: "Venturi Flowmeter",
   Primitive: Venturi,
 });
-const ringPiston = defineStatic({
+const ringPiston = createStatic({
   variant: "flowmeterRingPiston",
   name: "Ring Piston",
   label: "Ring Piston Flowmeter",
   Primitive: RingPiston,
 });
-const positiveDisplacement = defineStatic({
+const positiveDisplacement = createStatic({
   variant: "flowmeterPositiveDisplacement",
   name: "Positive Displacement",
   label: "Positive Displacement Flowmeter",
   Primitive: PositiveDisplacement,
 });
-const turbine = defineStatic({
+const turbine = createStatic({
   variant: "flowmeterTurbine",
   name: "Turbine",
   label: "Turbine Flowmeter",
   Primitive: Turbine,
 });
-const pulse = defineStatic({
+const pulse = createStatic({
   variant: "flowmeterPulse",
   name: "Pulse",
   label: "Pulse Flowmeter",
   Primitive: Pulse,
 });
-const floatSensor = defineStatic({
+const floatSensor = createStatic({
   variant: "flowmeterFloatSensor",
   name: "Float Sensor",
   label: "Float Sensor Flowmeter",
   Primitive: FloatSensor,
 });
-const orifice = defineStatic({
+const orifice = createStatic({
   variant: "flowmeterOrifice",
   name: "Orifice",
   label: "Orifice Flowmeter",
