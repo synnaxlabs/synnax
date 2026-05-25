@@ -10,12 +10,60 @@
     "renderTrigger": 0,
     "hasHadChannelSet": false,
     "axes": {
-      "x1": { "key": "x1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "x2": { "key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y1": { "key": "y1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y2": { "key": "y2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y3": { "key": "y3", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y4": { "key": "y4", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 }
+      "x1": {
+        "key": "x1",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "x2": {
+        "key": "x2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y1": {
+        "key": "y1",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y2": {
+        "key": "y2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y3": {
+        "key": "y3",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y4": {
+        "key": "y4",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      }
     }
   },
   "lines": [],
