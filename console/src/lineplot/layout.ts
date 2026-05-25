@@ -19,12 +19,11 @@ export type LayoutType = typeof LAYOUT_TYPE;
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 
 // create constructs a Layout for a new or existing line plot. Callers that
-// know the plot already exists on the server (link, ontology select) pass
-// remote: true to skip pendingUpload; callers that are placing a fresh plot
-// or one imported from JSON omit it (default false) so useAutoUpload sends
-// the body to the server on mount. Body field defaults live in useUpload's
-// `?? lineplot.ZERO_NEW.X` fallbacks; a pendingUpload with all fields
-// undefined is the canonical "fresh empty plot" payload.
+// know the plot already exists on the server pass remote: true to skip
+// pendingUpload. Callers placing a fresh plot omit it so useAutoUpload
+// sends the body to the server on mount; a pendingUpload of {} is the
+// canonical "fresh empty plot" payload (useAutoUpload merges with
+// lineplot.ZERO_NEW for unset fields).
 export interface CreateOptions {
   remote?: boolean;
 }

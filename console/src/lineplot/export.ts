@@ -10,31 +10,16 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
+import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
-import * as v5 from "@/lineplot/types/v5";
 
-// extract emits a v5 state with body fields staged in pendingUpload so the
-// importing cluster lands a fresh plot rather than overwriting the source's
-// record on retrieve.
-export const extract: Export.Extractor = async (key, { client }) => {
+export const extract: Export.Extractor = async (key, { store, client }) => {
+  const name = Layout.select(store.getState(), key)?.name;
   if (client == null) throw new DisconnectedError();
-  const linePlot = await client.lineplots.retrieve({ key });
-  const state: v5.State = {
-    ...v5.ZERO_STATE,
-    key: linePlot.key,
-    pendingUpload: {
-      title: linePlot.title,
-      legend: linePlot.legend,
-      channels: linePlot.channels,
-      ranges: linePlot.ranges,
-      axes: linePlot.axes,
-      lines: linePlot.lines,
-      rules: linePlot.rules,
-    },
-  };
+  const lp = await client.lineplots.retrieve({ key });
   return {
-    data: JSON.stringify({ ...state, type: LAYOUT_TYPE }),
-    name: linePlot.name,
+    data: JSON.stringify({ ...lp, type: LAYOUT_TYPE }),
+    name: name ?? lp.name,
   };
 };
 

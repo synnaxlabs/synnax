@@ -17,19 +17,11 @@ import * as v4 from "@/lineplot/types/v4";
 export const VERSION = "5.0.0";
 
 // pendingUploadZ stages a plot's body on the client until it has landed on
-// the server. Each field is independently optional so callers can stage
-// subsets.
-const pendingUploadZ = z.object({
-  title: lineplot.titleZ.optional(),
-  legend: lineplot.legendZ.optional(),
-  channels: lineplot.channelsZ.optional(),
-  ranges: lineplot.rangesZ.optional(),
-  axes: lineplot.axesZ.optional(),
-  lines: z.array(lineplot.lineZ).optional(),
-  rules: z.array(lineplot.ruleZ).optional(),
-});
-
-export type PendingUpload = z.infer<typeof pendingUploadZ>;
+// the server. Body fields are partial so flows that open a new plot from a
+// single channel or range only need to set what they have; the rest fills
+// from lineplot.ZERO_NEW at upload time.
+const pendingUploadZ = lineplot.linePlotZ.omit({ name: true }).partial();
+export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = v4.stateZ
   .omit({
@@ -78,20 +70,18 @@ export const sliceStateZ = v4.sliceStateZ
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 
-// buildPendingUpload projects v4's hand-rolled body fields into the
-// oracle-typed PendingUpload shape. Drops the per-rule `selected` flag
-// since selection lifts to selectedRules at the slice level.
+// buildPendingUpload projects v4 body fields into the oracle-typed
+// PendingUpload shape. Unwraps the v4 AxesState render-trigger wrapper and
+// drops the per-rule `selected` flag (lifted to selectedRules).
 const buildPendingUpload = (state: v4.State): PendingUpload => ({
-  title: lineplot.titleZ.parse(state.title),
-  legend: lineplot.legendZ.parse(state.legend),
-  channels: lineplot.channelsZ.parse(state.channels),
-  ranges: lineplot.rangesZ.parse(state.ranges),
-  axes: lineplot.axesZ.parse(state.axes.axes),
-  lines: state.lines.map((l) => lineplot.lineZ.parse(l)),
-  rules: state.rules.map((r) => {
-    const { selected: _selected, ...rest } = r;
-    return lineplot.ruleZ.parse(rest);
-  }),
+  key: state.key,
+  title: state.title,
+  legend: state.legend,
+  channels: state.channels,
+  ranges: state.ranges,
+  axes: state.axes.axes,
+  lines: state.lines,
+  rules: state.rules.map(({ selected: _selected, ...rest }) => rest),
 });
 
 // stateMigration drops the v4 body fields. remoteCreated plots are
