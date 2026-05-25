@@ -9,7 +9,7 @@
 
 import "@/table/cells/Cells.css";
 
-import { type box, color, location, type record, scale } from "@synnaxlabs/x";
+import { type box, color, location, type record, scale, text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -24,8 +24,8 @@ export const TEXT_TYPE = "text";
 export type TextType = typeof TEXT_TYPE;
 export const textPropsZ = z.object({
   value: z.string(),
-  level: BaseText.levelZ,
-  weight: BaseText.weightZ,
+  level: text.levelZ,
+  weight: text.weightZ,
   align: location.xZ.or(location.centerZ),
   backgroundColor: color.crudeZ,
 });
@@ -84,7 +84,7 @@ export type ValueType = typeof VALUE_TYPE;
 export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
   redline: BaseValue.redlineZ,
-  level: BaseText.levelZ,
+  level: text.levelZ,
   color: z.string(),
   units: z.string(),
   stalenessTimeout: z.number().default(5),

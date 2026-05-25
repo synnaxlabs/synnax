@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
+
 import { type Component } from "@/component";
 import { isSize } from "@/component/size";
-import { text } from "@/text/base";
+import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { type ThemeSpec } from "@/theming/base/theme";
 
 interface FontStringOptions {
@@ -59,8 +61,7 @@ export const fontString = (
     if (threshold != null) fmly = threshold.value;
     else fmly = "Inter Light, sans-serif";
   }
-  const size =
-    typography[isSize(level) ? text.COMPONENT_SIZE_LEVELS[level] : level].size;
+  const size = typography[isSize(level) ? SIZE_TEXT_LEVELS[level] : level].size;
   const sizePx = (base * size).toFixed(1);
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;
