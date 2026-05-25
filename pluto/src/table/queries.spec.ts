@@ -123,6 +123,83 @@ describe("table queries", () => {
       await waitFor(() => expect(retrieveResult.current.variant).toEqual("success"));
       expect(retrieveResult.current.data?.name).toEqual("stored_table");
     });
+
+    it("should seed a 2x2 layout of empty text cells when rows and columns are empty", async () => {
+      const workspace = await client.workspaces.create({
+        name: "seed_workspace",
+        layout: {},
+      });
+
+      const { result } = renderHook(() => Table.useCreate(), { wrapper });
+
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          ...tableNS.ZERO_NEW,
+          key,
+          workspace: workspace.key,
+          name: "seeded_table",
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+
+      const retrieved = await client.tables.retrieve({ key });
+      expect(retrieved.rows).toHaveLength(2);
+      expect(retrieved.columns).toHaveLength(2);
+      expect(retrieved.rows[0].cells).toHaveLength(2);
+      expect(retrieved.rows[1].cells).toHaveLength(2);
+      expect(Object.keys(retrieved.cells)).toHaveLength(4);
+      for (const cell of Object.values(retrieved.cells)) {
+        expect(cell.variant).toEqual("text");
+        expect(cell.props).toEqual({});
+      }
+    });
+
+    it("should not seed defaults when rows are provided", async () => {
+      const workspace = await client.workspaces.create({
+        name: "no_seed_workspace",
+        layout: {},
+      });
+
+      const { result } = renderHook(() => Table.useCreate(), { wrapper });
+
+      const key = uuid.create();
+      await act(async () => {
+        await result.current.updateAsync({
+          ...tableNS.ZERO_NEW,
+          key,
+          workspace: workspace.key,
+          name: "explicit_layout",
+          rows: [{ size: 40, cells: ["x"] }],
+          columns: [{ size: 80 }],
+          cells: { x: { key: "x", variant: "value", props: { units: "psi" } } },
+        });
+      });
+      expect(result.current.variant).toEqual("success");
+
+      const retrieved = await client.tables.retrieve({ key });
+      expect(retrieved.rows).toHaveLength(1);
+      expect(retrieved.columns).toHaveLength(1);
+      expect(retrieved.rows[0].cells).toEqual(["x"]);
+      expect(retrieved.cells.x.variant).toEqual("value");
+    });
+
+    it("should not commit the table when the server rejects the create", async () => {
+      const key = uuid.create();
+      const { result } = renderHook(() => Table.useCreate(), { wrapper });
+
+      // Use a fake workspace key so the server-side ontology insert fails.
+      await act(async () => {
+        await result.current.updateAsync({
+          ...tableNS.ZERO_NEW,
+          key,
+          workspace: uuid.create(),
+          name: "rollback_table",
+        });
+      });
+      expect(result.current.variant).toEqual("error");
+      await expect(client.tables.retrieve({ key })).rejects.toThrow(NotFoundError);
+    });
   });
 
   describe("useRename", () => {
