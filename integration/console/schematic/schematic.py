@@ -478,10 +478,7 @@ class Schematic(ConsolePage):
 
         control_authority = int(self.layout.get_input_field("Control Authority"))
 
-        try:
-            show_control_legend = self.layout.get_toggle("Show control state legend")
-        except PlaywrightTimeoutError:
-            show_control_legend = True
+        show_control_legend = self.layout.get_toggle("Show control state legend")
 
         return {
             "control_authority": control_authority,
