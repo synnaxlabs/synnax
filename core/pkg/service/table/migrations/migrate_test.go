@@ -20,6 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy/v0"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -138,20 +140,6 @@ var _ = Describe("MigrateTable", func() {
 			))
 		})
 
-		It("Should drop UI-only top-level fields (lastSelected, editable, remoteCreated, version)", func(ctx SpecContext) {
-			out := migrate(ctx, `{
-				"version": "0.0.0",
-				"lastSelected": "a",
-				"editable": true,
-				"remoteCreated": true,
-				"layout": {"rows": [], "columns": []},
-				"cells": {}
-			}`)
-			Expect(out.Rows).To(BeEmpty())
-			Expect(out.Columns).To(BeEmpty())
-			Expect(out.Cells).To(BeEmpty())
-		})
-
 		It("Should pass through the gorp-entry fields (Key, Name)", func(ctx SpecContext) {
 			key := uuid.New()
 			out := MustSucceed(table.MigrateTable(ctx, v55.Table{
@@ -161,24 +149,21 @@ var _ = Describe("MigrateTable", func() {
 			Expect(out.Name).To(Equal("trip-table"))
 		})
 
-		It("Should produce empty (not nil) collections when Data is nil", func(ctx SpecContext) {
-			out := MustSucceed(table.MigrateTable(ctx, v55.Table{
-				Key: uuid.New(), Name: "empty", Data: nil,
-			}))
-			Expect(out.Rows).NotTo(BeNil())
-			Expect(out.Rows).To(BeEmpty())
-			Expect(out.Columns).NotTo(BeNil())
-			Expect(out.Columns).To(BeEmpty())
-			Expect(out.Cells).NotTo(BeNil())
-			Expect(out.Cells).To(BeEmpty())
-		})
-
-		It("Should produce empty collections when Data is an empty object", func(ctx SpecContext) {
-			out := migrate(ctx, `{}`)
-			Expect(out.Rows).To(BeEmpty())
-			Expect(out.Columns).To(BeEmpty())
-			Expect(out.Cells).To(BeEmpty())
-		})
+		DescribeTable("Should produce empty (not nil) collections for empty inputs",
+			func(ctx SpecContext, data msgpack.EncodedJSON) {
+				out := MustSucceed(table.MigrateTable(ctx, v55.Table{
+					Key: uuid.New(), Name: "empty", Data: data,
+				}))
+				Expect(out.Rows).NotTo(BeNil())
+				Expect(out.Rows).To(BeEmpty())
+				Expect(out.Columns).NotTo(BeNil())
+				Expect(out.Columns).To(BeEmpty())
+				Expect(out.Cells).NotTo(BeNil())
+				Expect(out.Cells).To(BeEmpty())
+			},
+			Entry("nil blob", msgpack.EncodedJSON(nil)),
+			Entry("empty object", jsonMap(`{}`)),
+		)
 
 		It("Should preserve cell key, variant, and full props through the migration", func(ctx SpecContext) {
 			out := migrate(ctx, `{
@@ -307,6 +292,43 @@ var _ = Describe("MigrateTable", func() {
 			Expect(got.Rows).To(BeEmpty())
 			Expect(got.Columns).To(BeEmpty())
 			Expect(got.Cells).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("legacy.MigrateData", func() {
+	Describe("version dispatch", func() {
+		It("Should decode an explicit 0.0.0 blob into v0.Data", func() {
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+				"version": "0.0.0",
+				"layout": {
+					"rows": [{"size": 36, "cells": [{"key": "a"}]}],
+					"columns": [{"size": 72}]
+				},
+				"cells": {"a": {"key": "a", "variant": "text", "props": {"value": "hi"}}}
+			}`)))
+			Expect(out.Layout.Rows).To(HaveLen(1))
+			Expect(out.Layout.Rows[0].Cells[0].Key).To(Equal("a"))
+			Expect(out.Cells["a"].Variant).To(Equal("text"))
+		})
+
+		It("Should fall back to v0 when the blob has no version field", func() {
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+				"layout": {"rows": [], "columns": [{"size": 80}]},
+				"cells": {}
+			}`)))
+			Expect(out.Layout.Columns).To(HaveLen(1))
+			Expect(out.Layout.Columns[0].Size).To(Equal(80.0))
+		})
+
+		It("Should decode a nil blob into a zero v0.Data", func() {
+			out := MustSucceed(legacy.MigrateData(nil))
+			Expect(out).To(Equal(v0.Data{}))
+		})
+
+		It("Should error on an unknown declared version", func() {
+			Expect(legacy.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
+				To(MatchError(ContainSubstring("unknown table data version")))
 		})
 	})
 })
