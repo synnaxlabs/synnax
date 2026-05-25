@@ -57,10 +57,10 @@ export const ZERO_STATE: State = {
   toolbar: ZERO_TOOLBAR_STATE,
 };
 
-// stateFromLog projects a typed Log retrieved from the server into the Console
-// state shape, layering in the version stamp and the default UI-only toolbar.
-// The Log resource carries no Console-specific UI state (toolbar, persisted
-// state version); those are reset to defaults on load.
+// stateFromLog projects a typed Log retrieved from the server into the Console state
+// shape, layering in the version stamp and the default UI-only toolbar. The Log
+// resource carries no Console-specific UI state (toolbar, persisted state version);
+// those are reset to defaults on load.
 export const stateFromLog = (l: log.Log): State => ({
   key: l.key,
   version: VERSION,

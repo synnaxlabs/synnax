@@ -14,14 +14,14 @@ import {
   Channel,
   Color,
   Flex,
-  Telem,
   Icon,
   Input,
   List,
   Notation,
+  Telem,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive, telem } from "@synnaxlabs/x";
+import { color, DataType, type notation, primitive, type telem } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
