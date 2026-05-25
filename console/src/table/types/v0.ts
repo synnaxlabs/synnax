@@ -114,6 +114,11 @@ export const ZERO_SLICE_STATE: SliceState = {
 // (UI-only) and collapses each row's CellLayout[] into the flat string[]
 // declared by the typed Row schema. UI-only state (lastSelected, editable,
 // remoteCreated) lives entirely in Redux and never reaches the server.
+//
+// TRANSITIONAL: only exists while Redux still owns the table body. Deleted in
+// the SY-4066 (3/3) PR once Pluto's flux store takes over body ownership and
+// the Redux <-> server projection boundary disappears. No new callers should
+// be added.
 export const toWire = (s: State, name: string): table.Table => ({
   key: s.key,
   name,
@@ -138,6 +143,11 @@ export const toWire = (s: State, name: string): table.Table => ({
 // state defaults to a fresh local view: lastSelected is null, editable is
 // true, remoteCreated is true (the entry came from the server), and every
 // cell starts unselected.
+//
+// TRANSITIONAL: only exists while Redux still owns the table body. Deleted in
+// the SY-4066 (3/3) PR once Pluto's flux store takes over body ownership and
+// the Redux <-> server projection boundary disappears. No new callers should
+// be added.
 export const fromWire = (t: table.Table): State => ({
   key: t.key,
   version: VERSION,
