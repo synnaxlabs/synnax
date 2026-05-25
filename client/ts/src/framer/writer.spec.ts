@@ -11,7 +11,11 @@ import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
+import {
+  ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+  writerConfigZ,
+  WriterMode,
+} from "@/framer/writer";
 import { newIndexedPair } from "@/testutil/channels";
 import { createTestClient } from "@/testutil/client";
 import { secondsLinspace } from "@/testutil/telem";
@@ -20,6 +24,22 @@ import { randomSeries } from "@/util/telem";
 const client = createTestClient();
 
 describe("Writer", () => {
+  describe("writerConfigZ", () => {
+    it("should default start to the current time when not provided", () => {
+      const before = TimeStamp.now();
+      const cfg = writerConfigZ.parse({ channels: [1, 2] });
+      const after = TimeStamp.now();
+      expect(cfg.start.afterEq(before)).toBe(true);
+      expect(cfg.start.beforeEq(after)).toBe(true);
+    });
+
+    it("should preserve an explicitly provided start", () => {
+      const start = TimeStamp.seconds(42);
+      const cfg = writerConfigZ.parse({ channels: [1, 2], start });
+      expect(cfg.start.equals(start)).toBe(true);
+    });
+  });
+
   describe("Writer", () => {
     test("basic write", async () => {
       const channels = await newIndexedPair(client);
@@ -40,7 +60,7 @@ describe("Writer", () => {
 
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
-      const writer = await client.openWriter({ start: TimeStamp.now(), channels });
+      const writer = await client.openWriter({ channels });
       await expect(
         writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
       ).rejects.toThrow('Channel "nonexistent_channel" not found');
@@ -240,10 +260,7 @@ describe("Writer", () => {
         index: indexCh.key,
       });
 
-      const writer = await client.openWriter({
-        start: TimeStamp.now(),
-        channels: [indexCh.key, dataCh.key],
-      });
+      const writer = await client.openWriter({ channels: [indexCh.key, dataCh.key] });
 
       await expect(async () => {
         for (let i = 0; i < 10; i++) {
@@ -267,11 +284,7 @@ describe("Writer", () => {
       });
 
       await expect(
-        client.openWriter({
-          start: TimeStamp.now(),
-          channels,
-          errOnUnauthorized: true,
-        }),
+        client.openWriter({ channels, errOnUnauthorized: true }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
     });

@@ -30,7 +30,6 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
         channels: ch.key,
       });
       try {
@@ -45,7 +44,6 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
         channels: ch.key,
       });
       const start = new TimeStamp(1000000000n);
@@ -94,7 +92,6 @@ describe("Streamer", () => {
           excludeGroups: [42],
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
           controlSubject: { name: "grouped", key: id.create(), group: 42 },
         });
@@ -118,7 +115,6 @@ describe("Streamer", () => {
           excludeGroups: [99],
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
           controlSubject: { name: "grouped", key: id.create(), group: 42 },
         });
@@ -139,7 +135,6 @@ describe("Streamer", () => {
           excludeGroups: [0],
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -161,7 +156,6 @@ describe("Streamer", () => {
           downsampleFactor: 1,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -179,7 +173,6 @@ describe("Streamer", () => {
           downsampleFactor: 2,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -197,7 +190,6 @@ describe("Streamer", () => {
           downsampleFactor: 10,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -218,7 +210,6 @@ describe("Streamer", () => {
           throttleRate: 60,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -261,7 +252,6 @@ describe("Streamer", () => {
           throttleRate: 0,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -282,7 +272,6 @@ describe("Streamer", () => {
           throttleRate: 10,
         });
         const writer = await client.openWriter({
-          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {

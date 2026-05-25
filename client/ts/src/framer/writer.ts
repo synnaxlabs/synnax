@@ -55,8 +55,9 @@ const writerModeZ = z.enum(WriterMode).or(
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
-  /** start sets the starting timestamp for the first sample in the writer. */
-  start: TimeStamp.z.optional(),
+  /** start sets the starting timestamp for the first sample in the writer. Defaults to
+   * the current time (TimeStamp.now()) when not provided. */
+  start: TimeStamp.z.default(() => TimeStamp.now()),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
   /** authorities set the control authority to set for each channel on the writer.
@@ -107,9 +108,7 @@ const intermediateWriterConfigZ = baseWriterConfigZ.extend({
 });
 
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  channel.paramsZ.transform((channels) =>
-    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
-  ),
+  channel.paramsZ.transform((channels) => intermediateWriterConfigZ.parse({ channels })),
 );
 
 export type WriterConfig = z.input<typeof writerConfigZ>;
