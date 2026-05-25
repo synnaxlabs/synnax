@@ -119,10 +119,10 @@ var _ = Describe("ImportExport", func() {
 				ShowReceiptTimestamp: true,
 			}
 			data := l.Data()
-			Expect(data).To(HaveKeyWithValue("remote_created", true))
-			Expect(data).To(HaveKeyWithValue("timestamp_precision", int32(2)))
-			Expect(data).To(HaveKeyWithValue("show_channel_names", false))
-			Expect(data).To(HaveKeyWithValue("show_receipt_timestamp", true))
+			Expect(data).To(HaveKeyWithValue("remoteCreated", true))
+			Expect(data).To(HaveKeyWithValue("timestampPrecision", int32(2)))
+			Expect(data).To(HaveKeyWithValue("showChannelNames", false))
+			Expect(data).To(HaveKeyWithValue("showReceiptTimestamp", true))
 			Expect(data["channels"]).To(Equal(l.Channels))
 		})
 

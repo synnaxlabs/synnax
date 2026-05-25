@@ -12,8 +12,8 @@
       "alias": ""
     }
   ],
-  "remote_created": false,
-  "timestamp_precision": 0,
-  "show_channel_names": true,
-  "show_receipt_timestamp": true
+  "remoteCreated": false,
+  "timestampPrecision": 0,
+  "showChannelNames": true,
+  "showReceiptTimestamp": true
 }

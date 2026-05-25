@@ -37,10 +37,10 @@ var _ = Describe("Migrate", func() {
 					"precision": 2,
 				},
 			},
-			"remote_created":         true,
-			"timestamp_precision":    1,
-			"show_channel_names":     true,
-			"show_receipt_timestamp": false,
+			"remoteCreated":        true,
+			"timestampPrecision":   1,
+			"showChannelNames":     true,
+			"showReceiptTimestamp": false,
 		}
 		result := MustSucceed(migrations.Migrate(v1.Version, data))
 		Expect(result.Channels).To(HaveLen(1))
@@ -68,8 +68,8 @@ var _ = Describe("Migrate", func() {
 
 	It("Should parse a v0 payload and lift it forward to the latest", func() {
 		data := map[string]any{
-			"channels":       []any{1, 2, 3},
-			"remote_created": true,
+			"channels":      []any{1, 2, 3},
+			"remoteCreated": true,
 		}
 		result := MustSucceed(migrations.Migrate(v0.Version, data))
 		Expect(result.Channels).To(HaveLen(3))

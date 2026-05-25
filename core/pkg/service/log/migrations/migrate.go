@@ -46,13 +46,16 @@ func Migrate(version imex.Version, data map[string]any) (LatestData, error) {
 		if err != nil {
 			return LatestData{}, err
 		}
-		if err := v1.Validate(d); err != nil {
+		if err := d.Validate(); err != nil {
 			return LatestData{}, err
 		}
 		return d, nil
 	default:
-		var d v0.Data
-		if err := v0.Schema.Parse(data, &d); err != nil {
+		d, err := v0.Parse(data)
+		if err != nil {
+			return LatestData{}, err
+		}
+		if err := d.Validate(); err != nil {
 			return LatestData{}, err
 		}
 		return v1.Migrate(d), nil
@@ -74,8 +77,8 @@ func MigrateLenient(version imex.Version, data map[string]any) (LatestData, erro
 	case v1.Version:
 		return v1.ParseLenient(data)
 	default:
-		var d v0.Data
-		if err := v0.Schema.Parse(data, &d); err != nil {
+		d, err := v0.Parse(data)
+		if err != nil {
 			return LatestData{}, err
 		}
 		return v1.Migrate(d), nil

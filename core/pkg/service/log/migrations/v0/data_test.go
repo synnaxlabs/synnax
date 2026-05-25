@@ -14,77 +14,70 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Data", func() {
-	Describe("Schema", func() {
+	Describe("Parse", func() {
 		It("Should parse a valid v0 payload", func() {
 			data := map[string]any{
-				"channels":       []any{1, 2, 3},
-				"remote_created": true,
+				"channels":      []any{1, 2, 3},
+				"remoteCreated": true,
 			}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(Succeed())
-			Expect(d.Channels).To(Equal([]int{1, 2, 3}))
+			d := MustSucceed(v0.Parse(data))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2, 3}))
 			Expect(d.RemoteCreated).To(BeTrue())
 		})
 
 		It("Should accept an empty channels array", func() {
-			data := map[string]any{"channels": []any{}}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(Succeed())
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{}}))
 			Expect(d.Channels).To(HaveLen(0))
 		})
 
-		It("Should accept a missing remote_created (Optional)", func() {
-			data := map[string]any{"channels": []any{1}}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(Succeed())
+		It("Should default a missing remoteCreated to false", func() {
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{1}}))
 			Expect(d.RemoteCreated).To(BeFalse())
 		})
 
-		It("Should coerce float channel keys to int", func() {
-			data := map[string]any{"channels": []any{1.0, 2.0}}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(Succeed())
-			Expect(d.Channels).To(Equal([]int{1, 2}))
+		It("Should coerce whole-number channel keys", func() {
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{1.0, 2.0}}))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2}))
 		})
 
-		It("Should coerce json.Number channel keys to int", func() {
+		It("Should coerce json.Number channel keys", func() {
 			data := map[string]any{
 				"channels": []any{json.Number("1"), json.Number("2")},
 			}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(Succeed())
-			Expect(d.Channels).To(Equal([]int{1, 2}))
-		})
-
-		It("Should reject a missing channels field", func() {
-			data := map[string]any{"remote_created": true}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channels")))
+			d := MustSucceed(v0.Parse(data))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2}))
 		})
 
 		It("Should reject a non-array channels field", func() {
-			data := map[string]any{"channels": "not-an-array"}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channels")))
-		})
-
-		It("Should reject a non-bool remote_created field", func() {
-			data := map[string]any{
-				"channels":       []any{1},
-				"remote_created": "yes",
-			}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("remote_created")))
+			Expect(v0.Parse(map[string]any{"channels": "not-an-array"})).Error().
+				To(MatchError(ContainSubstring("channels")))
 		})
 
 		It("Should reject a fractional channel key", func() {
-			data := map[string]any{"channels": []any{1.5}}
-			var d v0.Data
-			Expect(v0.Schema.Parse(data, &d)).To(MatchError(ContainSubstring("channels")))
+			Expect(v0.Parse(map[string]any{"channels": []any{1.5}})).Error().
+				To(MatchError(ContainSubstring("channels")))
+		})
+	})
+
+	Describe("Validate", func() {
+		It("Should accept a payload whose channel keys are all non-zero", func() {
+			d := v0.Data{Channels: []channel.Key{1, 2, 3}}
+			Expect(d.Validate()).To(Succeed())
+		})
+
+		It("Should reject a zero channel key", func() {
+			d := v0.Data{Channels: []channel.Key{1, 0}}
+			Expect(d.Validate()).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("channels[1]")),
+			))
 		})
 	})
 })

@@ -10,22 +10,47 @@
 package v0
 
 import (
+	"encoding/json"
+
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/zyn"
+	"github.com/synnaxlabs/x/errors"
 )
 
 const Version imex.Version = 0
 
-// Data is the frozen type for log data at version 0. Channels are stored as bare
-// integer keys. Key, Name, Type, and Version are envelope-level fields and are not part
-// of Data.
+// Data is the frozen type for log data at version 0. Channels are stored as bare channel
+// keys. Key, Name, Type, and Version are envelope-level fields and are not part of Data.
 type Data struct {
-	Channels      []int `json:"channels"`
-	RemoteCreated bool  `json:"remote_created"`
+	Channels      []channel.Key `json:"channels"`
+	RemoteCreated bool          `json:"remoteCreated"`
 }
 
-// Schema validates the wire shape of a v0 log payload.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"channels":       zyn.Array(zyn.Number().Int().Coerce()),
-	"remote_created": zyn.Bool().Optional(),
-})
+// Parse marshals the imex map back to JSON and unmarshals it into a typed Data. Channel
+// keys flow directly into the typed []channel.Key; a fractional or out-of-range value,
+// or a non-array channels field, fails json.Unmarshal. Closed-set and structural
+// guarantees beyond what the type system enforces are checked by Validate, not here;
+// callers that need strict validation chain the two together.
+func Parse(raw map[string]any) (Data, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return Data{}, err
+	}
+	var d Data
+	if err := json.Unmarshal(b, &d); err != nil {
+		return Data{}, err
+	}
+	return d, nil
+}
+
+// Validate enforces that every channel key references a real channel. Used by the imex
+// import path so a malformed envelope is rejected at the API boundary; the lenient
+// gorp-boot path skips this.
+func (d Data) Validate() error {
+	for i, ch := range d.Channels {
+		if err := ch.Validate(); err != nil {
+			return errors.Wrapf(err, "channels[%d]", i)
+		}
+	}
+	return nil
+}

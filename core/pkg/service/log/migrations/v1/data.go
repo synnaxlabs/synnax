@@ -48,10 +48,10 @@ type ChannelEntry struct {
 // fields and are not part of Data.
 type Data struct {
 	Channels             []ChannelEntry `json:"channels"`
-	RemoteCreated        bool           `json:"remote_created"`
-	TimestampPrecision   int32          `json:"timestamp_precision"`
-	ShowChannelNames     bool           `json:"show_channel_names"`
-	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
+	RemoteCreated        bool           `json:"remoteCreated"`
+	TimestampPrecision   int32          `json:"timestampPrecision"`
+	ShowChannelNames     bool           `json:"showChannelNames"`
+	ShowReceiptTimestamp bool           `json:"showReceiptTimestamp"`
 }
 
 // Parse marshals the imex map back to JSON and unmarshals it into a typed Data.
@@ -121,12 +121,15 @@ func scrubChannels(raw map[string]any, drop func(string) bool) {
 	}
 }
 
-// Validate enforces closed-set membership for the typed enum fields on Data. Used
-// by the imex import path so a malformed envelope is rejected at the API
-// boundary; the lenient gorp-boot path skips this and lets the latest-Log lift
+// Validate enforces that every channel key is valid and that the typed enum fields hold
+// closed-set values. Used by the imex import path so a malformed envelope is rejected at
+// the API boundary; the lenient gorp-boot path skips this and lets the latest-Log lift
 // substitute defaults for any invalid value that slipped past json.Unmarshal.
-func Validate(d Data) error {
+func (d Data) Validate() error {
 	for i, c := range d.Channels {
+		if err := c.Channel.Validate(); err != nil {
+			return errors.Wrapf(err, "channels[%d].channel", i)
+		}
 		switch c.Notation {
 		case "",
 			notation.NotationStandard,

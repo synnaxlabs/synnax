@@ -23,7 +23,7 @@ import (
 var _ = Describe("Migrate", func() {
 	It("Should convert bare channel keys to config entries with defaults", func() {
 		old := v0.Data{
-			Channels:      []int{1, 2, 3},
+			Channels:      []channel.Key{1, 2, 3},
 			RemoteCreated: false,
 		}
 		result := v1.Migrate(old)
@@ -39,13 +39,13 @@ var _ = Describe("Migrate", func() {
 	})
 
 	It("Should preserve RemoteCreated", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: true}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: true}
 		result := v1.Migrate(old)
 		Expect(result.RemoteCreated).To(BeTrue())
 	})
 
 	It("Should set correct v1 defaults", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: false}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
 		result := v1.Migrate(old)
 		Expect(result.TimestampPrecision).To(Equal(int32(0)))
 		Expect(result.ShowChannelNames).To(BeTrue())
@@ -53,7 +53,7 @@ var _ = Describe("Migrate", func() {
 	})
 
 	It("Should handle empty channels", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: false}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
 		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(0))
 	})

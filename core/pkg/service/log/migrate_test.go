@@ -38,10 +38,10 @@ var _ = Describe("MigrateLog", func() {
 						"alias":     "temp",
 					},
 				},
-				"remote_created":         true,
-				"timestamp_precision":    2,
-				"show_channel_names":     false,
-				"show_receipt_timestamp": true,
+				"remoteCreated":        true,
+				"timestampPrecision":   2,
+				"showChannelNames":     false,
+				"showReceiptTimestamp": true,
 			},
 		}
 		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))

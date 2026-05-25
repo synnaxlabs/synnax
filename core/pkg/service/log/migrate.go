@@ -74,7 +74,7 @@ func MigrateLog(
 
 // logFromV1 lifts the latest typed wire-format Data into the runtime Log shape.
 // v1.Parse produces typed values; the lift is mostly a struct copy with closed-
-// set substitution for the typed enums. In the strict path v1.Validate has
+// set substitution for the typed enums. In the strict path v1.Data.Validate has
 // already rejected anything outside the closed sets, so the substitution is a
 // no-op; in the lenient path v1.ParseLenient lets bad enum strings flow through
 // and substitution here turns them into the documented default.

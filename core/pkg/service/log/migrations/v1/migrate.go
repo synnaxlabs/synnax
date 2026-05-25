@@ -10,7 +10,6 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -23,7 +22,7 @@ func Migrate(old v0.Data) Data {
 	channels := make([]ChannelEntry, len(old.Channels))
 	for i, ch := range old.Channels {
 		channels[i] = ChannelEntry{
-			Channel:   channel.Key(ch),
+			Channel:   ch,
 			Notation:  notation.NotationStandard,
 			Precision: -1,
 			Timestamp: TimestampConfig{

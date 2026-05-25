@@ -53,16 +53,16 @@ func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error)
 }
 
 // Data projects the Log into the encoding-neutral map[string]any form carried by
-// imex.Envelope.Data. Keys mirror the json tags on the typed fields; the typed values
-// (including []ChannelEntry, which carries the per-channel timestamp config the v1 zyn
-// schema does not declare) JSON-marshal correctly at the envelope boundary via their
-// struct tags.
+// imex.Envelope.Data. Keys are camelCase to match the wire format the Console emits and
+// the v1 migration Data shape parses; the typed values (including []ChannelEntry, which
+// carries the per-channel timestamp config) JSON-marshal correctly at the envelope
+// boundary via their struct tags.
 func (l Log) Data() map[string]any {
 	return map[string]any{
-		"channels":               l.Channels,
-		"remote_created":         l.RemoteCreated,
-		"timestamp_precision":    l.TimestampPrecision,
-		"show_channel_names":     l.ShowChannelNames,
-		"show_receipt_timestamp": l.ShowReceiptTimestamp,
+		"channels":             l.Channels,
+		"remoteCreated":        l.RemoteCreated,
+		"timestampPrecision":   l.TimestampPrecision,
+		"showChannelNames":     l.ShowChannelNames,
+		"showReceiptTimestamp": l.ShowReceiptTimestamp,
 	}
 }

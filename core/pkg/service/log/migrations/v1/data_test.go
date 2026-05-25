@@ -38,10 +38,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 				},
-				"remote_created":         true,
-				"timestamp_precision":    3,
-				"show_channel_names":     false,
-				"show_receipt_timestamp": true,
+				"remoteCreated":        true,
+				"timestampPrecision":   3,
+				"showChannelNames":     false,
+				"showReceiptTimestamp": true,
 			}
 			d := MustSucceed(v1.Parse(data))
 			Expect(d.Channels).To(HaveLen(1))
@@ -68,7 +68,7 @@ var _ = Describe("Data", func() {
 						"precision": json.Number("4"),
 					},
 				},
-				"timestamp_precision": json.Number("2"),
+				"timestampPrecision": json.Number("2"),
 			}
 			d := MustSucceed(v1.Parse(data))
 			Expect(d.Channels[0].Channel).To(Equal(channel.Key(7)))
@@ -121,7 +121,7 @@ var _ = Describe("Data", func() {
 				Channel:  channel.Key(1),
 				Notation: notation.NotationScientific,
 			}}}
-			Expect(v1.Validate(d)).To(Succeed())
+			Expect(d.Validate()).To(Succeed())
 		})
 
 		It("Should reject an unknown notation value", func() {
@@ -129,7 +129,12 @@ var _ = Describe("Data", func() {
 				Channel:  channel.Key(1),
 				Notation: notation.Notation("logarithmic"),
 			}}}
-			Expect(v1.Validate(d)).To(MatchError(ContainSubstring("invalid value \"logarithmic\"")))
+			Expect(d.Validate()).To(MatchError(ContainSubstring("invalid value \"logarithmic\"")))
+		})
+
+		It("Should reject a zero channel key", func() {
+			d := v1.Data{Channels: []v1.ChannelEntry{{Channel: channel.Key(0)}}}
+			Expect(d.Validate()).To(MatchError(ContainSubstring("channels[0].channel")))
 		})
 	})
 })
