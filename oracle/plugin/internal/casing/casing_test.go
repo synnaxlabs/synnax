@@ -45,3 +45,25 @@ var _ = Describe("FieldSnake", func() {
 		Expect(casing.FieldSnake("")).To(Equal(""))
 	})
 })
+
+var _ = Describe("TypeSnake", func() {
+	// Regression: lo.SnakeCase collapses leading acronyms with no preceding
+	// lowercase because the splitter has already consumed the boundary
+	// character once it lands on the first cap-cap pair. SetXChannel becomes
+	// set_xchannel instead of set_x_channel; URLValue becomes urlvalue
+	// instead of url_value. TypeSnake nudges the splitter by inserting a
+	// separator before any cap-cap-lower run.
+	DescribeTable("should split PascalCase acronym-followed-by-word boundaries",
+		func(input, expected string) {
+			Expect(casing.TypeSnake(input)).To(Equal(expected))
+		},
+		Entry("leading-acronym word", "SetXChannel", "set_x_channel"),
+		Entry("longer acronym", "SetXAxisChannel", "set_x_axis_channel"),
+		Entry("acronym at start", "URLValue", "url_value"),
+		Entry("trailing acronym preserved", "EntityID", "entity_id"),
+		Entry("two-letter acronym in middle", "ParseHTTPRequest", "parse_http_request"),
+		Entry("plain camel still splits", "clientX", "client_x"),
+		Entry("digit-letter boundary still splits", "Int8Value", "int_8_value"),
+		Entry("already snake passes through unchanged", "x1", "x1"),
+	)
+})
