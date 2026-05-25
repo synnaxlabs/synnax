@@ -122,6 +122,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
 	a.LinePlotRename = noop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
 	a.LinePlotSetData = noop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
+	a.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, types.Nil]{}
 
 	// LOG
 	a.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
