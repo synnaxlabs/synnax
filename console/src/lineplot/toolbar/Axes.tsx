@@ -18,9 +18,9 @@ import {
   LinePlot as PLinePlot,
   Select,
   Tabs,
-  type Text,
   useMemoCompare,
 } from "@synnaxlabs/pluto";
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { AXIS_KEYS, type AxisKey } from "@/lineplot/axis";
@@ -127,7 +127,7 @@ export const LinePlotAxisControls = ({
   const handleTickSpacingChange: Input.Control<number>["onChange"] = (value) =>
     update({ ...axis, tickSpacing: value });
 
-  const handleLabelLevelChange: Input.Control<Text.Level>["onChange"] = (value) =>
+  const handleLabelLevelChange: Input.Control<text.Level>["onChange"] = (value) =>
     update({ ...axis, labelLevel: value });
 
   return (

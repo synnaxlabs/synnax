@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { size as componentSize } from "@/component/size";
 import { Control } from "@/schematic/node/common/control";
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
 import { Button as ButtonTelem } from "@/vis/button";
 
 export const VARIANT = "button" as const;
