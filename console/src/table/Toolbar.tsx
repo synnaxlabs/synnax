@@ -27,7 +27,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
-import { useSelectSelectedCellKeys } from "@/table/selectors";
+import { useSelectPendingUpload, useSelectSelectedCellKeys } from "@/table/selectors";
 
 export interface ToolbarProps {
   layoutKey: string;
@@ -46,7 +46,8 @@ const cellPositionInRows = (
   return null;
 };
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
+  Base.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
   const rows = Base.useSelectRows({ key: layoutKey });
@@ -95,6 +96,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       </Flex.Box>
     </Tb.Content>
   );
+};
+
+export const Toolbar = (props: ToolbarProps): ReactElement | null => {
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  return pendingUpload == null ? <Internal {...props} /> : null;
 };
 
 interface CellFormProps {

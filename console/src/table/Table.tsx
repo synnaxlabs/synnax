@@ -20,6 +20,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { useSelectEditable, useSelectSelectedCellKeys } from "@/table/selectors";
 import { setEditable, setSelectedCells } from "@/table/slice";
+import { useAutoUpload } from "@/table/useUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
@@ -262,7 +263,11 @@ const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null =>
   );
 };
 
-export const Table: Layout.Renderer = (props) => <Loaded {...props} />;
+export const Table: Layout.Renderer = (props) => {
+  const uploaded = useAutoUpload(props.layoutKey);
+  if (!uploaded) return null;
+  return <Loaded {...props} />;
+};
 
 Table.useName = Layout.createUseFluxName(
   Base.useRename,

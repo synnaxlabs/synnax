@@ -16,6 +16,8 @@ export const stateZ = latest.stateZ;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
+export type PendingUpload = latest.PendingUpload;
+export const anyStateZ = latest.anyStateZ;
 
 export const SLICE_NAME = "table";
 
@@ -23,7 +25,14 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type CreatePayload = Partial<State> & { key: string };
+export interface CreatePayload {
+  key: string;
+  editable?: boolean;
+  // Optional legacy state used by the import pipeline. When present, it is
+  // migrated forward via anyStateZ and the resulting pendingUpload is stored
+  // on the slice so useAutoUpload pushes the table to the active workspace.
+  data?: unknown;
+}
 
 export type SelectionMode = "replace" | "add" | "region";
 
@@ -57,12 +66,34 @@ export interface SetSelectedCellsPayload {
   anchor?: string | null;
 }
 
+export interface ClearPendingUploadPayload {
+  key: string;
+}
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      state.tables[payload.key] = { ...ZERO_STATE, ...payload };
+      if (state.tables[payload.key] != null) return;
+      let migrated: State | undefined;
+      if (payload.data != null) {
+        const adjusted =
+          typeof payload.data === "object" && payload.data !== null
+            ? { ...(payload.data as Record<string, unknown>), remoteCreated: false }
+            : payload.data;
+        const parsed = anyStateZ.safeParse(adjusted);
+        if (parsed.success) migrated = parsed.data;
+      }
+      state.tables[payload.key] = {
+        ...ZERO_STATE,
+        key: payload.key,
+        editable: payload.editable ?? migrated?.editable ?? ZERO_STATE.editable,
+        pendingUpload:
+          migrated?.pendingUpload == null
+            ? undefined
+            : { ...migrated.pendingUpload, key: payload.key },
+      };
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       for (const k of keys) delete state.tables[k];
@@ -101,6 +132,14 @@ export const { actions, reducer } = createSlice({
         table.lastSelected = null;
       }
     },
+    clearPendingUpload: (
+      state,
+      { payload }: PayloadAction<ClearPendingUploadPayload>,
+    ) => {
+      const t = state.tables[payload.key];
+      if (t == null) return;
+      t.pendingUpload = undefined;
+    },
   },
 });
 
@@ -110,6 +149,7 @@ export const {
   selectCells,
   setSelectedCells,
   setEditable,
+  clearPendingUpload,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
