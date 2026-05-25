@@ -112,13 +112,11 @@ func CollectWithOwnOutput(allEnums []resolution.Type, domainName string) []resol
 	return result
 }
 
-// FindPBOutputPath finds the pb output path for an enum using the new pb/
-// pattern. The enum must opt into pb output via its own @pb directive
-// (typically file-level); we will not drag an enum into pb generation just
-// because some struct in the same namespace has @pb. Otherwise enums from a
-// non-pb schema leak into another schema's pb output whenever the two
-// schemas share a namespace name (e.g., schemas/text.oracle and
-// schemas/arc/text.oracle, both deriving namespace 'text').
+// FindPBOutputPath returns the pb output directory for an enum, or "" when
+// the enum has not opted into pb output via its own @pb directive (most often
+// inherited from a file-level @pb). Membership is anchored to the enum's own
+// FilePath so two schemas that derive the same namespace from different files
+// do not leak each other's pb output paths.
 func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
 	if !output.HasPB(e) {
 		return ""

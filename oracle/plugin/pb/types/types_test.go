@@ -890,7 +890,7 @@ var _ = Describe("Plugin", func() {
 
 		Context("enum-only @pb schema", func() {
 			It("Should emit a proto file with the enum and no messages", func(ctx SpecContext) {
-				loader.Add("schemas/text.oracle", `
+				loader.Add("schemas/text", `
 					@go output "x/go/text"
 					@pb
 
