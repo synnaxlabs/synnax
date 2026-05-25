@@ -23,7 +23,7 @@ import {
   resizeRow,
   setCell,
 } from "@/table/actions.gen";
-import { type Cell, type Row } from "@/table/types.gen";
+import { type Cell } from "@/table/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
@@ -57,8 +57,12 @@ const handlers: Handlers = {
 
   removeRow: (state, payload) => {
     if (payload.index >= state.rows.length) return NO_OP;
-    const removed = snapshot(state.rows[payload.index]) as Row;
-    const cells: Cell[] = removed.cells.map((k) => snapshot(state.cells[k]) as Cell);
+    const removed = snapshot(state.rows[payload.index]);
+    const cells: Cell[] = [];
+    for (const k of removed.cells) {
+      const c = state.cells[k];
+      if (c != null) cells.push(snapshot(c));
+    }
     state.rows.splice(payload.index, 1);
     for (const k of removed.cells) delete state.cells[k];
     return {
@@ -95,7 +99,8 @@ const handlers: Handlers = {
     for (let i = 0; i < state.rows.length; i++) {
       if (payload.index >= state.rows[i].cells.length) continue;
       const k = state.rows[i].cells[payload.index];
-      removedCells.push(snapshot(state.cells[k]));
+      const c = state.cells[k];
+      if (c != null) removedCells.push(snapshot(c));
       delete state.cells[k];
       state.rows[i].cells.splice(payload.index, 1);
     }
@@ -128,7 +133,7 @@ const handlers: Handlers = {
   setCell: (state, payload) => {
     const existing = state.cells[payload.cell.key];
     if (existing == null) return NO_OP;
-    const oldCell = snapshot(existing) as Cell;
+    const oldCell = snapshot(existing);
     state.cells[payload.cell.key] = payload.cell;
     return {
       inverse: [setCell({ cell: oldCell })],
