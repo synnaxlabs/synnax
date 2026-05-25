@@ -28,25 +28,10 @@ const DEFAULT_LINE: Omit<lineplot.Line, "key"> = {
 export interface DerivedLine extends lineplot.Line {
   xAxis: XAxisKey;
   yAxis: YAxisKey;
+  range: string;
   xChannel: channel.Key;
   yChannel: channel.Key;
 }
-
-const deriveKeys = (
-  channels: lineplot.Channels,
-  ranges: lineplot.Ranges,
-): Array<Omit<DerivedLine, keyof lineplot.Line>> => {
-  const out: Array<Omit<DerivedLine, keyof lineplot.Line>> = [];
-  for (const xAxis of X_AXIS_KEYS) {
-    const xChannel = channels[xAxis];
-    const rs = ranges[xAxis];
-    for (const _range of rs)
-      for (const yAxis of ["y1", "y2", "y3", "y4"] as const)
-        for (const yChannel of channels[yAxis])
-          out.push({ xAxis, yAxis, xChannel, yChannel });
-  }
-  return out;
-};
 
 // useDerivedLines returns the list of lines that should currently be plotted,
 // derived from the cartesian product of channels and ranges, merged with any
@@ -77,6 +62,7 @@ export const useDerivedLines = (key: lineplot.Key): DerivedLine[] => {
               key: lineKey,
               xAxis,
               yAxis,
+              range,
               xChannel,
               yChannel,
             });
@@ -113,5 +99,3 @@ export const lookupDerivedLine = (
   lines: lineplot.Line[],
   key: string,
 ): lineplot.Line => ({ ...DEFAULT_LINE, ...lines.find((l) => l.key === key), key });
-
-export { deriveKeys };

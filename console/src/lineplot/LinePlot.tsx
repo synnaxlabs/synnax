@@ -129,10 +129,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const storedLines = PLinePlot.useSelectLines({ key: layoutKey });
   const derived = useDerivedLines(layoutKey);
   const allRangeKeys = useMemo(
-    () =>
-      Array.from(
-        new Set(derived.map((d) => d.key.split("---")[2]).filter((k) => k !== "")),
-      ),
+    () => Array.from(new Set(derived.map((d) => d.range).filter((k) => k !== ""))),
     [derived],
   );
   const resolvedRanges = Range.useSelectMultiple(allRangeKeys);
@@ -148,7 +145,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const palette = theme?.colors.visualization.palettes.default ?? [];
     const out: Channel.LineProps[] = [];
     derived.forEach((d, i) => {
-      const range = rangeByKey.get(d.key.split("---")[2]);
+      const range = rangeByKey.get(d.range);
       if (range == null) return;
       const colorVal =
         d.color !== "" && d.color != null

@@ -222,8 +222,8 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const ids = lineplot.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
-    await client.lineplots.delete(data);
     rollbacks.push(store.lineplots.delete(keys));
+    await client.lineplots.delete(data);
     return data;
   },
 });
