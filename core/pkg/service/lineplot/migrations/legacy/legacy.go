@@ -64,7 +64,11 @@ func dispatch(blob msgpack.EncodedJSON, version string) (v4.Data, error) {
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(d))), nil
 	case v0.Version, "":
-		d, err := decode[v0.Data](blob, version)
+		decodeVersion := version
+		if decodeVersion == "" {
+			decodeVersion = v0.Version
+		}
+		d, err := decode[v0.Data](blob, decodeVersion)
 		if err != nil {
 			return v4.Data{}, err
 		}
