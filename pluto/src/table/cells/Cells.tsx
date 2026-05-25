@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
-import { Cell as Base } from "@/table/Table";
+import { Cell as Base } from "@/table/cells/Cell";
 import { telem } from "@/telem/aether";
 import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";

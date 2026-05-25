@@ -382,29 +382,7 @@ const VariantCell = memo(
 );
 VariantCell.displayName = "VariantCell";
 
-export interface CellProps extends React.ComponentPropsWithRef<"td"> {
-  selected?: boolean;
-}
-
-// Cell is the primitive <td> wrapper used by variant cell components in
-// @/table/cells. The connected Table renders cell content through the
-// variant registry; variant components compose this primitive to get
-// consistent styling and selection visuals.
-export const Cell = ({
-  ref,
-  children,
-  className,
-  selected = false,
-  ...rest
-}: CellProps): ReactElement => (
-  <td
-    ref={ref}
-    {...rest}
-    className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
-  >
-    {children}
-  </td>
-);
+export { Cell, type CellProps } from "@/table/cells/Cell";
 
 interface ColumnIndicatorsProps {
   columns: number[];
