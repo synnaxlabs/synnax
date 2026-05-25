@@ -9,7 +9,7 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { type Flux, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -20,18 +20,13 @@ import { Workspace } from "@/workspace";
 // useAutoUpload sends the locally-staged pendingUpload to the server via
 // Pluto's useCreate the first time the component mounts, then clears the
 // flag. Returns true when no upload is pending (rendering may proceed).
-//
-// The first create call is gated by a ref so that the workspace and name
-// changing while the first request is in flight does not fire a second
-// create for the same key. The first request might land before the redux
-// clearPendingUpload dispatch lands (the redux update is async), and the
-// effect would otherwise re-run and send a duplicate.
+// Mirrors the schematic useAutoUpload effect-deps shape so the two stay
+// in lockstep.
 export const useAutoUpload = (key: string): boolean => {
   const pendingUpload = useSelectPendingUpload(key);
   const name = Layout.useSelectRequiredName(key);
   const workspaceKey = Workspace.useSelectActiveKey();
   const dispatch = useDispatch();
-  const sent = useRef(false);
   const { update: create } = PLinePlot.useCreate({
     afterSuccess: useCallback(
       ({ data: { key } }: Flux.AfterSuccessParams<PLinePlot.CreateOutput>) => {
@@ -41,8 +36,7 @@ export const useAutoUpload = (key: string): boolean => {
     ),
   });
   useEffect(() => {
-    if (pendingUpload == null || sent.current) return;
-    sent.current = true;
+    if (pendingUpload == null) return;
     create({
       key,
       name,

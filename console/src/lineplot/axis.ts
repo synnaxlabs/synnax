@@ -51,3 +51,7 @@ export const AXIS_LOCATIONS: Record<AxisKey, location.Outer> = {
   x1: "bottom",
   x2: "top",
 };
+
+export const isAxisKey = (s: string): s is AxisKey => axisKeyZ.safeParse(s).success;
+export const isXAxisKey = (s: string): s is XAxisKey => xAxisKeyZ.safeParse(s).success;
+export const isYAxisKey = (s: string): s is YAxisKey => yAxisKeyZ.safeParse(s).success;

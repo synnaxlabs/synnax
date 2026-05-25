@@ -44,9 +44,9 @@ import {
   AXIS_KEYS,
   type AxisKey,
   axisLocation,
-  X_AXIS_KEYS,
-  type XAxisKey,
-  type YAxisKey,
+  isAxisKey,
+  isXAxisKey,
+  isYAxisKey,
 } from "@/lineplot/axis";
 import { Controls } from "@/lineplot/Controls";
 import {
@@ -226,11 +226,13 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     (rule) => {
       const existing = rules.find((r) => r.key === rule.key);
       if (existing == null) return;
+      const nextAxis =
+        rule.axis != null && isAxisKey(rule.axis) ? rule.axis : existing.axis;
       const next: lineplot.Rule = {
         ...existing,
         ...rule,
         color: rule.color != null ? color.hex(rule.color) : existing.color,
-        axis: rule.axis != null ? (rule.axis as lineplot.AxisKey) : existing.axis,
+        axis: nextAxis,
       };
       pdispatch({ key: layoutKey, actions: [lineplot.setRule({ rule: next })] });
     },
@@ -239,12 +241,13 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const handleAxisChange = useCallback(
     (a: Partial<Channel.AxisProps> & { key: string }) => {
-      const existing = axes[a.key as lineplot.AxisKey];
+      if (!isAxisKey(a.key)) return;
+      const existing = axes[a.key];
       if (existing == null) return;
       const { bounds: aBounds, label: aLabel } = a;
       const next: lineplot.Axis = {
         ...existing,
-        key: a.key as lineplot.AxisKey,
+        key: a.key,
         ...(aBounds != null
           ? {
               bounds: {
@@ -279,20 +282,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const handleChannelAxisDrop = useCallback(
     (axisKey: string, dropped: channel.Key[]): void => {
       const actions: lineplot.Action[] = [];
-      if (X_AXIS_KEYS.includes(axisKey as XAxisKey))
-        actions.push(
-          lineplot.setXChannel({
-            axisKey: axisKey as XAxisKey,
-            channel: dropped[0],
-          }),
-        );
-      else {
-        const yAxis = axisKey as YAxisKey;
-        const existing = new Set(channels[yAxis]);
+      if (isXAxisKey(axisKey))
+        actions.push(lineplot.setXChannel({ axisKey, channel: dropped[0] }));
+      else if (isYAxisKey(axisKey)) {
+        const existing = new Set(channels[axisKey]);
         for (const c of dropped)
           if (!existing.has(c))
-            actions.push(lineplot.addChannel({ axisKey: yAxis, channel: c }));
-      }
+            actions.push(lineplot.addChannel({ axisKey, channel: c }));
+      } else return;
       assignedDispatch(actions);
     },
     [assignedDispatch, channels],

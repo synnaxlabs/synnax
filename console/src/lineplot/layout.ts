@@ -41,7 +41,9 @@ const ZERO_BODY: NonNullable<PendingUpload> = {
     x1: lineplot.ZERO_NEW.ranges.x1 ?? [],
     x2: lineplot.ZERO_NEW.ranges.x2 ?? [],
   },
-  axes: lineplot.ZERO_NEW.axes as NonNullable<PendingUpload>["axes"],
+  // axesZ.parse coerces the wire-input shape (with unknown bounds) into the
+  // concrete output shape PendingUpload expects.
+  axes: lineplot.axesZ.parse(lineplot.ZERO_NEW.axes),
   lines: lineplot.ZERO_NEW.lines ?? [],
   rules: lineplot.ZERO_NEW.rules ?? [],
 };
