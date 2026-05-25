@@ -15,10 +15,11 @@ import {
   type dimensions,
   direction,
   location,
-  text,
+  type text,
   xy,
 } from "@synnaxlabs/x";
 
+import { text as aetherText } from "@/text/aether";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/base/fontString";
 import {
@@ -325,7 +326,7 @@ export class Draw2D {
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
     const font = fontString(this.theme, { level });
-    const textDims = labels.map((t) => text.dimensions(t, font, this.canvas));
+    const textDims = labels.map((t) => aetherText.dimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
       Math.max(...textDims.map((td) => td[direction.dimension(d)])) + spacingPx;
@@ -395,7 +396,7 @@ export class Draw2D {
   }
 
   drawTextInCenter({ box: b, text: label, level }: DrawTextInCenterProps): void {
-    const dims = text.dimensions(label, this.canvas.font, this.canvas);
+    const dims = aetherText.dimensions(label, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
     return this.text({ text: label, position: box.topLeft(pos), level });
   }

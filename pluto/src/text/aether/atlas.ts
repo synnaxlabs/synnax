@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type dimensions, text, unique } from "@synnaxlabs/x";
+import { color, type dimensions, unique } from "@synnaxlabs/x";
+
+import { dimensionsFromMetrics } from "@/text/aether/dimensions";
 
 export interface AtlasProps {
   font: string;
@@ -43,7 +45,7 @@ export class MonospacedAtlas {
     const ctx = tempCanvas.getContext("2d") as OffscreenCanvasRenderingContext2D;
     ctx.font = font;
     const metrics = ctx.measureText("0");
-    this.charDims = text.dimensionsFromMetrics(metrics);
+    this.charDims = dimensionsFromMetrics(metrics);
     this.charDims.width += PADDING;
     this.charDims.height += PADDING;
 

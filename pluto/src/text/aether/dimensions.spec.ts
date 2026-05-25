@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { dimensionsFromMetrics } from "@/text/dimensions";
+import { text } from "@/text/aether";
 
 describe("dimensionsFromMetrics", () => {
   it("should calculate dimensions from positive metrics", () => {
@@ -19,7 +19,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 15,
       actualBoundingBoxDescent: 5,
     } as TextMetrics;
-    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
+    expect(text.dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should calculate dimensions from negative metrics", () => {
@@ -29,7 +29,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: -15,
       actualBoundingBoxDescent: -5,
     } as TextMetrics;
-    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
+    expect(text.dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should calculate dimensions from mixed positive and negative metrics", () => {
@@ -39,7 +39,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 15,
       actualBoundingBoxDescent: -5,
     } as TextMetrics;
-    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
+    expect(text.dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should handle zero metrics", () => {
@@ -49,6 +49,6 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 0,
       actualBoundingBoxDescent: 0,
     } as TextMetrics;
-    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 0, height: 0 });
+    expect(text.dimensionsFromMetrics(metrics)).toEqual({ width: 0, height: 0 });
   });
 });
