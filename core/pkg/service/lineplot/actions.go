@@ -67,10 +67,13 @@ func (p SetLegendPayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // Handle appends the channel to the channels slice bound to the y-axis named
-// by AxisKey. No-op when the channel is already bound to that axis.
+// by AxisKey. No-op when the channel is already bound to that axis. The
+// inverse RemoveChannel undoes the append without preserving the original
+// slice position, so a remove-then-undo cycle moves the channel to the end
+// of the list. Channel order does not affect rendering, so this is accepted.
 func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !isYAxis(p.AxisKey) {
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - add_channel: axis_key %q must be a y-axis",
 			p.AxisKey,
@@ -85,10 +88,11 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // Handle removes the channel from the y-axis named by AxisKey. No-op when
-// the channel is not present.
+// the channel is not present. See AddChannel for the inverse-position
+// caveat that affects undo.
 func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !isYAxis(p.AxisKey) {
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - remove_channel: axis_key %q must be a y-axis",
 			p.AxisKey,
@@ -102,7 +106,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 // Handle replaces the single channel bound to the x-axis named by AxisKey.
 func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !isXAxis(p.AxisKey) {
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - set_xchannel: axis_key %q must be an x-axis",
 			p.AxisKey,
@@ -118,10 +122,12 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // Handle appends the range key to the ranges slice bound to the x-axis named
-// by AxisKey. No-op when the range is already bound to that axis.
+// by AxisKey. No-op when the range is already bound to that axis. The
+// inverse RemoveRange undoes the append without preserving original slice
+// position; see AddChannel for the same caveat.
 func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !isXAxis(p.AxisKey) {
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - add_range: axis_key %q must be an x-axis",
 			p.AxisKey,
@@ -139,7 +145,7 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 // the range is not present.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !isXAxis(p.AxisKey) {
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - remove_range: axis_key %q must be an x-axis",
 			p.AxisKey,
@@ -166,7 +172,7 @@ func (p SetAxisPayload) Handle(state LinePlot) (LinePlot, error) {
 	case AxisKeyY4:
 		state.Axes.Y4 = p.Axis
 	default:
-		return state, errors.Wrapf(
+		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"[LinePlot] - set_axis: unknown axis_key %q",
 			p.Axis.Key,
@@ -208,7 +214,10 @@ func (p RemoveRulePayload) Handle(state LinePlot) (LinePlot, error) {
 }
 
 // yAxisSlice returns a pointer to the channels slice for the given y-axis
-// key so handlers can append or filter in place.
+// key so handlers can append or filter in place. Callers must have already
+// validated k via isYAxis; a non-matching key here means the y-axis enum
+// gained a member that wasn't wired through, so panic loudly rather than
+// returning nil for callers to dereference.
 func yAxisSlice(c *Channels, k AxisKey) *[]uint32 {
 	switch k {
 	case AxisKeyY1:
@@ -220,11 +229,14 @@ func yAxisSlice(c *Channels, k AxisKey) *[]uint32 {
 	case AxisKeyY4:
 		return &c.Y4
 	}
-	return nil
+	panic(errors.Newf("lineplot: yAxisSlice called with non-y-axis %q", k))
 }
 
 // xAxisRangeSlice returns a pointer to the ranges slice for the given
-// x-axis key so handlers can append or filter in place.
+// x-axis key so handlers can append or filter in place. Callers must have
+// already validated k via isXAxis; a non-matching key here means the x-axis
+// enum gained a member that wasn't wired through, so panic loudly rather
+// than returning nil for callers to dereference.
 func xAxisRangeSlice(r *Ranges, k AxisKey) *[]string {
 	switch k {
 	case AxisKeyX1:
@@ -232,5 +244,5 @@ func xAxisRangeSlice(r *Ranges, k AxisKey) *[]string {
 	case AxisKeyX2:
 		return &r.X2
 	}
-	return nil
+	panic(errors.Newf("lineplot: xAxisRangeSlice called with non-x-axis %q", k))
 }
