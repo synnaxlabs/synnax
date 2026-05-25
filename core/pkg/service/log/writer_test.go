@@ -91,38 +91,6 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
-	Describe("SetData", func() {
-		It("Should replace the typed body while preserving Key and Name", func(ctx SpecContext) {
-			l := log.Log{
-				Name: "test",
-				Channels: []log.ChannelEntry{
-					{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
-				},
-				TimestampPrecision: 1,
-				ShowChannelNames:   true,
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			updated := log.Log{
-				Key:                  uuid.New(), // should be ignored
-				Name:                 "ignored",  // should be ignored
-				Channels:             []log.ChannelEntry{{Channel: channel.Key(2), Color: color.MustFromHex("#00ff00"), Alias: "renamed"}},
-				TimestampPrecision:   3,
-				ShowChannelNames:     false,
-				ShowReceiptTimestamp: true,
-			}
-			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, updated)).To(Succeed())
-			var res log.Log
-			Expect(svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Key).To(Equal(l.Key))
-			Expect(res.Name).To(Equal("test"))
-			Expect(res.Channels).To(HaveLen(1))
-			Expect(res.Channels[0].Channel).To(Equal(channel.Key(2)))
-			Expect(res.Channels[0].Alias).To(Equal("renamed"))
-			Expect(res.TimestampPrecision).To(Equal(int32(3)))
-			Expect(res.ShowChannelNames).To(BeFalse())
-			Expect(res.ShowReceiptTimestamp).To(BeTrue())
-		})
-	})
 	Describe("Delete", func() {
 		It("Should delete a Log so it is no longer retrievable", func(ctx SpecContext) {
 			l := log.Log{Name: "to-delete"}

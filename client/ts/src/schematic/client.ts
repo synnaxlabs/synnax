@@ -26,9 +26,6 @@ import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 
-const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const dispatchReqZ = z.object({
   key: keyZ,
   dispatch_key: z.string(),
@@ -109,16 +106,6 @@ export class Client {
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, "", [renameAction({ name })]);
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {

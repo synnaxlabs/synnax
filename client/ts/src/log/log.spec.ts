@@ -34,35 +34,6 @@ describe("Log", () => {
       expect(res.name).toEqual("Log2");
     });
   });
-  describe("setData", () => {
-    test("replaces typed body while preserving key and name", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.logs.create(ws.key, { name: "Log" });
-      await client.logs.setData(log.key, {
-        channels: [
-          {
-            channel: 1,
-            color: "#ff0000",
-            notation: "scientific",
-            precision: 2,
-            alias: "temp",
-            timestamp: { format: "ISO", tz: "UTC" },
-          },
-        ],
-        remoteCreated: true,
-        timestampPrecision: 3,
-        showChannelNames: false,
-        showReceiptTimestamp: true,
-      });
-      const res = await client.logs.retrieve({ key: log.key });
-      expect(res.name).toEqual("Log");
-      expect(res.channels).toHaveLength(1);
-      expect(res.channels[0].alias).toEqual("temp");
-      expect(res.channels[0].timestamp.format).toEqual("ISO");
-      expect(res.timestampPrecision).toEqual(3);
-      expect(res.showChannelNames).toBe(false);
-    });
-  });
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });

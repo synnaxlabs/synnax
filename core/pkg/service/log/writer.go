@@ -78,19 +78,6 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		}).Exec(ctx, w.tx)
 }
 
-// SetData replaces the body of the log with the given key with the provided value. Key
-// and Name are preserved from the existing entry; every other field on data overwrites
-// the stored entry verbatim.
-func (w Writer) SetData(ctx context.Context, key Key, data Log) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Log](key)).
-		Change(func(_ gorp.Context, l Log) Log {
-			data.Key = l.Key
-			data.Name = l.Name
-			return data
-		}).Exec(ctx, w.tx)
-}
-
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.

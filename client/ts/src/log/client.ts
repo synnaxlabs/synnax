@@ -17,9 +17,6 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataBodyZ = logZ.omit({ key: true, name: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -66,16 +63,6 @@ export class Client {
       "/log/rename",
       { key, name },
       renameReqZ,
-      emptyResZ,
-    );
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/log/set-data",
-      { key, data },
-      setDataReqZ,
       emptyResZ,
     );
   }
