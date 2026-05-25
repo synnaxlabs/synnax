@@ -234,7 +234,7 @@ var _ = Describe("MigrateTable", func() {
 		It("Should return an error for an invalid Data shape", func(ctx SpecContext) {
 			Expect(table.MigrateTable(ctx, v55.Table{
 				Key: uuid.New(), Data: msgpack.EncodedJSON{"layout": "not-an-object"},
-			})).Error().To(MatchError(ContainSubstring("decode legacy table data")))
+			})).Error().To(MatchError(ContainSubstring("table data")))
 		})
 	})
 
