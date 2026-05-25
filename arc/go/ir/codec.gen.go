@@ -41,11 +41,11 @@ func (a *Authorities) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v uint8
-			if v, err = r.Uint8(); err != nil {
+			var hv uint8
+			if hv, err = r.Uint8(); err != nil {
 				return err
 			}
-			a.Default = &v
+			a.Default = &hv
 		}
 	}
 	{
@@ -367,11 +367,11 @@ func (mv *Member) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v string
-			if v, err = r.String(); err != nil {
+			var hv string
+			if hv, err = r.String(); err != nil {
 				return err
 			}
-			mv.NodeKey = &v
+			mv.NodeKey = &hv
 		}
 	}
 	{
@@ -380,11 +380,11 @@ func (mv *Member) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Scope
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Scope
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			mv.Scope = &v
+			mv.Scope = &hv
 		}
 	}
 	return nil
@@ -567,11 +567,11 @@ func (s *Scope) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Handle
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Handle
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Activation = &v
+			s.Activation = &hv
 		}
 	}
 	{
@@ -670,11 +670,11 @@ func (t *Transition) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v string
-			if v, err = r.String(); err != nil {
+			var hv string
+			if hv, err = r.String(); err != nil {
 				return err
 			}
-			t.TargetKey = &v
+			t.TargetKey = &hv
 		}
 	}
 	return nil
