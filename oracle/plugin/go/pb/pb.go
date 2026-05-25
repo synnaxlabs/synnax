@@ -1201,8 +1201,14 @@ func (p *Plugin) generateEnumConversion(
 }
 
 func findEnumPBPath(e resolution.Type, table *resolution.Table) string {
+	if !output.HasPB(e) {
+		return ""
+	}
+	if path := output.GetPBPath(e); path != "" {
+		return path
+	}
 	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
+		if s.Namespace == e.Namespace && s.FilePath == e.FilePath {
 			if path := output.GetPBPath(s); path != "" {
 				return path
 			}
