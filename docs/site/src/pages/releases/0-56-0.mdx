@@ -111,6 +111,7 @@ import synnax as sy
 client = sy.Synnax()
 
 with client.open_writer(
+    start=sy.TimeStamp.now(),
     channels=["temperature"],
     auto_index=True,
 ) as writer:
