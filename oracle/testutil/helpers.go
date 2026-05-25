@@ -58,8 +58,9 @@ func MustGenerateRequest(
 // that need to exercise cross-schema behavior (e.g., two schemas that derive
 // the same namespace from different files).
 //
-// Every entry registered via loader.Add is analyzed; pass each schema with the
-// path suffix you want DeriveNamespace to see (e.g., "schemas/text.oracle").
+// Tests register schemas via loader.Add(path, content) where path is the
+// schema file path (with or without the .oracle suffix). Each registered
+// entry is analyzed as its own file, so DeriveNamespace sees the base name.
 func MustGenerateMulti(
 	ctx context.Context,
 	loader *MockFileLoader,
@@ -68,7 +69,12 @@ func MustGenerateMulti(
 	ginkgo.GinkgoHelper()
 	files := make([]string, 0, len(loader.Files))
 	for path := range loader.Files {
-		files = append(files, path)
+		// analyzer.Analyze passes the file to loader.Load verbatim, and
+		// MockFileLoader.Load appends ".oracle" to the returned filePath
+		// when the key matches as-is. Strip ".oracle" here so the file
+		// path returned to the analyzer is canonical and DeriveNamespace
+		// resolves to the file's base name without a doubled suffix.
+		files = append(files, strings.TrimSuffix(path, ".oracle"))
 	}
 	table, diag := analyzer.Analyze(ctx, files, loader)
 	if diag != nil && !diag.Ok() {
