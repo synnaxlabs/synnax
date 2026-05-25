@@ -206,10 +206,9 @@ export const Table = ({
         if (id.startsWith("resizer-")) {
           const [, dir, idx] = id.split("-");
           const parsed = Number.parseInt(idx, 10);
-          if (Number.isFinite(parsed)) 
+          if (Number.isFinite(parsed))
             if (dir === "x") colResizerIndex = parsed;
             else if (dir === "y") rowResizerIndex = parsed;
-          
         } else cellKey = id;
       }
       onContextMenu(e, { cellKey, rowResizerIndex, colResizerIndex });
