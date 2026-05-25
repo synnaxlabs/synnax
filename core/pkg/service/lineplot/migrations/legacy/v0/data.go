@@ -14,8 +14,6 @@
 // forward into the typed lineplot.LinePlot.
 package v0
 
-import "github.com/google/uuid"
-
 // Version is the semantic version string written by the console at this state
 // version.
 const Version = "0.0.0"
@@ -93,10 +91,12 @@ type Channels struct {
 	Y4 []uint32 `json:"y4"`
 }
 
-// Ranges binds range UUIDs to each x-axis.
+// Ranges binds opaque range keys to each x-axis. Strings (not UUIDs) because
+// the console persists synthetic rolling-window keys (e.g. "recent",
+// "rolling1m") alongside persisted ranges.
 type Ranges struct {
-	X1 []uuid.UUID `json:"x1"`
-	X2 []uuid.UUID `json:"x2"`
+	X1 []string `json:"x1"`
+	X2 []string `json:"x2"`
 }
 
 // Line is the per-line styling configuration at v0. Label is optional in the
