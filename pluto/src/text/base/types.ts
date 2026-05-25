@@ -13,10 +13,6 @@ import { z } from "zod";
 import { type Component } from "@/component";
 import { type theming } from "@/theming/aether";
 
-// Typography levels are owned by the @synnaxlabs/x text package so that the
-// server-side oracle schema and other visualizations (line plots, tables,
-// etc.) reference the same canonical enum. Re-exported here so existing
-// pluto callers can keep importing from @/text without churn.
 export const LEVELS = text.LEVELS;
 export const levelZ = text.levelZ;
 
