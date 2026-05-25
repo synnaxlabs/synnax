@@ -12,7 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -37,8 +37,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			    log = `+source+`
 			}
 			trig -> f{}`, resolver,
-			channel.Digest{Key: 100, DataType: telem.Uint8T},
-			channel.Digest{Key: 101, DataType: telem.StringT},
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 101, DataType: telem.StringT},
 		)
 		defer h.Close(ctx)
 		h.Ingest(100, telem.NewSeriesV[uint8](1))
@@ -66,8 +66,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			    log = `+source+`
 			}
 			v -> f{}`, resolver,
-			channel.Digest{Key: 100, DataType: valueDT},
-			channel.Digest{Key: 101, DataType: telem.StringT},
+			channels.Digest{Key: 100, DataType: valueDT},
+			channels.Digest{Key: 101, DataType: telem.StringT},
 		)
 		defer h.Close(ctx)
 		ingest(h)
@@ -154,8 +154,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				    log = `+`f"hello, {name}"`+`
 				}
 				trig -> f{}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
@@ -296,8 +296,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			}
 			trig -> f{}`
 			h := newRuntimeHarness(ctx, src, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
@@ -369,8 +369,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> f"v={sensor}" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
@@ -389,8 +389,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> f"v={sensor:.2f}" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float64](3.14159))
@@ -410,9 +410,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> f"v={sensor} t={t}" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 102, DataType: telem.Int32T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 102, DataType: telem.Int32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
@@ -433,9 +433,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				"sensor -> rf`path\\to: {sensor}\nt={t}` -> log", resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 102, DataType: telem.Int32T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 102, DataType: telem.Int32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
@@ -455,8 +455,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`sensor -> rf"path\to: {sensor}" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
@@ -476,9 +476,9 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				"sensor -> f`v={sensor}\nt={t}` -> log", resolver,
-				channel.Digest{Key: 100, DataType: telem.Float32T},
-				channel.Digest{Key: 102, DataType: telem.Int32T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Float32T},
+				channels.Digest{Key: 102, DataType: telem.Int32T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
@@ -498,8 +498,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`trig -> f"static" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
@@ -518,8 +518,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			})
 			h := newRuntimeHarness(ctx,
 				`trig -> rf"C:\logs\{{abc}}.txt" -> log`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))

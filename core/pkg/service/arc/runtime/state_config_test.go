@@ -357,8 +357,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Reads).To(HaveLen(0))
@@ -395,8 +395,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),

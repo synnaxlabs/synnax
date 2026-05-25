@@ -101,16 +101,16 @@ var _ = Describe("Format String Compilation", func() {
 
 	Describe("String Variable Placeholder", func() {
 		It("compiles string variable placeholder with no spec as identity", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name}"`, symbol.MapResolver{
-				"name": scalarSymbol("name", types.String(), 0),
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name}"`, []symbol.Symbol{
+				scalarSymbol("name", types.String(), 0),
 			})
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})
 
-		It("compiles string variable placeholder with spec via format_string", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name:s}"`, symbol.MapResolver{
-				"name": scalarSymbol("name", types.String(), 0),
+		It("compiles string variable placeholder with spec via format_str", func(bCtx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(bCtx, `f"{name:s}"`, []symbol.Symbol{
+				scalarSymbol("name", types.String(), 0),
 			})
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())

@@ -389,7 +389,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
         if (cachedRel == null) return;
         const taskStatusKey = task.statusKey(cachedRel.to.key);
         if (status.key !== taskStatusKey) return;
-        const parsed = task.statusZ(z.unknown()).safeParse(status);
+        const parsed = task.statusZ(z.unknown().optional()).safeParse(status);
         if (!parsed.success) return;
         onChange((prev) => {
           if (prev == null) return prev;

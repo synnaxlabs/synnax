@@ -23,7 +23,7 @@ import (
 // Symbol.ID, so the callback can rename by key without a name lookup. Renames
 // of any other symbol kind are no-ops.
 func channelRename(channels *channel.Service) lsp.OnRename {
-	return func(ctx context.Context, sym *symbol.Scope, _, newName string) error {
+	return func(ctx context.Context, sym *symbol.Symbol, _, newName string) error {
 		if sym.Kind != symbol.KindChannel {
 			return nil
 		}

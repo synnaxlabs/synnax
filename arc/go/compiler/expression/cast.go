@@ -80,7 +80,7 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 		if from.Kind == types.KindString {
 			return nil
 		}
-		return ctx.Resolver.EmitNumericToString(ctx.Writer, ctx.WriterID, from)
+		return ctx.Resolver.EmitNumericToString(ctx, ctx.Writer, ctx.WriterID, ctx.Scope, from)
 	}
 	var (
 		fromWasm = wasm.ConvertType(from)

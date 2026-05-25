@@ -20,7 +20,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
 namespace arc::runtime::wasm {
 class Node : public node::Node {
@@ -32,7 +32,7 @@ class Node : public node::Node {
     std::vector<int> offsets;
     std::vector<bool> string_inputs;
     std::vector<bool> string_outputs;
-    std::shared_ptr<stl::str::State> str_state;
+    std::shared_ptr<stl::strings::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
     x::telem::MonoClock clock;
@@ -43,7 +43,7 @@ public:
         const ir::Node &node,
         state::Node &&state,
         const Module::Function &func,
-        std::shared_ptr<stl::str::State> str_state
+        std::shared_ptr<stl::strings::State> str_state
     ):
         ir(node),
         state(std::move(state)),

@@ -11,6 +11,8 @@ RETURN      : 'return';
 FOR         : 'for';
 BREAK       : 'break';
 CONTINUE    : 'continue';
+IMPORT      : 'import';
+AS          : 'as';
 
 // Sequencing keywords
 SEQUENCE    : 'sequence';

@@ -21,26 +21,27 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Format String Analyzer Diagnostics", func() {
-	fmtResolver := func() symbol.MapResolver {
-		return symbol.MapResolver{
-			"chI32": {Name: "chI32", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
-			"chF64": {Name: "chF64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
-			"chStr": {Name: "chStr", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
-			"chU8":  {Name: "chU8", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
-			"trig":  {Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
-			"log":   {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
-		}
+	fmtResolver := func() *symbol.Symbol {
+		return NewRoot(nil,
+			symbol.Symbol{Name: "chI32", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
+			symbol.Symbol{Name: "chF64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+			symbol.Symbol{Name: "chStr", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+			symbol.Symbol{Name: "chU8", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+			symbol.Symbol{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+			symbol.Symbol{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+		)
 	}
 
 	analyze := func(specCtx SpecContext, code string) diagnostics.Diagnostics {
 		ast := MustSucceed(parser.Parse(code))
-		ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
+		ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
 		analyzer.AnalyzeProgram(ctx)
 		return *ctx.Diagnostics
 	}
@@ -335,7 +336,7 @@ trig -> f{}`
 			// Mutate token text to drop the delimiters. This is unreachable via
 			// the grammar but exercises the StripQuotes guard.
 			strTerm.GetSymbol().SetText("no_quotes")
-			ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
+			ctx := acontext.NewRoot(specCtx, ast, fmtResolver())
 			expression.AnalyzeFmtStrLiteral(ctx, strTerm)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(findError(*ctx.Diagnostics, "invalid string literal")).
