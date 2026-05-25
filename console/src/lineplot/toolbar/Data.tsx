@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/pluto";
+import { type channel, lineplot } from "@synnaxlabs/client";
+import { Flex, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
 import {
   SelectAxisInputItem,
   SelectMultipleAxesInputItem,
 } from "@/lineplot/SelectAxis";
-import { useSelect } from "@/lineplot/selectors";
-import { setRanges, setXChannel, setYChannels } from "@/lineplot/slice";
+import { useAssignedDispatch } from "@/lineplot/useAssignedDispatch";
 import { Range } from "@/range";
 
 const SELECT_PROPS = { location: "top" } as const;
@@ -27,51 +25,71 @@ export interface DataProps {
   layoutKey: string;
 }
 
-const SELECT_X_STYLE: CSSProperties = {
-  maxWidth: 400,
-  width: "100%",
+const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };
+
+const diffChannels = (
+  current: readonly channel.Key[],
+  next: readonly channel.Key[],
+  axisKey: YAxisKey,
+): lineplot.Action[] => {
+  const currentSet = new Set(current);
+  const nextSet = new Set(next);
+  const actions: lineplot.Action[] = [];
+  for (const c of current)
+    if (!nextSet.has(c)) actions.push(lineplot.removeChannel({ axisKey, channel: c }));
+  for (const c of next)
+    if (!currentSet.has(c)) actions.push(lineplot.addChannel({ axisKey, channel: c }));
+  return actions;
+};
+
+const diffRanges = (
+  current: readonly string[],
+  next: readonly string[],
+  axisKey: XAxisKey,
+): lineplot.Action[] => {
+  const currentSet = new Set(current);
+  const nextSet = new Set(next);
+  const actions: lineplot.Action[] = [];
+  for (const r of current)
+    if (!nextSet.has(r)) actions.push(lineplot.removeRange({ axisKey, range: r }));
+  for (const r of next)
+    if (!currentSet.has(r)) actions.push(lineplot.addRange({ axisKey, range: r }));
+  return actions;
 };
 
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
-  const vis = useSelect(layoutKey);
-  const dispatch = useDispatch();
+  const channels = PLinePlot.useSelectChannels({ key: layoutKey });
+  const ranges = PLinePlot.useSelectRanges({ key: layoutKey });
+  const dispatch = useAssignedDispatch(layoutKey);
 
   const handleYChannelSelect = useCallback(
     (key: AxisKey, value: readonly channel.Key[]): void => {
-      dispatch(
-        setYChannels({
-          key: layoutKey,
-          axisKey: key as YAxisKey,
-          channels: value as channel.Key[],
-        }),
-      );
+      const axis = key as YAxisKey;
+      dispatch(diffChannels(channels[axis], value, axis));
     },
-    [dispatch, layoutKey],
+    [dispatch, channels],
   );
 
   const handleXChannelSelect = useCallback(
     (key: AxisKey, value: channel.Key): void => {
-      dispatch(
-        setXChannel({
-          key: layoutKey,
-          axisKey: key as XAxisKey,
-          channel: value,
-        }),
-      );
+      dispatch([lineplot.setXChannel({ axisKey: key, channel: value })]);
     },
-    [dispatch, layoutKey],
+    [dispatch],
   );
 
-  const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
-    dispatch(setRanges({ key: layoutKey, axisKey: key, ranges: value }));
-  };
+  const handleRangeSelect = useCallback(
+    (key: XAxisKey, value: string[]): void => {
+      dispatch(diffRanges(ranges[key], value, key));
+    },
+    [dispatch, ranges],
+  );
 
   return (
     <Flex.Box style={{ padding: "2rem" }} full="x">
       <SelectMultipleAxesInputItem
         axis="y1"
         onChange={handleYChannelSelect}
-        value={vis.channels.y1}
+        value={channels.y1}
         align="center"
         grow
         selectProps={SELECT_PROPS}
@@ -79,21 +97,21 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
       <SelectMultipleAxesInputItem
         axis="y2"
         onChange={handleYChannelSelect}
-        value={vis.channels.y2}
+        value={channels.y2}
         grow
         selectProps={SELECT_PROPS}
       />
       <Flex.Box x grow wrap>
         <Range.SelectMultipleInputItem
           onChange={(v) => handleRangeSelect("x1", v)}
-          value={vis.ranges.x1}
+          value={ranges.x1}
           grow
         />
         <SelectAxisInputItem
           axis="x1"
           style={SELECT_X_STYLE}
           onChange={handleXChannelSelect}
-          value={vis.channels.x1}
+          value={channels.x1}
           selectProps={SELECT_PROPS}
         />
       </Flex.Box>

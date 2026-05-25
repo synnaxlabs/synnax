@@ -14,8 +14,10 @@ export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => 
   const channel = await client.channels.retrieve(key);
   placeLayout(
     LinePlot.create({
-      channels: { ...LinePlot.ZERO_CHANNELS_STATE, y1: [channel.key] },
       name: `${channel.name} Plot`,
+      pendingUpload: {
+        channels: { x1: 0, x2: 0, y1: [channel.key], y2: [], y3: [], y4: [] },
+      },
     }),
   );
 };

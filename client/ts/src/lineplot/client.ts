@@ -25,6 +25,8 @@ import {
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
+export const SET_CHANNEL_NAME = "sy_lineplot_set";
+
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 export type SetDataBody = Omit<LinePlot, "key" | "name">;

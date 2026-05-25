@@ -7,37 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import {
   Channel,
   Color,
   Icon,
   Input,
+  LinePlot as PLinePlot,
   List,
   Select,
   Tabs,
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, color, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement, useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
-import { useSelectLine, useSelectLineKeys } from "@/lineplot/selectors";
-import { type LineState, setLine, typedLineKeyFromString } from "@/lineplot/slice";
+import { Layout } from "@/layout";
+import { typedLineKeyFromString } from "@/lineplot/slice";
+import { lookupDerivedLine, useDerivedLineKeys } from "@/lineplot/useDerivedLines";
 
 export interface LinesProps {
   layoutKey: string;
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = useSelectLineKeys(layoutKey);
-  const dispatch = useDispatch();
-
-  const handleChange = (line: LineState): void => {
-    dispatch(setLine({ key: layoutKey, line }));
-  };
-
+  const lineKeys = useDerivedLineKeys(layoutKey);
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -54,22 +50,22 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
 
   return (
     <List.Frame data={lineKeys}>
-      <List.Items<string, LineState>
+      <List.Items<string, lineplot.Line>
         full="y"
         className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >
-        {({ key, ...rest }) => (
-          <Line key={key} layoutKey={layoutKey} onChange={handleChange} {...rest} />
+        {({ key, index, ...rest }) => (
+          <Line key={key} layoutKey={layoutKey} index={index} {...rest} />
         )}
       </List.Items>
     </List.Frame>
   );
 };
 
-interface LinePlotLineControlsProps extends Omit<List.ItemProps<string>, "onChange"> {
+interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {
   layoutKey: string;
-  onChange: (line: LineState) => void;
+  index: number;
 }
 
 const STROKE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 11 };
@@ -95,42 +91,46 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
   </Select.Buttons>
 );
 
-const Line = ({
-  itemKey,
-  onChange,
-  layoutKey,
-}: LinePlotLineControlsProps): ReactElement | null => {
-  const line = useSelectLine(layoutKey, itemKey);
-  if (line == null) return null;
-  const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
-    onChange({ ...line, label: value });
-  };
+const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
+  const lines = PLinePlot.useSelectLines({ key: layoutKey });
+  const { dispatch } = PLinePlot.useDispatch();
+  const theme = Layout.useSelectTheme();
+  const stored = lookupDerivedLine(lines, itemKey);
+  const palette = theme?.colors.visualization.palettes.default ?? [];
+  const resolvedColor =
+    stored.color !== ""
+      ? stored.color
+      : color.hex(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
+  const line: lineplot.Line = { ...stored, color: resolvedColor };
 
-  const handleWidthChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...line, strokeWidth: value });
-  };
+  const update = useCallback(
+    (next: lineplot.Line): void => {
+      dispatch({ key: layoutKey, actions: [lineplot.setLine({ line: next })] });
+    },
+    [dispatch, layoutKey],
+  );
 
-  const handleDownsampleChange: Input.Control<number>["onChange"] = (value: number) => {
-    onChange({ ...line, downsample: value });
-  };
+  const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
+    update({ ...line, label: value });
+
+  const handleWidthChange: Input.Control<number>["onChange"] = (value) =>
+    update({ ...line, strokeWidth: value });
+
+  const handleDownsampleChange: Input.Control<number>["onChange"] = (value) =>
+    update({ ...line, downsample: value });
 
   const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
-    (value: telem.DownsampleMode) => {
-      onChange({ ...line, downsampleMode: value });
-    };
+    (value: telem.DownsampleMode) => update({ ...line, downsampleMode: value });
 
-  const handleColorChange: Input.Control<color.Color>["onChange"] = (
-    value: color.Color,
-  ) => {
-    onChange({ ...line, color: color.hex(value) });
-  };
+  const handleColorChange: Input.Control<color.Color>["onChange"] = (value) =>
+    update({ ...line, color: color.hex(value) });
 
   const {
     channels: { y: yChannel },
   } = typedLineKeyFromString(line.key);
 
   return (
-    <List.Item itemKey={itemKey} index={0} key={itemKey} gap="large">
+    <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">
       <Channel.AliasInput
         channel={yChannel}
         variant="shadow"
@@ -151,7 +151,7 @@ const Line = ({
       <Input.Numeric
         variant="shadow"
         startContent={<Icon.Downsample />}
-        value={line.downsample ?? 1}
+        value={line.downsample}
         onChange={handleDownsampleChange}
         dragScale={DOWNSAMPLE_DRAG_SCALE}
         bounds={DOWNSAMPLE_BOUNDS}

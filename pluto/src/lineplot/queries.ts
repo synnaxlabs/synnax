@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, ontology, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
+import { array, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -16,20 +16,16 @@ import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  lineplot.Key,
-  lineplot.LinePlot
-> = { listeners: [] };
-
 export const FLUX_STORE_KEY = "lineplots";
 const RESOURCE_NAME = "line plot";
 
-export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
+export interface FluxStore extends Flux.UndoableUnaryStore<
+  lineplot.Key,
+  lineplot.LinePlot,
+  lineplot.Action
+> {}
 
-export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
-
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -49,17 +45,16 @@ export const retrieveSingle = async ({
   return plot;
 };
 
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveQuery,
-  lineplot.LinePlot,
-  FluxSubStore
->({
+export const {
+  useRetrieve,
+  useRetrieveSuspended,
+  useRetrieveObservable,
+  useEnsureRetrieved,
+} = Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.lineplots.onSet(onChange, key),
-    // TODO : Using the ontology resources store to propagate name changes is a bit
-    // hacky, and shpould be removed once visualizations are strongly typed.
     store.resources.onSet(
       (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
       ontology.idToString(lineplot.ontologyID(key)),
@@ -86,6 +81,139 @@ export const useRetrieveObservableName = ({
   });
 };
 
+export interface SelectKeyArgs {
+  key: lineplot.Key;
+}
+
+const requireLinePlot = (store: FluxSubStore, key: lineplot.Key): lineplot.LinePlot => {
+  const plot = store.lineplots.get(key);
+  if (plot == null) throw new NotFoundError(`Line plot with key ${key} not found`);
+  return plot;
+};
+
+export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).name,
+});
+
+export const useSelectTitle = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Title
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).title,
+});
+
+export const useSelectLegend = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Legend
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).legend,
+});
+
+export const useSelectChannels = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Channels
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).channels,
+});
+
+export const useSelectRanges = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Ranges
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).ranges,
+});
+
+export const useSelectAxes = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Axes
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).axes,
+});
+
+export interface SelectAxisArgs {
+  key: lineplot.Key;
+  axisKey: lineplot.AxisKey;
+}
+
+export const useSelectAxis = Flux.createSelector<
+  FluxSubStore,
+  SelectAxisArgs,
+  lineplot.Axis
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
+});
+
+export const useSelectLines = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Line[]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).lines,
+});
+
+export interface SelectLineArgs {
+  key: lineplot.Key;
+  lineKey: string;
+}
+
+export const useSelectLine = Flux.createSelector<
+  FluxSubStore,
+  SelectLineArgs,
+  lineplot.Line | undefined
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, lineKey }) =>
+    store.lineplots.get(key)?.lines?.find((l) => l.key === lineKey),
+});
+
+export const useSelectLineKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  string[]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).lines.map((l) => l.key),
+});
+
+export const useSelectRules = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.Rule[]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).rules,
+});
+
+export interface SelectRuleArgs {
+  key: lineplot.Key;
+  ruleKey: string;
+}
+
+export const useSelectRule = Flux.createSelector<
+  FluxSubStore,
+  SelectRuleArgs,
+  lineplot.Rule | undefined
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, ruleKey }) =>
+    store.lineplots.get(key)?.rules?.find((r) => r.key === ruleKey),
+});
+
+export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
+
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
@@ -95,16 +223,17 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.lineplots.delete(data);
+    rollbacks.push(store.lineplots.delete(keys));
     return data;
   },
 });
 
 export interface CreateParams extends lineplot.New {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export interface CreateOutput extends lineplot.LinePlot {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -114,9 +243,11 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store }) => {
+  update: async ({ client, data, store, rollbacks }) => {
+    data.key ??= uuid.create();
     const { workspace, ...rest } = data;
-    const l = await client.lineplots.create(workspace, rest);
+    rollbacks.push(store.lineplots.set(data.key, data as lineplot.LinePlot));
+    const l = await client.lineplots.create(workspace ?? uuid.ZERO, rest);
     store.lineplots.set(l.key, l);
     return { ...l, workspace };
   },
@@ -129,9 +260,45 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    rollbacks.push(Flux.partialUpdate(store.lineplots, key, { name }));
+    const current = store.lineplots.get(key);
+    if (current != null) rollbacks.push(store.lineplots.set(key, { ...current, name }));
     rollbacks.push(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
     await client.lineplots.rename(key, name);
     return data;
   },
+});
+
+// A toolbar drag dispatches a stream of SetAxis as the user drags an axis
+// bound, and the legend drag dispatches a stream of SetLegend. Both should
+// coalesce into one undoable instead of one entry per frame.
+const kindOfTransaction = (actions: lineplot.Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};
+
+export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
+  lineplot.Key,
+  lineplot.LinePlot,
+  lineplot.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  reduce: lineplot.reduceAll,
+  channel: lineplot.SET_CHANNEL_NAME,
+  schema: lineplot.scopedActionZ,
+  kindOf: kindOfTransaction,
+});
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  lineplot.Key,
+  lineplot.LinePlot,
+  lineplot.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.lineplots.dispatch(key, dispatchKey, actions),
 });

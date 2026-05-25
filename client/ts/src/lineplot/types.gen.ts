@@ -70,10 +70,16 @@ export interface Channels extends z.infer<typeof channelsZ> {}
 
 /** Ranges binds range keys to each x-axis. */
 export const rangesZ = z.object({
-  /** x1 are the range keys plotted against the x1 axis. */
-  x1: array.nullishToEmpty(z.uuid()),
+  /**
+   * x1 are the range keys plotted against the x1 axis. Range keys are
+   * opaque strings rather than UUIDs because the console layers
+   * synthetic rolling-window ranges (e.g. "recent", "rolling1m")
+   * alongside persisted ranges; the server stores whatever the
+   * client sends.
+   */
+  x1: array.nullishToEmpty(z.string()),
   /** x2 are the range keys plotted against the x2 axis. */
-  x2: array.nullishToEmpty(z.uuid()),
+  x2: array.nullishToEmpty(z.string()),
 });
 export interface Ranges extends z.infer<typeof rangesZ> {}
 

@@ -227,8 +227,8 @@ var _ = Describe("Writer", func() {
 			It("Should append and remove ranges on an x-axis", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				r1 := uuid.New()
-				r2 := uuid.New()
+				r1 := uuid.NewString()
+				r2 := uuid.NewString()
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
 						AxisKey: lineplot.AxisKeyX1, Range: r1,
@@ -243,7 +243,7 @@ var _ = Describe("Writer", func() {
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Ranges.X1).To(Equal([]uuid.UUID{r2}))
+				Expect(res.Ranges.X1).To(Equal([]string{r2}))
 			})
 
 			It("Should reject range actions targeting a y-axis with validate.ErrValidation", func(ctx SpecContext) {
@@ -251,7 +251,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-						AxisKey: lineplot.AxisKeyY1, Range: uuid.New(),
+						AxisKey: lineplot.AxisKeyY1, Range: uuid.NewString(),
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
@@ -345,7 +345,7 @@ var _ = Describe("Writer", func() {
 			It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				r := uuid.New()
+				r := uuid.NewString()
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
 						AxisKey: lineplot.AxisKeyX1, Channel: 1,
@@ -361,7 +361,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Channels.X1).To(BeEquivalentTo(1))
-				Expect(res.Ranges.X1).To(Equal([]uuid.UUID{r}))
+				Expect(res.Ranges.X1).To(Equal([]string{r}))
 				Expect(res.Channels.Y1).To(ConsistOf(uint32(10)))
 			})
 

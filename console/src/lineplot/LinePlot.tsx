@@ -13,14 +13,13 @@ import {
   type axis,
   Channel,
   Icon,
-  LinePlot as Base,
+  LinePlot as PLinePlot,
   Menu,
   Ranger,
   Status,
   Synnax,
   useAsyncEffect,
   useDebouncedCallback,
-  usePrevious,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { type measure } from "@synnaxlabs/pluto/ether";
@@ -30,7 +29,6 @@ import {
   DataType,
   location,
   primitive,
-  record,
   scale,
   type sticky,
   TimeRange,
@@ -41,75 +39,37 @@ import { type ReactElement, useCallback, useMemo, useRef, useState } from "react
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
-import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import {
+  AXIS_KEYS,
   type AxisKey,
   axisLocation,
   X_AXIS_KEYS,
   type XAxisKey,
   type YAxisKey,
 } from "@/lineplot/axis";
-import { buildLines } from "@/lineplot/buildLines";
 import { Controls } from "@/lineplot/Controls";
 import {
-  select,
   useSelect,
   useSelectControlState,
-  useSelectIsRemoteCreated,
-  useSelectRanges,
+  useSelectPendingUpload,
   useSelectSelection,
-  useSelectVersion,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  type AxesState,
-  type AxisState,
-  internalCreate,
-  linePlotBody,
-  type LineState,
   setActiveToolbarTab,
-  setAxis,
   setControlState,
-  setLegend,
-  setLine,
   setMeasureMode,
-  setRanges,
-  setRemoteCreated,
-  setRule,
   setSelectedRule,
   setSelection,
-  setXChannel,
-  setYChannels,
-  shouldDisplayAxis,
-  type State,
-  stateFromLinePlot,
   storeViewport,
-  ZERO_STATE,
 } from "@/lineplot/slice";
+import { useAssignedDispatch } from "@/lineplot/useAssignedDispatch";
+import { useDerivedLines } from "@/lineplot/useDerivedLines";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
+import { useUndoRedoTriggers } from "@/lineplot/useUndoRedoTriggers";
+import { useAutoUpload } from "@/lineplot/useUpload";
 import { Range } from "@/range";
-import { Workspace } from "@/workspace";
-
-const useSyncComponent = Workspace.createSyncComponent(
-  "Line Plot",
-  async ({ key, workspace, store, fluxStore, client }) => {
-    const s = store.getState();
-    if (
-      !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
-    )
-      return;
-    const data = select(s, key);
-    if (data == null) return;
-    const la = Layout.selectRequired(s, key);
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.lineplots.create(workspace, {
-      key,
-      name: la.name,
-      ...linePlotBody(data),
-    });
-  },
-);
 
 interface RangeAnnotationContextMenuProps {
   lines: Channel.LineProps[];
@@ -147,157 +107,223 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
+const shouldDisplayAxis = (key: AxisKey, channels: lineplot.Channels): boolean => {
+  if (key === "x1" || key === "y1") return true;
+  if (key === "x2") return channels.x2 !== 0;
+  return channels[key].length > 0;
+};
+
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
-  const prevVis = usePrevious(vis);
-  const ranges = useSelectRanges(layoutKey);
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const syncDispatch = useSyncComponent(layoutKey);
-  const lines = buildLines(vis, ranges);
+  const { dispatch: pdispatch } = PLinePlot.useDispatch();
+  const assignedDispatch = useAssignedDispatch(layoutKey);
+  useUndoRedoTriggers(layoutKey);
+  const title = PLinePlot.useSelectTitle({ key: layoutKey });
+  const legend = PLinePlot.useSelectLegend({ key: layoutKey });
+  const channels = PLinePlot.useSelectChannels({ key: layoutKey });
+  const rules = PLinePlot.useSelectRules({ key: layoutKey });
+  const axes = PLinePlot.useSelectAxes({ key: layoutKey });
+  const storedLines = PLinePlot.useSelectLines({ key: layoutKey });
+  const derived = useDerivedLines(layoutKey);
+  const allRangeKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(derived.map((d) => d.key.split("---")[2]).filter((k) => k !== "")),
+      ),
+    [derived],
+  );
+  const resolvedRanges = Range.useSelectMultiple(allRangeKeys);
+  const rangeByKey = useMemo(() => {
+    const m = new Map<string, Range.Range>();
+    for (const r of resolvedRanges) m.set(r.key, r);
+    return m;
+  }, [resolvedRanges]);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+  const theme = Layout.useSelectTheme();
+
+  const propsLines = useMemo<Channel.LineProps[]>(() => {
+    const palette = theme?.colors.visualization.palettes.default ?? [];
+    const out: Channel.LineProps[] = [];
+    derived.forEach((d, i) => {
+      const range = rangeByKey.get(d.key.split("---")[2]);
+      if (range == null) return;
+      const colorVal =
+        d.color !== "" && d.color != null
+          ? d.color
+          : color.hex(palette[i % Math.max(palette.length, 1)] ?? color.ZERO);
+      const base = {
+        key: d.key,
+        axes: { x: d.xAxis, y: d.yAxis },
+        channels: { x: d.xChannel, y: d.yChannel },
+        color: colorVal,
+        strokeWidth: d.strokeWidth,
+        downsample: d.downsample,
+        downsampleMode: d.downsampleMode,
+        label: d.label,
+      };
+      if (range.variant === "dynamic")
+        out.push({
+          ...base,
+          variant: "dynamic",
+          timeSpan: new TimeSpan(range.span),
+        });
+      else
+        out.push({
+          ...base,
+          variant: "static",
+          timeRange: new TimeRange(range.timeRange),
+        });
+    });
+    return out;
+  }, [derived, rangeByKey, theme]);
 
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const toFetch = lines.filter((line) => line.label == null);
+      const overrides = new Set(storedLines.map((l) => l.key));
+      const toFetch = derived.filter((l) => l.label == null && !overrides.has(l.key));
       if (toFetch.length === 0) return;
       const fetched = await client.channels.retrieve(
-        unique.unique(toFetch.map((line) => line.channels.y)) as
-          | channel.Key[]
-          | channel.Name[],
+        unique.unique(toFetch.map((l) => l.yChannel)),
       );
       if (signal.aborted) return;
-      const update = toFetch.map((l) => ({
-        key: l.key,
-        label: fetched.find((f) => f.key === l.channels.y)?.name,
-      }));
-      syncDispatch(setLine({ key: layoutKey, line: update }));
+      pdispatch({
+        key: layoutKey,
+        actions: toFetch.map((l) =>
+          lineplot.setLine({
+            line: {
+              ...l,
+              label: fetched.find((f) => f.key === l.yChannel)?.name ?? undefined,
+            },
+          }),
+        ),
+      });
     },
-    [layoutKey, client, lines],
+    [layoutKey, client, derived, storedLines],
   );
-
-  const handleTitleChange = (name: string): void => {
-    syncDispatch(Layout.rename({ key: layoutKey, name }));
-  };
 
   const handleLineChange = useCallback<
     Exclude<Channel.LinePlotProps["onLineChange"], undefined>
   >(
-    (d): void => {
-      const newLine = { ...d } as const as LineState;
-      if (d.color != null) newLine.color = color.hex(d.color);
-      syncDispatch(setLine({ key: layoutKey, line: [newLine] }));
+    (d) => {
+      const existing =
+        storedLines.find((l) => l.key === d.key) ??
+        derived.find((l) => l.key === d.key);
+      if (existing == null) return;
+      const next: lineplot.Line = {
+        ...existing,
+        ...d,
+        color: d.color != null ? color.hex(d.color) : existing.color,
+      };
+      pdispatch({ key: layoutKey, actions: [lineplot.setLine({ line: next })] });
     },
-    [syncDispatch, layoutKey],
+    [pdispatch, layoutKey, storedLines, derived],
   );
 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) => {
-      syncDispatch(
-        setRule({
-          key: layoutKey,
-          rule: {
-            ...rule,
-            color: rule.color != null ? color.hex(rule.color) : undefined,
-            axis: rule.axis != null ? (rule.axis as AxisKey) : undefined,
-          },
-        }),
-      );
+      const existing = rules.find((r) => r.key === rule.key);
+      if (existing == null) return;
+      const next: lineplot.Rule = {
+        ...existing,
+        ...rule,
+        color: rule.color != null ? color.hex(rule.color) : existing.color,
+        axis: rule.axis != null ? (rule.axis as lineplot.AxisKey) : existing.axis,
+      };
+      pdispatch({ key: layoutKey, actions: [lineplot.setRule({ rule: next })] });
     },
-    [syncDispatch, layoutKey],
+    [pdispatch, layoutKey, rules],
   );
 
   const handleAxisChange = useCallback(
-    (axis: Partial<Channel.AxisProps> & { key: string }) => {
-      syncDispatch(
-        setAxis({
-          key: layoutKey,
-          axisKey: axis.key as AxisKey,
-          axis: axis as AxisState,
-          triggerRender: true,
-        }),
-      );
+    (a: Partial<Channel.AxisProps> & { key: string }) => {
+      const existing = axes[a.key as lineplot.AxisKey];
+      if (existing == null) return;
+      const { bounds: aBounds, label: aLabel } = a;
+      const next: lineplot.Axis = {
+        ...existing,
+        key: a.key as lineplot.AxisKey,
+        ...(aBounds != null
+          ? {
+              bounds: {
+                lower: Number(aBounds.lower),
+                upper: Number(aBounds.upper),
+              },
+            }
+          : {}),
+        ...(aLabel != null ? { label: aLabel } : {}),
+      };
+      pdispatch({ key: layoutKey, actions: [lineplot.setAxis({ axis: next })] });
     },
-    [syncDispatch, layoutKey],
+    [pdispatch, layoutKey, axes],
   );
 
   useAsyncEffect(async () => {
-    const axis = vis.axes.axes.x1;
-    const axisKey = axis.key as XAxisKey;
-    const key = vis.channels[axisKey];
-    const prevKey = prevVis?.channels[axisKey];
-    if (client == null || key === prevKey) return;
+    const ax = axes.x1;
+    const key = channels.x1;
+    if (client == null) return;
     let newType: axis.TickType = "time";
     if (primitive.isNonZero(key)) {
       const ch = await client.channels.retrieve(key);
       if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
     }
-    if (axis.type === newType) return;
-    syncDispatch(
-      setAxis({
-        key: layoutKey,
-        axisKey,
-        axis: { ...axis, type: newType },
-        triggerRender: true,
-      }),
-    );
-  }, [vis.channels.x1]);
-
-  const propsLines = buildLines(vis, ranges);
-  const axes = useMemo(() => buildAxes(vis), [vis.axes.renderTrigger]);
-  const rng = Range.useSelect();
+    if (ax.type === newType) return;
+    pdispatch({
+      key: layoutKey,
+      actions: [lineplot.setAxis({ axis: { ...ax, type: newType } })],
+    });
+  }, [channels.x1, axes.x1.type, client]);
 
   const handleChannelAxisDrop = useCallback(
-    (axis: string, channels: channel.Key[]): void => {
-      if (X_AXIS_KEYS.includes(axis as XAxisKey))
-        syncDispatch(
-          setXChannel({
-            key: layoutKey,
-            axisKey: axis as XAxisKey,
-            channel: channels[0],
+    (axisKey: string, dropped: channel.Key[]): void => {
+      const actions: lineplot.Action[] = [];
+      if (X_AXIS_KEYS.includes(axisKey as XAxisKey))
+        actions.push(
+          lineplot.setXChannel({
+            axisKey: axisKey as XAxisKey,
+            channel: dropped[0],
           }),
         );
-      else
-        syncDispatch(
-          setYChannels({
-            key: layoutKey,
-            axisKey: axis as YAxisKey,
-            channels,
-            mode: "add",
-          }),
-        );
-      if (propsLines.length === 0 && rng != null)
-        syncDispatch(
-          setRanges({ mode: "add", key: layoutKey, axisKey: "x1", ranges: [rng.key] }),
-        );
+      else {
+        const yAxis = axisKey as YAxisKey;
+        const existing = new Set(channels[yAxis]);
+        for (const c of dropped)
+          if (!existing.has(c))
+            actions.push(lineplot.addChannel({ axisKey: yAxis, channel: c }));
+      }
+      assignedDispatch(actions);
     },
-    [syncDispatch, layoutKey, propsLines.length, rng],
+    [assignedDispatch, channels],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
       if (stage !== "end") return;
-      if (mode === "select") syncDispatch(setSelection({ key: layoutKey, box: b }));
+      if (mode === "select") dispatch(setSelection({ key: layoutKey, box: b }));
       else
-        syncDispatch(
+        dispatch(
           storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
     TimeSpan.milliseconds(100),
-    [syncDispatch, layoutKey],
+    [dispatch, layoutKey],
   );
 
-  const [legendPosition, setLegendPosition] = useState(vis.legend.position);
+  const [legendPosition, setLegendPosition] = useState(legend.position);
 
   const storeLegendPosition = useDebouncedCallback(
     (position: sticky.XY) =>
-      syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
+      pdispatch({
+        key: layoutKey,
+        actions: [lineplot.setLegend({ legend: { ...legend, position } })],
+      }),
     TimeSpan.milliseconds(100),
-    [syncDispatch, layoutKey],
+    [pdispatch, layoutKey, legend],
   );
 
   const handleLegendPositionChange = useCallback(
@@ -347,8 +373,23 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const handleTitleChange = useCallback(
+    (value: string) => {
+      dispatch(Layout.rename({ key: layoutKey, name: value }));
+    },
+    [dispatch, layoutKey],
+  );
+
   const props = Menu.useContextMenu();
-  const linePlotRef = useRef<Base.LinePlotRef | null>(null);
+  const linePlotRef = useRef<PLinePlot.LinePlotRef | null>(null);
+
+  const builtAxes = useMemo<Channel.AxisProps[]>(
+    () =>
+      AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
+        (k): Channel.AxisProps => ({ location: axisLocation(k), ...axes[k] }),
+      ),
+    [axes, channels],
+  );
 
   interface ContextMenuContentProps extends Menu.ContextMenuMenuProps {
     layoutKey: string;
@@ -392,7 +433,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const handleDownloadCSV = () =>
       handleError(async () => {
         const tr = await getTimeRange();
-        downloadAsCSV({ timeRanges: [tr], lines, name });
+        downloadAsCSV({ timeRanges: [tr], lines: propsLines, name });
       }, "Failed to download region as CSV");
 
     return (
@@ -458,15 +499,15 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           hold={hold}
           onContextMenu={props.open}
           title={name}
-          axes={axes}
+          axes={builtAxes}
           lines={propsLines}
-          rules={vis.rules}
+          rules={rules.map((r) => ({ ...r, axis: r.axis }))}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={hasUpdatePermission ? handleTitleChange : undefined}
           visible={visible}
-          titleLevel={vis.title.level}
-          showTitle={vis.title.visible}
-          showLegend={vis.legend.visible}
+          titleLevel={title.level}
+          showTitle={title.visible}
+          showLegend={legend.visible}
           onLineChange={hasUpdatePermission ? handleLineChange : undefined}
           onRuleChange={hasUpdatePermission ? handleRuleChange : undefined}
           onAxisChannelDrop={hasUpdatePermission ? handleChannelAxisDrop : undefined}
@@ -500,32 +541,24 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 };
 
-const buildAxes = (vis: State): Channel.AxisProps[] =>
-  record
-    .entries<AxesState["axes"]>(vis.axes.axes)
-    .filter(([key]) => shouldDisplayAxis(key, vis))
-    .map(
-      ([key, axis]): Channel.AxisProps => ({
-        location: axisLocation(key),
-        ...axis,
-      }),
-    );
+const Internal: Layout.Renderer = (props) => {
+  PLinePlot.useEnsureRetrieved({ key: props.layoutKey });
+  return <Loaded {...props} />;
+};
 
-const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
-  useRetrieve: Base.useRetrieveObservable,
-  targetVersion: ZERO_STATE.version,
-  useSelectVersion,
-  actionCreator: (v) => internalCreate(stateFromLinePlot(v)),
-});
-
-export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const linePlot = useLoadRemote(layoutKey);
-  if (linePlot == null) return null;
-  return <Loaded layoutKey={layoutKey} {...rest} />;
+export const LinePlot: Layout.Renderer = (props) => {
+  // Fire the upload effect unconditionally so a freshly placed plot still
+  // gets pushed to the server. The Redux pendingUpload flag is the synchronous
+  // gate: while it is non-null the canonical record may not yet be in Pluto's
+  // flux cache, so suspending on useEnsureRetrieved would tear the layout
+  // down through the surrounding error boundary.
+  useAutoUpload(props.layoutKey);
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  if (pendingUpload != null) return null;
+  return <Internal {...props} />;
 };
 
 LinePlot.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-  useSelectIsRemoteCreated,
+  PLinePlot.useRename,
+  PLinePlot.useRetrieveObservableName,
 );

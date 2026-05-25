@@ -95,10 +95,13 @@ type Channels struct {
 
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
-	// X1 are the range keys plotted against the x1 axis.
-	X1 []uuid.UUID `json:"x1" msgpack:"x1"`
+	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
+	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
+	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
+	// client sends.
+	X1 []string `json:"x1" msgpack:"x1"`
 	// X2 are the range keys plotted against the x2 axis.
-	X2 []uuid.UUID `json:"x2" msgpack:"x2"`
+	X2 []string `json:"x2" msgpack:"x2"`
 }
 
 // AutoBounds controls whether an axis derives its bounds from the rendered data window

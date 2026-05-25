@@ -38,9 +38,11 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
+  client,
   store,
   placeLayout,
   selection,
+  handleError,
 }): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicLayout(state);
@@ -55,21 +57,23 @@ const handleSelect: Ontology.HandleSelect = ({
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE:
-      store.dispatch(
-        LinePlot.setYChannels({
-          key: layout.key,
-          mode: "add",
-          axisKey: "y1",
-          channels: nonVirtualSelection,
-        }),
+      handleError(
+        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+        "Failed to add channels to plot",
       );
       break;
     default:
       placeLayout(
         LinePlot.create({
-          channels: {
-            ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: nonVirtualSelection,
+          pendingUpload: {
+            channels: {
+              x1: 0,
+              x2: 0,
+              y1: nonVirtualSelection,
+              y2: [],
+              y3: [],
+              y4: [],
+            },
           },
         }),
       );

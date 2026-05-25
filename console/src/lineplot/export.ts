@@ -10,22 +10,31 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
-import { select } from "@/lineplot/selectors";
-import { stateFromLinePlot } from "@/lineplot/slice";
+import * as v5 from "@/lineplot/types/v5";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const storeState = store.getState();
-  let state = select(storeState, key);
-  let name = Layout.select(storeState, key)?.name;
-  if (state == null || name == null) {
-    if (client == null) throw new DisconnectedError();
-    const linePlot = await client.lineplots.retrieve({ key });
-    state ??= stateFromLinePlot(linePlot);
-    name ??= linePlot.name;
-  }
-  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
+// extract emits a v5-shaped state so the body fields land at the top level
+// the way users (and existing JSON files) expect. Importing it routes
+// through anyStateZ -> v5 migration -> v6 migration, which lifts the body
+// into pendingUpload for the new flow.
+export const extract: Export.Extractor = async (key, { client }) => {
+  if (client == null) throw new DisconnectedError();
+  const linePlot = await client.lineplots.retrieve({ key });
+  const state: v5.State = {
+    ...v5.ZERO_STATE,
+    key: linePlot.key,
+    title: linePlot.title,
+    legend: linePlot.legend,
+    channels: linePlot.channels,
+    ranges: linePlot.ranges,
+    axes: { ...v5.ZERO_AXES_STATE, axes: linePlot.axes },
+    lines: linePlot.lines,
+    rules: linePlot.rules,
+  };
+  return {
+    data: JSON.stringify({ ...state, type: LAYOUT_TYPE }),
+    name: linePlot.name,
+  };
 };
 
 export const useExport = () => Export.use(extract, "line plot");

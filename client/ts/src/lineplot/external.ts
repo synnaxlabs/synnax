@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/lineplot/actions";
+export * from "@/lineplot/actions.gen";
 export * from "@/lineplot/client";
 export * from "@/lineplot/types.gen";

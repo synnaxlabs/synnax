@@ -12,7 +12,6 @@
 package lineplot
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/union"
 )
 
@@ -73,16 +72,16 @@ type SetXChannelPayload struct {
 // by axis_key. No-op when the range is already present. Returns a validation error when
 // axis_key targets a y-axis.
 type AddRangePayload struct {
-	AxisKey AxisKey   `json:"axis_key" msgpack:"axis_key"`
-	Range   uuid.UUID `json:"range" msgpack:"range"`
+	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
+	Range   string  `json:"range" msgpack:"range"`
 }
 
 // RemoveRangePayload removes the range key from the x-axis named by axis_key. No-op
 // when the range is not present. Returns a validation error when axis_key targets a
 // y-axis.
 type RemoveRangePayload struct {
-	AxisKey AxisKey   `json:"axis_key" msgpack:"axis_key"`
-	Range   uuid.UUID `json:"range" msgpack:"range"`
+	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
+	Range   string  `json:"range" msgpack:"range"`
 }
 
 // SetAxisPayload replaces the configuration for the axis identified by axis.key.

@@ -8,16 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type Channel, Status } from "@synnaxlabs/pluto";
+import { type Channel, LinePlot as PLinePlot, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
 
 import { CSV } from "@/csv";
 import { Layout } from "@/layout";
-import { buildLines } from "@/lineplot/buildLines";
-import { select, selectRanges } from "@/lineplot/selectors";
-import { type RootState } from "@/store";
+import { useDerivedLines } from "@/lineplot/useDerivedLines";
+import { Range } from "@/range";
 
 export interface DownloadAsCSVArgs {
   timeRanges: TimeRange[];
@@ -64,20 +62,29 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
-  const store = useStore<RootState>();
+  const derived = useDerivedLines(key);
+  const ranges = PLinePlot.useSelectRanges({ key });
+  const { name } = Layout.useSelectRequired(key);
+  const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
+  const resolved = Range.useSelectMultiple(rangeKeys);
   return useCallback(() => {
     const now = TimeStamp.now();
-    const storeState = store.getState();
-    const { name } = Layout.selectRequired(storeState, key);
-    const state = select(storeState, key);
-    const ranges = selectRanges(storeState, key);
-    const lines = buildLines(state, ranges);
-    const timeRanges = Object.values(ranges).flatMap((ranges) =>
-      ranges.map((r) => {
-        if (r.variant === "static") return new TimeRange(r.timeRange);
-        return new TimeRange({ start: now.sub(r.span), end: now });
-      }),
-    );
+    const lines: Channel.LineProps[] = derived.map((d) => ({
+      key: d.key,
+      axes: { x: d.xAxis, y: d.yAxis },
+      channels: { x: d.xChannel, y: d.yChannel },
+      color: d.color,
+      strokeWidth: d.strokeWidth,
+      downsample: d.downsample,
+      downsampleMode: d.downsampleMode,
+      label: d.label,
+      variant: "static",
+      timeRange: TimeRange.ZERO,
+    }));
+    const timeRanges = resolved.map((r) => {
+      if (r.variant === "static") return new TimeRange(r.timeRange);
+      return new TimeRange({ start: now.sub(r.span), end: now });
+    });
     downloadAsCSV({ timeRanges, lines, name });
-  }, [downloadAsCSV, store]);
+  }, [downloadAsCSV, derived, resolved, name]);
 };

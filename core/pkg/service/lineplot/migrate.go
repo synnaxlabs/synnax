@@ -85,7 +85,15 @@ func migrateChannels(c v0.Channels) Channels {
 }
 
 func migrateRanges(r v0.Ranges) Ranges {
-	return Ranges{X1: r.X1, X2: r.X2}
+	x1 := make([]string, len(r.X1))
+	for i, id := range r.X1 {
+		x1[i] = id.String()
+	}
+	x2 := make([]string, len(r.X2))
+	for i, id := range r.X2 {
+		x2[i] = id.String()
+	}
+	return Ranges{X1: x1, X2: x2}
 }
 
 func migrateAxes(a v2.Axes) Axes {

@@ -16,6 +16,7 @@ import { LinePlot } from "@/lineplot/LinePlot";
 import { Selectable } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
 
+export * from "@/lineplot/addChannelsToActivePlot";
 export * from "@/lineplot/Controls";
 export * from "@/lineplot/export";
 export * from "@/lineplot/layout";

@@ -72,10 +72,7 @@ const useCreateLinePlot = ({
       const { workspace: _workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
       placeLayout(
-        LinePlot.create({
-          ...LinePlot.stateFromLinePlot(linePlot),
-          name: linePlot.name,
-        }),
+        LinePlot.create({ key: linePlot.key, name: linePlot.name }, { remote: true }),
       );
     },
   });

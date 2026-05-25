@@ -85,7 +85,7 @@ export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
  */
 export const addRangePayloadZ = z.object({
   axisKey: axisKeyZ,
-  range: z.uuid(),
+  range: z.string(),
 });
 
 export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
@@ -97,7 +97,7 @@ export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
  */
 export const removeRangePayloadZ = z.object({
   axisKey: axisKeyZ,
-  range: z.uuid(),
+  range: z.string(),
 });
 
 export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;

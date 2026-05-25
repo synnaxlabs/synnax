@@ -35,7 +35,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
         placeLayout(
           createLinePlot({
             name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-            ranges: { x1: keys, x2: [] },
+            pendingUpload: { ranges: { x1: keys, x2: [] } },
           }),
         );
       },

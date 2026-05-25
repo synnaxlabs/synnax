@@ -10,7 +10,14 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Flex,
+  Icon,
+  LinePlot as PLinePlot,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +27,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelectToolbar } from "@/lineplot/selectors";
+import { useSelectPendingUpload, useSelectToolbar } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -46,7 +53,12 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  // The toolbar reads body fields through PLinePlot selectors that throw
+  // NotFoundError when the plot is not in the flux cache. Suspend until the
+  // canonical record is loaded so the surrounding error boundary doesn't tear
+  // the toolbar down on first mount of a freshly placed plot.
+  PLinePlot.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const state = useSelectToolbar(layoutKey);
@@ -115,4 +127,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       </Tabs.Provider>
     </Base.Content>
   );
+};
+
+export const Toolbar = (props: ToolbarProps): ReactElement | null => {
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  if (pendingUpload != null) return null;
+  return <Internal {...props} />;
 };

@@ -453,7 +453,10 @@ func (x *Channels) GetY4() []uint32 {
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// x1 are the range keys plotted against the x1 axis.
+	// x1 are the range keys plotted against the x1 axis. Range keys are opaque strings
+	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
+	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
+	// client sends.
 	X1 []string `protobuf:"bytes,1,rep,name=x1,proto3" json:"x1,omitempty"`
 	// x2 are the range keys plotted against the x2 axis.
 	X2            []string `protobuf:"bytes,2,rep,name=x2,proto3" json:"x2,omitempty"`
