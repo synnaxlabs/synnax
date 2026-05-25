@@ -28,19 +28,92 @@
     "renderTrigger": 0,
     "hasHadChannelSet": true,
     "axes": {
-      "x1": { "key": "x1", "label": "time", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75, "type": "time" },
-      "x2": { "key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75, "type": "time" },
-      "y1": { "key": "y1", "label": "psi", "labelDirection": "y", "labelLevel": "small", "bounds": { "lower": 0, "upper": 100 }, "autoBounds": { "lower": false, "upper": false }, "tickSpacing": 60 },
-      "y2": { "key": "y2", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y3": { "key": "y3", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 },
-      "y4": { "key": "y4", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": { "lower": 0, "upper": 0 }, "autoBounds": { "lower": true, "upper": true }, "tickSpacing": 75 }
+      "x1": {
+        "key": "x1",
+        "label": "time",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75,
+        "type": "time"
+      },
+      "x2": {
+        "key": "x2",
+        "label": "",
+        "labelDirection": "x",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75,
+        "type": "time"
+      },
+      "y1": {
+        "key": "y1",
+        "label": "psi",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 100 },
+        "autoBounds": { "lower": false, "upper": false },
+        "tickSpacing": 60
+      },
+      "y2": {
+        "key": "y2",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y3": {
+        "key": "y3",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      },
+      "y4": {
+        "key": "y4",
+        "label": "",
+        "labelDirection": "y",
+        "labelLevel": "small",
+        "bounds": { "lower": 0, "upper": 0 },
+        "autoBounds": { "lower": true, "upper": true },
+        "tickSpacing": 75
+      }
     }
   },
   "lines": [
-    { "key": "y1-r-10", "color": "#ff0000", "strokeWidth": 2, "downsample": 1, "downsampleMode": "decimate" },
-    { "key": "y1-r-11", "label": "P11", "color": "#00ff00", "strokeWidth": 1, "downsample": 2, "downsampleMode": "average" }
+    {
+      "key": "y1-r-10",
+      "color": "#ff0000",
+      "strokeWidth": 2,
+      "downsample": 1,
+      "downsampleMode": "decimate"
+    },
+    {
+      "key": "y1-r-11",
+      "label": "P11",
+      "color": "#00ff00",
+      "strokeWidth": 1,
+      "downsample": 2,
+      "downsampleMode": "average"
+    }
   ],
   "rules": [
-    { "selected": false, "key": "r1", "label": "max", "color": "#0000ff", "axis": "y1", "lineWidth": 1, "lineDash": 0, "units": "psi", "position": 90 }
+    {
+      "selected": false,
+      "key": "r1",
+      "label": "max",
+      "color": "#0000ff",
+      "axis": "y1",
+      "lineWidth": 1,
+      "lineDash": 0,
+      "units": "psi",
+      "position": 90
+    }
   ]
 }
