@@ -15,6 +15,7 @@ import {
   type color,
   type direction,
   location as loc,
+  type text,
   type TimeRange,
   type TimeSpan,
   type xy,
@@ -36,7 +37,6 @@ import { LinePlot as Base } from "@/lineplot";
 import { Range } from "@/lineplot/range";
 import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
-import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { Measure } from "@/vis/measure";
 import { type measure } from "@/vis/measure/aether";
@@ -94,7 +94,7 @@ export interface LinePlotProps extends Omit<Base.LinePlotProps, "ref"> {
   title?: string;
   showTitle?: boolean;
   onTitleChange?: (value: string) => void;
-  titleLevel?: Text.Level;
+  titleLevel?: text.Level;
   showLegend?: boolean;
   legendVariant?: Base.LegendProps["variant"];
   legendPosition?: xy.XY;
