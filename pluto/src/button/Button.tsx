@@ -12,7 +12,7 @@ import "@/button/Button.css";
 import { color, record, text, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
-import { Component } from "@/component";
+import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
@@ -177,8 +177,8 @@ const Base = <E extends ElementType = "button">({
       [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
     };
 
-  if (size == null && level != null) size = Component.TEXT_LEVEL_SIZES[level];
-  else if (size != null && level == null) level = Component.SIZE_TEXT_LEVELS[size];
+  if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
+  else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
   else if (defaultEl !== "div") size ??= "medium";
   level ??= "p";
 

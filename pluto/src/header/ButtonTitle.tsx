@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
-import { Component } from "@/component";
+import { TEXT_LEVEL_SIZES } from "@/component/text";
 import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 
@@ -37,7 +37,7 @@ export const ButtonTitle = ({
   return (
     <Button.Button
       variant="text"
-      size={Component.TEXT_LEVEL_SIZES[level]}
+      size={TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
       className={CSS(CSS.B("header-button-title"), className)}
       sharp

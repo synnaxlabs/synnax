@@ -19,7 +19,8 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { Component } from "@/component";
+import { type Size } from "@/component/size";
+import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -32,7 +33,7 @@ export interface SelectorProps extends Omit<
   Flex.BoxProps,
   "children" | "contextMenu" | "onDrop"
 > {
-  size?: Component.Size;
+  size?: Size;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
@@ -244,7 +245,7 @@ const SelectorButton = ({
   );
 
   const isSelected = selected === tabKey;
-  const level = Component.SIZE_TEXT_LEVELS[size];
+  const level = SIZE_TEXT_LEVELS[size];
 
   return (
     <Button.Button
@@ -314,7 +315,7 @@ export interface SelectorButtonProps extends Spec {
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
-  size: Component.Size;
+  size: Size;
   Name?: ComponentType<NameProps>;
 }
 

@@ -18,11 +18,11 @@ import {
 import { type IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
-import { type Shade } from "@/theming/base/theme";
+import { type Theming } from "@/theming";
 
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
   ref?: Ref<SVGSVGElement>;
-  color?: color.Crude | Shade;
+  color?: color.Crude | Theming.Shade;
 }
 
 /**
@@ -67,7 +67,7 @@ interface WrapIconOpts {
 
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
-const parseColor = (c?: color.Crude | Shade): string | undefined => {
+const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
   if (typeof c === "number") return `var(--pluto-gray-l${c})`;
   return color.cssString(c);
 };
