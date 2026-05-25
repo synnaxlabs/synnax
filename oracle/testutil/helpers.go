@@ -53,6 +53,39 @@ func MustGenerateRequest(
 	return req
 }
 
+// MustGenerateMulti analyzes every file pre-registered on the loader as one
+// resolution table and runs the provided plugin against it. Useful for tests
+// that need to exercise cross-schema behavior (e.g., two schemas that derive
+// the same namespace from different files).
+//
+// Tests register schemas via loader.Add(path, content) where path is the
+// schema file path (with or without the .oracle suffix). Each registered
+// entry is analyzed as its own file, so DeriveNamespace sees the base name.
+func MustGenerateMulti(
+	ctx context.Context,
+	loader *MockFileLoader,
+	p plugin.Plugin,
+) *plugin.Response {
+	ginkgo.GinkgoHelper()
+	files := make([]string, 0, len(loader.Files))
+	for path := range loader.Files {
+		// analyzer.Analyze passes the file to loader.Load verbatim, and
+		// MockFileLoader.Load appends ".oracle" to the returned filePath
+		// when the key matches as-is. Strip ".oracle" here so the file
+		// path returned to the analyzer is canonical and DeriveNamespace
+		// resolves to the file's base name without a doubled suffix.
+		files = append(files, strings.TrimSuffix(path, ".oracle"))
+	}
+	table, diag := analyzer.Analyze(ctx, files, loader)
+	if diag != nil && !diag.Ok() {
+		gomega.Expect(diag.Errors()).To(gomega.BeEmpty(), "failed to analyze sources")
+	}
+	req := &plugin.Request{Resolutions: table, RepoRoot: loader.RepoRoot()}
+	resp, err := p.Generate(req)
+	gomega.Expect(err).To(gomega.BeNil(), "failed to generate")
+	return resp
+}
+
 // MustGenerate analyzes the source and generates output using the provided plugin.
 // Fails the test if analysis or generation fails.
 func MustGenerate(

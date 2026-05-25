@@ -14,6 +14,7 @@ package lineplot
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 func (ab AutoBounds) EncodeOrc(w *orc.Writer) error {
@@ -122,7 +123,7 @@ func (a *Axis) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		a.LabelLevel = TextLevel(v)
+		a.LabelLevel = text.Level(v)
 	}
 	if a.Bounds.Lower, err = r.Float64(); err != nil {
 		return err
@@ -561,7 +562,7 @@ func (t *Title) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		t.Level = TextLevel(v)
+		t.Level = text.Level(v)
 	}
 	if t.Visible, err = r.Bool(); err != nil {
 		return err

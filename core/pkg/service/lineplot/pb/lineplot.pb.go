@@ -18,7 +18,8 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/spatial/pb"
+	pb1 "github.com/synnaxlabs/x/spatial/pb"
+	pb "github.com/synnaxlabs/x/text/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -32,68 +33,6 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
-
-// TextLevel is a typography level identifier shared with the pluto text component.
-type TextLevel int32
-
-const (
-	TextLevel_TEXT_LEVEL_H_1   TextLevel = 0
-	TextLevel_TEXT_LEVEL_H_2   TextLevel = 1
-	TextLevel_TEXT_LEVEL_H_3   TextLevel = 2
-	TextLevel_TEXT_LEVEL_H_4   TextLevel = 3
-	TextLevel_TEXT_LEVEL_H_5   TextLevel = 4
-	TextLevel_TEXT_LEVEL_P     TextLevel = 5
-	TextLevel_TEXT_LEVEL_SMALL TextLevel = 6
-)
-
-// Enum value maps for TextLevel.
-var (
-	TextLevel_name = map[int32]string{
-		0: "TEXT_LEVEL_H_1",
-		1: "TEXT_LEVEL_H_2",
-		2: "TEXT_LEVEL_H_3",
-		3: "TEXT_LEVEL_H_4",
-		4: "TEXT_LEVEL_H_5",
-		5: "TEXT_LEVEL_P",
-		6: "TEXT_LEVEL_SMALL",
-	}
-	TextLevel_value = map[string]int32{
-		"TEXT_LEVEL_H_1":   0,
-		"TEXT_LEVEL_H_2":   1,
-		"TEXT_LEVEL_H_3":   2,
-		"TEXT_LEVEL_H_4":   3,
-		"TEXT_LEVEL_H_5":   4,
-		"TEXT_LEVEL_P":     5,
-		"TEXT_LEVEL_SMALL": 6,
-	}
-)
-
-func (x TextLevel) Enum() *TextLevel {
-	p := new(TextLevel)
-	*p = x
-	return p
-}
-
-func (x TextLevel) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (TextLevel) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[0].Descriptor()
-}
-
-func (TextLevel) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[0]
-}
-
-func (x TextLevel) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use TextLevel.Descriptor instead.
-func (TextLevel) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{0}
-}
 
 // AxisKey names one of the six fixed plot axes.
 type AxisKey int32
@@ -138,11 +77,11 @@ func (x AxisKey) String() string {
 }
 
 func (AxisKey) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[1].Descriptor()
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[0].Descriptor()
 }
 
 func (AxisKey) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[1]
+	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[0]
 }
 
 func (x AxisKey) Number() protoreflect.EnumNumber {
@@ -151,7 +90,7 @@ func (x AxisKey) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AxisKey.Descriptor instead.
 func (AxisKey) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{0}
 }
 
 // TickType selects how an axis renders its tick labels.
@@ -185,11 +124,11 @@ func (x TickType) String() string {
 }
 
 func (TickType) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[2].Descriptor()
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[1].Descriptor()
 }
 
 func (TickType) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[2]
+	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[1]
 }
 
 func (x TickType) Number() protoreflect.EnumNumber {
@@ -198,7 +137,7 @@ func (x TickType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use TickType.Descriptor instead.
 func (TickType) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{1}
 }
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
@@ -232,11 +171,11 @@ func (x DownsampleMode) String() string {
 }
 
 func (DownsampleMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[3].Descriptor()
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[2].Descriptor()
 }
 
 func (DownsampleMode) Type() protoreflect.EnumType {
-	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[3]
+	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[2]
 }
 
 func (x DownsampleMode) Number() protoreflect.EnumNumber {
@@ -245,14 +184,14 @@ func (x DownsampleMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DownsampleMode.Descriptor instead.
 func (DownsampleMode) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{2}
 }
 
 // Title is the plot title configuration.
 type Title struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// level is the typography level of the title text.
-	Level TextLevel `protobuf:"varint,1,opt,name=level,proto3,enum=service.lineplot.pb.TextLevel" json:"level,omitempty"`
+	Level pb.Level `protobuf:"varint,1,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
 	// visible is whether the title is shown above the plot.
 	Visible       bool `protobuf:"varint,2,opt,name=visible,proto3" json:"visible,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -289,11 +228,11 @@ func (*Title) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Title) GetLevel() TextLevel {
+func (x *Title) GetLevel() pb.Level {
 	if x != nil {
 		return x.Level
 	}
-	return TextLevel_TEXT_LEVEL_H_1
+	return pb.Level(0)
 }
 
 func (x *Title) GetVisible() bool {
@@ -309,7 +248,7 @@ type Legend struct {
 	// visible is whether the legend is shown.
 	Visible bool `protobuf:"varint,1,opt,name=visible,proto3" json:"visible,omitempty"`
 	// position is the anchor position of the legend within the plot container.
-	Position      *pb.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
+	Position      *pb1.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -351,7 +290,7 @@ func (x *Legend) GetVisible() bool {
 	return false
 }
 
-func (x *Legend) GetPosition() *pb.StickyXY {
+func (x *Legend) GetPosition() *pb1.StickyXY {
 	if x != nil {
 		return x.Position
 	}
@@ -573,13 +512,13 @@ type Axis struct {
 	// label is the human-readable label rendered along the axis.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 	// label_direction is the orientation in which the label text is laid out.
-	LabelDirection pb.Direction `protobuf:"varint,3,opt,name=label_direction,json=labelDirection,proto3,enum=x.spatial.pb.Direction" json:"label_direction,omitempty"`
+	LabelDirection pb1.Direction `protobuf:"varint,3,opt,name=label_direction,json=labelDirection,proto3,enum=x.spatial.pb.Direction" json:"label_direction,omitempty"`
 	// label_level is the typography level of the label.
-	LabelLevel TextLevel `protobuf:"varint,4,opt,name=label_level,json=labelLevel,proto3,enum=service.lineplot.pb.TextLevel" json:"label_level,omitempty"`
+	LabelLevel pb.Level `protobuf:"varint,4,opt,name=label_level,json=labelLevel,proto3,enum=x.text.pb.Level" json:"label_level,omitempty"`
 	// bounds is the value-space window of the axis. When the matching entry in auto_bounds
 	// is true the field is overwritten locally on every render; otherwise it is the
 	// user-set fixed bound.
-	Bounds *pb.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Bounds *pb1.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	// auto_bounds controls per-edge automatic bound derivation.
 	AutoBounds *AutoBounds `protobuf:"bytes,6,opt,name=auto_bounds,json=autoBounds,proto3" json:"auto_bounds,omitempty"`
 	// tick_spacing is the target pixel distance between adjacent tick marks.
@@ -635,21 +574,21 @@ func (x *Axis) GetLabel() string {
 	return ""
 }
 
-func (x *Axis) GetLabelDirection() pb.Direction {
+func (x *Axis) GetLabelDirection() pb1.Direction {
 	if x != nil {
 		return x.LabelDirection
 	}
-	return pb.Direction(0)
+	return pb1.Direction(0)
 }
 
-func (x *Axis) GetLabelLevel() TextLevel {
+func (x *Axis) GetLabelLevel() pb.Level {
 	if x != nil {
 		return x.LabelLevel
 	}
-	return TextLevel_TEXT_LEVEL_H_1
+	return pb.Level(0)
 }
 
-func (x *Axis) GetBounds() *pb.Bounds {
+func (x *Axis) GetBounds() *pb1.Bounds {
 	if x != nil {
 		return x.Bounds
 	}
@@ -1096,9 +1035,9 @@ var File_core_pkg_service_lineplot_pb_lineplot_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1dx/go/spatial/pb/spatial.proto\"W\n" +
-	"\x05Title\x124\n" +
-	"\x05level\x18\x01 \x01(\x0e2\x1e.service.lineplot.pb.TextLevelR\x05level\x12\x18\n" +
+	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"I\n" +
+	"\x05Title\x12&\n" +
+	"\x05level\x18\x01 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x18\n" +
 	"\avisible\x18\x02 \x01(\bR\avisible\"V\n" +
 	"\x06Legend\x12\x18\n" +
 	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
@@ -1116,12 +1055,12 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\n" +
 	"AutoBounds\x12\x14\n" +
 	"\x05lower\x18\x01 \x01(\bR\x05lower\x12\x14\n" +
-	"\x05upper\x18\x02 \x01(\bR\x05upper\"\xa3\x03\n" +
+	"\x05upper\x18\x02 \x01(\bR\x05upper\"\x95\x03\n" +
 	"\x04Axis\x12.\n" +
 	"\x03key\x18\x01 \x01(\x0e2\x1c.service.lineplot.pb.AxisKeyR\x03key\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12@\n" +
-	"\x0flabel_direction\x18\x03 \x01(\x0e2\x17.x.spatial.pb.DirectionR\x0elabelDirection\x12?\n" +
-	"\vlabel_level\x18\x04 \x01(\x0e2\x1e.service.lineplot.pb.TextLevelR\n" +
+	"\x0flabel_direction\x18\x03 \x01(\x0e2\x17.x.spatial.pb.DirectionR\x0elabelDirection\x121\n" +
+	"\vlabel_level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelR\n" +
 	"labelLevel\x12,\n" +
 	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12@\n" +
 	"\vauto_bounds\x18\x06 \x01(\v2\x1f.service.lineplot.pb.AutoBoundsR\n" +
@@ -1165,15 +1104,7 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\x06ranges\x18\x06 \x01(\v2\x1b.service.lineplot.pb.RangesR\x06ranges\x12-\n" +
 	"\x04axes\x18\a \x01(\v2\x19.service.lineplot.pb.AxesR\x04axes\x12/\n" +
 	"\x05lines\x18\b \x03(\v2\x19.service.lineplot.pb.LineR\x05lines\x12/\n" +
-	"\x05rules\x18\t \x03(\v2\x19.service.lineplot.pb.RuleR\x05rules*\x97\x01\n" +
-	"\tTextLevel\x12\x12\n" +
-	"\x0eTEXT_LEVEL_H_1\x10\x00\x12\x12\n" +
-	"\x0eTEXT_LEVEL_H_2\x10\x01\x12\x12\n" +
-	"\x0eTEXT_LEVEL_H_3\x10\x02\x12\x12\n" +
-	"\x0eTEXT_LEVEL_H_4\x10\x03\x12\x12\n" +
-	"\x0eTEXT_LEVEL_H_5\x10\x04\x12\x10\n" +
-	"\fTEXT_LEVEL_P\x10\x05\x12\x14\n" +
-	"\x10TEXT_LEVEL_SMALL\x10\x06*u\n" +
+	"\x05rules\x18\t \x03(\v2\x19.service.lineplot.pb.RuleR\x05rules*u\n" +
 	"\aAxisKey\x12\x10\n" +
 	"\fAXIS_KEY_X_1\x10\x00\x12\x10\n" +
 	"\fAXIS_KEY_X_2\x10\x01\x12\x10\n" +
@@ -1201,51 +1132,51 @@ func file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescData
 }
 
-var file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = []any{
-	(TextLevel)(0),      // 0: service.lineplot.pb.TextLevel
-	(AxisKey)(0),        // 1: service.lineplot.pb.AxisKey
-	(TickType)(0),       // 2: service.lineplot.pb.TickType
-	(DownsampleMode)(0), // 3: service.lineplot.pb.DownsampleMode
-	(*Title)(nil),       // 4: service.lineplot.pb.Title
-	(*Legend)(nil),      // 5: service.lineplot.pb.Legend
-	(*Channels)(nil),    // 6: service.lineplot.pb.Channels
-	(*Ranges)(nil),      // 7: service.lineplot.pb.Ranges
-	(*AutoBounds)(nil),  // 8: service.lineplot.pb.AutoBounds
-	(*Axis)(nil),        // 9: service.lineplot.pb.Axis
-	(*Axes)(nil),        // 10: service.lineplot.pb.Axes
-	(*Line)(nil),        // 11: service.lineplot.pb.Line
-	(*Rule)(nil),        // 12: service.lineplot.pb.Rule
-	(*LinePlot)(nil),    // 13: service.lineplot.pb.LinePlot
-	(*pb.StickyXY)(nil), // 14: x.spatial.pb.StickyXY
-	(pb.Direction)(0),   // 15: x.spatial.pb.Direction
-	(*pb.Bounds)(nil),   // 16: x.spatial.pb.Bounds
+	(AxisKey)(0),         // 0: service.lineplot.pb.AxisKey
+	(TickType)(0),        // 1: service.lineplot.pb.TickType
+	(DownsampleMode)(0),  // 2: service.lineplot.pb.DownsampleMode
+	(*Title)(nil),        // 3: service.lineplot.pb.Title
+	(*Legend)(nil),       // 4: service.lineplot.pb.Legend
+	(*Channels)(nil),     // 5: service.lineplot.pb.Channels
+	(*Ranges)(nil),       // 6: service.lineplot.pb.Ranges
+	(*AutoBounds)(nil),   // 7: service.lineplot.pb.AutoBounds
+	(*Axis)(nil),         // 8: service.lineplot.pb.Axis
+	(*Axes)(nil),         // 9: service.lineplot.pb.Axes
+	(*Line)(nil),         // 10: service.lineplot.pb.Line
+	(*Rule)(nil),         // 11: service.lineplot.pb.Rule
+	(*LinePlot)(nil),     // 12: service.lineplot.pb.LinePlot
+	(pb.Level)(0),        // 13: x.text.pb.Level
+	(*pb1.StickyXY)(nil), // 14: x.spatial.pb.StickyXY
+	(pb1.Direction)(0),   // 15: x.spatial.pb.Direction
+	(*pb1.Bounds)(nil),   // 16: x.spatial.pb.Bounds
 }
 var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
-	0,  // 0: service.lineplot.pb.Title.level:type_name -> service.lineplot.pb.TextLevel
+	13, // 0: service.lineplot.pb.Title.level:type_name -> x.text.pb.Level
 	14, // 1: service.lineplot.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
-	1,  // 2: service.lineplot.pb.Axis.key:type_name -> service.lineplot.pb.AxisKey
+	0,  // 2: service.lineplot.pb.Axis.key:type_name -> service.lineplot.pb.AxisKey
 	15, // 3: service.lineplot.pb.Axis.label_direction:type_name -> x.spatial.pb.Direction
-	0,  // 4: service.lineplot.pb.Axis.label_level:type_name -> service.lineplot.pb.TextLevel
+	13, // 4: service.lineplot.pb.Axis.label_level:type_name -> x.text.pb.Level
 	16, // 5: service.lineplot.pb.Axis.bounds:type_name -> x.spatial.pb.Bounds
-	8,  // 6: service.lineplot.pb.Axis.auto_bounds:type_name -> service.lineplot.pb.AutoBounds
-	2,  // 7: service.lineplot.pb.Axis.type:type_name -> service.lineplot.pb.TickType
-	9,  // 8: service.lineplot.pb.Axes.x1:type_name -> service.lineplot.pb.Axis
-	9,  // 9: service.lineplot.pb.Axes.x2:type_name -> service.lineplot.pb.Axis
-	9,  // 10: service.lineplot.pb.Axes.y1:type_name -> service.lineplot.pb.Axis
-	9,  // 11: service.lineplot.pb.Axes.y2:type_name -> service.lineplot.pb.Axis
-	9,  // 12: service.lineplot.pb.Axes.y3:type_name -> service.lineplot.pb.Axis
-	9,  // 13: service.lineplot.pb.Axes.y4:type_name -> service.lineplot.pb.Axis
-	3,  // 14: service.lineplot.pb.Line.downsample_mode:type_name -> service.lineplot.pb.DownsampleMode
-	1,  // 15: service.lineplot.pb.Rule.axis:type_name -> service.lineplot.pb.AxisKey
-	4,  // 16: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
-	5,  // 17: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
-	6,  // 18: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
-	7,  // 19: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
-	10, // 20: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
-	11, // 21: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
-	12, // 22: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
+	7,  // 6: service.lineplot.pb.Axis.auto_bounds:type_name -> service.lineplot.pb.AutoBounds
+	1,  // 7: service.lineplot.pb.Axis.type:type_name -> service.lineplot.pb.TickType
+	8,  // 8: service.lineplot.pb.Axes.x1:type_name -> service.lineplot.pb.Axis
+	8,  // 9: service.lineplot.pb.Axes.x2:type_name -> service.lineplot.pb.Axis
+	8,  // 10: service.lineplot.pb.Axes.y1:type_name -> service.lineplot.pb.Axis
+	8,  // 11: service.lineplot.pb.Axes.y2:type_name -> service.lineplot.pb.Axis
+	8,  // 12: service.lineplot.pb.Axes.y3:type_name -> service.lineplot.pb.Axis
+	8,  // 13: service.lineplot.pb.Axes.y4:type_name -> service.lineplot.pb.Axis
+	2,  // 14: service.lineplot.pb.Line.downsample_mode:type_name -> service.lineplot.pb.DownsampleMode
+	0,  // 15: service.lineplot.pb.Rule.axis:type_name -> service.lineplot.pb.AxisKey
+	3,  // 16: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
+	4,  // 17: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
+	5,  // 18: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
+	6,  // 19: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
+	9,  // 20: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
+	10, // 21: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
+	11, // 22: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
 	23, // [23:23] is the sub-list for method output_type
 	23, // [23:23] is the sub-list for method input_type
 	23, // [23:23] is the sub-list for extension type_name
@@ -1265,7 +1196,7 @@ func file_core_pkg_service_lineplot_pb_lineplot_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      3,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

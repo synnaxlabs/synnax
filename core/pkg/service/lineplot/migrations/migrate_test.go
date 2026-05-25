@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/text"
 )
 
 //go:embed testdata/*.json
@@ -189,7 +190,7 @@ var _ = Describe("MigrateLinePlot", func() {
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Key).To(Equal(seed.Key))
 			Expect(got.Name).To(Equal("Tank Pressure"))
-			Expect(got.Title.Level).To(Equal(lineplot.TextLevelH4))
+			Expect(got.Title.Level).To(Equal(text.LevelH4))
 			Expect(got.Channels.X1).To(BeEquivalentTo(1))
 			Expect(got.Channels.Y1).To(ConsistOf(uint32(10)))
 			Expect(got.Axes.X1.Type).NotTo(BeNil())
@@ -249,9 +250,9 @@ var _ = Describe("MigrateLinePlot", func() {
 			}))
 		}
 
-		It("Should cast Title.Level into the typed TextLevel enum", func(ctx SpecContext) {
+		It("Should cast Title.Level into the typed text.Level enum", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"title": {"level": "h2", "visible": true}`)
-			Expect(out.Title.Level).To(Equal(lineplot.TextLevelH2))
+			Expect(out.Title.Level).To(Equal(text.LevelH2))
 			Expect(out.Title.Visible).To(BeTrue())
 		})
 

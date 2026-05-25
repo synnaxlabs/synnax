@@ -78,8 +78,13 @@ func FindOutputPath(e resolution.Type, table *resolution.Table, domainName strin
 	if path := output.GetPath(e, domainName); path != "" {
 		return path
 	}
+	// Fall back to a struct declared in the same schema file. Filtering by
+	// FilePath in addition to Namespace prevents schemas that happen to
+	// share a namespace name (e.g., schemas/text.oracle and
+	// schemas/arc/text.oracle, both deriving namespace 'text') from leaking
+	// each other's output paths.
 	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
+		if s.Namespace == e.Namespace && s.FilePath == e.FilePath {
 			if path := output.GetPath(s, domainName); path != "" {
 				return path
 			}
@@ -107,11 +112,22 @@ func CollectWithOwnOutput(allEnums []resolution.Type, domainName string) []resol
 	return result
 }
 
-// FindPBOutputPath finds the pb output path for an enum using the new pb/ pattern.
-// Derives from @go output + "/pb/" for structs in the same namespace.
+// FindPBOutputPath finds the pb output path for an enum using the new pb/
+// pattern. The enum must opt into pb output via its own @pb directive
+// (typically file-level); we will not drag an enum into pb generation just
+// because some struct in the same namespace has @pb. Otherwise enums from a
+// non-pb schema leak into another schema's pb output whenever the two
+// schemas share a namespace name (e.g., schemas/text.oracle and
+// schemas/arc/text.oracle, both deriving namespace 'text').
 func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
+	if !output.HasPB(e) {
+		return ""
+	}
+	if path := output.GetPBPath(e); path != "" {
+		return path
+	}
 	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
+		if s.Namespace == e.Namespace && s.FilePath == e.FilePath {
 			if path := output.GetPBPath(s); path != "" {
 				return path
 			}

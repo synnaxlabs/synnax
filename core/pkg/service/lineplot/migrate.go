@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v2"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 // MigrateLinePlot transforms the previous line plot snapshot (v55) into the
@@ -50,7 +51,7 @@ func MigrateLinePlot(ctx context.Context, old v55.LinePlot) (LinePlot, error) {
 }
 
 func migrateTitle(t v0.Title) Title {
-	return Title{Level: TextLevel(t.Level), Visible: t.Visible}
+	return Title{Level: text.Level(t.Level), Visible: t.Visible}
 }
 
 func migrateLegend(l v1.Legend) Legend {
@@ -104,7 +105,7 @@ func migrateAxis(a v2.Axis) Axis {
 		Key:            AxisKey(a.Key),
 		Label:          a.Label,
 		LabelDirection: spatial.Direction(a.LabelDirection),
-		LabelLevel:     TextLevel(a.LabelLevel),
+		LabelLevel:     text.Level(a.LabelLevel),
 		Bounds:         spatial.Bounds{Lower: a.Bounds.Lower, Upper: a.Bounds.Upper},
 		AutoBounds:     AutoBounds{Lower: a.AutoBounds.Lower, Upper: a.AutoBounds.Upper},
 		TickSpacing:    a.TickSpacing,
