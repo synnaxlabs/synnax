@@ -311,8 +311,8 @@ class ExecutionClient:
             test.range = None
 
         # Set up this test's bundle directory and bind it to the current thread
-        # so that helpers like `get_results_path` route artifacts (trace, screenshots,
-        # exports) into it transparently.
+        # so that helpers like `resolve_results_path` route artifacts (trace,
+        # screenshots, exports) into it transparently.
         bundle_dir = self._setup_bundle_dir(test)
         log_start_offset = server_log.current_offset()
         test.started_at = time.time()

@@ -16,7 +16,8 @@ from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.utils import get_fixture_path, get_results_path
+from framework.run_dir import resolve_results_path
+from framework.utils import get_fixture_path
 from x import get_synnax_version
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
@@ -238,7 +239,7 @@ class Workspace(ConsoleCase):
         """Test importing a workspace via command palette."""
         self.log("Testing import workspace via command palette")
 
-        export_path = get_results_path("ImportSpace_export.json")
+        export_path = resolve_results_path("ImportSpace_export.json")
         with open(export_path, "r") as f:
             data = json.load(f)
 

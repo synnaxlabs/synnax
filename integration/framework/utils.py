@@ -20,19 +20,9 @@ import re
 import uuid
 
 import synnax as sy
-from framework.run_dir import resolve_results_path
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
-
-
-def get_results_path(filename: str) -> str:
-    """Return the path for a results file in the active scope.
-
-    Routes through ``run_dir.resolve_results_path``, which resolves to the
-    current test's bundle dir when a test is running, the run dir otherwise.
-    """
-    return resolve_results_path(filename)
 
 
 def get_fixture_path(filename: str) -> str:

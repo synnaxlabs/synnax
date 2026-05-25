@@ -23,7 +23,7 @@ from console.ranges import RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
 from console.workspace import WorkspaceClient
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 
 class Console:
@@ -82,7 +82,7 @@ class Console:
             name = name + ".png"
 
         self.page.screenshot(
-            path=get_results_path(name),
+            path=resolve_results_path(name),
             full_page=True,
             animations="disabled",
             type="png",

@@ -18,7 +18,7 @@ Every conductor invocation creates a single run directory under
                          screenshots, exports)
 
 Per-test scoping is thread-local. ``ExecutionClient`` calls ``set_test_dir``
-at the start of each test thread; helpers that call ``get_results_path``
+at the start of each test thread; helpers that call ``resolve_results_path``
 transparently route writes into the active test's bundle.
 """
 
@@ -90,8 +90,7 @@ def resolve_results_path(filename: str) -> str:
     """Resolve a results filename to an absolute path in the active scope.
 
     Resolution order: active test dir → run dir → legacy flat results root.
-    The chosen directory is created on demand. Existing call sites using
-    ``framework.utils.get_results_path`` route through here transparently.
+    The chosen directory is created on demand.
     """
     base = get_test_dir() or _run_dir or RESULTS_ROOT
     base.mkdir(parents=True, exist_ok=True)

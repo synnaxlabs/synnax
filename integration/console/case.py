@@ -22,8 +22,8 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.console import Console
 from framework.models import STATUS
+from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
-from framework.utils import get_results_path
 
 
 class ConsoleCase(TestCase):
@@ -133,7 +133,7 @@ class ConsoleCase(TestCase):
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
         try:
             if self._status in failed_states:
-                trace_path = get_results_path("trace.zip")
+                trace_path = resolve_results_path("trace.zip")
                 self.context.tracing.stop(path=trace_path)
                 self.log(f"Trace saved: {trace_path}")
             else:
