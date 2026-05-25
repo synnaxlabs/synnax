@@ -153,9 +153,9 @@ export interface CreateOutput extends table.Table {
   workspace?: workspace.Key;
 }
 
-// seedDefaultLayout returns a fresh 2x2 grid of empty text cells. Used when a
-// caller creates a table with no rows or columns so the user opens onto a
-// usable starter layout instead of a blank canvas.
+// seedDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
+// that creates a table with no structural data opens onto a usable starter
+// layout instead of a blank canvas.
 const seedDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
   return {
@@ -178,12 +178,13 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    if ((data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0)
-      Object.assign(data, seedDefaultLayout());
     const { workspace, ...rest } = data;
-    rollbacks.push(store.tables.set(data.key, data as table.Table));
-    const t = await client.tables.create(workspace ?? uuid.ZERO, rest);
+    rest.key ??= uuid.create();
+    if ((rest.rows?.length ?? 0) === 0 && (rest.columns?.length ?? 0) === 0)
+      Object.assign(rest, seedDefaultLayout());
+    const created = rest as table.Table;
+    rollbacks.push(store.tables.set(created.key, created));
+    const t = await client.tables.create(workspace ?? uuid.ZERO, created);
     store.tables.set(t);
     return { ...t, workspace };
   },

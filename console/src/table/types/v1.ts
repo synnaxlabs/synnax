@@ -16,18 +16,17 @@ import { toWire } from "@/table/types/v0";
 
 export const VERSION = "1.0.0";
 
-// pendingUploadZ carries the structural data a v0 table needs uploaded to
-// flux/server on first render. name is supplied at upload time from Layout.
+// pendingUploadZ is the table payload needed to upload a legacy v0 table on
+// first render. name is omitted because the live name lives in Layout.
 export const pendingUploadZ = table.tableZ.omit({ name: true });
 export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
-// v1 removes the structural model (layout / cells) from console state. Rows,
-// columns, and cells now live in the Pluto-owned flux store keyed by table
-// key; the slice only carries UI state. Selection moves from a per-cell
-// `selected: boolean` to a per-table `selectedCells: string[]` array. When a
-// table is loaded from a v0 workspace or imported from a legacy export, its
-// structural data lands in pendingUpload and is pushed to the server by
-// useAutoUpload on first render.
+// v1 removes the structural model (layout / cells) from console state; rows,
+// columns, and cells live in the Pluto-owned flux store, and the slice only
+// carries UI state. Selection moves from a per-cell `selected: boolean` to a
+// per-table `selectedCells: string[]` array. Legacy v0 input has its
+// structural data parked in pendingUpload so consumers can re-sync it to the
+// server on first render.
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
@@ -68,10 +67,10 @@ const buildPendingUpload = (state: v0.State): PendingUpload => {
   return rest;
 };
 
-// Drops the per-cell selected flag and projects v0's structural model into
-// pendingUpload when the table has not yet been synced to the server.
-// Workspaces with remoteCreated tables already have the data server-side, so
-// migration leaves pendingUpload undefined and the renderer reads from flux.
+// Drops the per-cell selected flag and parks v0's structural model in
+// pendingUpload when the table is not yet remoteCreated. remoteCreated tables
+// already have authoritative data on the server, so pendingUpload stays
+// undefined for those.
 export const stateMigration = migrate.createMigration<v0.State, State>({
   name: STATE_MIGRATION_NAME,
   migrate: (state) => ({

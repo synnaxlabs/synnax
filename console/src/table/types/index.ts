@@ -43,8 +43,7 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   def: ZERO_SLICE_STATE,
 });
 
-// anyStateZ accepts either the latest console state or any legacy v0 state
-// blob; the .transform forwards a parsed v0 through the migration ladder so
-// callers (the slice's create reducer, the import path) receive a uniform
-// v1 State with pendingUpload populated when the source was legacy data.
+// anyStateZ parses either a v0 or v1 state blob and returns a uniform v1
+// State. v0 inputs flow through the migration ladder, so pendingUpload is
+// populated when the source carried unsynced structural data.
 export const anyStateZ = z.union([v1.stateZ, v0.stateZ]).transform(migrateState);

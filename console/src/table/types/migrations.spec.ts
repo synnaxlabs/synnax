@@ -58,9 +58,10 @@ describe("table migrations", () => {
     });
 
     it("should project v0 layout + cells into pendingUpload when not remoteCreated", () => {
-      const migrated = migrateState(populatedV0State({ remoteCreated: false }));
-      expect(migrated.pendingUpload).toBeDefined();
-      const upload = migrated.pendingUpload!;
+      const upload = migrateState(
+        populatedV0State({ remoteCreated: false }),
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
       expect(upload.key).toEqual("11111111-1111-1111-1111-111111111111");
       expect(upload.rows).toHaveLength(2);
       expect(upload.rows[0].cells).toEqual(["a", "b"]);
@@ -72,15 +73,16 @@ describe("table migrations", () => {
     });
 
     it("should drop the per-cell selected flag from pendingUpload", () => {
-      const migrated = migrateState(
+      const upload = migrateState(
         populatedV0State({
           remoteCreated: false,
           cells: {
             a: { ...v0.ZERO_CELL_STATE, key: "a", selected: true, props: {} },
           },
         }),
-      );
-      const cell = migrated.pendingUpload!.cells.a as Record<string, unknown>;
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
+      const cell = upload.cells.a as Record<string, unknown>;
       expect(cell.selected).toBeUndefined();
     });
 
@@ -120,10 +122,9 @@ describe("table migrations", () => {
       };
       const migrated = migrateSlice(sliceState);
       expect(migrated.tables.remote.pendingUpload).toBeUndefined();
-      expect(migrated.tables.local.pendingUpload).toBeDefined();
-      expect(migrated.tables.local.pendingUpload?.key).toEqual(
-        "22222222-2222-2222-2222-222222222222",
-      );
+      const localUpload = migrated.tables.local.pendingUpload;
+      if (localUpload == null) throw new Error("expected pendingUpload to be defined");
+      expect(localUpload.key).toEqual("22222222-2222-2222-2222-222222222222");
     });
   });
 });

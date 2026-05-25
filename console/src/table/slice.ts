@@ -28,9 +28,8 @@ export interface StoreState {
 export interface CreatePayload {
   key: string;
   editable?: boolean;
-  // Optional legacy state used by the import pipeline. When present, it is
-  // migrated forward via anyStateZ and the resulting pendingUpload is stored
-  // on the slice so useAutoUpload pushes the table to the active workspace.
+  // Optional legacy state. When present, the reducer migrates it through
+  // anyStateZ and parks the result as pendingUpload for first-render upload.
   data?: unknown;
 }
 
