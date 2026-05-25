@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Component } from "@/component";
 import { type theming } from "@/theming/aether";
 
-export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
-export const levelZ = z.enum(LEVELS);
+// Typography levels are owned by the @synnaxlabs/x text package so that the
+// server-side oracle schema and other visualizations (line plots, tables,
+// etc.) reference the same canonical enum. Re-exported here so existing
+// pluto callers can keep importing from @/text without churn.
+export const LEVELS = text.LEVELS;
+export const levelZ = text.levelZ;
 
 /* Level of typography i.e paragraph and heading */
-export type Level = z.infer<typeof levelZ>;
+export type Level = text.Level;
 
 export const downLevel = (level: Level): Level => {
   const index = LEVELS.indexOf(level);
