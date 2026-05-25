@@ -16,6 +16,26 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::framer {
+/// @brief it should default the writer's start timestamp to the current time when the
+/// start is left unspecified in the config.
+TEST(WriterTests, testDefaultStartNow) {
+    const auto before = x::telem::TimeStamp::now();
+    const synnax::framer::WriterConfig cfg{.channels = {1, 2}};
+    const auto after = x::telem::TimeStamp::now();
+    EXPECT_GE(cfg.start, before);
+    EXPECT_LE(cfg.start, after);
+}
+
+/// @brief it should preserve an explicitly provided start timestamp, even when it is
+/// the Unix epoch.
+TEST(WriterTests, testExplicitStartPreserved) {
+    const synnax::framer::WriterConfig cfg{
+        .channels = {1, 2},
+        .start = x::telem::TimeStamp(0),
+    };
+    EXPECT_EQ(cfg.start, x::telem::TimeStamp(0));
+}
+
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(WriterTests, testWriteBasic) {
     auto client = new_test_client();
@@ -23,10 +43,10 @@ TEST(WriterTests, testWriteBasic) {
     auto now = x::telem::TimeStamp::now();
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            synnax::channel::keys_from_channels(time, data),
-            now,
-            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"},
+            .channels = synnax::channel::keys_from_channels(time, data),
+            .authorities = std::
+                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"},
         }
     ));
 
@@ -62,14 +82,12 @@ TEST(WriterTests, testWriteBasic) {
 TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
-    const auto now = x::telem::TimeStamp::now();
     ASSERT_OCCURRED_AS_P(
         client.telem.open_writer(
             synnax::framer::WriterConfig{
-                std::vector<synnax::channel::Key>{time.key, 1000},
-                now,
-                std::vector{x::control::AUTHORITY_ABSOLUTE},
-                x::control::Subject{"test_writer"},
+                .channels = std::vector<synnax::channel::Key>{time.key, 1000},
+                .authorities = std::vector{x::control::AUTHORITY_ABSOLUTE},
+                .subject = x::control::Subject{"test_writer"},
             }
         ),
         x::errors::NOT_FOUND
@@ -83,10 +101,9 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto [time, _] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            std::vector{time.key},
-            x::telem::TimeStamp::now(),
-            std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"},
+            .channels = std::vector{time.key},
+            .authorities = std::vector{x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(1);
@@ -238,10 +255,10 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
     auto [time, data] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            std::vector{time.key, data.key},
-            x::telem::TimeStamp::now(),
-            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"},
+            .channels = std::vector{time.key, data.key},
+            .authorities = std::
+                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(2);
@@ -271,7 +288,6 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer_1"},
@@ -281,7 +297,6 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
     auto [w2, err] = client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer_2"},
@@ -317,7 +332,6 @@ TEST(WriterTests, testSetAuthority) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data1.key, data2.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities =
                 std::vector{
                     x::control::AUTHORITY_ABSOLUTE,
@@ -369,7 +383,6 @@ TEST(WriterTests, testSetAuthorityFireAndForget) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data1.key, data2.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities =
                 std::vector{
                     x::control::AUTHORITY_ABSOLUTE,
@@ -417,7 +430,6 @@ TEST(WriterTests, testSetAuthorityFireAndForgetTakesEffect) {
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"writer_1"},
@@ -436,7 +448,6 @@ TEST(WriterTests, testSetAuthorityFireAndForgetTakesEffect) {
     auto w2 = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"writer_2"},
@@ -493,7 +504,6 @@ TEST(WriterTests, testSetAuthorityMismatchedSizes) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer"},
@@ -517,7 +527,6 @@ TEST(WriterTests, testSetAuthorityMultipleAuthoritiesNoKeys) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = std::vector{time.key, data.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"test_writer"},
@@ -570,10 +579,10 @@ TEST(WriterTests, testErrorCommunication) {
     auto [time, data] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            std::vector{time.key, data.key},
-            x::telem::TimeStamp::now(),
-            std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"},
+            .channels = std::vector{time.key, data.key},
+            .authorities = std::
+                vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(2);

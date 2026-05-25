@@ -897,7 +897,7 @@ TEST(AcquisitionPipeline, testStartWithTimestampRefreshesOnRestart) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipe = Acquisition(
         mock_factory,
-        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        synnax::framer::WriterConfig{},
         source,
         x::breaker::Config(),
         "",

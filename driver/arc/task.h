@@ -203,7 +203,6 @@ public:
                 writer_factory,
                 synnax::framer::WriterConfig{
                     .channels = task->runtime->write_channels,
-                    .start = x::telem::TimeStamp::now(),
                     .authorities = std::move(initial_authorities),
                     .subject =
                         x::control::Subject{

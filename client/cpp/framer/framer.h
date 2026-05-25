@@ -273,8 +273,9 @@ struct WriterConfig {
 
     /// @brief sets the starting timestamp for the first sample in the writer. If
     /// this timestamp overlaps with existing data for ANY of the provided channels,
-    /// the writer will fail to open.
-    x::telem::TimeStamp start;
+    /// the writer will fail to open. Defaults to the current time (TimeStamp::now())
+    /// when left unspecified.
+    x::telem::TimeStamp start = x::telem::TimeStamp::now();
 
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the

@@ -358,9 +358,7 @@ TEST_F(TaskManagerTest, Delete) {
 TEST_F(TaskManagerTest, Command) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer({.channels = {cmd_ch.key}}));
     auto task = synnax::task::Task{
         .key = synnax::task::create_key(rack.key, 0),
         .name = "t",
@@ -491,9 +489,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
 TEST_F(TaskManagerTest, CommandForUnconfigured) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer({.channels = {cmd_ch.key}}));
 
     auto fake_key = synnax::task::create_key(rack.key, 99999);
     auto cmd = synnax::task::Command{.task = fake_key, .type = "test"};
@@ -533,9 +529,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
 
     auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer({.channels = {cmd_ch.key}}));
     auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = "final"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
@@ -583,9 +577,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     start_manager(std::move(factory));
 
     auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer({.channels = {cmd_ch.key}}));
 
     auto task = synnax::task::Task{
         .key = synnax::task::create_key(rack.key, 0),
@@ -1094,7 +1086,6 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     auto writer = ASSERT_NIL_P(client->telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = {index_ch.key, data_ch.key},
-            .start = x::telem::TimeStamp::now(),
             .authorities = {200},
             .subject = writer_sub,
         }

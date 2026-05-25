@@ -26,7 +26,6 @@ void test_downsample(
 TEST(StreamerTests, testStreamBasic) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
-    auto now = x::telem::TimeStamp::now();
 
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
@@ -36,10 +35,9 @@ TEST(StreamerTests, testStreamBasic) {
     ));
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            channels,
-            now,
-            {x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"}
+            .channels = channels,
+            .authorities = {x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"}
         }
     ));
 
@@ -60,7 +58,6 @@ TEST(StreamerTests, testStreamBasic) {
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
-    auto now = x::telem::TimeStamp::now();
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{
@@ -72,10 +69,9 @@ TEST(StreamerTests, testStreamSetChannels) {
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            {data.key},
-            now,
-            {x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"}
+            .channels = {data.key},
+            .authorities = {x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"}
         }
     ));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
@@ -154,7 +150,6 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         x::telem::STRING_T,
         true
     ));
-    auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
         synnax::framer::StreamerConfig{
@@ -164,10 +159,9 @@ TEST(StreamerTests, TestStreamVariableChannel) {
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            channels,
-            now,
-            std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"}
+            .channels = channels,
+            .authorities = std::vector{x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"}
         }
     ));
 
@@ -189,14 +183,12 @@ void test_downsample(
 ) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client, x::telem::INT32_T);
-    auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            channels,
-            now,
-            std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"}
+            .channels = channels,
+            .authorities = std::vector{x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"}
         }
     ));
 
@@ -237,7 +229,6 @@ TEST(StreamerTests, testExcludeGroupsFiltersMatchingGroup) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = channels,
-            .start = now,
             .authorities = {x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"grouped_writer", "gw-1", 42},
         }
@@ -277,7 +268,6 @@ TEST(StreamerTests, testExcludeGroupsFiltersMatchingGroup) {
 TEST(StreamerTests, testExcludeGroupsPassesZeroGroup) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
-    auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
@@ -290,7 +280,6 @@ TEST(StreamerTests, testExcludeGroupsPassesZeroGroup) {
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
             .channels = channels,
-            .start = now,
             .authorities = {x::control::AUTHORITY_ABSOLUTE},
             .subject = x::control::Subject{"ungrouped_writer"},
         }
@@ -323,14 +312,12 @@ void test_downsample_string(
     };
     ASSERT_NIL(client.channels.create(virtual_channel));
 
-    auto now = x::telem::TimeStamp::now();
     std::vector channels = {virtual_channel.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         synnax::framer::WriterConfig{
-            channels,
-            now,
-            std::vector{x::control::AUTHORITY_ABSOLUTE},
-            x::control::Subject{"test_writer"}
+            .channels = channels,
+            .authorities = std::vector{x::control::AUTHORITY_ABSOLUTE},
+            .subject = x::control::Subject{"test_writer"}
         }
     ));
 
