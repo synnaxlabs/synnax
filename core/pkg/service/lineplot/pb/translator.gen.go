@@ -16,11 +16,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	textpb "github.com/synnaxlabs/x/text/pb"
 )
 
 // TitleToPB converts Title to Title.
 func TitleToPB(r lineplot.Title) (*Title, error) {
-	levelVal, err := TextLevelToPB(r.Level)
+	levelVal, err := textpb.LevelToPB(r.Level)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +39,7 @@ func TitleFromPB(pb *Title) (lineplot.Title, error) {
 		return r, nil
 	}
 	var err error
-	r.Level, err = TextLevelFromPB(pb.Level)
+	r.Level, err = textpb.LevelFromPB(pb.Level)
 	if err != nil {
 		return lineplot.Title{}, err
 	}
@@ -282,7 +283,7 @@ func AxisToPB(r lineplot.Axis) (*Axis, error) {
 	if err != nil {
 		return nil, err
 	}
-	labelLevelVal, err := TextLevelToPB(r.LabelLevel)
+	labelLevelVal, err := textpb.LevelToPB(r.LabelLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +329,7 @@ func AxisFromPB(pb *Axis) (lineplot.Axis, error) {
 	if err != nil {
 		return lineplot.Axis{}, err
 	}
-	r.LabelLevel, err = TextLevelFromPB(pb.LabelLevel)
+	r.LabelLevel, err = textpb.LevelFromPB(pb.LabelLevel)
 	if err != nil {
 		return lineplot.Axis{}, err
 	}
@@ -782,50 +783,6 @@ func DownsampleModeFromPB(v DownsampleMode) (lineplot.DownsampleMode, error) {
 		return lineplot.DownsampleModeDecimate, nil
 	default:
 		return lineplot.DownsampleMode(""), errors.Newf("unrecognized DownsampleMode value: %v", v)
-	}
-}
-
-// TextLevelToPB converts lineplot.TextLevel to TextLevel.
-func TextLevelToPB(v lineplot.TextLevel) (TextLevel, error) {
-	switch v {
-	case lineplot.TextLevelH1:
-		return TextLevel_TEXT_LEVEL_H_1, nil
-	case lineplot.TextLevelH2:
-		return TextLevel_TEXT_LEVEL_H_2, nil
-	case lineplot.TextLevelH3:
-		return TextLevel_TEXT_LEVEL_H_3, nil
-	case lineplot.TextLevelH4:
-		return TextLevel_TEXT_LEVEL_H_4, nil
-	case lineplot.TextLevelH5:
-		return TextLevel_TEXT_LEVEL_H_5, nil
-	case lineplot.TextLevelP:
-		return TextLevel_TEXT_LEVEL_P, nil
-	case lineplot.TextLevelSmall:
-		return TextLevel_TEXT_LEVEL_SMALL, nil
-	default:
-		return 0, errors.Newf("unrecognized lineplot.TextLevel value: %v", v)
-	}
-}
-
-// TextLevelFromPB converts TextLevel to lineplot.TextLevel.
-func TextLevelFromPB(v TextLevel) (lineplot.TextLevel, error) {
-	switch v {
-	case TextLevel_TEXT_LEVEL_H_1:
-		return lineplot.TextLevelH1, nil
-	case TextLevel_TEXT_LEVEL_H_2:
-		return lineplot.TextLevelH2, nil
-	case TextLevel_TEXT_LEVEL_H_3:
-		return lineplot.TextLevelH3, nil
-	case TextLevel_TEXT_LEVEL_H_4:
-		return lineplot.TextLevelH4, nil
-	case TextLevel_TEXT_LEVEL_H_5:
-		return lineplot.TextLevelH5, nil
-	case TextLevel_TEXT_LEVEL_P:
-		return lineplot.TextLevelP, nil
-	case TextLevel_TEXT_LEVEL_SMALL:
-		return lineplot.TextLevelSmall, nil
-	default:
-		return lineplot.TextLevel(""), errors.Newf("unrecognized TextLevel value: %v", v)
 	}
 }
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/spatial"
+import "schemas/text"
 
 @ts output "client/ts/src/lineplot"
 @go output "core/pkg/service/lineplot"
@@ -15,18 +16,6 @@ import "schemas/spatial"
 
 Key = uuid {
     @doc value "is a unique identifier for a line plot, represented as a UUID."
-}
-
-TextLevel enum {
-    h1    = "h1"
-    h2    = "h2"
-    h3    = "h3"
-    h4    = "h4"
-    h5    = "h5"
-    p     = "p"
-    small = "small"
-
-    @doc value "is a typography level identifier shared with the pluto text component."
 }
 
 TickType enum {
@@ -55,10 +44,10 @@ AxisKey enum {
 }
 
 Title struct {
-    level   TextLevel {
+    level   text.Level {
         @doc value "is the typography level of the title text."
     }
-    visible bool      {
+    visible bool       {
         @doc value "is whether the title is shown above the plot."
     }
 
@@ -145,7 +134,7 @@ Axis struct {
     label_direction spatial.Direction {
         @doc value "is the orientation in which the label text is laid out."
     }
-    label_level     TextLevel         {
+    label_level     text.Level        {
         @doc value "is the typography level of the label."
     }
     bounds          spatial.Bounds    {

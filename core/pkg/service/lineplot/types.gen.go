@@ -14,23 +14,11 @@ package lineplot
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = uuid.UUID
-
-// TextLevel is a typography level identifier shared with the pluto text component.
-type TextLevel string
-
-const (
-	TextLevelH1    TextLevel = "h1"
-	TextLevelH2    TextLevel = "h2"
-	TextLevelH3    TextLevel = "h3"
-	TextLevelH4    TextLevel = "h4"
-	TextLevelH5    TextLevel = "h5"
-	TextLevelP     TextLevel = "p"
-	TextLevelSmall TextLevel = "small"
-)
 
 // AxisKey names one of the six fixed plot axes.
 type AxisKey string
@@ -63,7 +51,7 @@ const (
 // Title is the plot title configuration.
 type Title struct {
 	// Level is the typography level of the title text.
-	Level TextLevel `json:"level" msgpack:"level"`
+	Level text.Level `json:"level" msgpack:"level"`
 	// Visible is whether the title is shown above the plot.
 	Visible bool `json:"visible" msgpack:"visible"`
 }
@@ -123,7 +111,7 @@ type Axis struct {
 	// LabelDirection is the orientation in which the label text is laid out.
 	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
-	LabelLevel TextLevel `json:"label_level" msgpack:"label_level"`
+	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 	// Bounds is the value-space window of the axis. When the matching entry in auto_bounds
 	// is true the field is overwritten locally on every render; otherwise it is the
 	// user-set fixed bound.

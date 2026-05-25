@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/x/text"
 )
 
 var _ = Describe("Writer", func() {
@@ -39,7 +40,7 @@ var _ = Describe("Writer", func() {
 			plot := lineplot.LinePlot{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			body := lineplot.LinePlot{
-				Title:  lineplot.Title{Level: lineplot.TextLevelH4, Visible: true},
+				Title:  lineplot.Title{Level: text.LevelH4, Visible: true},
 				Legend: lineplot.Legend{Visible: true},
 				Lines: []lineplot.Line{{
 					Key:            "l1",
@@ -54,7 +55,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Key).To(Equal(plot.Key))
 			Expect(res.Name).To(Equal("test"))
-			Expect(res.Title.Level).To(Equal(lineplot.TextLevelH4))
+			Expect(res.Title.Level).To(Equal(text.LevelH4))
 			Expect(res.Lines).To(HaveLen(1))
 			Expect(res.Lines[0].Color).To(Equal("#abcdef"))
 		})
