@@ -347,4 +347,72 @@ describe("Table", () => {
       for (const a of actions) expect(table.isUndoable(a)).toBe(true);
     });
   });
+
+  describe("reduceAll round-trip", () => {
+    const seedState = (): table.Table => ({
+      key: "00000000-0000-0000-0000-000000000001",
+      name: "before",
+      rows: [
+        { size: 30, cells: ["a", "b"] },
+        { size: 30, cells: ["c", "d"] },
+      ],
+      columns: [{ size: 80 }, { size: 100 }],
+      cells: {
+        a: { key: "a", variant: "text", props: { value: "A" } },
+        b: { key: "b", variant: "text", props: { value: "B" } },
+        c: { key: "c", variant: "text", props: { value: "C" } },
+        d: { key: "d", variant: "text", props: { value: "D" } },
+      },
+    });
+
+    const roundTrip = (forward: table.Action) => {
+      const original = seedState();
+      const { next, inverse } = table.reduceAll(original, [forward]);
+      const { next: restored } = table.reduceAll(next, inverse);
+      expect(restored).toEqual(original);
+    };
+
+    test("rename round-trips", () => roundTrip(table.rename({ name: "after" })));
+
+    test("addRow round-trips", () =>
+      roundTrip(
+        table.addRow({
+          index: 1,
+          size: 40,
+          cells: [
+            { key: "e", variant: "text", props: { value: "E" } },
+            { key: "f", variant: "text", props: { value: "F" } },
+          ],
+        }),
+      ));
+
+    test("removeRow round-trips", () => roundTrip(table.removeRow({ index: 0 })));
+
+    test("addCol round-trips", () =>
+      roundTrip(
+        table.addCol({
+          index: 1,
+          size: 60,
+          cells: [
+            { key: "m1", variant: "text", props: { value: "M1" } },
+            { key: "m2", variant: "value", props: { units: "psi" } },
+          ],
+        }),
+      ));
+
+    test("removeCol round-trips", () => roundTrip(table.removeCol({ index: 0 })));
+
+    test("resizeRow round-trips", () =>
+      roundTrip(table.resizeRow({ index: 0, size: 55 })));
+
+    test("resizeCol round-trips", () =>
+      roundTrip(table.resizeCol({ index: 1, size: 200 })));
+
+    test("setCell round-trips", () =>
+      roundTrip(
+        table.setCell({
+          cell: { key: "a", variant: "value", props: { units: "psi" } },
+        }),
+      ));
+  });
 });
