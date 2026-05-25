@@ -53,14 +53,10 @@ func MustGenerateRequest(
 	return req
 }
 
-// MustGenerateMulti analyzes every file pre-registered on the loader as one
-// resolution table and runs the provided plugin against it. Useful for tests
+// MustGenerateMulti analyzes every file registered on the loader as one
+// resolution table and runs the provided plugin against it. Use it for tests
 // that need to exercise cross-schema behavior (e.g., two schemas that derive
 // the same namespace from different files).
-//
-// Tests register schemas via loader.Add(path, content) where path is the
-// schema file path (with or without the .oracle suffix). Each registered
-// entry is analyzed as its own file, so DeriveNamespace sees the base name.
 func MustGenerateMulti(
 	ctx context.Context,
 	loader *MockFileLoader,
@@ -69,12 +65,7 @@ func MustGenerateMulti(
 	ginkgo.GinkgoHelper()
 	files := make([]string, 0, len(loader.Files))
 	for path := range loader.Files {
-		// analyzer.Analyze passes the file to loader.Load verbatim, and
-		// MockFileLoader.Load appends ".oracle" to the returned filePath
-		// when the key matches as-is. Strip ".oracle" here so the file
-		// path returned to the analyzer is canonical and DeriveNamespace
-		// resolves to the file's base name without a doubled suffix.
-		files = append(files, strings.TrimSuffix(path, ".oracle"))
+		files = append(files, path)
 	}
 	table, diag := analyzer.Analyze(ctx, files, loader)
 	if diag != nil && !diag.Ok() {

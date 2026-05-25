@@ -125,25 +125,29 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// Register pb output paths for schemas that opt into @pb but declare
 	// only enums (no structs or distinct typedefs). Cross-namespace fields
-	// referencing these enums depend on the foreign translator existing.
+	// referencing these enums depend on the foreign translator existing;
+	// without this pass the schema produces nothing and the dependent
+	// schema fails to compile against its missing import.
+	enumOnlyNamespace := make(map[string]string)
 	for _, e := range req.Resolutions.EnumTypes() {
+		if omit.IsType(e, "pb") {
+			continue
+		}
 		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
 		if outputPath == "" {
 			continue
 		}
-		if omit.IsType(e, "pb") {
+		if _, hasStruct := outputStructs[outputPath]; hasStruct {
 			continue
 		}
-		if _, exists := outputStructs[outputPath]; exists {
+		if _, hasTypeDef := outputTypeDefs[outputPath]; hasTypeDef {
 			continue
 		}
-		if _, exists := outputTypeDefs[outputPath]; exists {
+		if _, alreadyRegistered := enumOnlyNamespace[outputPath]; alreadyRegistered {
 			continue
 		}
+		enumOnlyNamespace[outputPath] = e.Namespace
 		outputOrder = append(outputOrder, outputPath)
-		// Mark the path with an empty struct slice so the existing loop
-		// hits it; namespace is resolved from the enum below.
-		outputStructs[outputPath] = nil
 	}
 
 	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
@@ -152,20 +156,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
-		namespace := ""
-		if len(structs) > 0 {
+		var namespace string
+		switch {
+		case len(structs) > 0:
 			namespace = structs[0].Namespace
-		} else if len(typeDefs) > 0 {
+		case len(typeDefs) > 0:
 			namespace = typeDefs[0].Namespace
-		} else {
-			// Enum-only output: derive namespace from any @pb enum routed
-			// to this path. CollectNamespaceEnums below filters on it.
-			for _, e := range req.Resolutions.EnumTypes() {
-				if pbPathFunc(e, req.Resolutions) == outputPath {
-					namespace = e.Namespace
-					break
-				}
-			}
+		default:
+			namespace = enumOnlyNamespace[outputPath]
 		}
 		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
 		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
