@@ -11,6 +11,7 @@
 @go output  "x/go/text"
 @py output  "x/py/x/text"
 @cpp output "x/cpp/text"
+@pb
 
 Level enum {
     h1    = "h1"
