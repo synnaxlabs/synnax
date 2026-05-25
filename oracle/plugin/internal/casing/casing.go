@@ -48,6 +48,21 @@ func TypeSnake(s string) string {
 	return lo.SnakeCase(insertAcronymBoundaries(s))
 }
 
+// TypePascal converts an identifier to PascalCase, honoring the same
+// acronym-followed-by-word boundaries TypeSnake recovers. SetXChannel stays
+// SetXChannel rather than collapsing into SetXchannel. Use this instead of
+// lo.PascalCase whenever the input might already be PascalCase with adjacent
+// capital letters.
+func TypePascal(s string) string {
+	return lo.PascalCase(TypeSnake(s))
+}
+
+// TypeCamel converts an identifier to camelCase, honoring the same boundaries
+// as TypePascal. setXChannel rather than setXchannel.
+func TypeCamel(s string) string {
+	return lo.CamelCase(TypeSnake(s))
+}
+
 // insertAcronymBoundaries returns s with a space inserted before any uppercase
 // letter that is preceded by another uppercase letter and followed by a
 // lowercase letter, so lo.SnakeCase splits at the word the acronym is hugging.

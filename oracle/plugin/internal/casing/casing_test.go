@@ -67,3 +67,30 @@ var _ = Describe("TypeSnake", func() {
 		Entry("already snake passes through unchanged", "x1", "x1"),
 	)
 })
+
+var _ = Describe("TypePascal", func() {
+	// Regression: lo.PascalCase shares the lo.SnakeCase blind spot for leading
+	// acronyms, so "SetXChannel" round-trips to "SetXchannel" instead of
+	// staying "SetXChannel". TypePascal routes through TypeSnake first.
+	DescribeTable("should preserve acronym-followed-by-word boundaries",
+		func(input, expected string) {
+			Expect(casing.TypePascal(input)).To(Equal(expected))
+		},
+		Entry("PascalCase with leading acronym", "SetXChannel", "SetXChannel"),
+		Entry("snake input", "set_x_channel", "SetXChannel"),
+		Entry("camel input", "clientX", "ClientX"),
+		Entry("snake with acronym word", "url_value", "UrlValue"),
+	)
+})
+
+var _ = Describe("TypeCamel", func() {
+	DescribeTable("should preserve acronym-followed-by-word boundaries",
+		func(input, expected string) {
+			Expect(casing.TypeCamel(input)).To(Equal(expected))
+		},
+		Entry("PascalCase with leading acronym", "SetXChannel", "setXChannel"),
+		Entry("snake input", "set_x_channel", "setXChannel"),
+		Entry("camel input", "clientX", "clientX"),
+		Entry("snake with acronym word", "url_value", "urlValue"),
+	)
+})
