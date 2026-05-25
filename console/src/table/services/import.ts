@@ -13,6 +13,19 @@ import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/table/layout";
+import { stateZ as legacyStateZ, toWire as legacyToWire } from "@/table/types/v0";
+
+const parseImport = (data: unknown, fallbackName: string | undefined): table.New => {
+  const direct = table.tableZ.safeParse(data);
+  if (direct.success) {
+    const { key: _key, ...rest } = direct.data;
+    return { ...rest, name: fallbackName ?? rest.name };
+  }
+  const legacy = legacyStateZ.parse(data);
+  const name = fallbackName ?? "Table";
+  const { key: _key, ...rest } = legacyToWire(legacy, name);
+  return { ...rest, name };
+};
 
 export const ingest: Import.FileIngester = async (
   data,
@@ -21,12 +34,8 @@ export const ingest: Import.FileIngester = async (
   if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import tables");
   if (client == null) throw new DisconnectedError();
-  const parsed = table.tableZ.parse(data);
-  const { key: _ignoredKey, name, ...rest } = parsed;
-  const created = await client.tables.create(workspaceKey ?? uuid.ZERO, {
-    ...rest,
-    name: layout?.name ?? name,
-  });
+  const newPayload = parseImport(data, layout?.name);
+  const created = await client.tables.create(workspaceKey ?? uuid.ZERO, newPayload);
   store.tables.set(created.key, created);
   placeLayout(
     create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
