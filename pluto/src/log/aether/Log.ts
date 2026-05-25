@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  type destructor,
+  notation,
+  text,
+  TimeStamp,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -19,7 +27,6 @@ import {
   logSourceSpecZ,
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
