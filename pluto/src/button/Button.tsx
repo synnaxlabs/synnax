@@ -9,9 +9,10 @@
 
 import "@/button/Button.css";
 
-import { color, record, TimeSpan } from "@synnaxlabs/x";
+import { color, record, text, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
@@ -38,7 +39,7 @@ export interface ExtensionProps
   triggerIndicator?: boolean | Triggers.Trigger;
   textColor?: Text.TextProps["color"];
   textVariant?: Text.Variant;
-  contrast?: Text.Shade | false;
+  contrast?: Theming.Shade | false;
   disabled?: boolean;
   preventClick?: boolean;
   propagateClick?: boolean;
@@ -176,8 +177,8 @@ const Base = <E extends ElementType = "button">({
       [CSS.var("btn-delay")]: `${parsedDelay.seconds.toString()}s`,
     };
 
-  if (size == null && level != null) size = Text.LEVEL_COMPONENT_SIZES[level];
-  else if (size != null && level == null) level = Text.COMPONENT_SIZE_LEVELS[size];
+  if (size == null && level != null) size = Component.TEXT_LEVEL_SIZES[level];
+  else if (size != null && level == null) level = Component.SIZE_TEXT_LEVELS[size];
   else if (defaultEl !== "div") size ??= "medium";
   level ??= "p";
 
@@ -226,7 +227,7 @@ const Base = <E extends ElementType = "button">({
           trigger={parsedTriggerIndicator}
           color={9}
           gap="tiny"
-          level={Text.downLevel(level)}
+          level={text.downLevel(level)}
         />
       )}
     </Text.Text>

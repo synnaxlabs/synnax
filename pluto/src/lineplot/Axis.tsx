@@ -9,7 +9,7 @@
 
 import "@/lineplot/Axis.css";
 
-import { type bounds, direction } from "@synnaxlabs/x";
+import { type bounds, direction, text } from "@synnaxlabs/x";
 import {
   type FC,
   type PropsWithChildren,
@@ -41,7 +41,7 @@ export interface AxisProps
     Omit<Flex.BoxProps, "color">,
     Aether.ComponentProps {
   label?: string;
-  labelLevel?: Text.Level;
+  labelLevel?: text.Level;
   labelDirection?: direction.Direction;
   onLabelChange?: (label: string) => void;
   onAutoBoundsChange?: (bounds: bounds.Bounds) => void;
@@ -119,12 +119,12 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     useEffect(() => {
       if (dir === "y") {
         if (label == null) return;
-        const dims = Text.dimensions(label, font);
+        const dims = text.dimensions(label, font);
         let labelSize = dims[direction.dimension(direction.construct(labelDirection))];
         if (labelSize > 0) labelSize += 9;
         setState((state) => ({ ...state, labelSize }));
       } else {
-        const dims = Text.dimensions(label, font);
+        const dims = text.dimensions(label, font);
         let labelSize = dims.height * 1.3;
         if (labelSize > 0) labelSize += 12;
         const prevSize = prevLabelSize.current;

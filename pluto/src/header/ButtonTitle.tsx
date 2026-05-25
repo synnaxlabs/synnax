@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { Button } from "@/button";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
-import { Text } from "@/text";
 
 export interface ButtonTitleProps extends Omit<
   Button.ButtonProps,
@@ -37,7 +37,7 @@ export const ButtonTitle = ({
   return (
     <Button.Button
       variant="text"
-      size={Text.LEVEL_COMPONENT_SIZES[level]}
+      size={Component.TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
       className={CSS(CSS.B("header-button-title"), className)}
       sharp

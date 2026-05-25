@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type location, scale, xy } from "@synnaxlabs/x";
+import { box, type location, scale, type text, xy } from "@synnaxlabs/x";
 import {
   type ComponentType,
   type DragEventHandler,
@@ -19,7 +19,7 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -172,7 +172,7 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X 
 
 interface StartIconProps
   extends Icon.IconProps, Pick<SelectorButtonProps, "icon" | "loading"> {
-  level: Text.Level;
+  level: text.Level;
 }
 
 const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
@@ -244,7 +244,7 @@ const SelectorButton = ({
   );
 
   const isSelected = selected === tabKey;
-  const level = Text.COMPONENT_SIZE_LEVELS[size];
+  const level = Component.SIZE_TEXT_LEVELS[size];
 
   return (
     <Button.Button

@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type destructor,
+  dimensions,
+  scale,
+  text as baseText,
+  xy,
+} from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/base/dimensions";
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 
@@ -620,7 +626,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       return atlas.measureText(text);
     }
-    return dimensionsFromMetrics(this.measureText(text));
+    return baseText.dimensionsFromMetrics(this.measureText(text));
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {

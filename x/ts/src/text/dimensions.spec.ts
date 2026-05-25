@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { text } from "@/text/base";
+import { dimensionsFromMetrics } from "@/text/dimensions";
 
 describe("dimensionsFromMetrics", () => {
   it("should calculate dimensions from positive metrics", () => {
@@ -19,12 +19,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 15,
       actualBoundingBoxDescent: 5,
     } as TextMetrics;
-
-    const result = text.dimensionsFromMetrics(metrics);
-    expect(result).toEqual({
-      width: 30, // 10 + 20
-      height: 20, // 15 + 5
-    });
+    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should calculate dimensions from negative metrics", () => {
@@ -34,12 +29,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: -15,
       actualBoundingBoxDescent: -5,
     } as TextMetrics;
-
-    const result = text.dimensionsFromMetrics(metrics);
-    expect(result).toEqual({
-      width: 30, // |-10| + |-20|
-      height: 20, // |-15| + |-5|
-    });
+    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should calculate dimensions from mixed positive and negative metrics", () => {
@@ -49,12 +39,7 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 15,
       actualBoundingBoxDescent: -5,
     } as TextMetrics;
-
-    const result = text.dimensionsFromMetrics(metrics);
-    expect(result).toEqual({
-      width: 30, // |-10| + |20|
-      height: 20, // |15| + |-5|
-    });
+    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 30, height: 20 });
   });
 
   it("should handle zero metrics", () => {
@@ -64,11 +49,6 @@ describe("dimensionsFromMetrics", () => {
       actualBoundingBoxAscent: 0,
       actualBoundingBoxDescent: 0,
     } as TextMetrics;
-
-    const result = text.dimensionsFromMetrics(metrics);
-    expect(result).toEqual({
-      width: 0,
-      height: 0,
-    });
+    expect(dimensionsFromMetrics(metrics)).toEqual({ width: 0, height: 0 });
   });
 });

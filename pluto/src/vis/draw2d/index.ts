@@ -15,11 +15,10 @@ import {
   type dimensions,
   direction,
   location,
+  text,
   xy,
 } from "@synnaxlabs/x";
 
-import { type text } from "@/text/base";
-import { dimensions as textDimensions } from "@/text/base/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/base/fontString";
 import {
@@ -69,7 +68,7 @@ export interface DrawTextProps extends FillTextOptions {
   justify?: CanvasTextAlign;
   align?: CanvasTextBaseline;
   weight?: text.Weight;
-  shade?: text.Shade;
+  shade?: theming.Shade;
   maxWidth?: number;
   code?: boolean;
   color?: ColorSpec;
@@ -320,13 +319,13 @@ export class Draw2D {
   }
 
   spacedTextDrawF({
-    text,
+    text: labels,
     direction: d,
     spacing = 1,
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
     const font = fontString(this.theme, { level });
-    const textDims = text.map((t) => textDimensions(t, font, this.canvas));
+    const textDims = labels.map((t) => text.dimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
       Math.max(...textDims.map((td) => td[direction.dimension(d)])) + spacingPx;
@@ -335,7 +334,7 @@ export class Draw2D {
         [direction.dimension(direction.swap(d)) as "width"]: Math.max(
           ...textDims.map((td) => td[direction.dimension(direction.swap(d))]),
         ),
-        [direction.dimension(d) as "height"]: offset * text.length - spacingPx,
+        [direction.dimension(d) as "height"]: offset * labels.length - spacingPx,
       },
 
       (position: xy.XY) => {
@@ -344,7 +343,7 @@ export class Draw2D {
         this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
         this.canvas.textAlign = "start";
-        text.forEach((v, i) => {
+        labels.forEach((v, i) => {
           this.canvas.fillText(v, position.x, position.y + offset * i);
         });
       },
@@ -395,10 +394,10 @@ export class Draw2D {
     return width;
   }
 
-  drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
-    const dims = textDimensions(text, this.canvas.font, this.canvas);
+  drawTextInCenter({ box: b, text: label, level }: DrawTextInCenterProps): void {
+    const dims = text.dimensions(label, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
-    return this.text({ text, position: box.topLeft(pos), level });
+    return this.text({ text: label, position: box.topLeft(pos), level });
   }
 
   text({

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Button } from "@/button";
@@ -17,7 +18,6 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
-import { type Text } from "@/text";
 
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
   borderLeft: "var(--pluto-border-l5)",
@@ -36,7 +36,7 @@ export const TextBoxForm = (): ReactElement => {
       <Flex.Box y grow>
         <Flex.Box x align="stretch">
           <Base.TextField path="value" label="Text" padHelpText={false} grow />
-          <Base.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+          <Base.Field<text.Level> path="level" label="Text Size" padHelpText={false}>
             {({ value, onChange }) => (
               <Select.Text.Level value={value} onChange={onChange} />
             )}
