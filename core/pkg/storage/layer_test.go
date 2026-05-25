@@ -36,23 +36,21 @@ var _ = Describe("storage", func() {
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
 			It("Should return an error if the lock is already acquired", func(ctx SpecContext) {
-				store := MustSucceed(storage.OpenLayer(ctx, cfg))
+				MustOpen(storage.OpenLayer(ctx, cfg))
 				Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
-				Expect(store.Close()).To(Succeed())
 			})
 		})
 		Describe("Permissions", func() {
 			// These two tests are failing on Windows because VFS cannot create a
-			// directory on Windows with custom permissions – all directories are created
-			// with 777.
+			// directory on Windows with custom permissions – all directories are
+			// created with 777.
 			if !strings.HasPrefix(runtime.GOOS, "windows") {
 				Describe("Name Directory", func() {
 					It("Should set the correct permissions on the storage directory", func(ctx SpecContext) {
 						cfg.Perm = storage.DefaultLayerConfig.Perm
-						store := MustSucceed(storage.OpenLayer(ctx, cfg))
+						MustOpen(storage.OpenLayer(ctx, cfg))
 						stat := MustSucceed(os.Stat(cfg.Dirname))
 						Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
-						Expect(store.Close()).To(Succeed())
 					})
 				})
 				Describe("Existing Directory", func() {
@@ -66,8 +64,7 @@ var _ = Describe("storage", func() {
 					It("Should return an error if the directory exists but has insufficient permissions", func(ctx SpecContext) {
 						// use os.Stat to check the dir permissions
 						cfg.Perm = xfs.UserRWX
-						_, err := storage.OpenLayer(ctx, cfg)
-						Expect(err).To(HaveOccurred())
+						Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
 					})
 				})
 			}
@@ -75,8 +72,7 @@ var _ = Describe("storage", func() {
 		Describe("In-Memory", func() {
 			It("Should open a memory backed version of storage", func(ctx SpecContext) {
 				cfg.InMemory = new(true)
-				store := MustSucceed(storage.OpenLayer(ctx, cfg))
-				Expect(store.Close()).To(Succeed())
+				MustOpen(storage.OpenLayer(ctx, cfg))
 			})
 		})
 	})
@@ -97,7 +93,7 @@ var _ = Describe("storage", func() {
 			Entry("Directory not set",
 				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.Dirname = ""
-					*cfg.InMemory = false
+					cfg.InMemory = new(false)
 					return cfg
 				},
 				"dirname",
@@ -105,7 +101,7 @@ var _ = Describe("storage", func() {
 			Entry("Directory not set, mem-backed",
 				func(cfg storage.LayerConfig) storage.LayerConfig {
 					cfg.Dirname = ""
-					*cfg.InMemory = true
+					cfg.InMemory = new(true)
 					return cfg
 				},
 				"",

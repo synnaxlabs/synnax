@@ -18,7 +18,7 @@
 #include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/stl/stl.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 #include "wasmtime.hh"
 
@@ -169,7 +169,7 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 struct ModuleConfig {
     program::Program program;
     std::vector<std::shared_ptr<stl::Module>> modules;
-    std::shared_ptr<stl::str::State> strings;
+    std::shared_ptr<stl::strings::State> strings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -401,7 +401,7 @@ public:
         }
     };
 
-    [[nodiscard]] std::shared_ptr<stl::str::State> strings() const {
+    [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
         return this->cfg.strings;
     }
 

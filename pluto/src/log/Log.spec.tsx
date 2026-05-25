@@ -277,6 +277,79 @@ describe("log/Log", () => {
     });
   });
 
+  describe("keyboard triggers", () => {
+    const PRIMED_STATE = {
+      ...DEFAULT_STATE,
+      empty: false,
+      entryCount: 10,
+      selectionStart: 2,
+      selectionEnd: 7,
+      selectedText: "primed",
+    };
+
+    const findUpdaterResult = (
+      setState: ReturnType<typeof vi.fn>,
+      predicate: (result: Record<string, unknown>) => boolean,
+    ): Record<string, unknown> | undefined => {
+      for (const call of setState.mock.calls) {
+        const updater = call[0];
+        if (typeof updater !== "function") continue;
+        const result = updater(PRIMED_STATE);
+        if (predicate(result)) return result;
+      }
+      return undefined;
+    };
+
+    const fireCtrlA = () => {
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      fireEvent.keyDown(document.body, { code: "KeyA", ctrlKey: true });
+      fireEvent.keyUp(document.body, { code: "KeyA", ctrlKey: true });
+      fireEvent.keyUp(document.body, { code: "ControlLeft" });
+    };
+
+    const isSelectAll = (r: Record<string, unknown>) =>
+      r.selectionStart === 0 && r.selectionEnd === 9;
+    const isClearSelection = (r: Record<string, unknown>) =>
+      r.selectionStart === -1 && r.selectionEnd === -1 && r.selectedText === "";
+
+    it("should fire setState selecting all entries on Ctrl+A when enableTriggers is true", () => {
+      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      renderLog({ enableTriggers: true });
+      fireCtrlA();
+      expect(findUpdaterResult(setState, isSelectAll)).toBeDefined();
+    });
+
+    it("should not fire setState on Ctrl+A when enableTriggers returns false", () => {
+      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      renderLog({ enableTriggers: () => false });
+      fireCtrlA();
+      expect(findUpdaterResult(setState, isSelectAll)).toBeUndefined();
+    });
+
+    it("should fire setState selecting all on Ctrl+A when enableTriggers is undefined", () => {
+      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      renderLog();
+      fireCtrlA();
+      expect(findUpdaterResult(setState, isSelectAll)).toBeDefined();
+    });
+
+    it("should clear selection on Escape when enableTriggers is true", () => {
+      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      renderLog({ enableTriggers: true });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      fireEvent.keyUp(document.body, { code: "Escape" });
+      expect(findUpdaterResult(setState, isClearSelection)).toBeDefined();
+    });
+
+    it("should not clear selection on Escape when enableTriggers returns false", () => {
+      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      renderLog({ enableTriggers: () => false });
+      fireEvent.keyDown(document.body, { code: "Escape" });
+      fireEvent.keyUp(document.body, { code: "Escape" });
+      expect(findUpdaterResult(setState, isClearSelection)).toBeUndefined();
+    });
+  });
+
   describe("mouseYToEntryIndex", () => {
     it("should handle mouse down when computedLineHeight is 0", () => {
       const { setState } = setupAether({

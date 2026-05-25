@@ -146,9 +146,9 @@ const ChannelRow = ({
           <>
             <Telem.SelectTimestampFormat
               value={config.timestamp.format}
-              onChange={(v: telem.TimestampFormat) =>
+              onChange={(f: telem.TimestampFormat) =>
                 onConfigChange(channelKey, {
-                  timestamp: { ...config.timestamp, format: v },
+                  timestamp: { ...config.timestamp, format: f },
                 })
               }
             />

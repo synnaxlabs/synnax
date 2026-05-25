@@ -33,43 +33,46 @@ const (
 	moduleName          = "status"
 )
 
-// Two separate resolvers are needed because the bare name ("set_status")
-// differs from the qualified member name ("set"). The bare form will be
-// deprecated and removed once users migrate to status.set{}.
-var (
-	symbolProps = types.Function(types.FunctionProperties{
-		Config: types.Params{
-			{Name: "status_key", Type: types.String()},
-			{Name: "variant", Type: types.String()},
-			{Name: "message", Type: types.String()},
-			{Name: "name", Type: types.String(), Value: ""},
-		},
-		Inputs: types.Params{
-			{Name: ir.DefaultOutputParam, Type: types.U8()},
-		},
-	})
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Type:       symbolProps,
-			Deprecated: "status.set",
-		},
-	}
-	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name: qualifiedMemberName,
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: symbolProps,
-			},
-		},
-	}
-	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
-)
+var symbolProps = types.Function(types.FunctionProperties{
+	Config: types.Params{
+		{Name: "status_key", Type: types.String()},
+		{Name: "variant", Type: types.String()},
+		{Name: "message", Type: types.String()},
+		{Name: "name", Type: types.String(), Value: ""},
+	},
+	Inputs: types.Params{
+		{Name: ir.DefaultOutputParam, Type: types.U8()},
+	},
+})
+
+// memberSymbol is the canonical status.set symbol that lives inside the
+// status module. The deprecated bare global below points at it via
+// Deprecated so analyzer hints can name the replacement.
+var memberSymbol = symbol.Symbol{
+	Name: qualifiedMemberName,
+	Kind: symbol.KindFunction,
+	Exec: symbol.ExecFlow,
+	Type: symbolProps,
+}
+
+// module is the status module, built once at package init. Its sole child
+// is the `set` function above.
+var module = symbol.NewModule(moduleName, memberSymbol)
+
+// bareSymbolPtr is the deprecated `set_status` bare global. Its
+// Deprecated field points at the module's `set` member so warnings name
+// the qualified replacement.
+var bareSymbolPtr = &symbol.Symbol{
+	Name:       bareSymbolName,
+	Kind:       symbol.KindFunction,
+	Exec:       symbol.ExecFlow,
+	Type:       symbolProps,
+	Deprecated: module.FindChild(qualifiedMemberName),
+}
+
+// Symbols are the symbols this package contributes to a program's
+// ambient prelude: the status module plus the deprecated bare global.
+var Symbols = []*symbol.Symbol{module, bareSymbolPtr}
 
 type Module struct {
 	stat *status.Service
@@ -77,14 +80,6 @@ type Module struct {
 
 func NewModule(stat *status.Service) *Module {
 	return &Module{stat: stat}
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
 }
 
 func (m *Module) ModuleName() string { return moduleName }

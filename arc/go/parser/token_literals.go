@@ -17,6 +17,8 @@ const (
 	LiteralFOR           = "for"
 	LiteralBREAK         = "break"
 	LiteralCONTINUE      = "continue"
+	LiteralIMPORT        = "import"
+	LiteralAS            = "as"
 	LiteralSEQUENCE      = "sequence"
 	LiteralSTAGE         = "stage"
 	LiteralNEXT          = "next"

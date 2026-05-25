@@ -16,7 +16,7 @@
 #include "x/cpp/telem/series.h"
 
 #include "arc/cpp/stl/series/state.h"
-#include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/stl/strings/state.h"
 
 namespace arc::stl::stateful {
 
@@ -67,7 +67,8 @@ public:
 
 #undef DECLARE_VAR_OPS
 
-    uint32_t load_str(uint32_t var_id, uint32_t init_handle, str::State &str_state) {
+    uint32_t
+    load_str(uint32_t var_id, uint32_t init_handle, strings::State &str_state) {
         auto &inner = this->string[this->current_node_key];
         if (const auto it = inner.find(var_id); it != inner.end())
             return str_state.create(it->second);
@@ -76,7 +77,8 @@ public:
         return str_state.create(inner[var_id]);
     }
 
-    void store_str(uint32_t var_id, uint32_t str_handle, const str::State &str_state) {
+    void
+    store_str(uint32_t var_id, uint32_t str_handle, const strings::State &str_state) {
         const auto s = str_state.get(str_handle);
         if (!s.empty() || str_state.exists(str_handle))
             this->string[this->current_node_key][var_id] = s;

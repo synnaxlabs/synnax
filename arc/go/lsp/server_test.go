@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -327,15 +328,17 @@ var _ = Describe("External Change Notifications", func() {
 		server   *lsp.Server
 		uri      protocol.DocumentURI
 		client   *MockClient
-		resolver symbol.MapResolver
+		resolver StaticResolver
 		observer observe.Observer[struct{}]
 	)
 
 	BeforeEach(func() {
-		resolver = make(symbol.MapResolver)
+		resolver = StaticResolver{}
 		observer = observe.New[struct{}]()
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
-			GlobalResolver:   resolver,
+			NewRoot: func() *symbol.Symbol {
+				return NewRoot(resolver)
+			},
 			OnExternalChange: observer,
 		})
 	})
@@ -344,11 +347,11 @@ var _ = Describe("External Change Notifications", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol: my_channel"))
-		resolver["my_channel"] = symbol.Symbol{
+		resolver.Add(symbol.Symbol{
 			Name: "my_channel",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F32()),
-		}
+		})
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() []protocol.Diagnostic { return client.Diagnostics() }).Should(BeEmpty())
 	})
@@ -357,25 +360,25 @@ var _ = Describe("External Change Notifications", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
 		baseline := client.SemanticRefreshCount()
 
-		resolver["my_channel"] = symbol.Symbol{
+		resolver.Add(symbol.Symbol{
 			Name: "my_channel",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F32()),
-		}
+		})
 		observer.Notify(ctx, struct{}{})
 
 		Eventually(func() int { return client.SemanticRefreshCount() }).Should(BeNumerically(">", baseline))
 	})
 
 	It("Should show errors when a previously valid symbol is removed", func(ctx SpecContext) {
-		resolver["sensor"] = symbol.Symbol{
+		resolver.Add(symbol.Symbol{
 			Name: "sensor",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F64()),
-		}
+		})
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := sensor\n}")
 		Expect(client.Diagnostics()).To(BeEmpty())
-		delete(resolver, "sensor")
+		resolver.Remove("sensor")
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() int { return len(client.Diagnostics()) }).Should(Equal(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol: sensor"))
@@ -386,16 +389,16 @@ var _ = Describe("External Change Notifications", func() {
 		OpenArcDocument(server, ctx, uri, "func test1() {\n\tx := channel_a\n}")
 		OpenArcDocument(server, ctx, uri2, "func test2() {\n\ty := channel_b\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		resolver["channel_a"] = symbol.Symbol{
+		resolver.Add(symbol.Symbol{
 			Name: "channel_a",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.I32()),
-		}
-		resolver["channel_b"] = symbol.Symbol{
+		})
+		resolver.Add(symbol.Symbol{
 			Name: "channel_b",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.I64()),
-		}
+		})
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() []protocol.Diagnostic { return client.Diagnostics() }).Should(BeEmpty())
 	})

@@ -93,6 +93,11 @@ const TOKEN_CONFIG = {
     light: "#0070C1",
     scopes: ["support.type.channel.arc"],
   },
+  namespace: {
+    dark: "#E5C07B",
+    light: "#9C5404",
+    scopes: [],
+  },
   comment: {
     dark: "#5C6370",
     light: "#9DA5B4",

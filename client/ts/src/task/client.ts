@@ -282,7 +282,7 @@ export class Client {
     const res = await sendRequired(
       this.client,
       "/task/create",
-      { tasks: array.toArray(task) } as z.infer<typeof createReq>,
+      { tasks: array.toArray(task) },
       createReq,
       createRes,
     );

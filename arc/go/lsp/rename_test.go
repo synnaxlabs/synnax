@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -31,7 +32,9 @@ var _ = Describe("Rename", func() {
 	)
 
 	BeforeEach(func() {
-		server = MustSucceed(lsp.New())
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return NewRoot(nil)
+		}}))
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
@@ -71,15 +74,11 @@ var _ = Describe("Rename", func() {
 		})
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
@@ -238,15 +237,11 @@ func main() {
 		})
 
 		It("should return nil for global/builtin symbols", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
@@ -291,20 +286,23 @@ func main() {
 	})
 
 	Describe("OnRename", func() {
-		channelResolver := symbol.MapResolver{
-			"sensor": symbol.Symbol{
+		channelSymbols := []symbol.Symbol{
+			{
 				Name:       "sensor",
 				Type:       types.Chan(types.F32()),
 				Kind:       symbol.KindChannel,
 				ID:         42,
 				Renameable: true,
 			},
-			"internal_sensor": symbol.Symbol{
+			{
 				Name: "internal_sensor",
 				Type: types.Chan(types.F32()),
 				Kind: symbol.KindChannel,
 				ID:   43,
 			},
+		}
+		newRootWithChannels := func() *symbol.Symbol {
+			return NewRoot(nil, channelSymbols...)
 		}
 		channelContent := `func test() {
     x f32 := sensor + 1.0
@@ -313,12 +311,12 @@ func main() {
 
 		It("should invoke OnRename with the resolved symbol and names", func(ctx SpecContext) {
 			var (
-				gotSym     *symbol.Scope
+				gotSym     *symbol.Symbol
 				gotOldName string
 				gotNewName string
 				callCount  int
 			)
-			onRename := func(_ context.Context, sym *symbol.Scope, oldName, newName string) error {
+			onRename := func(_ context.Context, sym *symbol.Symbol, oldName, newName string) error {
 				callCount++
 				gotSym = sym
 				gotOldName = oldName
@@ -326,8 +324,8 @@ func main() {
 				return nil
 			}
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: channelResolver,
-				OnRename:       onRename,
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, channelContent)
@@ -349,10 +347,10 @@ func main() {
 		})
 
 		It("should produce text edits for every channel reference in the document", func(ctx SpecContext) {
-			onRename := func(context.Context, *symbol.Scope, string, string) error { return nil }
+			onRename := func(context.Context, *symbol.Symbol, string, string) error { return nil }
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: channelResolver,
-				OnRename:       onRename,
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, channelContent)
@@ -375,12 +373,12 @@ func main() {
 
 		It("should abort the rename when OnRename returns an error", func(ctx SpecContext) {
 			renameErr := errors.New("channel rename rejected")
-			onRename := func(context.Context, *symbol.Scope, string, string) error {
+			onRename := func(context.Context, *symbol.Symbol, string, string) error {
 				return renameErr
 			}
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: channelResolver,
-				OnRename:       onRename,
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, channelContent)
@@ -396,11 +394,14 @@ func main() {
 
 		It("should invoke OnRename for source-defined symbols too", func(ctx SpecContext) {
 			callCount := 0
-			onRename := func(_ context.Context, _ *symbol.Scope, _, _ string) error {
+			onRename := func(_ context.Context, _ *symbol.Symbol, _, _ string) error {
 				callCount++
 				return nil
 			}
-			server = MustSucceed(lsp.New(lsp.Config{OnRename: onRename}))
+			server = MustSucceed(lsp.New(lsp.Config{
+				NewRoot:  func() *symbol.Symbol { return NewRoot(nil) },
+				OnRename: onRename,
+			}))
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, `func test() {
     x i32 := 42
@@ -419,10 +420,10 @@ func main() {
 		})
 
 		It("should reject rename on symbols not marked Renameable", func(ctx SpecContext) {
-			onRename := func(context.Context, *symbol.Scope, string, string) error { return nil }
+			onRename := func(context.Context, *symbol.Symbol, string, string) error { return nil }
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: channelResolver,
-				OnRename:       onRename,
+				NewRoot:  newRootWithChannels,
+				OnRename: onRename,
 			}))
 			server.SetClient(&MockClient{})
 			OpenArcDocument(server, ctx, uri, `func test() {

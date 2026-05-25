@@ -14,6 +14,7 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_MATH_SOURCE = """
+import math
 // ─────────────────────── pow operator (const, const) ────────────────
 func pow_cc_f64() f64 {
     return 3.0 ^ 2.0

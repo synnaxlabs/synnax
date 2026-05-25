@@ -22,6 +22,18 @@ type ArcParserListener interface {
 	// EnterTopLevelItem is called when entering the topLevelItem production.
 	EnterTopLevelItem(c *TopLevelItemContext)
 
+	// EnterImportStatement is called when entering the importStatement production.
+	EnterImportStatement(c *ImportStatementContext)
+
+	// EnterImportItem is called when entering the importItem production.
+	EnterImportItem(c *ImportItemContext)
+
+	// EnterImportPath is called when entering the importPath production.
+	EnterImportPath(c *ImportPathContext)
+
+	// EnterImportPathHead is called when entering the importPathHead production.
+	EnterImportPathHead(c *ImportPathHeadContext)
+
 	// EnterAuthorityBlock is called when entering the authorityBlock production.
 	EnterAuthorityBlock(c *AuthorityBlockContext)
 
@@ -246,6 +258,18 @@ type ArcParserListener interface {
 
 	// ExitTopLevelItem is called when exiting the topLevelItem production.
 	ExitTopLevelItem(c *TopLevelItemContext)
+
+	// ExitImportStatement is called when exiting the importStatement production.
+	ExitImportStatement(c *ImportStatementContext)
+
+	// ExitImportItem is called when exiting the importItem production.
+	ExitImportItem(c *ImportItemContext)
+
+	// ExitImportPath is called when exiting the importPath production.
+	ExitImportPath(c *ImportPathContext)
+
+	// ExitImportPathHead is called when exiting the importPathHead production.
+	ExitImportPathHead(c *ImportPathHeadContext)
 
 	// ExitAuthorityBlock is called when exiting the authorityBlock production.
 	ExitAuthorityBlock(c *AuthorityBlockContext)
