@@ -39,6 +39,10 @@ func Analyze(
 ) (*resolution.Table, *diagnostics.Diagnostics) {
 	diag := &diagnostics.Diagnostics{}
 	table := resolution.NewTable()
+	// namespaceOwner tracks the file each namespace was first claimed by, so a
+	// second file deriving the same namespace can be reported as a collision
+	// instead of silently merging its types into the original namespace.
+	namespaceOwner := make(map[string]string)
 
 	for _, file := range files {
 		importPath := strings.TrimSuffix(file, ".oracle")
@@ -62,6 +66,18 @@ func Analyze(
 			diag.Merge(*parseDiag)
 			continue
 		}
+		namespace := DeriveNamespace(filePath)
+		if prior, ok := namespaceOwner[namespace]; ok && prior != filePath {
+			d := diagnostics.Errorf(
+				nil,
+				"namespace %q is already claimed by %s; namespaces are derived from the schema filename, so two .oracle files sharing the same basename collide silently. Rename one of them.",
+				namespace, prior,
+			)
+			d.File = filePath
+			diag.Add(d)
+			continue
+		}
+		namespaceOwner[namespace] = filePath
 		c := &analysisCtx{
 			Context:     ctx,
 			diag:        diag,
@@ -69,7 +85,7 @@ func Analyze(
 			loader:      loader,
 			ast:         ast,
 			filePath:    filePath,
-			namespace:   DeriveNamespace(filePath),
+			namespace:   namespace,
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(c)
