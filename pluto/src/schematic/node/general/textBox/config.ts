@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flex } from "@/flex";
 import { Label } from "@/schematic/node/common/label";
-import { text } from "@/text/base";
 
 export const VARIANT = "textBox" as const;
 

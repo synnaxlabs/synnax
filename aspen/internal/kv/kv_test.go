@@ -25,11 +25,13 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
 	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/version"
 )
 
 var _ = Describe("txn", func() {
@@ -344,6 +346,40 @@ var _ = Describe("txn", func() {
 					}
 				}, "200ms", "20ms").Should(Succeed())
 			})
+		})
+
+		It("Should dedupe replicated writes that arrive at the gossip ingress multiple times", func(ctx SpecContext) {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			waitForClusterStateToConverge(builder)
+
+			var fired atomic.Int64
+			kv1.NewObservable(kv.IgnoreHostLeaseholder).
+				OnChange(func(context.Context, xkv.TxReader) { fired.Add(1) })
+
+			req := kv.TxRequest{
+				Context: ctx,
+				Operations: []kv.Operation{{
+					Change: xkv.Change{
+						Variant: change.VariantSet,
+						Key:     []byte("dedup-test"),
+						Value:   []byte("v1"),
+					},
+					Version:     version.Counter(1_000_000),
+					Leaseholder: node.Key(2),
+				}},
+				Sender:      node.Key(2),
+				Leaseholder: node.Key(2),
+			}
+
+			kv1Addr := builder.ClusterAPIs[node.Key(1)].Host().Address
+			client := builder.OpNet.UnaryClient()
+			for range 5 {
+				MustSucceed(client.Send(ctx, kv1Addr, req))
+			}
+
+			Eventually(fired.Load).Should(Equal(int64(1)))
+			Consistently(fired.Load, "200ms", "20ms").Should(Equal(int64(1)))
 		})
 
 		It("Should deliver every change when no options are passed", func(ctx SpecContext) {
