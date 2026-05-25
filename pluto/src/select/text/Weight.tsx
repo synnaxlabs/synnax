@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
-import { type text } from "@/text/base";
 
 const DATA = [250, 400, 500, 600];
 
