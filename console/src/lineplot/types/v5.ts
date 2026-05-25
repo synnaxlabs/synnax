@@ -152,6 +152,11 @@ export const sliceStateZ = v4.sliceStateZ
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 
+// TRANSITIONAL: linePlotBody and stateFromLinePlot exist only while Redux
+// still owns the line plot body. They get deleted in the SY-4065 (3/3) PR
+// when Pluto's flux store takes over body ownership and the Redux <-> server
+// projection boundary disappears entirely. No new callers should be added.
+
 // linePlotBody projects a per-plot State into the server-typed LinePlot body.
 // Drops the UI-only fields (viewport, selection, mode, control, toolbar,
 // measure, annotations, selectedRule, remoteCreated, key, version) and
