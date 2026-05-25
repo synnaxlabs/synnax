@@ -123,6 +123,32 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 	}
 
+	// Register pb output paths for schemas that opt into @pb but declare
+	// only enums (no structs or distinct typedefs). Cross-namespace fields
+	// referencing these enums depend on the foreign translator existing.
+	for _, e := range req.Resolutions.EnumTypes() {
+		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
+		if outputPath == "" {
+			continue
+		}
+		if omit.IsType(e, "pb") {
+			continue
+		}
+		if _, exists := outputStructs[outputPath]; exists {
+			continue
+		}
+		if _, exists := outputTypeDefs[outputPath]; exists {
+			continue
+		}
+		outputOrder = append(outputOrder, outputPath)
+		// Mark the path with an empty struct slice so the existing loop
+		// hits it; namespace is resolved from the enum below.
+		outputStructs[outputPath] = nil
+	}
+
+	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
+		return enum.FindPBOutputPath(typ, table)
+	}
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
@@ -131,14 +157,20 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			namespace = structs[0].Namespace
 		} else if len(typeDefs) > 0 {
 			namespace = typeDefs[0].Namespace
+		} else {
+			// Enum-only output: derive namespace from any @pb enum routed
+			// to this path. CollectNamespaceEnums below filters on it.
+			for _, e := range req.Resolutions.EnumTypes() {
+				if pbPathFunc(e, req.Resolutions) == outputPath {
+					namespace = e.Namespace
+					break
+				}
+			}
 		}
 		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
 		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
 		// different schema that happens to share this namespace name does
 		// not bleed into this output.
-		pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
-			return enum.FindPBOutputPath(typ, table)
-		}
 		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
 		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
 		if err != nil {
