@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction } from "@synnaxlabs/x";
+import { type direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
@@ -15,7 +15,6 @@ import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { type Input } from "@/input";
 import { Select } from "@/select";
-import { type Text } from "@/text";
 
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
@@ -44,7 +43,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
-    <Base.Field<Text.Level>
+    <Base.Field<text.Level>
       hideIfNull
       visible={!omit.includes("level")}
       path={`${path}.level`}

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
@@ -16,7 +17,6 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
@@ -30,7 +30,7 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 
 const BOUND_INPUT_PROPS: Partial<Input.NumericProps> = { step: 10 };
 
-const handleLevelChange = (v: Text.Level, { set }: Base.ContextValue): void => {
+const handleLevelChange = (v: text.Level, { set }: Base.ContextValue): void => {
   if (v === "small") set("barWidth", 4);
   else if (v === "h5") set("barWidth", 8);
   else set("barWidth", 10);
@@ -71,7 +71,7 @@ export const GaugeForm = (): ReactElement => {
                   hideIfNull
                   inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
                 />
-                <Base.Field<Text.Level>
+                <Base.Field<text.Level>
                   path="level"
                   label="Size"
                   hideIfNull
