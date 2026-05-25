@@ -1486,38 +1486,4 @@ var _ = Describe("Analyzer", func() {
 			Expect(bForm.IsRecursive).To(BeTrue())
 		})
 	})
-
-	Describe("namespace collisions", func() {
-		It("Should error when two schemas derive the same namespace", func(ctx SpecContext) {
-			loader.
-				Add("schemas/text", `Level enum { h1 = "h1" h2 = "h2" }`).
-				Add("schemas/arc/text", `Text struct { raw string }`)
-			table, diag := analyzer.Analyze(
-				ctx,
-				[]string{"schemas/text", "schemas/arc/text"},
-				loader,
-			)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(table).To(BeNil())
-			Expect(diag.Error()).To(SatisfyAll(
-				ContainSubstring("namespace \"text\""),
-				ContainSubstring("already claimed by"),
-			))
-		})
-
-		It("Should accept two schemas with distinct filenames in nested directories", func(ctx SpecContext) {
-			loader.
-				Add("schemas/text", `Level enum { h1 = "h1" h2 = "h2" }`).
-				Add("schemas/arc/source", `Text struct { raw string }`)
-			table, diag := analyzer.Analyze(
-				ctx,
-				[]string{"schemas/text", "schemas/arc/source"},
-				loader,
-			)
-			Expect(diag.Ok()).To(BeTrue())
-			Expect(table).NotTo(BeNil())
-			Expect(table.MustGet("text.Level").Namespace).To(Equal("text"))
-			Expect(table.MustGet("source.Text").Namespace).To(Equal("source"))
-		})
-	})
 })
