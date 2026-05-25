@@ -20,7 +20,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -123,7 +122,7 @@ func (p *Plugin) generateFile(
 	for _, action := range form.Actions {
 		ad := actionData{
 			Name:     naming.ToPascalCase(action.Name),
-			TypeName: lo.SnakeCase(action.Name),
+			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
 		for _, field := range action.Fields {
