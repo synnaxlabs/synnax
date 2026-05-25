@@ -52,6 +52,9 @@ import (
 	"github.com/samber/lo"
 )
 
+// SynthInlinePrefix names scopes synthesized from inline routing case bodies.
+const SynthInlinePrefix = "__inline_"
+
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
 		len(i.Nodes) == 0 &&

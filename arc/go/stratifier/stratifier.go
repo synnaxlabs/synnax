@@ -23,10 +23,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// inlineRoutingSynthPrefix must match analyzer/sequence.SynthInlinePrefix; the
-// stratifier uses it to identify synth scopes for a custom ordering rule.
-const inlineRoutingSynthPrefix = "__inline_"
-
 // Stratify walks the Scope tree rooted at prog.Root and assigns strata to
 // every parallel scope in depth-first order. Any pre-existing strata layout
 // on a parallel scope is discarded in favor of the freshly-computed one.
@@ -126,8 +122,8 @@ func stratifyParallel(
 			}
 			// Inline synths skip this dep so their bodies pre-walk for cross-scope
 			// marks, except when activated by another inline (must walk after it).
-			if strings.HasPrefix(m.Scope.Key, inlineRoutingSynthPrefix) &&
-				!strings.HasPrefix(members[src].Key(), inlineRoutingSynthPrefix) {
+			if strings.HasPrefix(m.Scope.Key, ir.SynthInlinePrefix) &&
+				!strings.HasPrefix(members[src].Key(), ir.SynthInlinePrefix) {
 				continue
 			}
 			if stratum[src] >= stratum[i] {

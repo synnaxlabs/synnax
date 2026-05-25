@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -1120,7 +1119,7 @@ sequence main {
 			Expect(mainScope).ToNot(BeNil())
 			var inlines []*symbol.Symbol
 			for _, child := range mainScope.Children() {
-				if strings.HasPrefix(child.Name, sequence.SynthInlinePrefix) {
+				if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
 					inlines = append(inlines, child)
 				}
 			}
@@ -1162,7 +1161,7 @@ sequence main {
 			Expect(mainScope).ToNot(BeNil())
 			var inlines []*symbol.Symbol
 			for _, child := range mainScope.Children() {
-				if strings.HasPrefix(child.Name, sequence.SynthInlinePrefix) {
+				if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
 					inlines = append(inlines, child)
 				}
 			}

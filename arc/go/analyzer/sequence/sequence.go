@@ -16,14 +16,12 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
-
-// SynthInlinePrefix names scopes synthesized for inline routing case bodies.
-const SynthInlinePrefix = "__inline_"
 
 // CollectDeclarations registers all sequences and their children in the symbol table.
 // This is called during the first pass of AnalyzeProgram to establish scopes before
@@ -99,7 +97,7 @@ func registerInlineBody(
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{
-		Name: SynthInlinePrefix + strconv.Itoa(*counter),
+		Name: ir.SynthInlinePrefix + strconv.Itoa(*counter),
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  decl,
@@ -137,7 +135,7 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 	var walk func(parent *symbol.Symbol)
 	walk = func(parent *symbol.Symbol) {
 		for _, child := range parent.Children() {
-			if strings.HasPrefix(child.Name, SynthInlinePrefix) {
+			if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
 				switch decl := child.AST.(type) {
 				case parser.IStageDeclarationContext:
 					AnalyzeTopLevelStage(context.Child(ctx, decl).WithScope(parent))
