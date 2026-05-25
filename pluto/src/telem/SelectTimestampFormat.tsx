@@ -25,8 +25,6 @@ const DATA: Select.StaticEntry<TimestampFormat>[] = [
   { key: "preciseDate", name: "Precise Date" },
 ];
 
-const CLS = CSS.BE("select-timestamp-format", "dialog");
-
 export interface SelectTimestampFormatProps extends Omit<
   Select.StaticProps<TimestampFormat>,
   "data" | "resourceName"
@@ -40,7 +38,10 @@ export const SelectTimestampFormat = ({
     {...rest}
     dialogProps={{
       ...dialogProps,
-      className: CSS(CLS, dialogProps?.className),
+      className: CSS(
+        CSS.BE("select-timestamp-format", "dialog"),
+        dialogProps?.className,
+      ),
     }}
     data={DATA}
     resourceName="timestamp format"
