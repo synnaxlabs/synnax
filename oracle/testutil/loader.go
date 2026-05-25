@@ -10,6 +10,8 @@
 // Package testutil provides testing utilities for the oracle code generator.
 package testutil
 
+import "strings"
+
 // MockFileLoader is a file loader that serves files from an in-memory map.
 // It implements analyzer.FileLoader for use in tests.
 type MockFileLoader struct {
@@ -35,13 +37,15 @@ func (m *MockFileLoader) Add(path, content string) *MockFileLoader {
 	return m
 }
 
-// Load implements analyzer.FileLoader.
+// Load implements analyzer.FileLoader. The returned filePath always ends in
+// ".oracle"; importPath may be passed with or without the suffix.
 func (m *MockFileLoader) Load(importPath string) (string, string, error) {
-	if content, ok := m.Files[importPath]; ok {
-		return content, importPath + ".oracle", nil
+	stem := strings.TrimSuffix(importPath, ".oracle")
+	if content, ok := m.Files[stem]; ok {
+		return content, stem + ".oracle", nil
 	}
-	if content, ok := m.Files[importPath+".oracle"]; ok {
-		return content, importPath + ".oracle", nil
+	if content, ok := m.Files[stem+".oracle"]; ok {
+		return content, stem + ".oracle", nil
 	}
 	return "", "", &FileNotFoundError{Path: importPath}
 }

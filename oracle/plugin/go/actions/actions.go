@@ -20,7 +20,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -28,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -122,7 +122,7 @@ func (p *Plugin) generateFile(
 	for _, action := range form.Actions {
 		ad := actionData{
 			Name:     naming.ToPascalCase(action.Name),
-			TypeName: lo.SnakeCase(action.Name),
+			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
 		for _, field := range action.Fields {
@@ -160,7 +160,7 @@ func processField(
 	return fieldData{
 		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
-		JSONName:       lo.SnakeCase(field.Name),
+		JSONName:       casing.FieldSnake(field.Name),
 		IsHardOptional: field.IsHardOptional,
 	}
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction, location } from "@synnaxlabs/x";
+import { direction, location, text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -23,7 +23,6 @@ import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Text } from "@/text";
-import { text } from "@/text/base";
 
 export const configZ = z.object({
   label: z.string().optional(),

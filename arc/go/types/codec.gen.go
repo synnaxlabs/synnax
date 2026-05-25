@@ -396,11 +396,11 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Type
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Type
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			t.Elem = &v
+			t.Elem = &hv
 		}
 	}
 	{
@@ -409,11 +409,11 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Unit
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Unit
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			t.Unit = &v
+			t.Unit = &hv
 		}
 	}
 	{
@@ -422,11 +422,11 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Type
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Type
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			t.Constraint = &v
+			t.Constraint = &hv
 		}
 	}
 	{

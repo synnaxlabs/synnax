@@ -507,19 +507,19 @@ func (b *encoderBuilder) processHardOptional(
 	b.decodeLines = append(b.decodeLines,
 		ind+"{ present, err := r.Bool(); if err != nil { return err }",
 		ind+"if present {",
-		ind+fmt.Sprintf("\tvar v %s", goType),
+		ind+fmt.Sprintf("\tvar hv %s", goType),
 	)
 	b.depth++
 	b.inBlock++
 	derefGet := "(*" + getPath + ")"
-	if err := b.processValueByType(resolved, f.Type, derefGet, "v"); err != nil {
+	if err := b.processValueByType(resolved, f.Type, derefGet, "hv"); err != nil {
 		return err
 	}
 	b.inBlock--
 	b.depth--
 	b.encodeLines = append(b.encodeLines, ind+"} else {", ind+"\tw.Bool(false)", ind+"}")
 	b.decodeLines = append(b.decodeLines,
-		ind+"\t"+setPath+" = &v",
+		ind+"\t"+setPath+" = &hv",
 		ind+"}",
 		ind+"}",
 	)
