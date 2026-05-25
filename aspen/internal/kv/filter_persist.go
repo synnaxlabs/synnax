@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"go.uber.org/zap"
 )
 
 // filterPersist fuses version filtering and persistence into a single segment
@@ -71,7 +72,15 @@ func (fp *filterPersist) _switch(
 
 	err := xkv.WithTx(ctx, fp.db, func(txn xkv.Tx) error {
 		for _, op := range b.Operations {
-			if !supersedes(ctx, txn, op) {
+			sup, supErr := supersedes(ctx, txn, op)
+			if supErr != nil {
+				fp.L.Error(
+					"failed to read digest for gossiped op",
+					zap.Error(supErr),
+					zap.Binary("key", op.Key),
+				)
+			}
+			if !sup {
 				rejected.Operations = append(rejected.Operations, op)
 				continue
 			}
@@ -99,15 +108,19 @@ func (fp *filterPersist) _switch(
 // supersedes reports whether op should replace the digest stored for op.Key in
 // r. An op supersedes when its version is strictly newer, or when versions tie
 // and its leaseholder wins the higher-key tiebreak. A missing digest is treated
-// as superseded. Any other read error is treated as not-superseding so a
-// transient read failure cannot cause an op to overwrite stored state.
-func supersedes(ctx context.Context, r xkv.Reader, op Operation) bool {
+// as superseded. Any other read error is returned and treated as
+// not-superseding by the caller, so a transient read failure cannot cause an op
+// to overwrite stored state.
+func supersedes(ctx context.Context, r xkv.Reader, op Operation) (bool, error) {
 	dig, err := getDigestFromKV(ctx, r, op.Key)
 	if err != nil {
-		return errors.Is(err, query.ErrNotFound)
+		if errors.Is(err, query.ErrNotFound) {
+			return true, nil
+		}
+		return false, err
 	}
 	if op.Version.EqualTo(dig.Version) {
-		return op.Leaseholder > dig.Leaseholder
+		return op.Leaseholder > dig.Leaseholder, nil
 	}
-	return op.Version.NewerThan(dig.Version)
+	return op.Version.NewerThan(dig.Version), nil
 }
