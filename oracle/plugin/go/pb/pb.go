@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -131,7 +132,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		} else if len(typeDefs) > 0 {
 			namespace = typeDefs[0].Namespace
 		}
-		enums := req.Resolutions.EnumsInNamespace(namespace)
+		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
+		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
+		// different schema that happens to share this namespace name does
+		// not bleed into this output.
+		pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
+			return enum.FindPBOutputPath(typ, table)
+		}
+		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
 		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -1180,7 +1188,7 @@ func (p *Plugin) generateEnumConversion(
 	}
 
 	if resolved.Namespace != data.Namespace {
-		pbPath := findEnumPBPath(resolved, data.table)
+		pbPath := enum.FindPBOutputPath(resolved, data.table)
 		if pbPath != "" {
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 			if err == nil {
@@ -1198,17 +1206,6 @@ func (p *Plugin) generateEnumConversion(
 
 	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
 		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
-}
-
-func findEnumPBPath(e resolution.Type, table *resolution.Table) string {
-	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
-			if path := output.GetPBPath(s); path != "" {
-				return path
-			}
-		}
-	}
-	return ""
 }
 
 func (p *Plugin) generateTypeDefConversion(

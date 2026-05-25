@@ -10,6 +10,7 @@
 package pb_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1701,6 +1702,47 @@ var _ = Describe("Go PB Plugin", func() {
 						"StatusToPB[control.Details]",
 						"StatusFromPB[control.Details]",
 					)
+			})
+		})
+
+		Context("cross-schema namespace collision", func() {
+			It("Should not emit a non-@pb enum into another schema's pb output when the two schemas share a namespace name", func(ctx SpecContext) {
+				// Two schemas, schemas/text.oracle and schemas/arc/text.oracle,
+				// both derive namespace "text" from DeriveNamespace. The first
+				// declares Level without @pb. The second declares a different
+				// type with @pb. Level must not bleed into arc/text/pb because
+				// the enum's own file lacks @pb opt-in.
+				loader.Add("schemas/text.oracle", `
+					@go output "x/go/text"
+
+					Level enum {
+						h1 = "h1"
+						h2 = "h2"
+					}
+				`)
+				loader.Add("schemas/arc/text.oracle", `
+					@go output "arc/go/text"
+					@pb
+
+					Text struct {
+						content string
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				// Translator file is emitted for the @pb schema only.
+				var translatorFiles []string
+				for _, f := range resp.Files {
+					translatorFiles = append(translatorFiles, f.Path)
+					if strings.HasSuffix(f.Path, "/translator.gen.go") {
+						Expect(string(f.Content)).ToNot(
+							ContainSubstring("Level"),
+							"non-@pb Level enum bled into pb output at %s",
+							f.Path,
+						)
+					}
+				}
+				Expect(translatorFiles).To(ConsistOf("arc/go/text/pb/translator.gen.go"))
 			})
 		})
 	})

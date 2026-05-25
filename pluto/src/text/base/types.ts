@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { text } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Component } from "@/component";
 import { type theming } from "@/theming/aether";
 
-export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
-export const levelZ = z.enum(LEVELS);
+export const LEVELS = text.LEVELS;
+export const levelZ = text.levelZ;
 
 /* Level of typography i.e paragraph and heading */
-export type Level = z.infer<typeof levelZ>;
+export type Level = text.Level;
 
 export const downLevel = (level: Level): Level => {
   const index = LEVELS.indexOf(level);

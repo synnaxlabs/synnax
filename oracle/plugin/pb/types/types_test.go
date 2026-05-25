@@ -747,6 +747,9 @@ var _ = Describe("Plugin", func() {
 					Form: resolution.EnumForm{
 						Values: []resolution.EnumValue{{Name: "low"}, {Name: "high"}},
 					},
+					// Enums opt into pb output via their own @pb (typically
+					// file-level, propagated to every type in the schema).
+					Domains: pbDomains("core/pkg/shared"),
 				})).To(Succeed())
 				Expect(table.Add(resolution.Type{
 					Name:          "Task",
