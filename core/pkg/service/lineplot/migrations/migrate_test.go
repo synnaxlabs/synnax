@@ -82,7 +82,7 @@ func nonZeroV0() v0.Data {
 			X1: 1, X2: 2,
 			Y1: []uint32{10, 11}, Y2: []uint32{12}, Y3: []uint32{}, Y4: []uint32{},
 		},
-		Ranges: v0.Ranges{X1: []uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-000000000010")}},
+		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v0.AxesContainer{
 			RenderTrigger:    7,
 			HasHadChannelSet: true,
@@ -281,7 +281,7 @@ var _ = Describe("MigrateLinePlot", func() {
 		It("Should preserve Ranges arrays per x-axis", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"ranges": {"x1": ["00000000-0000-0000-0000-00000000000a"], "x2": []}`)
 			Expect(out.Ranges.X1).To(HaveLen(1))
-			Expect(out.Ranges.X1[0]).To(Equal(uuid.MustParse("00000000-0000-0000-0000-00000000000a")))
+			Expect(out.Ranges.X1[0]).To(Equal("00000000-0000-0000-0000-00000000000a"))
 		})
 
 		It("Should drop Axes wrapper bookkeeping but preserve per-axis config", func(ctx SpecContext) {

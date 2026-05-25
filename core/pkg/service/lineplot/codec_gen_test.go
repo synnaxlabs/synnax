@@ -357,10 +357,7 @@ var _ = Describe("Codec", func() {
 					Y3: []uint32{23},
 					Y4: []uint32{24},
 				},
-				Ranges: lineplot.Ranges{
-					X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
-					X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
-				},
+				Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 				Axes: lineplot.Axes{
 					X1: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -563,7 +560,7 @@ var _ = Describe("Codec", func() {
 					Y3: []uint32{},
 					Y4: []uint32{},
 				},
-				Ranges: lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}},
+				Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
 				Axes: lineplot.Axes{
 					X1: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -642,12 +639,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", lineplot.Ranges{
-				X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-			}),
+			Entry("fully populated", lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}),
 			Entry("zero values", lineplot.Ranges{X1: nil, X2: nil}),
-			Entry("empty collections", lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}}),
+			Entry("empty collections", lineplot.Ranges{X1: []string{}, X2: []string{}}),
 		)
 	})
 	Describe("Rule", func() {
@@ -934,10 +928,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y3: []uint32{23},
 			Y4: []uint32{24},
 		},
-		Ranges: lineplot.Ranges{
-			X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
-			X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
-		},
+		Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 		Axes: lineplot.Axes{
 			X1: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1039,10 +1030,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRanges(b *testing.B) {
-	rv := lineplot.Ranges{
-		X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-	}
+	rv := lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -1617,10 +1605,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []uint32{23},
 				Y4: []uint32{24},
 			},
-			Ranges: lineplot.Ranges{
-				X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
-				X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781a")},
-			},
+			Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 			Axes: lineplot.Axes{
 				X1: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1837,7 +1822,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []uint32{},
 				Y4: []uint32{},
 			},
-			Ranges: lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}},
+			Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
 			Axes: lineplot.Axes{
 				X1: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1940,10 +1925,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 
 func FuzzDecodeRanges(f *testing.F) {
 	{
-		seed := lineplot.Ranges{
-			X1: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			X2: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-		}
+		seed := lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1959,7 +1941,7 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := lineplot.Ranges{X1: []uuid.UUID{}, X2: []uuid.UUID{}}
+		seed := lineplot.Ranges{X1: []string{}, X2: []string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
