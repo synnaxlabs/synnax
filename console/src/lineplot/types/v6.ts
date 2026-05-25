@@ -52,11 +52,23 @@ export const stateZ = v5.stateZ
 
 export interface State extends z.infer<typeof stateZ> {}
 
+// Destructure rather than relying on the type-level Omit; a plain spread
+// would carry the body fields at runtime and break deep equality with the
+// migrated shape.
+const {
+  title: _title,
+  legend: _legend,
+  channels: _channels,
+  ranges: _ranges,
+  axes: _axes,
+  lines: _lines,
+  rules: _rules,
+  version: _version,
+  ...zeroRest
+} = v5.ZERO_STATE;
+
 export const ZERO_STATE: State = {
-  ...(v5.ZERO_STATE as Omit<
-    v5.State,
-    "title" | "legend" | "channels" | "ranges" | "axes" | "lines" | "rules" | "version"
-  >),
+  ...zeroRest,
   version: VERSION,
   pendingUpload: undefined,
 };
@@ -67,32 +79,25 @@ export const sliceStateZ = v5.sliceStateZ
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 
+// stateMigration drops the body fields entirely. Users upgrading from v5
+// have the canonical body on the server already (it was synced there via
+// SetData in the v5 flow), so re-uploading via pendingUpload would 409 on
+// duplicate key. Importers that need the body to land on the server
+// construct pendingUpload explicitly themselves (see services/import.ts).
 export const stateMigration = migrate.createMigration<v5.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => {
     const {
-      title,
-      legend,
-      channels,
-      ranges,
-      axes: { axes: axesMap },
-      lines,
-      rules,
+      title: _title,
+      legend: _legend,
+      channels: _channels,
+      ranges: _ranges,
+      axes: _axes,
+      lines: _lines,
+      rules: _rules,
       ...rest
     } = state;
-    return {
-      ...rest,
-      version: VERSION,
-      pendingUpload: {
-        title,
-        legend,
-        channels,
-        ranges,
-        axes: axesMap,
-        lines,
-        rules,
-      },
-    };
+    return { ...rest, version: VERSION, pendingUpload: undefined };
   },
 });
 
