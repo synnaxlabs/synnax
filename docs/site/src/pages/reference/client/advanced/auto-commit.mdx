@@ -48,7 +48,6 @@ opening the writer.
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     enable_auto_commit=False,
 ) as writer:
@@ -69,7 +68,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   enableAutoCommit: false,
 });
@@ -105,7 +103,6 @@ write:
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     enable_auto_commit=False,
 ) as writer:
@@ -123,7 +120,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   enableAutoCommit: false,
 });
@@ -152,7 +148,6 @@ try {
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     # enable_auto_commit=True is the default
 ) as writer:
@@ -169,7 +164,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   // enableAutoCommit: true is the default
 });

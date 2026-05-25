@@ -156,7 +156,6 @@ class TPCSimDAQ(SimDAQ):
 
         with self.client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
             with self.client.open_writer(
-                sy.TimeStamp.now(),
                 channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
                 name="TPC Sim DAQ",
             ) as writer:

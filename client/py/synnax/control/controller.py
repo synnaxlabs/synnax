@@ -108,7 +108,6 @@ class Controller:
             write_keys.extend([ch.key for ch in write_channels])
             self._writer_opt = frame_client.open_writer(
                 name=name,
-                start=TimeStamp.now(),
                 channels=write_keys,
                 authorities=write_authorities,
             )

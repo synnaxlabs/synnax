@@ -65,9 +65,8 @@ class AuthorityPythonOverride(ArcConsoleCase):
 
         # Phase 2: Python writer overrides at authority 255
         self._override_writer = self.client.open_writer(
-            sy.TimeStamp.now(),
-            ["press_vlv_cmd_time", "press_vlv_cmd"],
-            255,
+            channels=["press_vlv_cmd_time", "press_vlv_cmd"],
+            authorities=255,
         )
         self._override_writer.write(
             {

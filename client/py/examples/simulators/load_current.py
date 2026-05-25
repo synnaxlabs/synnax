@@ -72,7 +72,6 @@ class LoadCurrentSimDAQ(SimDAQ):
         load_current = 0.0
 
         with self.client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=[self.daq_time.name, "load_current"],
             name="Load Current Sim DAQ",
         ) as writer:

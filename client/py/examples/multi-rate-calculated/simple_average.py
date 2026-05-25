@@ -45,7 +45,6 @@ TO_READ = ["time_ch_1", "time_ch_2", "data_ch_1", "data_ch_2"]
 current_values = dict()
 
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["simple_average_time", "simple_average_data"],
 ) as writer:
     with client.open_streamer(TO_READ) as streamer:

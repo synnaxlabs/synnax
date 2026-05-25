@@ -89,7 +89,6 @@ class SynnaxChannelSink:
             retrieve_if_name_exists=True,
         )
         self._writer = client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=[self._channel.key],
             name=f"{channel_name}_writer",
         )

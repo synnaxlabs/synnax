@@ -182,7 +182,6 @@ class ShortCircuit(ArcConsoleCase):
         collector = ChannelCollector(self.client, stream_channels)
         with collector as collected:
             with self.client.open_writer(
-                start=sy.TimeStamp.now(),
                 channels=["ss_sensor_time", "ss_temp_a", "ss_temp_b"],
                 name="Short Circuit Sensor Writer",
             ) as self._sensor_writer:

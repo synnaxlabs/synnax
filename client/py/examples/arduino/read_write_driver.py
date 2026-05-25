@@ -53,7 +53,6 @@ arduino_value = client.channels.create(
 
 with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
     ) as writer:
         while True:

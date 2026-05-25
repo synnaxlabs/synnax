@@ -42,6 +42,16 @@ class TestWriter:
             )
             w.commit()
 
+    def test_default_start_now(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
+        """Should default the writer's start to the current time when not provided."""
+        idx_ch, data_ch = indexed_pair
+        before = sy.TimeStamp.now()
+        with client.open_writer(channels=indexed_pair) as w:
+            after = sy.TimeStamp.now()
+            assert before <= w.start <= after
+            w.write({idx_ch.key: w.start, data_ch.key: 1.0})
+            w.commit()
+
     def test_write_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
         """Should write data by name to the Synnax cluster"""
         idx_ch, data_ch = indexed_pair
@@ -72,7 +82,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should throw a validation error when writing to an unknown channel"""
-        with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
+        with client.open_writer(channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
                 w.write(pd.DataFrame({"missing": data}))
@@ -83,7 +93,7 @@ class TestWriter:
         client: sy.Synnax,
     ):
         """Should throw a validation error when writing an unknown frame by key"""
-        with client.open_writer(start=sy.TimeStamp.now(), channels=indexed_pair) as w:
+        with client.open_writer(channels=indexed_pair) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
                 w.write(pd.DataFrame({123: data}))
@@ -237,7 +247,6 @@ class TestWriter:
         time_ch, data_ch = indexed_pair
         with pytest.raises(sy.ValidationError, match="commit timestamp"):
             with client.open_writer(
-                start=sy.TimeStamp.now(),
                 channels=[time_ch.key, data_ch.key],
             ) as w:
                 for i in range(100):

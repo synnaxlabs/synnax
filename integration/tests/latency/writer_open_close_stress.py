@@ -97,7 +97,6 @@ class WriterOpenCloseStress(TestCase):
                 ch = self._channel_names[i % len(self._channel_names)]
                 op_timer = sy.Timer()
                 w = client.open_writer(
-                    start=sy.TimeStamp.now(),
                     channels=[ch],
                     enable_auto_commit=True,
                 )

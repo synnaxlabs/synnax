@@ -50,7 +50,7 @@ requires-python = ">=3.12,<4"
 dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
 
 [dependency-groups]
-dev = ["black>=25.12.0", "isort>=7.0.0", "mypy>=1.19.0", "pytest>=9.0.2"]
+dev = ["ruff>=0.15.13", "mypy>=2.1.0", "pytest>=9.0.3"]
 
 [build-system]
 requires = ["hatchling"]
@@ -59,17 +59,31 @@ build-backend = "hatchling.build"
 
 ## Code Style
 
-### Black (Formatter)
+### Ruff (Formatter + Import Sorter + Linter)
+
+Ruff is the **only** formatting/linting tool for Python in this repo. Do **not** use
+`black` or standalone `isort` — they are not configured here, and standalone `isort` in
+particular does not know that `synnax`, `alamos`, `freighter`, and `x` are first-party,
+so it reorders imports differently from what CI expects and introduces churn.
 
 - 88 character line length
-- Automatically formats code
-- Run: `uv run black .`
+- Format code: `uv run ruff format .`
+- Sort imports and lint: `uv run ruff check --fix .`
+- Check without modifying: `uv run ruff format --check .` and `uv run ruff check .`
 
-### isort (Import Sorter)
+Configuration lives in `client/py/pyproject.toml`:
 
-- Configured with `profile = "black"` for compatibility
-- Automatically organizes imports
-- Run: `uv run isort .`
+```toml
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["synnax", "alamos", "freighter", "x"]
+```
 
 ### mypy (Type Checker)
 

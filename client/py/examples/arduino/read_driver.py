@@ -47,7 +47,6 @@ else:
 
 # Open a writer and continuously read from the Arduino
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
 ) as writer:
     while True:

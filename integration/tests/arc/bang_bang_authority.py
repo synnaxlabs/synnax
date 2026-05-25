@@ -168,9 +168,8 @@ class BangBangAuthority(ArcConsoleCase):
         # take control since ARC reclaimed at 220 on both channels.
         self.log("Phase 5: Verifying press_vlv_cmd reclaimed by ARC...")
         self._press_writer = self.client.open_writer(
-            sy.TimeStamp.now(),
-            ["press_vlv_cmd_time", "press_vlv_cmd"],
-            50,
+            channels=["press_vlv_cmd_time", "press_vlv_cmd"],
+            authorities=50,
             err_on_unauthorized=False,
         )
         self._press_writer.write(
@@ -184,9 +183,8 @@ class BangBangAuthority(ArcConsoleCase):
 
         self.log("Verifying vent_vlv_cmd reclaimed by ARC...")
         self._vent_writer = self.client.open_writer(
-            sy.TimeStamp.now(),
-            ["vent_vlv_cmd_time", "vent_vlv_cmd"],
-            50,
+            channels=["vent_vlv_cmd_time", "vent_vlv_cmd"],
+            authorities=50,
             err_on_unauthorized=False,
         )
         self._vent_writer.write(

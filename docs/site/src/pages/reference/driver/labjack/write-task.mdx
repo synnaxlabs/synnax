@@ -184,7 +184,6 @@ client.tasks.configure(task)
 # Start task and write commands
 with task.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["ao_0_cmd", "do_4_cmd"],
     ) as writer:
         # Set analog output to 2.5V and digital output high
@@ -315,7 +314,6 @@ await task.executeCommandSync("start");
 
 // Write commands
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["ao_0_cmd", "do_4_cmd"],
 });
 

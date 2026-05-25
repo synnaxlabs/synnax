@@ -247,7 +247,6 @@ client.tasks.configure(task)
 # Start task and write commands
 with task.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["control_word_cmd", "target_position_cmd"],
     ) as writer:
         # Enable drive (control word 0x000F is common for CiA 402)
@@ -333,7 +332,6 @@ client.tasks.configure(task)
 # Start and write
 with task.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["control_word_cmd"],
     ) as writer:
         writer.write({"control_word_cmd": 0x000F})
@@ -457,7 +455,6 @@ await task.executeCommandSync("start");
 
 // Write commands
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["control_word_cmd", "target_position_cmd"],
 });
 
@@ -555,7 +552,6 @@ const task = await client.tasks.create({
 await task.executeCommandSync("start");
 
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["control_word_cmd"],
 });
 await writer.write({ control_word_cmd: 0x000f });

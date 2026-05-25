@@ -379,7 +379,6 @@ class SimDAQ:
 
         # Open writer for data
         writer = self.client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=write_channels,
             name="CTS Sim DAQ",
             enable_auto_commit=True,

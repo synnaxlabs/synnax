@@ -117,7 +117,6 @@ print("-" * 70)
 with tsk.run():
     # Open a writer to send commands
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=[
             modbus_cmd_time.key,
             coil_cmd_0.key,

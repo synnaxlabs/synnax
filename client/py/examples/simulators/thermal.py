@@ -118,7 +118,6 @@ class ThermalSimDAQ(SimDAQ):
             ["heater_cmd", "force_overheat_cmd"]
         ) as streamer:
             with self.client.open_writer(
-                start=sy.TimeStamp.now(),
                 channels=[self.daq_time.name, "temp_sensor", "heater_state"],
                 name="Thermal Sim DAQ",
             ) as writer:

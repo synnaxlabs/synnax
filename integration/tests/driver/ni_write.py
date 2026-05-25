@@ -79,7 +79,6 @@ def _assert_driver_rejects_value(
 
     with client.open_streamer(["sy_status_set"]) as streamer:
         writer = client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=cmd_keys + index_keys,
             name=writer_name,
             enable_auto_commit=True,
@@ -371,7 +370,6 @@ def _send_oob_and_assert_state_clamped(
 
     with client.open_streamer(state_keys) as streamer:
         writer = client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=all_writer_keys,
             name=f"{task_name}_oob_writer",
             enable_auto_commit=True,

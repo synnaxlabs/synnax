@@ -50,7 +50,6 @@ averaged_data_channel = client.channels.create(
 )
 
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=[
         "calculated_channels_time",
         "calculated_channels_squared_data",

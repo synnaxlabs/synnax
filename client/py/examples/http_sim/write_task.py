@@ -85,7 +85,6 @@ print("-" * 70)
 
 with tsk.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=[http_cmd_time.key, setpoint_cmd.key],
         enable_auto_commit=True,
     ) as writer:

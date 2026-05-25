@@ -129,7 +129,6 @@ try:
     with tsk.run():
         # Open a writer to send commands
         with client.open_writer(
-            start=sy.TimeStamp.now(),
             channels=[
                 labjack_cmd_time.key,
                 dac0_cmd.key,

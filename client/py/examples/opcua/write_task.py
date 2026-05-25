@@ -116,7 +116,6 @@ with tsk.run():
     # Open a writer to send commands to the OPC UA server
     # IMPORTANT: Must include the index channel (opcua_cmd_time) along with data channels
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=[
             opcua_cmd_time.key,
             cmd_channel_0.key,

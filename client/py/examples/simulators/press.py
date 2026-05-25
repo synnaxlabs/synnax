@@ -128,7 +128,6 @@ class PressSimDAQ(SimDAQ):
 
         with self.client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
             with self.client.open_writer(
-                start=sy.TimeStamp.now(),
                 channels=[
                     self.daq_time_ch.name,
                     "press_vlv_state",

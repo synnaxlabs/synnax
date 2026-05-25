@@ -39,7 +39,6 @@ parameter with an integer.
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     authorities=100,
 )
@@ -51,7 +50,6 @@ writer = client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   authorities: 100,
 });
@@ -74,7 +72,6 @@ channels in the writer.
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     authorities=[100, 200],
 )
@@ -86,7 +83,6 @@ writer = client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   authorities: [100, 200],
 });
@@ -143,7 +139,6 @@ Here's a complete example showing dynamic authority changes during a write sessi
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     authorities=100,
 ) as writer:
@@ -164,7 +159,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   authorities: 100,
 });

@@ -29,7 +29,7 @@ from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Payload, Status, ontology_id
-from synnax.telem import TimeSpan, TimeStamp
+from synnax.telem import TimeSpan
 from x.normalize import check_for_none, normalize, override
 
 
@@ -213,7 +213,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,

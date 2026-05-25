@@ -136,7 +136,6 @@ class CalcChannelStress(ConsoleCase):
         def write_loop() -> None:
             loop = sy.Loop(sy.Rate.HZ * self.rate)
             with client.open_writer(
-                sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
             ) as writer:
                 i = 0

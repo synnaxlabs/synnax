@@ -100,7 +100,6 @@ def send_and_verify_commands(
         try:
             with client.open_streamer(cmd_keys) as streamer:
                 writer = client.open_writer(
-                    start=sy.TimeStamp.now(),
                     channels=all_writer_keys,
                     name=writer_name,
                     enable_auto_commit=True,

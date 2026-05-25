@@ -47,9 +47,7 @@ class BenchReport(Latency):
 
         try:
             with self.report_client.open_streamer(state_channel) as stream:
-                with self.report_client.open_writer(
-                    sy.TimeStamp.now(), cmd_channel
-                ) as writer:
+                with self.report_client.open_writer(channels=cmd_channel) as writer:
                     while sy.TimeStamp.since(loop_start) < bench_time:
                         start = sy.TimeStamp.now()
                         writer.write(cmd_channel, True)

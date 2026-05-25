@@ -80,9 +80,8 @@ class AuthorityEmergency(ArcConsoleCase):
         # to in the emergency stage - UNLESS Arc escalates past 200.
         self.log("Phase 2: Opening Python writer at authority 200 on press_vlv_cmd...")
         self._override_writer = self.client.open_writer(
-            sy.TimeStamp.now(),
-            ["press_vlv_cmd_time", "press_vlv_cmd"],
-            200,
+            channels=["press_vlv_cmd_time", "press_vlv_cmd"],
+            authorities=200,
         )
         self._override_writer.write(
             {

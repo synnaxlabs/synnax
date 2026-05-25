@@ -169,7 +169,6 @@ client.tasks.configure(task)
 # Start task and send commands
 with task.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["coil_cmd", "holding_reg_cmd"],
     ) as writer:
         # Write commands
@@ -270,7 +269,6 @@ await task.executeCommandSync("start");
 
 // Send commands
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["coil_cmd", "holding_reg_cmd"],
 });
 

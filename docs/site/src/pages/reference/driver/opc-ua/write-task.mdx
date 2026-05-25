@@ -175,7 +175,6 @@ client.tasks.configure(task)
 # Start task and send commands
 with task.run():
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["temperature_setpoint_cmd", "valve_control_cmd"],
     ) as writer:
         # Set temperature setpoint
@@ -282,7 +281,6 @@ await task.executeCommandSync("start");
 
 // Send commands
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["temperature_setpoint_cmd", "valve_control_cmd"],
 });
 

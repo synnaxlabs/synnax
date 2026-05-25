@@ -225,7 +225,6 @@ Open a writer and stream data.
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"]
 ) as writer:
     while True:
@@ -244,7 +243,6 @@ with client.open_writer(
 import { TimeStamp } from "@synnaxlabs/client";
 
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_value"],
 });
 
@@ -306,7 +304,6 @@ if not ser.is_open:
     raise ConnectionError("Failed to establish serial connection")
 
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
 ) as writer:
     while True:
@@ -361,7 +358,6 @@ port.on("error", (err) => {
 });
 
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_value"],
 });
 
@@ -713,7 +709,6 @@ Stream commands while writing state and values.
 ```python
 with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
     ) as writer:
         while True:
@@ -738,7 +733,6 @@ with client.open_streamer(["arduino_command"]) as streamer:
 ```typescript
 const streamer = await client.openStreamer(["arduino_command"]);
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_state", "arduino_value"],
 });
 
@@ -829,7 +823,6 @@ arduino_value = client.channels.create(
 
 with client.open_streamer(["arduino_command"]) as streamer:
     with client.open_writer(
-        start=sy.TimeStamp.now(),
         channels=["arduino_time", "arduino_state", "arduino_value"],
     ) as writer:
         while True:
@@ -906,7 +899,6 @@ const arduinoValue = await client.channels.create({
 
 const streamer = await client.openStreamer(["arduino_command"]);
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_state", "arduino_value"],
 });
 

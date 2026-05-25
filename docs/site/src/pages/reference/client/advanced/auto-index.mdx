@@ -101,7 +101,6 @@ timestamps you supplied.
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     auto_index=True,
 ) as writer:
@@ -121,7 +120,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   autoIndex: true,
 });
