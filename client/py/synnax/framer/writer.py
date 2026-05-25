@@ -177,11 +177,11 @@ class Writer:
     _adapter: WriteFrameAdapter
     _close_exc: Exception | None = None
 
-    start: CrudeTimeStamp
+    start: TimeStamp
 
     def __init__(
         self,
-        start: CrudeTimeStamp,
+        start: CrudeTimeStamp | None,
         client: WebsocketClient,
         adapter: WriteFrameAdapter,
         name: str = "",
@@ -193,14 +193,14 @@ class Writer:
         auto_index: bool = False,
         group: int = 0,
     ) -> None:
-        self.start = start
+        self.start = TimeStamp.now() if start is None else TimeStamp(start)
         self._adapter = adapter
         client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
-            start=TimeStamp(self.start),
+            start=self.start,
             authorities=normalize(authorities),
             mode=parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,

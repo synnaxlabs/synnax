@@ -66,8 +66,8 @@ class Client:
 
     def open_writer(
         self,
-        start: CrudeTimeStamp,
-        channels: channel.Params,
+        start: CrudeTimeStamp | None = None,
+        channels: channel.Params = (),
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
         name: str = "",
@@ -85,7 +85,8 @@ class Client:
 
         :param start: Sets the starting timestamp for the first sample in the writer. If
         this timestamp overlaps with existing data for ANY of the provided channels, the
-        writer will fail to open.
+        writer will fail to open. Defaults to the current time (TimeStamp.now()) when
+        not provided.
         :param channels: The channels to write to. This can be a single channel name, a
         list of channel names, a single channel key, or a list of channel keys. :param
         authorities: The control authority to set for each channel on the writer.
@@ -116,6 +117,8 @@ class Client:
         channels whose index channels are not included, those index channels are added
         to the writer implicitly.
         """
+        if len(channel.normalize_params(channels).channels) == 0:
+            raise ValueError("open_writer requires at least one channel to write to")
         adapter = WriteFrameAdapter(
             retriever=self._channels,
             err_on_extra_chans=err_on_extra_chans,

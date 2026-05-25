@@ -52,6 +52,16 @@ class TestWriter:
             w.write({idx_ch.key: w.start, data_ch.key: 1.0})
             w.commit()
 
+    def test_open_writer_no_channels_raises(self, client: sy.Synnax):
+        """Should raise a ValueError when opened without any channels."""
+        with pytest.raises(ValueError, match="at least one channel"):
+            client.open_writer()
+
+    def test_open_writer_empty_channels_raises(self, client: sy.Synnax):
+        """Should raise a ValueError when opened with an empty channel list."""
+        with pytest.raises(ValueError, match="at least one channel"):
+            client.open_writer(channels=[])
+
     def test_write_by_name(self, indexed_pair: list[sy.Channel], client: sy.Synnax):
         """Should write data by name to the Synnax cluster"""
         idx_ch, data_ch = indexed_pair
