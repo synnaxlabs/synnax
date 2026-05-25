@@ -25,19 +25,16 @@ import { StaticMixer } from "@/schematic/node/process/StaticMixer";
 const agitator = createToggle({
   variant: "agitator",
   name: "Agitator",
-  label: "Agitator",
   Primitive: Agitator,
 });
 const crossBeamAgitator = createToggle({
   variant: "crossBeamAgitator",
   name: "Cross Beam Agitator",
-  label: "Cross Beam Agitator",
   Primitive: CrossBeamAgitator,
 });
 const flatBladeAgitator = createToggle({
   variant: "flatBladeAgitator",
   name: "Flat Blade Agitator",
-  label: "Flat Blade Agitator",
   Primitive: FlatBladeAgitator,
 });
 const heatExchangerGeneral = createStatic({
@@ -55,37 +52,31 @@ const heatExchangerM = createStatic({
 const heatExchangerStraightTube = createStatic({
   variant: "heatExchangerStraightTube",
   name: "Straight Tube Heat Exchanger",
-  label: "Straight Tube Heat Exchanger",
   Primitive: HeatExchangerStraightTube,
 });
 const helicalAgitator = createToggle({
   variant: "helicalAgitator",
   name: "Helical Agitator",
-  label: "Helical Agitator",
   Primitive: HelicalAgitator,
 });
 const paddleAgitator = createToggle({
   variant: "paddleAgitator",
   name: "Paddle Agitator",
-  label: "Paddle Agitator",
   Primitive: PaddleAgitator,
 });
 const propellerAgitator = createToggle({
   variant: "propellerAgitator",
   name: "Propeller Agitator",
-  label: "Propeller Agitator",
   Primitive: PropellerAgitator,
 });
 const rotaryMixer = createToggle({
   variant: "rotaryMixer",
   name: "Rotary Mixer",
-  label: "Rotary Mixer",
   Primitive: RotaryMixer,
 });
 const staticMixer = createStatic({
   variant: "staticMixer",
   name: "Static Mixer",
-  label: "Static Mixer",
   Primitive: StaticMixer,
 });
 

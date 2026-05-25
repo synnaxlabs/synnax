@@ -24,22 +24,11 @@ import { StrainerCone } from "@/schematic/node/fittings/StrainerCone";
 import { Thruster } from "@/schematic/node/fittings/Thruster";
 import { Vent } from "@/schematic/node/fittings/Vent";
 
-const cap = createStatic({
-  variant: "cap",
-  name: "Cap",
-  label: "Cap",
-  Primitive: Cap,
-});
-const filter = createStatic({
-  variant: "filter",
-  name: "Filter",
-  label: "Filter",
-  Primitive: Filter,
-});
+const cap = createStatic({ variant: "cap", name: "Cap", Primitive: Cap });
+const filter = createStatic({ variant: "filter", name: "Filter", Primitive: Filter });
 const flowStraightener = createStatic({
   variant: "flowStraightener",
   name: "Flow Straightener",
-  label: "Flow Straightener",
   Primitive: FlowStraightener,
 });
 const heaterElement = createStatic({
@@ -48,28 +37,16 @@ const heaterElement = createStatic({
   label: "Heater Element",
   Primitive: HeaterElement,
 });
-const isoCap = createStatic({
-  variant: "isoCap",
-  name: "ISO Cap",
-  label: "ISO Cap",
-  Primitive: ISOCap,
-});
+const isoCap = createStatic({ variant: "isoCap", name: "ISO Cap", Primitive: ISOCap });
 const isoFilter = createStatic({
   variant: "isoFilter",
   name: "ISO Filter",
-  label: "ISO Filter",
   Primitive: ISOFilter,
 });
-const nozzle = createStatic({
-  variant: "nozzle",
-  name: "Nozzle",
-  label: "Nozzle",
-  Primitive: Nozzle,
-});
+const nozzle = createStatic({ variant: "nozzle", name: "Nozzle", Primitive: Nozzle });
 const orifice = createStatic({
   variant: "orifice",
   name: "Orifice",
-  label: "Orifice",
   Primitive: Orifice,
 });
 const orificePlate = createStatic({
@@ -81,7 +58,6 @@ const orificePlate = createStatic({
 const strainer = createStatic({
   variant: "strainer",
   name: "Strainer",
-  label: "Strainer",
   Primitive: Strainer,
 });
 const strainerCone = createStatic({
@@ -93,16 +69,10 @@ const strainerCone = createStatic({
 const thruster = createToggle({
   variant: "thruster",
   name: "Thruster",
-  label: "Thruster",
   Primitive: Thruster,
   node: "labeled",
 });
-const vent = createStatic({
-  variant: "vent",
-  name: "Vent",
-  label: "Vent",
-  Primitive: Vent,
-});
+const vent = createStatic({ variant: "vent", name: "Vent", Primitive: Vent });
 
 export const REGISTRY = {
   cap: cap.spec,

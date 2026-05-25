@@ -145,7 +145,6 @@ const needle = createDummyToggle({
 const regulator = createStatic({
   variant: "regulator",
   name: "Regulator",
-  label: "Regulator",
   Primitive: Regulator,
 });
 const regulatorManual = createStatic({
@@ -196,7 +195,6 @@ const springLoadedRelief = createDummyToggle({
 const threeWay = createToggle({
   variant: "threeWayValve",
   name: "Three Way",
-  label: "Three Way",
   Primitive: ThreeWay,
 });
 const threeWayBall = createToggle({

@@ -33,19 +33,16 @@ const cavity = createToggle({
 const centrifugal = createToggle({
   variant: "centrifugalCompressor",
   name: "Centrifugal Compressor",
-  label: "Centrifugal Compressor",
   Primitive: Centrifugal,
 });
 const compressor = createToggle({
   variant: "compressor",
   name: "Compressor",
-  label: "Compressor",
   Primitive: Compressor,
 });
 const diaphragm = createToggle({
   variant: "diaphragmPump",
   name: "Diaphragm Pump",
-  label: "Diaphragm Pump",
   Primitive: Diaphragm,
 });
 const ejection = createToggle({
@@ -57,13 +54,11 @@ const ejection = createToggle({
 const ejector = createToggle({
   variant: "ejectorCompressor",
   name: "Ejector Compressor",
-  label: "Ejector Compressor",
   Primitive: Ejector,
 });
 const liquidRing = createToggle({
   variant: "liquidRingCompressor",
   name: "Liquid Ring Compressor",
-  label: "Liquid Ring Compressor",
   Primitive: LiquidRing,
 });
 const piston = createToggle({
@@ -72,16 +67,10 @@ const piston = createToggle({
   label: "Piston Pump",
   Primitive: Piston,
 });
-const pump = createToggle({
-  variant: "pump",
-  name: "Pump",
-  label: "Pump",
-  Primitive: Pump,
-});
+const pump = createToggle({ variant: "pump", name: "Pump", Primitive: Pump });
 const rollerVane = createToggle({
   variant: "rollerVaneCompressor",
   name: "Roller Vane Compressor",
-  label: "Roller Vane Compressor",
   Primitive: RollerVane,
 });
 const screw = createToggle({
@@ -93,7 +82,6 @@ const screw = createToggle({
 const turbo = createToggle({
   variant: "turboCompressor",
   name: "Turbo Compressor",
-  label: "Turbo Compressor",
   Primitive: Turbo,
 });
 const vacuum = createToggle({

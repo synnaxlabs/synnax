@@ -23,8 +23,9 @@ export interface SymbolArgs<V extends string> {
   variant: V;
   /// name is the human-readable name shown in the symbols toolbar.
   name: string;
-  /// label is the default text rendered beneath the symbol on the canvas.
-  label: string;
+  /// label is the default text rendered beneath the symbol on the canvas. Defaults to
+  /// name; provide it only to override the on-canvas label.
+  label?: string;
   /// Primitive renders the symbol's SVG; it also serves as the toolbar preview.
   Primitive: FC<BasePrimitive.SVGBasedProps>;
   /// zIndex controls canvas draw order. Defaults to 4.
@@ -37,7 +38,7 @@ export interface SymbolArgs<V extends string> {
 export const createStatic = <V extends string>({
   variant,
   name,
-  label,
+  label = name,
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
@@ -78,7 +79,7 @@ interface ToggleArgs<V extends string> extends SymbolArgs<V> {
 export const createToggle = <V extends string>({
   variant,
   name,
-  label,
+  label = name,
   Primitive,
   zIndex = 4,
   node = "toggle",
@@ -117,7 +118,7 @@ export const createToggle = <V extends string>({
 export const createDummyToggle = <V extends string>({
   variant,
   name,
-  label,
+  label = name,
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
