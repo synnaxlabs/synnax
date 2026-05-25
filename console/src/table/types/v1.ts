@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import type * as v0 from "@/table/types/v0";
-import { toWire } from "@/table/types/v0";
 
 export const VERSION = "1.0.0";
 
@@ -62,10 +61,24 @@ export const ZERO_SLICE_STATE: SliceState = {
 export const STATE_MIGRATION_NAME = "table.state";
 export const SLICE_MIGRATION_NAME = "table.slice";
 
-const buildPendingUpload = (state: v0.State): PendingUpload => {
-  const { name: _name, ...rest } = toWire(state, "");
-  return rest;
-};
+const buildPendingUpload = (state: v0.State): PendingUpload => ({
+  key: state.key,
+  rows: state.layout.rows.map((r) => ({
+    size: r.size,
+    cells: r.cells.map((c) => c.key),
+  })),
+  columns: state.layout.columns,
+  cells: Object.fromEntries(
+    Object.entries(state.cells).map(([k, c]) => [
+      k,
+      {
+        key: c.key,
+        variant: c.variant,
+        props: (c.props as record.Unknown) ?? {},
+      },
+    ]),
+  ),
+});
 
 // Drops the per-cell selected flag and parks v0's structural model in
 // pendingUpload when the table is not yet remoteCreated. remoteCreated tables

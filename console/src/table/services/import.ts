@@ -9,11 +9,11 @@
 
 import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/table/layout";
-import { stateZ as legacyStateZ, toWire as legacyToWire } from "@/table/types/v0";
+import { anyStateZ } from "@/table/slice";
 
 const parseImport = (data: unknown, fallbackName: string | undefined): table.New => {
   const direct = table.tableZ.safeParse(data);
@@ -21,10 +21,11 @@ const parseImport = (data: unknown, fallbackName: string | undefined): table.New
     const { key: _key, ...rest } = direct.data;
     return { ...rest, name: fallbackName ?? rest.name };
   }
-  const legacy = legacyStateZ.parse(data);
-  const name = fallbackName ?? "Table";
-  const { key: _key, ...rest } = legacyToWire(legacy, name);
-  return { ...rest, name };
+  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
+  if (legacy.pendingUpload == null)
+    throw new Error("Imported table has no structural data");
+  const { key: _key, rows, columns, cells } = legacy.pendingUpload;
+  return { name: fallbackName ?? "Table", rows, columns, cells };
 };
 
 export const ingest: Import.FileIngester = async (
