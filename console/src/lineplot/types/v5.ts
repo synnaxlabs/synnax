@@ -16,12 +16,9 @@ import * as v4 from "@/lineplot/types/v4";
 
 export const VERSION = "5.0.0";
 
-// pendingUploadZ carries the body of a plot that was created locally but has
-// not yet been uploaded to the server. After a successful upload it is
-// cleared and Pluto's flux store becomes the canonical source for the body.
-// Each body field is independently optional so callers can stage only the
-// pieces they care about (e.g., a new plot opened from a single range only
-// sets `ranges`).
+// pendingUploadZ stages a plot's body on the client until it has landed on
+// the server. Each field is independently optional so callers can stage
+// subsets.
 const pendingUploadZ = z.object({
   title: lineplot.titleZ.optional(),
   legend: lineplot.legendZ.optional(),
@@ -81,10 +78,9 @@ export const sliceStateZ = v4.sliceStateZ
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 
-// buildPendingUpload projects v4's hand-rolled body fields into the oracle-
-// typed PendingUpload shape so a plot that never reached the server can be
-// pushed up on first render. Drops the per-rule `selected` flag since
-// selection is lifted to selectedRules at the slice level.
+// buildPendingUpload projects v4's hand-rolled body fields into the
+// oracle-typed PendingUpload shape. Drops the per-rule `selected` flag
+// since selection lifts to selectedRules at the slice level.
 const buildPendingUpload = (state: v4.State): PendingUpload => ({
   title: lineplot.titleZ.parse(state.title),
   legend: lineplot.legendZ.parse(state.legend),
@@ -98,12 +94,11 @@ const buildPendingUpload = (state: v4.State): PendingUpload => ({
   }),
 });
 
-// stateMigration drops the v4 body fields entirely. remoteCreated plots
-// already have authoritative data on the server, so pendingUpload stays
-// undefined and the renderer reads body from flux. Plots that never reached
-// the server are projected into pendingUpload so useAutoUpload pushes them
-// up on first render. Selection on rules lifts from a per-rule `selected`
-// flag to a per-plot selectedRules array.
+// stateMigration drops the v4 body fields. remoteCreated plots are
+// authoritative on the server already, so pendingUpload stays undefined.
+// Non-remoteCreated plots are projected into pendingUpload. Selection on
+// rules lifts from a per-rule `selected` flag to a per-plot selectedRules
+// array.
 export const stateMigration = migrate.createMigration<v4.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => {

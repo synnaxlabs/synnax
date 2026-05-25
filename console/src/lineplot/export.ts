@@ -13,9 +13,9 @@ import { Export } from "@/export";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import * as v5 from "@/lineplot/types/v5";
 
-// extract emits a v5 state with the body fields staged in pendingUpload so
-// re-import goes through useAutoUpload and lands a fresh plot in the
-// destination cluster.
+// extract emits a v5 state with body fields staged in pendingUpload so the
+// importing cluster lands a fresh plot rather than overwriting the source's
+// record on retrieve.
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const linePlot = await client.lineplots.retrieve({ key });
