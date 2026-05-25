@@ -28,7 +28,7 @@ When the user pastes a GitHub Actions URL for a failed `Test - Integration` run:
    directory.
 3. `cd /tmp/synnax-bundle/test-results-<os>-<name>/run-<ts>-*` and proceed with the
    Workflow below. The bundle layout is identical to local.
-4. To see the conductor's stdout (including the `→ debug bundle:` breadcrumb and
+4. To see the conductor's stdout (including the `→ bundle:` breadcrumb and
    per-test error messages), use:
    ```bash
    gh run view <run-id> --log-failed                  # only failed steps

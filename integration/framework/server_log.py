@@ -63,11 +63,14 @@ def slice_to(dst: Path, start: int | None, end: int | None) -> bool:
         return False
 
 
-def copy_range(dst: Path, start: int | None = None) -> bool:
-    """Copy the server log from ``start`` (default 0) to current EOF into ``dst``.
+def copy_range(dst: Path, start: int | None) -> bool:
+    """Copy the server log from ``start`` to current EOF into ``dst``.
 
     Used at conductor-end to capture this run's slice of the (possibly long-lived)
-    server log into the run bundle.
+    server log into the run bundle. Passes ``start`` through to ``slice_to``, so
+    a ``None`` start (the server log wasn't measurable at conductor init) skips
+    the capture rather than dumping the whole file, which would mix in content
+    from previous runs.
     """
     src = server_log_path()
     if src is None:
@@ -76,4 +79,4 @@ def copy_range(dst: Path, start: int | None = None) -> bool:
         end = src.stat().st_size
     except OSError:
         return False
-    return slice_to(dst, start or 0, end)
+    return slice_to(dst, start, end)
