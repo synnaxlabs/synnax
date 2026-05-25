@@ -88,4 +88,62 @@ var _ = Describe("Migrate", func() {
 		Expect(migrations.Migrate(v0.Version, data)).Error().
 			To(MatchError(ContainSubstring("channels")))
 	})
+
+	It("Should reject a v1 payload referencing a zero channel key", func() {
+		data := map[string]any{
+			"channels": []any{map[string]any{"channel": 0}},
+		}
+		Expect(migrations.Migrate(v1.Version, data)).Error().
+			To(MatchError(ContainSubstring("channels[0].channel")))
+	})
+
+	It("Should reject a v0 payload referencing a zero channel key", func() {
+		data := map[string]any{"channels": []any{1, 0}}
+		Expect(migrations.Migrate(v0.Version, data)).Error().
+			To(MatchError(ContainSubstring("channels[1]")))
+	})
+})
+
+var _ = Describe("MigrateLenient", func() {
+	It("Should reject a version greater than the latest supported", func() {
+		Expect(migrations.MigrateLenient(migrations.LatestVersion+1, map[string]any{})).
+			Error().To(MatchError(ContainSubstring("newer than this Core supports")))
+	})
+
+	It("Should scrub a malformed color hex instead of erroring", func() {
+		data := map[string]any{
+			"channels": []any{map[string]any{"channel": 1, "color": "not-a-hex"}},
+		}
+		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		Expect(result.Channels).To(HaveLen(1))
+		Expect(result.Channels[0].Color).To(Equal(color.Color{}))
+	})
+
+	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
+		data := map[string]any{
+			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
+		}
+		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+	})
+
+	It("Should not reject a zero channel key (lenient skips validation)", func() {
+		data := map[string]any{
+			"channels": []any{map[string]any{"channel": 0}},
+		}
+		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		Expect(result.Channels).To(HaveLen(1))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(0)))
+	})
+
+	It("Should lift a v0 payload forward to the latest", func() {
+		data := map[string]any{
+			"channels":      []any{1, 2, 3},
+			"remoteCreated": true,
+		}
+		result := MustSucceed(migrations.MigrateLenient(v0.Version, data))
+		Expect(result.Channels).To(HaveLen(3))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.RemoteCreated).To(BeTrue())
+	})
 })
