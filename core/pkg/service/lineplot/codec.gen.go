@@ -12,7 +12,6 @@
 package lineplot
 
 import (
-	uuid "github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -451,14 +450,14 @@ func (rv Ranges) EncodeOrc(w *orc.Writer) error {
 	if rv.X1 != nil {
 		w.Uint32(uint32(len(rv.X1)))
 		for i := range rv.X1 {
-			w.Write(rv.X1[i][:])
+			w.String(rv.X1[i])
 		}
 	}
 	w.Bool(rv.X2 != nil)
 	if rv.X2 != nil {
 		w.Uint32(uint32(len(rv.X2)))
 		for i := range rv.X2 {
-			w.Write(rv.X2[i][:])
+			w.String(rv.X2[i])
 		}
 	}
 	return nil
@@ -475,9 +474,9 @@ func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rv.X1 = make([]uuid.UUID, n)
+			rv.X1 = make([]string, n)
 			for i := range rv.X1 {
-				if _, err := r.Read(rv.X1[i][:]); err != nil {
+				if rv.X1[i], err = r.String(); err != nil {
 					return err
 				}
 			}
@@ -493,9 +492,9 @@ func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rv.X2 = make([]uuid.UUID, n)
+			rv.X2 = make([]string, n)
 			for i := range rv.X2 {
-				if _, err := r.Read(rv.X2[i][:]); err != nil {
+				if rv.X2[i], err = r.String(); err != nil {
 					return err
 				}
 			}

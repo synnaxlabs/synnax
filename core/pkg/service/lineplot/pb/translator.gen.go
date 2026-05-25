@@ -13,7 +13,6 @@ package pb
 
 import (
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
@@ -184,8 +183,8 @@ func ChannelsListFromPB(pbs []*Channels) ([]lineplot.Channels, error) {
 // RangesToPB converts Ranges to Ranges.
 func RangesToPB(r lineplot.Ranges) (*Ranges, error) {
 	pb := &Ranges{
-		X1: lo.Map(r.X1, func(u uuid.UUID, _ int) string { return u.String() }),
-		X2: lo.Map(r.X2, func(u uuid.UUID, _ int) string { return u.String() }),
+		X1: r.X1,
+		X2: r.X2,
 	}
 	return pb, nil
 }
@@ -196,35 +195,8 @@ func RangesFromPB(pb *Ranges) (lineplot.Ranges, error) {
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	r.X1, err = func() ([]uuid.UUID, error) {
-		result := make([]uuid.UUID, len(pb.X1))
-		for i, s := range pb.X1 {
-			parsed, err := uuid.Parse(s)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = parsed
-		}
-		return result, nil
-	}()
-	if err != nil {
-		return lineplot.Ranges{}, err
-	}
-	r.X2, err = func() ([]uuid.UUID, error) {
-		result := make([]uuid.UUID, len(pb.X2))
-		for i, s := range pb.X2 {
-			parsed, err := uuid.Parse(s)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = parsed
-		}
-		return result, nil
-	}()
-	if err != nil {
-		return lineplot.Ranges{}, err
-	}
+	r.X1 = pb.X1
+	r.X2 = pb.X2
 	return r, nil
 }
 

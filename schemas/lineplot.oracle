@@ -103,10 +103,16 @@ Channels struct {
 }
 
 Ranges struct {
-    x1 uuid[] {
-        @doc value "are the range keys plotted against the x1 axis."
+    x1 string[] {
+        @doc value """
+            are the range keys plotted against the x1 axis. Range keys are
+            opaque strings rather than UUIDs because the console layers
+            synthetic rolling-window ranges (e.g. "recent", "rolling1m")
+            alongside persisted ranges; the server stores whatever the
+            client sends.
+        """
     }
-    x2 uuid[] {
+    x2 string[] {
         @doc value "are the range keys plotted against the x2 axis."
     }
 
