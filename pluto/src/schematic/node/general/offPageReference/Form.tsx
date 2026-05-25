@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
+import { color, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
@@ -19,7 +19,6 @@ import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
-import { type Text } from "@/text";
 import { Theming } from "@/theming";
 import { Workspace } from "@/workspace";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
@@ -103,7 +102,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
         >
           {ClickModeSelect}
         </Base.Field>
-        <Base.Field<Text.Level>
+        <Base.Field<text.Level>
           hideIfNull
           path="label.level"
           label="Label Size"

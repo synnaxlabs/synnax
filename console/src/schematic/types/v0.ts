@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control, Flex, Schematic, Text, Value, Viewport } from "@synnaxlabs/pluto";
-import { color, dimensions, direction, location, xy } from "@synnaxlabs/x";
+import { control, Flex, Schematic, Value, Viewport } from "@synnaxlabs/pluto";
+import { color, dimensions, direction, location, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -44,7 +44,7 @@ const viewportZ = z.object({
 
 export const labelZ = z.looseObject({
   label: z.string().optional(),
-  level: Text.levelZ.optional(),
+  level: text.levelZ.optional(),
   orientation: location.locationZ.optional(),
   direction: direction.directionZ.optional(),
   maxInlineSize: z.number().optional(),
