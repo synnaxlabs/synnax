@@ -12,7 +12,6 @@ package lineplot
 import (
 	"slices"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -147,7 +146,7 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 		)
 	}
 	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	*slice = slices.DeleteFunc(*slice, func(r uuid.UUID) bool { return r == p.Range })
+	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
 	return state, nil
 }
 
@@ -226,7 +225,7 @@ func yAxisSlice(c *Channels, k AxisKey) *[]uint32 {
 
 // xAxisRangeSlice returns a pointer to the ranges slice for the given
 // x-axis key so handlers can append or filter in place.
-func xAxisRangeSlice(r *Ranges, k AxisKey) *[]uuid.UUID {
+func xAxisRangeSlice(r *Ranges, k AxisKey) *[]string {
 	switch k {
 	case AxisKeyX1:
 		return &r.X1

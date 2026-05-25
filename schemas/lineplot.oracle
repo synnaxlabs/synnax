@@ -343,7 +343,7 @@ LinePlot struct {
 
     action AddRange {
         axis_key AxisKey
-        range    uuid
+        range    string
 
         @doc value """
             appends the range key to the ranges array bound to the x-axis
@@ -354,7 +354,7 @@ LinePlot struct {
 
     action RemoveRange {
         axis_key AxisKey
-        range    uuid
+        range    string
 
         @doc value """
             removes the range key from the x-axis named by axis_key. No-op
