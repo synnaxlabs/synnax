@@ -779,7 +779,7 @@ func (p *Plugin) generateEnumConversion(
 		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, cppFieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", cppFieldName, cppEnumType, pbAccessorName)
 	} else {
-		funcName := lo.SnakeCase(enumName)
+		funcName := casing.TypeSnake(enumName)
 		forward = fmt.Sprintf(`{
         auto [v, err] = %s_to_pb(this->%s);
         if (err) return {{}, err};
@@ -1161,7 +1161,7 @@ func (p *Plugin) processEnumForTranslation(
 
 	return &enumTranslatorData{
 		Name:        e.Name,
-		FuncName:    lo.SnakeCase(e.Name),
+		FuncName:    casing.TypeSnake(e.Name),
 		PBNamespace: pbNamespace,
 		Values:      values,
 	}

@@ -19,14 +19,66 @@ import "github.com/samber/lo"
 // When the input is already a valid snake_case identifier (starts with a lowercase
 // letter, contains only lowercase letters, digits, and underscores) it is returned
 // unchanged so domain names like x1 or y1 survive the conversion. Otherwise the
-// input is delegated to lo.SnakeCase so camelCase (clientX), PascalCase
+// input is delegated to TypeSnake so camelCase (clientX), PascalCase
 // (PascalCaseField), and identifiers with embedded digit-letter boundaries
 // (Int8Value) are split normally.
 func FieldSnake(s string) string {
 	if isValidSnake(s) {
 		return s
 	}
-	return lo.SnakeCase(s)
+	return TypeSnake(s)
+}
+
+// TypeSnake converts a PascalCase or mixed-case identifier to snake_case,
+// honoring acronym-followed-by-word boundaries that lo.SnakeCase misses. Inputs
+// like "SetXChannel" or "URLValue" become "set_x_channel" / "url_value" rather
+// than lo's collapsed "set_xchannel" / "urlvalue". Already-snake input is
+// returned unchanged.
+//
+// Implementation note: lo.SnakeCase's underlying word splitter handles
+// lower-then-upper boundaries (tX) and the [A-Z][A-Z][a-z] acronym-end
+// boundary, but the second pattern only fires when the regex engine has
+// already advanced past the cap-cap pair via an earlier split. Inserting a
+// separator before any cap-cap-lower run nudges the splitter to see the
+// boundary on the next pass.
+func TypeSnake(s string) string {
+	if isValidSnake(s) {
+		return s
+	}
+	return lo.SnakeCase(insertAcronymBoundaries(s))
+}
+
+// TypePascal converts an identifier to PascalCase, honoring the same
+// acronym-followed-by-word boundaries TypeSnake recovers. SetXChannel stays
+// SetXChannel rather than collapsing into SetXchannel. Use this instead of
+// lo.PascalCase whenever the input might already be PascalCase with adjacent
+// capital letters.
+func TypePascal(s string) string {
+	return lo.PascalCase(TypeSnake(s))
+}
+
+// TypeCamel converts an identifier to camelCase, honoring the same boundaries
+// as TypePascal. setXChannel rather than setXchannel.
+func TypeCamel(s string) string {
+	return lo.CamelCase(TypeSnake(s))
+}
+
+// insertAcronymBoundaries returns s with a space inserted before any uppercase
+// letter that is preceded by another uppercase letter and followed by a
+// lowercase letter, so lo.SnakeCase splits at the word the acronym is hugging.
+func insertAcronymBoundaries(s string) string {
+	if len(s) < 3 {
+		return s
+	}
+	out := make([]byte, 0, len(s)+4)
+	for i := 0; i < len(s); i++ {
+		if i > 0 && i+1 < len(s) &&
+			isUpper(s[i-1]) && isUpper(s[i]) && isLower(s[i+1]) {
+			out = append(out, ' ')
+		}
+		out = append(out, s[i])
+	}
+	return string(out)
 }
 
 // isValidSnake reports whether s is a non-empty identifier composed of a leading
@@ -49,4 +101,5 @@ func isValidSnake(s string) bool {
 }
 
 func isLower(c byte) bool { return c >= 'a' && c <= 'z' }
+func isUpper(c byte) bool { return c >= 'A' && c <= 'Z' }
 func isDigit(c byte) bool { return c >= '0' && c <= '9' }
