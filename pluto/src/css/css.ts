@@ -37,7 +37,8 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: ((value: Theming.Shade) => string) & ((value?: Theming.Shade) => string | false);
+  shade: ((value: Theming.Shade) => string) &
+    ((value?: Theming.Shade) => string | false);
   colorVar: (value?: false | Theming.Shade | color.Crude) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
