@@ -109,6 +109,7 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
+	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
@@ -122,6 +123,7 @@ type Transport struct {
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
 	LogDelete   freighter.UnaryServer[log.DeleteRequest, types.Nil]
 	LogRename   freighter.UnaryServer[log.RenameRequest, types.Nil]
+	LogSetData  freighter.UnaryServer[log.SetDataRequest, types.Nil]
 	// TABLE
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
 	TableRetrieve freighter.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]
@@ -293,6 +295,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
+		t.SchematicSetData,
 		t.SchematicDispatch,
 		t.SchematicCopy,
 
@@ -315,6 +318,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LogRetrieve,
 		t.LogDelete,
 		t.LogRename,
+		t.LogSetData,
 
 		// TABLE
 		t.TableCreate,
@@ -441,6 +445,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
+	t.SchematicSetData.BindHandler(l.Schematic.SetData)
 	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
@@ -463,6 +468,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(l.Log.Delete)
 	t.LogRename.BindHandler(l.Log.Rename)
+	t.LogSetData.BindHandler(l.Log.SetData)
 
 	// TABLE
 	t.TableCreate.BindHandler(l.Table.Create)

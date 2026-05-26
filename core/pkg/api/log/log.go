@@ -90,6 +90,24 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 	})
 }
 
+type SetDataRequest struct {
+	Data map[string]any `json:"data" msgpack:"data"`
+	Key  log.Key        `json:"key" msgpack:"key"`
+}
+
+func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{log.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
+	})
+}
+
 type (
 	RetrieveRequest struct {
 		Keys []log.Key `json:"keys" msgpack:"keys"`

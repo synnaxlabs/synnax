@@ -113,6 +113,7 @@ func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
 		SchematicCreate:   http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](router, "/api/v1/schematic/create"),
 		SchematicRetrieve: http.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](router, "/api/v1/schematic/retrieve"),
 		SchematicDelete:   http.NewUnaryServer[schematic.DeleteRequest, types.Nil](router, "/api/v1/schematic/delete"),
+		SchematicSetData:  http.NewUnaryServer[schematic.SetDataRequest, types.Nil](router, "/api/v1/schematic/set-data"),
 		SchematicDispatch: http.NewUnaryServer[schematic.DispatchRequest, types.Nil](router, "/api/v1/schematic/dispatch"),
 		SchematicCopy:     http.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](router, "/api/v1/schematic/copy"),
 
@@ -135,6 +136,7 @@ func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
 		LogRetrieve: http.NewUnaryServer[log.RetrieveRequest, log.RetrieveResponse](router, "/api/v1/log/retrieve"),
 		LogDelete:   http.NewUnaryServer[log.DeleteRequest, types.Nil](router, "/api/v1/log/delete"),
 		LogRename:   http.NewUnaryServer[log.RenameRequest, types.Nil](router, "/api/v1/log/rename"),
+		LogSetData:  http.NewUnaryServer[log.SetDataRequest, types.Nil](router, "/api/v1/log/set-data"),
 
 		// TABLE
 		TableCreate:   http.NewUnaryServer[table.CreateRequest, table.CreateResponse](router, "/api/v1/table/create"),
