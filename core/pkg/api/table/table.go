@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -113,11 +114,7 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 // outstanding on the originator before the request is sent. The server echoes
 // it verbatim on the broadcast frame so the originator can recognize its own
 // echo race-safely.
-type DispatchRequest struct {
-	Key         table.Key      `json:"key" msgpack:"key"`
-	DispatchKey string         `json:"dispatch_key" msgpack:"dispatch_key"`
-	Actions     []table.Action `json:"actions" msgpack:"actions"`
-}
+type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
 
 // Dispatch applies the action sequence to the target table atomically.
 // Subscribers to the table action signals receive the sequence after the
