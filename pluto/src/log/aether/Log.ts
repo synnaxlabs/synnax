@@ -169,7 +169,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       i.prefixColors = {};
       i.valueColors = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (cfg.color) {
+        if (!color.isZero(cfg.color)) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
