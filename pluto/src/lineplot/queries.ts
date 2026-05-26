@@ -268,12 +268,19 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-// A toolbar drag dispatches a stream of SetAxis as the user drags an axis
-// bound, and the legend drag dispatches a stream of SetLegend. Both should
-// coalesce into one undoable instead of one entry per frame.
+// Drag streams (axis bound, rule position, line style, legend) coalesce
+// into one undo entry within the coalesce window. Per-target keys keep
+// gestures on different axes/rules/lines from merging with each other —
+// dragging axis x1 then axis x2 should be two undo steps, not one.
 const kindOfTransaction = (actions: lineplot.Action[]): string => {
   if (actions.length === 0) return "default";
-  if (actions.length === 1) return actions[0].type;
+  if (actions.length === 1) {
+    const a = actions[0];
+    if (a.type === "set_axis") return `set_axis:${a.setAxis.axis.key}`;
+    if (a.type === "set_rule") return `set_rule:${a.setRule.rule.key}`;
+    if (a.type === "set_line") return `set_line:${a.setLine.line.key}`;
+    return a.type;
+  }
   return "transaction";
 };
 

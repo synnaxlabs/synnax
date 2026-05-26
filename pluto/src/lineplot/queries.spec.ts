@@ -248,4 +248,469 @@ describe("lineplot queries", () => {
       );
     });
   });
+
+  describe("useDispatch", () => {
+    const seedPlot = async () => {
+      const ws = await client.workspaces.create({
+        name: `dispatch_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.lineplots.create(ws.key, {
+        ...lineplotClient.ZERO_NEW,
+        name: "dispatch_test",
+      });
+    };
+
+    const loadAndUse = async <T>(key: string, hook: () => T) => {
+      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      return renderHook(hook, { wrapper });
+    };
+
+    it("applies a rename dispatch and updates the cached plot", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.rename({ name: "after_dispatch" })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.name).toEqual("after_dispatch"),
+      );
+    });
+
+    it("restores prior axis bounds after undoing a setAxis dispatch", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+        undo: LinePlot.useUndo({ key: seeded.key }),
+      }));
+      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.data!.axes.x1;
+      const widened: lineplotClient.Axis = {
+        ...original,
+        bounds: { lower: 0, upper: 100 },
+      };
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setAxis({ axis: widened })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(100),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+          original.bounds.upper,
+        ),
+      );
+    });
+
+    it("re-applies an axis change after undo then redo", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+        undo: LinePlot.useUndo({ key: seeded.key }),
+        redo: LinePlot.useRedo({ key: seeded.key }),
+      }));
+      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.data!.axes.x1;
+      const widened: lineplotClient.Axis = {
+        ...original,
+        bounds: { lower: -5, upper: 25 },
+      };
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setAxis({ axis: widened })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(25),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+          original.bounds.upper,
+        ),
+      );
+      await act(async () => result.current.redo.redo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(25),
+      );
+    });
+
+    it("coalesces a stream of setAxis on the same axis into a single undo step", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+        undo: LinePlot.useUndo({ key: seeded.key }),
+      }));
+      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.data!.axes.x1;
+      for (const upper of [20, 30, 40])
+        await act(async () => {
+          await result.current.dispatch.dispatchAsync({
+            key: seeded.key,
+            actions: [
+              lineplotClient.setAxis({
+                axis: { ...original, bounds: { lower: 0, upper } },
+              }),
+            ],
+          });
+        });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(40),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+          original.bounds.upper,
+        ),
+      );
+    });
+
+    it("does not coalesce setAxis across different axes", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+        undo: LinePlot.useUndo({ key: seeded.key }),
+      }));
+      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
+      const x1Orig = result.current.retrieve.data!.axes.x1;
+      const x2Orig = result.current.retrieve.data!.axes.x2;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setAxis({
+              axis: { ...x1Orig, bounds: { lower: 0, upper: 50 } },
+            }),
+          ],
+        });
+      });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setAxis({
+              axis: { ...x2Orig, bounds: { lower: 0, upper: 70 } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(50);
+        expect(result.current.retrieve.data?.axes.x2.bounds.upper).toEqual(70);
+      });
+      // One undo reverts only the most recent gesture (x2).
+      await act(async () => result.current.undo.undo());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(50);
+        expect(result.current.retrieve.data?.axes.x2.bounds.upper).toEqual(
+          x2Orig.bounds.upper,
+        );
+      });
+    });
+
+    it("keeps setLine creates out of the undo stack so Cmd+Z never silently no-ops", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+        undo: LinePlot.useUndo({ key: seeded.key }),
+      }));
+      // Establish a baseline undoable entry that undo MUST be able to revert.
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h4", visible: true } })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.title.visible).toBe(true),
+      );
+      // setLine create — should NOT push to the undo stack.
+      const newLine: lineplotClient.Line = {
+        key: "line-new",
+        label: "ghost",
+        color: "#ff0000",
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      };
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setLine({ line: newLine })],
+        });
+      });
+      await waitFor(() =>
+        expect(
+          result.current.retrieve.data?.lines.find((l) => l.key === "line-new"),
+        ).toBeDefined(),
+      );
+      // Undo must revert the title change, NOT silently no-op the line create.
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.title.visible).toBe(false),
+      );
+    });
+  });
+
+  describe("selectors", () => {
+    const seedPlot = async () => {
+      const ws = await client.workspaces.create({
+        name: `selector_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.lineplots.create(ws.key, {
+        ...lineplotClient.ZERO_NEW,
+        name: "selector_test",
+      });
+    };
+
+    const loadAndUse = async <T>(key: string, hook: () => T) => {
+      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      return renderHook(hook, { wrapper });
+    };
+
+    it("useSelectName returns the name and updates after a rename", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        name: LinePlot.useSelectName({ key: seeded.key }),
+        rename: LinePlot.useRename(),
+      }));
+      expect(result.current.name).toEqual("selector_test");
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: seeded.key,
+          name: "selector_renamed",
+        });
+      });
+      await waitFor(() => expect(result.current.name).toEqual("selector_renamed"));
+    });
+
+    it("useSelectTitle returns the title and updates after a setTitle dispatch", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        title: LinePlot.useSelectTitle({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.title.visible).toBe(false);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h3", visible: true } })],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.title.visible).toBe(true);
+        expect(result.current.title.level).toEqual("h3");
+      });
+    });
+
+    it("useSelectLegend updates after a setLegend dispatch", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        legend: LinePlot.useSelectLegend({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const original = result.current.legend;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLegend({
+              legend: { ...original, visible: !original.visible },
+            }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.legend.visible).toEqual(!original.visible),
+      );
+    });
+
+    it("useSelectChannels updates after addChannel", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        channels: LinePlot.useSelectChannels({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.channels.y1).toEqual([]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+        });
+      });
+      await waitFor(() => expect(result.current.channels.y1).toEqual([42]));
+    });
+
+    it("useSelectRanges updates after addRange", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        ranges: LinePlot.useSelectRanges({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.ranges.x1).toEqual([]);
+      const rangeKey = uuid.create();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addRange({ axisKey: "x1", range: rangeKey })],
+        });
+      });
+      await waitFor(() => expect(result.current.ranges.x1).toEqual([rangeKey]));
+    });
+
+    it("useSelectAxes / useSelectAxis return per-axis data and update on dispatch", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        axes: LinePlot.useSelectAxes({ key: seeded.key }),
+        axis: LinePlot.useSelectAxis({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.axis.key).toEqual("y1");
+      expect(result.current.axes.y1.key).toEqual("y1");
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setAxis({
+              axis: { ...result.current.axis, label: "Pressure" },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.axis.label).toEqual("Pressure");
+        expect(result.current.axes.y1.label).toEqual("Pressure");
+      });
+    });
+
+    it("useSelectLines / useSelectLine / useSelectLineKeys reflect setLine", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        lines: LinePlot.useSelectLines({ key: seeded.key }),
+        keys: LinePlot.useSelectLineKeys({ key: seeded.key }),
+        line: LinePlot.useSelectLine({ key: seeded.key, lineKey: "ln-1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.lines).toEqual([]);
+      expect(result.current.line).toBeUndefined();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-1",
+                color: "#00aaff",
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.lines).toHaveLength(1);
+        expect(result.current.keys).toEqual(["ln-1"]);
+        expect(result.current.line?.color).toEqual("#00aaff");
+      });
+    });
+
+    it("useSelectRules / useSelectRule reflect setRule and removeRule", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        rules: LinePlot.useSelectRules({ key: seeded.key }),
+        rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.rules).toEqual([]);
+      expect(result.current.rule).toBeUndefined();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-1",
+                label: "max",
+                color: "#ff0000",
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 4.5,
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.rules).toHaveLength(1);
+        expect(result.current.rule?.position).toEqual(4.5);
+      });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.removeRule({ key: "rl-1" })],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.rules).toEqual([]);
+        expect(result.current.rule).toBeUndefined();
+      });
+    });
+  });
+
+  describe("useRetrieveObservableName", () => {
+    it("fires the callback with the initial name and with each rename", async () => {
+      const ws = await client.workspaces.create({
+        name: `obs_name_ws_${uuid.create()}`,
+        layout: {},
+      });
+      const seeded = await client.lineplots.create(ws.key, {
+        ...lineplotClient.ZERO_NEW,
+        name: "obs_initial",
+      });
+      const seen: string[] = [];
+      const { result } = renderHook(
+        () => ({
+          obs: LinePlot.useRetrieveObservableName({
+            onChange: (name) => seen.push(name),
+          }),
+          rename: LinePlot.useRename(),
+        }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.obs.retrieveAsync({ key: seeded.key });
+      });
+      await waitFor(() => expect(seen).toContain("obs_initial"));
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: seeded.key,
+          name: "obs_renamed",
+        });
+      });
+      await waitFor(() => expect(seen).toContain("obs_renamed"));
+    });
+  });
 });
