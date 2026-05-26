@@ -13,10 +13,8 @@ import { type Notation } from "@/notation/types.gen";
  * Converts a number to a string representation with a specified precision and notation.
  *
  * @param value - The number to be converted.
- * @param precision - The number of decimal places to include in the output. Must be
- * between 0 and 20.
- * @param notation - The notation to use for the conversion. Can be "standard",
- * "scientific", or "engineering".
+ * @param precision - The number of decimal places to include in the output. Must be between 0 and 20.
+ * @param notation - The notation to use for the conversion. Can be "standard", "scientific", or "engineering".
  * @returns The string representation of the number.
  *
  * Edge cases:
