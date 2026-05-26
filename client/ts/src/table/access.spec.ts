@@ -29,7 +29,6 @@ describe("table", () => {
         layout: {},
       });
       const randomTable = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "test",
       });
       await expect(
@@ -48,7 +47,6 @@ describe("table", () => {
         layout: {},
       });
       const randomTable = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "test",
       });
       const retrieved = await userClient.tables.retrieve({
@@ -69,7 +67,6 @@ describe("table", () => {
         layout: {},
       });
       await userClient.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "test",
       });
     });
@@ -86,7 +83,6 @@ describe("table", () => {
       });
       await expect(
         userClient.tables.create(ws.key, {
-          ...table.ZERO_NEW,
           name: "test",
         }),
       ).rejects.toThrow(AuthError);
@@ -103,7 +99,6 @@ describe("table", () => {
         layout: {},
       });
       const randomTable = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "test",
       });
       await userClient.tables.delete(randomTable.key);
@@ -123,7 +118,6 @@ describe("table", () => {
         layout: {},
       });
       const randomTable = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "test",
       });
       await expect(userClient.tables.delete(randomTable.key)).rejects.toThrow(

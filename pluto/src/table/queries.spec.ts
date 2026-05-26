@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, table } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -31,7 +31,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "retrieve_test",
       });
 
@@ -51,7 +50,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "cached_table",
       });
 
@@ -82,7 +80,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "created_table",
@@ -110,7 +107,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "stored_table",
@@ -132,7 +128,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "original_name",
       });
 
@@ -165,7 +160,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "cache_original",
       });
 
@@ -198,7 +192,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_single",
       });
 
@@ -219,11 +212,9 @@ describe("table queries", () => {
         layout: {},
       });
       const created1 = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_multi_1",
       });
       const created2 = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_multi_2",
       });
 

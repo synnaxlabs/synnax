@@ -110,10 +110,3 @@ export class Client {
     );
   }
 }
-
-export const ZERO_NEW: New = {
-  name: "",
-  rows: [],
-  columns: [],
-  cells: {},
-};
