@@ -94,13 +94,11 @@ func expectStatus(ctx context.Context, key channel.Key) status.Status[types.Nil]
 // clears it. The assertion therefore polls until the status has settled to absent
 // rather than reading it once; a status that never clears still fails the spec.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
-	var last status.Status[types.Nil]
 	Eventually(func() bool {
-		s, ok := fetchStatus(ctx, key)
-		last = s
+		_, ok := fetchStatus(ctx, key)
 		return ok
 	}, 2*time.Second, 10*time.Millisecond).Should(BeFalse(),
-		"expected no status for channel %d, last seen variant=%q message=%q", key, last.Variant, last.Message)
+		"expected status to be cleared for channel %d", key)
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
