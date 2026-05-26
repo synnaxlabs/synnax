@@ -52,3 +52,23 @@ type Data struct {
 	ShowChannelNames     bool           `json:"showChannelNames"`
 	ShowReceiptTimestamp bool           `json:"showReceiptTimestamp"`
 }
+
+// Normalize replaces every per-channel enum that fails its Validate with the standard
+// default (NotationStandard, TimestampFormatPreciseDate, TimeZoneLocal), so a value
+// outside the closed set that slipped through the lenient decode never reaches the
+// lifted Log. The channel entries are normalized in place and d is returned.
+func (d Data) Normalize() Data {
+	for i := range d.Channels {
+		c := &d.Channels[i]
+		if c.Notation.Validate() != nil {
+			c.Notation = notation.NotationStandard
+		}
+		if c.Timestamp.Format.Validate() != nil {
+			c.Timestamp.Format = telem.TimestampFormatPreciseDate
+		}
+		if c.Timestamp.Tz.Validate() != nil {
+			c.Timestamp.Tz = telem.TimeZoneLocal
+		}
+	}
+	return d
+}
