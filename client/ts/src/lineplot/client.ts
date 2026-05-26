@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -80,8 +80,7 @@ export class Client {
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/lineplot/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
