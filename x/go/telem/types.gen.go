@@ -39,6 +39,27 @@ type DataType string
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
 
+// TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
+type TimestampFormat string
+
+const (
+	TimestampFormatISO         TimestampFormat = "ISO"
+	TimestampFormatISODate     TimestampFormat = "ISODate"
+	TimestampFormatTime        TimestampFormat = "time"
+	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
+	TimestampFormatDate        TimestampFormat = "date"
+	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
+	TimestampFormatDateTime    TimestampFormat = "dateTime"
+)
+
+// TimeZone is the time zone used when rendering timestamps.
+type TimeZone string
+
+const (
+	TimeZoneLocal TimeZone = "local"
+	TimeZoneUTC   TimeZone = "UTC"
+)
+
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.

@@ -64,6 +64,11 @@ export const CLIENT_NAV: PageNavNode = {
           name: "Auto-Commit",
         },
         {
+          key: "/reference/client/advanced/auto-index",
+          href: "/reference/client/advanced/auto-index",
+          name: "Auto-Index",
+        },
+        {
           key: "/reference/client/advanced/write-authorities",
           href: "/reference/client/advanced/write-authorities",
           name: "Write Authorities",

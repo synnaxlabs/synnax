@@ -272,6 +272,15 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	// AutoIndex causes the server to generate timestamps for any index channel in the
+	// writer's Keys that is not provided in a given Write frame. The first sample in
+	// each Write call is stamped with the gateway Core's current time, and the
+	// remaining N-1 samples are spaced 1ns apart. A per-writer high-water mark
+	// guarantees the generated timestamps are strictly monotonic across Write calls and
+	// across user-provided timestamps for other index channels in the writer.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndex bool `json:"auto_index" msgpack:"auto_index"`
 }
 
 // WriterRequest represents a request to write CreateNet data for a set of channels.
@@ -406,6 +415,7 @@ func (s *Service) openWriter(
 		ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
 		EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
+		AutoIndex:                new(req.Config.AutoIndex),
 	})
 	if err != nil {
 		return w, err

@@ -60,6 +60,15 @@ sequence main {
     }
     stage decide_stage_abort {
         "decide_stage_abort" -> routing_stage_log
+        next_cmd => chain_body_hold
+    }
+
+    stage chain_body_hold {
+        "chain_body_hold" -> routing_stage_log
+        routing_flag -> select{} -> {
+            true: "chain_true" -> routing_stage_log,
+            false: "chain_false" -> routing_stage_log
+        }
         next_cmd => done
     }
 
@@ -76,7 +85,10 @@ class StageRouting(ArcConsoleCase):
     Exercises both select{} and a custom multi-output function routing tables
     targeting stages within the same sequence.
     Phase 1 uses select to route based on a boolean flag.
-    Phase 2 uses decide_stage to route to vent/press/abort based on sensor thresholds."""
+    Phase 2 uses decide_stage to route to vent/press/abort based on sensor thresholds.
+    Phase 3 uses select with multi-node case bodies that write string literals
+    to a channel, verifying that case-body chains type-check via chain semantics
+    rather than against the select's discriminator output."""
 
     arc_source = ARC_STAGE_ROUTING
     arc_name_prefix = "StageRouting"
@@ -145,6 +157,18 @@ class StageRouting(ArcConsoleCase):
         self._write_sensor(90.0)
         self.wait_for_eq("routing_stage_log", "decide_stage_abort", is_virtual=True)
 
-        self.log("[decide_stage] Advancing decide_stage_abort -> done")
+        self.log("[decide_stage] Advancing decide_stage_abort -> chain_body_hold")
+        self._advance()
+        self.wait_for_eq("routing_stage_log", "chain_body_hold", is_virtual=True)
+
+        # Phase 3: multi-node case body — `true: "literal" -> str_channel`
+        self.log("[chain_body] flag=1 -> 'chain_true' written to log")
+        self._write_flag(1)
+        self.wait_for_eq("routing_stage_log", "chain_true", is_virtual=True)
+
+        self.log("[chain_body] flag=0 -> 'chain_false' written to log")
+        self._write_flag(0)
+        self.wait_for_eq("routing_stage_log", "chain_false", is_virtual=True)
+
         self._advance()
         self.wait_for_eq("routing_stage_log", "done", is_virtual=True)

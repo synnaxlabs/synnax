@@ -376,9 +376,10 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
+	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if funcName != "" {
-		scope, err := ctx.Resolve(funcName)
+		scope, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
@@ -488,8 +489,8 @@ func validateFunctionCall(
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		name := parser.QualifiedName(qid)
-		if _, err := ctx.Resolve(name); err != nil {
+		head, tail := parser.QualifiedNameParts(qid)
+		if _, err := ctx.ResolveQualified(head, tail); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
 		return
@@ -524,7 +525,10 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		return
 	}
-	if ctx.AST.Literal() != nil {
+	if lit := ctx.AST.Literal(); lit != nil {
+		if strTerm := parser.StringTerminal(lit); strTerm != nil {
+			AnalyzeFmtStrLiteral(ctx, strTerm)
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -553,7 +557,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 // propagation, when all scopes are guaranteed to exist.
 func buildArgChannels(
 	ctx context.Context[parser.IPostfixExpressionContext],
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	funcCall parser.IFunctionCallSuffixContext,
 ) map[int]context.ChannelMapping {
 	argList := funcCall.ArgumentList()
@@ -607,7 +611,7 @@ func resolveChannelArg(
 // If the callee hasn't been fully analyzed yet (forward reference), inputScopes will
 // be empty and no remapping occurs. The post-pass handles that case.
 func propagateChannelsWithArgMap(
-	caller, callee *symbol.Scope,
+	caller, callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) {
 	paramMap := ResolveArgChannels(callee, argChannels)
@@ -628,7 +632,7 @@ func propagateChannelsWithArgMap(
 }
 
 func ResolveArgChannels(
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) map[int]context.ChannelMapping {
 	if len(argChannels) == 0 {

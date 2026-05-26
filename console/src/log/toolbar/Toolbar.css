@@ -34,6 +34,7 @@
             padding: 0.2rem 3rem 0.2rem 1rem;
             min-height: unset;
             cursor: default;
+
             --pluto-hover-bg: transparent;
 
             .console-log__channel-select {

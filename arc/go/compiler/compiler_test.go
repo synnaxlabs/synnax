@@ -19,8 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/stl"
-	stlchannel "github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
@@ -28,24 +27,25 @@ import (
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
-func compile(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
+func compile(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	return compiler.Compile(ctx, inter, compiler.DisableHostImport())
+	return compiler.Compile(ctx, inter)
 }
 
-func compileWithHostImports(ctx context.Context, source string, resolver symbol.Resolver) (compiler.Output, error) {
+func compileWithHostImports(ctx context.Context, source string, resolver []symbol.Symbol) (compiler.Output, error) {
 	prog := MustSucceed(text.Parse(text.Text{Raw: source}))
-	inter, diag := text.Analyze(ctx, prog, resolver)
+	inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
-	return compiler.Compile(ctx, inter, compiler.WithHostSymbols(stl.SymbolResolver))
+	return compiler.Compile(ctx, inter)
 }
 
 func inferReturnType(expected any) string {
@@ -103,25 +103,25 @@ func assertResult(result uint64, expected any) {
 // bindDefaultModules creates a state.ProgramState and binds all default STL modules
 // to the given wazero.Runtime. Returns the state and string module for
 // post-instantiation setup.
-func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Module, *stlstrings.ProgramState) {
+func bindDefaultModules(ctx context.Context, r wazero.Runtime) (*node.ProgramState, *stlstrings.Host, *stlstrings.ProgramState) {
 	s := node.New(ir.IR{Nodes: []ir.Node{{Key: "test"}}})
 	stringsState := stlstrings.NewProgramState()
 	seriesState := series.NewProgramState()
-	channelState := stlchannel.NewProgramState(nil)
-	MustSucceed(stateful.NewModule(ctx, seriesState, stringsState, r))
-	MustSucceed(series.NewModule(ctx, seriesState, r))
-	stringsMod := MustSucceed(stlstrings.NewModule(ctx, stringsState, r, nil))
-	MustSucceed(stlmath.NewModule(ctx, r))
-	MustSucceed(stlerrors.NewModule(ctx, nil, r))
-	MustSucceed(stltime.NewModule(ctx, r))
-	MustSucceed(stlchannel.NewModule(ctx, channelState, stringsState, r))
+	channelState := stlchannels.NewProgramState(nil)
+	MustSucceed(stateful.NewHost(ctx, r, seriesState, stringsState))
+	MustSucceed(series.NewHost(ctx, r, seriesState))
+	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
+	MustSucceed(stlmath.NewHost(ctx, r))
+	MustSucceed(stlerrors.NewHost(ctx, r, nil))
+	MustSucceed(stltime.NewHost(ctx, r))
+	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState
 }
 
 // bindMockChannelModule registers mock channel host functions under the
-// "channel" WASM module for test use.
+// "channels" WASM module for test use.
 func bindMockChannelModule(ctx context.Context, r wazero.Runtime, exports map[string]any) {
-	builder := r.NewHostModuleBuilder("channel")
+	builder := r.NewHostModuleBuilder("channels")
 	for name, impl := range exports {
 		builder = builder.NewFunctionBuilder().WithFunc(impl).Export(name)
 	}
@@ -385,14 +385,14 @@ var _ = Describe("Compiler", func() {
 
 			// Use a high channel key that would cause local index out of bounds
 			// if mistakenly used as a WASM local variable index
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"press_vlv_cmd": {
+			resolver := []symbol.Symbol{
+				{
 					Name: "press_vlv_cmd",
 					Kind: symbol.KindChannel,
 					Type: types.Chan(types.U8()),
 					ID:   1048589,
 				},
-			})
+			}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func press() {
@@ -423,13 +423,11 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"sensor": {
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+			}}
 
 			// Compile with host imports enabled
 			output := MustSucceed(compileWithHostImports(ctx, `
@@ -457,13 +455,11 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"press_pt": {
-					Name: "press_pt",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "press_pt",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func checkPressure() u8 {
@@ -496,13 +492,11 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"sensor": {
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func inRange() u8 {
@@ -539,14 +533,12 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"output_ch": {
-					Name: "output_ch",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.I32()),
-					ID:   999999,
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "output_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I32()),
+				ID:   999999,
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute(x i32) {
@@ -571,11 +563,7 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1000001},
-				"ch_b": {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2000002},
-				"ch_c": {Name: "ch_c", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 3000003},
-			})
+			resolver := []symbol.Symbol{{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1000001}, {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2000002}, {Name: "ch_c", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 3000003}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func writeAll(v i32) {
@@ -607,14 +595,12 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"sensor": {
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   500,
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   500,
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func write_chan(ch chan f32) {
@@ -644,14 +630,12 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"sensor": {
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   600,
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   600,
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func read_chan(ch chan f64) f64 {
@@ -679,10 +663,7 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"ch_a": {Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 700},
-				"ch_b": {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 800},
-			})
+			resolver := []symbol.Symbol{{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 700}, {Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 800}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func set_value(ch chan i32) {
@@ -717,14 +698,12 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"sensor": {
-					Name: "sensor",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F64()),
-					ID:   900,
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "sensor",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+				ID:   900,
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func double_channel(ch chan f64) {
@@ -755,14 +734,12 @@ var _ = Describe("Compiler", func() {
 				},
 			})
 
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"output": {
-					Name: "output",
-					Kind: symbol.KindChannel,
-					Type: types.Chan(types.F32()),
-					ID:   1000,
-				},
-			})
+			resolver := []symbol.Symbol{{
+				Name: "output",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+				ID:   1000,
+			}}
 
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func leaf(ch chan f32) {
@@ -968,7 +945,7 @@ var _ = Describe("Compiler", func() {
 				label = "result"
 				value = x * 2
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 			Expect(output.WASM).ToNot(BeEmpty())
 		})
 
@@ -979,7 +956,7 @@ var _ = Describe("Compiler", func() {
 				count = x
 				tag = "active"
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 			Expect(output.WASM).ToNot(BeEmpty())
 			Expect(output.OutputMemoryBases).To(HaveKey("report"))
 		})
@@ -2270,7 +2247,7 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("String Operations", func() {
-		var strMod *stlstrings.Module
+		var strMod *stlstrings.Host
 		var strState *stlstrings.ProgramState
 
 		BeforeEach(func(ctx SpecContext) {
@@ -3061,7 +3038,7 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("String Functions", func() {
-		var strMod *stlstrings.Module
+		var strMod *stlstrings.Host
 
 		BeforeEach(func(ctx SpecContext) {
 			_, strMod, _ = bindDefaultModules(ctx, r)
@@ -3129,6 +3106,117 @@ var _ = Describe("Compiler", func() {
 			results := MustSucceed(main.Call(ctx))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0]).To(Equal(uint64(0))) // false
+		})
+	})
+
+	Describe("Format String Synthetic Functions", func() {
+		var strMod *stlstrings.Host
+		var strState *stlstrings.ProgramState
+
+		BeforeEach(func(ctx SpecContext) {
+			_, strMod, strState = bindDefaultModules(ctx, r)
+		})
+
+		It("Compiles a flow-form raw string with a single literal placeholder", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"v={42}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			Expect(results).To(HaveLen(1))
+			handle := uint32(results[0])
+			Expect(handle).To(BeNumerically(">", 0))
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=42"))
+		})
+
+		It("Compiles a placeholder with a numeric format spec", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"v={f64(3.14159):.2f}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("v=3.14"))
+		})
+
+		It("Compiles multiple placeholders separated by literals", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"a={1} b={i32(2):05d} c={f64(3.14):.2f}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("a=1 b=00002 c=3.14"))
+		})
+
+		It("Compiles a placeholder-only body with no surrounding literals", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			output := MustSucceed(compileWithHostImports(
+				ctx,
+				`trig -> f"{42}" -> log`,
+				resolver,
+			))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			synth := mod.ExportedFunction("fmt$fmt_0")
+			Expect(synth).ToNot(BeNil())
+			results := MustSucceed(synth.Call(ctx))
+			handle := uint32(results[0])
+			str, ok := strState.Get(handle)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal("42"))
+		})
+
+		It("Numbers multiple synthetic functions independently", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				{Name: "log_a", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+				{Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 102},
+			}
+			output := MustSucceed(compileWithHostImports(ctx, `
+			trig -> `+`f"first={1}"`+` -> log_a
+			trig -> `+`f"second={2}"`+` -> log_b
+			`, resolver))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			Expect(mod.ExportedFunction("fmt$fmt_0")).ToNot(BeNil())
+			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
 		})
 	})
 
@@ -3656,10 +3744,7 @@ var _ = Describe("Compiler", func() {
 				"read_i64": func(_ context.Context, channelID uint32) int64 { return 500 },
 				"read_f32": func(_ context.Context, channelID uint32) float32 { return float32(1000.0) },
 			})
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
-			})
+			resolver := []symbol.Symbol{{Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1}, {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2}}
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func calculation() f32 {
 				return f32(input_power*60)/(2*(3.14159)*(drive_speed_fb))
@@ -3673,10 +3758,7 @@ var _ = Describe("Compiler", func() {
 				"read_i64": func(_ context.Context, channelID uint32) int64 { return 500 },
 				"read_f64": func(_ context.Context, channelID uint32) float64 { return 1000.0 },
 			})
-			resolver := symbol.MapResolver(map[string]symbol.Symbol{
-				"input_power":    {Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-				"drive_speed_fb": {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-			})
+			resolver := []symbol.Symbol{{Name: "input_power", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1}, {Name: "drive_speed_fb", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2}}
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func calculation() f64 {
 				return f64(input_power*60)/(2*(3.14159)*(drive_speed_fb))
@@ -3708,20 +3790,17 @@ var _ = Describe("Compiler", func() {
 					"read_f64": func(_ context.Context, id uint32) float64 { return 500.0 },
 					"read_i64": func(_ context.Context, id uint32) int64 { return 500 },
 				})
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"input_power_calc_test": {
-						Name: "input_power_calc_test",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(inputType.t),
-						ID:   1,
-					},
-					"drive_speed_fb": {
-						Name: "drive_speed_fb",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F32()),
-						ID:   2,
-					},
-				})
+				resolver := []symbol.Symbol{{
+					Name: "input_power_calc_test",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(inputType.t),
+					ID:   1,
+				}, {
+					Name: "drive_speed_fb",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   2,
+				}}
 				output := MustSucceed(compileWithHostImports(ctx, `
 				func calculation() f64 {
 					return f64(input_power_calc_test*60)/(2*(3.14159)*f64(drive_speed_fb))
@@ -3739,10 +3818,11 @@ var _ = Describe("Compiler", func() {
 
 		It("Should execute time.now() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
+			import time
 			func compute() i64 {
 				return time.now()
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compute := mod.ExportedFunction("compute")
@@ -3757,7 +3837,7 @@ var _ = Describe("Compiler", func() {
 			func square(val f32) f32 {
 				return val ^ 2
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			square := mod.ExportedFunction("square")
@@ -3772,7 +3852,7 @@ var _ = Describe("Compiler", func() {
 			func compute() i64 {
 				return 2 ^ 3
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compute := mod.ExportedFunction("compute")
@@ -3787,7 +3867,7 @@ var _ = Describe("Compiler", func() {
 			func compute() f64 {
 				return 2.5 ^ 2.0
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compute := mod.ExportedFunction("compute")
@@ -3804,7 +3884,7 @@ var _ = Describe("Compiler", func() {
 			func compute() i64 {
 				return now()
 			}
-			`, stl.SymbolResolver))
+			`, nil))
 
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			compute := mod.ExportedFunction("compute")

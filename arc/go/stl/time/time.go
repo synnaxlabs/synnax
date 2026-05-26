@@ -30,6 +30,7 @@ const (
 	nowSymbolName       = "now"
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
+	name                = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -68,24 +69,32 @@ var (
 	}
 )
 
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
+// module is the time module, built once at package init. Its children are
+// the canonical time.<name> functions and serve as Deprecated targets for
+// the bare globals below.
+var module = symbol.NewModule(
+	name,
+	intervalSymbol,
+	waitSymbol,
+	nowSymbol,
+)
+
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the time module plus the deprecated bare aliases (interval,
+// wait, now) whose Deprecated fields point at the canonical members.
+var Symbols = []*symbol.Symbol{
+	module,
+	symbol.Deprecate(intervalSymbol, module.FindChild(intervalSymbolName)),
+	symbol.Deprecate(waitSymbol, module.FindChild(waitSymbolName)),
+	symbol.Deprecate(nowSymbol, module.FindChild(nowSymbolName)),
 }
 
-var deprecatedBareResolver = symbol.MapResolver{
-	intervalSymbolName: deprecated(intervalSymbol, "time.interval"),
-	waitSymbolName:     deprecated(waitSymbol, "time.wait"),
-	nowSymbolName:      deprecated(nowSymbol, "time.now"),
-}
-
-var moduleMembers = symbol.MapResolver{
-	intervalSymbolName: intervalSymbol,
-	waitSymbolName:     waitSymbol,
-	nowSymbolName:      nowSymbol,
-}
-
-type Module struct {
+// Host is the runtime host-side support for the time module: it registers
+// the `now` WASM host function and acts as the node factory for interval
+// and wait. BaseInterval is the GCD of timer periods, used by the
+// scheduler; it lives on the Host because it is host-runtime state, not
+// program state.
+type Host struct {
 	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
 	BaseInterval telem.TimeSpan
 	// clock provides monotonically increasing timestamps, avoiding
@@ -93,31 +102,25 @@ type Module struct {
 	clock telem.MonoClock
 }
 
-func NewModule(
-	ctx context.Context,
-	rat wazero.Runtime,
-) (*Module, error) {
-	if rat == nil {
-		return &Module{BaseInterval: unsetBaseInterval}, nil
+// NewHost registers the time module's `now` WASM host binding with rt and
+// returns a Host handle that acts as the node factory for interval / wait.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{BaseInterval: unsetBaseInterval}
+	if rt == nil {
+		return h, nil
 	}
-	mod := &Module{BaseInterval: unsetBaseInterval}
-	builder := rat.NewHostModuleBuilder("time")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(mod.clock.Now())
+			return uint64(h.clock.Now())
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return mod, nil
+	return h, nil
 }
 
-var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "time", Members: moduleMembers},
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
@@ -128,7 +131,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.updateBaseInterval(period)
+		h.updateBaseInterval(period)
 		return &Interval{
 			State:     cfg.State,
 			period:    period,
@@ -144,7 +147,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.updateBaseInterval(duration)
+		h.updateBaseInterval(duration)
 		return &Wait{
 			State:     cfg.State,
 			duration:  duration,
@@ -153,7 +156,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State, clock: &m.clock}, nil
+		return &Now{State: cfg.State, clock: &h.clock}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -172,11 +175,11 @@ func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
 	return halfInterval
 }
 
-func (m *Module) updateBaseInterval(span telem.TimeSpan) {
-	if m.BaseInterval == unsetBaseInterval {
-		m.BaseInterval = span
+func (h *Host) updateBaseInterval(span telem.TimeSpan) {
+	if h.BaseInterval == unsetBaseInterval {
+		h.BaseInterval = span
 	} else {
-		m.BaseInterval = telem.TimeSpan(gcd(int64(m.BaseInterval), int64(span)))
+		h.BaseInterval = telem.TimeSpan(gcd(int64(h.BaseInterval), int64(span)))
 	}
 }
 

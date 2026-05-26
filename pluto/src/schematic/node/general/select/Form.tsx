@@ -11,7 +11,6 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@/component";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
@@ -64,15 +63,10 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Command Channel" grow>
+      <Input.Item label="Command channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
-      <Base.SwitchField
-        path="control.show"
-        label="Show Control Chip"
-        hideIfNull
-        optional
-      />
+      <Form.ControlChipField />
     </Form.Wrapper>
   );
 };
@@ -100,16 +94,7 @@ export const SelectForm = (): ReactElement => {
             <Flex.Box y align="stretch" grow gap="small">
               <Label.Form path="label" />
               <Flex.Box x>
-                <Base.Field<Component.Size>
-                  path="size"
-                  label="Size"
-                  hideIfNull
-                  padHelpText={false}
-                >
-                  {({ value, onChange }) => (
-                    <Component.SelectSize value={value} onChange={onChange} />
-                  )}
-                </Base.Field>
+                <Form.SizeField />
                 <Form.ColorField path="color" />
                 <Base.NumericField
                   path="inlineSize"

@@ -187,6 +187,6 @@ type IR struct {
 	// Root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
 	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Scope                          `json:"-"`
+	Symbols *symbol.Symbol                         `json:"-"`
 	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

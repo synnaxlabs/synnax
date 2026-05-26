@@ -17,12 +17,18 @@ import {
   Icon,
   Input,
   List,
-  type Log as PLog,
   Notation,
-  Select,
+  Telem,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
+import {
+  color,
+  DataType,
+  type notation,
+  primitive,
+  type TimestampFormat,
+  type TimeZone,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -43,50 +49,6 @@ const showsNumericFields = (dt: DataType | undefined): boolean =>
 
 const isTimestamp = (dt: DataType | undefined): boolean =>
   dt != null && dt.equals(DataType.TIMESTAMP);
-
-const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
-const TIMESTAMP_TZS = ["UTC", "local"] as const;
-
-interface TimestampFormatSelectProps extends Omit<
-  Select.ButtonsProps<PLog.TimestampFormat>,
-  "keys"
-> {}
-
-const ICON_CLASS = "pluto-notation-select__icon";
-const LABEL_CLASS = "pluto-notation-select__label";
-
-const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement => (
-  <Select.Buttons {...props} keys={TIMESTAMP_FORMATS}>
-    <Select.Button itemKey="preciseTime" tooltip="Time">
-      <Icon.Time className={ICON_CLASS} />
-      <span className={LABEL_CLASS}>Timestamp</span>
-    </Select.Button>
-    <Select.Button itemKey="preciseDate" tooltip="Date and time">
-      <Icon.Calendar className={ICON_CLASS} />
-      <span className={LABEL_CLASS}>Date+Time</span>
-    </Select.Button>
-    <Select.Button itemKey="ISO" tooltip="ISO 8601">
-      <Icon.TimeOutline className={ICON_CLASS} />
-      <span className={LABEL_CLASS}>ISO 8601</span>
-    </Select.Button>
-  </Select.Buttons>
-);
-
-interface TimestampTZSelectProps extends Omit<
-  Select.ButtonsProps<PLog.TimestampTZ>,
-  "keys"
-> {}
-
-const TimestampTZSelect = (props: TimestampTZSelectProps): ReactElement => (
-  <Select.Buttons {...props} keys={TIMESTAMP_TZS}>
-    <Select.Button itemKey="UTC" tooltip="UTC">
-      UTC
-    </Select.Button>
-    <Select.Button itemKey="local" tooltip="Local timezone">
-      Local
-    </Select.Button>
-  </Select.Buttons>
-);
 
 interface ChannelRowProps {
   index: number;
@@ -187,18 +149,18 @@ const ChannelRow = ({
         )}
         {showTimestamp && (
           <>
-            <TimestampFormatSelect
+            <Telem.SelectTimestampFormat
               value={config.timestamp.format}
-              onChange={(v: PLog.TimestampFormat) =>
+              onChange={(f: TimestampFormat) =>
                 onConfigChange(channelKey, {
-                  timestamp: { ...config.timestamp, format: v },
+                  timestamp: { ...config.timestamp, format: f },
                 })
               }
             />
-            <TimestampTZSelect
+            <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
-              onChange={(v: PLog.TimestampTZ) =>
+              onChange={(v: TimeZone) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, tz: v },
                 })

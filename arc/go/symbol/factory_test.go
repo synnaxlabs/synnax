@@ -1,0 +1,245 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package symbol_test
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Factories", func() {
+	Describe("NewModule", func() {
+		It("Should construct a sealed module with the given name", func() {
+			mod := symbol.NewModule("time")
+			Expect(mod.Name).To(Equal("time"))
+			Expect(mod.Kind).To(Equal(symbol.KindModule))
+			Expect(mod.Parent).To(BeNil())
+		})
+
+		It("Should set each member's Parent to the module", func() {
+			mod := symbol.NewModule("time",
+				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
+				symbol.Symbol{Name: "sleep", Kind: symbol.KindFunction, Type: types.F64()},
+			)
+			Expect(mod.Children()).To(HaveLen(2))
+			for _, child := range mod.Children() {
+				Expect(child.Parent).To(Equal(mod))
+			}
+		})
+
+		It("Should copy each member so caller mutations do not leak", func() {
+			member := symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()}
+			mod := symbol.NewModule("time", member)
+			member.Name = "mutated"
+			Expect(mod.Children()[0].Name).To(Equal("now"))
+		})
+
+		It("Should permit construction with no members", func() {
+			mod := symbol.NewModule("empty")
+			Expect(mod.Children()).To(BeEmpty())
+		})
+	})
+
+	Describe("InternalHostFunc", func() {
+		It("Should build a KindFunction symbol flagged Internal and Exec=WASM", func() {
+			sym := symbol.InternalHostFunc(
+				"channels.read",
+				types.Params{{Name: "key", Type: types.U32()}},
+				types.Params{{Name: "value", Type: types.F64()}},
+			)
+			Expect(sym.Name).To(Equal("channels.read"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.Internal).To(BeTrue())
+			Expect(sym.Exec).To(Equal(symbol.ExecWASM))
+		})
+
+		It("Should construct the symbol's Type from the given inputs and outputs", func() {
+			inputs := types.Params{{Name: "key", Type: types.U32()}}
+			outputs := types.Params{{Name: "value", Type: types.F64()}}
+			sym := symbol.InternalHostFunc("read", inputs, outputs)
+			Expect(sym.Type.Kind).To(Equal(types.KindFunction))
+			Expect(sym.Type.FunctionProperties.Inputs).To(Equal(inputs))
+			Expect(sym.Type.FunctionProperties.Outputs).To(Equal(outputs))
+		})
+
+		It("Should accept empty input and output params", func() {
+			sym := symbol.InternalHostFunc("noop", nil, nil)
+			Expect(sym.Type.FunctionProperties.Inputs).To(BeEmpty())
+			Expect(sym.Type.FunctionProperties.Outputs).To(BeEmpty())
+		})
+	})
+
+	Describe("Deprecate", func() {
+		It("Should return a copy with Deprecated set to the replacement", func() {
+			replacement := &symbol.Symbol{Name: "math.avg", Kind: symbol.KindFunction}
+			deprecated := symbol.Deprecate(
+				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
+				replacement,
+			)
+			Expect(deprecated.Name).To(Equal("avg"))
+			Expect(deprecated.Deprecated).To(Equal(replacement))
+		})
+
+		It("Should not mutate the input symbol", func() {
+			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()}
+			symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
+			Expect(input.Deprecated).To(BeNil())
+		})
+
+		It("Should return a heap-allocated pointer the caller can mutate independently", func() {
+			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction}
+			first := symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
+			second := symbol.Deprecate(input, &symbol.Symbol{Name: "stats.avg"})
+			Expect(first).ToNot(Equal(second))
+			Expect(first.Deprecated.Name).To(Equal("math.avg"))
+			Expect(second.Deprecated.Name).To(Equal("stats.avg"))
+		})
+	})
+
+	Describe("QualifiedName", func() {
+		It("Should prefix the module name for a module member", func() {
+			mod := symbol.NewModule("math",
+				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction},
+			)
+			Expect(mod.FindChild("avg").QualifiedName()).To(Equal("math.avg"))
+		})
+
+		It("Should return the bare name for a top-level symbol", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil)
+			sym := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			Expect(sym.QualifiedName()).To(Equal("x"))
+		})
+
+		It("Should return the bare name when the parent is not a module", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil)
+			funcScope := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "f", Kind: symbol.KindFunction},
+			))
+			inner := MustSucceed(funcScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			Expect(inner.QualifiedName()).To(Equal("x"))
+		})
+
+		It("Should return the bare name for a symbol with no parent", func() {
+			lonely := &symbol.Symbol{Name: "orphan"}
+			Expect(lonely.QualifiedName()).To(Equal("orphan"))
+		})
+	})
+
+	Describe("AutoImportModules", func() {
+		It("Should install a KindModuleAlias child for each module in the ambient prelude", func() {
+			timeMod := symbol.NewModule("time",
+				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
+			)
+			mathMod := symbol.NewModule("math",
+				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
+			)
+			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
+			ambient.AddChild(timeMod)
+			ambient.AddChild(mathMod)
+			root := symbol.NewRoot(nil)
+			ambient.AddChild(root)
+
+			symbol.AutoImportModules(root)
+
+			timeAlias := root.FindChild("time")
+			Expect(timeAlias).ToNot(BeNil())
+			Expect(timeAlias.Kind).To(Equal(symbol.KindModuleAlias))
+			Expect(timeAlias.Target).To(Equal(timeMod))
+			mathAlias := root.FindChild("math")
+			Expect(mathAlias).ToNot(BeNil())
+			Expect(mathAlias.Target).To(Equal(mathMod))
+		})
+
+		It("Should be a no-op when the root has no Parent", func() {
+			orphan := &symbol.Symbol{Kind: symbol.KindBlock}
+			symbol.AutoImportModules(orphan)
+			Expect(orphan.Children()).To(BeEmpty())
+		})
+
+		It("Should skip non-module children of the ambient prelude", func() {
+			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
+			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
+			ambient.AddChild(symbol.NewModule("time"))
+			root := symbol.NewRoot(nil)
+			ambient.AddChild(root)
+
+			symbol.AutoImportModules(root)
+
+			Expect(root.FindChild("global_const")).To(BeNil())
+			Expect(root.FindChild("time")).ToNot(BeNil())
+		})
+	})
+
+	Describe("NewRoot", func() {
+		It("Should attach ambient globals as siblings of the root", func() {
+			channel := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
+			root := symbol.NewRoot(nil, channel)
+			Expect(root.Parent).ToNot(BeNil())
+			Expect(root.Parent.Kind).To(Equal(symbol.KindAmbient))
+			Expect(root.Parent.FindChild("sensor")).ToNot(BeNil())
+		})
+
+		It("Should shallow-copy each ambient global so callers can reuse them across roots", func() {
+			original := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
+			root := symbol.NewRoot(nil, original)
+			attached := root.Parent.FindChild("sensor")
+			Expect(attached.Parent).To(Equal(root.Parent))
+			Expect(original.Parent).To(BeNil())
+		})
+
+		It("Should isolate Parent assignment between concurrent roots", func() {
+			shared := &symbol.Symbol{Name: "shared", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
+			rootA := symbol.NewRoot(nil, shared)
+			rootB := symbol.NewRoot(nil, shared)
+			attachedA := rootA.Parent.FindChild("shared")
+			attachedB := rootB.Parent.FindChild("shared")
+			Expect(attachedA).ToNot(BeIdenticalTo(attachedB))
+			Expect(attachedA.Parent).To(BeIdenticalTo(rootA.Parent))
+			Expect(attachedB.Parent).To(BeIdenticalTo(rootB.Parent))
+		})
+
+		It("Should install the given dynamic resolver on the root", func(bCtx SpecContext) {
+			resolver := &recordingResolver{}
+			root := symbol.NewRoot(resolver)
+			Expect(root.GlobalResolver).To(Equal(resolver))
+			_, _ = root.Resolve(bCtx, "missing")
+			Expect(resolver.resolveCalls).To(Equal(1))
+		})
+	})
+})
+
+type recordingResolver struct {
+	resolveCalls int
+	searchCalls  int
+}
+
+func (r *recordingResolver) Resolve(_ context.Context, _ string) (*symbol.Symbol, error) {
+	r.resolveCalls++
+	return nil, errors.Wrap(query.ErrNotFound, "not found")
+}
+
+func (r *recordingResolver) Search(_ context.Context, _ string) ([]*symbol.Symbol, error) {
+	r.searchCalls++
+	return nil, nil
+}

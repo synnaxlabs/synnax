@@ -54,7 +54,7 @@ interface SubStore extends base.Store {
 
 const frameZ = z.object({
   key: z.string(),
-  sessionKey: z.string(),
+  dispatchKey: z.string(),
   seq: z.number().int().nonnegative(),
   actions: z.array(z.any()),
 }) as unknown as z.ZodType<DispatchFrame<string, Action>>;
@@ -123,9 +123,9 @@ describe("UndoableStore", () => {
     });
 
     it("runs preprocess by default and skips it under skipPreprocess", () => {
-      const preprocess = vi.fn((_: Doc, acts: Action[]) => [
+      const preprocess = vi.fn((_: Doc, acts: Action[]): Action[] => [
         ...acts,
-        { type: "set", key: "extra", value: 1 } as Action,
+        { type: "set", key: "extra", value: 1 },
       ]);
       const { store } = setupStore({ preprocess });
       prime(store, "k");
@@ -597,7 +597,7 @@ describe("UndoableStore", () => {
   });
 
   describe("applyRemote", () => {
-    it("applies actions and stamps targets as remote-touched", async () => {
+    it("applies foreign actions and stamps targets as remote-touched", async () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });
       // Push a local entry first so we can verify it gets marked stale.
@@ -609,42 +609,58 @@ describe("UndoableStore", () => {
       );
       // Force a strictly-after timestamp on the remote stamp.
       await sleep.sleep(TimeSpan.milliseconds(2));
-      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 99 }]);
+      store.applyRemote("k", 1, "foreign-1", [{ type: "set", key: "a", value: 99 }]);
       expect(store.get("k")).toEqual({ values: { a: 99 } });
       expect(store.prepareUndo("k")).toBeNull();
     });
 
     it("is a no-op when the doc is not cached", () => {
       const { store } = setupStore();
-      store.applyRemote("missing", 1, [{ type: "set", key: "a", value: 1 }]);
+      store.applyRemote("missing", 1, "foreign-1", [
+        { type: "set", key: "a", value: 1 },
+      ]);
       expect(store.get("missing")).toBeUndefined();
     });
 
     it("drops echoes whose seq does not exceed the high-water mark", () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });
-      store.applyRemote("k", 5, [{ type: "set", key: "a", value: 1 }]);
+      store.applyRemote("k", 5, "f-1", [{ type: "set", key: "a", value: 1 }]);
       expect(store.get("k")).toEqual({ values: { a: 1 } });
       // Same seq — a duplicate frame — must be dropped.
-      store.applyRemote("k", 5, [{ type: "set", key: "a", value: 99 }]);
+      store.applyRemote("k", 5, "f-1", [{ type: "set", key: "a", value: 99 }]);
       expect(store.get("k")).toEqual({ values: { a: 1 } });
       // Older seq — a reordered or replayed frame — must also be dropped.
-      store.applyRemote("k", 4, [{ type: "set", key: "a", value: 99 }]);
+      store.applyRemote("k", 4, "f-2", [{ type: "set", key: "a", value: 99 }]);
       expect(store.get("k")).toEqual({ values: { a: 1 } });
       // Fresher seq applies and advances the high-water mark.
-      store.applyRemote("k", 6, [{ type: "set", key: "a", value: 2 }]);
+      store.applyRemote("k", 6, "f-3", [{ type: "set", key: "a", value: 2 }]);
       expect(store.get("k")).toEqual({ values: { a: 2 } });
     });
 
     it("treats seq=0 as unstamped and always applies for legacy-server compat", () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });
-      store.applyRemote("k", 0, [{ type: "set", key: "a", value: 1 }]);
-      store.applyRemote("k", 0, [{ type: "set", key: "a", value: 2 }]);
+      store.applyRemote("k", 0, "f-1", [{ type: "set", key: "a", value: 1 }]);
+      store.applyRemote("k", 0, "f-2", [{ type: "set", key: "a", value: 2 }]);
       expect(store.get("k")).toEqual({ values: { a: 2 } });
     });
 
-    it("skips markRemoteTouched on own echoes so they do not poison the local undo stack", async () => {
+    it("skips the reducer on own echoes when no foreign action interleaved", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      // Originator simulates local replay then registers the dispatch as
+      // outstanding before the echo arrives.
+      store.registerOutstandingDispatch("k", "own-1");
+      // Now the echo lands. The reducer should NOT re-run: the local replay
+      // was already authoritative.
+      store.applyRemote("k", 1, "own-1", [{ type: "set", key: "a", value: 99 }]);
+      // State unchanged — the local replay's effect (a=0 here, since the test
+      // skipped the replay step) is preserved.
+      expect(store.get("k")).toEqual({ values: { a: 0 } });
+    });
+
+    it("does not mark targets remote-touched on own echoes", async () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });
       store.recordEntry(
@@ -654,30 +670,43 @@ describe("UndoableStore", () => {
         ["a"],
       );
       await sleep.sleep(TimeSpan.milliseconds(2));
-      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 1 }], {
-        isOwnEcho: true,
-      });
-      expect(store.get("k")).toEqual({ values: { a: 1 } });
+      store.registerOutstandingDispatch("k", "own-1");
+      store.applyRemote("k", 1, "own-1", [{ type: "set", key: "a", value: 1 }]);
       // The local undo entry survives because the echo was own.
       expect(store.prepareUndo("k")).not.toBeNull();
     });
 
-    it("converges when a foreign action interleaves between own echoes (Alice/Bob)", () => {
+    it("re-applies own echoes whose outstanding window was disturbed by a foreign action", () => {
       const { store } = setupStore();
       prime(store, "k", { a: 0 });
-      // Alice (own) sets a=10 at seq=1 — but the broadcast arrives after Bob's.
-      // Bob (foreign) sets a=5 at seq=2.
-      // Alice (own) sets a=20 at seq=3 — final server state.
-      // Echoes arrive in seq order at this client.
-      store.applyRemote("k", 1, [{ type: "set", key: "a", value: 10 }], {
-        isOwnEcho: true,
-      });
-      store.applyRemote("k", 2, [{ type: "set", key: "a", value: 5 }]);
-      store.applyRemote("k", 3, [{ type: "set", key: "a", value: 20 }], {
-        isOwnEcho: true,
-      });
-      // Converges to the server's last-applied value, not the foreign middle.
+      // Alice locally replays both her dispatches up front and registers
+      // them as outstanding. State after both local replays is a=20.
+      store.applyRemote("k", 0, "alice-1", [{ type: "set", key: "a", value: 10 }]);
+      // Reset state to what it would be after local replays:
+      prime(store, "k", { a: 20 });
+      store.registerOutstandingDispatch("k", "alice-1");
+      store.registerOutstandingDispatch("k", "alice-2");
+      // Now the echoes arrive in server-seq order.
+      // Alice (own) seq=1 — own and not disturbed → skip.
+      store.applyRemote("k", 1, "alice-1", [{ type: "set", key: "a", value: 10 }]);
       expect(store.get("k")).toEqual({ values: { a: 20 } });
+      // Bob (foreign) seq=2 — applies, marks all outstanding own as disturbed.
+      store.applyRemote("k", 2, "bob-1", [{ type: "set", key: "a", value: 5 }]);
+      expect(store.get("k")).toEqual({ values: { a: 5 } });
+      // Alice (own) seq=3 — own but disturbed → reduce to recover.
+      store.applyRemote("k", 3, "alice-2", [{ type: "set", key: "a", value: 20 }]);
+      expect(store.get("k")).toEqual({ values: { a: 20 } });
+    });
+
+    it("re-applies own echoes when their dispatchKey is unknown (registration lost the race against the echo)", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 0 });
+      // No registration: simulate the case where the echo arrived before the
+      // dispatch promise resolved, so the originator never got to register.
+      // The substrate treats this as foreign and reduces — safer than
+      // silently dropping the action.
+      store.applyRemote("k", 1, "stranger", [{ type: "set", key: "a", value: 7 }]);
+      expect(store.get("k")).toEqual({ values: { a: 7 } });
     });
   });
 

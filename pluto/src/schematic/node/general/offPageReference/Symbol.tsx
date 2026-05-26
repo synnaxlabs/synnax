@@ -12,8 +12,8 @@ import { type ReactElement } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
 import {
+  OffPageReference,
   offPageReferenceTooltip,
-  Primitive,
 } from "@/schematic/node/general/offPageReference/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 
@@ -27,7 +27,7 @@ export const Symbol = ({
     dblClickNav,
   },
 }: NodeProps<Config>): ReactElement => (
-  <Primitive
+  <OffPageReference
     className={Grid.DRAG_HANDLE_CLASS}
     onLabelChange={(label) => onConfigChange({ label: { label, level } })}
     label={label}

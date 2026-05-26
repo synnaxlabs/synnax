@@ -21,7 +21,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
 } from "@/telem";
 
 describe("TimeStamp", () => {
@@ -138,7 +138,7 @@ describe("TimeStamp", () => {
       expect(ts.millisecond).toBe(0);
     });
 
-    test("should round-trip when using local tzInfo", () => {
+    test("should round-trip when using local TimeZone", () => {
       const input = "2025-11-03T17:44:45.809";
       const ts1 = new TimeStamp(input, "local");
       const output = ts1.toString("ISO", "local").slice(0, -1);
@@ -541,10 +541,9 @@ describe("TimeStamp", () => {
       .add(TimeSpan.minutes(20))
       .add(TimeSpan.milliseconds(12));
 
-    const FORMAT_TESTS: [TimeStampStringFormat, string][] = [
+    const FORMAT_TESTS: [TimestampFormat, string][] = [
       ["ISO", "2022-12-15T12:20:00.012Z"],
       ["ISODate", "2022-12-15"],
-      ["ISOTime", "12:20:00.012"],
       ["time", "12:20:00"],
       ["preciseTime", "12:20:00.012"],
       ["date", "Dec 15"],
@@ -922,10 +921,10 @@ describe("TimeStamp", () => {
   });
 
   describe("formatBySpan", () => {
-    test("should return 'shortDate' for spans >= 30 days", () => {
+    test("should return 'date' for spans >= 30 days", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.days(30);
-      expect(ts.formatBySpan(span)).toBe("shortDate");
+      expect(ts.formatBySpan(span)).toBe("date");
     });
 
     test("should return 'dateTime' for spans >= 1 day", () => {
@@ -946,16 +945,16 @@ describe("TimeStamp", () => {
       expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
 
-    test("should return 'ISOTime' for spans < 1 second", () => {
+    test("should return 'preciseTime' for spans < 1 second", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.milliseconds(500);
-      expect(ts.formatBySpan(span)).toBe("ISOTime");
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
 
     test("should work with very small spans", () => {
       const ts = new TimeStamp([2022, 12, 15], "UTC");
       const span = TimeSpan.microseconds(100);
-      expect(ts.formatBySpan(span)).toBe("ISOTime");
+      expect(ts.formatBySpan(span)).toBe("preciseTime");
     });
   });
 

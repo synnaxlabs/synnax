@@ -9,12 +9,12 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { color, type dimensions } from "@synnaxlabs/x";
+import { color, type dimensions, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -22,10 +22,10 @@ import { Theming } from "@/theming";
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
   dimensions?: dimensions.Dimensions;
-  unitsLevel?: Text.Level;
+  unitsLevel?: text.Level;
 }
 
-export const Primitive = ({
+export const Value = ({
   className,
   color: colorVal,
   dimensions,
@@ -44,7 +44,7 @@ export const Primitive = ({
           color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
         );
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("value"), className)}
       style={{
         borderColor,
@@ -62,18 +62,13 @@ export const Primitive = ({
       >
         {children}
       </div>
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle.Handle location="right" orientation="left" left={100} top={50} id="2" />
-        <Handle.Handle location="top" orientation="left" left={50} top={-2} id="3" />
-        <Handle.Handle
-          location="bottom"
-          orientation="left"
-          left={50}
-          top={102}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={-2}
+        right={100}
+        bottom={102}
+      />
       <div
         className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
         style={{ background: borderColor }}
@@ -82,6 +77,6 @@ export const Primitive = ({
           {units}
         </Text.Text>
       </div>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

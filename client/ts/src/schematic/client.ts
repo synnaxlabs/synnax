@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const dispatchReqZ = z.object({
   key: keyZ,
-  session_key: z.string(),
+  dispatch_key: z.string(),
   actions: actionZ.array(),
 });
 
@@ -39,10 +39,13 @@ const dispatchReqZ = z.object({
 // runs snakeToCamel before handing the value to the schema, so this stays in
 // camelCase. seq is the server's monotonic high-water mark used by the store
 // to drop stale echoes; it defaults to 0 to keep frames from servers that
-// predate the field parseable.
+// predate the field parseable. dispatchKey is the client-generated batch ID
+// the originator registered as outstanding before sending; the substrate
+// matches the echo against that set to recognize its own dispatches
+// race-safely.
 export const scopedActionZ = z.object({
   key: keyZ,
-  sessionKey: z.string(),
+  dispatchKey: z.string(),
   seq: z.number().int().nonnegative().default(0),
   actions: actionZ.array(),
 });
@@ -94,8 +97,7 @@ export class Client {
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/create",
       { project, schematics: array.toArray(schematics) },
       createReqZ,
@@ -109,8 +111,7 @@ export class Client {
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/set-data",
       { key, data },
       setDataReqZ,
@@ -118,11 +119,10 @@ export class Client {
     );
   }
 
-  async dispatch(key: Key, sessionKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
       "/schematic/dispatch",
-      { key, session_key: sessionKey, actions },
+      { key, dispatch_key: dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );
@@ -134,8 +134,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/retrieve",
       args,
       retrieveArgsZ,
@@ -146,8 +145,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -156,13 +154,7 @@ export class Client {
   }
 
   async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await sendRequired(
-      this.client,
-      "/schematic/copy",
-      args,
-      copyReqZ,
-      copyResZ,
-    );
+    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
     return res.schematic;
   }
 }

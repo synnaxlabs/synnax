@@ -303,10 +303,7 @@ const augmentWithEdgeSegments = (
   const updates = Edge.Segmented.updateSegmentsForPositionChanges({
     nodes: current.nodes,
     edges: current.edges,
-    props: current.configs as Record<
-      string,
-      { segments?: Edge.Segmented.Segment[] } | undefined
-    >,
+    props: current.configs,
     changes,
   });
   if (updates.length === 0) return actions;
@@ -360,8 +357,8 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   FluxSubStore
 >({
   storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, sessionKey }) =>
-    client.schematics.dispatch(key, sessionKey, actions),
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.schematics.dispatch(key, dispatchKey, actions),
 });
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}

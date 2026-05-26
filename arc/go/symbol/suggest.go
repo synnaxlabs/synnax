@@ -16,7 +16,10 @@ import (
 	"github.com/synnaxlabs/x/compare"
 )
 
-func (s *Scope) SuggestSimilar(ctx context.Context, name string, maxSuggestions int) []string {
+// SuggestSimilar returns up to maxSuggestions names whose Levenshtein distance
+// to name is small, drawn from the symbols visible via Search. Used to power
+// "did you mean" hints for undefined-symbol diagnostics.
+func (s *Symbol) SuggestSimilar(ctx context.Context, name string, maxSuggestions int) []string {
 	results, err := s.Search(ctx, name)
 	if err != nil || len(results) == 0 {
 		return nil
@@ -30,7 +33,7 @@ func (s *Scope) SuggestSimilar(ctx context.Context, name string, maxSuggestions 
 	var suggestions []suggestion
 	for _, r := range results {
 		if r.Name == name {
-			continue // skip exact match
+			continue
 		}
 		suggestions = append(suggestions, suggestion{
 			name:     r.Name,

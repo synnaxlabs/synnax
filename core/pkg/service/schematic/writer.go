@@ -163,13 +163,16 @@ func (w Writer) SetData(
 // Dispatch applies a sequence of actions atomically to the schematic with the
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.
-// sessionKey identifies the originating client so subscribers can self-dedup.
-// Snapshots are immutable except for Rename: returns validate.ErrValidation if
-// the target is a snapshot and any action other than Rename is included.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved. Snapshots are immutable except for Rename: returns
+// validate.ErrValidation if the target is a snapshot and any action other
+// than Rename is included.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
-	sessionKey string,
+	dispatchKey string,
 	actions []Action,
 ) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
@@ -191,14 +194,15 @@ func (w Writer) Dispatch(
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if w.actionObserver != nil {
-		w.actionObserver.Notify(ctx, ScopedAction{
-			Key:        key,
-			SessionKey: sessionKey,
-			Seq:        w.seq.Add(1),
-			Actions:    actions,
-		})
+	if w.actionObserver == nil {
+		return nil
 	}
+	w.actionObserver.Notify(ctx, ScopedAction{
+		Key:         key,
+		DispatchKey: dispatchKey,
+		Seq:         w.seq.Add(1),
+		Actions:     actions,
+	})
 	return nil
 }
 

@@ -31,6 +31,7 @@ import {
   type direction,
   location,
   type record,
+  type text,
   xy,
 } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
@@ -177,17 +178,14 @@ const MultiConfig = ({
     const existing = (configByKey.get(elKey) ?? {}) as record.Unknown;
     dispatch({
       key: layoutKey,
-      actions: schematic.setConfig({
-        key: elKey,
-        config: { ...existing, ...next } as record.Unknown,
-      }),
+      actions: schematic.setConfig({ key: elKey, config: { ...existing, ...next } }),
     });
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
-    firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
+    firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
   }
 
@@ -340,7 +338,7 @@ const MultiConfig = ({
       if (!("orientation" in cfg) || cfg.orientation == null) return;
       onChange(key, {
         orientation: location.rotate(cfg.orientation, dir),
-      } as Partial<Schematic.ElementConfig>);
+      });
     });
   };
 
@@ -356,8 +354,8 @@ const MultiConfig = ({
     configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
       onChange(elKey, {
-        label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
-      } as Partial<Schematic.ElementConfig>);
+        label: { ...cfg.label, [key]: value },
+      });
     });
   };
 
@@ -368,16 +366,14 @@ const MultiConfig = ({
       className={CSS.BE("schematic", "properties", "multi")}
       gap="large"
     >
-      <Input.Item label="Selection Colors" align="start">
+      <Input.Item label="Selection colors" align="start">
         <Flex.Box x>
           {Object.entries(colorGroups).map(([hex, keys]) => (
             <Color.Swatch
               key={keys[0]}
               value={hex}
               onChange={(c: color.Color) => {
-                keys.forEach((key) =>
-                  onChange(key, { color: c } as Partial<Schematic.ElementConfig>),
-                );
+                keys.forEach((key) => onChange(key, { color: c }));
               }}
             />
           ))}
@@ -458,7 +454,7 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Rotate Selection">
+      <Input.Item label="Rotate selection">
         <Flex.Box x>
           <Button.Button
             tooltip="Rotate selection clockwise"
@@ -474,33 +470,33 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Label Wrap Width" align="start">
+      <Input.Item label="Label wrap width" align="start">
         <Input.Numeric
           value={firstNodeLabel?.maxInlineSize ?? 150}
           onChange={(v) => handleLabelProp("maxInlineSize", v)}
           endContent="px"
         />
       </Input.Item>
-      <Input.Item label="Label Size" align="start">
+      <Input.Item label="Label size" align="start">
         <Select.Text.Level
           value={firstNodeLabel?.level ?? "p"}
-          onChange={(v: Text.Level) => handleLabelProp("level", v)}
+          onChange={(v: text.Level) => handleLabelProp("level", v)}
         />
       </Input.Item>
-      <Input.Item label="Label Alignment" align="start">
+      <Input.Item label="Label alignment" align="start">
         <Select.Flex.Alignment
           value={firstNodeLabel?.align ?? "center"}
           onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
         />
       </Input.Item>
-      <Input.Item label="Label Direction" align="start">
+      <Input.Item label="Label direction" align="start">
         <Direction.Select
           value={firstNodeLabel?.direction ?? "x"}
           onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
           yDirection="down"
         />
       </Input.Item>
-      <Input.Item label="Label Orientation" align="start">
+      <Input.Item label="Label orientation" align="start">
         <Schematic.Node.Orientation.Select
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>

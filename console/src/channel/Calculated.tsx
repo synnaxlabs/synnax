@@ -80,6 +80,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                   isBlock
                   bordered
                   rounded
+                  extensions={Arc.Editor.Text.EXTENSIONS}
                 />
               )}
             </Form.Field>

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -28,7 +29,9 @@ var _ = Describe("Definition", func() {
 	)
 
 	BeforeEach(func() {
-		server = MustSucceed(lsp.New())
+		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+			return NewRoot(nil)
+		}}))
 		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
@@ -178,18 +181,14 @@ func main() {
 	})
 
 	Describe("GlobalResolver", func() {
-		It("should return nil for global variables from GlobalResolver (no AST)", func(ctx SpecContext) {
-			// Create a mock GlobalResolver with a global variable
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
+		It("should return nil for global variables attached to the ambient (no AST)", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{
 					Name: "myGlobal",
 					Type: types.I32(),
 					Kind: symbol.KindVariable,
-				},
-			}
-
-			// Create server with GlobalResolver
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+				})
+			}}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"

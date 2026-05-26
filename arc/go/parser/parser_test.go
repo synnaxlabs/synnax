@@ -953,25 +953,75 @@ func broken() {
 			})
 		})
 
-		Context("Raw String Literals", func() {
-			It("Should lex a multi-line raw string as a single STR_LITERAL_RAW token", func() {
+		Context("String Literals", func() {
+			It("Should lex a backtick string spanning newlines as a single STR_LITERAL_MULTI token", func() {
 				expr := MustSucceed(parser.ParseExpression("`a\nb`"))
 				lit := parser.GetLiteral(expr)
 				Expect(lit).NotTo(BeNil())
-				rawTok := lit.STR_LITERAL_RAW()
-				Expect(rawTok).NotTo(BeNil())
-				Expect(rawTok.GetText()).To(Equal("`a\nb`"))
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("`a\nb`"))
 				Expect(lit.STR_LITERAL()).To(BeNil())
 			})
 
-			It("Should lex a raw string with escaped backticks as a single token", func() {
-				expr := MustSucceed(parser.ParseExpression("`say \\`hi\\``"))
+			It("Should lex an f-prefixed double-quoted string as STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`f"hi {x}"`))
 				lit := parser.GetLiteral(expr)
 				Expect(lit).NotTo(BeNil())
-				rawTok := lit.STR_LITERAL_RAW()
-				Expect(rawTok).NotTo(BeNil())
-				Expect(rawTok.GetText()).To(Equal("`say \\`hi\\``"))
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`f"hi {x}"`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
+
+			It("Should lex an rf-prefixed backtick string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("rf`path: {p}\nraw: \\n`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("rf`path: {p}\nraw: \\n`"))
 				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex a raw string with embedded escapes as a single STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`r"say \"hi\""`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`r"say \"hi\""`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
+
+			It("Should lex an f-prefixed backtick string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("f`v={x}\nt={t}`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("f`v={x}\nt={t}`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex a backtick raw string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("r`line1\nline2`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("r`line1\nline2`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex an rf-prefixed single-quoted string as STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`rf"path: {p}"`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`rf"path: {p}"`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
 			})
 		})
 	})

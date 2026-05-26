@@ -594,7 +594,7 @@ export const traverse = <T extends numeric.Value = number>(
   if (dir === 0) return start;
 
   let remainingDist = dist;
-  let currentPosition = start as number | bigint;
+  let currentPosition = start;
 
   while (mathEqual(remainingDist, 0) === false) {
     // Find the bound we're currently in or adjacent to
@@ -607,15 +607,15 @@ export const traverse = <T extends numeric.Value = number>(
       const b = _bounds[index];
       let distanceInBound: T;
       if (dir > 0) distanceInBound = sub(b.upper, currentPosition);
-      else distanceInBound = sub(currentPosition, b.lower) as T;
+      else distanceInBound = sub(currentPosition, b.lower);
 
       if (distanceInBound > (0 as T)) {
         const moveDist = mathMin(abs(remainingDist), distanceInBound);
-        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist) as T;
+        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist);
         remainingDist = sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
-        if (mathEqual(remainingDist, 0)) return currentPosition as T;
+        if (mathEqual(remainingDist, 0)) return currentPosition;
         continue;
       }
     }
@@ -626,17 +626,17 @@ export const traverse = <T extends numeric.Value = number>(
       const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
       if (nextBounds.length > 0) currentPosition = nextBounds[0].lower;
       // No more bounds in this direction
-      else return currentPosition as T;
+      else return currentPosition;
     } else {
       // Move to the previous bound's upper value
       const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
       if (prevBounds.length > 0)
         currentPosition = prevBounds[prevBounds.length - 1].upper;
       // No more bounds in this direction
-      else return currentPosition as T;
+      else return currentPosition;
     }
   }
-  return currentPosition as T;
+  return currentPosition;
 };
 
 /**

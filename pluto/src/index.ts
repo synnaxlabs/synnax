@@ -107,7 +107,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
+  type TimeZone,
   type TypedArray,
-  type TZInfo,
 } from "@synnaxlabs/x";

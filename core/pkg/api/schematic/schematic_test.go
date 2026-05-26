@@ -37,8 +37,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
 			s := createSchematic(ctx, "no-policy")
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        s.Key,
-				SessionKey: "sess-1",
+				Key:         s.Key,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
@@ -49,8 +49,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			s := createSchematic(ctx, "with-policy")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        s.Key,
-				SessionKey: "sess-1",
+				Key:         s.Key,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 				})},
@@ -68,8 +68,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			b := createSchematic(ctx, "no-policy-target")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(a.Key))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        b.Key,
-				SessionKey: "sess-1",
+				Key:         b.Key,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
@@ -82,8 +82,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			s := createSchematic(ctx, "multi-action")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        s.Key,
-				SessionKey: "sess-1",
+				Key:         s.Key,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{
 					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
@@ -112,8 +112,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(schematicSvc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(snap.Key))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        snap.Key,
-				SessionKey: "sess-1",
+				Key:         snap.Key,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
@@ -124,8 +124,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			missing := uuid.New()
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(missing))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        missing,
-				SessionKey: "sess-1",
+				Key:         missing,
+				DispatchKey: "sess-1",
 				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
@@ -134,7 +134,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 	})
 
 	Describe("subject identity propagation", func() {
-		It("Should pass the SessionKey verbatim into the action observer", func(ctx SpecContext) {
+		It("Should pass the DispatchKey verbatim into the action observer", func(ctx SpecContext) {
 			s := createSchematic(ctx, "session-propagation")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
 			seen := make(chan schematic.ScopedAction, 1)
@@ -143,8 +143,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 			})
 			DeferCleanup(disconnect)
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
-				Key:        s.Key,
-				SessionKey: "session-marker-xyz",
+				Key:         s.Key,
+				DispatchKey: "session-marker-xyz",
 				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1"},
 				})},
@@ -152,7 +152,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			var got schematic.ScopedAction
 			Eventually(seen).Should(Receive(&got))
 			Expect(got.Key).To(Equal(s.Key))
-			Expect(got.SessionKey).To(Equal("session-marker-xyz"))
+			Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
 			Expect(got.Seq).To(BeNumerically(">", uint64(0)))
 			Expect(got.Actions).To(HaveLen(1))
 		})

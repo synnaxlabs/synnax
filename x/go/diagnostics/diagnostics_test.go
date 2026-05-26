@@ -431,4 +431,93 @@ var _ = Describe("Diagnostics", func() {
 			Expect(d[0].Notes).To(BeEmpty())
 		})
 	})
+
+	Describe("Position.Advance", func() {
+		DescribeTable("Should walk body bytes and reset column on newlines",
+			func(body string, start diagnostics.Position, off int, expected diagnostics.Position) {
+				Expect(start.Advance(body, off)).To(Equal(expected))
+			},
+			Entry("zero offset returns start unchanged",
+				"abc", diagnostics.Position{Line: 1, Col: 1}, 0,
+				diagnostics.Position{Line: 1, Col: 1}),
+			Entry("walks N non-newline bytes incrementing Col",
+				"abc", diagnostics.Position{Line: 1, Col: 1}, 2,
+				diagnostics.Position{Line: 1, Col: 3}),
+			Entry("newline bumps Line and resets Col to 0",
+				"a\nb", diagnostics.Position{Line: 1, Col: 1}, 2,
+				diagnostics.Position{Line: 2, Col: 0}),
+			Entry("consecutive newlines each reset Col",
+				"\n\n", diagnostics.Position{Line: 1, Col: 1}, 2,
+				diagnostics.Position{Line: 3, Col: 0}),
+			Entry("mixed text and newline",
+				"abc\ndef", diagnostics.Position{Line: 1, Col: 1}, 6,
+				diagnostics.Position{Line: 2, Col: 2}),
+			Entry("offset past len(body) clamps at end of body",
+				"abc", diagnostics.Position{Line: 1, Col: 1}, 100,
+				diagnostics.Position{Line: 1, Col: 4}),
+			Entry("empty body returns start unchanged",
+				"", diagnostics.Position{Line: 5, Col: 7}, 0,
+				diagnostics.Position{Line: 5, Col: 7}),
+			Entry("empty body with non-zero offset still returns start",
+				"", diagnostics.Position{Line: 5, Col: 7}, 10,
+				diagnostics.Position{Line: 5, Col: 7}),
+			Entry("trailing newline lands on next line at col 0",
+				"abc\n", diagnostics.Position{Line: 1, Col: 1}, 4,
+				diagnostics.Position{Line: 2, Col: 0}),
+			Entry("starts on a non-zero line and column",
+				"xy", diagnostics.Position{Line: 7, Col: 3}, 2,
+				diagnostics.Position{Line: 7, Col: 5}),
+		)
+
+		It("Should not mutate the receiver", func() {
+			start := diagnostics.Position{Line: 1, Col: 1}
+			_ = start.Advance("a\nb", 3)
+			Expect(start).To(Equal(diagnostics.Position{Line: 1, Col: 1}))
+		})
+	})
+
+	Describe("Diagnostic.WithRange", func() {
+		It("Should override Start and End regardless of prior values", func() {
+			d := diagnostics.Diagnostic{
+				Start: diagnostics.Position{Line: 1, Col: 0},
+				End:   diagnostics.Position{Line: 1, Col: 5},
+			}
+			out := d.WithRange(
+				diagnostics.Position{Line: 3, Col: 2},
+				diagnostics.Position{Line: 3, Col: 8},
+			)
+			Expect(out.Start).To(Equal(diagnostics.Position{Line: 3, Col: 2}))
+			Expect(out.End).To(Equal(diagnostics.Position{Line: 3, Col: 8}))
+		})
+
+		It("Should return a copy and leave the original unchanged", func() {
+			d := diagnostics.Diagnostic{
+				Start: diagnostics.Position{Line: 1, Col: 0},
+				End:   diagnostics.Position{Line: 1, Col: 5},
+			}
+			_ = d.WithRange(
+				diagnostics.Position{Line: 9, Col: 9},
+				diagnostics.Position{Line: 9, Col: 9},
+			)
+			Expect(d.Start).To(Equal(diagnostics.Position{Line: 1, Col: 0}))
+			Expect(d.End).To(Equal(diagnostics.Position{Line: 1, Col: 5}))
+		})
+
+		It("Should preserve unrelated fields", func() {
+			d := diagnostics.Diagnostic{
+				Severity: diagnostics.SeverityWarning,
+				Message:  "msg",
+				Code:     "C001",
+				Notes:    []diagnostics.Note{{Message: "n"}},
+			}
+			out := d.WithRange(
+				diagnostics.Position{Line: 2, Col: 0},
+				diagnostics.Position{Line: 2, Col: 4},
+			)
+			Expect(out.Severity).To(Equal(diagnostics.SeverityWarning))
+			Expect(out.Message).To(Equal("msg"))
+			Expect(out.Code).To(Equal(diagnostics.ErrorCode("C001")))
+			Expect(out.Notes).To(HaveLen(1))
+		})
+	})
 })

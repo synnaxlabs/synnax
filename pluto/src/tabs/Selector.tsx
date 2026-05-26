@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, type location, scale, xy } from "@synnaxlabs/x";
+import { box, type location, scale, type text, xy } from "@synnaxlabs/x";
 import {
   type ComponentType,
   type DragEventHandler,
@@ -19,7 +19,8 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { type Component } from "@/component";
+import { type Size } from "@/component/size";
+import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -42,7 +43,7 @@ export interface SelectorProps extends Omit<
   Flex.BoxProps,
   "children" | "contextMenu" | "onDrop"
 > {
-  size?: Component.Size;
+  size?: Size;
   altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
@@ -193,7 +194,7 @@ const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X 
 
 interface StartIconProps
   extends Icon.IconProps, Pick<SelectorButtonProps, "icon" | "loading"> {
-  level: Text.Level;
+  level: text.Level;
 }
 
 const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
@@ -281,7 +282,7 @@ const SelectorButton = ({
 
   const isSelected = selected === tabKey;
   const isPill = variant === "pill";
-  const level = Text.COMPONENT_SIZE_LEVELS[size];
+  const level = SIZE_TEXT_LEVELS[size];
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
 
   return (
@@ -351,7 +352,7 @@ export interface SelectorButtonProps extends Spec {
   onSelect?: (key: string) => void;
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
-  size: Component.Size;
+  size: Size;
   variant: SelectorVariant;
   Name?: ComponentType<NameProps>;
 }

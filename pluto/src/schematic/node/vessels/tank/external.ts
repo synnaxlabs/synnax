@@ -15,7 +15,7 @@ import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/vessels/tank/config";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { Primitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
 import { type Theming } from "@/theming";
 
@@ -36,7 +36,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Tank",
   Form: TankForm,
   Node: Symbol,
-  Preview: Component.removeProps(Primitive, ["dimensions"]),
+  Preview: Component.removeProps(Tank, ["dimensions"]),
   defaultConfig,
   zIndex: 2,
 };
