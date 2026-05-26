@@ -19,3 +19,13 @@ const (
 	NotationScientific  Notation = "scientific"
 	NotationEngineering Notation = "engineering"
 )
+
+// IsValid reports whether n is one of the defined Notation values.
+func (n Notation) IsValid() bool {
+	switch n {
+	case NotationStandard, NotationScientific, NotationEngineering:
+		return true
+	default:
+		return false
+	}
+}
