@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -163,9 +164,9 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, t
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 
-// ResolveKeyOrName returns the keys of existing statuses matching keyOrName, trying an
-// exact key match before name matches. Read-only; callers enforce access on the result.
-func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName string) ([]string, error) {
+// ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key match
+// over name matches. Read-only; callers enforce access on and write the result.
+func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName string) ([]Status[any], error) {
 	if keyOrName == "" {
 		return nil, ErrEmptyKeyOrName
 	}
@@ -173,66 +174,48 @@ func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName st
 	var st Status[any]
 	err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
 	if err == nil {
-		// Return only the key, not the fetched row. Resolve stays separate from the write
-		// so the API can enforce on the resolved key in between; the writer then re-fetches
-		// by key. That repeated indexed get is cheaper than threading rows through the
-		// enforce seam, and the create case has no row to thread anyway.
-		return []string{keyOrName}, nil
+		return []Status[any]{st}, nil
 	}
 	if !errors.Is(err, query.ErrNotFound) {
 		return nil, err
 	}
-	matches, err := retrieveByName[any](ctx, tx, keyOrName)
-	if err != nil {
-		return nil, err
-	}
-	keys := make([]string, len(matches))
-	for i := range matches {
-		keys[i] = matches[i].Key
-	}
-	return keys, nil
+	return retrieveByName[any](ctx, tx, keyOrName)
 }
 
-// SetResolved upserts the status keyed by key, creating it with Name=key if absent and
-// updating message, variant, and time. Returns ErrInvalidVariant for an unknown variant.
-func (s *Service) SetResolved(ctx context.Context, tx gorp.Tx, key, message, variant string) error {
-	if !xstatus.IsVariant(variant) {
-		return ErrInvalidVariant
-	}
-	var st Status[any]
-	err := s.NewRetrieve().Where(MatchKeys[any](key)).Entry(&st).Exec(ctx, tx)
-	if errors.Is(err, query.ErrNotFound) {
-		st = Status[any]{Key: key, Name: key, Variant: xstatus.VariantInfo}
-	} else if err != nil {
-		return err
+// SetTarget builds the status a by-key-or-name set should write: the first match, or a
+// new UUID-keyed status named keyOrName when nothing matched, with the new fields applied.
+func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
+	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
+	if len(matches) > 0 {
+		st = matches[0]
 	}
 	st.Message = message
 	st.Variant = xstatus.Variant(variant)
 	st.Time = telem.Now()
-	return s.NewWriter(tx).Set(ctx, &st)
+	return st
 }
 
-// SetByKeyOrName tries to update a row whose Key equals keyOrName, then a row
-// whose Name matches, and finally creates a new row with Key=Name=keyOrName.
-// On multi-name-match, writes to the first match by key order and reports
-// multipleMatches=true so callers can surface the ambiguity.
+// SetByKeyOrName updates the first status matching keyOrName by key or name, creating a new
+// status named keyOrName when none match. It returns the written key, reports multipleMatches
+// when more than one name matched, and returns ErrInvalidVariant for an unknown variant.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
+	// Check before opening a Tx
+	if !xstatus.IsVariant(variant) {
+		return "", false, ErrInvalidVariant
+	}
 	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		matches, err := s.ResolveKeyOrName(ctx, tx, keyOrName)
 		if err != nil {
 			return err
 		}
-		k := keyOrName
-		if len(matches) > 0 {
-			k = matches[0]
-		}
-		if err = s.SetResolved(ctx, tx, k, message, variant); err != nil {
+		st := SetTarget(matches, keyOrName, message, variant)
+		if err = s.NewWriter(tx).Set(ctx, &st); err != nil {
 			return err
 		}
-		key, multipleMatches = k, len(matches) > 1
+		key, multipleMatches = st.Key, len(matches) > 1
 		return nil
 	})
 	return key, multipleMatches, err
