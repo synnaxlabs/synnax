@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { color, type dimensions } from "@synnaxlabs/x";
+import { color, type dimensions, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -22,7 +22,7 @@ import { Theming } from "@/theming";
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
   dimensions?: dimensions.Dimensions;
-  unitsLevel?: Text.Level;
+  unitsLevel?: text.Level;
 }
 
 export const Primitive = ({

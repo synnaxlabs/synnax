@@ -12,6 +12,7 @@ import {
   color,
   type destructor,
   notation,
+  text,
   TimeStamp,
   timeZoneZ,
   xy,
@@ -26,7 +27,6 @@ import {
   logSourceSpecZ,
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";

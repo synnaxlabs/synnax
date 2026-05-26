@@ -31,6 +31,7 @@ import {
   type direction,
   location,
   type record,
+  type text,
   xy,
 } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
@@ -479,7 +480,7 @@ const MultiConfig = ({
       <Input.Item label="Label Size" align="start">
         <Select.Text.Level
           value={firstNodeLabel?.level ?? "p"}
-          onChange={(v: Text.Level) => handleLabelProp("level", v)}
+          onChange={(v: text.Level) => handleLabelProp("level", v)}
         />
       </Input.Item>
       <Input.Item label="Label Alignment" align="start">
