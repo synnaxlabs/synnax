@@ -320,4 +320,240 @@ describe("table queries", () => {
       );
     });
   });
+
+  describe("useDispatch", () => {
+    const seedTable = async () => {
+      const ws = await client.workspaces.create({
+        name: `dispatch_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
+        name: "dispatch_test",
+        rows: [{ size: 30, cells: ["a", "b"] }],
+        columns: [{ size: 80 }, { size: 100 }],
+        cells: {
+          a: { key: "a", variant: "text", props: { value: "A" } },
+          b: { key: "b", variant: "text", props: { value: "B" } },
+        },
+      });
+    };
+
+    it("should apply a dispatched action and update the cached table", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [table.rename({ name: "after_dispatch" })],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.name).toEqual("after_dispatch"),
+      );
+    });
+
+    it("should restore prior state after a set_cell dispatch is undone", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+          undo: Table.useUndo({ key: seeded.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "value", props: { units: "psi" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value"),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("text");
+        expect(result.current.retrieve.data?.cells.a.props).toEqual({ value: "A" });
+      });
+    });
+
+    it("should re-apply a set_cell dispatch after undo and redo", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+          undo: Table.useUndo({ key: seeded.key }),
+          redo: Table.useRedo({ key: seeded.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "value", props: { units: "psi" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value"),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("text"),
+      );
+      await act(async () => result.current.redo.redo());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value");
+        expect(result.current.retrieve.data?.cells.a.props).toEqual({ units: "psi" });
+      });
+    });
+
+    it("should coalesce successive set_cell dispatches on the same cell into one undo step", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+          undo: Table.useUndo({ key: seeded.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      for (const value of ["A1", "A2", "A3"])
+        await act(async () => {
+          await result.current.dispatch.dispatchAsync({
+            key: seeded.key,
+            actions: [
+              table.setCell({
+                cell: { key: "a", variant: "text", props: { value } },
+              }),
+            ],
+          });
+        });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A3"),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A"),
+      );
+    });
+
+    it("should not coalesce set_cell dispatches across different cells", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+          undo: Table.useUndo({ key: seeded.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "text", props: { value: "A1" } },
+            }),
+          ],
+        });
+      });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "b", variant: "text", props: { value: "B1" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A1");
+        expect(result.current.retrieve.data?.cells.b.props.value).toEqual("B1");
+      });
+      await act(async () => result.current.undo.undo());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A1");
+        expect(result.current.retrieve.data?.cells.b.props.value).toEqual("B");
+      });
+    });
+
+    it("should coalesce successive resize_row dispatches under the resize kind", async () => {
+      const seeded = await seedTable();
+      const { result } = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key: seeded.key }),
+          dispatch: Table.useDispatch(),
+          undo: Table.useUndo({ key: seeded.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      for (const size of [40, 50, 60])
+        await act(async () => {
+          await result.current.dispatch.dispatchAsync({
+            key: seeded.key,
+            actions: [table.resizeRow({ index: 0, size })],
+          });
+        });
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.rows[0].size).toEqual(60),
+      );
+      await act(async () => result.current.undo.undo());
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.rows[0].size).toEqual(30),
+      );
+    });
+
+    it("should emit an addCol alongside addRow when useAddRow runs on an empty table", async () => {
+      const ws = await client.workspaces.create({
+        name: `empty_ws_${uuid.create()}`,
+        layout: {},
+      });
+      const seeded = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
+        name: "empty_table",
+        rows: [],
+        columns: [],
+        cells: {},
+      });
+      const { result: retrieve } = renderHook(
+        () => Table.useRetrieve({ key: seeded.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(retrieve.current.variant).toEqual("success"));
+      const { result: addRow } = renderHook(
+        () => Table.useAddRow({ key: seeded.key }),
+        { wrapper },
+      );
+      await act(async () => addRow.current());
+      await waitFor(() => {
+        expect(retrieve.current.data?.rows).toHaveLength(1);
+        expect(retrieve.current.data?.columns).toHaveLength(1);
+        expect(retrieve.current.data?.rows[0].cells).toHaveLength(1);
+      });
+    });
+  });
 });
