@@ -11,12 +11,12 @@ import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 
-export const ColorField: Base.FieldT<color.Crude> = (props): ReactElement => (
-  <Base.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
+export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => (
+  <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, variant: _, ...rest }) => (
       <Color.Swatch value={value} onChange={onChange} {...rest} bordered />
     )}
-  </Base.Field>
+  </Form.Field>
 );

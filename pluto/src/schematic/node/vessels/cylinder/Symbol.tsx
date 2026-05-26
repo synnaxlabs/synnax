@@ -13,7 +13,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
-import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
+import { Cylinder } from "@/schematic/node/vessels/cylinder/Primitive";
 
 export const Symbol = ({
   nodeKey,
@@ -28,9 +28,14 @@ export const Symbol = ({
     borderRadius,
   },
 }: NodeProps<Config>): ReactElement => (
-  <Grid.Grid editable={selected} nodeKey={nodeKey}>
+  <Grid.Grid
+    editable={selected}
+    nodeKey={nodeKey}
+    orientation={orientation}
+    onRotate={onConfigChange}
+  >
     <Label.Label config={label} onChange={onConfigChange} />
-    <Primitive
+    <Cylinder
       onResize={(dimensions) => onConfigChange({ dimensions })}
       orientation={orientation}
       color={color}

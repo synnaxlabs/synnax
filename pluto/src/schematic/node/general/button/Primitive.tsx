@@ -9,19 +9,19 @@
 
 import { type MouseEventHandler, type ReactElement } from "react";
 
-import { Button as BaseButton } from "@/button";
+import { Button as Base } from "@/button";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
   onMouseUp?: MouseEventHandler<HTMLButtonElement>;
 }
 
-export const Primitive = ({
+export const Button = ({
   onClick,
   onMouseDown,
   onMouseUp,
@@ -31,9 +31,9 @@ export const Primitive = ({
   size,
   level,
   onClickDelay: delay,
-}: RenderProps): ReactElement => (
-  <Base.Div orientation={orientation}>
-    <BaseButton.Button
+}: ButtonProps): ReactElement => (
+  <Primitive.Div orientation={orientation}>
+    <Base.Button
       variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
@@ -41,39 +41,17 @@ export const Primitive = ({
       color={color}
       size={size}
       level={level}
+      direction={label?.direction}
       onClickDelay={delay}
     >
       {label?.label ?? ""}
-    </BaseButton.Button>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={0}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={100}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={0}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={100}
-        id="4"
-      />
-    </Handle.Boundary>
-  </Base.Div>
+    </Base.Button>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={0}
+      top={0}
+      right={100}
+      bottom={100}
+    />
+  </Primitive.Div>
 );

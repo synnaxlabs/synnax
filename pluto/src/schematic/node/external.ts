@@ -10,7 +10,6 @@
 export * from "@/schematic/node/common/border";
 export * from "@/schematic/node/common/control";
 export * from "@/schematic/node/common/custom";
-export * from "@/schematic/node/common/flowmeter";
 export * from "@/schematic/node/common/form";
 export * from "@/schematic/node/common/grid";
 export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";

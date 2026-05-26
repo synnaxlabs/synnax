@@ -21,7 +21,14 @@ import {
   Telem,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, DataType, type notation, primitive, type telem } from "@synnaxlabs/x";
+import {
+  color,
+  DataType,
+  type notation,
+  primitive,
+  type TimestampFormat,
+  type TimeZone,
+} from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -146,7 +153,7 @@ const ChannelRow = ({
           <>
             <Telem.SelectTimestampFormat
               value={config.timestamp.format}
-              onChange={(f: telem.TimestampFormat) =>
+              onChange={(f: TimestampFormat) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, format: f },
                 })
@@ -155,7 +162,7 @@ const ChannelRow = ({
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
-              onChange={(v: telem.TimeZone) =>
+              onChange={(v: TimeZone) =>
                 onConfigChange(channelKey, {
                   timestamp: { ...config.timestamp, tz: v },
                 })
