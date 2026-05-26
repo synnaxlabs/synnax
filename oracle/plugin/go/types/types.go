@@ -495,6 +495,10 @@ type enumData struct {
 	StartsAtOne bool
 }
 
+// Receiver returns the single-letter, lowercased method receiver name for the enum type
+// (e.g. "n" for Notation), falling back to "e" for an empty name.
+func (e enumData) Receiver() string { return strings.ToLower(e.Name[:1]) }
+
 type enumValueData struct {
 	Name     string
 	Value    string
@@ -574,6 +578,18 @@ const (
 	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
 {{- end}}
 )
+{{- if $enum.Values}}
+
+// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.
+func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
+	switch {{$enum.Receiver}} {
+	case {{range $i, $v := $enum.Values}}{{if $i}}, {{end}}{{$enum.Name}}{{$v.Name}}{{end}}:
+		return true
+	default:
+		return false
+	}
+}
+{{- end}}
 {{- end}}
 {{- end}}
 {{range .Structs}}
