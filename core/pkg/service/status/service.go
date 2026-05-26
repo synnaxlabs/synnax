@@ -221,34 +221,18 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, err
 }
 
-// DeleteByKeyOrName deletes a row whose Key equals keyOrName (count 0 or 1) or,
-// failing that, all rows whose Name matches (count = matches).
-func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (int, error) {
-	if keyOrName == "" {
-		return 0, ErrEmptyKeyOrName
-	}
-	var count int
-	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+// DeleteByKeyOrName deletes the status matching keyOrName by key, or all statuses
+// matching by name when none match by key, returning the number deleted.
+func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (count int, err error) {
+	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		matches, err := s.ResolveKeyOrName(ctx, tx, keyOrName)
+		if err != nil {
+			return err
+		}
 		w := s.NewWriter(tx)
-		var st Status[any]
-		rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
-		if rerr == nil {
-			if derr := w.Delete(ctx, keyOrName); derr != nil {
-				return derr
-			}
-			count = 1
-			return nil
-		}
-		if !errors.Is(rerr, query.ErrNotFound) {
-			return rerr
-		}
-		matches, merr := retrieveByName[any](ctx, tx, keyOrName)
-		if merr != nil {
-			return merr
-		}
 		for _, m := range matches {
-			if derr := w.Delete(ctx, m.Key); derr != nil {
-				return derr
+			if err = w.Delete(ctx, m.Key); err != nil {
+				return err
 			}
 		}
 		count = len(matches)

@@ -161,14 +161,31 @@ func (s *Service) DeleteByKeyOrName(
 	ctx context.Context,
 	req DeleteByKeyOrNameRequest,
 ) (res DeleteByKeyOrNameResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
-	}); err != nil {
-		return res, err
-	}
-	res.Count, err = s.internal.DeleteByKeyOrName(ctx, req.KeyOrName)
+	err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
+		if err != nil {
+			return err
+		}
+		ids := make([]ontology.ID, len(matches))
+		for i, m := range matches {
+			ids[i] = status.OntologyID(m.Key)
+		}
+		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: ids,
+		}); err != nil {
+			return err
+		}
+		w := s.internal.NewWriter(tx)
+		for _, m := range matches {
+			if err = w.Delete(ctx, m.Key); err != nil {
+				return err
+			}
+		}
+		res.Count = len(matches)
+		return nil
+	})
 	return res, err
 }
 
