@@ -31,7 +31,7 @@ export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const dispatchReqZ = z.object({
   key: keyZ,
-  session_key: z.string(),
+  dispatch_key: z.string(),
   actions: actionZ.array(),
 });
 
@@ -39,10 +39,13 @@ const dispatchReqZ = z.object({
 // runs snakeToCamel before handing the value to the schema, so this stays in
 // camelCase. seq is the server's monotonic high-water mark used by the store
 // to drop stale echoes; it defaults to 0 to keep frames from servers that
-// predate the field parseable.
+// predate the field parseable. dispatchKey is the client-generated batch ID
+// the originator registered as outstanding before sending; the substrate
+// matches the echo against that set to recognize its own dispatches
+// race-safely.
 export const scopedActionZ = z.object({
   key: keyZ,
-  sessionKey: z.string(),
+  dispatchKey: z.string(),
   seq: z.number().int().nonnegative().default(0),
   actions: actionZ.array(),
 });
@@ -118,11 +121,11 @@ export class Client {
     );
   }
 
-  async dispatch(key: Key, sessionKey: string, actions: Action[]): Promise<void> {
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
     await sendRequired(
       this.client,
       "/schematic/dispatch",
-      { key, session_key: sessionKey, actions },
+      { key, dispatch_key: dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );

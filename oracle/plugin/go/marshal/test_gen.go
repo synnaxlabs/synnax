@@ -746,7 +746,6 @@ func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 		}
 		if typemap.IsUUID(prim.Name) {
 			b.needsUUID = true
-			b.imports["github.com/google/uuid"] = "uuid"
 		}
 		return goType, nil
 	}

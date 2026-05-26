@@ -67,6 +67,7 @@ func (WriterRequestTranslator) Backward(
 			Mode:                     ts.WriterMode(req.Config.Mode),
 			EnableAutoCommit:         new(req.Config.EnableAutoCommit),
 			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
+			AutoIndex:                new(req.Config.AutoIndex),
 		},
 		Frame: fr,
 	}, nil
@@ -96,6 +97,9 @@ func (WriterRequestTranslator) Forward(
 	}
 	if req.Config.EnableAutoCommit != nil {
 		cfg.EnableAutoCommit = *req.Config.EnableAutoCommit
+	}
+	if req.Config.AutoIndex != nil {
+		cfg.AutoIndex = *req.Config.AutoIndex
 	}
 	fr, err := translateFrameBackward(req.Frame)
 	if err != nil {

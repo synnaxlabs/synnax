@@ -71,6 +71,51 @@ var _ = Describe("Frame", func() {
 		})
 	})
 
+	Describe("Grow", func() {
+		It("Should preserve the frame's contents", func() {
+			fr := telem.MultiFrame(
+				[]int32{1, 2},
+				[]telem.Series{
+					telem.NewSeriesV[int32](1, 2, 3),
+					telem.NewSeriesV[int32](4, 5, 6),
+				},
+			)
+			grown := fr.Grow(5)
+			Expect(grown.KeysSlice()).To(Equal([]int32{1, 2}))
+			Expect(grown.SeriesSlice()).To(Equal([]telem.Series{
+				telem.NewSeriesV[int32](1, 2, 3),
+				telem.NewSeriesV[int32](4, 5, 6),
+			}))
+			Expect(grown.Count()).To(Equal(2))
+		})
+
+		It("Should ensure capacity for n additional entries without reallocating on Append", func() {
+			fr := telem.UnaryFrame[int32](1, telem.NewSeriesV[int32](1, 2, 3))
+			grown := fr.Grow(3)
+			keysPtr := &grown.KeysSlice()[0]
+			grown = grown.Append(2, telem.NewSeriesV[int32](4, 5, 6))
+			grown = grown.Append(3, telem.NewSeriesV[int32](7, 8, 9))
+			grown = grown.Append(4, telem.NewSeriesV[int32](10, 11, 12))
+			Expect(&grown.KeysSlice()[0]).To(Equal(keysPtr))
+			Expect(grown.Count()).To(Equal(4))
+		})
+
+		It("Should be a no-op when n is zero", func() {
+			fr := telem.UnaryFrame[int32](1, telem.NewSeriesV[int32](1, 2, 3))
+			grown := fr.Grow(0)
+			Expect(grown.KeysSlice()).To(Equal([]int32{1}))
+			Expect(grown.Count()).To(Equal(1))
+		})
+
+		It("Should grow an empty frame", func() {
+			fr := telem.Frame[int32]{}
+			grown := fr.Grow(4)
+			Expect(grown.Count()).To(Equal(0))
+			grown = grown.Append(1, telem.NewSeriesV[int32](1, 2, 3))
+			Expect(grown.Count()).To(Equal(1))
+		})
+	})
+
 	Describe("Count", func() {
 		It("Should return the number of channels in the frame", func() {
 			fr := telem.UnaryFrame[int32](1, telem.NewSeriesV[int32](1, 2, 3))

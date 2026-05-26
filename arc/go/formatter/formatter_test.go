@@ -37,6 +37,36 @@ var _ = Describe("Formatter", func() {
 		Entry("power with multiply", "x := 2 ^ 3 * 4", "x := 2 ^ 3 * 4\n"),
 	)
 
+	DescribeTable("Imports",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single module collapses to bare form", "import(time)", "import time\n"),
+		Entry("bare form stays bare", "import time", "import time\n"),
+		Entry("aliased collapses to bare form", "import (time as t)", "import time as t\n"),
+		Entry("bare aliased stays bare", "import time as t", "import time as t\n"),
+		Entry("hierarchical path collapses to bare form", "import (math.trig)", "import math.trig\n"),
+		Entry("multiple modules expand to multi-line block",
+			"import (time math status)",
+			"import (\n    time\n    math\n    status\n)\n"),
+		Entry("multiple modules with alias",
+			"import (time as t math)",
+			"import (\n    time as t\n    math\n)\n"),
+		Entry("multiple modules with hierarchical path",
+			"import (time math.trig)",
+			"import (\n    time\n    math.trig\n)\n"),
+		Entry("multi-line single item collapses to bare form",
+			"import (\n    time\n)",
+			"import time\n"),
+		Entry("multi-line single item preserves trailing declarations",
+			"import (\n    time\n)\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n",
+			"import time\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n"),
+		Entry("empty is removed", "import ()", ""),
+		Entry("empty is removed and following declarations are preserved",
+			"import ()\n\nauthority 255\n",
+			"authority 255\n"),
+	)
+
 	DescribeTable("Unit Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
@@ -249,19 +279,22 @@ var _ = Describe("Formatter", func() {
 		Entry("preserve string escapes", `x := "hello\nworld"`, "x := \"hello\\nworld\"\n"),
 	)
 
-	DescribeTable("Raw String Literals",
+	DescribeTable("Raw, Multi-Line, and Format String Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("bare raw literal", "`hello`", "`hello`\n"),
-		Entry("simple raw in assignment", "x := `hello`", "x := `hello`\n"),
-		Entry("tight raw in assignment adds spaces", "x:=`hi`", "x := `hi`\n"),
-		Entry("raw in func call", "log(`hi`)", "log(`hi`)\n"),
+		Entry("bare format literal", `f"hello"`, "f\"hello\"\n"),
+		Entry("simple raw in assignment", `x := r"hello"`, "x := r\"hello\"\n"),
+		Entry("tight raw in assignment adds spaces", `x:=r"hi"`, "x := r\"hi\"\n"),
+		Entry("format string in func call", `log(f"hi")`, "log(f\"hi\")\n"),
 		Entry("multi-line preserves newlines", "x := `a\nb`", "x := `a\nb`\n"),
 		Entry("multi-line preserves indentation", "x := `\n    indent`", "x := `\n    indent`\n"),
-		Entry("embedded double quotes preserved", "x := `say \"hi\"`", "x := `say \"hi\"`\n"),
-		Entry("spacing raw next to identifier", "x:=`y`", "x := `y`\n"),
-		Entry("escaped backtick preserved", "x := `say \\`hi\\``", "x := `say \\`hi\\``\n"),
+		Entry("embedded escaped quotes preserved", `x := "say \"hi\""`, "x := \"say \\\"hi\\\"\"\n"),
+		Entry("spacing format next to identifier", `x:=f"y"`, "x := f\"y\"\n"),
+		Entry("rf prefix preserved", `x := rf"path: {p}"`, "x := rf\"path: {p}\"\n"),
+		Entry("format multi-line with placeholder", "x := f`a={p}\nb={q}`", "x := f`a={p}\nb={q}`\n"),
+		Entry("raw multi-line preserved", "x := r`a\\nb\nc`", "x := r`a\\nb\nc`\n"),
+		Entry("rf multi-line preserved", "x := rf`path\\to\n{p}`", "x := rf`path\\to\n{p}`\n"),
 	)
 
 	DescribeTable("Global Constants",
@@ -288,6 +321,12 @@ var _ = Describe("Formatter", func() {
 		Entry("flow with multiple config values",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output\n"),
+		Entry("dotted identifier with anonymous config in flow stays on one line",
+			`time.interval{1s} -> "hello" -> arc_string_test`,
+			"time.interval{1s} -> \"hello\" -> arc_string_test\n"),
+		Entry("plain identifier with anonymous config in flow stays on one line",
+			"interval{1s} -> output",
+			"interval{1s} -> output\n"),
 	)
 
 	DescribeTable("Next Statement",

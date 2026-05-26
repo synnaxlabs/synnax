@@ -31,6 +31,7 @@ import {
   type direction,
   location,
   type record,
+  type text,
   xy,
 } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement, type ReactNode, useMemo } from "react";
@@ -365,7 +366,7 @@ const MultiConfig = ({
       className={CSS.BE("schematic", "properties", "multi")}
       gap="large"
     >
-      <Input.Item label="Selection Colors" align="start">
+      <Input.Item label="Selection colors" align="start">
         <Flex.Box x>
           {Object.entries(colorGroups).map(([hex, keys]) => (
             <Color.Swatch
@@ -453,7 +454,7 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Rotate Selection">
+      <Input.Item label="Rotate selection">
         <Flex.Box x>
           <Button.Button
             tooltip="Rotate selection clockwise"
@@ -469,33 +470,33 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Label Wrap Width" align="start">
+      <Input.Item label="Label wrap width" align="start">
         <Input.Numeric
           value={firstNodeLabel?.maxInlineSize ?? 150}
           onChange={(v) => handleLabelProp("maxInlineSize", v)}
           endContent="px"
         />
       </Input.Item>
-      <Input.Item label="Label Size" align="start">
+      <Input.Item label="Label size" align="start">
         <Select.Text.Level
           value={firstNodeLabel?.level ?? "p"}
-          onChange={(v: Text.Level) => handleLabelProp("level", v)}
+          onChange={(v: text.Level) => handleLabelProp("level", v)}
         />
       </Input.Item>
-      <Input.Item label="Label Alignment" align="start">
+      <Input.Item label="Label alignment" align="start">
         <Select.Flex.Alignment
           value={firstNodeLabel?.align ?? "center"}
           onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
         />
       </Input.Item>
-      <Input.Item label="Label Direction" align="start">
+      <Input.Item label="Label direction" align="start">
         <Direction.Select
           value={firstNodeLabel?.direction ?? "x"}
           onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
           yDirection="down"
         />
       </Input.Item>
-      <Input.Item label="Label Orientation" align="start">
+      <Input.Item label="Label orientation" align="start">
         <Schematic.Node.Orientation.Select
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>

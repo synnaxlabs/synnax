@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, type record } from "@synnaxlabs/x";
+import { type destructor, id, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type base } from "@/flux/base";
@@ -44,7 +44,7 @@ export interface CreateDispatchParams<
     client: Client;
     key: Key;
     actions: Action[];
-    sessionKey: string;
+    dispatchKey: string;
   }) => Promise<void>;
 }
 
@@ -61,6 +61,10 @@ export const createDispatch = <
   // Reduce + send with rollback. Used by dispatch, undo, and redo. The
   // `commitStack` closure applies the per-op stack mutation (push entry on
   // dispatch; transition undo↔redo on undo/redo) and returns its rollback.
+  // A fresh dispatchKey is generated per batch and registered as outstanding
+  // *before* the network send: the broadcast echo can race with the HTTP
+  // response back to us, and registering up front means the echo will always
+  // find the entry and skip its redundant reduce.
   const apply = async (
     store: ScopedStore,
     client: Client,
@@ -74,8 +78,10 @@ export const createDispatch = <
     const r = store[storeKey].replay(key, actions, { skipPreprocess });
     if (r == null) return false;
     const stackRollback = commitStack(r);
+    const dispatchKey = id.create();
+    store[storeKey].registerOutstandingDispatch(key, dispatchKey);
     try {
-      await send({ client, key, actions: r.processed, sessionKey: client.key });
+      await send({ client, key, actions: r.processed, dispatchKey });
       return true;
     } catch (e) {
       stackRollback();
@@ -127,10 +133,15 @@ export const createDispatch = <
       (input: { key: Key; kind?: string }): Transaction<Action> => {
         if (client == null) return INERT_TX as Transaction<Action>;
         // Wrap `send` so the substrate's rollback runs as before, but the
-        // error also surfaces to the user via the status aggregator.
+        // error also surfaces to the user via the status aggregator. A
+        // dispatchKey is allocated per commit (one batch, one outstanding
+        // entry) and registered before the network send so the broadcast
+        // echo wins the race.
         const wrappedSend = async (actions: Action[]) => {
+          const dispatchKey = id.create();
+          store[storeKey].registerOutstandingDispatch(input.key, dispatchKey);
           try {
-            await send({ client, key: input.key, actions, sessionKey: client.key });
+            await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
             addStatus(errorResult("commit transaction", e).status);
             throw e;

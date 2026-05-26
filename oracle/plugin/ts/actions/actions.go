@@ -23,9 +23,9 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
@@ -96,14 +96,14 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Manager:        mgr,
-		TargetType:     lo.CamelCase(typ.Name),
+		TargetType:     casing.TypeCamel(typ.Name),
 		TargetTypeName: typ.Name,
 	}
 
 	for _, action := range form.Actions {
 		a := actionData{
-			Name:     lo.PascalCase(action.Name),
-			TypeName: lo.SnakeCase(action.Name),
+			Name:     casing.TypePascal(action.Name),
+			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
 		for _, field := range action.Fields {
@@ -141,8 +141,8 @@ type actionData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"camelCase":  lo.CamelCase,
-	"pascalCase": lo.PascalCase,
+	"camelCase":  casing.TypeCamel,
+	"pascalCase": casing.TypePascal,
 	"formatDoc":  doc.FormatTS,
 }
 

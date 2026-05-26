@@ -12,25 +12,28 @@ import { type ReactElement } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
-import { Primitive } from "@/schematic/node/general/stateIndicator/Primitive";
+import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { StateIndicator } from "@/vis/stateIndicator";
+import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  draggable,
-  config: { label, source, options, color: colorVal, inlineSize },
+  config: { label, source, options, color, inlineSize },
 }: NodeProps<Config>): ReactElement => {
-  const { key: optKey } = StateIndicator.use({ aetherKey: nodeKey, source, options });
+  const { key: optKey } = BaseStateIndicator.use({
+    aetherKey: nodeKey,
+    source,
+    options,
+  });
   return (
-    <Grid.Grid allowRotate={false} editable={selected && !draggable} nodeKey={nodeKey}>
+    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive
+      <StateIndicator
         matchedOptionKey={optKey}
         options={options}
-        color={colorVal}
+        color={color}
         inlineSize={inlineSize}
       />
     </Grid.Grid>

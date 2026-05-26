@@ -18,11 +18,15 @@ import (
 	telemOp "github.com/synnaxlabs/x/telem/op"
 )
 
-type Module struct{}
+// Host is the runtime host-side support for operators: a node factory for
+// arithmetic, comparison, logical, and unary ops. Operators have no WASM
+// host bindings and no per-program state.
+type Host struct{}
 
-func NewModule() *Module { return &Module{} }
+// NewHost constructs an op Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
 		return &binary{State: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil

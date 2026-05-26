@@ -93,12 +93,14 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 }
 
 // DispatchRequest carries an action sequence to apply to a single schematic.
-// SessionKey identifies the originating client so cluster broadcasts can be
-// deduplicated against the local optimistic update.
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding on the originator before the request is sent. The server echoes
+// it verbatim on the broadcast frame so the originator can recognize its own
+// echo race-safely.
 type DispatchRequest struct {
-	Key        schematic.Key      `json:"key" msgpack:"key"`
-	SessionKey string             `json:"session_key" msgpack:"session_key"`
-	Actions    []schematic.Action `json:"actions" msgpack:"actions"`
+	Key         schematic.Key      `json:"key" msgpack:"key"`
+	DispatchKey string             `json:"dispatch_key" msgpack:"dispatch_key"`
+	Actions     []schematic.Action `json:"actions" msgpack:"actions"`
 }
 
 // Dispatch applies the action sequence to the target schematic atomically.
@@ -113,7 +115,7 @@ func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 

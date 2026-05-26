@@ -357,8 +357,8 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   FluxSubStore
 >({
   storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, sessionKey }) =>
-    client.schematics.dispatch(key, sessionKey, actions),
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.schematics.dispatch(key, dispatchKey, actions),
 });
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}

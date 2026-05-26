@@ -17,7 +17,6 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -77,13 +76,10 @@ var _ = Describe("ExecContext", func() {
 
 var _ = Describe("Unary Minus", func() {
 	It("Should preserve signed types for unary minus", func(bCtx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			symbol.MapResolver{
-				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.I32(), ID: 0},
-			},
-			stl.SymbolResolver,
+		extras := []symbol.Symbol{
+			{Name: "x", Kind: symbol.KindVariable, Type: types.I32(), ID: 0},
 		}
-		_, exprType := compileWithAnalyzer(bCtx, "-x", resolver)
+		_, exprType := compileWithAnalyzer(bCtx, "-x", extras)
 		Expect(exprType).To(Equal(types.I32()))
 	})
 })

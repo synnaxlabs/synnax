@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -142,9 +143,9 @@ func (f Frame[K]) SeriesSlice() []Series {
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawSeries() []Series { return f.series }
 
-// RawKeys returns the raw slice of keys in teh frame. This includes any keys that have
-// been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this
-// slice has been filtered out, use ShouldExcludeRaw.
+// RawKeys returns the raw slice of keys in the frame. This includes any keys that have
+// been filtered out by KeepKeys or ExcludeKeys. To check whether an index in this slice
+// has been filtered out, use ShouldExcludeRaw.
 //
 // It is not safe to modify the contents of the returned slice.
 func (f Frame[K]) RawKeys() []K { return f.keys }
@@ -382,11 +383,21 @@ func (f Frame[K]) Get(key K) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// Append adds a new key-series pair to the end of teh frame, returning the updated
+// Append adds a new key-series pair to the end of the frame, returning the updated
 // frame.
 func (f Frame[K]) Append(key K, series Series) Frame[K] {
 	f.keys = append(f.keys, key)
 	f.series = append(f.series, series)
+	return f
+}
+
+// Grow ensures the frame has capacity for at least n additional entries beyond its
+// current length, allocating a larger backing array if necessary. Useful for callers
+// that know in advance how many Append calls they will make and want to avoid
+// repeated slice growth in a hot path.
+func (f Frame[K]) Grow(n int) Frame[K] {
+	f.keys = slices.Grow(f.keys, n)
+	f.series = slices.Grow(f.series, n)
 	return f
 }
 

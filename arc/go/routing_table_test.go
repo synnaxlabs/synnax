@@ -12,7 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/channel"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -41,9 +41,9 @@ var _ = Describe("Routing Table Runtime", func() {
 					low: low_out
 				}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
-				channel.Digest{Key: 300, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 300, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -80,9 +80,9 @@ var _ = Describe("Routing Table Runtime", func() {
 					low: low_out
 				}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
-				channel.Digest{Key: 300, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 300, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -119,9 +119,9 @@ var _ = Describe("Routing Table Runtime", func() {
 					low: low_out
 				}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
-				channel.Digest{Key: 300, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 300, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -166,10 +166,10 @@ var _ = Describe("Routing Table Runtime", func() {
 				    zero: zero_out,
 				    positive: pos_out
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Int64T},
-				channel.Digest{Key: 200, DataType: telem.Int64T},
-				channel.Digest{Key: 300, DataType: telem.Int64T},
-				channel.Digest{Key: 400, DataType: telem.Int64T},
+				channels.Digest{Key: 100, DataType: telem.Int64T},
+				channels.Digest{Key: 200, DataType: telem.Int64T},
+				channels.Digest{Key: 300, DataType: telem.Int64T},
+				channels.Digest{Key: 400, DataType: telem.Int64T},
 			)
 			defer h.Close(ctx)
 
@@ -208,8 +208,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: amplify{} -> alarm_out
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -242,8 +242,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: amplify{} -> alarm_out
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -274,8 +274,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: amplify{} -> alarm_out
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Float64T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Float64T},
 			)
 			defer h.Close(ctx)
 
@@ -321,8 +321,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: alarm
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -378,8 +378,8 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: alarm
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -424,9 +424,9 @@ var _ = Describe("Routing Table Runtime", func() {
 				    above: open_valve,
 				    below: log_event
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -486,9 +486,9 @@ var _ = Describe("Routing Table Runtime", func() {
 				sensor -> demux{threshold=50.0} -> {
 				    high: pressurize
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 101, DataType: telem.Float32T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 101, DataType: telem.Float32T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -548,9 +548,9 @@ var _ = Describe("Routing Table Runtime", func() {
 				        1 -> shut_cmd
 				    }
 				}`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -615,9 +615,9 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
-				channel.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 
@@ -666,9 +666,9 @@ var _ = Describe("Routing Table Runtime", func() {
 				        1 -> vlv_cmd
 				    }
 				}`, resolver,
-				channel.Digest{Key: 50, DataType: telem.Uint8T},
-				channel.Digest{Key: 100, DataType: telem.Float64T},
-				channel.Digest{Key: 200, DataType: telem.Uint8T},
+				channels.Digest{Key: 50, DataType: telem.Uint8T},
+				channels.Digest{Key: 100, DataType: telem.Float64T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
 			)
 			defer h.Close(ctx)
 

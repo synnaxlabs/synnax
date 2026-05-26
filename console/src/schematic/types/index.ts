@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flex, type Schematic as PSchematic, type Text } from "@synnaxlabs/pluto";
-import { type color, type direction, type location, migrate } from "@synnaxlabs/x";
+import { type Flex, type Schematic as PSchematic } from "@synnaxlabs/pluto";
+import {
+  type color,
+  type direction,
+  type location,
+  migrate,
+  type text,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -21,7 +27,7 @@ import * as v6 from "@/schematic/types/v6";
 
 export interface NodePropsLabel {
   label?: string;
-  level?: Text.Level;
+  level?: text.Level;
   orientation?: location.Outer;
   direction?: direction.Direction;
   maxInlineSize?: number;

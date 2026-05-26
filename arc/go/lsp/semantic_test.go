@@ -14,17 +14,27 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // Token type ids must mirror the iota constants in arc/go/lsp/semantic.go.
-// Tests in this file pin both the legend ordering and the token-type routing
-// for STR_LITERAL vs STR_LITERAL_RAW to those ids.
+// Tests in this file pin the legend ordering and the token-type routing
+// to those ids.
 const (
-	tokenTypeString    = uint32(4)
-	tokenTypeStringRaw = uint32(21)
+	tokenTypeKeyword           = uint32(0)
+	tokenTypeOperator          = uint32(2)
+	tokenTypeString            = uint32(4)
+	tokenTypeNumber            = uint32(5)
+	tokenTypeFunction          = uint32(7)
+	tokenTypeChannel           = uint32(9)
+	tokenTypeNamespace         = uint32(21)
+	tokenTypeStringRaw         = uint32(22)
+	tokenTypeStringPlaceholder = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -85,8 +95,8 @@ var _ = Describe("Semantic Tokens", func() {
 
 	Describe("appendTokenPerLine — raw string spans", func() {
 		It("emits one token for a single-line raw literal", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := `hello`")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			OpenArcDocument(server, ctx, uri, "x := \"hello\"")
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(1))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
@@ -94,17 +104,17 @@ var _ = Describe("Semantic Tokens", func() {
 		})
 
 		It("emits one token for an empty raw literal", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := ``")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			OpenArcDocument(server, ctx, uri, "x := \"\"")
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(1))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
 			Expect(tokens[0].Length).To(Equal(uint32(2)))
 		})
 
-		It("splits a raw literal with one mid-newline into two tokens", func(ctx SpecContext) {
+		It("splits a multi-line literal with one mid-newline into two tokens", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `a\nb`")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
@@ -114,9 +124,9 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(tokens[1].Length).To(Equal(uint32(2)))
 		})
 
-		It("splits a three-line raw literal into three tokens", func(ctx SpecContext) {
+		It("splits a three-line multi-line literal into three tokens", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `a\nb\nc`")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(3))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
@@ -131,7 +141,7 @@ var _ = Describe("Semantic Tokens", func() {
 
 		It("emits a final token for a closing backtick on its own line", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `abc\n`")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
@@ -141,18 +151,9 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(tokens[1].Length).To(Equal(uint32(1)))
 		})
 
-		It("emits one token for a raw literal with escaped backticks", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := `say \\`hi\\``")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
-			Expect(tokens).To(HaveLen(1))
-			Expect(tokens[0].Line).To(Equal(uint32(0)))
-			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
-			Expect(tokens[0].Length).To(Equal(uint32(12)))
-		})
-
-		It("skips empty lines in a raw literal with consecutive newlines", func(ctx SpecContext) {
+		It("skips empty lines in a multi-line literal with consecutive newlines", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `a\n\nb`")
-			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeString)
 			Expect(tokens).To(HaveLen(2))
 			Expect(tokens[0].Line).To(Equal(uint32(0)))
 			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
@@ -164,32 +165,261 @@ var _ = Describe("Semantic Tokens", func() {
 	})
 
 	Describe("Token Type Routing", func() {
-		It("routes backtick literals to the stringRaw token type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := `hi`")
-			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-			raw := filterByType(tokens, tokenTypeStringRaw)
-			Expect(raw).To(HaveLen(1))
-			Expect(raw[0].Length).To(Equal(uint32(4)))
-		})
-
-		It("routes regular double-quoted strings to the string token type", func(ctx SpecContext) {
+		It("routes single-quoted literals to the string token type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, `x := "hi"`)
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			str := filterByType(tokens, tokenTypeString)
 			Expect(str).To(HaveLen(1))
 			Expect(str[0].Length).To(Equal(uint32(4)))
-			Expect(filterByType(tokens, tokenTypeStringRaw)).To(BeEmpty())
 		})
 
-		It("does not emit a stringRaw token when no backtick literal is present", func(ctx SpecContext) {
+		It("routes raw-prefixed literals to the string token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := r"hi"`)
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			str := filterByType(tokens, tokenTypeString)
+			Expect(str).To(HaveLen(1))
+			Expect(str[0].Length).To(Equal(uint32(4)))
+		})
+
+		It("does not emit a string token when no string literal is present", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := 42")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-			Expect(filterByType(tokens, tokenTypeStringRaw)).To(BeEmpty())
+			Expect(filterByType(tokens, tokenTypeString)).To(BeEmpty())
+		})
+
+		It("routes raw triple-quoted literals to the string token type across newlines", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := r\"\"\"a\nb\"\"\"")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			str := filterByType(tokens, tokenTypeString)
+			Expect(str).To(HaveLen(2))
+			Expect(str[0].Line).To(Equal(uint32(0)))
+			Expect(str[1].Line).To(Equal(uint32(1)))
+		})
+	})
+
+	Describe("Format-string placeholders", func() {
+		It("splits f\"val: {42}\" into prefix, string segments, placeholder braces, and a number", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"val: {42}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			var inLit []decodedToken
+			for _, t := range all {
+				if t.Line == 0 && t.StartChar >= 5 {
+					inLit = append(inLit, t)
+				}
+			}
+			Expect(inLit).To(HaveLen(7))
+			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
+			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 6, Length: 1, TokenType: tokenTypeString}))
+			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 7, Length: 5, TokenType: tokenTypeString}))
+			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 13, Length: 2, TokenType: tokenTypeNumber}))
+			Expect(inLit[5]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[6]).To(Equal(decodedToken{Line: 0, StartChar: 16, Length: 1, TokenType: tokenTypeString}))
+		})
+
+		It("classifies a placeholder identifier through the global resolver", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{
+					Name: "sensorData",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, `x := f"v: {sensorData}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ch := filterByType(all, tokenTypeChannel)
+			Expect(ch).To(HaveLen(1))
+			Expect(ch[0]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 10, TokenType: tokenTypeChannel}))
+		})
+
+		It("treats {{ as a literal-brace escape and leaves bare } literal", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"a {{ b }} c"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(BeEmpty())
+			str := filterByType(all, tokenTypeString)
+			Expect(str).ToNot(BeEmpty())
+		})
+
+		It("recognizes a real placeholder while ignoring surrounding doubled braces", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"{{ {42} }}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+		})
+
+		It("falls back to prefix + string tokens on a malformed placeholder", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"unterminated {x"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			str := filterByType(all, tokenTypeString)
+			Expect(str).To(HaveLen(1))
+			Expect(str[0]).To(Equal(decodedToken{Line: 0, StartChar: 6, Length: 17, TokenType: tokenTypeString}))
+			fn := filterByType(all, tokenTypeFunction)
+			Expect(fn).To(HaveLen(1))
+			Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
+			for _, op := range filterByType(all, tokenTypeOperator) {
+				Expect(op.StartChar < 5).To(BeTrue())
+			}
+		})
+
+		It("emits a placeholder span for a numeric format spec after the expression", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"v={42:05d}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ph := filterByType(all, tokenTypeStringPlaceholder)
+			Expect(ph).To(HaveLen(3))
+			Expect(ph[0]).To(Equal(decodedToken{Line: 0, StartChar: 9, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(ph[1]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 4, TokenType: tokenTypeStringPlaceholder}))
+			Expect(ph[2]).To(Equal(decodedToken{Line: 0, StartChar: 16, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+		})
+
+		It("classifies multi-token placeholder expressions with prev/next context", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{
+					Name: "sensor",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, `x := f"v={sensor + 1}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeChannel)).To(HaveLen(1))
+			plus := filterByType(all, tokenTypeOperator)
+			Expect(plus).ToNot(BeEmpty())
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+		})
+
+		It("skips inner placeholder tokens that classify to nil (parens)", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := f"v={(42)}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+		})
+
+		It("classifies placeholders across newlines in a multi-line format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := f`a={1}\nb={2}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
+		})
+
+		It("classifies placeholders inside an rf-prefixed format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := rf"v={42}"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+		})
+
+		It("classifies placeholders inside an rf-prefixed multi-line format string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := rf`a={1}\nb={2}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(4))
+		})
+
+		DescribeTable("emits the r/f/rf/fr prefix as a function-typed token",
+			func(ctx SpecContext, source string, prefixLen uint32) {
+				OpenArcDocument(server, ctx, uri, source)
+				all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				fn := filterByType(all, tokenTypeFunction)
+				Expect(fn).To(HaveLen(1))
+				Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: prefixLen, TokenType: tokenTypeFunction}))
+			},
+			Entry("f-prefixed single-quoted", `x := f"hi {x}"`, uint32(1)),
+			Entry("r-prefixed single-quoted", `x := r"path"`, uint32(1)),
+			Entry("rf-prefixed single-quoted", `x := rf"hi {x}"`, uint32(2)),
+			Entry("fr-prefixed single-quoted", `x := fr"hi {x}"`, uint32(2)),
+			Entry("f-prefixed backtick", "x := f`hi`", uint32(1)),
+			Entry("r-prefixed backtick", "x := r`hi`", uint32(1)),
+			Entry("rf-prefixed backtick", "x := rf`hi {x}`", uint32(2)),
+		)
+
+		It("does not emit a function token for an unprefixed string", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `x := "plain"`)
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeFunction)).To(BeEmpty())
+		})
+	})
+
+	Describe("SemanticTokensFull", func() {
+		It("returns an empty token stream for an unknown document URI", func(ctx SpecContext) {
+			result := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///not-open.arc"},
+			}))
+			Expect(result.Data).To(BeEmpty())
+		})
+
+		It("routes module names in a bare import to the namespace token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import time\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(1))
+			Expect(ns[0].Length).To(Equal(uint32(4))) // "time"
+		})
+
+		It("routes every module name in a block import to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import (\n    time\n    math\n)\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(2))
+		})
+
+		It("routes both the module name and its alias to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import time as t\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			Expect(ns).To(HaveLen(2)) // "time" and "t"
+		})
+
+		It("routes import qualifiers at use sites to the namespace token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"import time\n\nfunc cat() i64 { return time.now() }\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ns := filterByType(tokens, tokenTypeNamespace)
+			// One for the import declaration, one for the qualifier at the call site.
+			Expect(ns).To(HaveLen(2))
+			for _, t := range ns {
+				Expect(t.Length).To(Equal(uint32(4)))
+			}
+		})
+
+		It("does not route an unimported qualifier to namespace", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"func cat() i64 { return time.now() }\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
+		})
+
+		It("routes import and as alongside func and authority to the keyword token type", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, `import time as t
+
+authority 255
+
+func cat() {
+    t.now()
+}
+`)
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			lengths := make([]uint32, 0)
+			for _, tok := range filterByType(tokens, tokenTypeKeyword) {
+				lengths = append(lengths, tok.Length)
+			}
+			Expect(lengths).To(ConsistOf(
+				uint32(6), // import
+				uint32(2), // as
+				uint32(9), // authority
+				uint32(4), // func
+			))
 		})
 	})
 
 	Describe("Legend", func() {
-		It("places stringRaw last in the semantic token types legend", func(ctx SpecContext) {
+		It("registers stringPlaceholder at the end of the semantic token types legend", func(ctx SpecContext) {
 			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{
 				ClientInfo: &protocol.ClientInfo{Name: "test"},
 			}))
@@ -198,9 +428,9 @@ var _ = Describe("Semantic Tokens", func() {
 			legend, ok := provider["legend"].(protocol.SemanticTokensLegend)
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
-			last := legend.TokenTypes[len(legend.TokenTypes)-1]
-			Expect(string(last)).To(Equal("stringRaw"))
-			Expect(uint32(len(legend.TokenTypes) - 1)).To(Equal(tokenTypeStringRaw))
+			n := len(legend.TokenTypes)
+			Expect(string(legend.TokenTypes[n-1])).To(Equal("stringPlaceholder"))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeStringPlaceholder))
 		})
 	})
 })
