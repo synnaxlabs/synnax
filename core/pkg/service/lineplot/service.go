@@ -11,17 +11,14 @@ package lineplot
 
 import (
 	"context"
-	"encoding/json"
 	stdio "io"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -29,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,18 +80,7 @@ type Service struct {
 	ServiceConfig
 	closer io.MultiCloser
 	table  *gorp.Table[Key, LinePlot]
-	// actionObserver fans out the ScopedAction emitted by Writer.Dispatch to
-	// subscribers (notably the cluster signals translator). Nil-safe in the
-	// writer when the service was opened without a Signals provider.
-	actionObserver observe.Observer[ScopedAction]
-	// seq is the monotonic sequence counter stamped onto each ScopedAction
-	// before broadcast. Clients dedupe echoes by comparing against the highest
-	// Seq they have applied for the same Key. The counter is in-memory and
-	// resets on process restart, which is acceptable because clients reload
-	// line plot state on reconnect and reset their per-key high-water marks
-	// alongside it. In multi-node deployments each node has its own counter,
-	// so cross-node ordering is best-effort.
-	seq atomic.Uint64
+	state  *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new line plot service using the provided configurations.
@@ -106,7 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
+	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, LinePlot](ctx, gorp.TableConfig[Key, LinePlot]{
@@ -128,27 +113,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		actions := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
-			Observable: s.actionObserver,
-			Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
-				b, err := json.Marshal(sa)
-				if err != nil {
-					return nil, false
-				}
-				return []xchange.Change[[]byte, struct{}]{
-					{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
-				}, true
-			},
-		}
 		var sig stdio.Closer
-		if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-			Name:       "lineplot_actions",
-			Observable: actions,
-			SetChannel: channel.Channel{Name: "sy_lineplot_set", DataType: telem.JSONT, Internal: true},
+		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
+			Provider: cfg.Signals,
+			State:    s.state,
+			Name:     "lineplot",
 		}); !ok(err, sig) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID[LinePlot](s.table.Observe())
+		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
 		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
 			return nil, err
@@ -164,8 +137,10 @@ func (s *Service) Close() error { return s.closer.Close() }
 // OnAction subscribes the given handler to the action stream emitted by
 // Writer.Dispatch. The handler runs synchronously inside Dispatch after the
 // underlying transaction commits. The returned Disconnect removes the handler.
-func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.Disconnect {
-	return s.actionObserver.OnChange(handler)
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting line plots in Synnax. If
@@ -174,11 +149,10 @@ func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:             tx,
-		otg:            s.Ontology.NewWriter(tx),
-		table:          s.table,
-		actionObserver: s.actionObserver,
-		seq:            &s.seq,
+		tx:         tx,
+		otg:        s.Ontology.NewWriter(tx),
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

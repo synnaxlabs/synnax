@@ -16,29 +16,34 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// scopedAction is a short local alias for the line plot's action envelope so
+// the test files don't have to spell out the generic parameters at every use.
+type scopedAction = actions.Scoped[lineplot.Key, lineplot.Action]
+
 // actionRecorder collects ScopedAction notifications emitted by the service's
 // action observer for assertions in tests.
 type actionRecorder struct {
 	mu      sync.Mutex
-	scopeds []lineplot.ScopedAction
+	scopeds []scopedAction
 }
 
-func (r *actionRecorder) record(_ context.Context, sa lineplot.ScopedAction) {
+func (r *actionRecorder) record(_ context.Context, sa scopedAction) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.scopeds = append(r.scopeds, sa)
 }
 
-func (r *actionRecorder) snapshot() []lineplot.ScopedAction {
+func (r *actionRecorder) snapshot() []scopedAction {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]lineplot.ScopedAction, len(r.scopeds))
+	out := make([]scopedAction, len(r.scopeds))
 	copy(out, r.scopeds)
 	return out
 }
@@ -110,13 +115,13 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewSetTitleAction(lineplot.SetTitlePayload{
-						Title: lineplot.Title{Level: lineplot.TextLevelH2, Visible: true},
+						Title: lineplot.Title{Level: text.LevelH2, Visible: true},
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Title.Level).To(Equal(lineplot.TextLevelH2))
+				Expect(res.Title.Level).To(Equal(text.LevelH2))
 				Expect(res.Title.Visible).To(BeTrue())
 			})
 
@@ -264,7 +269,7 @@ var _ = Describe("Writer", func() {
 					Key:            lineplot.AxisKeyY1,
 					Label:          "pressure",
 					LabelDirection: "y",
-					LabelLevel:     lineplot.TextLevelSmall,
+					LabelLevel:     text.LevelSmall,
 					Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    50,
