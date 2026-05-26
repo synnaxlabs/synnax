@@ -89,6 +89,26 @@ class TableLifecycle(ConsoleCase):
         self.test_ctx_export_json()
         self.test_ctx_delete()
 
+        # Interaction: cell editing, selection, clipboard, keyboard shortcuts
+        interaction_name = f"Interaction Test {self.suffix}"
+        interaction = self.console.workspace.create_table(interaction_name)
+        self._cleanup_pages.append(interaction.page_name)
+        try:
+            self.test_cell_text_editing(interaction)
+            self.test_context_menu_insert(interaction)
+            self.test_delete_clears_cell_variant(interaction)
+            self.test_delete_removes_full_row(interaction)
+            self.test_delete_removes_full_col(interaction)
+            self.test_copy_paste_in_bounds(interaction)
+            self.test_paste_grows_table(interaction)
+            self.test_undo_redo_add_row(interaction)
+            self.test_undo_redo_text_edit(interaction)
+            self.test_resize_col_via_drag(interaction)
+            self.test_resize_row_via_drag(interaction)
+            self.test_edit_toggle_gates_editing(interaction)
+        finally:
+            interaction.close()
+
         # Cleanup channels
         self.client.channels.delete([self.idx_name, self.data_name])
 
@@ -238,3 +258,252 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing delete table via context menu")
         self.console.workspace.delete_page(self.ctx_table_name)
         self.ctx_table_name = None
+
+    def test_cell_text_editing(self, table: Table) -> None:
+        """Test that typing in a text cell persists the new value."""
+        self.log("Testing cell text editing")
+        table.set_cell_text(0, 0, "alpha")
+        assert table.has_text("alpha", row=0, col=0), (
+            f"Cell (0,0) should read 'alpha', got '{table.get_cell_text(0, 0)}'"
+        )
+        table.set_cell_text(1, 1, "bravo")
+        assert table.has_text("bravo", row=1, col=1), (
+            f"Cell (1,1) should read 'bravo', got '{table.get_cell_text(1, 1)}'"
+        )
+        # First edit must remain unaffected by the second.
+        assert table.has_text("alpha", row=0, col=0), (
+            "Editing one cell must not change another's content"
+        )
+
+    def test_context_menu_insert(self, table: Table) -> None:
+        """Test inserting rows/columns via context menu relative to a cell."""
+        self.log("Testing context menu insert above/below/left/right")
+        rows_before = table.get_row_count()
+        cols_before = table.get_column_count()
+
+        table.add_row_above(0, 0)
+        assert table.get_row_count() == rows_before + 1, (
+            f"Add row above: expected {rows_before + 1}, got {table.get_row_count()}"
+        )
+        table.add_row_below(table.get_row_count() - 1, 0)
+        assert table.get_row_count() == rows_before + 2, (
+            f"Add row below: expected {rows_before + 2}, got {table.get_row_count()}"
+        )
+        table.add_col_left(0, 0)
+        assert table.get_column_count() == cols_before + 1, (
+            f"Add col left: expected {cols_before + 1}, got {table.get_column_count()}"
+        )
+        table.add_col_right(table.get_column_count() - 1, 0)
+        assert table.get_column_count() == cols_before + 2, (
+            f"Add col right: expected {cols_before + 2}, got {table.get_column_count()}"
+        )
+
+        # Restore to the starting shape by removing what we added.
+        for _ in range(2):
+            table.delete_row(table.get_row_count() - 1)
+            table.delete_column(table.get_column_count() - 1)
+        assert table.get_row_count() == rows_before
+        assert table.get_column_count() == cols_before
+
+    def test_delete_clears_cell_variant(self, table: Table) -> None:
+        """Test that Delete on a Value cell resets it to the default Text variant."""
+        self.log("Testing Delete key clears cell variant")
+        table.set_cell_channel(self.data_name, row=0, col=0)
+        assert table.has_channel(self.data_name, row=0, col=0), (
+            "Setup: cell should hold the channel after set_cell_channel"
+        )
+        table.select_cell(0, 0)
+        table.delete_selected()
+        # After Delete the cell should be a default text cell with empty content.
+        assert table.has_text("", row=0, col=0), (
+            "Cell should be empty text after Delete"
+        )
+
+    def test_delete_removes_full_row(self, table: Table) -> None:
+        """Test that selecting an entire row via its header and pressing Delete removes the row."""
+        self.log("Testing Delete key removes a fully selected row")
+        # Add a buffer row so we don't run the table down to zero rows.
+        table.add_row()
+        rows_before = table.get_row_count()
+        cols_before = table.get_column_count()
+        target_row = rows_before - 1
+        table.select_row_via_header(target_row)
+        table.delete_selected()
+        assert table.get_row_count() == rows_before - 1, (
+            f"Expected {rows_before - 1} rows after row delete, got {table.get_row_count()}"
+        )
+        assert table.get_column_count() == cols_before, (
+            "Deleting a row must not change column count"
+        )
+
+    def test_delete_removes_full_col(self, table: Table) -> None:
+        """Test that selecting an entire column via its header and pressing Delete removes the column."""
+        self.log("Testing Delete key removes a fully selected column")
+        table.add_column()
+        rows_before = table.get_row_count()
+        cols_before = table.get_column_count()
+        target_col = cols_before - 1
+        table.select_col_via_header(target_col)
+        table.delete_selected()
+        assert table.get_column_count() == cols_before - 1, (
+            f"Expected {cols_before - 1} cols after col delete, got {table.get_column_count()}"
+        )
+        assert table.get_row_count() == rows_before, (
+            "Deleting a column must not change row count"
+        )
+
+    def test_copy_paste_in_bounds(self, table: Table) -> None:
+        """Test that copying a 1x2 region and pasting at a new anchor overwrites cells."""
+        self.log("Testing copy/paste within current table bounds")
+        # Grow the table to a known 2x2 starting shape and seed source cells.
+        while table.get_row_count() < 2:
+            table.add_row()
+        while table.get_column_count() < 2:
+            table.add_column()
+        table.set_cell_text(0, 0, "src-a")
+        table.set_cell_text(0, 1, "src-b")
+        table.set_cell_text(1, 0, "dst-a")
+        table.set_cell_text(1, 1, "dst-b")
+
+        # Copy the top row (0,0)+(0,1).
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 1)
+        table.copy()
+
+        # Paste anchored at the bottom-left cell.
+        table.select_cell(1, 0)
+        table.paste()
+
+        assert table.has_text("src-a", row=1, col=0), (
+            f"Pasted (1,0) should be 'src-a', got '{table.get_cell_text(1, 0)}'"
+        )
+        assert table.has_text("src-b", row=1, col=1), (
+            f"Pasted (1,1) should be 'src-b', got '{table.get_cell_text(1, 1)}'"
+        )
+        assert table.has_text("src-a", row=0, col=0), (
+            "Source row must remain untouched after paste"
+        )
+
+    def test_paste_grows_table(self, table: Table) -> None:
+        """Test that pasting beyond the current bounds grows the table."""
+        self.log("Testing paste grows table on overflow")
+        rows_before = table.get_row_count()
+        cols_before = table.get_column_count()
+
+        # Copy two cells from the top row, paste anchored at the bottom-right.
+        table.set_cell_text(0, 0, "grow-a")
+        table.set_cell_text(0, 1, "grow-b")
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 1)
+        table.copy()
+        table.select_cell(rows_before - 1, cols_before - 1)
+        table.paste()
+
+        # Pasting 1x2 with anchor at the last column adds exactly one column;
+        # pasting at the last row doesn't add rows because the source is one row tall.
+        assert table.get_column_count() == cols_before + 1, (
+            f"Expected {cols_before + 1} cols after overflow paste, got {table.get_column_count()}"
+        )
+        assert table.get_row_count() == rows_before, (
+            "Paste should not grow rows when the source is one row tall and anchored on the last row"
+        )
+
+    def test_undo_redo_add_row(self, table: Table) -> None:
+        """Test that Cmd+Z undoes an add-row and Cmd+Shift+Z re-applies it."""
+        self.log("Testing undo/redo for add row")
+        # Each shortcut needs the table focused; re-click before every key combo
+        # since cross-render state can drop focus on a re-rendered table.
+        table.select_cell(0, 0)
+        rows_before = table.get_row_count()
+        table.add_row()
+        assert table.get_row_count() == rows_before + 1
+        table.select_cell(0, 0)
+        table.undo()
+        assert table.get_row_count() == rows_before, (
+            f"Undo should restore row count to {rows_before}, got {table.get_row_count()}"
+        )
+        table.select_cell(0, 0)
+        table.redo()
+        assert table.get_row_count() == rows_before + 1, (
+            f"Redo should re-add the row, got {table.get_row_count()}"
+        )
+        # Restore for the next test.
+        table.select_cell(0, 0)
+        table.undo()
+        assert table.get_row_count() == rows_before
+
+    def test_resize_col_via_drag(self, table: Table) -> None:
+        """Test that dragging the column resize handle changes the column width."""
+        self.log("Testing column resize via drag")
+        initial = table.get_column_width(0)
+        table.drag_col_resizer(0, 80)
+        # Allow for some slack since the drag end coordinate maps through
+        # clamp(size, MIN_CELL_DIM) and rounding.
+        after = table.get_column_width(0)
+        assert after >= initial + 40, (
+            f"Column 0 should be wider after drag right: was {initial}, now {after}"
+        )
+        table.drag_col_resizer(0, -120)
+        narrow = table.get_column_width(0)
+        assert narrow < after, (
+            f"Column 0 should be narrower after drag left: was {after}, now {narrow}"
+        )
+
+    def test_resize_row_via_drag(self, table: Table) -> None:
+        """Test that dragging the row resize handle changes the row height."""
+        self.log("Testing row resize via drag")
+        initial = table.get_row_height(0)
+        table.drag_row_resizer(0, 60)
+        after = table.get_row_height(0)
+        assert after >= initial + 30, (
+            f"Row 0 should be taller after drag down: was {initial}, now {after}"
+        )
+
+    def test_edit_toggle_gates_editing(self, table: Table) -> None:
+        """Test that toggling editing off hides edit affordances and re-enables them on toggle."""
+        self.log("Testing edit toggle gates editing affordances")
+        add_row_btn = self.page.locator(".console-table__add-row").first
+        add_col_btn = self.page.locator(".console-table__add-col").first
+        add_row_btn.wait_for(state="visible", timeout=5000)
+        add_col_btn.wait_for(state="visible", timeout=5000)
+
+        table.toggle_editing()
+        add_row_btn.wait_for(state="hidden", timeout=5000)
+        add_col_btn.wait_for(state="hidden", timeout=5000)
+
+        # While editing is off, attempting the Delete shortcut on a selected
+        # row must be a no-op since the gate sits inside the trigger callback.
+        rows_before = table.get_row_count()
+        table.select_row_via_header(0)
+        table.delete_selected()
+        assert table.get_row_count() == rows_before, (
+            "Delete shortcut must be a no-op when editing is disabled"
+        )
+
+        table.toggle_editing()
+        add_row_btn.wait_for(state="visible", timeout=5000)
+        add_col_btn.wait_for(state="visible", timeout=5000)
+
+    def test_undo_redo_text_edit(self, table: Table) -> None:
+        """Test that Cmd+Z reverts a text edit and Cmd+Shift+Z re-applies it.
+
+        Successive set_cell dispatches on the same cell coalesce into one
+        undo entry (that's the "typing in a cell is one undo" feature). To
+        verify a single-edit undo, an edit on a different cell sits between
+        the two edits on cell (0,0) and breaks the coalesce chain.
+        """
+        self.log("Testing undo/redo for text edit")
+        table.set_cell_text(0, 0, "before-undo")
+        table.set_cell_text(0, 1, "scratch-break-coalesce")
+        table.set_cell_text(0, 0, "after-edit")
+        assert table.has_text("after-edit", row=0, col=0)
+        table.select_cell(0, 0)
+        table.undo()
+        assert table.has_text("before-undo", row=0, col=0), (
+            f"Undo should restore 'before-undo', got '{table.get_cell_text(0, 0)}'"
+        )
+        table.select_cell(0, 0)
+        table.redo()
+        assert table.has_text("after-edit", row=0, col=0), (
+            f"Redo should restore 'after-edit', got '{table.get_cell_text(0, 0)}'"
+        )

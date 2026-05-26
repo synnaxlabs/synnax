@@ -205,3 +205,116 @@ class Table(ConsolePage):
         data_row = self.page.locator(DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
+
+    def select_cell(self, row: int, col: int) -> None:
+        """Single-click select a cell."""
+        self._get_cell(row, col).click()
+
+    def shift_select_cell(self, row: int, col: int) -> None:
+        """Shift-click to extend the selection through this cell."""
+        self._get_cell(row, col).click(modifiers=["Shift"])
+
+    def ctrl_select_cell(self, row: int, col: int) -> None:
+        """Ctrl/Cmd-click to toggle this cell in the selection."""
+        self._get_cell(row, col).click(modifiers=["ControlOrMeta"])
+
+    def select_row_via_header(self, row: int) -> None:
+        """Click the row indicator (left header) to select every cell in the row."""
+        self.page.locator(f'td[id="resizer-y-{row}"]').click()
+
+    def select_col_via_header(self, col: int) -> None:
+        """Click the column indicator (top header) to select every cell in the column."""
+        self.page.locator(f'td[id="resizer-x-{col}"]').click()
+
+    def add_row_above(self, row: int, col: int = 0) -> None:
+        """Insert a row above the row containing the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add row above")
+
+    def add_row_below(self, row: int, col: int = 0) -> None:
+        """Insert a row below the row containing the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add row below")
+
+    def add_col_left(self, col: int, row: int = 0) -> None:
+        """Insert a column to the left of the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add column left")
+
+    def add_col_right(self, col: int, row: int = 0) -> None:
+        """Insert a column to the right of the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add column right")
+
+    def set_cell_text(self, row: int, col: int, text: str) -> None:
+        """Replace the text content of a text-variant cell."""
+        cell = self._get_cell(row, col)
+        cell.dblclick()
+        self.page.keyboard.type(text)
+        self.page.keyboard.press("Enter")
+
+    def copy(self) -> None:
+        """Cmd/Ctrl + C — copy current selection to clipboard."""
+        self.layout.press_key("ControlOrMeta+c")
+
+    def paste(self) -> None:
+        """Cmd/Ctrl + V — paste clipboard at current selection anchor."""
+        self.layout.press_key("ControlOrMeta+v")
+
+    def delete_selected(self) -> None:
+        """Delete key — clear selected cells, removing fully-selected rows/cols."""
+        self.layout.press_key("Delete")
+
+    def undo(self) -> None:
+        """Cmd/Ctrl + Z — pop the last entry off the undo stack."""
+        self.layout.press_key("ControlOrMeta+z")
+
+    def redo(self) -> None:
+        """Cmd/Ctrl + Shift + Z — re-apply the most recently undone entry."""
+        self.layout.press_key("ControlOrMeta+Shift+z")
+
+    def toggle_editing(self) -> None:
+        """Toggle the editable state via the cell context menu."""
+        cell = self._get_cell(0, 0)
+        self.ctx_menu.open_on(cell)
+        label = (
+            "Disable editing"
+            if self.ctx_menu.has_option("Disable editing")
+            else "Enable editing"
+        )
+        self.ctx_menu.click_option(label)
+
+    def drag_col_resizer(self, col: int, dx: float) -> None:
+        """Drag the right edge of a column's resize handle by `dx` pixels.
+
+        Positive `dx` widens the column; negative narrows it.
+        """
+        handle = self.page.locator(f'td[id="resizer-x-{col}"] button')
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate resize handle for column {col}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx + dx, cy, steps=10)
+        self.page.mouse.up()
+
+    def drag_row_resizer(self, row: int, dy: float) -> None:
+        """Drag the bottom edge of a row's resize handle by `dy` pixels."""
+        handle = self.page.locator(f'td[id="resizer-y-{row}"] button')
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate resize handle for row {row}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx, cy + dy, steps=10)
+        self.page.mouse.up()
+
+    def get_column_width(self, col: int) -> float:
+        """Read the rendered pixel width of a column."""
+        indicator = self.page.locator(f'td[id="resizer-x-{col}"]')
+        return float(indicator.evaluate("el => el.offsetWidth"))
+
+    def get_row_height(self, row: int) -> float:
+        """Read the rendered pixel height of a row's indicator."""
+        indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
+        return float(indicator.evaluate("el => el.offsetHeight"))
