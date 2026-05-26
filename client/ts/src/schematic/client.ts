@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -97,8 +97,7 @@ export class Client {
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/create",
       { workspace, schematics: array.toArray(schematics) },
       createReqZ,
@@ -112,8 +111,7 @@ export class Client {
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/set-data",
       { key, data },
       setDataReqZ,
@@ -122,8 +120,7 @@ export class Client {
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/dispatch",
       { key, dispatch_key: dispatchKey, actions },
       dispatchReqZ,
@@ -137,8 +134,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/retrieve",
       args,
       retrieveArgsZ,
@@ -149,8 +145,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -159,13 +154,7 @@ export class Client {
   }
 
   async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await sendRequired(
-      this.client,
-      "/schematic/copy",
-      args,
-      copyReqZ,
-      copyResZ,
-    );
+    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
     return res.schematic;
   }
 }

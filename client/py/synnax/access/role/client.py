@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.access.role.types_gen import Role
 from x.normalize import normalize
 
@@ -80,7 +80,7 @@ class Client:
     ) -> Role | list[Role]:
         is_single = not isinstance(roles, list)
         req = _CreateRequest(roles=normalize(roles))
-        res = send_required(self._client, "/access/role/create", req, _CreateResponse)
+        res = self._client.send("/access/role/create", req, _CreateResponse)
         return res.roles[0] if is_single else res.roles
 
     @overload
@@ -108,15 +108,13 @@ class Client:
         if is_single and key is not None:
             keys = [key]
         req = _RetrieveRequest(keys=keys, limit=limit, offset=offset, internal=internal)
-        res = send_required(
-            self._client, "/access/role/retrieve", req, _RetrieveResponse
-        )
+        res = self._client.send("/access/role/retrieve", req, _RetrieveResponse)
         roles = [] if res.roles is None else res.roles
         return roles[0] if is_single else roles
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, "/access/role/delete", req, Empty)
+        self._client.send("/access/role/delete", req, Empty)
 
     def assign(self, user: UUID, role: UUID) -> None:
         """Assign a role to a user.
@@ -126,7 +124,7 @@ class Client:
             role: The UUID of the role to assign
         """
         req = _AssignRequest(user=user, role=role)
-        send_required(self._client, "/access/role/assign", req, Empty)
+        self._client.send("/access/role/assign", req, Empty)
 
     def unassign(self, user: UUID, role: UUID) -> None:
         """Remove a role from a user.
@@ -136,4 +134,4 @@ class Client:
             role: The UUID of the role to unassign
         """
         req = _UnassignRequest(user=user, role=role)
-        send_required(self._client, "/access/role/unassign", req, Empty)
+        self._client.send("/access/role/unassign", req, Empty)

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -78,8 +78,7 @@ export class Client {
   async create(policies: New[]): Promise<Policy[]>;
   async create(policies: CreateArgs): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
-    const res = await sendRequired<typeof createArgsZ, typeof createResZ>(
-      this.client,
+    const res = await this.client.send(
       "/access/policy/create",
       policies,
       createArgsZ,
@@ -92,8 +91,7 @@ export class Client {
   async retrieve(args: RetrieveMultipleParams): Promise<Policy[]>;
   async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
     const isSingle = "key" in args;
-    const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
-      this.client,
+    const res = await this.client.send(
       "/access/policy/retrieve",
       args,
       retrieveArgsZ,
@@ -105,8 +103,7 @@ export class Client {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
+    await this.client.send(
       "/access/policy/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
