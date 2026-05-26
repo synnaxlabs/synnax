@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,16 +27,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var serviceNameCounter atomic.Uint64
+
 // nextServiceName returns a distinct lowercased identifier so the set channel
 // created by each spec does not collide with previous runs in the same
 // process. The mock cluster persists channels across specs.
-var nextServiceName = func() func() string {
-	var i int
-	return func() string {
-		i++
-		return fmt.Sprintf("actions_test_%d", i)
-	}
-}()
+func nextServiceName() string {
+	return fmt.Sprintf("actions_test_%d", serviceNameCounter.Add(1))
+}
 
 var _ = Describe("PublishSignals", func() {
 	var (
