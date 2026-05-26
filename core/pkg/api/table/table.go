@@ -91,8 +91,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  table.Key      `json:"key" msgpack:"key"`
+	Data table.Table `json:"data" msgpack:"data"`
+	Key  table.Key   `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
