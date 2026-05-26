@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type Draft, produce } from "immer";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -214,64 +213,17 @@ describe("scopedZ", () => {
 describe("dispatchReqZ", () => {
   const schema = actions.dispatchReqZ(z.string(), z.object({ kind: z.string() }));
 
-  it("Should keep dispatch_key as snake_case on the wire", () => {
+  it("Should parse a camelCase dispatchKey body", () => {
     const parsed = schema.parse({
       key: "abc",
-      dispatch_key: "dk",
+      dispatchKey: "dk",
       actions: [{ kind: "x" }],
     });
-    expect(parsed.dispatch_key).toBe("dk");
+    expect(parsed.dispatchKey).toBe("dk");
+    expect(parsed.actions).toEqual([{ kind: "x" }]);
   });
 
-  it("Should reject a body missing dispatch_key", () => {
+  it("Should reject a body missing dispatchKey", () => {
     expect(() => schema.parse({ key: "abc", actions: [] })).toThrow();
-  });
-});
-
-describe("dispatch", () => {
-  const keyZ = z.string();
-  const actionZ = z.object({ kind: z.string() });
-  const reqZ = actions.dispatchReqZ(keyZ, actionZ);
-
-  const createMockClient = (): {
-    client: UnaryClient;
-    send: ReturnType<typeof vi.fn>;
-  } => {
-    const send = vi.fn().mockResolvedValue({});
-    return { client: { send, use: vi.fn() }, send };
-  };
-
-  it("Should POST to the given path with snake_case dispatch_key", async () => {
-    const { client, send } = createMockClient();
-    await actions.dispatch(client, "/demo/dispatch", reqZ, "abc", "dk-7", [
-      { kind: "rename" },
-    ]);
-    expect(send).toHaveBeenCalledTimes(1);
-    const [path, body, sentReqZ] = send.mock.calls[0];
-    expect(path).toBe("/demo/dispatch");
-    expect(body).toEqual({
-      key: "abc",
-      dispatch_key: "dk-7",
-      actions: [{ kind: "rename" }],
-    });
-    expect(sentReqZ).toBe(reqZ);
-  });
-
-  it("Should propagate transport errors back to the caller", async () => {
-    const send = vi.fn().mockRejectedValue(new Error("network down"));
-    const client = { send, use: vi.fn() } as unknown as UnaryClient;
-    await expect(
-      actions.dispatch(client, "/demo/dispatch", reqZ, "abc", "dk", []),
-    ).rejects.toThrow("network down");
-  });
-
-  it("Should accept an empty action list", async () => {
-    const { client, send } = createMockClient();
-    await actions.dispatch(client, "/demo/dispatch", reqZ, "abc", "dk", []);
-    expect(send.mock.calls[0][1]).toEqual({
-      key: "abc",
-      dispatch_key: "dk",
-      actions: [],
-    });
   });
 });

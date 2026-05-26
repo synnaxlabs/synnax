@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -48,8 +47,7 @@ export interface ReduceAllResult<S, A> {
  * assignment leaves the slot as a plain object, so the next action would
  * crash if it called `current` unconditionally.
  */
-export const snapshotDraft = <T>(v: T): T =>
-  isDraft(v) ? current(v as Draft<T>) : v;
+export const snapshotDraft = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
 /**
  * createReduceAll lifts a per-variant `reduceOne` switch into a batched
@@ -92,8 +90,8 @@ export const scopedZ = <K extends z.ZodType, A extends z.ZodType>(
 
 /**
  * dispatchReqZ builds the request body schema for the per-service dispatch
- * endpoint. The wire field stays snake_case because the request goes out
- * through the standard binary/JSON codec without casing normalization.
+ * endpoint. Stays camelCase; the JSON codec runs camelToSnake on encode so the
+ * wire ends up snake_case without per-field conversion here.
  */
 export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
   keyZ: K,
@@ -101,25 +99,6 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
 ) =>
   z.object({
     key: keyZ,
-    dispatch_key: z.string(),
+    dispatchKey: z.string(),
     actions: actionZ.array(),
   });
-
-const emptyResZ = z.object({});
-
-/**
- * dispatch sends an action sequence to the service's dispatch endpoint. The
- * caller is responsible for building `reqZ` once via dispatchReqZ and reusing
- * it; constructing the schema on every call would re-parse the keyZ/actionZ
- * pair unnecessarily.
- */
-export const dispatch = async <K, A>(
-  client: UnaryClient,
-  path: string,
-  reqZ: z.ZodType<{ key: K; dispatch_key: string; actions: A[] }>,
-  key: K,
-  dispatchKey: string,
-  actions: A[],
-): Promise<void> => {
-  await client.send(path, { key, dispatch_key: dispatchKey, actions }, reqZ, emptyResZ);
-};
