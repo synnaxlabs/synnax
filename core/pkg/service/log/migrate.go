@@ -23,10 +23,11 @@ import (
 // is decoded from the per-log JSON blob via legacy.MigrateData and lifted by logFromV1,
 // which normalizes out-of-set enums to their documented defaults. If legacy.MigrateData
 // fails (e.g. a channel key that cannot coerce to uint32), the body is dropped and only
-// Key+Name are returned, so the gorp boot migration never fails on a single corrupt row.
-// UI-only fields (toolbar, version) are dropped because they are not declared in the v1
-// schema. v55 is the last snapshot in which Log.Data is untyped; future migrations
-// transform one typed snapshot into another and never need this blob handling.
+// Key+Name are returned, so the Gorp boot migration never fails on a single corrupt
+// row. UI-only fields (toolbar, version) are dropped because they are not declared in
+// the v1 schema. v55 is the last snapshot in which Log.Data is untyped; future
+// migrations transform one typed snapshot into another and never need this blob
+// handling.
 func MigrateLog(ctx context.Context, old v55.Log) (Log, error) {
 	out, err := AutoMigrateLog(ctx, old)
 	if err != nil {
@@ -58,10 +59,7 @@ func logFromV1(d v1.Data) Log {
 			Notation:  c.Notation,
 			Precision: c.Precision,
 			Alias:     c.Alias,
-			Timestamp: TimestampConfig{
-				Format: c.Timestamp.Format,
-				Tz:     c.Timestamp.Tz,
-			},
+			Timestamp: TimestampConfig{Format: c.Timestamp.Format, Tz: c.Timestamp.Tz},
 		}
 	}
 	return Log{
