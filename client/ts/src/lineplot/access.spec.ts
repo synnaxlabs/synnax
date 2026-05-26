@@ -16,8 +16,6 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
-const newPlot = (name: string) => ({ ...lineplot.ZERO_NEW, name });
-
 describe("lineplot", () => {
   describe("access control", () => {
     it("should deny access when no retrieve policy exists", async () => {
@@ -27,7 +25,7 @@ describe("lineplot", () => {
         actions: [],
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
-      const randomLinePlot = await client.lineplots.create(ws.key, newPlot("test"));
+      const randomLinePlot = await client.lineplots.create(ws.key, { name: "test" });
       await expect(
         userClient.lineplots.retrieve({ key: randomLinePlot.key }),
       ).rejects.toThrow(AuthError);
@@ -40,7 +38,7 @@ describe("lineplot", () => {
         actions: ["retrieve"],
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
-      const randomLinePlot = await client.lineplots.create(ws.key, newPlot("test"));
+      const randomLinePlot = await client.lineplots.create(ws.key, { name: "test" });
       const retrieved = await userClient.lineplots.retrieve({
         key: randomLinePlot.key,
       });
@@ -55,7 +53,7 @@ describe("lineplot", () => {
         actions: ["create"],
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
-      await userClient.lineplots.create(ws.key, newPlot("test"));
+      await userClient.lineplots.create(ws.key, { name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -66,7 +64,7 @@ describe("lineplot", () => {
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
       await expect(
-        userClient.lineplots.create(ws.key, newPlot("test")),
+        userClient.lineplots.create(ws.key, { name: "test" }),
       ).rejects.toThrow(AuthError);
     });
 
@@ -77,7 +75,7 @@ describe("lineplot", () => {
         actions: ["delete", "retrieve"],
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
-      const randomLinePlot = await client.lineplots.create(ws.key, newPlot("test"));
+      const randomLinePlot = await client.lineplots.create(ws.key, { name: "test" });
       await userClient.lineplots.delete(randomLinePlot.key);
       await expect(
         userClient.lineplots.retrieve({ key: randomLinePlot.key }),
@@ -91,7 +89,7 @@ describe("lineplot", () => {
         actions: [],
       });
       const ws = await client.workspaces.create({ name: "test", layout: {} });
-      const randomLinePlot = await client.lineplots.create(ws.key, newPlot("test"));
+      const randomLinePlot = await client.lineplots.create(ws.key, { name: "test" });
       await expect(userClient.lineplots.delete(randomLinePlot.key)).rejects.toThrow(
         AuthError,
       );

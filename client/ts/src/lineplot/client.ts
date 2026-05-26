@@ -12,8 +12,6 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
-  type Axis,
-  type AxisKey,
   type Key,
   keyZ,
   type LinePlot,
@@ -104,43 +102,3 @@ export class Client {
     );
   }
 }
-
-const zeroAxis = (key: AxisKey): Axis => ({
-  key,
-  label: "",
-  labelDirection: key.startsWith("y") ? "y" : "x",
-  labelLevel: "small",
-  bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: true, upper: true },
-  tickSpacing: 75,
-  ...(key.startsWith("x") ? ({ type: "time" } as const) : {}),
-});
-
-// ZERO_NEW is a fully-populated New payload with every required field set to
-// its zero value. Callers spread it and override only the fields they care
-// about: `client.lineplots.create(ws, { ...ZERO_NEW, name: "My Plot" })`.
-export const ZERO_NEW: New = {
-  name: "",
-  title: { level: "h4", visible: false },
-  legend: {
-    visible: true,
-    position: {
-      x: 50,
-      y: 50,
-      root: { x: "left", y: "top" },
-      units: { x: "px", y: "px" },
-    },
-  },
-  channels: { x1: 0, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-  ranges: { x1: [], x2: [] },
-  axes: {
-    x1: zeroAxis("x1"),
-    x2: zeroAxis("x2"),
-    y1: zeroAxis("y1"),
-    y2: zeroAxis("y2"),
-    y3: zeroAxis("y3"),
-    y4: zeroAxis("y4"),
-  },
-  lines: [],
-  rules: [],
-};

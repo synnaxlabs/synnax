@@ -10,7 +10,6 @@
 import {
   createTestClient,
   group,
-  lineplot,
   NotFoundError,
   schematic,
   workspace,
@@ -418,7 +417,7 @@ describe("queries", () => {
         name: "My Log",
         data: {},
       });
-      await client.lineplots.create(ws.key, { ...lineplot.ZERO_NEW, name: "My Plot" });
+      await client.lineplots.create(ws.key, { name: "My Plot" });
 
       const { result } = renderHook(
         () =>
@@ -445,10 +444,7 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "Source Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        ...lineplot.ZERO_NEW,
-        name: "A Plot",
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "A Plot" });
       const t1 = await client.tables.create(ws.key, {
         name: "A Table",
         data: {},
@@ -489,10 +485,7 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "Other Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        ...lineplot.ZERO_NEW,
-        name: "Plot",
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "Plot" });
       const t1 = await client.tables.create(ws.key, {
         name: "Table",
         data: {},
@@ -673,14 +666,8 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "WS2 Schematic",
       });
-      const lp1 = await client.lineplots.create(ws1.key, {
-        ...lineplot.ZERO_NEW,
-        name: "WS1 Plot",
-      });
-      await client.lineplots.create(ws2.key, {
-        ...lineplot.ZERO_NEW,
-        name: "WS2 Plot",
-      });
+      const lp1 = await client.lineplots.create(ws1.key, { name: "WS1 Plot" });
+      await client.lineplots.create(ws2.key, { name: "WS2 Plot" });
 
       const { result } = renderHook(
         () =>

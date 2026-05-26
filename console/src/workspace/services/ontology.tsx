@@ -82,7 +82,6 @@ const useCreateLinePlot = ({
   return useCallback(
     () =>
       update({
-        ...lineplot.ZERO_NEW,
         workspace: workspaceID.key,
         name: "New Line Plot",
       }),
