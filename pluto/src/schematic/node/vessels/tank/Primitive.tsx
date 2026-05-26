@@ -15,7 +15,7 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
 import { Theming } from "@/theming";
 
@@ -26,7 +26,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   strokeWidth?: number;
 }
 
-export const Primitive = ({
+export const Tank = ({
   className,
   dimensions = Border.DEFAULT_DIMENSIONS,
   borderRadius = Border.DEFAULT_RADIUS,
@@ -55,7 +55,7 @@ export const Primitive = ({
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(className, CSS.B("tank"))}
       style={{
         ...dimensions,
@@ -131,6 +131,6 @@ export const Primitive = ({
           id="8"
         />
       </Handle.Boundary>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

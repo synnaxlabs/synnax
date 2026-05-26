@@ -26,7 +26,7 @@ export const CircleForm = (): ReactElement => (
       <Label.Form path="label" />
       <Flex.Box direction="x">
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
         <Base.NumericField
           path="radius"
           label="Radius"
@@ -35,7 +35,7 @@ export const CircleForm = (): ReactElement => (
         />
         <Base.NumericField
           path="strokeWidth"
-          label="Border Width"
+          label="Border width"
           inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           grow
         />

@@ -13,7 +13,7 @@ import { removeProps } from "@/component/removeProps";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/circle/config";
 import { CircleForm } from "@/schematic/node/general/circle/Form";
-import { Primitive } from "@/schematic/node/general/circle/Primitive";
+import { Circle } from "@/schematic/node/general/circle/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
@@ -34,8 +34,8 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: NAME,
   Form: CircleForm,
-  Node: Label.createLabeled<Config>(Primitive, { grid: { allowRotate: false } }),
-  Preview: removeProps(Primitive, ["clickable"]),
+  Node: Label.createLabeled<Config>(Circle, { grid: { allowRotate: false } }),
+  Preview: removeProps(Circle, ["clickable"]),
   defaultConfig,
   zIndex: 2,
 };

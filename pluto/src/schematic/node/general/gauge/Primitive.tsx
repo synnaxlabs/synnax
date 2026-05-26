@@ -33,7 +33,7 @@ const METRICS_STYLE: CSSProperties = {
   textAlign: "center",
 };
 
-export const Primitive = ({ color: c }: RenderProps): ReactElement => {
+export const Gauge = ({ color: c }: RenderProps): ReactElement => {
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;

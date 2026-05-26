@@ -278,7 +278,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                     </Form.Field>
                     <Form.SwitchField
                       path="data.scaleStroke"
-                      label="Scale Stroke"
+                      label="Scale stroke"
                       align="start"
                     />
                   </Flex.Box>

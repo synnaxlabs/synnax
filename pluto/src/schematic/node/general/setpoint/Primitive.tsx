@@ -15,7 +15,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 
 interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
@@ -25,7 +25,7 @@ interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number>
 
 const SETPOINT_STYLE: CSSProperties = { zIndex: 5 };
 
-export const Primitive = ({
+export const Setpoint = ({
   orientation = "left",
   className,
   style,
@@ -38,7 +38,7 @@ export const Primitive = ({
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("setpoint"), className)}
       orientation={orientation}
       style={style}
@@ -94,6 +94,6 @@ export const Primitive = ({
           Set
         </BaseButton.Button>
       </BaseInput.Numeric>
-    </Base.Div>
+    </Primitive.Div>
   );
 };
