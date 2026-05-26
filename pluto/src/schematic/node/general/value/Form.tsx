@@ -12,7 +12,6 @@ import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -48,17 +47,10 @@ export const ValueForm = (): ReactElement => {
               <Label.Form path="label" />
               <Flex.Box x>
                 <Form.ColorField path="color" />
-                <Base.Field<string>
-                  path="units"
-                  label="Units"
-                  align="start"
-                  padHelpText={false}
-                >
-                  {(p) => <Input.Text {...p} />}
-                </Base.Field>
+                <Form.UnitsField />
                 <Base.NumericField
                   path="inlineSize"
-                  label="Value Width"
+                  label="Value width"
                   hideIfNull
                   inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
                 />

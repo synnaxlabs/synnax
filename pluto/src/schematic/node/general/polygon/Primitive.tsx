@@ -11,7 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/polygon/config";
 import { Theming } from "@/theming";
 
@@ -84,7 +84,7 @@ const generateRoundedPolygonPath = (
   return path.join(" ");
 };
 
-export const Primitive = ({
+export const Polygon = ({
   numSides,
   sideLength,
   rotation = 0,
@@ -109,15 +109,15 @@ export const Primitive = ({
     [sideLength, numSides, padding],
   );
   return (
-    <Base.Div className={CSS(className, CSS.B("polygon"))}>
-      <Base.SVG dimensions={{ width: size, height: size }}>
-        <Base.Path
+    <Primitive.Div className={CSS(className, CSS.B("polygon"))}>
+      <Primitive.SVG dimensions={{ width: size, height: size }}>
+        <Primitive.Path
           d={path}
           fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
           stroke={color.cssString(colorVal ?? theme.colors.gray.l9)}
           strokeWidth={strokeWidth ?? 2}
         />
-      </Base.SVG>
-    </Base.Div>
+      </Primitive.SVG>
+    </Primitive.Div>
   );
 };

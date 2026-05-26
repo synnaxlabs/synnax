@@ -14,7 +14,7 @@ import {
 import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
-import { type Stream } from "@synnaxlabs/freighter";
+import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
@@ -232,12 +232,14 @@ const createFreighterTransport = ({
   const receiveLoop = async () => {
     try {
       while (!isClosed) {
-        const [msg, err] = await stream.receive();
-        if (err != null) {
-          onErrorCallback?.(err);
+        let msg: arc.LSPMessage;
+        try {
+          msg = await stream.receive();
+        } catch (err) {
+          if (!EOF.matches(err))
+            onErrorCallback?.(err instanceof Error ? err : new Error(String(err)));
           break;
         }
-        if (msg == null) break;
         try {
           const parsed = JSON.parse(msg.content);
           onMessageCallback?.(parsed);
