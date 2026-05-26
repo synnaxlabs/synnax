@@ -1681,8 +1681,8 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
 	// `default empty` is a collection-level sentinel that is realized after the
-	// array/map/record wrap, not on the element zod. Treat it as no element
-	// default here so the element schema type isn't wrapped in ZodDefault.
+	// array/map/record wrap, not on the element zod. Treat it as no element default
+	// here so the element schema type isn't wrapped in ZodDefault.
 	isEmptyCollectionDefault := rules.Default != nil &&
 		rules.Default.Kind == resolution.ValueKindIdent &&
 		rules.Default.IdentValue == "empty"

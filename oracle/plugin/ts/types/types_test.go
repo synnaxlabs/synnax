@@ -466,9 +466,7 @@ var _ = Describe("TS Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+			req := &plugin.Request{Resolutions: table}
 
 			resp := MustSucceed(typesPlugin.Generate(req))
 
@@ -479,10 +477,10 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		It("Should not add empty default when @validate has only non-default rules", func(ctx SpecContext) {
-			// Exercises hasEmptyCollectionDefault's `expr.Name != "default"`
-			// branch: the validate domain exists but contains only min_length,
-			// so the loop continues past every expression and reaches
-			// `return false`. The generated zod must NOT have .default(() => []).
+			// Exercises hasEmptyCollectionDefault's `expr.Name != "default"` branch:
+			// the validate domain exists but contains only min_length, so the loop
+			// continues past every expression and reaches `return false`. The generated
+			// zod must NOT have .default(() => []).
 			source := `
 				@ts output "out"
 
@@ -496,9 +494,7 @@ var _ = Describe("TS Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+			req := &plugin.Request{Resolutions: table}
 
 			resp := MustSucceed(typesPlugin.Generate(req))
 
@@ -508,9 +504,9 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		It("Should not add empty default when @validate default is not the empty sentinel", func(ctx SpecContext) {
-			// Exercises hasEmptyCollectionDefault's "loop body runs, condition
-			// fails, return false" path: the default expression IS present but
-			// its identifier value is not "empty".
+			// Exercises hasEmptyCollectionDefault's "loop body runs, condition fails,
+			// return false" path: the default expression IS present but its identifier
+			// value is not "empty".
 			source := `
 				@ts output "out"
 
@@ -524,9 +520,7 @@ var _ = Describe("TS Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			req := &plugin.Request{
-				Resolutions: table,
-			}
+			req := &plugin.Request{Resolutions: table}
 
 			resp := MustSucceed(typesPlugin.Generate(req))
 
