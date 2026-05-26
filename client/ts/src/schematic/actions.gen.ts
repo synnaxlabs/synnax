@@ -13,7 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { edgeZ, nodeZ, type Schematic } from "@/schematic/types.gen";
+import { edgeZ, keyZ, nodeZ, type Schematic } from "@/schematic/types.gen";
 
 /** Rename renames the schematic. */
 export const renamePayloadZ = z.object({
@@ -194,3 +194,7 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setConfig(state, action.setConfig);
     }
   });
+
+export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+
+export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);

@@ -11,8 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { actions } from "@/actions";
-import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+} from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -30,11 +33,6 @@ export const SET_CHANNEL_NAME = "sy_schematic_set";
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
-const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
-
-export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
-
-export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
