@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
@@ -17,6 +17,10 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
+const setDataReqZ = z.object({
+  key: keyZ,
+  data: caseconv.preserveCase(record.unknownZ()),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -58,6 +62,10 @@ export class Client {
 
   async rename(key: Key, name: string): Promise<void> {
     await this.client.send("/log/rename", { key, name }, renameReqZ, emptyResZ);
+  }
+
+  async setData(key: Key, data: record.Unknown): Promise<void> {
+    await this.client.send("/log/set-data", { key, data }, setDataReqZ, emptyResZ);
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<Log>;

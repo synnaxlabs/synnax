@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -32,6 +32,20 @@ describe("Log", () => {
       await client.logs.rename(log.key, "Log2");
       const res = await client.logs.retrieve({ key: log.key });
       expect(res.name).toEqual("Log2");
+    });
+  });
+  describe("setData", () => {
+    test("set data", async () => {
+      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const log = await client.logs.create(ws.key, {
+        name: "Log",
+        channels: [
+          { channel: 1, color: color.ZERO, timestamp: { format: "ISO", tz: "UTC" } },
+        ],
+      });
+      await client.logs.setData(log.key, { two: 2 });
+      const res = await client.logs.retrieve({ key: log.key });
+      expect(res.channels[0].timestamp.format).toEqual("UTC");
     });
   });
   describe("delete", () => {
