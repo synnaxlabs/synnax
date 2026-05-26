@@ -10,20 +10,243 @@
 package migrations_test
 
 import (
+	"encoding/json"
+	"os"
+
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
+	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("MigrateLenient", func() {
+// loadV55 reads a stored log body fixture and wraps it in the v55 snapshot shape that
+// the gorp boot migration consumes. The fixture's promoted key and name become the
+// envelope-level Key and Name; the whole object is also handed through as the raw Data
+// blob, so any envelope-only keys (version, type) are simply ignored by the lenient v1
+// parse the way an unrecognized persisted field would be.
+func loadV55(path string) v55.Log {
+	raw := MustSucceed(os.ReadFile(path))
+	var m map[string]any
+	Expect(json.Unmarshal(raw, &m)).To(Succeed())
+	key := MustSucceed(uuid.Parse(m["key"].(string)))
+	name, _ := m["name"].(string)
+	return v55.Log{Key: key, Name: name, Data: m}
+}
+
+var _ = Describe("MigrateLog", func() {
+	It("Should lift the v55 envelope fields", func(ctx SpecContext) {
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "my-log",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{
+						"channel":   42,
+						"color":     "#ff0000",
+						"notation":  "scientific",
+						"precision": 3,
+						"alias":     "temp",
+					},
+				},
+				"remoteCreated":        true,
+				"timestampPrecision":   2,
+				"showChannelNames":     false,
+				"showReceiptTimestamp": true,
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Key).To(Equal(old.Key))
+		Expect(out.Name).To(Equal("my-log"))
+		Expect(out.RemoteCreated).To(BeTrue())
+		Expect(out.TimestampPrecision).To(Equal(int32(2)))
+		Expect(out.ShowChannelNames).To(BeFalse())
+		Expect(out.ShowReceiptTimestamp).To(BeTrue())
+		Expect(out.Channels).To(HaveLen(1))
+		Expect(out.Channels[0].Channel).To(Equal(channel.Key(42)))
+		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+		Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
+		Expect(out.Channels[0].Precision).To(Equal(int32(3)))
+		Expect(out.Channels[0].Alias).To(Equal("temp"))
+	})
+
+	It("Should preserve per-channel timestamp config that the v1 schema discards", func(ctx SpecContext) {
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "with-ts",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{
+						"channel": 1,
+						"timestamp": map[string]any{
+							"format": "ISO",
+							"tz":     "UTC",
+						},
+					},
+				},
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Channels).To(HaveLen(1))
+		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatISO))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
+	})
+
+	It("Should default the per-channel timestamp when the source omits it", func(ctx SpecContext) {
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "no-ts",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{"channel": 1},
+				},
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Channels).To(HaveLen(1))
+		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+	})
+
+	It("Should drop UI-only fields the console persisted alongside the typed body", func(ctx SpecContext) {
+		// The console used to send `setData = { ...state, key: undefined }`, which
+		// included its toolbar state and persisted-state version. These must not
+		// appear on the typed Log.
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "with-noise",
+			Data: map[string]any{
+				"version":  "1.0.0",
+				"toolbar":  map[string]any{"activeTab": "channels"},
+				"channels": []any{},
+			},
+		}
+		Expect(log.MigrateLog(ctx, old, alamos.Instrumentation{})).Error().ToNot(HaveOccurred())
+	})
+
+	It("Should be a no-op for an empty Data blob", func(ctx SpecContext) {
+		old := v55.Log{Key: uuid.New(), Name: "empty"}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Name).To(Equal("empty"))
+		Expect(out.Channels).To(BeEmpty())
+	})
+
+	It("Should default an unknown notation value instead of failing", func(ctx SpecContext) {
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "bad-notation",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{"channel": 1, "notation": "unsupported"},
+				},
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Channels).To(HaveLen(1))
+		Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
+	})
+
+	It("Should default every typed enum in a channel that carries multiple bad fields", func(ctx SpecContext) {
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "fully-bad",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{
+						"channel":  7,
+						"color":    "not-a-hex",
+						"notation": "unsupported",
+						"timestamp": map[string]any{
+							"format": "calendar",
+							"tz":     "MST",
+						},
+					},
+				},
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Channels).To(HaveLen(1))
+		Expect(out.Channels[0].Channel).To(Equal(channel.Key(7)))
+		Expect(out.Channels[0].Color).To(Equal(color.Color{}))
+		Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
+		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
+		Expect(out.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+	})
+
+	It("Should drop the body and keep Key+Name when the data blob is unparseable", func(ctx SpecContext) {
+		// channel is required + must coerce to uint32; a string here can't recover via
+		// lenient enum parsing, so the catch-all in MigrateLog drops the body.
+		old := v55.Log{
+			Key:  uuid.New(),
+			Name: "unparseable",
+			Data: map[string]any{
+				"channels": []any{
+					map[string]any{"channel": "not-a-number"},
+				},
+			},
+		}
+		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+		Expect(out.Key).To(Equal(old.Key))
+		Expect(out.Name).To(Equal("unparseable"))
+		Expect(out.Channels).To(BeEmpty())
+	})
+
+	Describe("from testdata fixtures", func() {
+		It("Should fully migrate a well-formed v1 body", func(ctx SpecContext) {
+			out := MustSucceed(log.MigrateLog(
+				ctx, loadV55("testdata/import_v1.json"), alamos.Instrumentation{},
+			))
+			Expect(out.Name).To(Equal("Test Log V1"))
+			Expect(out.Channels).To(HaveLen(2))
+			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
+			Expect(out.Channels[0].Precision).To(Equal(int32(2)))
+			Expect(out.Channels[0].Alias).To(Equal("temp"))
+			Expect(out.Channels[1].Channel).To(Equal(channel.Key(5)))
+			Expect(out.Channels[1].Color).To(Equal(color.Color{}))
+			Expect(out.TimestampPrecision).To(Equal(int32(1)))
+			Expect(out.ShowChannelNames).To(BeTrue())
+			Expect(out.ShowReceiptTimestamp).To(BeFalse())
+		})
+
+		It("Should scrub a malformed color hex to the zero color", func(ctx SpecContext) {
+			out := MustSucceed(log.MigrateLog(
+				ctx, loadV55("testdata/import_invalid_color.json"), alamos.Instrumentation{},
+			))
+			Expect(out.Name).To(Equal("Invalid Color"))
+			Expect(out.Channels).To(HaveLen(1))
+			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Color).To(Equal(color.Color{}))
+		})
+
+		DescribeTable("Should keep Key and Name but yield no channels for a body with no usable channel config",
+			func(ctx SpecContext, path, name string) {
+				old := loadV55(path)
+				out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+				Expect(out.Key).To(Equal(old.Key))
+				Expect(out.Name).To(Equal(name))
+				Expect(out.Channels).To(BeEmpty())
+			},
+			Entry("legacy v0 channels stored as bare keys", "testdata/import_v0.json", "Test Log V0"),
+			Entry("channels stored as a non-array", "testdata/import_bad_data.json", "Bad Data"),
+			Entry("no channels field at all", "testdata/import_bad_version.json", "Bad Version"),
+		)
+	})
+})
+
+var _ = Describe("legacy.MigrateData", func() {
 	It("Should reject a version greater than the latest supported", func() {
-		Expect(migrations.MigrateLenient(migrations.LatestVersion+1, map[string]any{})).
+		Expect(legacy.MigrateData(v1.Version+1, map[string]any{})).
 			Error().To(MatchError(ContainSubstring("newer than this Core supports")))
 	})
 
@@ -31,7 +254,7 @@ var _ = Describe("MigrateLenient", func() {
 		data := map[string]any{
 			"channels": []any{map[string]any{"channel": 1, "color": "not-a-hex"}},
 		}
-		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(v1.Version, data))
 		Expect(result.Channels).To(HaveLen(1))
 		Expect(result.Channels[0].Color).To(Equal(color.Color{}))
 	})
@@ -40,15 +263,15 @@ var _ = Describe("MigrateLenient", func() {
 		data := map[string]any{
 			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
 		}
-		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(v1.Version, data))
 		Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
 	})
 
-	It("Should not reject a zero channel key (lenient skips validation)", func() {
+	It("Should not reject a zero channel key (the chain skips validation)", func() {
 		data := map[string]any{
 			"channels": []any{map[string]any{"channel": 0}},
 		}
-		result := MustSucceed(migrations.MigrateLenient(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(v1.Version, data))
 		Expect(result.Channels).To(HaveLen(1))
 		Expect(result.Channels[0].Channel).To(Equal(channel.Key(0)))
 	})
@@ -58,9 +281,190 @@ var _ = Describe("MigrateLenient", func() {
 			"channels":      []any{1, 2, 3},
 			"remoteCreated": true,
 		}
-		result := MustSucceed(migrations.MigrateLenient(v0.Version, data))
+		result := MustSucceed(legacy.MigrateData(v0.Version, data))
 		Expect(result.Channels).To(HaveLen(3))
 		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(result.RemoteCreated).To(BeTrue())
+	})
+})
+
+var _ = Describe("Version parsing", func() {
+	Describe("v0.Parse", func() {
+		It("Should parse a valid v0 payload", func() {
+			data := map[string]any{
+				"channels":      []channel.Key{1, 2, 3},
+				"remoteCreated": true,
+			}
+			d := MustSucceed(v0.Parse(data))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2, 3}))
+			Expect(d.RemoteCreated).To(BeTrue())
+		})
+
+		It("Should accept an empty channels array", func() {
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{}}))
+			Expect(d.Channels).To(HaveLen(0))
+		})
+
+		It("Should default a missing remoteCreated to false", func() {
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{1}}))
+			Expect(d.RemoteCreated).To(BeFalse())
+		})
+
+		It("Should coerce whole-number channel keys", func() {
+			d := MustSucceed(v0.Parse(map[string]any{"channels": []any{1.0, 2.0}}))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2}))
+		})
+
+		It("Should coerce json.Number channel keys", func() {
+			data := map[string]any{
+				"channels": []any{json.Number("1"), json.Number("2")},
+			}
+			d := MustSucceed(v0.Parse(data))
+			Expect(d.Channels).To(Equal([]channel.Key{1, 2}))
+		})
+
+		It("Should reject a non-array channels field", func() {
+			Expect(v0.Parse(map[string]any{"channels": "not-an-array"})).Error().
+				To(MatchError(ContainSubstring("channels")))
+		})
+
+		It("Should reject a fractional channel key", func() {
+			Expect(v0.Parse(map[string]any{"channels": []any{1.5}})).Error().
+				To(MatchError(ContainSubstring("channels")))
+		})
+	})
+
+	Describe("v1.Parse", func() {
+		It("Should parse a fully populated v1 payload via json.Unmarshal", func() {
+			data := map[string]any{
+				"channels": []any{
+					map[string]any{
+						"channel":   1,
+						"color":     "#ff0000",
+						"notation":  "scientific",
+						"precision": 2,
+						"alias":     "temp",
+						"timestamp": map[string]any{
+							"format": "ISO",
+							"tz":     "UTC",
+						},
+					},
+				},
+				"remoteCreated":        true,
+				"timestampPrecision":   3,
+				"showChannelNames":     false,
+				"showReceiptTimestamp": true,
+			}
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels).To(HaveLen(1))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(d.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(d.Channels[0].Notation).To(Equal(notation.NotationScientific))
+			Expect(d.Channels[0].Precision).To(Equal(int32(2)))
+			Expect(d.Channels[0].Alias).To(Equal("temp"))
+		})
+
+		It("Should accept channel entries with only the channel field", func() {
+			data := map[string]any{
+				"channels": []any{map[string]any{"channel": 5}},
+			}
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(5)))
+		})
+
+		It("Should coerce json.Number values throughout the payload", func() {
+			data := map[string]any{
+				"channels": []any{
+					map[string]any{
+						"channel":   json.Number("7"),
+						"precision": json.Number("4"),
+					},
+				},
+				"timestampPrecision": json.Number("2"),
+			}
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Channel).To(Equal(channel.Key(7)))
+			Expect(d.Channels[0].Precision).To(Equal(int32(4)))
+			Expect(d.TimestampPrecision).To(Equal(int32(2)))
+		})
+
+		It("Should fail on a malformed color hex", func() {
+			data := map[string]any{
+				"channels": []any{map[string]any{"channel": 1, "color": "not-a-hex"}},
+			}
+			Expect(v1.Parse(data)).Error().To(MatchError(ContainSubstring("invalid hex color")))
+		})
+
+		It("Should accept any string for a typed enum (the latest-Log lift enforces closed sets)", func() {
+			data := map[string]any{
+				"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
+			}
+			d := MustSucceed(v1.Parse(data))
+			Expect(d.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+		})
+	})
+
+	Describe("v1.ParseLenient", func() {
+		It("Should drop an invalid color hex pre-unmarshal", func() {
+			data := map[string]any{
+				"channels": []any{
+					map[string]any{"channel": 1, "color": "not-a-hex"},
+				},
+			}
+			d := MustSucceed(v1.ParseLenient(data))
+			Expect(d.Channels).To(HaveLen(1))
+			Expect(d.Channels[0].Color).To(Equal(color.Color{}))
+		})
+
+		It("Should leave enum strings unchanged for the latest-Log lift to handle", func() {
+			data := map[string]any{
+				"channels": []any{
+					map[string]any{"channel": 1, "notation": "garbage"},
+				},
+			}
+			d := MustSucceed(v1.ParseLenient(data))
+			Expect(d.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
+		})
+	})
+})
+
+var _ = Describe("Step migrations", func() {
+	Describe("v1.Migrate (v0 -> v1)", func() {
+		It("Should convert bare channel keys to config entries with defaults", func() {
+			old := v0.Data{
+				Channels:      []channel.Key{1, 2, 3},
+				RemoteCreated: false,
+			}
+			result := v1.Migrate(old)
+			Expect(result.Channels).To(HaveLen(3))
+			Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(result.Channels[0].Color).To(Equal(color.Color{}))
+			Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
+			Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
+			Expect(result.Channels[0].Alias).To(Equal(""))
+			Expect(result.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
+			Expect(result.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+			Expect(result.Channels[2].Channel).To(Equal(channel.Key(3)))
+		})
+
+		It("Should preserve RemoteCreated", func() {
+			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: true}
+			result := v1.Migrate(old)
+			Expect(result.RemoteCreated).To(BeTrue())
+		})
+
+		It("Should set correct v1 defaults", func() {
+			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
+			result := v1.Migrate(old)
+			Expect(result.TimestampPrecision).To(Equal(int32(0)))
+			Expect(result.ShowChannelNames).To(BeTrue())
+			Expect(result.ShowReceiptTimestamp).To(BeTrue())
+		})
+
+		It("Should handle empty channels", func() {
+			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
+			result := v1.Migrate(old)
+			Expect(result.Channels).To(HaveLen(0))
+		})
 	})
 })

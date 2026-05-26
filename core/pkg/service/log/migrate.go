@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -23,9 +23,9 @@ import (
 
 // MigrateLog lifts the previous log snapshot (v55, {Key, Name, Data}) into the
 // strongly-typed Log. AutoMigrateLog copies the gorp-entry fields (Key, Name); the
-// body is parsed from the per-log JSON blob via migrations.MigrateLenient, which
+// body is parsed from the per-log JSON blob via legacy.MigrateData, which
 // substitutes documented defaults for per-field parse failures rather than
-// erroring. As a final guardrail, if the lenient chain still fails (e.g. a channel
+// erroring. As a final guardrail, if the legacy chain still fails (e.g. a channel
 // key that cannot coerce to uint32), the body is dropped and only Key+Name are
 // returned. The gorp boot migration therefore never fails on a single corrupt row.
 // UI-only fields (toolbar, version) are dropped because they are not declared in
@@ -44,7 +44,7 @@ func MigrateLog(
 	if len(old.Data) == 0 {
 		return out, nil
 	}
-	d, err := migrations.MigrateLenient(v1.Version, map[string]any(old.Data))
+	d, err := legacy.MigrateData(v1.Version, map[string]any(old.Data))
 	if err != nil {
 		ins.L.Warn(
 			"log gorp migration: failed to parse Data body; dropping body and keeping Key+Name only",

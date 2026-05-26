@@ -10,7 +10,7 @@
 package v1
 
 import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 )
