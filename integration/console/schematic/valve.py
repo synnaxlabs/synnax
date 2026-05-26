@@ -80,7 +80,7 @@ class Valve(Symbol):
 
         if show_control_chip is not None:
             chip_toggle = (
-                self.page.locator("text=Show Control Chip")
+                self.page.locator("text=Show control chip")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -105,21 +105,21 @@ class Valve(Symbol):
 
         # State Channel
         state_channel = (
-            self.page.locator("text=State Channel").locator("..").locator("button")
+            self.page.locator("text=State channel").locator("..").locator("button")
         )
         if state_channel.count() > 0:
             props["state_channel"] = state_channel.inner_text().strip()
 
-        # State Channel
+        # Command channel
         command_channel = (
-            self.page.locator("text=Command Channel").locator("..").locator("button")
+            self.page.locator("text=Command channel").locator("..").locator("button")
         )
         if command_channel.count() > 0:
             props["command_channel"] = command_channel.inner_text().strip()
 
-        # Show Control Chip
+        # Show control chip
         chip_toggle = (
-            self.page.locator("text=Show Control Chip")
+            self.page.locator("text=Show control chip")
             .locator("..")
             .locator("input[type='checkbox']")
         )

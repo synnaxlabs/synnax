@@ -10,7 +10,7 @@
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/button/config";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
-import { Primitive } from "@/schematic/node/general/button/Primitive";
+import { Button } from "@/schematic/node/general/button/Primitive";
 import { Symbol } from "@/schematic/node/general/button/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -44,7 +44,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: NAME,
   Form: ButtonForm,
   Node: Symbol,
-  Preview: Primitive,
+  Preview: Button,
   defaultConfig,
   zIndex: 4,
 };

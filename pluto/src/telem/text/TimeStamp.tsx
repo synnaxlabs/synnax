@@ -10,7 +10,7 @@
 import {
   type CrudeTimeStamp,
   TimeStamp as XTimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -23,7 +23,7 @@ export type TimeStampProps<E extends Generic.ElementType = "p"> = Omit<
   "children"
 > & {
   children: CrudeTimeStamp;
-  format?: TimeStampStringFormat;
+  format?: TimestampFormat;
   suppliedTimeZone?: TimeZone;
   displayTimeZone?: TimeZone;
 };
