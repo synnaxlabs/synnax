@@ -226,7 +226,7 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.ShowReceiptTimestamp).To(BeFalse())
 		})
 
-		It("Should scrub a malformed color hex to the zero color", func(ctx SpecContext) {
+		It("Should default a malformed color hex to the zero color", func(ctx SpecContext) {
 			out := MustSucceed(log.MigrateLog(
 				ctx, loadV55("testdata/import_invalid_color.json"), alamos.Instrumentation{},
 			))

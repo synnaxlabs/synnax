@@ -10,8 +10,6 @@
 package v1
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -21,7 +19,7 @@ import (
 const Version = "1.0.0"
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally
-// frozen without this struct; the field was added later by console clients and
+// frozen without this struct; the field was added later by Console clients and
 // persisted through the v55 gorp blob without bumping the wire-format version, so v1
 // captures it here for round-trip fidelity.
 type TimestampConfig struct {
@@ -29,15 +27,15 @@ type TimestampConfig struct {
 	Tz     telem.TimeZone        `json:"tz"`
 }
 
-// ChannelEntry is a channel reference with display configuration. Color is kept as raw
-// JSON because color.Color rejects a malformed or empty wire value on decode, which
-// would drop the whole row; the latest-Log lift parses it into the typed color.Color,
-// defaulting to the zero color on any error or absence. The enum fields (notation,
-// timestamp format, timezone) are named string types that accept any string on decode;
-// the lift substitutes defaults for values outside their closed sets.
+// ChannelEntry is a channel reference with display configuration. Color is the raw
+// wire-format color string the Console persisted (a hex string such as "#ff0000", or
+// empty for none); the latest-Log lift parses it into the typed color.Color, defaulting
+// a malformed or empty value to the zero color. The enum fields (notation, timestamp
+// format, timezone) are named string types that accept any string on decode; the lift
+// substitutes defaults for values outside their closed sets.
 type ChannelEntry struct {
 	Channel   channel.Key       `json:"channel"`
-	Color     json.RawMessage   `json:"color"`
+	Color     string            `json:"color"`
 	Notation  notation.Notation `json:"notation"`
 	Precision int32             `json:"precision"`
 	Alias     string            `json:"alias"`

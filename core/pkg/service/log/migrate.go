@@ -11,7 +11,6 @@ package log
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
@@ -61,9 +60,9 @@ func MigrateLog(
 }
 
 // logFromV1 lifts the latest legacy Data into the runtime Log shape. The legacy chain
-// leaves the raw color and any out-of-set enum strings untouched, so the lift parses the
-// color (defaulting a malformed or absent value to the zero color) and substitutes the
-// documented default for any enum outside its closed set.
+// leaves the raw color string and any out-of-set enum strings untouched, so the lift
+// parses the color (defaulting a malformed or empty value to the zero color) and
+// substitutes the documented default for any enum outside its closed set.
 func logFromV1(d v1.Data) Log {
 	channels := make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {
@@ -88,15 +87,12 @@ func logFromV1(d v1.Data) Log {
 	}
 }
 
-// parseColor decodes the raw wire-format color into the typed color.Color, returning
-// the zero color for an absent, null, or malformed value so a single bad color never
+// parseColor parses the raw wire-format hex color string into the typed color.Color,
+// returning the zero color for an empty or malformed value so a single bad color never
 // fails the lift.
-func parseColor(raw json.RawMessage) color.Color {
-	if len(raw) == 0 {
-		return color.Color{}
-	}
-	var c color.Color
-	if err := json.Unmarshal(raw, &c); err != nil {
+func parseColor(hex string) color.Color {
+	c, err := color.FromHex(hex)
+	if err != nil {
 		return color.Color{}
 	}
 	return c
