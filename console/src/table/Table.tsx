@@ -10,9 +10,9 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { Access, Button, Icon, Menu, Table as Base } from "@synnaxlabs/pluto";
+import { Access, Button, Icon, Menu, Table as Base, Triggers } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
@@ -23,6 +23,8 @@ import { setEditable, setSelectedCells } from "@/table/slice";
 import { useAutoUpload } from "@/table/useUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
+
+const CLEAR_SELECTED_TRIGGERS: Triggers.Trigger[] = [["Delete"], ["Backspace"]];
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editable = useSelectEditable(layoutKey);
@@ -35,6 +37,20 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const addCol = Base.useAddCol({ key: layoutKey });
   const removeRow = Base.useRemoveRow({ key: layoutKey });
   const removeCol = Base.useRemoveCol({ key: layoutKey });
+  const clearSelected = Base.useClearSelected({ key: layoutKey });
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  Triggers.use({
+    triggers: CLEAR_SELECTED_TRIGGERS,
+    region: tableRef,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !canEdit || selected.length === 0) return;
+        clearSelected(selected);
+      },
+      [canEdit, selected, clearSelected],
+    ),
+  });
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -77,7 +93,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
 
   return (
-    <div className={CSS.B("table")}>
+    <div ref={tableRef} className={CSS.B("table")} tabIndex={0}>
       <Menu.ContextMenu menu={contextMenu} {...menuProps}>
         <Base.Table
           resourceKey={layoutKey}

@@ -382,3 +382,57 @@ export const useRemoveCol = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => 
     [dispatch, key],
   );
 };
+
+export interface UseClearSelectedReturn {
+  (selected: string[]): void;
+}
+
+// useClearSelected returns a callback that takes a selected cell-key array
+// and, in a single batched dispatch, removes every fully-selected row,
+// removes every fully-selected column, and resets each remaining selected
+// cell to the default text variant. Cells whose row or column is removed in
+// the same batch fall through as setCell no-ops because the reducer skips
+// unknown keys.
+export const useClearSelected = ({ key }: SelectKeyArgs): UseClearSelectedReturn => {
+  const { dispatch } = useDispatch();
+  const rows = useSelectRows({ key });
+  const columns = useSelectColumns({ key });
+  const theme = Theming.use();
+  return useCallback(
+    (selected: string[]) => {
+      if (selected.length === 0) return;
+      const selectedSet = new Set(selected);
+      const fullRowIndices: number[] = [];
+      rows.forEach((row, i) => {
+        if (row.cells.length > 0 && row.cells.every((c) => selectedSet.has(c)))
+          fullRowIndices.push(i);
+      });
+      const fullColIndices: number[] = [];
+      columns.forEach((_, colIdx) => {
+        const allSelected =
+          rows.length > 0 &&
+          rows.every((row) => {
+            const cellKey = row.cells[colIdx];
+            return cellKey != null && selectedSet.has(cellKey);
+          });
+        if (allSelected) fullColIndices.push(colIdx);
+      });
+      const actions: table.Action[] = [];
+      // Remove rows from highest to lowest index so earlier removes don't
+      // shift later ones out from under us. Same for columns.
+      for (let i = fullRowIndices.length - 1; i >= 0; i--)
+        actions.push(table.removeRow({ index: fullRowIndices[i] }));
+      for (let i = fullColIndices.length - 1; i >= 0; i--)
+        actions.push(table.removeCol({ index: fullColIndices[i] }));
+      const defaultProps = CELLS.text.defaultProps(theme);
+      for (const cellKey of selected)
+        actions.push(
+          table.setCell({
+            cell: { key: cellKey, variant: "text", props: defaultProps },
+          }),
+        );
+      dispatch({ key, actions });
+    },
+    [dispatch, key, rows, columns, theme],
+  );
+};

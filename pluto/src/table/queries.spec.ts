@@ -557,6 +557,131 @@ describe("table queries", () => {
     });
   });
 
+  describe("useClearSelected", () => {
+    const seedTable = async () => {
+      const ws = await client.workspaces.create({
+        name: `clear_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
+        name: "clear_test",
+        rows: [
+          { size: 30, cells: ["a", "b", "c"] },
+          { size: 30, cells: ["d", "e", "f"] },
+          { size: 30, cells: ["g", "h", "i"] },
+        ],
+        columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
+        cells: {
+          a: { key: "a", variant: "value", props: { units: "psi" } },
+          b: { key: "b", variant: "value", props: { units: "psi" } },
+          c: { key: "c", variant: "value", props: { units: "psi" } },
+          d: { key: "d", variant: "value", props: { units: "psi" } },
+          e: { key: "e", variant: "value", props: { units: "psi" } },
+          f: { key: "f", variant: "value", props: { units: "psi" } },
+          g: { key: "g", variant: "value", props: { units: "psi" } },
+          h: { key: "h", variant: "value", props: { units: "psi" } },
+          i: { key: "i", variant: "value", props: { units: "psi" } },
+        },
+      });
+    };
+
+    const loadAndUse = async (key: table.Key) => {
+      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const hooks = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key }),
+          clear: Table.useClearSelected({ key }),
+          undo: Table.useUndo({ key }),
+        }),
+        { wrapper },
+      );
+      return hooks;
+    };
+
+    it("resets variant and props of selected cells without removing rows or columns", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["b", "e"]));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.cells.b.variant).toEqual("text");
+        expect(result.current.retrieve.data?.cells.e.variant).toEqual("text");
+        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value");
+      });
+      expect(result.current.retrieve.data?.rows).toHaveLength(3);
+      expect(result.current.retrieve.data?.columns).toHaveLength(3);
+    });
+
+    it("removes a fully-selected row", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["d", "e", "f"]));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(2);
+        expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "b", "c"]);
+        expect(result.current.retrieve.data?.rows[1].cells).toEqual(["g", "h", "i"]);
+        expect(result.current.retrieve.data?.cells.d).toBeUndefined();
+      });
+    });
+
+    it("removes a fully-selected column", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["b", "e", "h"]));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.columns).toHaveLength(2);
+        expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "c"]);
+        expect(result.current.retrieve.data?.cells.b).toBeUndefined();
+      });
+    });
+
+    it("removes a full row and a full column in the same gesture", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["a", "b", "c", "f", "i"]));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(2);
+        expect(result.current.retrieve.data?.columns).toHaveLength(2);
+        expect(result.current.retrieve.data?.rows[0].cells).toEqual(["d", "e"]);
+        expect(result.current.retrieve.data?.rows[1].cells).toEqual(["g", "h"]);
+      });
+    });
+
+    it("removes a fully-selected row and resets stray selected cells outside that row", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["d", "e", "f", "h"]));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(2);
+        expect(result.current.retrieve.data?.cells.h.variant).toEqual("text");
+        expect(result.current.retrieve.data?.cells.g.variant).toEqual("value");
+      });
+    });
+
+    it("is a no-op for an empty selection", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await act(async () => result.current.clear([]));
+      expect(result.current.retrieve.data?.rows).toHaveLength(3);
+      expect(result.current.retrieve.data?.columns).toHaveLength(3);
+      expect(result.current.undo.canUndo).toBe(false);
+    });
+
+    it("collapses into a single undo step", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.clear(["a", "b", "c", "e"]));
+      await waitFor(() => expect(result.current.retrieve.data?.rows).toHaveLength(2));
+      await act(async () => result.current.undo.undo());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(3);
+        expect(result.current.retrieve.data?.cells.e.variant).toEqual("value");
+      });
+    });
+  });
+
   describe("selectors", () => {
     const seedTable = async () => {
       const ws = await client.workspaces.create({
