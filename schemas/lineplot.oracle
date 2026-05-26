@@ -45,7 +45,8 @@ AxisKey enum {
 
 Title struct {
     level   text.Level {
-        @doc value "is the typography level of the title text."
+        @doc value        "is the typography level of the title text."
+        @validate default text.LevelP
     }
     visible bool       {
         @doc value "is whether the title is shown above the plot."
@@ -132,10 +133,12 @@ Axis struct {
         @doc value "is the human-readable label rendered along the axis."
     }
     label_direction spatial.Direction {
-        @doc value "is the orientation in which the label text is laid out."
+        @doc value        "is the orientation in which the label text is laid out."
+        @validate default spatial.DirectionX
     }
     label_level     text.Level        {
-        @doc value "is the typography level of the label."
+        @doc value        "is the typography level of the label."
+        @validate default text.LevelSmall
     }
     bounds          spatial.Bounds    {
         @doc value """
