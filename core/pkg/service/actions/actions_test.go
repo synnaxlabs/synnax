@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -151,10 +152,7 @@ var _ = Describe("State", func() {
 		mu.Lock()
 		defer mu.Unlock()
 		Expect(seen).To(HaveLen(N))
-		uniq := make(map[uint64]struct{}, N)
-		for _, s := range seen {
-			uniq[s] = struct{}{}
-		}
+		uniq := set.New(seen...)
 		Expect(uniq).To(HaveLen(N))
 		maxSeq := uint64(0)
 		for s := range uniq {
