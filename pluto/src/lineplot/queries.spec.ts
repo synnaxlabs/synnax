@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  lineplot as lineplotClient,
+  NotFoundError,
+} from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -242,10 +246,7 @@ describe("lineplot queries", () => {
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.lineplots.create(ws.key, {
-        ...lineplotClient.ZERO_NEW,
-        name: "dispatch_test",
-      });
+      return client.lineplots.create(ws.key, { name: "dispatch_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -462,10 +463,7 @@ describe("lineplot queries", () => {
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.lineplots.create(ws.key, {
-        ...lineplotClient.ZERO_NEW,
-        name: "selector_test",
-      });
+      return client.lineplots.create(ws.key, { name: "selector_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -674,7 +672,6 @@ describe("lineplot queries", () => {
         layout: {},
       });
       const seeded = await client.lineplots.create(ws.key, {
-        ...lineplotClient.ZERO_NEW,
         name: "obs_initial",
       });
       const seen: string[] = [];
