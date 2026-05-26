@@ -275,10 +275,6 @@ func AutoBoundsListFromPB(pbs []*AutoBounds) ([]lineplot.AutoBounds, error) {
 
 // AxisToPB converts Axis to Axis.
 func AxisToPB(r lineplot.Axis) (*Axis, error) {
-	keyVal, err := AxisKeyToPB(r.Key)
-	if err != nil {
-		return nil, err
-	}
 	labelDirectionVal, err := spatialpb.DirectionToPB(r.LabelDirection)
 	if err != nil {
 		return nil, err
@@ -298,7 +294,6 @@ func AxisToPB(r lineplot.Axis) (*Axis, error) {
 	pb := &Axis{
 		Label:          r.Label,
 		TickSpacing:    r.TickSpacing,
-		Key:            keyVal,
 		LabelDirection: labelDirectionVal,
 		LabelLevel:     labelLevelVal,
 		Bounds:         boundsVal,
@@ -321,10 +316,6 @@ func AxisFromPB(pb *Axis) (lineplot.Axis, error) {
 		return r, nil
 	}
 	var err error
-	r.Key, err = AxisKeyFromPB(pb.Key)
-	if err != nil {
-		return lineplot.Axis{}, err
-	}
 	r.LabelDirection, err = spatialpb.DirectionFromPB(pb.LabelDirection)
 	if err != nil {
 		return lineplot.Axis{}, err

@@ -18,16 +18,6 @@ import "x/go/text/pb/text.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/lineplot/pb";
 
-// AxisKey names one of the six fixed plot axes.
-enum AxisKey {
-  AXIS_KEY_X_1 = 0;
-  AXIS_KEY_X_2 = 1;
-  AXIS_KEY_Y_1 = 2;
-  AXIS_KEY_Y_2 = 3;
-  AXIS_KEY_Y_3 = 4;
-  AXIS_KEY_Y_4 = 5;
-}
-
 // TickType selects how an axis renders its tick labels.
 enum TickType {
   TICK_TYPE_LINEAR = 0;
@@ -38,6 +28,16 @@ enum TickType {
 enum DownsampleMode {
   DOWNSAMPLE_MODE_AVERAGE = 0;
   DOWNSAMPLE_MODE_DECIMATE = 1;
+}
+
+// AxisKey names one of the six fixed plot axes.
+enum AxisKey {
+  AXIS_KEY_X_1 = 0;
+  AXIS_KEY_X_2 = 1;
+  AXIS_KEY_Y_1 = 2;
+  AXIS_KEY_Y_2 = 3;
+  AXIS_KEY_Y_3 = 4;
+  AXIS_KEY_Y_4 = 5;
 }
 
 // Title is the plot title configuration.
@@ -96,25 +96,23 @@ message AutoBounds {
 
 // Axis is the configuration for a single plot axis.
 message Axis {
-  // key identifies which of the six axes this configuration applies to.
-  AxisKey key = 1;
   // label is the human-readable label rendered along the axis.
-  string label = 2;
+  string label = 1;
   // label_direction is the orientation in which the label text is laid out.
-  .x.spatial.pb.Direction label_direction = 3;
+  .x.spatial.pb.Direction label_direction = 2;
   // label_level is the typography level of the label.
-  .x.text.pb.Level label_level = 4;
+  .x.text.pb.Level label_level = 3;
   // bounds is the value-space window of the axis. When the matching entry in auto_bounds
   // is true the field is overwritten locally on every render; otherwise it is the
   // user-set fixed bound.
-  .x.spatial.pb.Bounds bounds = 5;
+  .x.spatial.pb.Bounds bounds = 4;
   // auto_bounds controls per-edge automatic bound derivation.
-  AutoBounds auto_bounds = 6;
+  AutoBounds auto_bounds = 5;
   // tick_spacing is the target pixel distance between adjacent tick marks.
-  double tick_spacing = 7;
+  double tick_spacing = 6;
   // type selects the tick label style. Null means default (linear). X-axes typically
   // carry "time" when bound to a timestamp channel.
-  optional TickType type = 8;
+  optional TickType type = 7;
 }
 
 // Axes bundles configuration for all six fixed plot axes.
