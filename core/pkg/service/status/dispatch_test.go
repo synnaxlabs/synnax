@@ -194,29 +194,30 @@ var _ = Describe("Dispatch", Ordered, func() {
 		})
 
 		Describe("Create path", func() {
-			It("Should create a row with Key=Name=input when nothing matches", func(ctx SpecContext) {
+			It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
 				input := "fresh_row_a"
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, input, "hello", string(xstatus.VariantInfo)))
-				Expect(gotKey).To(Equal(input))
+				MustSucceed(uuid.Parse(gotKey))
+				Expect(gotKey).ToNot(Equal(input))
 				Expect(multi).To(BeFalse())
 
 				var s status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](input)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-				Expect(s.Key).To(Equal(input))
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+				Expect(s.Key).To(Equal(gotKey))
 				Expect(s.Name).To(Equal(input))
 				Expect(s.Variant).To(Equal(xstatus.VariantInfo))
 				Expect(s.Message).To(Equal("hello"))
 			})
 
-			It("Should produce a row that subsequent SetByKeyOrName calls update by key", func(ctx SpecContext) {
+			It("Should match a created row by name on subsequent SetByKeyOrName calls", func(ctx SpecContext) {
 				input := "fresh_row_then_update"
-				MustSucceed2(svc.SetByKeyOrName(ctx, input, "first", string(xstatus.VariantInfo)))
+				firstKey, _ := MustSucceed2(svc.SetByKeyOrName(ctx, input, "first", string(xstatus.VariantInfo)))
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, input, "second", string(xstatus.VariantWarning)))
-				Expect(gotKey).To(Equal(input))
+				Expect(gotKey).To(Equal(firstKey))
 				Expect(multi).To(BeFalse())
 
 				var s status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](input)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 				Expect(s.Message).To(Equal("second"))
 				Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 			})

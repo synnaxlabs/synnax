@@ -322,19 +322,25 @@ var _ = Describe("setNode.Next", func() {
 		return node.Context{Context: ctx, MarkChanged: func(int) {}}
 	}
 
-	It("Should upsert a new row by name when none exists", func(ctx SpecContext) {
+	It("Should upsert a new UUID-keyed row by name when none exists", func(ctx SpecContext) {
 		name := "next_new_" + uuid.NewString()
 		n, state := build(ctx, name, "All good", "success")
 		n.Next(nodeCtx(ctx))
 
+		out := *state.Output(0)
+		keys := telem.UnmarshalSeries[string](out)
+		Expect(keys).To(HaveLen(1))
+		newKey := keys[0]
+		MustSucceed(uuid.Parse(newKey))
+		Expect(newKey).ToNot(Equal(name))
+
 		var s status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		Expect(s.Key).To(Equal(newKey))
+		Expect(s.Name).To(Equal(name))
 		Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
 		Expect(s.Message).To(Equal("All good"))
 		Expect(s.Time).ToNot(BeZero())
-
-		out := *state.Output(0)
-		Expect(telem.UnmarshalSeries[string](out)).To(Equal([]string{s.Key}))
 
 		outTime := *state.OutputTime(0)
 		Expect(outTime.Len()).To(Equal(int64(1)))
@@ -721,10 +727,13 @@ var _ = Describe("WASM host functions", func() {
 				arctest.U32(keyH), arctest.U32(msgH), arctest.U32(varH))
 			out := arctest.AsU32(res[0])
 			Expect(out).ToNot(BeZero())
-			Expect(MustBeOk(strs.Get(out))).To(Equal(name))
+			newKey := MustBeOk(strs.Get(out))
+			MustSucceed(uuid.Parse(newKey))
+			Expect(newKey).ToNot(Equal(name))
 
 			var s status.Status[any]
-			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Name).To(Equal(name))
 			Expect(s.Variant).To(Equal(xstatus.VariantInfo))
 		})
 

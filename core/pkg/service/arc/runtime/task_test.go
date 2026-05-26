@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -504,7 +505,9 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.MatchKeys[svcarc.StatusDetails]("ox_alarm")).Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+						return s.Name == "ox_alarm", nil
+					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
@@ -559,7 +562,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 			// Pre-create a status that the Arc graph will then delete.
-			MustSucceed2(statusSvc.SetByKeyOrName(ctx, "delete_target", "alive", "info"))
+			targetKey, _ := MustSucceed2(statusSvc.SetByKeyOrName(ctx, "delete_target", "alive", "info"))
 
 			deleteGraph := graph.Graph{
 				Nodes: []graph.Node{
@@ -594,7 +597,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.MatchKeys[svcarc.StatusDetails]("delete_target")).
+					Where(status.MatchKeys[svcarc.StatusDetails](targetKey)).
 					Entry(&status.Status[svcarc.StatusDetails]{}).Exec(ctx, nil)).
 					To(MatchError(query.ErrNotFound))
 			}).Should(Succeed())

@@ -30,7 +30,7 @@ var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
 var _ = Describe("api/status SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
-		It("Should create a row with Key=Name=input when nothing matches", func(ctx SpecContext) {
+		It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
@@ -41,12 +41,13 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Message:   "hello",
 				Variant:   string(xstatus.VariantInfo),
 			}))
-			Expect(res.Key).To(Equal(name))
+			MustSucceed(uuid.Parse(res.Key))
+			Expect(res.Key).ToNot(Equal(name))
 			Expect(res.MultipleMatches).To(BeFalse())
 
 			var s status.Status[any]
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](res.Key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-			Expect(s.Key).To(Equal(name))
+			Expect(s.Key).To(Equal(res.Key))
 			Expect(s.Name).To(Equal(name))
 			Expect(s.Message).To(Equal("hello"))
 		})
@@ -185,6 +186,23 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			Expect(res.Count).To(Equal(2))
 		})
 
+		It("Should allow a by-name delete when a row-level grant matches the resolved key", func(ctx SpecContext) {
+			name := "api_del_rowlevel_ok_" + uuid.New().String()
+			preKey := uuid.NewString()
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key: preKey, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+			})).To(Succeed())
+			rower := freshUser(ctx)
+			grantOn(ctx, user.OntologyID(rower.Key),
+				[]access.Action{access.ActionDelete},
+				status.OntologyID(preKey))
+
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, rower), DeleteByKeyOrNameRequest{
+				KeyOrName: name,
+			}))
+			Expect(res.Count).To(Equal(1))
+		})
+
 		It("Should return Count=0 when nothing matches", func(ctx SpecContext) {
 			name := "api_del_missing_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
@@ -206,6 +224,25 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				Key: preKey, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
 			})).To(Succeed())
 			anon := freshUser(ctx)
+
+			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), DeleteByKeyOrNameRequest{
+				KeyOrName: name,
+			})).Error().To(MatchError(access.ErrDenied))
+
+			var s status.Status[any]
+			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](preKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		})
+
+		It("Should deny a by-name delete when a row-level grant does not match the resolved key", func(ctx SpecContext) {
+			name := "api_del_rowlevel_deny_" + uuid.New().String()
+			preKey := uuid.NewString()
+			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+				Key: preKey, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+			})).To(Succeed())
+			anon := freshUser(ctx)
+			grantOn(ctx, user.OntologyID(anon.Key),
+				[]access.Action{access.ActionDelete},
+				status.OntologyID(uuid.NewString()))
 
 			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
