@@ -10,39 +10,34 @@
 import { LinePlot as PLinePlot, Triggers } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-// Pluto's trigger layer normalizes Meta (Cmd on macOS) into Control before
-// dispatching, so Cmd+Z reaches us as ["Control", "Z"].
-const UNDO_TRIGGERS: Triggers.Trigger[] = [["Control", "Z"]];
-const REDO_TRIGGERS: Triggers.Trigger[] = [["Control", "Shift", "Z"]];
+type Mode = "undo" | "redo" | "default";
 
-// useUndoRedoTriggers wires Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z to the Pluto
-// undo/redo stack for the given line plot. Triggers fire only when the
-// component is mounted, so each plot tab keeps its own undo history.
+const CONFIG: Triggers.ModeConfig<Mode> = {
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
+  default: [],
+  defaultMode: "default",
+};
+
+const TRIGGERS = Triggers.flattenConfig(CONFIG);
+
+// useUndoRedoTriggers wires Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z to the line
+// plot's undo/redo stack. Triggers fire only while mounted, so each plot
+// tab keeps its own history.
 export const useUndoRedoTriggers = (key: string): void => {
   const { undo } = PLinePlot.useUndo({ key });
   const { redo } = PLinePlot.useRedo({ key });
-
   Triggers.use({
-    triggers: UNDO_TRIGGERS,
+    triggers: TRIGGERS,
     loose: true,
     callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (e.stage !== "start") return;
-        undo();
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        const mode = Triggers.determineMode(CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
       },
-      [undo],
-    ),
-  });
-
-  Triggers.use({
-    triggers: REDO_TRIGGERS,
-    loose: true,
-    callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (e.stage !== "start") return;
-        redo();
-      },
-      [redo],
+      [undo, redo],
     ),
   });
 };
