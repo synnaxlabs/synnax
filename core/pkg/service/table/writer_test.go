@@ -15,9 +15,12 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
+
+type scopedAction = actions.Scoped[table.Key, table.Action]
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
@@ -263,8 +266,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should notify the action observer once per Dispatch with monotonic seq", func(ctx SpecContext) {
 			s := seed(ctx)
-			var received []table.ScopedAction
-			disconnect := svc.OnAction(func(_ context.Context, sa table.ScopedAction) {
+			var received []scopedAction
+			disconnect := svc.OnAction(func(_ context.Context, sa scopedAction) {
 				received = append(received, sa)
 			})
 			defer disconnect()
