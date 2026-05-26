@@ -135,7 +135,7 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...tableNS.ZERO_NEW,
+          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "seeded_table",
@@ -166,7 +166,7 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...tableNS.ZERO_NEW,
+          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "explicit_layout",
@@ -191,7 +191,7 @@ describe("table queries", () => {
       // Use a fake workspace key so the server-side ontology insert fails.
       await act(async () => {
         await result.current.updateAsync({
-          ...tableNS.ZERO_NEW,
+          ...table.ZERO_NEW,
           key,
           workspace: uuid.create(),
           name: "rollback_table",
