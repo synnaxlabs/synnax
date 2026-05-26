@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,11 +47,7 @@ export class Writer {
   }
 
   async create(channels: New[]): Promise<Payload[]> {
-    const { channels: created } = await sendRequired<
-      typeof createReqZ,
-      typeof createResZ
-    >(
-      this.client,
+    const { channels: created } = await this.client.send(
       "/channel/create",
       {
         channels: channels.map((c) => ({
@@ -68,25 +64,13 @@ export class Writer {
 
   async delete(props: DeleteProps): Promise<void> {
     const keys = keyZ.array().parse(props.keys ?? []);
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
-      "/channel/delete",
-      props,
-      deleteReqZ,
-      deleteResZ,
-    );
+    await this.client.send("/channel/delete", props, deleteReqZ, deleteResZ);
     if (keys.length > 0) this.cache.delete(keys);
     if (props.names != null) this.cache.delete(props.names);
   }
 
   async rename(keys: Key[], names: string[]): Promise<void> {
-    await sendRequired<typeof renameReqZ, typeof renameResZ>(
-      this.client,
-      "/channel/rename",
-      { keys, names },
-      renameReqZ,
-      renameResZ,
-    );
+    await this.client.send("/channel/rename", { keys, names }, renameReqZ, renameResZ);
     this.cache.rename(keys, names);
   }
 }
