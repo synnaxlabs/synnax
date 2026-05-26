@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -57,8 +57,7 @@ export class Client {
   async create(workspaces: New[]): Promise<Workspace[]>;
   async create(workspaces: New | New[]): Promise<Workspace | Workspace[]> {
     const isMany = Array.isArray(workspaces);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/workspace/create",
       { workspaces: array.toArray(workspaces) },
       createReqZ,
@@ -68,18 +67,11 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/workspace/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/workspace/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
   async setLayout(key: Key, layout: record.Unknown): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/workspace/set-layout",
       { key, layout },
       setLayoutReqZ,
@@ -98,8 +90,7 @@ export class Client {
     if (typeof keys === "string" || Array.isArray(keys))
       req = { keys: array.toArray(keys) };
     else req = keys;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/workspace/retrieve",
       req,
       retrieveReqZ,
@@ -111,8 +102,7 @@ export class Client {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/workspace/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

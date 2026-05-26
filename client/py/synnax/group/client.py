@@ -11,7 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.group.types_gen import Group
 from synnax.ontology.payload import ID, CrudeID
 
@@ -42,25 +42,16 @@ class Client:
         self._client = client
 
     def create(self, parent: CrudeID, name: str, key: str | None = None) -> Group:
-        return send_required(
-            self._client,
+        return self._client.send(
             "/ontology/create-group",
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
             CreateRes,
         ).group
 
     def rename(self, key: UUID, name: str) -> Empty:
-        return send_required(
-            self._client,
-            "/ontology/rename-group",
-            RenameReq(key=key, name=name),
-            Empty,
+        return self._client.send(
+            "/ontology/rename-group", RenameReq(key=key, name=name), Empty
         )
 
     def delete(self, keys: list[UUID]) -> Empty:
-        return send_required(
-            self._client,
-            "/ontology/delete-group",
-            DeleteReq(keys=keys),
-            Empty,
-        )
+        return self._client.send("/ontology/delete-group", DeleteReq(keys=keys), Empty)

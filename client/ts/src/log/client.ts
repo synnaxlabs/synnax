@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,8 +47,7 @@ export class Client {
   async create(workspace: workspace.Key, logs: New[]): Promise<Log[]>;
   async create(workspace: workspace.Key, logs: New | New[]): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/log/create",
       { workspace, logs: array.toArray(logs) },
       createReqZ,
@@ -58,13 +57,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/log/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/log/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<Log>;
@@ -73,8 +66,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Log | Log[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/log/retrieve",
       args,
       retrieveArgsZ,
@@ -85,8 +77,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/log/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
