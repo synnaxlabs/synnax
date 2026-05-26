@@ -35,7 +35,6 @@ export const useCreate = ({
   return useCallback(
     (init) =>
       update({
-        ...table.ZERO_NEW,
         name: "Table",
         ...init,
         workspace: workspace ?? activeWorkspace ?? undefined,

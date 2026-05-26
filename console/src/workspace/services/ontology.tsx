@@ -125,7 +125,6 @@ const useCreateTable = ({
   return useCallback(
     () =>
       update({
-        ...table.ZERO_NEW,
         workspace: workspaceID.key,
         name: "New Table",
       }),

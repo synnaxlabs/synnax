@@ -14,7 +14,7 @@ import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
 import { Text } from "@/text";
 
@@ -23,7 +23,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   onChange?: (value: string) => void;
 }
 
-export const Primitive = ({
+export const TextBox = ({
   className,
   orientation = "left",
   width,
@@ -42,41 +42,18 @@ export const Primitive = ({
   else divStyle.width = autoFit ? "fit-content" : width;
 
   return (
-    <Base.Div
+    <Primitive.Div
       style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle
-          location="left"
-          orientation={orientation}
-          left={0}
-          top={50}
-          id="1"
-        />
-        <Handle.Handle
-          location="right"
-          orientation={orientation}
-          left={100}
-          top={50}
-          id="2"
-        />
-        <Handle.Handle
-          location="top"
-          orientation={orientation}
-          left={50}
-          top={0}
-          id="3"
-        />
-        <Handle.Handle
-          location="bottom"
-          orientation={orientation}
-          left={50}
-          top={100}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={0}
+        right={100}
+        bottom={100}
+      />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}
@@ -84,6 +61,6 @@ export const Primitive = ({
         value={value ?? ""}
         onChange={onChange}
       />
-    </Base.Div>
+    </Primitive.Div>
   );
 };

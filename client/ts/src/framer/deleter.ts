@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -33,12 +33,6 @@ export class Deleter {
   }
 
   async delete(props: Request): Promise<void> {
-    await sendRequired<typeof reqZ, typeof resZ>(
-      this.client,
-      "/frame/delete",
-      props,
-      reqZ,
-      resZ,
-    );
+    await this.client.send("/frame/delete", props, reqZ, resZ);
   }
 }

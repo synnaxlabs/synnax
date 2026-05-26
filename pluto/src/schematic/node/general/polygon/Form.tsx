@@ -47,7 +47,7 @@ export const PolygonForm = (): ReactElement => (
       <Label.Form path="label" />
       <Flex.Box direction="x">
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
         <Base.NumericField
           path="rotation"
           label="Rotation"
@@ -56,25 +56,25 @@ export const PolygonForm = (): ReactElement => (
         />
         <Base.NumericField
           path="numSides"
-          label="Number of Sides"
+          label="Number of sides"
           inputProps={NUM_SIDES_INPUT_PROPS}
           grow
         />
         <Base.NumericField
           path="sideLength"
-          label="Side Length"
+          label="Side length"
           inputProps={SIDE_LENGTH_INPUT_PROPS}
           grow
         />
         <Base.NumericField
           path="cornerRounding"
-          label="Corner Rounding"
+          label="Corner rounding"
           inputProps={CORNER_ROUNDING_INPUT_PROPS}
           grow
         />
         <Base.NumericField
           path="strokeWidth"
-          label="Border Width"
+          label="Border width"
           inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           grow
         />

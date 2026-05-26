@@ -21,7 +21,6 @@ describe("Table", () => {
     test("create one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "Table",
       });
       expect(t.name).toEqual("Table");
@@ -35,7 +34,6 @@ describe("Table", () => {
     test("rename one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "Table",
       });
       await client.tables.rename(t.key, "Table2");
@@ -48,7 +46,6 @@ describe("Table", () => {
     test("set data replaces body fields while preserving key and name", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "Table",
       });
       await client.tables.setData(t.key, {
@@ -74,7 +71,6 @@ describe("Table", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "Table",
       });
       await client.tables.delete(t.key);
@@ -88,7 +84,6 @@ describe("Table", () => {
     test("preserves arbitrary key casing within cell props values", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
       const t = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "CaseTest",
         cells: {
           a: {
@@ -130,7 +125,6 @@ describe("Table", () => {
     const seed = async () => {
       const ws = await client.workspaces.create({ name: "Dispatch", layout: {} });
       return client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],

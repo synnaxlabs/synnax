@@ -31,7 +31,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "retrieve_test",
       });
 
@@ -51,7 +50,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "cached_table",
       });
 
@@ -82,7 +80,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "created_table",
@@ -110,7 +107,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "stored_table",
@@ -135,7 +131,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "seeded_table",
@@ -167,7 +162,6 @@ describe("table queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: workspace.key,
           name: "explicit_layout",
@@ -192,7 +186,6 @@ describe("table queries", () => {
       // Use a fake workspace key so the server-side ontology insert fails.
       await act(async () => {
         await result.current.updateAsync({
-          ...table.ZERO_NEW,
           key,
           workspace: uuid.create(),
           name: "rollback_table",
@@ -210,7 +203,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "original_name",
       });
 
@@ -243,7 +235,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "cache_original",
       });
 
@@ -276,7 +267,6 @@ describe("table queries", () => {
         layout: {},
       });
       const created = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_single",
       });
 
@@ -297,11 +287,9 @@ describe("table queries", () => {
         layout: {},
       });
       const created1 = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_multi_1",
       });
       const created2 = await client.tables.create(workspace.key, {
-        ...table.ZERO_NEW,
         name: "delete_multi_2",
       });
 
@@ -329,7 +317,6 @@ describe("table queries", () => {
         layout: {},
       });
       return client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "dispatch_test",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
@@ -534,7 +521,6 @@ describe("table queries", () => {
         layout: {},
       });
       const seeded = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "empty_table",
         rows: [],
         columns: [],
@@ -565,7 +551,6 @@ describe("table queries", () => {
         layout: {},
       });
       return client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "clear_test",
         rows: [
           { size: 30, cells: ["a", "b", "c"] },
@@ -690,7 +675,6 @@ describe("table queries", () => {
         layout: {},
       });
       return client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "selector_test",
         rows: [
           { size: 30, cells: ["a", "b"] },
@@ -854,7 +838,6 @@ describe("table queries", () => {
         layout: {},
       });
       const seeded = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
         name: "obs_initial",
       });
       const seen: string[] = [];
