@@ -78,17 +78,17 @@ const reduceOne = (
 
 const reduceAll = actions.createReduceAll(reduceOne);
 
-describe("snapshot", () => {
+describe("snapshotDraft", () => {
   it("Should return plain values unchanged", () => {
     const v = { a: 1, b: [2, 3] };
-    expect(actions.snapshot(v)).toBe(v);
+    expect(actions.snapshotDraft(v)).toBe(v);
   });
 
   it("Should freeze a draft into a plain object that survives the produce closure", () => {
     const original = { items: [{ key: "a", value: 1 }] };
     let captured: typeof original | undefined;
     const next = produce(original, (draft) => {
-      captured = actions.snapshot(draft.items[0]) as unknown as typeof original;
+      captured = actions.snapshotDraft(draft.items[0]) as unknown as typeof original;
       draft.items[0].value = 99;
     });
     expect(next.items[0].value).toBe(99);
@@ -96,9 +96,9 @@ describe("snapshot", () => {
   });
 
   it("Should preserve primitive values without wrapping", () => {
-    expect(actions.snapshot(42)).toBe(42);
-    expect(actions.snapshot("hello")).toBe("hello");
-    expect(actions.snapshot(null)).toBe(null);
+    expect(actions.snapshotDraft(42)).toBe(42);
+    expect(actions.snapshotDraft("hello")).toBe("hello");
+    expect(actions.snapshotDraft(null)).toBe(null);
   });
 });
 
