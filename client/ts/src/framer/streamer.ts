@@ -124,8 +124,7 @@ export const createStreamOpener =
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
     });
-    const [, err] = await stream.receive();
-    if (err != null) throw err;
+    await stream.receive();
     return streamer;
   };
 

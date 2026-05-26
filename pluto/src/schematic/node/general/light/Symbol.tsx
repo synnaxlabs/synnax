@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/light/config";
-import { Primitive } from "@/schematic/node/general/light/Primitive";
+import { Light } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
@@ -20,13 +20,18 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, ...rest },
+  config: { label, source, orientation = "left", ...rest },
 }: NodeProps<Config>): ReactElement => {
   const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
   return (
-    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
+    <Grid.Grid
+      orientation={orientation}
+      onRotate={onConfigChange}
+      editable={selected}
+      nodeKey={nodeKey}
+    >
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive enabled={enabled} {...rest} />
+      <Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
   );
 };

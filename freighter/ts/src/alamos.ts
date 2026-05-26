@@ -15,18 +15,29 @@ export const middleware =
   (instrumentation: Instrumentation): Middleware =>
   async (context, next) => {
     if (context.role === "client") instrumentation.T.propagate(context.params);
-
-    const [res, exc] = await instrumentation.T.trace(
-      context.target,
-      "debug",
-      async (span): Promise<[Context, Error | null]> => {
-        const [ctx, err] = await next(context);
-        if (err != null) span.recordError(err);
-        return [ctx, err];
-      },
-    );
-    log(context, instrumentation, exc);
-    return [res, exc];
+    try {
+      const res = await instrumentation.T.trace(
+        context.target,
+        "debug",
+        async (span): Promise<Context> => {
+          try {
+            return await next(context);
+          } catch (err) {
+            if (err instanceof Error) span.recordError(err);
+            throw err;
+          }
+        },
+      );
+      log(context, instrumentation, null);
+      return res;
+    } catch (err) {
+      log(
+        context,
+        instrumentation,
+        err instanceof Error ? err : new Error(String(err)),
+      );
+      throw err;
+    }
   };
 
 const log = (

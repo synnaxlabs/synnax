@@ -13,7 +13,7 @@ import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
 import { type Config } from "@/schematic/node/vessels/tank/config";
-import { Primitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({
   nodeKey,
@@ -30,7 +30,7 @@ export const Symbol = ({
 }: NodeProps<Config>): ReactElement => (
   <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
     <Label.Label config={label} onChange={onConfigChange} />
-    <Primitive
+    <Tank
       onResize={(dimensions) => onConfigChange({ dimensions })}
       orientation={orientation}
       color={color}

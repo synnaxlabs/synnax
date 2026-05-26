@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -62,8 +62,7 @@ export class Client {
     linePlots: New | New[],
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/lineplot/create",
       { workspace, linePlots: array.toArray(linePlots) },
       createReqZ,
@@ -73,23 +72,11 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/lineplot/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/lineplot/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/lineplot/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/lineplot/set-data", { key, data }, setDataReqZ, emptyResZ);
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;
@@ -98,8 +85,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<LinePlot | LinePlot[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/lineplot/retrieve",
       args,
       retrieveArgsZ,
@@ -110,8 +96,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/lineplot/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

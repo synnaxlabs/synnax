@@ -15,7 +15,7 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { type Flux } from "@/flux";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
@@ -86,8 +86,8 @@ const RegionControls = ({
   onReset,
   getOriginalRegion,
 }: RegionControlsProps): ReactElement => {
-  const name = Base.useFieldValue<string>(`${path}.name`);
-  const region = Base.useFieldValue<schematic.symbol.Region>(path);
+  const name = Form.useFieldValue<string>(`${path}.name`);
+  const region = Form.useFieldValue<schematic.symbol.Region>(path);
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
@@ -96,7 +96,7 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Base.Field<string>
+        <Form.Field<string>
           path={`${path}.strokeColor`}
           showLabel={false}
           padHelpText={false}
@@ -104,8 +104,8 @@ const RegionControls = ({
           {({ value, onChange }) => (
             <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
           )}
-        </Base.Field>
-        <Base.Field<string>
+        </Form.Field>
+        <Form.Field<string>
           path={`${path}.fillColor`}
           showLabel={false}
           padHelpText={false}
@@ -113,7 +113,7 @@ const RegionControls = ({
           {({ value, onChange }) => (
             <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
           )}
-        </Base.Field>
+        </Form.Field>
         <Button.Button
           onClick={() => onReset(path)}
           variant="text"
@@ -134,7 +134,7 @@ interface RegionListProps {
 }
 
 const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListProps) => {
-  const { data: regions } = Base.useFieldList<string, schematic.symbol.Region>(
+  const { data: regions } = Form.useFieldList<string, schematic.symbol.Region>(
     `stateOverrides.${selectedState}.regions`,
   );
   return (
@@ -152,10 +152,10 @@ const RegionList = ({ selectedState, onReset, getOriginalRegion }: RegionListPro
 };
 
 export const StateOverrideForm = (): ReactElement => {
-  const specKey = Base.useFieldValue<string>("specKey");
-  const form = Base.useContext();
+  const specKey = Form.useFieldValue<string>("specKey");
+  const form = Form.useContext();
   const [originalStates, setOriginalStates] = useState<schematic.symbol.State[]>([]);
-  const { data: states } = Base.useFieldList<string, schematic.symbol.State>(
+  const { data: states } = Form.useFieldList<string, schematic.symbol.State>(
     "stateOverrides",
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);

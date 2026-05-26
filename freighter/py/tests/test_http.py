@@ -28,26 +28,20 @@ def client(endpoint: URL) -> HTTPClient:
 class TestClient:
     def test_echo(self, client: HTTPClient) -> None:
         """Should echo an incremented ID back to the caller."""
-        res, err = client.send("/echo", Message(id=1, message="hello"), Message)
-        assert err is None
-        assert res is not None
+        res = client.send("/echo", Message(id=1, message="hello"), Message)
         assert res.id == 2
         assert res.message == "hello"
 
     def test_middleware(self, client: HTTPClient) -> None:
         dct = {"called": False}
 
-        def mw(md: Context, next: Next) -> tuple[Context, Exception | None]:
+        def mw(md: Context, next: Next) -> Context:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)
 
         client.use(mw)
-        res, err = client.send(
-            "/middlewareCheck", Message(id=1, message="hello"), Message
-        )
-        assert err is None
-        assert res is not None
+        res = client.send("/middlewareCheck", Message(id=1, message="hello"), Message)
         assert res.id == 2
         assert res.message == "hello"
         assert dct["called"]
