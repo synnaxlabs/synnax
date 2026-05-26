@@ -163,6 +163,55 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, t
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 
+// ResolveKeyOrName returns the keys of existing statuses matching keyOrName, trying an
+// exact key match before name matches. Read-only; callers enforce access on the result.
+func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName string) ([]string, error) {
+	if keyOrName == "" {
+		return nil, ErrEmptyKeyOrName
+	}
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	var st Status[any]
+	err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+	if err == nil {
+		// Return only the key, not the fetched row. Resolve stays separate from the write
+		// so the API can enforce on the resolved key in between; the writer then re-fetches
+		// by key. That repeated indexed get is cheaper than threading rows through the
+		// enforce seam, and the create case has no row to thread anyway.
+		return []string{keyOrName}, nil
+	}
+	if !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	matches, err := retrieveByName[any](ctx, tx, keyOrName)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, len(matches))
+	for i := range matches {
+		keys[i] = matches[i].Key
+	}
+	return keys, nil
+}
+
+// SetResolved upserts the status keyed by key, creating it with Name=key if absent and
+// updating message, variant, and time. Returns ErrInvalidVariant for an unknown variant.
+func (s *Service) SetResolved(ctx context.Context, tx gorp.Tx, key, message, variant string) error {
+	if !xstatus.IsVariant(variant) {
+		return ErrInvalidVariant
+	}
+	var st Status[any]
+	err := s.NewRetrieve().Where(MatchKeys[any](key)).Entry(&st).Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		st = Status[any]{Key: key, Name: key, Variant: xstatus.VariantInfo}
+	} else if err != nil {
+		return err
+	}
+	st.Message = message
+	st.Variant = xstatus.Variant(variant)
+	st.Time = telem.Now()
+	return s.NewWriter(tx).Set(ctx, &st)
+}
+
 // SetByKeyOrName tries to update a row whose Key equals keyOrName, then a row
 // whose Name matches, and finally creates a new row with Key=Name=keyOrName.
 // On multi-name-match, writes to the first match by key order and reports
@@ -171,35 +220,20 @@ func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
-	if keyOrName == "" {
-		return "", false, ErrEmptyKeyOrName
-	}
-	if !xstatus.IsVariant(variant) {
-		return "", false, ErrInvalidVariant
-	}
 	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.NewWriter(tx)
-		var st Status[any]
-		rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
-		if errors.Is(rerr, query.ErrNotFound) {
-			matches, merr := retrieveByName[any](ctx, tx, keyOrName)
-			if merr != nil {
-				return merr
-			}
-			if len(matches) > 0 {
-				st = matches[0]
-				multipleMatches = len(matches) > 1
-			} else {
-				st = Status[any]{Key: keyOrName, Name: keyOrName, Variant: xstatus.VariantInfo}
-			}
-		} else if rerr != nil {
-			return rerr
+		matches, err := s.ResolveKeyOrName(ctx, tx, keyOrName)
+		if err != nil {
+			return err
 		}
-		st.Message = message
-		st.Variant = xstatus.Variant(variant)
-		st.Time = telem.Now()
-		key = st.Key
-		return w.Set(ctx, &st)
+		k := keyOrName
+		if len(matches) > 0 {
+			k = matches[0]
+		}
+		if err = s.SetResolved(ctx, tx, k, message, variant); err != nil {
+			return err
+		}
+		key, multipleMatches = k, len(matches) > 1
+		return nil
 	})
 	return key, multipleMatches, err
 }

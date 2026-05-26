@@ -117,14 +117,30 @@ func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	req SetByKeyOrNameRequest,
 ) (res SetByKeyOrNameResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{status.OntologyID(req.KeyOrName)},
-	}); err != nil {
-		return res, err
-	}
-	res.Key, res.MultipleMatches, err = s.internal.SetByKeyOrName(ctx, req.KeyOrName, req.Message, req.Variant)
+	err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
+		if err != nil {
+			return err
+		}
+		// target is the row Set writes: first match, or the new KeyOrName-keyed row.
+		target := req.KeyOrName
+		if len(matches) > 0 {
+			target = matches[0]
+		}
+		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []ontology.ID{status.OntologyID(target)},
+		}); err != nil {
+			return err
+		}
+		if err = s.internal.SetResolved(ctx, tx, target, req.Message, req.Variant); err != nil {
+			return err
+		}
+		res.Key = target
+		res.MultipleMatches = len(matches) > 1
+		return nil
+	})
 	return res, err
 }
 
