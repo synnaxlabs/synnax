@@ -496,7 +496,7 @@ type enumData struct {
 }
 
 // Receiver returns the single-letter, lowercased method receiver name for the enum type
-// (e.g. "n" for Notation), falling back to "e" for an empty name.
+// (e.g. "n" for Notation).
 func (e enumData) Receiver() string { return strings.ToLower(e.Name[:1]) }
 
 type enumValueData struct {
