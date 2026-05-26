@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/value/config";
 import { ValueForm } from "@/schematic/node/general/value/Form";
-import { Primitive } from "@/schematic/node/general/value/Primitive";
+import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -50,9 +50,9 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
 const Preview = ({ color }: Config): ReactElement => (
-  <Primitive color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
+  <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
     <Text.Text>50.00</Text.Text>
-  </Primitive>
+  </Value>
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {

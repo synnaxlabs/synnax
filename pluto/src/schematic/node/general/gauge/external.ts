@@ -12,7 +12,7 @@ import { bounds } from "@synnaxlabs/x";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/gauge/config";
 import { GaugeForm } from "@/schematic/node/general/gauge/Form";
-import { Primitive } from "@/schematic/node/general/gauge/Primitive";
+import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -48,7 +48,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Gauge",
   Form: GaugeForm,
   Node: Symbol,
-  Preview: Primitive,
+  Preview: Gauge,
   defaultConfig,
   zIndex: 4,
   needsPosition: true,
