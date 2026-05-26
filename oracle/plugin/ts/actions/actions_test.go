@@ -116,6 +116,26 @@ var _ = Describe("TS Actions Plugin", func() {
 					)
 			})
 
+			It("Should emit scopedActionZ and dispatchReqZ bound to keyZ and actionZ", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Tick {
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain(
+						`import { Counter, keyZ } from "@/counter/types.gen";`,
+						"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
+						"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
+					)
+			})
+
 			It("Should not emit the inlined HandlerResult/ReduceAllResult interfaces or open-coded produce loop", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/counter"

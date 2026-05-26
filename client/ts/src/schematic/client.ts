@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
@@ -29,26 +30,9 @@ export const SET_CHANNEL_NAME = "sy_schematic_set";
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
-const dispatchReqZ = z.object({
-  key: keyZ,
-  dispatch_key: z.string(),
-  actions: actionZ.array(),
-});
+const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
 
-// The server emits this frame as snake_case JSON, but the framer's JSON codec
-// runs snakeToCamel before handing the value to the schema, so this stays in
-// camelCase. seq is the server's monotonic high-water mark used by the store
-// to drop stale echoes; it defaults to 0 to keep frames from servers that
-// predate the field parseable. dispatchKey is the client-generated batch ID
-// the originator registered as outstanding before sending; the substrate
-// matches the echo against that set to recognize its own dispatches
-// race-safely.
-export const scopedActionZ = z.object({
-  key: keyZ,
-  dispatchKey: z.string(),
-  seq: z.number().int().nonnegative().default(0),
-  actions: actionZ.array(),
-});
+export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -122,7 +106,7 @@ export class Client {
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
     await this.client.send(
       "/schematic/dispatch",
-      { key, dispatch_key: dispatchKey, actions },
+      { key, dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );

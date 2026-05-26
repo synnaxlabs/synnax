@@ -116,6 +116,7 @@ func (p *Plugin) generateFile(
 	mgr.AddImport("immer", "Draft")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
+	mgr.AddImport(sameDir+"/types.gen", "keyZ")
 	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
@@ -199,4 +200,8 @@ export const createReduceAll = (handlers: Handlers) =>
 {{- end}}
     }
   });
+
+export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+
+export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
 `))
