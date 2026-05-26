@@ -59,8 +59,8 @@ describe("Schematic", () => {
     });
   });
 
-  describe("create with initial body", () => {
-    test("persists nodes and configs supplied at creation", async () => {
+  describe("setData", () => {
+    test("set data replaces body fields while preserving key and name", async () => {
       const ws = await client.workspaces.create({
         name: "Schematic",
         layout: { one: 1 },
@@ -68,6 +68,9 @@ describe("Schematic", () => {
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
         name: "Schematic",
+      });
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
         nodes: [{ key: "n1", position: { x: 10, y: 20 }, zIndex: 0 }],
         configs: { n1: { variant: "valve" } },
       });
@@ -165,9 +168,7 @@ describe("Schematic", () => {
           snapshot: true,
         });
         await expect(
-          client.schematics.dispatch(schem2.key, "sess-1", [
-            schematic.removeNode({ key: "n1" }),
-          ]),
+          client.schematics.setData(schem2.key, { ...schematic.ZERO_NEW }),
         ).rejects.toThrow(ValidationError);
       });
     });
@@ -176,9 +177,10 @@ describe("Schematic", () => {
   describe("dispatch", () => {
     test("setNodePosition moves the matching node", async () => {
       const { schem } = await newWorkspaceSchematic(client);
-      await client.schematics.dispatch(schem.key, "seed", [
-        schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
-      ]);
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+      });
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNodePosition({ key: "n1", position: { x: 100, y: 200 } }),
       ]);
@@ -203,16 +205,14 @@ describe("Schematic", () => {
 
     test("removeNode removes the node and drops its config", async () => {
       const { schem } = await newWorkspaceSchematic(client);
-      await client.schematics.dispatch(schem.key, "seed", [
-        schematic.setNode({
-          node: { key: "n1", position: { x: 0, y: 0 } },
-          config: { label: "Pump" },
-        }),
-        schematic.setNode({
-          node: { key: "n2", position: { x: 1, y: 1 } },
-          config: { label: "Tank" },
-        }),
-      ]);
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        nodes: [
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 1, y: 1 } },
+        ],
+        configs: { n1: { label: "Pump" }, n2: { label: "Tank" } },
+      });
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.removeNode({ key: "n1" }),
       ]);
@@ -235,10 +235,10 @@ describe("Schematic", () => {
         source: { node: srcNode, param: srcParam },
         target: { node: tgtNode, param: tgtParam },
       });
-      await client.schematics.dispatch(schem.key, "seed", [
-        schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
-        schematic.addEdge({ edge: e("e2", "b", "o", "c", "i") }),
-      ]);
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        edges: [e("e1", "a", "o", "b", "i"), e("e2", "b", "o", "c", "i")],
+      });
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.addEdge({ edge: e("e2", "x", "y", "z", "w") }),
         schematic.addEdge({ edge: e("e3", "c", "o", "d", "i") }),
@@ -253,15 +253,16 @@ describe("Schematic", () => {
 
     test("removeEdge removes the matching edge", async () => {
       const { schem } = await newWorkspaceSchematic(client);
-      await client.schematics.dispatch(schem.key, "seed", [
-        schematic.addEdge({
-          edge: {
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        edges: [
+          {
             key: "e1",
             source: { node: "a", param: "o" },
             target: { node: "b", param: "i" },
           },
-        }),
-      ]);
+        ],
+      });
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.removeEdge({ key: "e1" }),
       ]);
@@ -301,9 +302,10 @@ describe("Schematic", () => {
 
     test("converges to the final position after a 30-action drag storm", async () => {
       const { schem } = await newWorkspaceSchematic(client);
-      await client.schematics.dispatch(schem.key, "seed", [
-        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
-      ]);
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        nodes: [{ key: "pump", position: { x: 0, y: 0 } }],
+      });
       const actions = Array.from({ length: 30 }, (_, i) =>
         schematic.setNodePosition({ key: "pump", position: { x: i, y: i * 2 } }),
       );
