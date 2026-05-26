@@ -116,7 +116,7 @@ const handlers: Handlers = {
     state.rows[payload.index].size = payload.size;
     return {
       inverse: [resizeRow({ index: payload.index, size: oldSize })],
-      targets: [],
+      targets: [...state.rows[payload.index].cells],
     };
   },
 
@@ -124,9 +124,14 @@ const handlers: Handlers = {
     if (payload.index >= state.columns.length) return NO_OP;
     const oldSize = state.columns[payload.index].size;
     state.columns[payload.index].size = payload.size;
+    const targets: string[] = [];
+    for (const r of state.rows) {
+      const k = r.cells[payload.index];
+      if (k != null) targets.push(k);
+    }
     return {
       inverse: [resizeCol({ index: payload.index, size: oldSize })],
-      targets: [],
+      targets,
     };
   },
 
