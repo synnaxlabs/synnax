@@ -266,7 +266,11 @@ export class Writer {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+    try {
+      this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+    } catch (err) {
+      if (!EOF.matches(err)) throw err;
+    }
   }
 
   async setAuthority(
@@ -318,18 +322,32 @@ export class Writer {
         if (WriterClosedError.matches(this.closeErr)) return null;
         throw this.closeErr;
       }
-      const [res, err] = await this.stream.receive();
-      if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
-      else this.closeErr = errors.decode(res?.err);
+      try {
+        const res = await this.stream.receive();
+        this.closeErr = errors.decode(res?.err);
+      } catch (err) {
+        if (!(err instanceof Error)) throw err;
+        this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
+      }
     }
   }
 
   private async execute(req: WriteRequest): Promise<Response> {
-    const err = this.stream.send(req);
-    if (err != null) await this.closeInternal(err);
+    try {
+      this.stream.send(req);
+    } catch (err) {
+      if (!(err instanceof Error)) throw err;
+      await this.closeInternal(err);
+    }
     while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) await this.closeInternal(err);
+      let res: Response;
+      try {
+        res = await this.stream.receive();
+      } catch (err) {
+        if (!(err instanceof Error)) throw err;
+        await this.closeInternal(err);
+        continue;
+      }
       const resErr = errors.decode(res?.err);
       if (resErr != null) await this.closeInternal(resErr);
       if (res?.command == req.command) return res;
