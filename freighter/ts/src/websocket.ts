@@ -61,7 +61,7 @@ class WebSocketStream<
     if (msg.type === "open") return;
     if (msg.error == null) throw new Error("Message error must be defined");
     const err = errors.decode(msg.error);
-    if (err != null) throw err;
+    throw err ?? new Error(`Unexpected open-ack message type: ${msg.type}`);
   }
 
   /** Implements the Stream protocol */

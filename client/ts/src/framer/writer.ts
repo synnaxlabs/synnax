@@ -248,13 +248,14 @@ export class Writer {
    * @param frame - The frame to write to the database. The frame must:
    *
    *    1. Have exactly one array for each key in the list of keys provided to the
-   *    writer's open method.
+   *       writer's open method.
    *    2. Have equal length arrays for each key.
    *    3. When writing to an index (i.e. TimeStamp) channel, the values must be
-   *    monotonically increasing.
+   *       monotonically increasing.
    *
-   * @returns false if the writer has accumulated an error. In this case, the caller
-   * should acknowledge the error by calling the error method or closing the writer.
+   * @throws if the writer has accumulated an error. Once write throws, all subsequent
+   * calls to write and commit will also throw, and the writer must be closed and
+   * re-opened to continue writing.
    */
   async write(
     channelsOrData:
@@ -290,9 +291,9 @@ export class Writer {
    * Commits the written frames to the database. Commit is synchronous, meaning that it
    * will not return until all frames have been committed to the database.
    *
-   * @returns false if the commit failed due to an error. In this case, the caller
-   * should acknowledge the error by calling the error method or closing the writer.
-   * After the caller acknowledges the error, they can attempt to commit again.
+   * @returns the timestamp of the last sample written to the writer.
+   * @throws if the commit fails or any previous writer method has thrown. Once commit
+   * throws, the writer must be closed and re-opened to continue use.
    */
   async commit(): Promise<TimeStamp> {
     if (this.closeErr != null) throw this.closeErr;
@@ -337,6 +338,9 @@ export class Writer {
       this.stream.send(req);
     } catch (err) {
       if (!(err instanceof Error)) throw err;
+      // A send failure is always EOF or StreamClosed, never WriterClosedError, so
+      // closeInternal re-throws here and the receive loop below is reached only when
+      // the send succeeds.
       await this.closeInternal(err);
     }
     while (true) {
