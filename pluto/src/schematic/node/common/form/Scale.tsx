@@ -10,14 +10,14 @@
 import { type bounds, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { Input } from "@/input";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const SCALE_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };
 
-export const ScaleField: Base.FieldT<number> = (props): ReactElement => (
-  <Base.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
+export const ScaleField: Form.FieldT<number> = (props): ReactElement => (
+  <Form.Field hideIfNull label="Scale" align="start" padHelpText={false} {...props}>
     {({ value, onChange }) => (
       <Input.Numeric
         dragScale={SCALE_DRAG_SCALE}
@@ -27,5 +27,5 @@ export const ScaleField: Base.FieldT<number> = (props): ReactElement => (
         onChange={(v) => onChange(parseFloat((v / 100).toFixed(2)))}
       />
     )}
-  </Base.Field>
+  </Form.Field>
 );

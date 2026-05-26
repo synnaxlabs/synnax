@@ -57,7 +57,7 @@ export const TextBoxForm = (): ReactElement => {
           <Base.Field<number>
             onChange={(_, { set }) => set("autoFit", false)}
             path="width"
-            label="Wrap Width"
+            label="Wrap width"
             padHelpText={false}
           >
             {(p) => (

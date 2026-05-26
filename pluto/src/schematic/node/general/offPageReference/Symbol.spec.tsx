@@ -12,7 +12,7 @@ import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Primitive as OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
+import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Theming } from "@/theming";
 
 const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
