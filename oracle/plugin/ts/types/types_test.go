@@ -2409,6 +2409,47 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
 			})
+
+			It("Should emit a string literal default for a string-valued enum variant", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Level enum {
+						info    = "info"
+						warning = "warning"
+					}
+
+					Config struct {
+						level Level @validate default LevelInfo
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`level: levelZ.default("info")`)
+			})
+
+			It("Should emit a string literal default for a cross-namespace string-valued enum variant", func(ctx SpecContext) {
+				loader.Add("schemas/text", `
+					@ts output "x/ts/src/text"
+
+					Level enum {
+						p     = "p"
+						small = "small"
+					}
+				`)
+				source := `
+					import "schemas/text"
+
+					@ts output "client/ts/src/lineplot"
+
+					Title struct {
+						level text.Level @validate default text.LevelP
+					}
+				`
+				resp := MustGenerate(ctx, source, "lineplot", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`level: text.levelZ.default("p")`)
+			})
 		})
 	})
 })
