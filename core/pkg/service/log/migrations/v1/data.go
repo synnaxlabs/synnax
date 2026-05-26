@@ -24,16 +24,16 @@ const Version imex.Version = 1
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally
 // frozen without this struct; the field was added later by console clients and
-// persisted through the v55 gorp blob without bumping the wire-format version, so
-// v1 captures it here for round-trip fidelity.
+// persisted through the v55 gorp blob without bumping the wire-format version, so v1
+// captures it here for round-trip fidelity.
 type TimestampConfig struct {
 	Format telem.TimestampFormat `json:"format"`
 	Tz     telem.TimeZone        `json:"tz"`
 }
 
-// ChannelEntry is a channel reference with display configuration. Fields are typed
-// so a successful Parse produces a directly-usable value; color.Color.UnmarshalJSON
-// converts the wire-format hex string into the typed Color.
+// ChannelEntry is a channel reference with display configuration. Fields are typed so a
+// successful Parse produces a directly-usable value; color.Color.UnmarshalJSON converts
+// the wire-format hex string into the typed Color.
 type ChannelEntry struct {
 	Channel   channel.Key       `json:"channel"`
 	Color     color.Color       `json:"color"`
@@ -44,8 +44,8 @@ type ChannelEntry struct {
 }
 
 // Data is the frozen type for log data at version 1. Channels are stored as config
-// entries with display options. Key, Name, Type, and Version are envelope-level
-// fields and are not part of Data.
+// entries with display options. Key, Name, Type, and Version are envelope-level fields
+// and are not part of Data.
 type Data struct {
 	Channels             []ChannelEntry `json:"channels"`
 	RemoteCreated        bool           `json:"remoteCreated"`

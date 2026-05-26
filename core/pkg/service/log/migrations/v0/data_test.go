@@ -24,7 +24,7 @@ var _ = Describe("Data", func() {
 	Describe("Parse", func() {
 		It("Should parse a valid v0 payload", func() {
 			data := map[string]any{
-				"channels":      []any{1, 2, 3},
+				"channels":      []channel.Key{1, 2, 3},
 				"remoteCreated": true,
 			}
 			d := MustSucceed(v0.Parse(data))
@@ -78,6 +78,10 @@ var _ = Describe("Data", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("channels[1]")),
 			))
+		})
+		It("Should accept an empty channels array", func() {
+			d := v0.Data{Channels: []channel.Key{}}
+			Expect(d.Validate()).To(Succeed())
 		})
 	})
 })
