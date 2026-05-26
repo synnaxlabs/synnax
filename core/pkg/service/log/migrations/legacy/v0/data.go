@@ -13,10 +13,9 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-const Version imex.Version = 0
+const Version = "0.0.0"
 
 // Data is the frozen type for log data at version 0. Channels are stored as bare channel
 // keys. Key, Name, Type, and Version are envelope-level fields and are not part of Data.

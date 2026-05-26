@@ -24,6 +24,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -49,6 +50,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "my-log",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{
 						"channel":   42,
@@ -84,6 +86,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "with-ts",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{
 						"channel": 1,
@@ -106,6 +109,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "no-ts",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{"channel": 1},
 				},
@@ -145,6 +149,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "bad-notation",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{"channel": 1, "notation": "unsupported"},
 				},
@@ -160,6 +165,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "fully-bad",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{
 						"channel":  7,
@@ -189,6 +195,7 @@ var _ = Describe("MigrateLog", func() {
 			Key:  uuid.New(),
 			Name: "unparseable",
 			Data: map[string]any{
+				"version": "1.0.0",
 				"channels": []any{
 					map[string]any{"channel": "not-a-number"},
 				},
@@ -229,7 +236,20 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Channels[0].Color).To(Equal(color.Color{}))
 		})
 
-		DescribeTable("Should keep Key and Name but yield no channels for a body with no usable channel config",
+		It("Should lift a legacy v0 body forward through the chain", func(ctx SpecContext) {
+			out := MustSucceed(log.MigrateLog(
+				ctx, loadV55("testdata/import_v0.json"), alamos.Instrumentation{},
+			))
+			Expect(out.Name).To(Equal("Test Log V0"))
+			Expect(out.Channels).To(HaveLen(3))
+			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[1].Channel).To(Equal(channel.Key(2)))
+			Expect(out.Channels[2].Channel).To(Equal(channel.Key(3)))
+			Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
+			Expect(out.RemoteCreated).To(BeTrue())
+		})
+
+		DescribeTable("Should keep Key and Name but yield no channels for an undecodable body",
 			func(ctx SpecContext, path, name string) {
 				old := loadV55(path)
 				out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
@@ -237,54 +257,69 @@ var _ = Describe("MigrateLog", func() {
 				Expect(out.Name).To(Equal(name))
 				Expect(out.Channels).To(BeEmpty())
 			},
-			Entry("legacy v0 channels stored as bare keys", "testdata/import_v0.json", "Test Log V0"),
 			Entry("channels stored as a non-array", "testdata/import_bad_data.json", "Bad Data"),
-			Entry("no channels field at all", "testdata/import_bad_version.json", "Bad Version"),
+			Entry("unsupported version stamp", "testdata/import_bad_version.json", "Bad Version"),
 		)
 	})
 })
 
 var _ = Describe("legacy.MigrateData", func() {
-	It("Should reject a version greater than the latest supported", func() {
-		Expect(legacy.MigrateData(v1.Version+1, map[string]any{})).
-			Error().To(MatchError(ContainSubstring("newer than this Core supports")))
+	It("Should error on an unknown declared version", func() {
+		Expect(legacy.MigrateData(msgpack.EncodedJSON{"version": "99.0.0"})).
+			Error().To(MatchError(ContainSubstring("unknown log data version")))
 	})
 
 	It("Should scrub a malformed color hex instead of erroring", func() {
-		data := map[string]any{
+		blob := msgpack.EncodedJSON{
+			"version":  v1.Version,
 			"channels": []any{map[string]any{"channel": 1, "color": "not-a-hex"}},
 		}
-		result := MustSucceed(legacy.MigrateData(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(1))
 		Expect(result.Channels[0].Color).To(Equal(color.Color{}))
 	})
 
 	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
-		data := map[string]any{
+		blob := msgpack.EncodedJSON{
+			"version":  v1.Version,
 			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
 		}
-		result := MustSucceed(legacy.MigrateData(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
 	})
 
 	It("Should not reject a zero channel key (the chain skips validation)", func() {
-		data := map[string]any{
+		blob := msgpack.EncodedJSON{
+			"version":  v1.Version,
 			"channels": []any{map[string]any{"channel": 0}},
 		}
-		result := MustSucceed(legacy.MigrateData(v1.Version, data))
+		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(1))
 		Expect(result.Channels[0].Channel).To(Equal(channel.Key(0)))
 	})
 
 	It("Should lift a v0 payload forward to the latest", func() {
-		data := map[string]any{
+		blob := msgpack.EncodedJSON{
+			"version":       v0.Version,
 			"channels":      []any{1, 2, 3},
 			"remoteCreated": true,
 		}
-		result := MustSucceed(legacy.MigrateData(v0.Version, data))
+		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(3))
 		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
 		Expect(result.RemoteCreated).To(BeTrue())
+	})
+
+	It("Should fall back to v0 when the blob carries no version field", func() {
+		blob := msgpack.EncodedJSON{"channels": []any{1, 2}}
+		result := MustSucceed(legacy.MigrateData(blob))
+		Expect(result.Channels).To(HaveLen(2))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+	})
+
+	It("Should produce a zero v1.Data for a nil blob", func() {
+		result := MustSucceed(legacy.MigrateData(nil))
+		Expect(result.Channels).To(BeEmpty())
 	})
 })
 

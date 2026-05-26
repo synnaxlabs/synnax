@@ -44,7 +44,7 @@ func MigrateLog(
 	if len(old.Data) == 0 {
 		return out, nil
 	}
-	d, err := legacy.MigrateData(v1.Version, map[string]any(old.Data))
+	d, err := legacy.MigrateData(old.Data)
 	if err != nil {
 		ins.L.Warn(
 			"log gorp migration: failed to parse Data body; dropping body and keeping Key+Name only",

@@ -13,13 +13,12 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 )
 
-const Version imex.Version = 1
+const Version = "1.0.0"
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally
 // frozen without this struct; the field was added later by console clients and
