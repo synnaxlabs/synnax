@@ -12,6 +12,7 @@ import "@/table/Table.css";
 import { table } from "@synnaxlabs/client";
 import { box, clamp, dimensions, direction, type record, xy } from "@synnaxlabs/x";
 import {
+  type ClipboardEventHandler,
   memo,
   type ReactElement,
   type ReactNode,
@@ -88,6 +89,12 @@ export interface TableProps extends Pick<
   onContextMenu?: (e: React.MouseEvent, target: ContextMenuTarget) => void;
   // className passes through to the rendered <table> element.
   className?: string;
+  // onCopy fires for the native copy event on the table. Wire the handler
+  // returned by useClipboard to enable cell-region copy.
+  onCopy?: ClipboardEventHandler<HTMLTableElement>;
+  // onPaste fires for the native paste event on the table. Wire the handler
+  // returned by useClipboard to enable cell-region paste.
+  onPaste?: ClipboardEventHandler<HTMLTableElement>;
   // children renders inside the table's <tbody> after the row indicators
   // and rows.
   children?: ReactNode;
@@ -101,6 +108,8 @@ export const Table = ({
   visible,
   onContextMenu,
   className,
+  onCopy,
+  onPaste,
   children,
 }: TableProps): ReactElement => {
   useEnsureRetrieved({ key: resourceKey });
@@ -121,10 +130,12 @@ export const Table = ({
   const selectedRef = useSyncedRef(selected);
   const lastSelectedRef = useRef<string | null>(null);
   const rowsRef = useSyncedRef(rows);
+  const tableElRef = useRef<HTMLTableElement>(null);
 
   const handleCellSelect = useCallback(
     (cellKey: string, ev: MouseEvent) => {
       if (!editable) return;
+      tableElRef.current?.focus({ preventScroll: true });
       const { shiftKey, ctrlKey, metaKey } = ev;
       if (shiftKey && lastSelectedRef.current != null) {
         const start = findCellPosition(rowsRef.current, lastSelectedRef.current);
@@ -151,6 +162,7 @@ export const Table = ({
   const handleRowSelect = useCallback(
     (index: number) => {
       if (!editable) return;
+      tableElRef.current?.focus({ preventScroll: true });
       const row = rowsRef.current[index];
       if (row == null) return;
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
@@ -162,6 +174,7 @@ export const Table = ({
   const handleColSelect = useCallback(
     (index: number) => {
       if (!editable) return;
+      tableElRef.current?.focus({ preventScroll: true });
       const colCells = rowsRef.current
         .map((r) => r.cells[index])
         .filter((k): k is string => k != null);
@@ -234,9 +247,13 @@ export const Table = ({
         }}
       />
       <table
+        ref={tableElRef}
         className={CSS(CSS.B("table"), className)}
         style={{ width: totalCol, height: totalRow }}
         onContextMenu={handleContextMenu}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        tabIndex={-1}
       >
         <tbody>
           <Aether.Composite path={path}>

@@ -40,6 +40,25 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const clearSelected = Base.useClearSelected({ key: layoutKey });
   const tableRef = useRef<HTMLDivElement>(null);
 
+  const handlePasted = useCallback(
+    (overwrittenKeys: string[]) => {
+      if (overwrittenKeys.length === 0) return;
+      dispatch(
+        setSelectedCells({
+          key: layoutKey,
+          cells: overwrittenKeys,
+          anchor: overwrittenKeys[0],
+        }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
+  const { onCopy, onPaste } = Base.useClipboard({
+    key: layoutKey,
+    selected,
+    onPaste: handlePasted,
+  });
+
   Triggers.use({
     triggers: CLEAR_SELECTED_TRIGGERS,
     region: tableRef,
@@ -102,6 +121,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           editable={canEdit}
           visible={visible}
           onContextMenu={handleTableContextMenu}
+          onCopy={onCopy}
+          onPaste={onPaste}
           className={menuProps.className}
         />
         {canEdit && (
