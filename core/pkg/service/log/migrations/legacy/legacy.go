@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy is the single entry point for migrating an opaque log data blob through
-// the chain of historical wire formats up to the latest legacy snapshot, v1.Data. Each
-// subpackage v0..v1 owns a frozen Data shape and (for v1) a Migrate function that lifts
-// the previous version's Data into its own; this package owns the version-string
-// dispatch and the forward chain, so callers never have to think about either.
+// Package legacy is the single entry point for migrating an opaque log data blob
+// through the chain of historical wire formats up to the latest legacy snapshot,
+// v1.Data. Each subpackage v0..v1 owns a frozen Data shape and (for v1) a Migrate
+// function that lifts the previous version's Data into its own; this package owns the
+// version-string dispatch and the forward chain, so callers never have to think about
+// either.
 package legacy
 
 import (
@@ -22,10 +23,10 @@ import (
 )
 
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
-// walks the per-step Migrate functions forward to v1.Data. A nil blob and a blob without
-// a version field both fall through to v0 and walk the full chain. Enum strings outside
-// their closed sets flow through untouched for the latest-Log lift to default; a
-// malformed color, by contrast, fails the decode and surfaces as an error.
+// walks the per-step Migrate functions forward to v1.Data. A nil blob and a blob
+// without a version field both fall through to v0 and walk the full chain. Enum strings
+// outside their closed sets flow through untouched for the latest-Log lift to default;
+// a malformed color, by contrast, fails the decode and surfaces as an error.
 func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	var peek struct {
 		Version string `json:"version"`

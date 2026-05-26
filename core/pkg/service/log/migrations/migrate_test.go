@@ -19,12 +19,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -123,8 +119,8 @@ var _ = Describe("MigrateLog", func() {
 
 	It("Should drop UI-only fields the console persisted alongside the typed body", func(ctx SpecContext) {
 		// The console used to send `setData = { ...state, key: undefined }`, which
-		// included its toolbar state and persisted-state version. These must not
-		// appear on the typed Log.
+		// included its toolbar state and persisted-state version. These must not appear
+		// on the typed Log.
 		old := v55.Log{
 			Key:  uuid.New(),
 			Name: "with-noise",
@@ -260,96 +256,5 @@ var _ = Describe("MigrateLog", func() {
 			Entry("channels stored as a non-array", "testdata/import_bad_data.json", "Bad Data"),
 			Entry("unsupported version stamp", "testdata/import_bad_version.json", "Bad Version"),
 		)
-	})
-})
-
-var _ = Describe("legacy.MigrateData", func() {
-	It("Should error on an unknown declared version", func() {
-		Expect(legacy.MigrateData(msgpack.EncodedJSON{"version": "99.0.0"})).
-			Error().To(MatchError(ContainSubstring("unknown log data version")))
-	})
-
-	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
-		blob := msgpack.EncodedJSON{
-			"version":  v1.Version,
-			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
-		}
-		result := MustSucceed(legacy.MigrateData(blob))
-		Expect(result.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
-	})
-
-	It("Should not reject a zero channel key (the chain skips validation)", func() {
-		blob := msgpack.EncodedJSON{
-			"version":  v1.Version,
-			"channels": []any{map[string]any{"channel": 0}},
-		}
-		result := MustSucceed(legacy.MigrateData(blob))
-		Expect(result.Channels).To(HaveLen(1))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(0)))
-	})
-
-	It("Should lift a v0 payload forward to the latest", func() {
-		blob := msgpack.EncodedJSON{
-			"version":       v0.Version,
-			"channels":      []any{1, 2, 3},
-			"remoteCreated": true,
-		}
-		result := MustSucceed(legacy.MigrateData(blob))
-		Expect(result.Channels).To(HaveLen(3))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
-		Expect(result.RemoteCreated).To(BeTrue())
-	})
-
-	It("Should fall back to v0 when the blob carries no version field", func() {
-		blob := msgpack.EncodedJSON{"channels": []any{1, 2}}
-		result := MustSucceed(legacy.MigrateData(blob))
-		Expect(result.Channels).To(HaveLen(2))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
-	})
-
-	It("Should produce a zero v1.Data for a nil blob", func() {
-		result := MustSucceed(legacy.MigrateData(nil))
-		Expect(result.Channels).To(BeEmpty())
-	})
-})
-
-var _ = Describe("Step migrations", func() {
-	Describe("v1.Migrate (v0 -> v1)", func() {
-		It("Should convert bare channel keys to config entries with defaults", func() {
-			old := v0.Data{
-				Channels:      []channel.Key{1, 2, 3},
-				RemoteCreated: false,
-			}
-			result := v1.Migrate(old)
-			Expect(result.Channels).To(HaveLen(3))
-			Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
-			Expect(result.Channels[0].Color).To(BeEmpty())
-			Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
-			Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
-			Expect(result.Channels[0].Alias).To(Equal(""))
-			Expect(result.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
-			Expect(result.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
-			Expect(result.Channels[2].Channel).To(Equal(channel.Key(3)))
-		})
-
-		It("Should preserve RemoteCreated", func() {
-			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: true}
-			result := v1.Migrate(old)
-			Expect(result.RemoteCreated).To(BeTrue())
-		})
-
-		It("Should set correct v1 defaults", func() {
-			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
-			result := v1.Migrate(old)
-			Expect(result.TimestampPrecision).To(Equal(int32(0)))
-			Expect(result.ShowChannelNames).To(BeTrue())
-			Expect(result.ShowReceiptTimestamp).To(BeTrue())
-		})
-
-		It("Should handle empty channels", func() {
-			old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
-			result := v1.Migrate(old)
-			Expect(result.Channels).To(HaveLen(0))
-		})
 	})
 })
