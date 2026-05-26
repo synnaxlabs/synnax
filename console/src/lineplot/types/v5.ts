@@ -50,7 +50,6 @@ export const ZERO_RANGES_STATE: RangesState = { x1: [], x2: [] };
 export const axisStateZ = lineplot.axisZ;
 export type AxisState = lineplot.Axis;
 export const ZERO_AXIS_STATE: AxisState = {
-  key: "x1",
   label: "",
   labelDirection: "x",
   labelLevel: "small",
@@ -72,12 +71,12 @@ export const ZERO_AXES_STATE: AxesState = {
   renderTrigger: 0,
   hasHadChannelSet: false,
   axes: {
-    x1: { ...ZERO_AXIS_STATE, key: "x1", type: "time" },
-    x2: { ...ZERO_AXIS_STATE, key: "x2", type: "time" },
-    y1: { ...ZERO_AXIS_STATE, key: "y1", labelDirection: "y" },
-    y2: { ...ZERO_AXIS_STATE, key: "y2", labelDirection: "y" },
-    y3: { ...ZERO_AXIS_STATE, key: "y3", labelDirection: "y" },
-    y4: { ...ZERO_AXIS_STATE, key: "y4", labelDirection: "y" },
+    x1: { ...ZERO_AXIS_STATE, type: "time" },
+    x2: { ...ZERO_AXIS_STATE, type: "time" },
+    y1: { ...ZERO_AXIS_STATE, labelDirection: "y" },
+    y2: { ...ZERO_AXIS_STATE, labelDirection: "y" },
+    y3: { ...ZERO_AXIS_STATE, labelDirection: "y" },
+    y4: { ...ZERO_AXIS_STATE, labelDirection: "y" },
   },
 };
 
