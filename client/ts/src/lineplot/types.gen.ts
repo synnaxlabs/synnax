@@ -14,6 +14,10 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
+export const axisKeyZ = z.enum(AXIS_KEYS);
+export type AxisKey = z.infer<typeof axisKeyZ>;
+
 export const TICK_TYPES = ["linear", "time"] as const;
 export const tickTypeZ = z.enum(TICK_TYPES);
 export type TickType = z.infer<typeof tickTypeZ>;
@@ -21,10 +25,6 @@ export type TickType = z.infer<typeof tickTypeZ>;
 export const DOWNSAMPLE_MODES = ["average", "decimate"] as const;
 export const downsampleModeZ = z.enum(DOWNSAMPLE_MODES);
 export type DownsampleMode = z.infer<typeof downsampleModeZ>;
-
-export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
-export const axisKeyZ = z.enum(AXIS_KEYS);
-export type AxisKey = z.infer<typeof axisKeyZ>;
 
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
@@ -146,6 +146,8 @@ export type Key = z.infer<typeof keyZ>;
 
 /** Axis is the configuration for a single plot axis. */
 export const axisZ = z.object({
+  /** key identifies which of the six axes this configuration applies to. */
+  key: axisKeyZ,
   /** label is the human-readable label rendered along the axis. */
   label: z.string(),
   /** labelDirection is the orientation in which the label text is laid out. */

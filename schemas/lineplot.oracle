@@ -126,6 +126,9 @@ AutoBounds struct {
 }
 
 Axis struct {
+    key             AxisKey           {
+        @doc value "identifies which of the six axes this configuration applies to."
+    }
     label           string            {
         @doc value "is the human-readable label rendered along the axis."
     }
