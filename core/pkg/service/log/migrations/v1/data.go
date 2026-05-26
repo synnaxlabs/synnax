@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -54,15 +53,15 @@ type Data struct {
 	ShowReceiptTimestamp bool           `json:"showReceiptTimestamp"`
 }
 
-// Parse marshals the imex map back to JSON and unmarshals it into a typed Data.
+// Parse marshals the raw map back to JSON and unmarshals it into a typed Data.
 // The typed fields (color.Color, notation.Notation, telem.TimestampFormat,
 // telem.TimeZone) handle their own conversion via the standard library's
 // json.Unmarshaler interface where applicable, so the wire format flows directly
 // into the typed shape without per-field parser helpers. An empty per-channel
 // color string is scrubbed pre-unmarshal so it doesn't trip
-// color.Color.UnmarshalJSON, which has no opinion on the empty case; closed-set
-// membership for the enum fields is enforced by Validate, not by this function.
-// Callers that need strict validation chain the two together.
+// color.Color.UnmarshalJSON, which has no opinion on the empty case. Enum strings
+// outside the closed set are not rejected here; the latest-Log lift substitutes
+// defaults for them.
 func Parse(raw map[string]any) (Data, error) {
 	scrubChannels(raw, func(s string) bool { return s == "" })
 	b, err := json.Marshal(raw)
@@ -99,8 +98,8 @@ func ParseLenient(raw map[string]any) (Data, error) {
 // value for which drop returns true, so the subsequent json.Unmarshal sees the
 // field as absent and color.Color stays at its zero value. The raw map is
 // mutated in place; both Parse and ParseLenient deliberately accept the side
-// effect because the map is owned by the imex envelope and isn't read again
-// after migration.
+// effect because the map is owned by the caller and isn't read again after
+// migration.
 func scrubChannels(raw map[string]any, drop func(string) bool) {
 	list, ok := raw["channels"].([]any)
 	if !ok {
@@ -119,44 +118,4 @@ func scrubChannels(raw map[string]any, drop func(string) bool) {
 			delete(m, "color")
 		}
 	}
-}
-
-// Validate enforces that every channel key is valid and that the typed enum fields hold
-// closed-set values. Used by the imex import path so a malformed envelope is rejected at
-// the API boundary; the lenient gorp-boot path skips this and lets the latest-Log lift
-// substitute defaults for any invalid value that slipped past json.Unmarshal.
-func (d Data) Validate() error {
-	for i, c := range d.Channels {
-		if err := c.Channel.Validate(); err != nil {
-			return errors.Wrapf(err, "channels[%d].channel", i)
-		}
-		switch c.Notation {
-		case "",
-			notation.NotationStandard,
-			notation.NotationScientific,
-			notation.NotationEngineering:
-		default:
-			return errors.Newf("channels[%d].notation: invalid value %q", i, c.Notation)
-		}
-		switch c.Timestamp.Format {
-		case "",
-			telem.TimestampFormatPreciseTime,
-			telem.TimestampFormatPreciseDate,
-			telem.TimestampFormatISO:
-		default:
-			return errors.Newf(
-				"channels[%d].timestamp.format: invalid value %q",
-				i, c.Timestamp.Format,
-			)
-		}
-		switch c.Timestamp.Tz {
-		case "", telem.TimeZoneLocal, telem.TimeZoneUTC:
-		default:
-			return errors.Newf(
-				"channels[%d].timestamp.tz: invalid value %q",
-				i, c.Timestamp.Tz,
-			)
-		}
-	}
-	return nil
 }

@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
@@ -21,19 +20,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
-
-// migrateData parses a versioned wire-format log payload and lifts it into a typed
-// Log via the strict migration chain. A malformed color hex or unknown notation
-// value surfaces as a fatal error so the imex import path can reject the envelope
-// at the API boundary. Key and Name are envelope-level and left zero; callers
-// populate them.
-func migrateData(version imex.Version, data map[string]any) (Log, error) {
-	d, err := migrations.Migrate(version, data)
-	if err != nil {
-		return Log{}, err
-	}
-	return logFromV1(d), nil
-}
 
 // MigrateLog lifts the previous log snapshot (v55, {Key, Name, Data}) into the
 // strongly-typed Log. AutoMigrateLog copies the gorp-entry fields (Key, Name); the
@@ -73,11 +59,9 @@ func MigrateLog(
 }
 
 // logFromV1 lifts the latest typed wire-format Data into the runtime Log shape.
-// v1.Parse produces typed values; the lift is mostly a struct copy with closed-
-// set substitution for the typed enums. In the strict path v1.Data.Validate has
-// already rejected anything outside the closed sets, so the substitution is a
-// no-op; in the lenient path v1.ParseLenient lets bad enum strings flow through
-// and substitution here turns them into the documented default.
+// v1.ParseLenient produces typed values but lets enum strings outside the closed
+// set flow through; the lift is mostly a struct copy, with closed-set substitution
+// turning any such value into the documented default.
 func logFromV1(d v1.Data) Log {
 	channels := make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {

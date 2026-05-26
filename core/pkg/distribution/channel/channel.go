@@ -54,16 +54,6 @@ func (k Key) Leaseholder() node.Key { return node.Key(k >> 20) }
 // virtual channel.
 func (k Key) Free() bool { return k.Leaseholder() == node.KeyFree }
 
-// Validate returns a validation error if the Key is the zero value. A zero Key encodes
-// neither a leaseholder node nor a local key, so it references no channel. Validate
-// does not check that the channel exists in the cluster.
-func (k Key) Validate() error {
-	if k == 0 {
-		return errors.Wrap(validate.ErrValidation, "channel key must be non-zero")
-	}
-	return nil
-}
-
 // StorageKey returns the storage layer representation of the channel key.
 func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
 

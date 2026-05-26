@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Data", func() {
@@ -63,25 +62,6 @@ var _ = Describe("Data", func() {
 		It("Should reject a fractional channel key", func() {
 			Expect(v0.Parse(map[string]any{"channels": []any{1.5}})).Error().
 				To(MatchError(ContainSubstring("channels")))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should accept a payload whose channel keys are all non-zero", func() {
-			d := v0.Data{Channels: []channel.Key{1, 2, 3}}
-			Expect(d.Validate()).To(Succeed())
-		})
-
-		It("Should reject a zero channel key", func() {
-			d := v0.Data{Channels: []channel.Key{1, 0}}
-			Expect(d.Validate()).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("channels[1]")),
-			))
-		})
-		It("Should accept an empty channels array", func() {
-			d := v0.Data{Channels: []channel.Key{}}
-			Expect(d.Validate()).To(Succeed())
 		})
 	})
 })

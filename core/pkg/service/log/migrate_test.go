@@ -10,6 +10,9 @@
 package log_test
 
 import (
+	"encoding/json"
+	"os"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,6 +25,20 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// loadV55 reads a stored log body fixture and wraps it in the v55 snapshot shape that
+// the gorp boot migration consumes. The fixture's promoted key and name become the
+// envelope-level Key and Name; the whole object is also handed through as the raw Data
+// blob, so any envelope-only keys (version, type) are simply ignored by the lenient v1
+// parse the way an unrecognized persisted field would be.
+func loadV55(path string) v55.Log {
+	raw := MustSucceed(os.ReadFile(path))
+	var m map[string]any
+	Expect(json.Unmarshal(raw, &m)).To(Succeed())
+	key := MustSucceed(uuid.Parse(m["key"].(string)))
+	name, _ := m["name"].(string)
+	return v55.Log{Key: key, Name: name, Data: m}
+}
 
 var _ = Describe("MigrateLog", func() {
 	It("Should lift the v55 envelope fields", func(ctx SpecContext) {
@@ -135,21 +152,6 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
 	})
 
-	It("Should default a malformed color hex instead of failing", func(ctx SpecContext) {
-		old := v55.Log{
-			Key:  uuid.New(),
-			Name: "bad-color",
-			Data: map[string]any{
-				"channels": []any{
-					map[string]any{"channel": 1, "color": "not-a-hex"},
-				},
-			},
-		}
-		out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
-		Expect(out.Channels).To(HaveLen(1))
-		Expect(out.Channels[0].Color).To(Equal(color.Color{}))
-	})
-
 	It("Should default every typed enum in a channel that carries multiple bad fields", func(ctx SpecContext) {
 		old := v55.Log{
 			Key:  uuid.New(),
@@ -193,5 +195,48 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.Key).To(Equal(old.Key))
 		Expect(out.Name).To(Equal("unparseable"))
 		Expect(out.Channels).To(BeEmpty())
+	})
+
+	Describe("from testdata fixtures", func() {
+		It("Should fully migrate a well-formed v1 body", func(ctx SpecContext) {
+			out := MustSucceed(log.MigrateLog(
+				ctx, loadV55("testdata/import_v1.json"), alamos.Instrumentation{},
+			))
+			Expect(out.Name).To(Equal("Test Log V1"))
+			Expect(out.Channels).To(HaveLen(2))
+			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
+			Expect(out.Channels[0].Precision).To(Equal(int32(2)))
+			Expect(out.Channels[0].Alias).To(Equal("temp"))
+			Expect(out.Channels[1].Channel).To(Equal(channel.Key(5)))
+			Expect(out.Channels[1].Color).To(Equal(color.Color{}))
+			Expect(out.TimestampPrecision).To(Equal(int32(1)))
+			Expect(out.ShowChannelNames).To(BeTrue())
+			Expect(out.ShowReceiptTimestamp).To(BeFalse())
+		})
+
+		It("Should scrub a malformed color hex to the zero color", func(ctx SpecContext) {
+			out := MustSucceed(log.MigrateLog(
+				ctx, loadV55("testdata/import_invalid_color.json"), alamos.Instrumentation{},
+			))
+			Expect(out.Name).To(Equal("Invalid Color"))
+			Expect(out.Channels).To(HaveLen(1))
+			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Color).To(Equal(color.Color{}))
+		})
+
+		DescribeTable("Should keep Key and Name but yield no channels for a body with no usable channel config",
+			func(ctx SpecContext, path, name string) {
+				old := loadV55(path)
+				out := MustSucceed(log.MigrateLog(ctx, old, alamos.Instrumentation{}))
+				Expect(out.Key).To(Equal(old.Key))
+				Expect(out.Name).To(Equal(name))
+				Expect(out.Channels).To(BeEmpty())
+			},
+			Entry("legacy v0 channels stored as bare keys", "testdata/import_v0.json", "Test Log V0"),
+			Entry("channels stored as a non-array", "testdata/import_bad_data.json", "Bad Data"),
+			Entry("no channels field at all", "testdata/import_bad_version.json", "Bad Version"),
+		)
 	})
 })

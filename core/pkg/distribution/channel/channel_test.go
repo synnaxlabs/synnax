@@ -79,17 +79,6 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k.Free()).To(BeFalse())
 			})
 		})
-		Describe("Validate", func() {
-			It("Should return a validation error for the zero key", func() {
-				Expect(channel.Key(0).Validate()).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("channel key must be non-zero")),
-				))
-			})
-			It("Should succeed for a non-zero key", func() {
-				Expect(channel.NewKey(node.Key(1), 1).Validate()).To(Succeed())
-			})
-		})
 	})
 	Describe("Keys Tests", func() {
 		Describe("KeysFromChannels", func() {

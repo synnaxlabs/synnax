@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -41,11 +40,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// ImEx is the import/export registry the log service registers itself against on
-	// open.
-	//
-	// [REQUIRED]
-	ImEx *imex.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -56,7 +50,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	return c
 }
 
@@ -66,7 +59,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
-	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
@@ -106,7 +98,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterImportExporter(s)
 	return s, nil
 }
 

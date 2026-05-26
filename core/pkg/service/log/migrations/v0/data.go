@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/errors"
 )
 
 const Version imex.Version = 0
@@ -26,11 +25,9 @@ type Data struct {
 	RemoteCreated bool          `json:"remoteCreated"`
 }
 
-// Parse marshals the imex map back to JSON and unmarshals it into a typed Data. Channel
+// Parse marshals the raw map back to JSON and unmarshals it into a typed Data. Channel
 // keys flow directly into the typed []channel.Key; a fractional or out-of-range value,
-// or a non-array channels field, fails json.Unmarshal. Closed-set and structural
-// guarantees beyond what the type system enforces are checked by Validate, not here;
-// callers that need strict validation chain the two together.
+// or a non-array channels field, fails json.Unmarshal.
 func Parse(raw map[string]any) (Data, error) {
 	b, err := json.Marshal(raw)
 	if err != nil {
@@ -41,16 +38,4 @@ func Parse(raw map[string]any) (Data, error) {
 		return Data{}, err
 	}
 	return d, nil
-}
-
-// Validate enforces that every channel key references a real channel. Used by the imex
-// import path so a malformed envelope is rejected at the API boundary; the lenient
-// gorp-boot path skips this.
-func (d Data) Validate() error {
-	for i, ch := range d.Channels {
-		if err := ch.Validate(); err != nil {
-			return errors.Wrapf(err, "channels[%d]", i)
-		}
-	}
-	return nil
 }

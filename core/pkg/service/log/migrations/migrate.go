@@ -28,45 +28,13 @@ type LatestData = v1.Data
 // LatestVersion is the highest log data version this Core understands.
 const LatestVersion = v1.Version
 
-// Migrate parses a wire-format log payload at its declared version and walks the chain
-// of typed lifts forward to Latest. v1 is parsed via json.Unmarshal then strictly
-// validated; a malformed color hex or an enum value outside the closed set surfaces as
-// an error. A version greater than LatestVersion is rejected as
-// imex.ErrUnsupportedVersion; an unspecified or pre-v0 payload is parsed as v0 and
-// migrated forward. Used by the imex import path.
-func Migrate(version imex.Version, data map[string]any) (LatestData, error) {
-	if version > LatestVersion {
-		return LatestData{}, imex.NewErrUnsupportedVersion(
-			string(ontology.ResourceTypeLog), version, LatestVersion,
-		)
-	}
-	switch version {
-	case v1.Version:
-		d, err := v1.Parse(data)
-		if err != nil {
-			return LatestData{}, err
-		}
-		if err := d.Validate(); err != nil {
-			return LatestData{}, err
-		}
-		return d, nil
-	default:
-		d, err := v0.Parse(data)
-		if err != nil {
-			return LatestData{}, err
-		}
-		if err := d.Validate(); err != nil {
-			return LatestData{}, err
-		}
-		return v1.Migrate(d), nil
-	}
-}
-
-// MigrateLenient is the gorp-boot variant of Migrate. v1 is parsed via v1.ParseLenient
-// (which scrubs invalid color hex pre-unmarshal) and Validate is skipped entirely, so
-// any enum value outside the closed set flows through as a typed string for the
-// latest-Log lift to substitute. Lower versions fall through the same v0→v1 chain
-// because their fields are too narrow to be invalid in the same way.
+// MigrateLenient parses a stored log data payload at its declared version and walks the
+// chain of typed lifts forward to Latest, for the gorp-boot path. v1 is parsed via
+// v1.ParseLenient (which scrubs invalid color hex pre-unmarshal); no closed-set
+// validation is performed, so any enum value outside the closed set flows through as a
+// typed string for the latest-Log lift to substitute. Lower versions fall through the
+// same v0→v1 chain because their fields are too narrow to be invalid in the same way. A
+// version greater than LatestVersion is rejected as imex.ErrUnsupportedVersion.
 func MigrateLenient(version imex.Version, data map[string]any) (LatestData, error) {
 	if version > LatestVersion {
 		return LatestData{}, imex.NewErrUnsupportedVersion(

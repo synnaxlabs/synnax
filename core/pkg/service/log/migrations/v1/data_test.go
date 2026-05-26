@@ -83,7 +83,7 @@ var _ = Describe("Data", func() {
 			Expect(v1.Parse(data)).Error().To(MatchError(ContainSubstring("invalid hex color")))
 		})
 
-		It("Should accept any string for a typed enum (Validate enforces closed sets)", func() {
+		It("Should accept any string for a typed enum (the latest-Log lift enforces closed sets)", func() {
 			data := map[string]any{
 				"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
 			}
@@ -112,29 +112,6 @@ var _ = Describe("Data", func() {
 			}
 			d := MustSucceed(v1.ParseLenient(data))
 			Expect(d.Channels[0].Notation).To(Equal(notation.Notation("garbage")))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should accept a Data with no enum violations", func() {
-			d := v1.Data{Channels: []v1.ChannelEntry{{
-				Channel:  channel.Key(1),
-				Notation: notation.NotationScientific,
-			}}}
-			Expect(d.Validate()).To(Succeed())
-		})
-
-		It("Should reject an unknown notation value", func() {
-			d := v1.Data{Channels: []v1.ChannelEntry{{
-				Channel:  channel.Key(1),
-				Notation: notation.Notation("logarithmic"),
-			}}}
-			Expect(d.Validate()).To(MatchError(ContainSubstring("invalid value \"logarithmic\"")))
-		})
-
-		It("Should reject a zero channel key", func() {
-			d := v1.Data{Channels: []v1.ChannelEntry{{Channel: channel.Key(0)}}}
-			Expect(d.Validate()).To(MatchError(ContainSubstring("channels[0].channel")))
 		})
 	})
 })
