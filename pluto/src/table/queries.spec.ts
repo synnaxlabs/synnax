@@ -556,4 +556,273 @@ describe("table queries", () => {
       });
     });
   });
+
+  describe("selectors", () => {
+    const seedTable = async () => {
+      const ws = await client.workspaces.create({
+        name: `selector_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
+        name: "selector_test",
+        rows: [
+          { size: 30, cells: ["a", "b"] },
+          { size: 40, cells: ["c", "d"] },
+        ],
+        columns: [{ size: 80 }, { size: 100 }],
+        cells: {
+          a: { key: "a", variant: "text", props: { value: "A" } },
+          b: { key: "b", variant: "text", props: { value: "B" } },
+          c: { key: "c", variant: "text", props: { value: "C" } },
+          d: { key: "d", variant: "text", props: { value: "D" } },
+        },
+      });
+    };
+
+    const loadAndSelect = async <T>(
+      key: table.Key,
+      hook: () => T,
+    ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
+      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      return renderHook(hook, { wrapper });
+    };
+
+    it("useSelectName returns the table's name and updates after a rename", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        name: Table.useSelectName({ key: seeded.key }),
+        rename: Table.useRename(),
+      }));
+      expect(result.current.name).toEqual("selector_test");
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: seeded.key,
+          name: "selector_renamed",
+        });
+      });
+      await waitFor(() => expect(result.current.name).toEqual("selector_renamed"));
+    });
+
+    it("useSelectRows returns the table's rows and updates after addRow", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        rows: Table.useSelectRows({ key: seeded.key }),
+        dispatch: Table.useDispatch(),
+      }));
+      expect(result.current.rows).toHaveLength(2);
+      expect(result.current.rows[0].cells).toEqual(["a", "b"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.addRow({
+              index: 2,
+              size: 50,
+              cells: [
+                { key: "e", variant: "text", props: { value: "E" } },
+                { key: "f", variant: "text", props: { value: "F" } },
+              ],
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.rows).toHaveLength(3);
+        expect(result.current.rows[2].cells).toEqual(["e", "f"]);
+      });
+    });
+
+    it("useSelectColumns returns the table's columns and updates after a resize", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        columns: Table.useSelectColumns({ key: seeded.key }),
+        dispatch: Table.useDispatch(),
+      }));
+      expect(result.current.columns).toHaveLength(2);
+      expect(result.current.columns[0].size).toEqual(80);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [table.resizeCol({ index: 0, size: 200 })],
+        });
+      });
+      await waitFor(() => expect(result.current.columns[0].size).toEqual(200));
+    });
+
+    it("useSelectCell returns the cell for a known key and updates after setCell", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        cell: Table.useSelectCell({ key: seeded.key, cellKey: "a" }),
+        dispatch: Table.useDispatch(),
+      }));
+      expect(result.current.cell?.variant).toEqual("text");
+      expect(result.current.cell?.props.value).toEqual("A");
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "value", props: { units: "psi" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.cell?.variant).toEqual("value");
+        expect(result.current.cell?.props.units).toEqual("psi");
+      });
+    });
+
+    it("useSelectCell returns undefined for an unknown cell key", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () =>
+        Table.useSelectCell({ key: seeded.key, cellKey: "ghost" }),
+      );
+      expect(result.current).toBeUndefined();
+    });
+
+    it("useCellPosition returns the grid coordinates of a known cell and null for an unknown one", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        a: Table.useCellPosition({ key: seeded.key, cellKey: "a" }),
+        d: Table.useCellPosition({ key: seeded.key, cellKey: "d" }),
+        ghost: Table.useCellPosition({ key: seeded.key, cellKey: "ghost" }),
+      }));
+      expect(result.current.a).toEqual({ x: 0, y: 0 });
+      expect(result.current.d).toEqual({ x: 1, y: 1 });
+      expect(result.current.ghost).toBeNull();
+    });
+
+    it("useCellPosition updates when a row is inserted above the cell", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        a: Table.useCellPosition({ key: seeded.key, cellKey: "a" }),
+        dispatch: Table.useDispatch(),
+      }));
+      expect(result.current.a).toEqual({ x: 0, y: 0 });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.addRow({
+              index: 0,
+              size: 30,
+              cells: [
+                { key: "x", variant: "text", props: {} },
+                { key: "y", variant: "text", props: {} },
+              ],
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.a).toEqual({ x: 0, y: 1 }));
+    });
+  });
+
+  describe("useRetrieveObservableName", () => {
+    it("fires the callback with the initial name and with each rename", async () => {
+      const ws = await client.workspaces.create({
+        name: `obs_name_ws_${uuid.create()}`,
+        layout: {},
+      });
+      const seeded = await client.tables.create(ws.key, {
+        ...table.ZERO_NEW,
+        name: "obs_initial",
+      });
+      const seen: string[] = [];
+      const { result } = renderHook(
+        () => ({
+          obs: Table.useRetrieveObservableName({
+            onChange: (name) => seen.push(name),
+          }),
+          rename: Table.useRename(),
+        }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.obs.retrieveAsync({ key: seeded.key });
+      });
+      await waitFor(() => expect(seen).toContain("obs_initial"));
+      await act(async () => {
+        await result.current.rename.updateAsync({
+          key: seeded.key,
+          name: "obs_renamed",
+        });
+      });
+      await waitFor(() => expect(seen).toContain("obs_renamed"));
+    });
+  });
+});
+
+describe("findCellPosition", () => {
+  const rows: table.Row[] = [
+    { size: 30, cells: ["a", "b", "c"] },
+    { size: 30, cells: ["d", "e", "f"] },
+  ];
+
+  it("returns the (x, y) coordinates of a known cell", () => {
+    expect(Table.findCellPosition(rows, "a")).toEqual({ x: 0, y: 0 });
+    expect(Table.findCellPosition(rows, "e")).toEqual({ x: 1, y: 1 });
+    expect(Table.findCellPosition(rows, "f")).toEqual({ x: 2, y: 1 });
+  });
+
+  it("returns null when the cell is absent from every row", () => {
+    expect(Table.findCellPosition(rows, "ghost")).toBeNull();
+  });
+
+  it("returns null for empty rows", () => {
+    expect(Table.findCellPosition([], "a")).toBeNull();
+  });
+});
+
+describe("cellsInRegion", () => {
+  const rows: table.Row[] = [
+    { size: 30, cells: ["a", "b", "c"] },
+    { size: 30, cells: ["d", "e", "f"] },
+    { size: 30, cells: ["g", "h", "i"] },
+  ];
+
+  it("returns the inclusive rectangle of cell keys", () => {
+    expect(Table.cellsInRegion(rows, { x: 0, y: 0 }, { x: 1, y: 1 })).toEqual([
+      "a",
+      "b",
+      "d",
+      "e",
+    ]);
+  });
+
+  it("normalizes start and end so order does not matter", () => {
+    expect(Table.cellsInRegion(rows, { x: 2, y: 2 }, { x: 1, y: 1 })).toEqual([
+      "e",
+      "f",
+      "h",
+      "i",
+    ]);
+  });
+
+  it("returns a single cell when start equals end", () => {
+    expect(Table.cellsInRegion(rows, { x: 1, y: 1 }, { x: 1, y: 1 })).toEqual(["e"]);
+  });
+
+  it("skips rows past the bottom of the table", () => {
+    expect(Table.cellsInRegion(rows, { x: 0, y: 0 }, { x: 0, y: 10 })).toEqual([
+      "a",
+      "d",
+      "g",
+    ]);
+  });
+
+  it("skips column slots past the right of a ragged row", () => {
+    const ragged: table.Row[] = [
+      { size: 30, cells: ["a", "b"] },
+      { size: 30, cells: ["c"] },
+    ];
+    expect(Table.cellsInRegion(ragged, { x: 0, y: 0 }, { x: 1, y: 1 })).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
 });
