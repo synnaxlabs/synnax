@@ -21,3 +21,13 @@ const (
 	ActionRetrieve Action = "retrieve"
 	ActionUpdate   Action = "update"
 )
+
+// IsValid reports whether a is one of the defined Action values.
+func (a Action) IsValid() bool {
+	switch a {
+	case ActionCreate, ActionDelete, ActionRetrieve, ActionUpdate:
+		return true
+	default:
+		return false
+	}
+}

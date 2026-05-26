@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type table } from "@synnaxlabs/client";
 import { TableCells, Theming } from "@synnaxlabs/pluto";
 import { id, type record, xy } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -107,3 +108,68 @@ export const ZERO_SLICE_STATE: SliceState = {
   tables: {},
   copyBuffer: { epicenter: "", cells: {}, positions: {} },
 };
+
+// toWire projects the Redux State into the typed wire format consumed by
+// client.tables.{create,setData,retrieve}. Drops the per-cell `selected` flag
+// (UI-only) and collapses each row's CellLayout[] into the flat string[]
+// declared by the typed Row schema. UI-only state (lastSelected, editable,
+// remoteCreated) lives entirely in Redux and never reaches the server.
+//
+// TRANSITIONAL: only exists while Redux still owns the table body. Deleted in
+// the SY-4066 (3/3) PR once Pluto's flux store takes over body ownership and
+// the Redux <-> server projection boundary disappears. No new callers should
+// be added.
+export const toWire = (s: State, name: string): table.Table => ({
+  key: s.key,
+  name,
+  rows: s.layout.rows.map((r) => ({
+    size: r.size,
+    cells: r.cells.map((c) => c.key),
+  })),
+  columns: s.layout.columns,
+  cells: Object.fromEntries(
+    Object.entries(s.cells).map(([k, c]) => [
+      k,
+      {
+        key: c.key,
+        variant: c.variant,
+        props: (c.props as record.Unknown) ?? {},
+      },
+    ]),
+  ),
+});
+
+// fromWire expands a typed wire Table into the Redux State shape. UI-only
+// state defaults to a fresh local view: lastSelected is null, editable is
+// true, remoteCreated is true (the entry came from the server), and every
+// cell starts unselected.
+//
+// TRANSITIONAL: only exists while Redux still owns the table body. Deleted in
+// the SY-4066 (3/3) PR once Pluto's flux store takes over body ownership and
+// the Redux <-> server projection boundary disappears. No new callers should
+// be added.
+export const fromWire = (t: table.Table): State => ({
+  key: t.key,
+  version: VERSION,
+  lastSelected: null,
+  editable: true,
+  remoteCreated: true,
+  layout: {
+    rows: t.rows.map((r) => ({
+      size: r.size,
+      cells: r.cells.map((key) => ({ key })),
+    })),
+    columns: t.columns,
+  },
+  cells: Object.fromEntries(
+    Object.entries(t.cells).map(([k, c]) => [
+      k,
+      {
+        key: c.key,
+        variant: c.variant,
+        selected: false,
+        props: c.props,
+      },
+    ]),
+  ),
+});
