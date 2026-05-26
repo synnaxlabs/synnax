@@ -11,11 +11,13 @@ package log
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -58,16 +60,16 @@ func MigrateLog(
 	return body, nil
 }
 
-// logFromV1 lifts the latest typed wire-format Data into the runtime Log shape.
-// v1.ParseLenient produces typed values but lets enum strings outside the closed
-// set flow through; the lift is mostly a struct copy, with closed-set substitution
-// turning any such value into the documented default.
+// logFromV1 lifts the latest legacy Data into the runtime Log shape. The legacy chain
+// leaves the raw color and any out-of-set enum strings untouched, so the lift parses the
+// color (defaulting a malformed or absent value to the zero color) and substitutes the
+// documented default for any enum outside its closed set.
 func logFromV1(d v1.Data) Log {
 	channels := make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {
 		channels[i] = ChannelEntry{
 			Channel:   c.Channel,
-			Color:     c.Color,
+			Color:     parseColor(c.Color),
 			Notation:  defaultNotation(c.Notation),
 			Precision: c.Precision,
 			Alias:     c.Alias,
@@ -84,6 +86,20 @@ func logFromV1(d v1.Data) Log {
 		ShowChannelNames:     d.ShowChannelNames,
 		ShowReceiptTimestamp: d.ShowReceiptTimestamp,
 	}
+}
+
+// parseColor decodes the raw wire-format color into the typed color.Color, returning
+// the zero color for an absent, null, or malformed value so a single bad color never
+// fails the lift.
+func parseColor(raw json.RawMessage) color.Color {
+	if len(raw) == 0 {
+		return color.Color{}
+	}
+	var c color.Color
+	if err := json.Unmarshal(raw, &c); err != nil {
+		return color.Color{}
+	}
+	return c
 }
 
 func defaultNotation(n notation.Notation) notation.Notation {

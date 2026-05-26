@@ -13,11 +13,11 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Version is the semantic version string written by the console at this state version.
 const Version = "1.0.0"
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally
@@ -29,12 +29,15 @@ type TimestampConfig struct {
 	Tz     telem.TimeZone        `json:"tz"`
 }
 
-// ChannelEntry is a channel reference with display configuration. Fields are typed so a
-// successful Parse produces a directly-usable value; color.Color.UnmarshalJSON converts
-// the wire-format hex string into the typed Color.
+// ChannelEntry is a channel reference with display configuration. Color is kept as raw
+// JSON because color.Color rejects a malformed or empty wire value on decode, which
+// would drop the whole row; the latest-Log lift parses it into the typed color.Color,
+// defaulting to the zero color on any error or absence. The enum fields (notation,
+// timestamp format, timezone) are named string types that accept any string on decode;
+// the lift substitutes defaults for values outside their closed sets.
 type ChannelEntry struct {
 	Channel   channel.Key       `json:"channel"`
-	Color     color.Color       `json:"color"`
+	Color     json.RawMessage   `json:"color"`
 	Notation  notation.Notation `json:"notation"`
 	Precision int32             `json:"precision"`
 	Alias     string            `json:"alias"`
@@ -50,71 +53,4 @@ type Data struct {
 	TimestampPrecision   int32          `json:"timestampPrecision"`
 	ShowChannelNames     bool           `json:"showChannelNames"`
 	ShowReceiptTimestamp bool           `json:"showReceiptTimestamp"`
-}
-
-// Parse marshals the raw map back to JSON and unmarshals it into a typed Data.
-// The typed fields (color.Color, notation.Notation, telem.TimestampFormat,
-// telem.TimeZone) handle their own conversion via the standard library's
-// json.Unmarshaler interface where applicable, so the wire format flows directly
-// into the typed shape without per-field parser helpers. An empty per-channel
-// color string is scrubbed pre-unmarshal so it doesn't trip
-// color.Color.UnmarshalJSON, which has no opinion on the empty case. Enum strings
-// outside the closed set are not rejected here; the latest-Log lift substitutes
-// defaults for them.
-func Parse(raw map[string]any) (Data, error) {
-	scrubChannels(raw, func(s string) bool { return s == "" })
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return Data{}, err
-	}
-	var d Data
-	if err := json.Unmarshal(b, &d); err != nil {
-		return Data{}, err
-	}
-	return d, nil
-}
-
-// ParseLenient is the gorp-boot variant of Parse. Before unmarshalling it also
-// scrubs any per-channel color hex that would fail color.Color.UnmarshalJSON so
-// a single corrupted field never blocks the whole row from loading. Enum strings
-// (notation, timestamp format, timezone) flow through unchanged — they assign
-// into named string types so unmarshal accepts any string; the latest-Log lift
-// substitutes defaults for values outside the closed sets. The returned Data is
-// always usable; an underlying json.Marshal failure produces a zero Data plus
-// the error, which the catch-all in MigrateLog then drops.
-func ParseLenient(raw map[string]any) (Data, error) {
-	scrubChannels(raw, func(s string) bool {
-		if s == "" {
-			return true
-		}
-		_, err := color.FromHex(s)
-		return err != nil
-	})
-	return Parse(raw)
-}
-
-// scrubChannels walks the per-channel color field on the raw map and removes any
-// value for which drop returns true, so the subsequent json.Unmarshal sees the
-// field as absent and color.Color stays at its zero value. The raw map is
-// mutated in place; both Parse and ParseLenient deliberately accept the side
-// effect because the map is owned by the caller and isn't read again after
-// migration.
-func scrubChannels(raw map[string]any, drop func(string) bool) {
-	list, ok := raw["channels"].([]any)
-	if !ok {
-		return
-	}
-	for _, e := range list {
-		m, ok := e.(map[string]any)
-		if !ok {
-			continue
-		}
-		s, ok := m["color"].(string)
-		if !ok {
-			continue
-		}
-		if drop(s) {
-			delete(m, "color")
-		}
-	}
 }

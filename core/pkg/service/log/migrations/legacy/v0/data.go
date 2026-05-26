@@ -9,32 +9,15 @@
 
 package v0
 
-import (
-	"encoding/json"
+import "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-)
-
+// Version is the semantic version string written by the console at this state version.
 const Version = "0.0.0"
 
-// Data is the frozen type for log data at version 0. Channels are stored as bare channel
-// keys. Key, Name, Type, and Version are envelope-level fields and are not part of Data.
+// Data is the frozen type for log data at version 0. Channels are stored as bare
+// channel keys. Key, Name, Type, and Version are envelope-level fields and are not part
+// of Data.
 type Data struct {
 	Channels      []channel.Key `json:"channels"`
 	RemoteCreated bool          `json:"remoteCreated"`
-}
-
-// Parse marshals the raw map back to JSON and unmarshals it into a typed Data. Channel
-// keys flow directly into the typed []channel.Key; a fractional or out-of-range value,
-// or a non-array channels field, fails json.Unmarshal.
-func Parse(raw map[string]any) (Data, error) {
-	b, err := json.Marshal(raw)
-	if err != nil {
-		return Data{}, err
-	}
-	var d Data
-	if err := json.Unmarshal(b, &d); err != nil {
-		return Data{}, err
-	}
-	return d, nil
 }

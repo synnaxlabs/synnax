@@ -23,10 +23,9 @@ import (
 
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
 // walks the per-step Migrate functions forward to v1.Data. A nil blob and a blob without
-// a version field both fall through to v0 and walk the full chain. v1 is parsed via
-// v1.ParseLenient (which scrubs invalid color hex pre-unmarshal); no closed-set
-// validation is performed, so any enum value outside the closed set flows through as a
-// typed string for the latest-Log lift to substitute.
+// a version field both fall through to v0 and walk the full chain. Closed-set validation
+// is deliberately deferred: enum strings and the raw color flow through untouched for
+// the latest-Log lift to parse and substitute defaults.
 func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	var peek struct {
 		Version string `json:"version"`
@@ -36,16 +35,33 @@ func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 			return v1.Data{}, errors.Wrap(err, "peek log data version")
 		}
 	}
-	switch peek.Version {
+	return dispatch(blob, peek.Version)
+}
+
+func dispatch(blob msgpack.EncodedJSON, version string) (v1.Data, error) {
+	switch version {
 	case v1.Version:
-		return v1.ParseLenient(map[string]any(blob))
+		return decode[v1.Data](blob, version)
 	case v0.Version, "":
-		d, err := v0.Parse(map[string]any(blob))
+		d, err := decode[v0.Data](blob, version)
 		if err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d), nil
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %q", peek.Version)
+		return v1.Data{}, errors.Newf("unknown log data version %q", version)
 	}
+}
+
+// decode unmarshals blob as T, treating a nil blob as a zero T so empty entries
+// round-trip without erroring.
+func decode[T any](blob msgpack.EncodedJSON, version string) (T, error) {
+	var d T
+	if blob == nil {
+		return d, nil
+	}
+	if err := blob.Unmarshal(&d); err != nil {
+		return d, errors.Wrapf(err, "decode v%s log data", version)
+	}
+	return d, nil
 }
