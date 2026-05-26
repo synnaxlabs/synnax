@@ -99,16 +99,7 @@ const useCreateLog = ({
     },
   });
   return useCallback(
-    () =>
-      update({
-        workspace: workspaceID.key,
-        name: "New Log",
-        channels: [],
-        remoteCreated: false,
-        timestampPrecision: 0,
-        showChannelNames: true,
-        showReceiptTimestamp: true,
-      }),
+    () => update({ workspace: workspaceID.key, name: "New Log" }),
     [workspaceID.key],
   );
 };

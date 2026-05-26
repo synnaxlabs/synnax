@@ -11,24 +11,8 @@ import { alamos } from "@synnaxlabs/alamos";
 import { type log } from "@synnaxlabs/client";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
 import { Log, logStateZ } from "@/log/aether/Log";
-
-type ChannelEntryInput = z.input<typeof log.channelEntryZ>;
-
-const entry = (
-  channel: number,
-  overrides: Partial<ChannelEntryInput> = {},
-): ChannelEntryInput => ({
-  channel,
-  color: color.ZERO,
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-  ...overrides,
-});
 import {
   MockLogSource,
   mockLogSourceSpec,
@@ -40,6 +24,19 @@ import { CompoundFactory } from "@/telem/aether/factory";
 import { TestFactory } from "@/telem/aether/test/factory";
 import { mockRenderContext } from "@/testutil/render";
 import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
+
+const entry = (
+  channel: number,
+  overrides: Partial<log.ChannelEntry> = {},
+): log.ChannelEntry => ({
+  channel,
+  color: color.ZERO,
+  notation: "standard",
+  precision: -1,
+  alias: "",
+  timestamp: { format: "preciseDate", tz: "local" },
+  ...overrides,
+});
 
 const MockSender = { send: vi.fn() };
 
@@ -290,7 +287,10 @@ describe("log/aether/Log", () => {
         scrolling: false,
         empty: true,
         visible: true,
-        channels: [entry(1, { color: "#ff0000", precision: 3 }), entry(2)],
+        channels: [
+          entry(1, { color: color.construct("#ff0000"), precision: 3 }),
+          entry(2),
+        ],
         showChannelNames: false,
         timestampPrecision: 2,
       });
@@ -926,7 +926,7 @@ describe("log/aether/Log", () => {
     it("should include color in selectedLines when channel has custom color", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setupWithContext(entries, REGION_500, {
-        channels: [entry(1, { color: "#ff0000" })],
+        channels: [entry(1, { color: color.construct("#ff0000") })],
         selectionStart: 0,
         selectionEnd: 0,
       });
@@ -1018,7 +1018,10 @@ describe("log/aether/Log", () => {
     it("should apply per-channel colors from channelConfigs", () => {
       const entries = [makeEntry(0, 1), makeEntry(1, 2)];
       const { log } = setupWithContext(entries, REGION_500, {
-        channels: [entry(1, { color: "#ff0000" }), entry(2, { color: "#00ff00" })],
+        channels: [
+          entry(1, { color: color.construct("#ff0000") }),
+          entry(2, { color: color.construct("#00ff00") }),
+        ],
         selectionStart: 0,
         selectionEnd: 1,
       });

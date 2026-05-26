@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package migrations_test
+package log_test
 
 import (
 	"encoding/json"
@@ -205,7 +205,7 @@ var _ = Describe("MigrateLog", func() {
 	Describe("from testdata fixtures", func() {
 		It("Should fully migrate a well-formed v1 body", func(ctx SpecContext) {
 			out := MustSucceed(log.MigrateLog(
-				ctx, loadV55("testdata/import_v1.json"),
+				ctx, loadV55("migrations/testdata/import_v1.json"),
 			))
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
@@ -223,7 +223,7 @@ var _ = Describe("MigrateLog", func() {
 
 		It("Should default a malformed color hex to the zero color", func(ctx SpecContext) {
 			out := MustSucceed(log.MigrateLog(
-				ctx, loadV55("testdata/import_invalid_color.json"),
+				ctx, loadV55("migrations/testdata/import_invalid_color.json"),
 			))
 			Expect(out.Name).To(Equal("Invalid Color"))
 			Expect(out.Channels).To(HaveLen(1))
@@ -233,7 +233,7 @@ var _ = Describe("MigrateLog", func() {
 
 		It("Should lift a legacy v0 body forward through the chain", func(ctx SpecContext) {
 			out := MustSucceed(log.MigrateLog(
-				ctx, loadV55("testdata/import_v0.json"),
+				ctx, loadV55("migrations/testdata/import_v0.json"),
 			))
 			Expect(out.Name).To(Equal("Test Log V0"))
 			Expect(out.Channels).To(HaveLen(3))
@@ -252,8 +252,8 @@ var _ = Describe("MigrateLog", func() {
 				Expect(out.Name).To(Equal(name))
 				Expect(out.Channels).To(BeEmpty())
 			},
-			Entry("channels stored as a non-array", "testdata/import_bad_data.json", "Bad Data"),
-			Entry("unsupported version stamp", "testdata/import_bad_version.json", "Bad Version"),
+			Entry("channels stored as a non-array", "migrations/testdata/import_bad_data.json", "Bad Data"),
+			Entry("unsupported version stamp", "migrations/testdata/import_bad_version.json", "Bad Version"),
 		)
 	})
 })
