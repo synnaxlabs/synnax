@@ -24,7 +24,17 @@ import { useAutoUpload } from "@/table/useUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
-const CLEAR_SELECTED_TRIGGERS: Triggers.Trigger[] = [["Delete"], ["Backspace"]];
+type ShortcutMode = "clear" | "undo" | "redo" | "default";
+
+const SHORTCUT_CONFIG: Triggers.ModeConfig<ShortcutMode> = {
+  clear: [["Delete"], ["Backspace"]],
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
+  default: [],
+  defaultMode: "default",
+};
+
+const SHORTCUT_TRIGGERS = Triggers.flattenConfig(SHORTCUT_CONFIG);
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editable = useSelectEditable(layoutKey);
@@ -38,6 +48,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const removeRow = Base.useRemoveRow({ key: layoutKey });
   const removeCol = Base.useRemoveCol({ key: layoutKey });
   const clearSelected = Base.useClearSelected({ key: layoutKey });
+  const { undo } = Base.useUndo({ key: layoutKey });
+  const { redo } = Base.useRedo({ key: layoutKey });
   const tableRef = useRef<HTMLDivElement>(null);
 
   const handlePasted = useCallback(
@@ -60,14 +72,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   });
 
   Triggers.use({
-    triggers: CLEAR_SELECTED_TRIGGERS,
+    triggers: SHORTCUT_TRIGGERS,
     region: tableRef,
     callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !canEdit || selected.length === 0) return;
-        clearSelected(selected);
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !canEdit) return;
+        const mode = Triggers.determineMode(SHORTCUT_CONFIG, triggers);
+        if (mode === "clear") {
+          if (selected.length === 0) return;
+          clearSelected(selected);
+        } else if (mode === "undo") undo();
+        else if (mode === "redo") redo();
       },
-      [canEdit, selected, clearSelected],
+      [canEdit, selected, clearSelected, undo, redo],
     ),
   });
 
