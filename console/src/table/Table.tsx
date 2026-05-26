@@ -45,6 +45,7 @@ import {
   copySelected,
   deleteCol,
   deleteRow,
+  fromWire,
   internalCreate,
   pasteSelected,
   resizeCol,
@@ -57,6 +58,7 @@ import {
   setEditable,
   setRemoteCreated,
   type State,
+  toWire,
   ZERO_STATE,
 } from "@/table/slice";
 import { Workspace } from "@/workspace";
@@ -92,13 +94,8 @@ export const useSyncComponent = Workspace.createSyncComponent(
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
-    const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.tables.create(workspace, {
-      key,
-      name: layout.name,
-      data: setData,
-    });
+    await client.tables.create(workspace, toWire(data, layout.name));
   },
 );
 
@@ -468,7 +465,7 @@ const useLoadRemote = createLoadRemote<table.Table>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(fromWire(v)),
 });
 
 export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
