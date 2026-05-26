@@ -420,7 +420,7 @@ describe("queries", () => {
         name: "Source Schematic",
       });
       const lp = await client.lineplots.create(ws.key, { name: "A Plot", data: {} });
-      const t1 = await client.tables.create(ws.key, { name: "A Table", data: {} });
+      const t1 = await client.tables.create(ws.key, { name: "A Table" });
       const l1 = await client.logs.create(ws.key, { name: "A Log" });
 
       const { result } = renderHook(
@@ -455,7 +455,7 @@ describe("queries", () => {
         name: "Other Schematic",
       });
       const lp = await client.lineplots.create(ws.key, { name: "Plot", data: {} });
-      const t1 = await client.tables.create(ws.key, { name: "Table", data: {} });
+      const t1 = await client.tables.create(ws.key, { name: "Table" });
       const l1 = await client.logs.create(ws.key, { name: "Log" });
 
       const { result } = renderHook(
