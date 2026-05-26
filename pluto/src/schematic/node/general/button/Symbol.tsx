@@ -12,9 +12,9 @@ import { type ReactElement } from "react";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/button/config";
-import { Primitive } from "@/schematic/node/general/button/Primitive";
+import { Button } from "@/schematic/node/general/button/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Button } from "@/vis/button";
+import { Button as BaseButton } from "@/vis/button";
 
 export const Symbol = ({
   nodeKey,
@@ -22,7 +22,7 @@ export const Symbol = ({
   onConfigChange,
   config: { label, orientation = "left", sink, control, mode, ...rest },
 }: NodeProps<Config>): ReactElement => {
-  const { onMouseDown, onMouseUp } = Button.use({ aetherKey: nodeKey, sink, mode });
+  const { onMouseDown, onMouseUp } = BaseButton.use({ aetherKey: nodeKey, sink, mode });
   return (
     <Grid.Grid
       orientation={orientation}
@@ -32,7 +32,7 @@ export const Symbol = ({
       nodeKey={nodeKey}
     >
       <Control.State config={control} onChange={onConfigChange} />
-      <Primitive
+      <Button
         label={label}
         onMouseDown={onMouseDown}
         onMouseUp={onMouseUp}

@@ -11,27 +11,19 @@ package lineplot
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, LinePlot]
-	// actionObserver is notified after a successful Dispatch so the cluster
-	// signals subsystem can broadcast the action sequence on the line plot
-	// channels. Nil when the service is opened without a Signals provider.
-	actionObserver observe.Observer[ScopedAction]
-	// seq is the source for the monotonic sequence number assigned to every
-	// dispatched ScopedAction. Pointer-shared with Service so all writers on a
-	// node draw from the same counter.
-	seq *atomic.Uint64
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, LinePlot]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 func (w Writer) Create(
@@ -118,15 +110,7 @@ func (w Writer) Dispatch(
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if w.actionObserver == nil {
-		return nil
-	}
-	w.actionObserver.Notify(ctx, ScopedAction{
-		Key:         key,
-		DispatchKey: dispatchKey,
-		Seq:         w.seq.Add(1),
-		Actions:     actions,
-	})
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
 	return nil
 }
 

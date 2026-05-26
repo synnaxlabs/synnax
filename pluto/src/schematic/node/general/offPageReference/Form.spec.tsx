@@ -60,7 +60,7 @@ describe("OffPageReferenceForm", () => {
     );
     expect(getByText("Label")).toBeDefined();
     expect(getByText("Page")).toBeDefined();
-    expect(getByText("Click Mode")).toBeDefined();
+    expect(getByText("Click mode")).toBeDefined();
   });
 
   it("should render single and double click mode buttons", () => {
@@ -88,6 +88,6 @@ describe("OffPageReferenceForm", () => {
         <OffPageReferenceForm />
       </FormWrapper>,
     );
-    expect(getByText("Label Size")).toBeDefined();
+    expect(getByText("Label size")).toBeDefined();
   });
 });

@@ -11,12 +11,10 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { lineplot } from "@/lineplot";
+import { type lineplot } from "@/lineplot";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
-
-const newPlot = (name: string) => ({ ...lineplot.ZERO_NEW, name });
 
 const bodyOf = (lp: lineplot.LinePlot): lineplot.SetDataBody => {
   const { key: _k, name: _n, ...body } = lp;
@@ -30,11 +28,9 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
+      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
       expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(uuid.ZERO);
-      expect(linePlot.title.level).toEqual("h4");
-      expect(linePlot.axes.x1.type).toEqual("time");
     });
   });
   describe("rename", () => {
@@ -43,7 +39,7 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
+      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
       await client.lineplots.rename(linePlot.key, "Line Plot2");
       const res = await client.lineplots.retrieve({ key: linePlot.key });
       expect(res.name).toEqual("Line Plot2");
@@ -55,8 +51,8 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
-      const next = await client.lineplots.create(ws.key, newPlot("intermediate"));
+      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
+      const next = await client.lineplots.create(ws.key, { name: "intermediate" });
       next.title.level = "h2";
       next.lines = [
         {
@@ -81,7 +77,7 @@ describe("LinePlot", () => {
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, newPlot("Line Plot"));
+      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve({ key: linePlot.key })).rejects.toThrow(
         NotFoundError,

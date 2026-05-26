@@ -19,6 +19,7 @@ import {
   removeRange,
   removeRule,
   rename,
+  scopedActionZ,
   setAxis,
   setLegend,
   setLine,
@@ -26,7 +27,6 @@ import {
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
-import { scopedActionZ } from "@/lineplot/client";
 import { type Axis, type Line, type LinePlot, type Rule } from "@/lineplot/types.gen";
 
 const zeroAxis = (key: Axis["key"]): Axis => ({

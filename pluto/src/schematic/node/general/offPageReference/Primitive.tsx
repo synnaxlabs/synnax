@@ -14,7 +14,7 @@ import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -39,7 +39,7 @@ interface RenderProps extends Omit<
   onLabelChange?: (label: string) => void;
 }
 
-export const Primitive = ({
+export const OffPageReference = ({
   id,
   className,
   orientation = "right",
@@ -61,7 +61,7 @@ export const Primitive = ({
   );
 
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
       orientation={orientation}
     >
@@ -125,6 +125,6 @@ export const Primitive = ({
           </filter>
         </defs>
       </svg>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

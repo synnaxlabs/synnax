@@ -10,15 +10,15 @@
 import { type group } from "@synnaxlabs/client";
 
 import { type Icon } from "@/icon";
-import { GROUP as fittings } from "@/schematic/node/fittings/group";
-import { GROUP as general } from "@/schematic/node/general/group";
-import { GROUP as meters } from "@/schematic/node/meters/group";
-import { GROUP as process } from "@/schematic/node/process/group";
-import { GROUP as pumps } from "@/schematic/node/pumps/group";
+import { Fittings } from "@/schematic/node/fittings";
+import { Flowmeters } from "@/schematic/node/flowmeters";
+import { General } from "@/schematic/node/general";
+import { Process } from "@/schematic/node/process";
+import { Pumps } from "@/schematic/node/pumps";
 import { type Variant } from "@/schematic/node/registry";
-import { GROUP as safety } from "@/schematic/node/safety/group";
-import { GROUP as valves } from "@/schematic/node/valves/group";
-import { GROUP as vessels } from "@/schematic/node/vessels/group";
+import { Safety } from "@/schematic/node/safety";
+import { Valves } from "@/schematic/node/valves";
+import { Vessels } from "@/schematic/node/vessels";
 
 export interface Group extends group.Group {
   Icon: Icon.FC;
@@ -26,12 +26,12 @@ export interface Group extends group.Group {
 }
 
 export const GROUPS: Group[] = [
-  general,
-  vessels,
-  valves,
-  pumps,
-  meters,
-  process,
-  safety,
-  fittings,
+  General.GROUP,
+  Vessels.GROUP,
+  Valves.GROUP,
+  Pumps.GROUP,
+  Flowmeters.GROUP,
+  Process.GROUP,
+  Safety.GROUP,
+  Fittings.GROUP,
 ];

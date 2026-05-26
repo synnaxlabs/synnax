@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/textBox/config";
-import { Primitive } from "@/schematic/node/general/textBox/Primitive";
+import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
@@ -19,7 +19,7 @@ export const Symbol = ({
   onConfigChange,
   config: { color, width, align, autoFit, level, value, orientation },
 }: NodeProps<Config>): ReactElement => (
-  <Primitive
+  <TextBox
     className={Grid.DRAG_HANDLE_CLASS}
     onChange={(value) => onConfigChange({ value })}
     value={value}
