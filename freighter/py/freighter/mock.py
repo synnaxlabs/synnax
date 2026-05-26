@@ -19,13 +19,13 @@ class MockUnaryClient[RQ, RS](Transport):
 
     requests: list[RQ]
     responses: list[RS]
-    response_errors: list[Exception]
+    response_errors: list[Exception | None]
     _mw: MiddlewareCollector
 
     def __init__(
         self,
         responses: list[RS] | None = None,
-        response_errors: list[Exception] | None = None,
+        response_errors: list[Exception | None] | None = None,
     ):
         """
         Initialize a new MockUnaryClient.
@@ -42,16 +42,16 @@ class MockUnaryClient[RQ, RS](Transport):
         """Implements the Transport protocol."""
         self._mw.use(*middleware)
 
-    def send(
-        self, target: str, req: RQ, res_t: type[RS]
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """
-        Mock implementation of send that returns pre-configured responses or errors.
+        Mock implementation of send that returns pre-configured responses or raises
+        pre-configured errors.
 
         :param target: the target address of the server
         :param req: the request to issue to the server
-        :return: a tuple of (response, error)
+        :return: the next pre-configured response.
         :raises RuntimeError: when no more responses are available
+        :raises Exception: the next pre-configured error, if any.
         """
         self.requests.append(req)
         if not self.responses:
@@ -59,14 +59,13 @@ class MockUnaryClient[RQ, RS](Transport):
 
         ctx = Context(protocol="mock", target=target, role="client")
 
-        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
-            error = None
+        def finalizer(ctx: Context) -> Context:
             if self.response_errors:
                 error = self.response_errors.pop(0)
-            return ctx, error
+                if error is not None:
+                    raise error
+            return ctx
 
-        _, exc = self._mw.exec(ctx, finalizer)
-        if exc is not None:
-            return None, exc
+        self._mw.exec(ctx, finalizer)
 
-        return self.responses.pop(0), None
+        return self.responses.pop(0)
