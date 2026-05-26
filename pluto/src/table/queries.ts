@@ -156,8 +156,11 @@ export interface CreateOutput extends table.Table {
 // seedDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
 // that creates a table with no structural data opens onto a usable starter
 // layout instead of a blank canvas.
-const seedDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
+const seedDefaultLayout = (
+  theme: ReturnType<typeof Theming.use>,
+): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
+  const props = CELLS.text.defaultProps(theme);
   return {
     rows: [
       { size: BASE_ROW_SIZE, cells: [cellKeys[0], cellKeys[1]] },
@@ -165,12 +168,12 @@ const seedDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> =>
     ],
     columns: [{ size: BASE_COL_SIZE }, { size: BASE_COL_SIZE }],
     cells: Object.fromEntries(
-      cellKeys.map((k) => [k, { key: k, variant: "text", props: {} }]),
+      cellKeys.map((k) => [k, { key: k, variant: "text", props }]),
     ),
   };
 };
 
-export const { useUpdate: useCreate } = Flux.createUpdate<
+const { useUpdate: useCreateBase } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
   CreateOutput
@@ -180,8 +183,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const { workspace, ...rest } = data;
     rest.key ??= uuid.create();
-    if ((rest.rows?.length ?? 0) === 0 && (rest.columns?.length ?? 0) === 0)
-      Object.assign(rest, seedDefaultLayout());
     const created = rest as table.Table;
     rollbacks.push(store.tables.set(created.key, created));
     const t = await client.tables.create(workspace ?? uuid.ZERO, created);
@@ -189,6 +190,31 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     return { ...t, workspace };
   },
 });
+
+// useCreate creates a new table. If the caller passes no rows or columns,
+// the table opens with a 2x2 grid of empty text cells so the user lands on
+// a usable starter layout instead of a blank canvas.
+export const useCreate: typeof useCreateBase = (args) => {
+  const base = useCreateBase(args);
+  const baseRef = useSyncedRef(base);
+  const themeRef = useSyncedRef(Theming.use());
+  const seed = useCallback(
+    (data: CreateParams): CreateParams =>
+      (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
+        ? { ...data, ...seedDefaultLayout(themeRef.current) }
+        : data,
+    [],
+  );
+  const update = useCallback<typeof base.update>(
+    (data, opts) => baseRef.current.update(seed(data), opts),
+    [seed],
+  );
+  const updateAsync = useCallback<typeof base.updateAsync>(
+    (data, opts) => baseRef.current.updateAsync(seed(data), opts),
+    [seed],
+  );
+  return { ...base, update, updateAsync };
+};
 
 export interface UseRenameArgs {
   key: table.Key;

@@ -151,7 +151,8 @@ describe("table queries", () => {
       expect(Object.keys(retrieved.cells)).toHaveLength(4);
       for (const cell of Object.values(retrieved.cells)) {
         expect(cell.variant).toEqual("text");
-        expect(cell.props).toEqual({});
+        expect(cell.props.value).toEqual("");
+        expect(cell.props.level).toEqual("h5");
       }
     });
 
