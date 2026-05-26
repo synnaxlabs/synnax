@@ -95,6 +95,43 @@ var _ = Describe("CodeAction", func() {
 			Expect(controlEdit.Range.End).To(Equal(protocol.Position{Line: 0, Character: 20}))
 		})
 
+		It("should delete a middle item from a 3-item parenthesized block", func(ctx SpecContext) {
+			content := "import (time control math)\n\nfunc test() i64 { return 0 }\n"
+			OpenArcDocument(server, ctx, uri, content)
+
+			diags := client.Diagnostics()
+			Expect(diags).To(HaveLen(3))
+			for _, d := range diags {
+				Expect(d.Code).To(Equal(string(codes.UnusedImport)))
+			}
+
+			actions := MustSucceed(server.CodeAction(ctx, codeActionParams(diags)))
+			Expect(actions).To(HaveLen(3))
+
+			byStart := map[uint32]protocol.TextEdit{}
+			for _, a := range actions {
+				Expect(a.Edit).ToNot(BeNil())
+				edits := a.Edit.Changes[uri]
+				Expect(edits).To(HaveLen(1))
+				byStart[edits[0].Range.Start.Character] = edits[0]
+			}
+
+			// First item eats forward: start of "time" -> start of "control".
+			timeEdit, ok := byStart[8]
+			Expect(ok).To(BeTrue())
+			Expect(timeEdit.Range.End).To(Equal(protocol.Position{Line: 0, Character: 13}))
+
+			// Middle item eats forward: start of "control" -> start of "math".
+			controlEdit, ok := byStart[13]
+			Expect(ok).To(BeTrue())
+			Expect(controlEdit.Range.End).To(Equal(protocol.Position{Line: 0, Character: 21}))
+
+			// Last item eats backward: end of "control" -> end of "math".
+			mathEdit, ok := byStart[20]
+			Expect(ok).To(BeTrue())
+			Expect(mathEdit.Range.End).To(Equal(protocol.Position{Line: 0, Character: 25}))
+		})
+
 		It("should return no actions when context has no diagnostics", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() i64 { return 0 }\n")
 

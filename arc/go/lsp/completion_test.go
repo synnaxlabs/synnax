@@ -1151,13 +1151,31 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 4, 7)
 			item, found := FindCompletion(completions.Items, "math")
 			Expect(found).To(BeTrue())
-			Expect(item.AdditionalTextEdits).To(HaveLen(1))
-			edit := item.AdditionalTextEdits[0]
-			Expect(edit.NewText).To(Equal("import (\n    time\n    control\n    math\n)\n"))
-			Expect(edit.Range.Start.Line).To(Equal(uint32(0)))
-			Expect(edit.Range.Start.Character).To(Equal(uint32(0)))
-			Expect(edit.Range.End.Line).To(Equal(uint32(1)))
-			Expect(edit.Range.End.Character).To(Equal(uint32(14)))
+			Expect(item.AdditionalTextEdits).To(HaveLen(2))
+			replace := item.AdditionalTextEdits[0]
+			Expect(replace.NewText).To(Equal("import (\n    time\n    control\n    math\n)\n"))
+			Expect(replace.Range.Start).To(Equal(protocol.Position{Line: 0, Character: 0}))
+			Expect(replace.Range.End).To(Equal(protocol.Position{Line: 0, Character: 11}))
+			deleteOld := item.AdditionalTextEdits[1]
+			Expect(deleteOld.NewText).To(BeEmpty())
+			Expect(deleteOld.Range.Start).To(Equal(protocol.Position{Line: 1, Character: 0}))
+			Expect(deleteOld.Range.End).To(Equal(protocol.Position{Line: 2, Character: 0}))
+		})
+
+		It("preserves comments sitting between two loose import statements", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "import time\n// keep this\nimport control\n\nfunc test() {\n    mat\n}")
+			completions := Completion(server, ctx, uri, 5, 7)
+			item, found := FindCompletion(completions.Items, "math")
+			Expect(found).To(BeTrue())
+			Expect(item.AdditionalTextEdits).To(HaveLen(2))
+			replace := item.AdditionalTextEdits[0]
+			Expect(replace.NewText).To(Equal("import (\n    time\n    control\n    math\n)\n"))
+			Expect(replace.Range.Start).To(Equal(protocol.Position{Line: 0, Character: 0}))
+			Expect(replace.Range.End).To(Equal(protocol.Position{Line: 0, Character: 11}))
+			deleteOld := item.AdditionalTextEdits[1]
+			Expect(deleteOld.NewText).To(BeEmpty())
+			Expect(deleteOld.Range.Start).To(Equal(protocol.Position{Line: 2, Character: 0}))
+			Expect(deleteOld.Range.End).To(Equal(protocol.Position{Line: 3, Character: 0}))
 		})
 
 		It("does not attach an import edit when the module is already imported", func(ctx SpecContext) {

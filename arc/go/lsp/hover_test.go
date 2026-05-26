@@ -542,6 +542,57 @@ func add(a i32, b i32) i32 {
 		})
 	})
 
+	DescribeTable("kind label hover",
+		func(
+			ctx SpecContext,
+			content string,
+			line, char uint32,
+			expectedTitle, expectedKind string,
+		) {
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, line, char)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
+			Expect(hover.Contents.Value).To(ContainSubstring(expectedKind))
+		},
+		Entry("function",
+			"func foo() i32 { return 0 }\n",
+			uint32(0), uint32(5),
+			"foo", "Function"),
+		Entry("variable",
+			"func test() {\n    x i32 := 42\n    y := x + 10\n}\n",
+			uint32(2), uint32(9),
+			"x", "Variable"),
+		Entry("stateful variable",
+			"func counter{} () u32 {\n    count u32 $= 0\n    count = count + 1\n    return count\n}\n",
+			uint32(2), uint32(5),
+			"count", "Stateful Variable"),
+		Entry("input parameter",
+			"func multiply(x f64, y f64) f64 {\n    return x * y\n}\n",
+			uint32(1), uint32(11),
+			"x", "Input Parameter"),
+		Entry("output parameter",
+			"func compute() result f64 {\n    result = 1.0\n}\n",
+			uint32(1), uint32(4),
+			"result", "Output Parameter"),
+		Entry("config parameter",
+			"func compute{k f64}() f64 {\n    return k\n}\n",
+			uint32(1), uint32(11),
+			"k", "Configuration Parameter"),
+		Entry("module alias",
+			"import time\n\nfunc test() {\n    time.now()\n}\n",
+			uint32(3), uint32(5),
+			"time", "Module"),
+		Entry("sequence",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(0), uint32(10),
+			"main", "Sequence"),
+		Entry("stage",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(1), uint32(11),
+			"first", "Stage"),
+	)
+
 	DescribeTable("operator hover",
 		func(ctx SpecContext, content string, char uint32, expectedOp, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)

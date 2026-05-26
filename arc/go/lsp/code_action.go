@@ -17,8 +17,21 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
 )
+
+// codeActionSnapshot bundles the document state CodeAction needs after
+// releasing s.mu. Snapshotting once at the top of CodeAction avoids racing
+// with DidChange and runAnalysis, which write doc.Content and doc.IR under
+// s.mu.Lock.
+type codeActionSnapshot struct {
+	URI     protocol.DocumentURI
+	Content string
+	Symbols *symbol.Symbol
+	Tokens  []antlr.Token
+	IsBlock bool
+}
 
 // CodeAction returns quick-fix actions for the diagnostics that intersect
 // the requested range. Actions are matched by diagnostic code, so analyzer
@@ -32,16 +45,27 @@ func (s *Server) CodeAction(
 	if !ok {
 		return nil, nil
 	}
+	s.mu.RLock()
+	content := doc.Content
+	symbols := doc.IR.Symbols
+	s.mu.RUnlock()
+	snap := codeActionSnapshot{
+		URI:     doc.URI,
+		Content: content,
+		Symbols: symbols,
+		Tokens:  tokenizeContent(content),
+		IsBlock: doc.isBlock(),
+	}
 	var actions []protocol.CodeAction
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(string)
 		switch code {
 		case string(codes.UnusedImport):
-			if action := s.unusedImportQuickFix(doc, diag); action != nil {
+			if action := unusedImportQuickFix(snap, diag); action != nil {
 				actions = append(actions, *action)
 			}
 		case string(codes.DeprecatedSymbol):
-			if action := s.deprecatedSymbolQuickFix(ctx, doc, diag); action != nil {
+			if action := deprecatedSymbolQuickFix(ctx, snap, diag); action != nil {
 				actions = append(actions, *action)
 			}
 		}
@@ -50,7 +74,7 @@ func (s *Server) CodeAction(
 		// The handler's own filters (local resolution succeeds, no ambient
 		// match, already imported) reject non-candidates, so we don't need
 		// a separate code to gate it.
-		if action := s.missingImportQuickFix(ctx, doc, diag); action != nil {
+		if action := missingImportQuickFix(ctx, snap, diag); action != nil {
 			actions = append(actions, *action)
 		}
 	}
@@ -61,11 +85,11 @@ func (s *Server) CodeAction(
 // diagnostic. The fix deletes the entire import statement when the
 // targeted item is the only one in its statement, and deletes just the
 // item (with adjacent whitespace) otherwise.
-func (s *Server) unusedImportQuickFix(
-	doc *Document,
+func unusedImportQuickFix(
+	snap codeActionSnapshot,
 	diag protocol.Diagnostic,
 ) *protocol.CodeAction {
-	alias := findAliasAtDiagnostic(doc, diag)
+	alias := findAliasAtDiagnostic(snap.Symbols, diag)
 	if alias == nil {
 		return nil
 	}
@@ -77,7 +101,18 @@ func (s *Server) unusedImportQuickFix(
 	if !ok {
 		return nil
 	}
-	edit := buildUnusedImportEdit(doc.Content, stmt, item)
+	items := stmt.AllImportItem()
+	idx := -1
+	for i, it := range items {
+		if it == item {
+			idx = i
+			break
+		}
+	}
+	if len(items) > 1 && idx < 0 {
+		return nil
+	}
+	edit := buildUnusedImportEdit(snap.Content, stmt, items, idx)
 	return &protocol.CodeAction{
 		Title:       "Remove unused import",
 		Kind:        protocol.QuickFix,
@@ -85,22 +120,24 @@ func (s *Server) unusedImportQuickFix(
 		IsPreferred: true,
 		Edit: &protocol.WorkspaceEdit{
 			Changes: map[protocol.DocumentURI][]protocol.TextEdit{
-				doc.URI: {edit},
+				snap.URI: {edit},
 			},
 		},
 	}
 }
 
-// findAliasAtDiagnostic returns the KindModuleAlias child of the document
-// root scope whose AST starts at the diagnostic range's start, or nil if
-// the document was not analyzed or no alias matches. Matching by start
-// position keeps the resolution robust even when a parse error has
-// truncated the symbol tree.
-func findAliasAtDiagnostic(doc *Document, diag protocol.Diagnostic) *symbol.Symbol {
-	if doc.IR.Symbols == nil {
+// findAliasAtDiagnostic returns the KindModuleAlias child of symbols whose
+// AST starts at the diagnostic range's start, or nil if symbols is nil or
+// no alias matches. Matching by start position keeps the resolution
+// robust even when a parse error has truncated the symbol tree.
+func findAliasAtDiagnostic(
+	symbols *symbol.Symbol,
+	diag protocol.Diagnostic,
+) *symbol.Symbol {
+	if symbols == nil {
 		return nil
 	}
-	for _, child := range doc.IR.Symbols.Children() {
+	for _, child := range symbols.Children() {
 		if child.Kind != symbol.KindModuleAlias || child.AST == nil {
 			continue
 		}
@@ -120,28 +157,33 @@ func findAliasAtDiagnostic(doc *Document, diag protocol.Diagnostic) *symbol.Symb
 }
 
 // buildUnusedImportEdit computes the TextEdit that removes the unused
-// item. When item is the sole member of its statement the whole statement
+// item at items[idx]. When items has a single member the whole statement
 // is deleted (extending through the trailing newline so no blank line is
-// left behind). Otherwise the item is deleted along with one neighboring
-// run of whitespace, preserving the surrounding parenthesized block.
+// left behind). Otherwise the item at idx is deleted along with one
+// neighboring run of whitespace, preserving the surrounding parenthesized
+// block. The caller is responsible for finding idx in items; idx is
+// ignored when the statement is deleted whole.
 func buildUnusedImportEdit(
 	content string,
 	stmt parser.IImportStatementContext,
-	item parser.IImportItemContext,
+	items []parser.IImportItemContext,
+	idx int,
 ) protocol.TextEdit {
-	items := stmt.AllImportItem()
 	if len(items) <= 1 {
 		return deleteStatementEdit(content, stmt)
 	}
-	return deleteItemEdit(items, item)
+	return deleteItemEdit(items, idx)
 }
 
 // deleteStatementEdit deletes the whole import statement plus a trailing
-// newline when one is present, so removing the only import in a file
-// leaves no orphan blank line.
+// newline when one is present, so removing the statement leaves no orphan
+// blank line. Accepts the broader ParserRuleContext so the helper can be
+// reused for any statement-shaped node (e.g., the loose `import name`
+// form used by the auto-import consolidator) rather than just
+// IImportStatementContext.
 func deleteStatementEdit(
 	content string,
-	stmt parser.IImportStatementContext,
+	stmt antlr.ParserRuleContext,
 ) protocol.TextEdit {
 	start := stmt.GetStart()
 	stop := stmt.GetStop()
@@ -166,18 +208,18 @@ func deleteStatementEdit(
 	}
 }
 
-// deleteItemEdit deletes a single item from a multi-item parenthesized
-// import block. When the item has a following sibling the deletion eats
-// the whitespace between them; for the last item the deletion eats the
-// whitespace after the previous sibling instead.
+// deleteItemEdit deletes the item at items[idx] from a multi-item
+// parenthesized import block. When idx has a following sibling the
+// deletion eats the whitespace between them; for the last item the
+// deletion eats the whitespace after the previous sibling instead.
 func deleteItemEdit(
 	items []parser.IImportItemContext,
-	item parser.IImportItemContext,
+	idx int,
 ) protocol.TextEdit {
-	idx := indexOfItem(items, item)
+	item := items[idx]
 	startLine, startChar := tokenStartLineChar(item.GetStart())
 	endLine, endChar := tokenEndLineChar(item.GetStop())
-	if idx >= 0 && idx < len(items)-1 {
+	if idx < len(items)-1 {
 		nextStartLine, nextStartChar := tokenStartLineChar(items[idx+1].GetStart())
 		endLine, endChar = nextStartLine, nextStartChar
 	} else if idx > 0 {
@@ -198,15 +240,6 @@ func deleteItemEdit(
 	}
 }
 
-func indexOfItem(items []parser.IImportItemContext, target parser.IImportItemContext) int {
-	for i, it := range items {
-		if it == target {
-			return i
-		}
-	}
-	return -1
-}
-
 func tokenStartLineChar(t antlr.Token) (int, int) {
 	return t.GetLine() - 1, t.GetColumn()
 }
@@ -219,31 +252,11 @@ func tokenEndLineChar(t antlr.Token) (int, int) {
 // content is a newline. Both \n and \r\n collapse to a single LSP newline
 // because the End position sits before the \n in either case.
 func eatsTrailingNewline(content string, line, char int) bool {
-	offset := offsetAt(content, line, char)
-	return offset >= 0 && offset < len(content) && content[offset] == '\n'
-}
-
-func offsetAt(content string, line, char int) int {
-	curLine, curChar, offset := 0, 0, 0
-	for offset < len(content) {
-		if curLine == line && curChar == char {
-			return offset
-		}
-		if content[offset] == '\n' {
-			if curLine == line {
-				return offset
-			}
-			curLine++
-			curChar = 0
-		} else {
-			curChar++
-		}
-		offset++
-	}
-	if curLine == line && curChar == char {
-		return offset
-	}
-	return -1
+	offset := lsp.PositionToOffset(content, protocol.Position{
+		Line:      uint32(line),
+		Character: uint32(char),
+	})
+	return offset < len(content) && content[offset] == '\n'
 }
 
 // deprecatedSymbolQuickFix builds a quick-fix action for a deprecated
@@ -251,23 +264,23 @@ func offsetAt(content string, line, char int) int {
 // resolves it through the document's scope, and emits a text edit that
 // replaces the identifier with the canonical replacement. When the
 // replacement's module is not already in scope, an additional import edit
-// is appended via buildAutoImportEdit. Qualified references like
-// `module.member` are skipped in this version; users see the warning but
-// not a fix.
-func (s *Server) deprecatedSymbolQuickFix(
+// is appended via buildAutoImportEditFromSnapshot. Qualified references
+// like `module.member` are skipped in this version; users see the warning
+// but not a fix.
+func deprecatedSymbolQuickFix(
 	ctx context.Context,
-	doc *Document,
+	snap codeActionSnapshot,
 	diag protocol.Diagnostic,
 ) *protocol.CodeAction {
-	if doc.IR.Symbols == nil {
+	if snap.Symbols == nil {
 		return nil
 	}
-	token, sym := findDeprecatedBareRef(ctx, doc, diag.Range)
+	token, sym := findDeprecatedBareRef(ctx, snap, diag.Range)
 	if token == nil || sym == nil || sym.Deprecated == nil {
 		return nil
 	}
 	repl := sym.Deprecated
-	replacementName := buildReplacementName(doc, repl)
+	replacementName := buildReplacementName(snap.Symbols, repl)
 	tokenStartLine, tokenStartChar := tokenStartLineChar(token)
 	tokenEndLine, tokenEndChar := tokenEndLineChar(token)
 	edits := []protocol.TextEdit{{
@@ -278,7 +291,7 @@ func (s *Server) deprecatedSymbolQuickFix(
 		NewText: replacementName,
 	}}
 	if module := replacementModule(repl); module != "" {
-		edits = append(buildAutoImportEdit(doc, module), edits...)
+		edits = append(buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, module), edits...)
 	}
 	return &protocol.CodeAction{
 		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
@@ -286,7 +299,7 @@ func (s *Server) deprecatedSymbolQuickFix(
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: true,
 		Edit: &protocol.WorkspaceEdit{
-			Changes: map[protocol.DocumentURI][]protocol.TextEdit{doc.URI: edits},
+			Changes: map[protocol.DocumentURI][]protocol.TextEdit{snap.URI: edits},
 		},
 	}
 }
@@ -298,25 +311,24 @@ func (s *Server) deprecatedSymbolQuickFix(
 // this version does not rewrite.
 func findDeprecatedBareRef(
 	ctx context.Context,
-	doc *Document,
+	snap codeActionSnapshot,
 	r protocol.Range,
 ) (antlr.Token, *symbol.Symbol) {
-	tokens := tokenizeContent(doc.Content)
-	for i, t := range tokens {
+	for i, t := range snap.Tokens {
 		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
 			continue
 		}
 		if !tokenInRange(t, r) {
 			continue
 		}
-		if isPartOfQualifiedPath(tokens, i) {
+		if isPartOfQualifiedPath(snap.Tokens, i) {
 			continue
 		}
 		pos := protocol.Position{
 			Line:      uint32(t.GetLine() - 1),
 			Character: uint32(t.GetColumn()),
 		}
-		scope := doc.findScopeAtPosition(pos)
+		scope := findScopeAt(snap.Symbols, snap.IsBlock, pos)
 		if scope == nil {
 			continue
 		}
@@ -388,11 +400,14 @@ func isTriviaToken(t antlr.Token) bool {
 // buildReplacementName returns the dotted reference the user should write
 // for repl, preferring an existing module alias when one is in scope and
 // falling back to repl's canonical QualifiedName otherwise.
-func buildReplacementName(doc *Document, repl *symbol.Symbol) string {
+func buildReplacementName(symbols *symbol.Symbol, repl *symbol.Symbol) string {
 	if repl.Parent == nil || repl.Parent.Kind != symbol.KindModule {
 		return repl.QualifiedName()
 	}
-	for _, child := range doc.IR.Symbols.Children() {
+	if symbols == nil {
+		return repl.QualifiedName()
+	}
+	for _, child := range symbols.Children() {
 		if child.Kind != symbol.KindModuleAlias || child.Target == nil {
 			continue
 		}
@@ -420,15 +435,15 @@ func replacementModule(repl *symbol.Symbol) string {
 // reachable through the ambient prelude, and (c) not already be imported
 // in the document. Failing any of the three returns nil, which makes the
 // handler safe to run for every diagnostic without code-matching.
-func (s *Server) missingImportQuickFix(
+func missingImportQuickFix(
 	ctx context.Context,
-	doc *Document,
+	snap codeActionSnapshot,
 	diag protocol.Diagnostic,
 ) *protocol.CodeAction {
-	if doc.IR.Symbols == nil {
+	if snap.Symbols == nil {
 		return nil
 	}
-	token := firstIdentifierInRange(doc.Content, diag.Range)
+	token := firstIdentifierInRange(snap.Tokens, diag.Range)
 	if token == nil {
 		return nil
 	}
@@ -437,17 +452,17 @@ func (s *Server) missingImportQuickFix(
 		Line:      uint32(token.GetLine() - 1),
 		Character: uint32(token.GetColumn()),
 	}
-	scope := doc.findScopeAtPosition(pos)
+	scope := findScopeAt(snap.Symbols, snap.IsBlock, pos)
 	if scope == nil {
 		return nil
 	}
 	if sym, err := scope.Resolve(ctx, name); err == nil && sym != nil {
 		return nil
 	}
-	if !isAmbientModuleInScope(scope, name) {
+	if !scope.IsAmbientModule(name) {
 		return nil
 	}
-	edits := buildAutoImportEdit(doc, name)
+	edits := buildAutoImportEditFromSnapshot(snap.Content, snap.Symbols, name)
 	if len(edits) == 0 {
 		return nil
 	}
@@ -457,15 +472,15 @@ func (s *Server) missingImportQuickFix(
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: true,
 		Edit: &protocol.WorkspaceEdit{
-			Changes: map[protocol.DocumentURI][]protocol.TextEdit{doc.URI: edits},
+			Changes: map[protocol.DocumentURI][]protocol.TextEdit{snap.URI: edits},
 		},
 	}
 }
 
 // firstIdentifierInRange returns the first IDENTIFIER token whose start
 // position falls inside r, or nil when none does.
-func firstIdentifierInRange(content string, r protocol.Range) antlr.Token {
-	for _, t := range tokenizeContent(content) {
+func firstIdentifierInRange(tokens []antlr.Token, r protocol.Range) antlr.Token {
+	for _, t := range tokens {
 		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
 			continue
 		}
@@ -474,20 +489,4 @@ func firstIdentifierInRange(content string, r protocol.Range) antlr.Token {
 		}
 	}
 	return nil
-}
-
-// isAmbientModuleInScope reports whether name matches a non-Internal
-// KindModule child of an ancestor KindAmbient scope reachable from start.
-// This duplicates symbol.isAmbientModule, which is unexported.
-func isAmbientModuleInScope(start *symbol.Symbol, name string) bool {
-	for cur := start; cur != nil; cur = cur.Parent {
-		if cur.Kind != symbol.KindAmbient {
-			continue
-		}
-		child := cur.FindChild(name)
-		if child != nil && child.Kind == symbol.KindModule && !child.Internal {
-			return true
-		}
-	}
-	return false
 }

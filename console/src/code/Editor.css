@@ -296,8 +296,16 @@
     line-height: 1.5 !important;
 }
 
-/* Status bar at bottom */
+/* Status bar at bottom. Pinned with position: sticky so View Problem /
+   Quick Fix actions stay visible when the hover scrolls. The z-index lifts
+   it above Monaco's scrollbar (Monaco pins scrollbars around z-index 11)
+   so the slider terminates cleanly at the footer's top edge instead of
+   painting across the action buttons. */
 .monaco-editor .monaco-hover .hover-row.status-bar {
+    position: sticky !important;
+    bottom: 0;
+    z-index: 100;
+    background: var(--pluto-gray-l2);
     padding: 0 !important;
     border: var(--pluto-border-l5);
 }
@@ -335,7 +343,14 @@
     }
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling. z-index forced below the sticky status-bar above
+   so the slider is clipped beneath the action buttons instead of painted
+   over them. The broader `.monaco-hover .scrollbar` selector catches the
+   scrollbar regardless of nesting depth in case Monaco moves it. */
+.monaco-editor .monaco-hover .scrollbar {
+    z-index: 0 !important;
+}
+
 .monaco-editor .monaco-hover .monaco-scrollable-element > .scrollbar {
     & > .slider {
         background: var(--pluto-gray-l5) !important;

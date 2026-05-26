@@ -270,6 +270,7 @@ const use = ({
       triggerDispose.dispose();
       contextMenuDispose.dispose();
       cursorDispose.dispose();
+      debouncedRenameCheck.cancel();
       renameCheckAbort?.abort();
       extensionDisposables.forEach((d) => d.dispose());
       editor.dispose();

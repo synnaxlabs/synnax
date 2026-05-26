@@ -11,6 +11,7 @@ package lsp
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -793,21 +794,35 @@ func formatImportBlock(names []string) string {
 }
 
 // buildAutoImportEdit returns the AdditionalTextEdits that import
-// moduleName into doc. When doc has no imports, a single loose
-// `import <name>` statement is inserted at the top of the file followed
-// by a blank line. When doc already has imports, all existing import
-// statements are consolidated with moduleName into a single canonical
-// `import (...)` block. The block form is reserved for two or more
-// imports so files with a single import keep the lighter loose form.
-// Returns nil when moduleName is already imported.
+// moduleName into doc. See buildAutoImportEditFromSnapshot for the edit
+// semantics; this wrapper exists for callers that still hold a *Document
+// rather than snapshotted fields.
 func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
+	return buildAutoImportEditFromSnapshot(doc.displayContent(), doc.IR.Symbols, moduleName)
+}
+
+// buildAutoImportEditFromSnapshot is the snapshot-friendly form of
+// buildAutoImportEdit. content is the document text and symbols is the
+// document's root symbol scope, both captured by the caller under the
+// server lock so the edit can be computed without touching live document
+// state. When no imports exist a single loose `import <name>` statement
+// is inserted at the top of the file followed by a blank line; when
+// imports do exist they are consolidated with moduleName into a single
+// canonical `import (...)` block. The block form is reserved for two or
+// more imports so files with a single import keep the lighter loose
+// form. Returns nil when moduleName is already imported.
+func buildAutoImportEditFromSnapshot(
+	content string,
+	symbols *symbol.Symbol,
+	moduleName string,
+) []protocol.TextEdit {
 	// The analyzer's symbol tree is dropped whenever the document has a
 	// parse error — which happens routinely while the user is mid-typing
 	// a `.` member access right after auto-importing. Without this
 	// token-level fallback the dot completion would re-add the import
 	// the user just inserted. A textual scan answers "is moduleName
 	// already imported?" without needing a valid AST.
-	if isModuleImportedInSource(doc.displayContent(), moduleName) {
+	if isModuleImportedInSource(content, moduleName) {
 		return nil
 	}
 	var (
@@ -815,8 +830,8 @@ func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
 		stmts         []antlr.ParserRuleContext
 		seenStmts     = set.New[antlr.ParserRuleContext]()
 	)
-	if doc.IR.Symbols != nil {
-		for _, child := range doc.IR.Symbols.Children() {
+	if symbols != nil {
+		for _, child := range symbols.Children() {
 			if child.Kind != symbol.KindModuleAlias || child.AST == nil {
 				continue
 			}
@@ -842,28 +857,32 @@ func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
 		}}
 	}
 	allNames := append(existingNames, moduleName)
-	minStart, maxStop := stmts[0].GetStart(), stmts[0].GetStop()
-	for _, st := range stmts[1:] {
-		if tokenBefore(st.GetStart(), minStart) {
-			minStart = st.GetStart()
-		}
-		if tokenAfter(st.GetStop(), maxStop) {
-			maxStop = st.GetStop()
-		}
-	}
-	return []protocol.TextEdit{{
+	sort.Slice(stmts, func(i, j int) bool {
+		return tokenBefore(stmts[i].GetStart(), stmts[j].GetStart())
+	})
+	// Replace the first statement in document order with the consolidated
+	// block and delete each subsequent statement. Using one big
+	// minStart-to-maxStop replacement instead would clobber any comments or
+	// in-progress edits sitting between the import statements; the
+	// statement-scoped edits leave that interstitial content untouched.
+	first := stmts[0]
+	edits := []protocol.TextEdit{{
 		Range: protocol.Range{
 			Start: protocol.Position{
-				Line:      uint32(minStart.GetLine() - 1),
-				Character: uint32(minStart.GetColumn()),
+				Line:      uint32(first.GetStart().GetLine() - 1),
+				Character: uint32(first.GetStart().GetColumn()),
 			},
 			End: protocol.Position{
-				Line:      uint32(maxStop.GetLine() - 1),
-				Character: uint32(maxStop.GetColumn() + len(maxStop.GetText())),
+				Line:      uint32(first.GetStop().GetLine() - 1),
+				Character: uint32(first.GetStop().GetColumn() + len(first.GetStop().GetText())),
 			},
 		},
 		NewText: formatImportBlock(allNames),
 	}}
+	for _, st := range stmts[1:] {
+		edits = append(edits, deleteStatementEdit(content, st))
+	}
+	return edits
 }
 
 // appendModuleMemberCompletions adds completion items for module
@@ -940,13 +959,6 @@ func tokenBefore(a, b antlr.Token) bool {
 		return a.GetLine() < b.GetLine()
 	}
 	return a.GetColumn() < b.GetColumn()
-}
-
-func tokenAfter(a, b antlr.Token) bool {
-	if a.GetLine() != b.GetLine() {
-		return a.GetLine() > b.GetLine()
-	}
-	return a.GetColumn() > b.GetColumn()
 }
 
 func (s *Server) getAuthorityEntryCompletions(
