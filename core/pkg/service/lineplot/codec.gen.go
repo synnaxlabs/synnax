@@ -80,6 +80,7 @@ func (a *Axes) DecodeOrc(r *orc.Reader) error {
 }
 
 func (a Axis) EncodeOrc(w *orc.Writer) error {
+	w.String(string(a.Key))
 	w.String(a.Label)
 	w.String(string(a.LabelDirection))
 	w.String(string(a.LabelLevel))
@@ -100,6 +101,13 @@ func (a Axis) EncodeOrc(w *orc.Writer) error {
 
 func (a *Axis) DecodeOrc(r *orc.Reader) error {
 	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		a.Key = AxisKey(v)
+	}
 	if a.Label, err = r.String(); err != nil {
 		return err
 	}

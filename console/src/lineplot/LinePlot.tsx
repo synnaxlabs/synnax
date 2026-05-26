@@ -226,8 +226,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   useAsyncEffect(async () => {
-    const axisKey: XAxisKey = "x1";
-    const axis = vis.axes.axes[axisKey];
+    const axis = vis.axes.axes.x1;
+    const axisKey = axis.key as XAxisKey;
     const key = vis.channels[axisKey];
     const prevKey = prevVis?.channels[axisKey];
     if (client == null || key === prevKey) return;
