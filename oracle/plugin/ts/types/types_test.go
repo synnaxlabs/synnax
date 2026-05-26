@@ -1381,6 +1381,43 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`name: z.string().optional()`))
 		})
 
+		It("Should not emit unused zod import when array/map/record fields only flip optionality", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Item struct {
+					id string
+				}
+
+				Parent struct {
+					items Item[]
+					tags map<string, Item>
+					data record
+				}
+
+				Child struct extends Parent {
+					items Item[]?
+					tags map<string, Item>?
+					data record?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(
+				`.partial({ items: true, tags: true, data: true })`,
+			))
+			// The partial form does not reference zod.* — the import would be
+			// unused and trip the no-unused-vars lint in downstream packages.
+			Expect(content).NotTo(ContainSubstring(`zod }`))
+			Expect(content).NotTo(ContainSubstring(`zod,`))
+			Expect(content).NotTo(ContainSubstring(`, zod `))
+		})
+
 		It("Should handle extension without new fields (only omissions)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"

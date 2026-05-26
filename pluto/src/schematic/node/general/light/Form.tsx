@@ -56,16 +56,16 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x align="stretch">
-      <Input.Item label="Input Channel" grow>
+      <Input.Item label="Input channel" grow>
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
-      <Input.Item label="Lower Threshold">
+      <Input.Item label="Lower threshold">
         <Input.Numeric
           value={threshold.trueBound.lower ?? 0.9}
           onChange={(v) => handleThresholdChange({ ...threshold.trueBound, lower: v })}
         />
       </Input.Item>
-      <Input.Item label="Upper Threshold">
+      <Input.Item label="Upper threshold">
         <Input.Numeric
           value={threshold.trueBound.upper ?? 1.1}
           onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}

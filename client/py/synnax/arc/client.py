@@ -14,7 +14,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, PrivateAttr
 
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.arc.payload import (
     Graph,
     Key,
@@ -151,11 +151,8 @@ class Client:
                 )
             ]
 
-        res = send_required(
-            self._client,
-            "/arc/create",
-            _CreateRequest(arcs=to_create),
-            _CreateResponse,
+        res = self._client.send(
+            "/arc/create", _CreateRequest(arcs=to_create), _CreateResponse
         ).arcs
         created = self._sugar(res)
         return created[0] if is_single else created
@@ -194,8 +191,7 @@ class Client:
             names = [name]
 
         is_single = key is not None or name is not None
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/arc/retrieve",
             _RetrieveRequest(
                 keys=keys,
@@ -219,12 +215,7 @@ class Client:
         return arcs[0]
 
     def delete(self, keys: Key | list[Key]) -> None:
-        send_required(
-            self._client,
-            "/arc/delete",
-            _DeleteRequest(keys=normalize(keys)),
-            Empty,
-        )
+        self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 
     def _sugar(self, payloads: list[Payload]) -> list[Arc]:
         return [

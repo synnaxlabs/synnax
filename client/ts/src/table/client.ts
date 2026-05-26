@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -79,8 +79,7 @@ export class Client {
     tables: New | New[],
   ): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/table/create",
       { workspace, tables: array.toArray(tables) },
       createReqZ,
@@ -90,28 +89,15 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/table/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/table/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/table/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/table/set-data", { key, data }, setDataReqZ, emptyResZ);
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/table/dispatch",
       { key, dispatch_key: dispatchKey, actions },
       dispatchReqZ,
@@ -125,8 +111,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/table/retrieve",
       args,
       retrieveArgsZ,
@@ -137,8 +122,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/table/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -146,10 +130,3 @@ export class Client {
     );
   }
 }
-
-export const ZERO_NEW: New = {
-  name: "",
-  rows: [],
-  columns: [],
-  cells: {},
-};

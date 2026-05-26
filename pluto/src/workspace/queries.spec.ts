@@ -12,7 +12,6 @@ import {
   group,
   NotFoundError,
   schematic,
-  table,
   workspace,
 } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
@@ -452,10 +451,7 @@ describe("queries", () => {
         name: "A Plot",
         data: {},
       });
-      const t1 = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
-        name: "A Table",
-      });
+      const t1 = await client.tables.create(ws.key, { name: "A Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "A Log",
         data: {},
@@ -496,10 +492,7 @@ describe("queries", () => {
         name: "Plot",
         data: {},
       });
-      const t1 = await client.tables.create(ws.key, {
-        ...table.ZERO_NEW,
-        name: "Table",
-      });
+      const t1 = await client.tables.create(ws.key, { name: "Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "Log",
         data: {},

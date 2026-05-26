@@ -10,7 +10,7 @@
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/light/config";
 import { LightForm } from "@/schematic/node/general/light/Form";
-import { Primitive } from "@/schematic/node/general/light/Primitive";
+import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -39,7 +39,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Light",
   Form: LightForm,
   Node: Symbol,
-  Preview: Primitive,
+  Preview: Light,
   defaultConfig,
   zIndex: 4,
 };
