@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package migrations_test
+package table_test
 
 import (
 	"embed"
@@ -20,8 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy/v0"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -292,43 +290,6 @@ var _ = Describe("MigrateTable", func() {
 			Expect(got.Rows).To(BeEmpty())
 			Expect(got.Columns).To(BeEmpty())
 			Expect(got.Cells).To(BeEmpty())
-		})
-	})
-})
-
-var _ = Describe("legacy.MigrateData", func() {
-	Describe("version dispatch", func() {
-		It("Should decode an explicit 0.0.0 blob into v0.Data", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
-				"version": "0.0.0",
-				"layout": {
-					"rows": [{"size": 36, "cells": [{"key": "a"}]}],
-					"columns": [{"size": 72}]
-				},
-				"cells": {"a": {"key": "a", "variant": "text", "props": {"value": "hi"}}}
-			}`)))
-			Expect(out.Layout.Rows).To(HaveLen(1))
-			Expect(out.Layout.Rows[0].Cells[0].Key).To(Equal("a"))
-			Expect(out.Cells["a"].Variant).To(Equal("text"))
-		})
-
-		It("Should fall back to v0 when the blob has no version field", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
-				"layout": {"rows": [], "columns": [{"size": 80}]},
-				"cells": {}
-			}`)))
-			Expect(out.Layout.Columns).To(HaveLen(1))
-			Expect(out.Layout.Columns[0].Size).To(Equal(80.0))
-		})
-
-		It("Should decode a nil blob into a zero v0.Data", func() {
-			out := MustSucceed(legacy.MigrateData(nil))
-			Expect(out).To(Equal(v0.Data{}))
-		})
-
-		It("Should error on an unknown declared version", func() {
-			Expect(legacy.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
-				To(MatchError(ContainSubstring("unknown table data version")))
 		})
 	})
 })
