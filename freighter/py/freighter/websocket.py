@@ -149,6 +149,9 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         exc = decode_exception(decoded_msg.error)
         if exc is not None:
             raise exc
+        raise RuntimeError(
+            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
+        )
 
     async def close_send(self) -> None:
         """Implements the AsyncStream protocol."""
@@ -225,6 +228,9 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         exc = decode_exception(decoded_msg.error)
         if exc is not None:
             raise exc
+        raise RuntimeError(
+            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
+        )
 
     def send(self, payload: RQ) -> None:
         if self._server_closed is not None:
