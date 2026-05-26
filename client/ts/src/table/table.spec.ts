@@ -326,20 +326,6 @@ describe("Table", () => {
       );
       expect(inverse).toEqual([]);
     });
-
-    test("isUndoable returns true for every action variant", () => {
-      const actions: table.Action[] = [
-        table.rename({ name: "x" }),
-        table.addRow({ index: 0, size: 30, cells: [] }),
-        table.removeRow({ index: 0 }),
-        table.addCol({ index: 0, size: 80, cells: [] }),
-        table.removeCol({ index: 0 }),
-        table.resizeRow({ index: 0, size: 40 }),
-        table.resizeCol({ index: 0, size: 100 }),
-        table.setCell({ cell: { key: "a", variant: "text", props: {} } }),
-      ];
-      for (const a of actions) expect(table.isUndoable(a)).toBe(true);
-    });
   });
 
   describe("reduceAll round-trip", () => {

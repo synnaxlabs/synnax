@@ -262,7 +262,6 @@ export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
   reduce: table.reduceAll,
   channel: table.SET_CHANNEL_NAME,
   schema: table.scopedActionZ,
-  isUndoable: table.isUndoable,
   kindOf: kindOfTransaction,
 });
 

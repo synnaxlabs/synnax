@@ -10,7 +10,6 @@
 import { current, type Draft, isDraft } from "immer";
 
 import {
-  type Action,
   addCol,
   addRow,
   createReduceAll,
@@ -148,7 +147,3 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
-
-// Every table action carries user intent; none are layout-derived. All are
-// undoable.
-export const isUndoable = (_action: Action): boolean => true;
