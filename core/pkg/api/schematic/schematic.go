@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -79,11 +80,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 // outstanding on the originator before the request is sent. The server echoes
 // it verbatim on the broadcast frame so the originator can recognize its own
 // echo race-safely.
-type DispatchRequest struct {
-	Key         schematic.Key      `json:"key" msgpack:"key"`
-	DispatchKey string             `json:"dispatch_key" msgpack:"dispatch_key"`
-	Actions     []schematic.Action `json:"actions" msgpack:"actions"`
-}
+type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
 
 // Dispatch applies the action sequence to the target schematic atomically.
 // Subscribers to the schematic action signals receive the sequence after the

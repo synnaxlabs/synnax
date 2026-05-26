@@ -703,7 +703,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					if isFieldUnchanged(parentField, field) {
 						continue
 					} else if isOnlyOptionalityChange(parentField, field) {
-						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: camelCase(field.Name)})
 					} else {
 						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
