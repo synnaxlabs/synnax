@@ -14,10 +14,6 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
-export const axisKeyZ = z.enum(AXIS_KEYS);
-export type AxisKey = z.infer<typeof axisKeyZ>;
-
 export const TICK_TYPES = ["linear", "time"] as const;
 export const tickTypeZ = z.enum(TICK_TYPES);
 export type TickType = z.infer<typeof tickTypeZ>;
@@ -26,10 +22,14 @@ export const DOWNSAMPLE_MODES = ["average", "decimate"] as const;
 export const downsampleModeZ = z.enum(DOWNSAMPLE_MODES);
 export type DownsampleMode = z.infer<typeof downsampleModeZ>;
 
+export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
+export const axisKeyZ = z.enum(AXIS_KEYS);
+export type AxisKey = z.infer<typeof axisKeyZ>;
+
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
   /** level is the typography level of the title text. */
-  level: text.levelZ,
+  level: text.levelZ.default("p"),
   /** visible is whether the title is shown above the plot. */
   visible: z.boolean(),
 });
@@ -146,14 +146,12 @@ export type Key = z.infer<typeof keyZ>;
 
 /** Axis is the configuration for a single plot axis. */
 export const axisZ = z.object({
-  /** key identifies which of the six axes this configuration applies to. */
-  key: axisKeyZ,
   /** label is the human-readable label rendered along the axis. */
   label: z.string(),
   /** labelDirection is the orientation in which the label text is laid out. */
-  labelDirection: spatial.directionZ,
+  labelDirection: spatial.directionZ.default("x"),
   /** labelLevel is the typography level of the label. */
-  labelLevel: text.levelZ,
+  labelLevel: text.levelZ.default("small"),
   /**
    * bounds is the value-space window of the axis. When the matching entry in
    * auto_bounds is true the field is overwritten locally on every

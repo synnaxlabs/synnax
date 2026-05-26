@@ -33,9 +33,9 @@ export interface AxesProps {
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
   const vis = useSelect(layoutKey);
 
-  const shouldShow = Object.values(vis.axes.axes)
-    .filter((a) => shouldDisplayAxis(a.key, vis))
-    .map((a) => a.key);
+  const shouldShow = (Object.keys(vis.axes.axes) as AxisKey[]).filter((key) =>
+    shouldDisplayAxis(key, vis),
+  );
 
   const tabs = useMemoCompare(
     () =>
@@ -194,7 +194,7 @@ export const LinePlotAxisControls = ({
             onChange={handleLabelChange}
           />
         </Input.Item>
-        {axis.key.startsWith("y") && (
+        {axisKey.startsWith("y") && (
           <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
             <Direction.Select
               value={axis.labelDirection}

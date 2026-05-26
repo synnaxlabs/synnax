@@ -20,18 +20,6 @@ import (
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = uuid.UUID
 
-// AxisKey names one of the six fixed plot axes.
-type AxisKey string
-
-const (
-	AxisKeyX1 AxisKey = "x1"
-	AxisKeyX2 AxisKey = "x2"
-	AxisKeyY1 AxisKey = "y1"
-	AxisKeyY2 AxisKey = "y2"
-	AxisKeyY3 AxisKey = "y3"
-	AxisKeyY4 AxisKey = "y4"
-)
-
 // TickType selects how an axis renders its tick labels.
 type TickType string
 
@@ -46,6 +34,18 @@ type DownsampleMode string
 const (
 	DownsampleModeAverage  DownsampleMode = "average"
 	DownsampleModeDecimate DownsampleMode = "decimate"
+)
+
+// AxisKey names one of the six fixed plot axes.
+type AxisKey string
+
+const (
+	AxisKeyX1 AxisKey = "x1"
+	AxisKeyX2 AxisKey = "x2"
+	AxisKeyY1 AxisKey = "y1"
+	AxisKeyY2 AxisKey = "y2"
+	AxisKeyY3 AxisKey = "y3"
+	AxisKeyY4 AxisKey = "y4"
 )
 
 // Title is the plot title configuration.
@@ -104,8 +104,6 @@ type AutoBounds struct {
 
 // Axis is the configuration for a single plot axis.
 type Axis struct {
-	// Key identifies which of the six axes this configuration applies to.
-	Key AxisKey `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered along the axis.
 	Label string `json:"label" msgpack:"label"`
 	// LabelDirection is the orientation in which the label text is laid out.

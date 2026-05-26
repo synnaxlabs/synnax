@@ -102,7 +102,6 @@ func migrateAxes(a v2.Axes) Axes {
 
 func migrateAxis(a v2.Axis) Axis {
 	return Axis{
-		Key:            AxisKey(a.Key),
 		Label:          a.Label,
 		LabelDirection: spatial.Direction(a.LabelDirection),
 		LabelLevel:     text.Level(a.LabelLevel),
