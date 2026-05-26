@@ -11,14 +11,14 @@ import { type dimensions } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Config } from "@/schematic/node/general/box/config";
-import { Primitive as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
+import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onResize?: (d: dimensions.Dimensions) => void;
 }
 
-export const Primitive = (props: RenderProps): ReactElement => (
+export const Box = (props: RenderProps): ReactElement => (
   <TankPrimitive
     {...props}
     dimensions={props.dimensions ?? { width: 25, height: 50 }}

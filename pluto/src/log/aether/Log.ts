@@ -14,6 +14,7 @@ import {
   notation,
   text,
   TimeStamp,
+  timestampFormatZ,
   timeZoneZ,
   xy,
 } from "@synnaxlabs/x";
@@ -30,9 +31,6 @@ import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
-
-export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
-export type TimestampFormat = z.infer<typeof timestampFormatZ>;
 
 export const timestampConfigZ = z.object({
   format: timestampFormatZ.default("preciseDate"),

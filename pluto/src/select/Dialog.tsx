@@ -48,6 +48,7 @@ const Base = memo(
     status,
     resourceName,
     actions,
+    className,
     ...rest
   }: DialogProps<K>) => {
     emptyContent = useMemo(() => {
@@ -74,7 +75,7 @@ const Base = memo(
     return (
       <BaseDialog.Dialog
         {...rest}
-        className={CSS.BE("select", "dialog")}
+        className={CSS(CSS.BE("select", "dialog"), className)}
         bordered={false}
       >
         {onSearch != null && (

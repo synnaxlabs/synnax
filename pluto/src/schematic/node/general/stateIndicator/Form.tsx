@@ -39,7 +39,7 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x grow align="stretch">
-      <Input.Item label="Input Channel" grow>
+      <Input.Item label="Input channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
