@@ -60,13 +60,13 @@ type Data struct {
 func (d Data) Normalize() Data {
 	for i := range d.Channels {
 		c := &d.Channels[i]
-		if c.Notation.Validate() != nil {
+		if !c.Notation.IsValid() {
 			c.Notation = notation.NotationStandard
 		}
-		if c.Timestamp.Format.Validate() != nil {
+		if !c.Timestamp.Format.IsValid() {
 			c.Timestamp.Format = telem.TimestampFormatPreciseDate
 		}
-		if c.Timestamp.Tz.Validate() != nil {
+		if !c.Timestamp.Tz.IsValid() {
 			c.Timestamp.Tz = telem.TimeZoneLocal
 		}
 	}
