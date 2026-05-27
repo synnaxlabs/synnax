@@ -213,10 +213,7 @@ export const stateMigration = migrate.createMigration<v4.State, State>({
         axes: lineplot.axesZ.parse(state.axes.axes),
       },
       lines: state.lines.map((l) => lineStateZ.parse(l)),
-      rules: state.rules.map((r) => {
-        const { selected: _, ...rest } = r;
-        return ruleStateZ.parse(rest);
-      }),
+      rules: state.rules.map((r) => ruleStateZ.parse(r)),
       selectedRules,
     };
   },
