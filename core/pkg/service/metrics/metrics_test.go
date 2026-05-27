@@ -11,6 +11,7 @@ package metrics_test
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -454,6 +456,81 @@ var _ = Describe("Metrics", func() {
 			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
 			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)
 			Expect(totalSize).To(BeNumerically("~", tsSize+kvSize, 0.0001))
+		})
+	})
+	// Regression for SY-4240: a backward jump in the host wall clock (e.g. an NTP
+	// correction) once stamped a metric sample older than the previous commit, which
+	// cesium rejected and which permanently faulted the metrics writer. The collector's
+	// MonoClock must clamp the timestamp so collection continues uninterrupted.
+	Describe("Backward Clock Step", func() {
+		It("Should keep writing strictly increasing timestamps when the host clock steps backward", func(ctx SpecContext) {
+			// A distinct host key isolates this spec's channels (and its off-wall-clock
+			// samples) from the sy_node_1 channels other specs use.
+			host := mock.StaticHostKeyProvider(2)
+			// A base behind the real wall clock also guards the writer's Start: it is
+			// derived from this same clock, so the first sample lands after it. A naive
+			// Start of telem.Now() would sit ahead of these samples and fault the
+			// writer.
+			base := telem.Now() - 10*telem.SecondTS
+			var backStep atomic.Int64
+			source := func() telem.TimeStamp {
+				return base - telem.TimeStamp(backStep.Load())
+			}
+			MustOpen(metrics.OpenService(context.Background(), metrics.ServiceConfig{
+				Channel:            channelSvc,
+				Group:              dist.Group,
+				Ontology:           dist.Ontology,
+				DB:                 dist.DB,
+				Framer:             framerSvc,
+				HostProvider:       host,
+				Storage:            dist.Storage,
+				CollectionInterval: 10 * time.Millisecond,
+				Now:                source,
+			}))
+
+			var idxCh channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				WhereNames(getNames(host.HostKey())[0]).
+				Entry(&idxCh).
+				Exec(ctx, nil),
+			).To(Succeed())
+			streamer := MustSucceed(framerSvc.NewStreamer(context.Background(), framer.StreamerConfig{
+				Keys: []channel.Key{idxCh.Key()},
+			}))
+			requests, responses := confluence.Attach(streamer)
+			streamer.Flow(signal.Wrap(context.Background()), confluence.CloseOutputInletsOnExit())
+			DeferCleanup(func() {
+				requests.Close()
+				Eventually(responses.Outlet()).Should(BeClosed())
+			})
+
+			latestTS := func() telem.TimeStamp {
+				var ts telem.TimeStamp
+				Eventually(func(g Gomega) {
+					var res framer.StreamerResponse
+					g.Expect(responses.Outlet()).To(Receive(&res))
+					s := res.Frame.SeriesAt(0)
+					g.Expect(s.Len()).To(BeNumerically(">", 0))
+					ts = telem.ValueAt[telem.TimeStamp](s, int(s.Len()-1))
+				}).Should(Succeed())
+				return ts
+			}
+
+			prev := latestTS()
+			next := latestTS()
+			Expect(next).To(BeNumerically(">", prev))
+			prev = next
+
+			// Simulate the host wall clock stepping 5s backward mid-collection. Without
+			// the MonoClock this produces a sample below the previous commit and the
+			// writer stops emitting, so the assertions below would never be satisfied.
+			backStep.Store(int64(5 * telem.SecondTS))
+
+			for range 5 {
+				next = latestTS()
+				Expect(next).To(BeNumerically(">", prev))
+				prev = next
+			}
 		})
 	})
 })

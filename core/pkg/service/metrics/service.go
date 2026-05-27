@@ -73,12 +73,22 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
+	// Now returns the current timestamp used to stamp collected metric samples. It is
+	// wrapped in a telem.MonoClock to guarantee strictly increasing timestamps, so a
+	// backward jump returned here is clamped rather than faulting the writer. Provided
+	// for testing.
+	//
+	// [OPTIONAL] - Defaults to telem.Now
+	Now func() telem.TimeStamp
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for a metrics service.
-	DefaultServiceConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
+	DefaultServiceConfig = ServiceConfig{
+		CollectionInterval: 2 * time.Second,
+		Now:                telem.Now,
+	}
 )
 
 // Override implements config.Config.
@@ -95,6 +105,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -109,6 +120,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "now", c.Now)
 	return v.Error()
 }
 
@@ -148,6 +160,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
+		clock:    telem.MonoClock{Source: cfg.Now},
 	}
 	c.idx = channel.Channel{
 		Name:     namePrefix + "time",
@@ -242,7 +255,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 				distchannel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
-			Start:                    telem.Now(),
+			Start:                    c.clock.Now(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
 	)

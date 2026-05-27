@@ -26,9 +26,14 @@ import (
 
 type collector struct {
 	confluence.AbstractUnarySource[framer.WriterRequest]
-	stop     chan struct{}
-	idx      channel.Channel
-	ins      alamos.Instrumentation
+	stop chan struct{}
+	idx  channel.Channel
+	ins  alamos.Instrumentation
+	// clock stamps each collected sample. It guarantees strictly increasing
+	// timestamps even if the host wall clock steps backward (e.g. an NTP
+	// correction), which would otherwise produce a sample older than the
+	// previous commit and permanently fault the metrics writer.
+	clock    telem.MonoClock
 	metrics  []metric
 	interval time.Duration
 }
@@ -47,10 +52,10 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				return ctx.Err()
 			case <-c.stop:
 				return nil
-			case currTime := <-t.C:
+			case <-t.C:
 				frame := frame.NewUnary(
 					c.idx.Key(),
-					telem.NewSeriesV(telem.NewTimeStamp(currTime)),
+					telem.NewSeriesV(c.clock.Now()),
 				)
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
