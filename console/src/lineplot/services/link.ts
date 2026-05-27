@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { LinePlot } from "@/lineplot";
-import { stateFromLinePlot } from "@/lineplot/slice";
+import { fromWire } from "@/lineplot/slice";
 import { type Link } from "@/link";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const linePlot = await client.lineplots.retrieve({ key });
-  placeLayout(LinePlot.create({ ...stateFromLinePlot(linePlot), name: linePlot.name }));
+  placeLayout(LinePlot.create({ ...fromWire(linePlot), name: linePlot.name }));
 };

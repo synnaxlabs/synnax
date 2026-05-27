@@ -54,8 +54,8 @@ export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
-export const linePlotBody = latest.linePlotBody;
-export const stateFromLinePlot = latest.stateFromLinePlot;
+export const toWire = latest.toWire;
+export const fromWire = latest.fromWire;
 
 export const SLICE_NAME = "line";
 
