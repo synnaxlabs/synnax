@@ -18,6 +18,7 @@ export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
 export type PendingUpload = latest.PendingUpload;
 export const anyStateZ = latest.anyStateZ;
+export const migrateSlice = latest.migrateSlice;
 
 export const SLICE_NAME = "table";
 
@@ -28,9 +29,6 @@ export interface StoreState {
 export interface CreatePayload {
   key: string;
   editable?: boolean;
-  // Optional legacy state. When present, the reducer migrates it through
-  // anyStateZ and parks the result as pendingUpload for first-render upload.
-  data?: unknown;
 }
 
 export type SelectionMode = "replace" | "add" | "region";
@@ -75,23 +73,10 @@ export const { actions, reducer } = createSlice({
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       if (state.tables[payload.key] != null) return;
-      let migrated: State | undefined;
-      if (payload.data != null) {
-        const adjusted =
-          typeof payload.data === "object" && payload.data !== null
-            ? { ...(payload.data as Record<string, unknown>), remoteCreated: false }
-            : payload.data;
-        const parsed = anyStateZ.safeParse(adjusted);
-        if (parsed.success) migrated = parsed.data;
-      }
       state.tables[payload.key] = {
         ...ZERO_STATE,
         key: payload.key,
-        editable: payload.editable ?? migrated?.editable ?? ZERO_STATE.editable,
-        pendingUpload:
-          migrated?.pendingUpload == null
-            ? undefined
-            : { ...migrated.pendingUpload, key: payload.key },
+        editable: payload.editable ?? ZERO_STATE.editable,
       };
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
