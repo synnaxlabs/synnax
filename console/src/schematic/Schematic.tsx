@@ -123,17 +123,16 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
     [store, key, hasUpdatePermission],
   );
 
-  const acquired = controlStatus === "acquired";
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
-        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem disabled={acquired} />}
+        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem />}
         {!isSnapshot && <Control.Menu.ToggleItem />}
         <Menu.Divider />
         <ContextMenu.ReloadConsoleItem />
       </>
     ),
-    [hasUpdatePermission, acquired, isSnapshot],
+    [hasUpdatePermission, isSnapshot],
   );
 
   return (

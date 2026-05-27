@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
 import { Item, type ItemProps } from "@/menu/Item";
+import { useContext as useControlContext } from "@/telem/control/Controller";
 import { useContext } from "@/vis/diagram/Context";
 
 export interface ToggleEditItemProps extends Omit<
@@ -18,10 +19,19 @@ export interface ToggleEditItemProps extends Omit<
   "itemKey" | "onClick" | "children"
 > {}
 
-export const ToggleEditItem = (props: ToggleEditItemProps): ReactElement => {
+export const ToggleEditItem = ({
+  disabled,
+  ...rest
+}: ToggleEditItemProps): ReactElement => {
   const { editable, onEditableChange } = useContext();
+  const { status } = useControlContext();
   return (
-    <Item itemKey="toggle-edit" onClick={() => onEditableChange(!editable)} {...props}>
+    <Item
+      itemKey="toggle-edit"
+      onClick={() => onEditableChange(!editable)}
+      disabled={disabled || status === "acquired"}
+      {...rest}
+    >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
       {editable ? "Switch to View Mode" : "Switch to Edit Mode"}
     </Item>
