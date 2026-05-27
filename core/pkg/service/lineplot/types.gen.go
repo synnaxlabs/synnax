@@ -32,6 +32,16 @@ const (
 	AxisKeyY4 AxisKey = "y4"
 )
 
+// IsValid reports whether a is one of the defined AxisKey values.
+func (a AxisKey) IsValid() bool {
+	switch a {
+	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
 // TickType selects how an axis renders its tick labels.
 type TickType string
 
@@ -40,6 +50,16 @@ const (
 	TickTypeTime   TickType = "time"
 )
 
+// IsValid reports whether t is one of the defined TickType values.
+func (t TickType) IsValid() bool {
+	switch t {
+	case TickTypeLinear, TickTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
 type DownsampleMode string
 
@@ -47,6 +67,16 @@ const (
 	DownsampleModeAverage  DownsampleMode = "average"
 	DownsampleModeDecimate DownsampleMode = "decimate"
 )
+
+// IsValid reports whether d is one of the defined DownsampleMode values.
+func (d DownsampleMode) IsValid() bool {
+	switch d {
+	case DownsampleModeAverage, DownsampleModeDecimate:
+		return true
+	default:
+		return false
+	}
+}
 
 // Title is the plot title configuration.
 type Title struct {
