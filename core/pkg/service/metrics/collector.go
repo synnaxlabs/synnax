@@ -47,6 +47,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				return nil
 			case <-t.C:
 				var fr frame.Frame
+				fr.Grow(len(c.metrics))
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
 					if err != nil {
