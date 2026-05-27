@@ -85,11 +85,10 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting statuses. It also
 // provides mechanisms for listening to changes in statuses.
 type Service struct {
-	cfg       ServiceConfig
-	closer    xio.MultiCloser
-	table     *gorp.Table[string, Status[any]]
-	nameIndex *gorp.LookupIndex[string, Status[any], string]
-	group     group.Group
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Status[any]]
+	group  group.Group
 }
 
 // OpenService opens a new status.Service with the provided configuration. If error is
@@ -103,16 +102,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	s.nameIndex = gorp.NewLookupIndex[string, Status[any], string](
-		"status_by_name",
-		func(st *Status[any]) string { return st.Name },
-	)
 	if s.table, err = gorp.OpenTable(
 		ctx,
 		gorp.TableConfig[string, Status[any]]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
-			Indexes:         []gorp.Index[string, Status[any]]{s.nameIndex},
 			Migrations: []migrate.Migration{
 				gorp.NewEntryMigration[string, string, statusv54.Status[any], Status[any]](
 					"v54_drop_labels",

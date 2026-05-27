@@ -318,15 +318,13 @@ static std::string unique_name(const std::string &prefix) {
 TEST(StatusTest, SetByKeyOrNameCreatesNewByName) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_create_");
-    std::string out_key;
-    bool out_multi = false;
-    ASSERT_NIL(
-        client.statuses.set_by_key_or_name(name, "hello", "info", out_key, out_multi)
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "hello", "info")
     );
-    EXPECT_FALSE(out_key.empty());
-    EXPECT_FALSE(out_multi);
+    EXPECT_FALSE(res.key.empty());
+    EXPECT_FALSE(res.multiple_matches);
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
     EXPECT_EQ(retrieved.name, name);
     EXPECT_EQ(retrieved.message, "hello");
     EXPECT_EQ(retrieved.variant, "info");
@@ -337,20 +335,17 @@ TEST(StatusTest, SetByKeyOrNameUpdatesByName) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_update_name_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client.statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "initial", "info")
     );
 
-    std::string out_key;
-    bool out_multi = false;
-    ASSERT_NIL(client.statuses
-                   .set_by_key_or_name(name, "updated", "warning", out_key, out_multi));
-    EXPECT_EQ(out_key, preset_key);
-    EXPECT_FALSE(out_multi);
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "updated", "warning")
+    );
+    EXPECT_EQ(res.key, preset.key);
+    EXPECT_FALSE(res.multiple_matches);
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
     EXPECT_EQ(retrieved.message, "updated");
     EXPECT_EQ(retrieved.variant, "warning");
 }
@@ -360,22 +355,17 @@ TEST(StatusTest, SetByKeyOrNameUpdatesByUUID) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_update_uuid_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client.statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "initial", "info")
     );
 
-    std::string out_key;
-    bool out_multi = false;
-    ASSERT_NIL(
-        client.statuses
-            .set_by_key_or_name(preset_key, "via uuid", "error", out_key, out_multi)
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(preset.key, "via uuid", "error")
     );
-    EXPECT_EQ(out_key, preset_key);
-    EXPECT_FALSE(out_multi);
+    EXPECT_EQ(res.key, preset.key);
+    EXPECT_FALSE(res.multiple_matches);
 
-    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
     EXPECT_EQ(retrieved.message, "via uuid");
     EXPECT_EQ(retrieved.variant, "error");
 }
@@ -406,24 +396,20 @@ TEST(StatusTest, SetByKeyOrNameMultiMatch) {
     ASSERT_NIL(client.statuses.set(a));
     ASSERT_NIL(client.statuses.set(b));
 
-    std::string out_key;
-    bool out_multi = false;
-    ASSERT_NIL(client.statuses
-                   .set_by_key_or_name(name, "updated", "warning", out_key, out_multi));
-    EXPECT_TRUE(out_multi);
-    EXPECT_TRUE(out_key == a.key || out_key == b.key);
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "updated", "warning")
+    );
+    EXPECT_TRUE(res.multiple_matches);
+    EXPECT_TRUE(res.key == a.key || res.key == b.key);
 }
 
 /// @brief set_by_key_or_name returns an error when the variant is invalid.
 TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_iv_");
-    std::string out_key;
-    bool out_multi = false;
-    const auto err = client.statuses
-                         .set_by_key_or_name(name, "x", "bogus", out_key, out_multi);
+    auto [res, err] = client.statuses.set_by_key_or_name(name, "x", "bogus");
     EXPECT_FALSE(err.ok());
-    EXPECT_TRUE(out_key.empty());
+    EXPECT_TRUE(res.key.empty());
 }
 
 /// @brief delete_by_key_or_name removes a single row by UUID.
@@ -431,17 +417,14 @@ TEST(StatusTest, DeleteByKeyOrNameByUUID) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_del_uuid_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client.statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "x", "info")
     );
 
-    int count = -1;
-    ASSERT_NIL(client.statuses.delete_by_key_or_name(preset_key, count));
+    const auto count = ASSERT_NIL_P(client.statuses.delete_by_key_or_name(preset.key));
     EXPECT_EQ(count, 1);
 
-    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(preset_key), x::errors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(preset.key), x::errors::NOT_FOUND);
 }
 
 /// @brief delete_by_key_or_name removes a single row by name.
@@ -449,14 +432,9 @@ TEST(StatusTest, DeleteByKeyOrNameByName) {
     const auto client = new_test_client();
     const auto name = unique_name("by_kon_del_name_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client.statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
-    );
+    ASSERT_NIL_P(client.statuses.set_by_key_or_name(name, "x", "info"));
 
-    int count = -1;
-    ASSERT_NIL(client.statuses.delete_by_key_or_name(name, count));
+    const auto count = ASSERT_NIL_P(client.statuses.delete_by_key_or_name(name));
     EXPECT_EQ(count, 1);
 }
 
@@ -485,17 +463,15 @@ TEST(StatusTest, DeleteByKeyOrNameMultiMatch) {
     ASSERT_NIL(client.statuses.set(a));
     ASSERT_NIL(client.statuses.set(b));
 
-    int count = -1;
-    ASSERT_NIL(client.statuses.delete_by_key_or_name(name, count));
+    const auto count = ASSERT_NIL_P(client.statuses.delete_by_key_or_name(name));
     EXPECT_EQ(count, 2);
 }
 
 /// @brief delete_by_key_or_name returns count=0 when no row matches.
 TEST(StatusTest, DeleteByKeyOrNameNotFound) {
     const auto client = new_test_client();
-    int count = -1;
-    ASSERT_NIL(
-        client.statuses.delete_by_key_or_name(unique_name("by_kon_del_missing_"), count)
+    const auto count = ASSERT_NIL_P(
+        client.statuses.delete_by_key_or_name(unique_name("by_kon_del_missing_"))
     );
     EXPECT_EQ(count, 0);
 }

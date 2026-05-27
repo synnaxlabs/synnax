@@ -213,11 +213,12 @@ TEST(SetStatusTest, NextWritesResolvedKeyToOutput) {
 
     // Pre-create so we know the resolved UUID; configure the node with that
     // UUID so we can retrieve the row by key after next().
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client->statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
-    );
+    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
+                                             name,
+                                             "initial",
+                                             "info"
+                                         ))
+                                .key;
 
     auto node = make_set_ir_node(preset_key, "the message", "info");
     auto ir = build_ir(node);
@@ -244,11 +245,12 @@ TEST(SetStatusTest, NextRepeatedCallsKeepWriting) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("set_repeat_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client->statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
-    );
+    const auto preset_key = ASSERT_NIL_P(client->statuses.set_by_key_or_name(
+                                             name,
+                                             "initial",
+                                             "info"
+                                         ))
+                                .key;
 
     auto node = make_set_ir_node(preset_key, "msg", "info");
     auto ir = build_ir(node);
@@ -316,11 +318,10 @@ TEST(DeleteStatusTest, NextDeletesByName) {
     const auto name = unique_name("del_name_");
 
     // Pre-create via set_by_key_or_name so we know the resolved key.
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client->statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
-    );
+    const auto preset_key = ASSERT_NIL_P(
+                                client->statuses.set_by_key_or_name(name, "x", "info")
+    )
+                                .key;
 
     auto node = make_delete_ir_node(name);
     auto ir = build_ir(node);
@@ -343,11 +344,10 @@ TEST(DeleteStatusTest, NextDeletesByUUID) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("del_uuid_");
 
-    std::string preset_key;
-    bool _multi = false;
-    ASSERT_NIL(
-        client->statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
-    );
+    const auto preset_key = ASSERT_NIL_P(
+                                client->statuses.set_by_key_or_name(name, "x", "info")
+    )
+                                .key;
 
     auto node = make_delete_ir_node(preset_key);
     auto ir = build_ir(node);

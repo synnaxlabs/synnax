@@ -153,13 +153,14 @@ func MatchLabels[D any](matchLabels ...xlabel.Key) Filter[D] {
 	})
 }
 
-// retrieveByName returns all statuses sharing the given name, resolved through the
-// status_by_name secondary index rather than a full table scan.
+// retrieveByName returns all statuses sharing the given name.
 func (s *Service) retrieveByName(ctx context.Context, tx gorp.Tx, name string) ([]Status[any], error) {
 	var matches []Status[any]
 	if err := s.NewRetrieve().
 		Where(func(_ Retrieve[any]) gorp.Filter[string, Status[any]] {
-			return s.nameIndex.Filter(name)
+			return gorp.Match(func(_ gorp.Context, st *Status[any]) (bool, error) {
+				return st.Name == name, nil
+			})
 		}).
 		Entries(&matches).
 		Exec(ctx, tx); err != nil {

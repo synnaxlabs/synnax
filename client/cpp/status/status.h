@@ -48,6 +48,15 @@ using DeleteByKeyOrNameClient = freighter::UnaryClient<
     grpc::status::DeleteByKeyOrNameRequest,
     grpc::status::DeleteByKeyOrNameResponse>;
 
+/// @brief Result of Client::set_by_key_or_name.
+struct SetByKeyOrNameResult {
+    /// @brief The resulting status key.
+    std::string key;
+    /// @brief True when the by-name path matched multiple rows; the first by key
+    /// order was updated.
+    bool multiple_matches = false;
+};
+
 /// @brief StatusClient for creating, retrieving, and deleting statuses in a Synnax
 /// cluster.
 class Client {
@@ -189,20 +198,17 @@ public:
     }
 
     /// @brief Upserts a status by UUID key or by name. On by-name multi-match,
-    /// writes to the first by key order and reports multipleMatches=true so the
+    /// writes to the first by key order and reports multiple_matches=true so the
     /// caller can surface the ambiguity.
     /// @param key_or_name UUID-form key or name.
     /// @param message Message to set on the status.
     /// @param variant Variant to set on the status.
-    /// @param resolved_key Output: the resulting status key.
-    /// @param multiple_matches Output: true when the by-name path matched multiple
-    /// rows.
-    [[nodiscard]] x::errors::Error set_by_key_or_name(
+    /// @returns A pair of the result (resolved key and multi-match flag) and an
+    /// error where ok() is false if the status could not be set.
+    [[nodiscard]] std::pair<SetByKeyOrNameResult, x::errors::Error> set_by_key_or_name(
         const std::string &key_or_name,
         const std::string &message,
-        const std::string &variant,
-        std::string &resolved_key,
-        bool &multiple_matches
+        const std::string &variant
     ) const {
         grpc::status::SetByKeyOrNameRequest req;
         req.set_key_or_name(key_or_name);
@@ -212,27 +218,28 @@ public:
             "/status/set_by_key_or_name",
             req
         );
-        if (err) return err;
-        resolved_key = res.key();
-        multiple_matches = res.multiple_matches();
-        return x::errors::NIL;
+        if (err) return {SetByKeyOrNameResult{}, err};
+        return {
+            SetByKeyOrNameResult{res.key(), res.multiple_matches()},
+            x::errors::NIL
+        };
     }
 
     /// @brief Deletes a status by UUID key (count 0 or 1) or by name (deletes
     /// all matches).
     /// @param key_or_name UUID-form key or name.
-    /// @param count Output: number of rows deleted.
-    [[nodiscard]] x::errors::Error
-    delete_by_key_or_name(const std::string &key_or_name, int &count) const {
+    /// @returns A pair of the number of rows deleted and an error where ok() is
+    /// false if the delete failed.
+    [[nodiscard]] std::pair<int, x::errors::Error>
+    delete_by_key_or_name(const std::string &key_or_name) const {
         grpc::status::DeleteByKeyOrNameRequest req;
         req.set_key_or_name(key_or_name);
         auto [res, err] = this->delete_by_key_or_name_client->send(
             "/status/delete_by_key_or_name",
             req
         );
-        if (err) return err;
-        count = res.count();
-        return x::errors::NIL;
+        if (err) return {0, err};
+        return {res.count(), x::errors::NIL};
     }
 
 private:

@@ -63,27 +63,17 @@ inline std::string dispatch_set(
     const std::string &message,
     const std::string &variant
 ) {
-    std::string resolved_key;
-    bool multi = false;
-    const auto err = client->statuses.set_by_key_or_name(
-        key_or_name,
-        message,
-        variant,
-        resolved_key,
-        multi
-    );
+    auto [res, err] = client->statuses
+                          .set_by_key_or_name(key_or_name, message, variant);
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
         report(x::status::VARIANT_WARNING, set_failure_msg(err.data));
         return "";
     }
-    if (multi)
-        report(
-            x::status::VARIANT_WARNING,
-            set_multi_match_msg(key_or_name, resolved_key)
-        );
-    return resolved_key;
+    if (res.multiple_matches)
+        report(x::status::VARIANT_WARNING, set_multi_match_msg(key_or_name, res.key));
+    return res.key;
 }
 
 /// @brief Deletes a status via the cluster API and surfaces failures via report.
@@ -93,8 +83,7 @@ inline bool dispatch_delete(
     const Reporter &report,
     const std::string &key_or_name
 ) {
-    int count = 0;
-    const auto err = client->statuses.delete_by_key_or_name(key_or_name, count);
+    auto [count, err] = client->statuses.delete_by_key_or_name(key_or_name);
     if (err) {
         LOG(ERROR) << "status.delete failed: key_or_name=" << key_or_name
                    << " error=" << err.data;

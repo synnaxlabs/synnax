@@ -29,7 +29,11 @@ describe("Change config schema", () => {
   });
 
   it("Should reject an unknown variant", () => {
-    const result = config.safeParse({ key_or_name: "k", variant: "bogus", message: "m" });
+    const result = config.safeParse({
+      key_or_name: "k",
+      variant: "bogus",
+      message: "m",
+    });
     expect(result.success).toBe(false);
     expect(result.error?.issues).toContainEqual(
       expect.objectContaining({ code: "invalid_value", path: ["variant"] }),
