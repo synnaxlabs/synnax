@@ -20,7 +20,6 @@ import { Theming } from "@/theming";
 
 const BASE_ROW_SIZE = 36;
 const BASE_COL_SIZE = 72;
-export const MIN_CELL_DIM = 32;
 
 export const FLUX_STORE_KEY = "tables";
 const RESOURCE_NAME = "table";

@@ -313,6 +313,74 @@ describe("Table", () => {
       }
     });
 
+    test("addRow clamps below-minimum sizes to the floor", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [],
+          columns: [{ size: 80 }],
+          cells: {},
+        },
+        [
+          table.addRow({
+            index: 0,
+            size: 5,
+            cells: [{ key: "a", variant: "text", props: {} }],
+          }),
+        ],
+      );
+      expect(next.rows[0].size).toEqual(32);
+    });
+
+    test("addCol clamps below-minimum sizes to the floor", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [{ size: 36, cells: ["a"] }],
+          columns: [{ size: 80 }],
+          cells: { a: { key: "a", variant: "text", props: {} } },
+        },
+        [
+          table.addCol({
+            index: 1,
+            size: 10,
+            cells: [{ key: "b", variant: "text", props: {} }],
+          }),
+        ],
+      );
+      expect(next.columns[1].size).toEqual(32);
+    });
+
+    test("resizeRow clamps below-minimum sizes to the floor", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [{ size: 60, cells: ["a"] }],
+          columns: [{ size: 80 }],
+          cells: { a: { key: "a", variant: "text", props: {} } },
+        },
+        [table.resizeRow({ index: 0, size: 5 })],
+      );
+      expect(next.rows[0].size).toEqual(32);
+    });
+
+    test("resizeCol clamps below-minimum sizes to the floor", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [{ size: 30, cells: ["a"] }],
+          columns: [{ size: 80 }],
+          cells: { a: { key: "a", variant: "text", props: {} } },
+        },
+        [table.resizeCol({ index: 0, size: 0 })],
+      );
+      expect(next.columns[0].size).toEqual(32);
+    });
+
     test("setCell on an unknown key returns no inverse", () => {
       const { inverse } = table.reduceAll(
         {
@@ -333,8 +401,8 @@ describe("Table", () => {
       key: "00000000-0000-0000-0000-000000000001",
       name: "before",
       rows: [
-        { size: 30, cells: ["a", "b"] },
-        { size: 30, cells: ["c", "d"] },
+        { size: 36, cells: ["a", "b"] },
+        { size: 36, cells: ["c", "d"] },
       ],
       columns: [{ size: 80 }, { size: 100 }],
       cells: {

@@ -10,7 +10,7 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { box, clamp } from "@synnaxlabs/x";
+import { box } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -34,7 +34,6 @@ import { ColumnIndicators } from "@/table/Indicator";
 import {
   cellsInRegion,
   findCellPosition,
-  MIN_CELL_DIM,
   useAddCol,
   useAddRow,
   useDispatch,
@@ -250,22 +249,14 @@ export const Table = ({
 
   const handleRowResize = useCallback(
     (size: number, index: number) => {
-      if (!editable) return;
-      dispatch({
-        key,
-        actions: [table.resizeRow({ index, size: clamp(size, MIN_CELL_DIM) })],
-      });
+      if (editable) dispatch({ key, actions: [table.resizeRow({ index, size })] });
     },
     [dispatch, editable, key],
   );
 
   const handleColResize = useCallback(
     (size: number, index: number) => {
-      if (!editable) return;
-      dispatch({
-        key,
-        actions: [table.resizeCol({ index, size: clamp(size, MIN_CELL_DIM) })],
-      });
+      if (editable) dispatch({ key, actions: [table.resizeCol({ index, size })] });
     },
     [dispatch, editable, key],
   );

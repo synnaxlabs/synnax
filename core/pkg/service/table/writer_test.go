@@ -210,6 +210,34 @@ var _ = Describe("Writer", func() {
 			Expect(res.Columns[1].Size).To(Equal(200.0))
 		})
 
+		It("Should clamp AddRow sizes below the minimum cell dimension", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Size:  5,
+					Cells: []table.Cell{{Key: "z", Variant: "text"}},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows[1].Size).To(Equal(32.0))
+		})
+
+		It("Should clamp AddCol sizes below the minimum cell dimension", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddColAction(table.AddColPayload{
+					Index: 2,
+					Size:  0,
+					Cells: []table.Cell{{Key: "z", Variant: "text"}},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Columns[2].Size).To(Equal(32.0))
+		})
+
 		It("Should clamp ResizeRow sizes below the minimum cell dimension", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{

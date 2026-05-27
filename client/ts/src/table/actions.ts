@@ -26,6 +26,11 @@ import { type Cell } from "@/table/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
+// MIN_CELL_DIM is the floor enforced on row and column sizes by the resize
+// handlers. Callers may apply their own UX clamp on top of this, but every
+// dispatched resize action lands here so the action store is the authority.
+const MIN_CELL_DIM = 32;
+
 // snapshot pulls a value out of an Immer draft so the result is safe to embed
 // in an action stored on the undo stack. When reduceAll applies multiple
 // actions inside one produce(), an earlier wholesale assignment can leave a
@@ -46,7 +51,10 @@ const handlers: Handlers = {
   addRow: (state, payload) => {
     const idx = Math.min(payload.index, state.rows.length);
     const keys = payload.cells.map((c) => c.key);
-    state.rows.splice(idx, 0, { size: payload.size, cells: keys });
+    state.rows.splice(idx, 0, {
+      size: Math.max(payload.size, MIN_CELL_DIM),
+      cells: keys,
+    });
     for (const c of payload.cells) state.cells[c.key] = c;
     return {
       inverse: [removeRow({ index: idx })],
@@ -72,7 +80,7 @@ const handlers: Handlers = {
 
   addCol: (state, payload) => {
     const idx = Math.min(payload.index, state.columns.length);
-    state.columns.splice(idx, 0, { size: payload.size });
+    state.columns.splice(idx, 0, { size: Math.max(payload.size, MIN_CELL_DIM) });
     for (let i = 0; i < state.rows.length; i++) {
       if (i >= payload.cells.length) break;
       const rowIdx = Math.min(idx, state.rows[i].cells.length);
@@ -112,7 +120,7 @@ const handlers: Handlers = {
   resizeRow: (state, payload) => {
     if (payload.index >= state.rows.length) return NO_OP;
     const oldSize = state.rows[payload.index].size;
-    state.rows[payload.index].size = payload.size;
+    state.rows[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
     return {
       inverse: [resizeRow({ index: payload.index, size: oldSize })],
       targets: [...state.rows[payload.index].cells],
@@ -122,7 +130,7 @@ const handlers: Handlers = {
   resizeCol: (state, payload) => {
     if (payload.index >= state.columns.length) return NO_OP;
     const oldSize = state.columns[payload.index].size;
-    state.columns[payload.index].size = payload.size;
+    state.columns[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
     const targets: string[] = [];
     for (const r of state.rows) {
       const k = r.cells[payload.index];

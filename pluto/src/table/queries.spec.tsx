@@ -319,7 +319,7 @@ describe("table queries", () => {
       });
       return client.tables.create(ws.key, {
         name: "dispatch_test",
-        rows: [{ size: 30, cells: ["a", "b"] }],
+        rows: [{ size: 36, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
         cells: {
           a: { key: "a", variant: "text", props: { value: "A" } },
@@ -512,7 +512,7 @@ describe("table queries", () => {
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.rows[0].size).toEqual(30),
+        expect(result.current.retrieve.data?.rows[0].size).toEqual(36),
       );
     });
 

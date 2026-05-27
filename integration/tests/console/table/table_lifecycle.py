@@ -438,7 +438,7 @@ class TableLifecycle(ConsoleCase):
         initial = table.get_column_width(0)
         table.drag_col_resizer(0, 80)
         # Allow for some slack since the drag end coordinate maps through
-        # clamp(size, MIN_CELL_DIM) and rounding.
+        # the action handler's minimum-cell-dimension clamp and rounding.
         after = table.get_column_width(0)
         assert after >= initial + 40, (
             f"Column 0 should be wider after drag right: was {initial}, now {after}"

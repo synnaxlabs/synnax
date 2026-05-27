@@ -21,15 +21,16 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 }
 
 // Handle inserts a row at the given index with the provided cell values, and
-// records each cell in the table's cells map. Out-of-range indices clamp to
-// the end of the rows slice; cells whose keys collide with existing entries
+// records each cell in the table's cells map. Sizes below the minimum cell
+// dimension are clamped up to the floor. Out-of-range indices clamp to the
+// end of the rows slice; cells whose keys collide with existing entries
 // overwrite the prior value.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
 	keys := make([]string, len(p.Cells))
 	for i, c := range p.Cells {
 		keys[i] = c.Key
 	}
-	row := Row{Size: p.Size, Cells: keys}
+	row := Row{Size: max(p.Size, minCellDim), Cells: keys}
 	idx := int(p.Index)
 	if idx > len(state.Rows) {
 		idx = len(state.Rows)
@@ -60,10 +61,11 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 
 // Handle inserts a column at the given index with the provided cell values.
 // Each cell is inserted at the column index inside the corresponding row's
-// cells list and recorded in the table's cells map. Out-of-range indices
-// clamp to the end of every row's cells list. When the payload carries fewer
-// cells than there are rows the trailing rows are left without a new cell
-// entry; extra cells beyond the row count are still added to the map but not
+// cells list and recorded in the table's cells map. Sizes below the minimum
+// cell dimension are clamped up to the floor. Out-of-range indices clamp to
+// the end of every row's cells list. When the payload carries fewer cells
+// than there are rows the trailing rows are left without a new cell entry;
+// extra cells beyond the row count are still added to the map but not
 // referenced by any row.
 func (p AddColPayload) Handle(state Table) (Table, error) {
 	idx := int(p.Index)
@@ -72,7 +74,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 	}
 	state.Columns = append(
 		state.Columns[:idx],
-		append([]Column{{Size: p.Size}}, state.Columns[idx:]...)...,
+		append([]Column{{Size: max(p.Size, minCellDim)}}, state.Columns[idx:]...)...,
 	)
 	if state.Cells == nil {
 		state.Cells = make(map[string]Cell, len(p.Cells))
