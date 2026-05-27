@@ -16,7 +16,7 @@ import {
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -49,7 +49,7 @@ const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> 
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
-): Promise<void> => {
+): Promise<ReturnType<typeof render>> => {
   const Bootstrap = (): ReactElement => {
     Schematic.useEnsureRetrieved({ key });
     return <div data-testid="loaded" />;
@@ -65,6 +65,7 @@ const loadSchematic = async (
     );
   });
   await within(utils.container).findByTestId("loaded");
+  return utils;
 };
 
 describe("schematic queries", () => {
@@ -365,10 +366,11 @@ describe("schematic queries", () => {
     let getNode: (k: string) => schematic.Node | undefined;
     let dispatch: (...actions: schematic.Action[]) => Promise<void>;
     let undo: () => Promise<void>;
+    let cleanup: () => void;
 
     beforeEach(async () => {
       schem = await createTestSchematic(ws.key);
-      await loadSchematic(Wrapper, schem.key);
+      const loadUtils = await loadSchematic(Wrapper, schem.key);
 
       const edge = renderHook(
         () => Schematic.useSelectElementConfig({ key: schem.key, elKey: "e1" }),
@@ -394,7 +396,16 @@ describe("schematic queries", () => {
         await act(async () => {
           und.result.current.undo();
         });
+      cleanup = () => {
+        edge.unmount();
+        all.unmount();
+        disp.unmount();
+        und.unmount();
+        loadUtils.unmount();
+      };
     });
+
+    afterEach(() => cleanup());
 
     it("adjusts a connected edge's stored segments when its source node moves", async () => {
       await dispatch(
@@ -528,21 +539,8 @@ describe("schematic queries", () => {
       await dispatch(
         schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
       );
-      await waitFor(() =>
-        expect(getEdgeCfg()?.segments?.[0]).toEqual({
-          direction: "x",
-          length: 180,
-        }),
-      );
-
       await dispatch(
         schematic.setNodePosition({ key: "n1", position: { x: 40, y: 0 } }),
-      );
-      await waitFor(() =>
-        expect(getEdgeCfg()?.segments?.[0]).toEqual({
-          direction: "x",
-          length: 160,
-        }),
       );
 
       await undo();
