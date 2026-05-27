@@ -9,6 +9,11 @@
 
 package table
 
+// minCellDim is the floor enforced on row and column sizes by the resize
+// reducers. Clients may apply their own UX clamp on top of this, but every
+// dispatched resize action lands here so the server is the authority.
+const minCellDim = 32
+
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
 	state.Name = p.Name
@@ -112,25 +117,26 @@ func (p RemoveColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle resizes the row at the given index. No-op if the index is out of
-// range.
+// Handle resizes the row at the given index. Sizes below the minimum cell
+// dimension are clamped up to the floor. No-op if the index is out of range.
 func (p ResizeRowPayload) Handle(state Table) (Table, error) {
 	idx := int(p.Index)
 	if idx >= len(state.Rows) {
 		return state, nil
 	}
-	state.Rows[idx].Size = p.Size
+	state.Rows[idx].Size = max(p.Size, minCellDim)
 	return state, nil
 }
 
-// Handle resizes the column at the given index. No-op if the index is out
-// of range.
+// Handle resizes the column at the given index. Sizes below the minimum
+// cell dimension are clamped up to the floor. No-op if the index is out of
+// range.
 func (p ResizeColPayload) Handle(state Table) (Table, error) {
 	idx := int(p.Index)
 	if idx >= len(state.Columns) {
 		return state, nil
 	}
-	state.Columns[idx].Size = p.Size
+	state.Columns[idx].Size = max(p.Size, minCellDim)
 	return state, nil
 }
 
