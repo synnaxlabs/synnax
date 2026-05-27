@@ -25,6 +25,7 @@ var registry = map[string]types.Unit{
 	"s":   {Dimensions: types.DimTime, Scale: 1e9, Name: "s"},
 	"min": {Dimensions: types.DimTime, Scale: 60e9, Name: "min"},
 	"h":   {Dimensions: types.DimTime, Scale: 3600e9, Name: "h"},
+	"d":   {Dimensions: types.DimTime, Scale: 86400e9, Name: "d"},
 
 	// Length units (base: meters)
 	"fm":    {Dimensions: types.DimLength, Scale: 1e-15, Name: "fm"},
