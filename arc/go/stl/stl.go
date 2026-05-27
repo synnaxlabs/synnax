@@ -28,21 +28,26 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/symbol"
 )
 
-// Symbols is the flattened set of symbols every STL package contributes
-// to a program's ambient prelude.
-var Symbols = slices.Concat(
-	channels.Symbols,
-	constant.Symbols,
-	control.Symbols,
-	errors.Symbols,
-	math.Symbols,
-	op.Symbols,
-	selector.Symbols,
-	series.Symbols,
-	stable.Symbols,
-	stateful.Symbols,
-	strings.Symbols,
-	time.Symbols,
-)
+// NewSymbols returns a fresh slice of every STL package's ambient prelude
+// symbols. Each call allocates a new tree so concurrent analyses (e.g. the
+// LSP serving multiple documents) and successive analyses on the same
+// process never share mutable symbol state.
+func NewSymbols() []*symbol.Symbol {
+	return slices.Concat(
+		channels.NewSymbols(),
+		constant.NewSymbols(),
+		control.NewSymbols(),
+		errors.NewSymbols(),
+		math.NewSymbols(),
+		op.NewSymbols(),
+		selector.NewSymbols(),
+		series.NewSymbols(),
+		stable.NewSymbols(),
+		stateful.NewSymbols(),
+		strings.NewSymbols(),
+		time.NewSymbols(),
+	)
+}
