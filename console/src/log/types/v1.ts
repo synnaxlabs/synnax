@@ -7,17 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
-import { color, migrate } from "@synnaxlabs/x";
+import { channel } from "@synnaxlabs/client";
+import { migrate, notation, telem } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import type * as v0 from "@/log/types/v0";
 
 export const VERSION = "1.0.0";
 
-export const ZERO_CHANNEL_ENTRY: log.ChannelEntry = {
+export const timestampConfigZ = z.object({
+  format: telem.timestampFormatZ.default("preciseDate"),
+  tz: telem.timeZoneZ.default("local"),
+});
+export type TimestampConfig = z.infer<typeof timestampConfigZ>;
+
+// channelEntryZ is the v1 per-channel display configuration. color is stored as a raw
+// string (a hex value, or the empty string when unset) rather than a strongly-typed
+// color; v2 migrates these into color.Color.
+export const channelEntryZ = z.object({
+  channel: channel.keyZ,
+  color: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
+  precision: z.number().min(-1).max(17).default(-1),
+  alias: z.string().default(""),
+  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
+});
+export type ChannelEntry = z.infer<typeof channelEntryZ>;
+
+export const ZERO_CHANNEL_ENTRY: ChannelEntry = {
   channel: 0,
-  color: color.ZERO,
+  color: "",
   notation: "standard",
   precision: -1,
   alias: "",
@@ -37,7 +56,7 @@ export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "channels" };
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
-  channels: z.array(log.channelEntryZ).default([]),
+  channels: z.array(channelEntryZ).default([]),
   remoteCreated: z.boolean(),
   timestampPrecision: z.number().min(0).max(3).default(0),
   showChannelNames: z.boolean().default(true),
@@ -56,21 +75,6 @@ export const ZERO_STATE: State = {
   showReceiptTimestamp: true,
   toolbar: ZERO_TOOLBAR_STATE,
 };
-
-// stateFromLog projects a typed Log retrieved from the server into the Console state
-// shape, layering in the version stamp and the default UI-only toolbar. The Log
-// resource carries no Console-specific UI state (toolbar, persisted state version);
-// those are reset to defaults on load.
-export const stateFromLog = (l: log.Log): State => ({
-  key: l.key,
-  version: VERSION,
-  channels: l.channels,
-  remoteCreated: l.remoteCreated,
-  timestampPrecision: l.timestampPrecision,
-  showChannelNames: l.showChannelNames,
-  showReceiptTimestamp: l.showReceiptTimestamp,
-  toolbar: ZERO_TOOLBAR_STATE,
-});
 
 export const sliceStateZ = z.object({
   version: z.literal(VERSION),

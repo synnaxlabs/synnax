@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Layout } from "@/layout";
 import { Log } from "@/log";
-import { type State } from "@/log/types/v1";
+import { type State } from "@/log/types";
 import { renderWithConsole } from "@/testUtils";
 
 // Access.useUpdateGranted returns false with null client.
@@ -33,7 +33,7 @@ const LAYOUT_KEY = "test-key";
 
 const ZERO_LOG_STATE: State = {
   key: LAYOUT_KEY,
-  version: "1.0.0",
+  version: "2.0.0",
   channels: [],
   remoteCreated: false,
   timestampPrecision: 0,
