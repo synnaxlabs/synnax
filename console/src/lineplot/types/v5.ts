@@ -162,9 +162,7 @@ export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 // Deleted in the SY-4065 (3/3) PR once Pluto's flux store takes over body
 // ownership and the Redux <-> server projection boundary disappears. No new
 // callers should be added.
-export const toWire = (
-  state: State,
-): Omit<lineplot.LinePlot, "key" | "name"> => ({
+export const toWire = (state: State): Omit<lineplot.LinePlot, "key" | "name"> => ({
   title: state.title,
   legend: state.legend,
   channels: state.channels,

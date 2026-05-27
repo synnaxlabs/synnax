@@ -111,9 +111,7 @@ const handleSelect: Ontology.HandleSelect = ({
     const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
-    placeLayout(
-      LinePlot.create({ ...fromWire(linePlot), name: linePlot.name }),
-    );
+    placeLayout(LinePlot.create({ ...fromWire(linePlot), name: linePlot.name }));
   }, `Failed to select ${names}`);
 };
 
