@@ -351,11 +351,11 @@ var keywordDocs = map[string]string{
 	).Render(),
 	"status.delete": doc.New(
 		doc.TitleWithKind("status.delete", "Function"),
-		doc.Paragraph("Deletes a status notification from the cluster by key or name."),
+		doc.Paragraph("Deletes a status notification from the cluster by key or name. When matching by name, deletes every match."),
 		doc.Divider(),
-		arcCode("deleted := sensor -> status.delete{key_or_name=\"ox_alarm\"}"),
+		arcCode("sensor -> status.delete{key_or_name=\"ox_alarm\"}"),
 		doc.Divider(),
-		doc.Paragraph("Outputs a u8: 1 if one or more statuses were deleted, 0 otherwise."),
+		doc.Paragraph("Produces no output."),
 	).Render(),
 	"math.avg": doc.New(
 		doc.TitleWithKind("math.avg", "Function"),

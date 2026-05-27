@@ -83,12 +83,6 @@ namespace {
     key_param.type = str_type;
     key_param.value = key_or_name;
     node.config = ::arc::types::Params{key_param};
-    ::arc::types::Type out_type;
-    out_type.kind = ::arc::types::Kind::U8;
-    ::arc::types::Param out;
-    out.name = "output";
-    out.type = out_type;
-    node.outputs = ::arc::types::Params{out};
     return node;
 }
 

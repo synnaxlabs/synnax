@@ -172,7 +172,11 @@ func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName st
 	if !errors.Is(err, query.ErrNotFound) {
 		return nil, err
 	}
-	return s.retrieveByName(ctx, tx, keyOrName)
+	var matches []Status[any]
+	if err = s.NewRetrieve().Where(MatchNames[any](keyOrName)).Entries(&matches).Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
 
 // SetTarget builds the status a by-key-or-name set should write: the first match, or a
@@ -196,7 +200,7 @@ func (s *Service) SetByKeyOrName(
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
 	// Check before opening a Tx
-	if !xstatus.IsVariant(variant) {
+	if !xstatus.Variant(variant).IsValid() {
 		return "", false, errors.Wrap(validate.ErrValidation, "invalid status variant")
 	}
 	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {

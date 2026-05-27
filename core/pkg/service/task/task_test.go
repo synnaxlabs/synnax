@@ -420,30 +420,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
-
-		Describe("AttachStatuses", func() {
-			It("Should attach persisted statuses and heal missing ones", func(ctx SpecContext) {
-				kept := &task.Task{Key: task.NewKey(testRack.Key, 0), Name: "Kept Status Task"}
-				Expect(svc.NewWriter(nil).Create(ctx, kept)).To(Succeed())
-				lost := &task.Task{Key: task.NewKey(testRack.Key, 0), Name: "Lost Status Task"}
-				Expect(svc.NewWriter(nil).Create(ctx, lost)).To(Succeed())
-				Expect(stat.NewWriter(nil).
-					Delete(ctx, task.OntologyID(lost.Key).String())).To(Succeed())
-
-				tasks := []task.Task{
-					{Key: kept.Key, Name: kept.Name},
-					{Key: lost.Key, Name: lost.Name},
-				}
-				Expect(svc.AttachStatuses(ctx, tasks)).To(Succeed())
-
-				Expect(tasks[0].Status).ToNot(BeNil())
-				Expect(tasks[0].Status.Key).To(Equal(task.OntologyID(kept.Key).String()))
-				Expect(tasks[1].Status).ToNot(BeNil())
-				Expect(tasks[1].Status.Variant).To(Equal(xstatus.VariantWarning))
-				Expect(tasks[1].Status.Message).To(Equal("Lost Status Task status unknown"))
-				Expect(tasks[1].Status.Details.Task).To(Equal(lost.Key))
-			})
-		})
 	})
 
 	Describe("Suspect Rack", func() {

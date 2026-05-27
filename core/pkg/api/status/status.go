@@ -123,7 +123,7 @@ func (s *Service) SetByKeyOrName(
 	req SetByKeyOrNameRequest,
 ) (res SetByKeyOrNameResponse, err error) {
 	// Check before opening a Tx
-	if !xstatus.IsVariant(string(req.Variant)) {
+	if !req.Variant.IsValid() {
 		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
 	}
 	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -159,7 +159,8 @@ type DeleteByKeyOrNameRequest struct {
 
 // DeleteByKeyOrNameResponse is a response to a DeleteByKeyOrNameRequest.
 type DeleteByKeyOrNameResponse struct {
-	// Count is the number of statuses deleted.
+	// Count is the number of statuses deleted. Retained only so the Arc driver
+	// runtime can surface not-found and multi-match delete warnings.
 	Count int `json:"count" msgpack:"count"`
 }
 

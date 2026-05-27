@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,6 +29,7 @@ type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
 	task   *task.Service
+	status *status.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -38,6 +40,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		db:     cfg.Distribution.DB,
 		task:   cfg.Service.Task,
+		status: cfg.Service.Status,
 		access: cfg.Service.RBAC,
 	}, nil
 }
@@ -143,18 +146,26 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return res, err
 	}
+
+	if req.IncludeStatus {
+		statuses := make([]task.Status, 0, len(res.Tasks))
+		if err = status.NewRetrieve[task.StatusDetails](s.status).
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
+			return res, err
+		}
+		// TODO(SY-4247)
+		for i, stat := range statuses {
+			res.Tasks[i].Status = &stat
+		}
+	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-
-	if req.IncludeStatus {
-		if err = s.task.AttachStatuses(ctx, res.Tasks); err != nil {
-			return RetrieveResponse{}, err
-		}
 	}
 	return res, nil
 }

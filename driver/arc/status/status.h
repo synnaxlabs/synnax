@@ -54,7 +54,7 @@ inline std::string delete_multi_match_msg(const std::string &key_or_name, int co
            "\"; deleted all (" + std::to_string(count) + ")";
 }
 
-/// @brief Upserts a status via the cluster API and surfaces failures via report.
+/// @brief Upserts a status via the core API and surfaces failures via report.
 /// Returns the resolved key on success, "" on failure.
 inline std::string dispatch_set(
     const std::shared_ptr<synnax::Synnax> &client,
@@ -76,9 +76,9 @@ inline std::string dispatch_set(
     return res.key;
 }
 
-/// @brief Deletes a status via the cluster API and surfaces failures via report.
-/// Returns true if at least one row was deleted.
-inline bool dispatch_delete(
+/// @brief Deletes a status via the core API, surfacing failure, not-found, and
+/// multi-match as warnings via report.
+inline void dispatch_delete(
     const std::shared_ptr<synnax::Synnax> &client,
     const Reporter &report,
     const std::string &key_or_name
@@ -88,15 +88,14 @@ inline bool dispatch_delete(
         LOG(ERROR) << "status.delete failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
         report(x::status::VARIANT_WARNING, delete_failure_msg(err.data));
-        return false;
+        return;
     }
     if (count == 0) {
         report(x::status::VARIANT_WARNING, delete_not_found_msg(key_or_name));
-        return false;
+        return;
     }
     if (count > 1)
         report(x::status::VARIANT_WARNING, delete_multi_match_msg(key_or_name, count));
-    return true;
 }
 
 /// @brief Flow node for `status.set`. Calls dispatch_set on every trigger and
@@ -144,39 +143,29 @@ public:
     }
 };
 
-/// @brief Flow node for `status.delete`. Calls dispatch_delete on every trigger
-/// and emits 1 (success) or 0 (failure) as a u8 on Output(0).
+/// @brief Flow node for `status.delete`. Calls dispatch_delete on every trigger.
+/// Produces no output: delete is fire-and-forget, mirroring every other delete.
 class DeleteStatus : public ::arc::runtime::node::Node {
-    ::arc::runtime::state::Node state;
     std::shared_ptr<synnax::Synnax> client;
     Reporter report;
     std::string key_or_name;
 
 public:
     DeleteStatus(
-        ::arc::runtime::state::Node &&state,
         std::shared_ptr<synnax::Synnax> client,
         Reporter report,
         std::string key_or_name
     ):
-        state(std::move(state)),
         client(std::move(client)),
         report(std::move(report)),
         key_or_name(std::move(key_or_name)) {}
 
-    x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const uint8_t v = dispatch_delete(this->client, this->report, this->key_or_name)
-                            ? 1
-                            : 0;
-        *this->state.output(0) = x::telem::Series(v);
-        *this->state.output_time(0) = x::telem::Series(x::telem::TimeStamp::now());
-        ctx.mark_changed(0);
+    x::errors::Error next(::arc::runtime::node::Context & /*ctx*/) override {
+        dispatch_delete(this->client, this->report, this->key_or_name);
         return x::errors::NIL;
     }
 
-    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
-        return this->state.is_output_truthy(output_idx);
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
@@ -225,14 +214,8 @@ public:
             .func_wrap(
                 "status",
                 "delete",
-                [client, report, str_state](uint32_t key_or_name_h) -> uint32_t {
-                    return dispatch_delete(
-                               client,
-                               report,
-                               str_state->get(key_or_name_h)
-                           )
-                             ? 1
-                             : 0;
+                [client, report, str_state](uint32_t key_or_name_h) {
+                    dispatch_delete(client, report, str_state->get(key_or_name_h));
                 }
             )
             .unwrap();
@@ -262,7 +245,6 @@ public:
             };
         return {
             std::make_unique<DeleteStatus>(
-                std::move(cfg.state),
                 this->client,
                 this->report,
                 get_str("key_or_name")

@@ -130,6 +130,15 @@ func MatchKeyPrefix[D any](prefix string) Filter[D] {
 	}
 }
 
+// MatchNames returns a filter for statuses whose name matches any of the provided values.
+func MatchNames[D any](names ...string) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+			return slices.Contains(names, s.Name), nil
+		})
+	}
+}
+
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...status.Variant) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
@@ -151,22 +160,6 @@ func MatchLabels[D any](matchLabels ...xlabel.Key) Filter[D] {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})
-}
-
-// retrieveByName returns all statuses sharing the given name.
-func (s *Service) retrieveByName(ctx context.Context, tx gorp.Tx, name string) ([]Status[any], error) {
-	var matches []Status[any]
-	if err := s.NewRetrieve().
-		Where(func(_ Retrieve[any]) gorp.Filter[string, Status[any]] {
-			return gorp.Match(func(_ gorp.Context, st *Status[any]) (bool, error) {
-				return st.Name == name, nil
-			})
-		}).
-		Entries(&matches).
-		Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	return matches, nil
 }
 
 // Exec executes the query and fills the results into the provided Status or slice of

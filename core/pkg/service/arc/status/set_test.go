@@ -69,9 +69,9 @@ func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Modu
 // buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze,
 // which rejects unwired ExecBoth nodes) so node.Output(0) is usable.
 func buildState(_ context.Context, bareType string, config types.Params) (*node.ProgramState, ir.Node) {
-	outputs := setOutputs
-	if bareType == "delete" {
-		outputs = deleteOutputs
+	var outputs types.Params
+	if bareType != "delete" {
+		outputs = setOutputs
 	}
 	irNode := ir.Node{Key: "n", Type: bareType, Config: config, Outputs: outputs}
 	prog := ir.IR{Nodes: ir.Nodes{irNode}}
@@ -80,10 +80,6 @@ func buildState(_ context.Context, bareType string, config types.Params) (*node.
 
 var setOutputs = types.Params{
 	{Name: ir.DefaultOutputParam, Type: types.String()},
-}
-
-var deleteOutputs = types.Params{
-	{Name: ir.DefaultOutputParam, Type: types.U8()},
 }
 
 func setConfig(keyOrName, message, variant string) types.Params {
@@ -190,10 +186,8 @@ var _ = Describe("Symbols", func() {
 				Expect(sym.Type.Inputs).To(Equal(sym.Type.Config))
 			})
 
-			It("Should have one u8 output named ir.DefaultOutputParam", func() {
-				Expect(sym.Type.Outputs).To(HaveLen(1))
-				Expect(sym.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
-				Expect(sym.Type.Outputs[0].Type).To(Equal(types.U8()))
+			It("Should have no outputs", func() {
+				Expect(sym.Type.Outputs).To(BeEmpty())
 			})
 		})
 	})
@@ -492,38 +486,34 @@ var _ = Describe("deleteNode.Next", func() {
 		return node.Context{Context: ctx, MarkChanged: func(int) {}}
 	}
 
-	It("Should delete by UUID and emit 1", func(ctx SpecContext) {
+	It("Should delete by UUID", func(ctx SpecContext) {
 		key := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 			Key: key, Name: "del_uuid", Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
 		})).To(Succeed())
 
-		n, state := build(ctx, key)
+		n, _ := build(ctx, key)
 		n.Next(nodeCtx(ctx))
 
 		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
 			To(MatchError(query.ErrNotFound))
-		out := *state.Output(0)
-		Expect(out.Len()).To(Equal(int64(1)))
-		Expect(telem.ValueAt[uint8](out, 0)).To(Equal(uint8(1)))
 	})
 
-	It("Should delete by name (single match) and emit 1", func(ctx SpecContext) {
+	It("Should delete by name (single match)", func(ctx SpecContext) {
 		name := "del_name_" + uuid.NewString()
 		key := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 			Key: key, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
 		})).To(Succeed())
 
-		n, state := build(ctx, name)
+		n, _ := build(ctx, name)
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(1)))
 		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).
 			Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should warn on multi-match and emit 1", func(ctx SpecContext) {
+	It("Should warn on multi-match", func(ctx SpecContext) {
 		name := "del_multi_" + uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "a", Time: telem.Now(),
@@ -532,39 +522,23 @@ var _ = Describe("deleteNode.Next", func() {
 			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
 		})).To(Succeed())
 
-		n, state := build(ctx, name)
+		n, _ := build(ctx, name)
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(1)))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].message).To(ContainSubstring(`multiple statuses named`))
 		Expect(calls[0].message).To(ContainSubstring("(2)"))
 	})
 
-	It("Should emit 0 and warn when no status is found", func(ctx SpecContext) {
-		n, state := build(ctx, "del_missing_"+uuid.NewString())
+	It("Should warn when no status is found", func(ctx SpecContext) {
+		n, _ := build(ctx, "del_missing_"+uuid.NewString())
 		n.Next(nodeCtx(ctx))
 
-		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(0)))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
 		Expect(calls[0].message).To(ContainSubstring("no status found"))
-	})
-
-	It("Should produce non-decreasing timestamps on successive Next calls", func(ctx SpecContext) {
-		name := "del_time_" + uuid.NewString()
-		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
-		})).To(Succeed())
-		n, state := build(ctx, name)
-		nctx := nodeCtx(ctx)
-		n.Next(nctx)
-		first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
-		n.Next(nctx)
-		second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
-		Expect(second).To(BeNumerically(">=", first))
 	})
 })
 
@@ -769,7 +743,7 @@ var _ = Describe("WASM host functions", func() {
 	})
 
 	Describe("delete", func() {
-		It("Should delete a status and return 1", func(ctx SpecContext) {
+		It("Should delete a status", func(ctx SpecContext) {
 			name := "wasm_del_" + uuid.NewString()
 			key := uuid.NewString()
 			Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
@@ -777,26 +751,26 @@ var _ = Describe("WASM host functions", func() {
 			})).To(Succeed())
 			keyH := strs.Create(name)
 
-			res := rt.Call(ctx, "status", "delete", arctest.U32(keyH))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(1)))
+			rt.CallVoid(ctx, "status", "delete", arctest.U32(keyH))
 
 			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).
 				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should warn and return 0 on an invalid key_or_name handle", func(ctx SpecContext) {
-			res := rt.Call(ctx, "status", "delete", arctest.U32(9999))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+		It("Should warn on an invalid key_or_name handle", func(ctx SpecContext) {
+			rt.CallVoid(ctx, "status", "delete", arctest.U32(9999))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
 			Expect(calls[0].message).To(ContainSubstring("status.delete: invalid string handle"))
 		})
 
-		It("Should return 0 when dispatchDelete reports no match", func(ctx SpecContext) {
+		It("Should warn when dispatchDelete reports no match", func(ctx SpecContext) {
 			keyH := strs.Create("wasm_missing_" + uuid.NewString())
-			res := rt.Call(ctx, "status", "delete", arctest.U32(keyH))
-			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
+			rt.CallVoid(ctx, "status", "delete", arctest.U32(keyH))
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].message).To(ContainSubstring("no status found"))
 		})
 	})
 })

@@ -169,14 +169,9 @@ public:
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
                         [task_ptr = task.get()](
-                            const std::string &variant,
+                            const std::string &,
                             const std::string &message
-                        ) {
-                            if (variant == x::status::VARIANT_ERROR)
-                                task_ptr->state.send_error({"arc.status", message});
-                            else
-                                task_ptr->state.send_warning(message);
-                        }
+                        ) { task_ptr->state.send_warning(message); }
                     ),
                 },
             .rt_handle = rt_handle,

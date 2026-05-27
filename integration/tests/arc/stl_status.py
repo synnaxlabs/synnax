@@ -15,6 +15,18 @@ from tests.arc.arc_case import ArcConsoleCase
 
 TRIG_SET = "trig_status_set"
 TRIG_DEL = "trig_status_del"
+TRIG_DUP_FUNC = "trig_dup_func"
+TRIG_DUP_FLOW = "trig_dup_flow"
+DUP_FUNC_KEY = "dup_func_key"
+
+DUP_NAME = "duplicate_status_name"
+DUP_KEYS = ("44440001", "44440002")
+DUP_VARIANT = "info"
+DUP_MESSAGE = "some message"
+
+TRIG_DUP_DEL = "trig_dup_del"
+TRIG_DEL_DNE = "trig_del_dne"
+DNE_NAME = "status_does_not_exist"
 
 ARC_STL_STATUS_SOURCE = """
 import status
@@ -29,10 +41,10 @@ trig_status_set -> status.set{
     message="set by key (flow)",
     variant="warning"
 } -> flow_bykey_key
-trig_status_del -> status.delete{
-    key_or_name="status_flow_byname"
-} -> flow_byname_del_ok
-trig_status_del -> status.delete{key_or_name="11110002"} -> flow_bykey_del_ok
+trig_status_del -> status.delete{key_or_name="status_flow_byname"}
+trig_status_del -> flow_byname_del_ok
+trig_status_del -> status.delete{key_or_name="11110002"}
+trig_status_del -> flow_bykey_del_ok
 
 func set_func_byname() {
     func_byname_key = status.set("status_func_byname", "set by name (func)", "success")
@@ -43,13 +55,23 @@ func set_func_bykey() {
 }
 trig_status_set -> set_func_bykey{}
 func del_func_byname() {
-    func_byname_del_ok = status.delete("status_func_byname")
+    status.delete("status_func_byname")
 }
 trig_status_del -> del_func_byname{}
+trig_status_del -> func_byname_del_ok
 func del_func_bykey() {
-    func_bykey_del_ok = status.delete("22220002")
+    status.delete("22220002")
 }
 trig_status_del -> del_func_bykey{}
+trig_status_del -> func_bykey_del_ok
+
+func set_duplicate() {
+    dup_func_key = status.set("duplicate_status_name", "some message", "info")
+}
+trig_dup_func -> set_duplicate{}
+trig_dup_flow -> status.set{"duplicate_status_name", "some message", "info"}
+trig_dup_del -> status.delete{key_or_name="duplicate_status_name"}
+trig_del_dne -> status.delete{key_or_name="status_does_not_exist"}
 """
 
 
@@ -118,11 +140,16 @@ class StlStatus(ArcConsoleCase):
     arc_source = ARC_STL_STATUS_SOURCE
     arc_name_prefix = "ArcStlStatus"
     start_cmd_channel = "start_stl_status_cmd"
-    subscribe_channels = KEY_CHANNELS + DEL_OK_CHANNELS
+    subscribe_channels = KEY_CHANNELS + DEL_OK_CHANNELS + [DUP_FUNC_KEY]
 
     def setup(self) -> None:
         create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
         create_virtual_channel(self.client, TRIG_DEL, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FUNC, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FLOW, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_DEL, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DEL_DNE, sy.DataType.UINT8)
+        create_virtual_channel(self.client, DUP_FUNC_KEY, sy.DataType.STRING)
         for ch in KEY_CHANNELS:
             create_virtual_channel(self.client, ch, sy.DataType.STRING)
         for ch in DEL_OK_CHANNELS:
@@ -132,6 +159,15 @@ class StlStatus(ArcConsoleCase):
                 sy.Status(
                     key=c.key,
                     name=c.name,
+                    variant="disabled",
+                    message="initialized",
+                )
+            )
+        for key in ("44440001", "44440002"):
+            self.client.statuses.set(
+                sy.Status(
+                    key=key,
+                    name="duplicate_status_name",
                     variant="disabled",
                     message="initialized",
                 )
@@ -151,6 +187,13 @@ class StlStatus(ArcConsoleCase):
         ]
 
     def verify_sequence_execution(self) -> None:
+        self._verify_set()
+        self._verify_delete()
+        self._verify_warn_on_duplicate()
+        self._verify_warn_on_delete_duplicate()
+        self._verify_warn_on_delete_dne()
+
+    def _verify_set(self) -> None:
         self.log("Firing set trigger: every case upserts its predefined row")
         self.writer.write(TRIG_SET, 1)
         for c in CASES:
@@ -165,9 +208,50 @@ class StlStatus(ArcConsoleCase):
                     f"got ({row.variant!r}, {row.message!r})"
                 )
 
+    def _verify_delete(self) -> None:
         self.log("Firing delete trigger: every case removes its row")
         self.writer.write(TRIG_DEL, 1)
         for c in CASES:
             self.wait_for_eq(c.del_ok_channel, 1, is_virtual=True)
             if self._rows(c.name):
                 self.fail(f"{c.name}: row still present after delete")
+
+    def _verify_warn_on_duplicate(self) -> None:
+        self.log("Firing set duplicate: warn and set only the first status")
+        self.writer.write(TRIG_DUP_FUNC, 1)
+        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0], is_virtual=True)
+        if not self.console.notifications.wait_for(
+            f'multiple statuses named "{DUP_NAME}"'
+        ):
+            self.fail("duplicate set did not surface a multi-match warning")
+        rows = {s.key: s for s in self._rows(DUP_NAME)}
+        first = rows[DUP_KEYS[0]]
+        if (first.variant, first.message) != (DUP_VARIANT, DUP_MESSAGE):
+            self.fail(
+                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, {DUP_MESSAGE!r}), "
+                f"got ({first.variant!r}, {first.message!r})"
+            )
+        second = rows[DUP_KEYS[1]]
+        if (second.variant, second.message) != ("disabled", "initialized"):
+            self.fail(
+                f"second match {DUP_KEYS[1]} should be unchanged, "
+                f"got ({second.variant!r}, {second.message!r})"
+            )
+
+    def _verify_warn_on_delete_duplicate(self) -> None:
+        self.log("Firing delete duplicate: warn and delete all matching")
+        self.writer.write(TRIG_DUP_DEL, 1)
+        if not self.console.notifications.wait_for(
+            f'status.delete: multiple statuses named "{DUP_NAME}"'
+        ):
+            self.fail("duplicate delete did not surface a multi-match warning")
+        if self._rows(DUP_NAME):
+            self.fail(f"{DUP_NAME}: rows still present after delete-all")
+
+    def _verify_warn_on_delete_dne(self) -> None:
+        self.log("Firing delete none: warn only")
+        self.writer.write(TRIG_DEL_DNE, 1)
+        if not self.console.notifications.wait_for(
+            f'status.delete: no status found "{DNE_NAME}"'
+        ):
+            self.fail("delete of a missing status did not surface a not-found warning")

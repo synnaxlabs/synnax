@@ -40,7 +40,7 @@ const (
 )
 
 // allowedVariantsList is the human-readable list used in compile-time and
-// runtime diagnostics. xstatus.IsVariant is the source of truth for membership.
+// runtime diagnostics. Variant.IsValid is the source of truth for membership.
 const allowedVariantsList = "success, info, warning, error, loading, disabled"
 
 // setParams is the shared Inputs/Config list. Empty-string defaults mark the
@@ -62,9 +62,8 @@ var deleteParams = types.Params{
 }
 
 var deleteSymbolProps = types.Function(types.FunctionProperties{
-	Inputs:  deleteParams,
-	Config:  deleteParams,
-	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+	Inputs: deleteParams,
+	Config: deleteParams,
 })
 
 var Symbols = []*symbol.Symbol{
@@ -121,17 +120,14 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 			return strings.Create(dispatchSet(ctx, m.stat, ins, m.report, keyOrName, msg, variant))
 		}).Export(setMemberName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(ctx context.Context, keyOrNameH uint32) uint32 {
+		WithFunc(func(ctx context.Context, keyOrNameH uint32) {
 			keyOrName, ok := strings.Get(keyOrNameH)
 			if !ok {
 				m.report(ctx, xstatus.VariantWarning,
 					"status.delete: invalid string handle from WASM runtime")
-				return 0
+				return
 			}
-			if dispatchDelete(ctx, m.stat, ins, m.report, keyOrName) {
-				return 1
-			}
-			return 0
+			dispatchDelete(ctx, m.stat, ins, m.report, keyOrName)
 		}).Export(deleteMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -278,7 +274,7 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || xstatus.IsVariant(value) {
+	if !ok || xstatus.Variant(value).IsValid() {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,
@@ -304,34 +300,27 @@ type deleteNode struct {
 }
 
 func (s *deleteNode) Next(ctx node.Context) {
-	var v uint8
-	if dispatchDelete(ctx, s.stat, s.ins, s.report, s.keyOrName) {
-		v = 1
-	}
-	*s.Output(0) = telem.NewSeriesV[uint8](v)
-	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-	ctx.MarkChanged(0)
+	dispatchDelete(ctx, s.stat, s.ins, s.report, s.keyOrName)
 }
 
-// dispatchDelete deletes a status by key or by name. Returns true if at least
-// one row was deleted. Reports warnings on not-found, multi-match (deletes
-// all), or other failures.
+// dispatchDelete deletes a status by key or by name, reporting warnings on
+// not-found, multi-match (deletes all), or failure.
 func dispatchDelete(
 	ctx context.Context,
 	stat *status.Service,
 	ins alamos.Instrumentation,
 	report taskreporter.Reporter,
 	keyOrName string,
-) bool {
+) {
 	count, err := stat.DeleteByKeyOrName(ctx, keyOrName)
 	if err != nil {
 		ins.L.Error("status.delete failed", zap.String("key_or_name", keyOrName), zap.Error(err))
 		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: %v", err))
-		return false
+		return
 	}
 	if count == 0 {
 		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: no status found %q", keyOrName))
-		return false
+		return
 	}
 	if count > 1 {
 		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
@@ -339,5 +328,4 @@ func dispatchDelete(
 			keyOrName, count,
 		))
 	}
-	return true
 }
