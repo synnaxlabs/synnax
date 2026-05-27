@@ -51,11 +51,8 @@ window.__synnaxExportedFiles = {};
 window.showDirectoryPicker = async () => ({
     name: '__synnaxExportMock',
     getDirectoryHandle: async (subdir, opts) => {
-        if (!opts || !opts.create) {
-            const err = new Error('NotFoundError');
-            err.name = 'NotFoundError';
-            throw err;
-        }
+        if (!opts || !opts.create)
+            throw new DOMException('Not found', 'NotFoundError');
         return {
             name: subdir,
             getFileHandle: async (name) => ({
@@ -650,9 +647,11 @@ class WorkspaceClient:
 
         Installs an in-memory mock of ``window.showDirectoryPicker`` so the
         real export code path runs unchanged but writes captured into a JS
-        Map instead of touching the OS file picker. Materializes the
-        captured files into a real directory under the results dir and
-        returns its path.
+        Map instead of touching the OS file picker. Waits for the production
+        "Exported {name} to ..." success notification, which fires only
+        after every file write completes, then drains the map and
+        materializes the captured files into a real directory under the
+        results dir.
         """
         self._install_directory_picker_mock()
         self.layout.show_resource_toolbar("workspace")
@@ -660,18 +659,11 @@ class WorkspaceClient:
         workspace_item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(workspace_item, "Export")
 
-        deadline = self.layout.page.evaluate("() => Date.now()") + 10000
-        files: dict[str, str] = {}
-        while True:
-            files = self._drain_exported_files()
-            if "LAYOUT.json" in {os.path.basename(p) for p in files}:
-                break
-            if self.layout.page.evaluate("() => Date.now()") > deadline:
-                raise AssertionError(
-                    f"Export of workspace {name!r} did not produce a LAYOUT.json "
-                    "via the showDirectoryPicker mock"
-                )
-            self.layout.page.wait_for_timeout(200)
+        if not self.notifications.wait_for(f"Exported {name}"):
+            raise AssertionError(
+                f"Export of workspace {name!r} did not emit a success notification"
+            )
+        files = self._drain_exported_files()
 
         export_dir = get_results_path(f"{name}_export")
         if os.path.isdir(export_dir):
