@@ -255,10 +255,10 @@ export const buildProviderStack = (options: StackOptions = {}): ProviderStack =>
   };
 };
 
-/** Options for {@link mount}. `state` is typed against the component class's
- * {@link aether.Component.stateZ}; everything else is optional. */
+/** Options for {@link mount}. `state` is typed as the schema's input — fields with
+ * Zod defaults may be omitted. Everything else is optional. */
 export interface MountOptions<S extends z.ZodType<state.State>> extends StackOptions {
-  state: z.infer<S>;
+  state: z.input<S>;
   /** Instance key for the component under test. Defaults to the component's TYPE. */
   key?: string;
   /** Initial children to mount under the component under test. */
