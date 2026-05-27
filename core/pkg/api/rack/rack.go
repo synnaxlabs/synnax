@@ -28,6 +28,11 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+type (
+	Key  = rack.Key
+	Rack = rack.Rack
+)
+
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
