@@ -12,6 +12,7 @@ package lineplot
 import (
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -80,7 +81,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		)
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
-	*slice = slices.DeleteFunc(*slice, func(c uint32) bool { return c == p.Channel })
+	*slice = slices.DeleteFunc(*slice, func(c channel.Key) bool { return c == p.Channel })
 	return state, nil
 }
 
@@ -199,7 +200,7 @@ func (p RemoveRulePayload) Handle(state LinePlot) (LinePlot, error) {
 // validated k via isYAxis; a non-matching key here means the y-axis enum
 // gained a member that wasn't wired through, so panic loudly rather than
 // returning nil for callers to dereference.
-func yAxisSlice(c *Channels, k AxisKey) *[]uint32 {
+func yAxisSlice(c *Channels, k AxisKey) *[]channel.Key {
 	switch k {
 	case AxisKeyY1:
 		return &c.Y1

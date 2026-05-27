@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/spatial"
@@ -156,7 +157,7 @@ var _ = Describe("Writer", func() {
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Channels.Y1).To(ConsistOf(uint32(42), uint32(43)))
+				Expect(res.Channels.Y1).To(ConsistOf(channel.Key(42), channel.Key(43)))
 			})
 
 			It("Should treat a duplicate AddChannel as a no-op", func(ctx SpecContext) {
@@ -173,7 +174,7 @@ var _ = Describe("Writer", func() {
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Channels.Y2).To(ConsistOf(uint32(7)))
+				Expect(res.Channels.Y2).To(ConsistOf(channel.Key(7)))
 			})
 
 			It("Should reject AddChannel targeting an x-axis with validate.ErrValidation", func(ctx SpecContext) {
@@ -203,7 +204,7 @@ var _ = Describe("Writer", func() {
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Channels.Y3).To(ConsistOf(uint32(2)))
+				Expect(res.Channels.Y3).To(ConsistOf(channel.Key(2)))
 			})
 
 			It("Should replace the single channel bound to an x-axis via SetXChannel", func(ctx SpecContext) {
@@ -368,7 +369,7 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Channels.X1).To(BeEquivalentTo(1))
 				Expect(res.Ranges.X1).To(Equal([]string{r}))
-				Expect(res.Channels.Y1).To(ConsistOf(uint32(10)))
+				Expect(res.Channels.Y1).To(ConsistOf(channel.Key(10)))
 			})
 
 			It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {

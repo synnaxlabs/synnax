@@ -303,7 +303,7 @@ LinePlot struct {
 
     action AddChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             appends the channel to the channels array bound to the y-axis
@@ -314,7 +314,7 @@ LinePlot struct {
 
     action RemoveChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             removes the channel from the y-axis named by axis_key. No-op
@@ -325,7 +325,7 @@ LinePlot struct {
 
     action SetXChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             replaces the single channel bound to the x-axis named by

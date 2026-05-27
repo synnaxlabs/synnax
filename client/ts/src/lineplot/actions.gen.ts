@@ -12,6 +12,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { channel } from "@/channel";
 import {
   axisKeyZ,
   axisZ,
@@ -51,7 +52,7 @@ export type SetLegendPayload = z.infer<typeof setLegendPayloadZ>;
  */
 export const addChannelPayloadZ = z.object({
   axisKey: axisKeyZ,
-  channel: z.uint32(),
+  channel: channel.keyZ,
 });
 
 export type AddChannelPayload = z.infer<typeof addChannelPayloadZ>;
@@ -63,7 +64,7 @@ export type AddChannelPayload = z.infer<typeof addChannelPayloadZ>;
  */
 export const removeChannelPayloadZ = z.object({
   axisKey: axisKeyZ,
-  channel: z.uint32(),
+  channel: channel.keyZ,
 });
 
 export type RemoveChannelPayload = z.infer<typeof removeChannelPayloadZ>;
@@ -75,7 +76,7 @@ export type RemoveChannelPayload = z.infer<typeof removeChannelPayloadZ>;
  */
 export const setXChannelPayloadZ = z.object({
   axisKey: axisKeyZ,
-  channel: z.uint32(),
+  channel: channel.keyZ,
 });
 
 export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
