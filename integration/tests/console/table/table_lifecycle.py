@@ -462,8 +462,8 @@ class TableLifecycle(ConsoleCase):
     def test_edit_toggle_gates_editing(self, table: Table) -> None:
         """Test that toggling editing off hides edit affordances and re-enables them on toggle."""
         self.log("Testing edit toggle gates editing affordances")
-        add_row_btn = self.page.locator(".console-table__add-row").first
-        add_col_btn = self.page.locator(".console-table__add-col").first
+        add_row_btn = self.page.locator(".pluto-table-frame__add-row").first
+        add_col_btn = self.page.locator(".pluto-table-frame__add-col").first
         add_row_btn.wait_for(state="visible", timeout=5000)
         add_col_btn.wait_for(state="visible", timeout=5000)
 

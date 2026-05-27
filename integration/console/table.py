@@ -111,13 +111,13 @@ class Table(ConsolePage):
 
     def add_row(self) -> None:
         """Add a new row to the table by clicking the add-row button."""
-        add_row_btn = self.page.locator(".console-table__add-row").first
+        add_row_btn = self.page.locator(".pluto-table-frame__add-row").first
         add_row_btn.wait_for(state="visible", timeout=5000)
         add_row_btn.click()
 
     def add_column(self) -> None:
         """Add a new column to the table by clicking the add-column button."""
-        add_col_btn = self.page.locator(".console-table__add-col").first
+        add_col_btn = self.page.locator(".pluto-table-frame__add-col").first
         add_col_btn.wait_for(state="visible", timeout=5000)
         add_col_btn.click()
 
