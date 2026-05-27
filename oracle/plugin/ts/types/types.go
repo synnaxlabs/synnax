@@ -703,7 +703,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					if isFieldUnchanged(parentField, field) {
 						continue
 					} else if isOnlyOptionalityChange(parentField, field) {
-						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: camelCase(field.Name)})
 					} else {
 						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
@@ -1743,6 +1743,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
+	// String-valued enums are emitted as `z.enum([...])` plus a type alias and
+	// have no runtime object to dot into. Emit the raw string literal instead;
+	// only numeric enums get the `Type.variant` form, since those emit as TS
+	// runtime enums.
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return fmt.Sprintf("%q", ev.Variant.StringValue())
+	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.Namespace != data.Namespace {

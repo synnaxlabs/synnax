@@ -9,15 +9,15 @@
 
 import "@/header/Header.css";
 
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Text } from "@/text";
 
 export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
-  level?: Text.Level;
+  level?: text.Level;
   divided?: boolean;
   bordered?: boolean;
   padded?: boolean;
@@ -26,7 +26,7 @@ export interface HeaderProps extends Omit<Flex.BoxProps, "children" | "el"> {
 
 export interface ContextValue {
   divided: boolean;
-  level: Text.Level;
+  level: text.Level;
 }
 
 const [Context, useContext] = context.create<ContextValue>({

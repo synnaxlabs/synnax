@@ -90,14 +90,11 @@ describe("connectivity", () => {
   });
   describe("clock skew", () => {
     const createMockClient = (nodeTime: TimeStamp): UnaryClient => ({
-      send: vi.fn().mockResolvedValue([
-        {
-          clusterKey: "test-cluster",
-          nodeVersion: __VERSION__,
-          nodeTime,
-        },
-        null,
-      ]) as UnaryClient["send"],
+      send: vi.fn().mockResolvedValue({
+        clusterKey: "test-cluster",
+        nodeVersion: __VERSION__,
+        nodeTime,
+      }),
       use: vi.fn(),
     });
 

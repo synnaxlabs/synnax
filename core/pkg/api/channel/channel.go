@@ -33,6 +33,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Key = channel.Key
+
 // Service is the central service for all things Channel related.
 type Service struct {
 	db       *gorp.DB

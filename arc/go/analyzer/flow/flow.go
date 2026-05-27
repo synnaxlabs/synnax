@@ -641,7 +641,9 @@ func analyzeRoutingTargetWithParam(
 				}
 			}
 		} else {
-			if len(fnType.Type.Inputs) > 0 {
+			//  A select branch into such an ExecBoth node is a trigger, not a typed input.
+			upstreamIsTrigger := fnType.Exec == symbol.ExecBoth && len(fnType.Type.Config) > 0
+			if !upstreamIsTrigger && len(fnType.Type.Inputs) > 0 {
 				param := fnType.Type.Inputs[0]
 				if err := atypes.Check(ctx.Constraints, sourceType, param.Type, ctx.AST,
 					"routing table output to func parameter"); err != nil {

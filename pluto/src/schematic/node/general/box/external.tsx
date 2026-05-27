@@ -12,7 +12,7 @@ import { color } from "@synnaxlabs/x";
 import { Component } from "@/component";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/box/config";
-import { Primitive } from "@/schematic/node/general/box/Primitive";
+import { Box } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
@@ -38,7 +38,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: NAME,
   Form: () => <TankForm showBorderRadius showStrokeWidth />,
   Node: Symbol,
-  Preview: Component.removeProps(Primitive, ["dimensions"]),
+  Preview: Component.removeProps(Box, ["dimensions"]),
   defaultConfig,
   zIndex: 2,
 };

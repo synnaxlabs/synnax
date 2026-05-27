@@ -12,79 +12,20 @@ package kv
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/version"
 	"go.uber.org/zap"
 )
 
-type versionFilter struct {
-	confluence.BatchSwitch[TxRequest, TxRequest]
-	memKV      xkv.DB
-	acceptedTo address.Address
-	rejectedTo address.Address
-	Config
-}
-
-func newVersionFilter(cfg Config, acceptedTo address.Address, rejectedTo address.Address) segment {
-	s := &versionFilter{Config: cfg, acceptedTo: acceptedTo, rejectedTo: rejectedTo, memKV: cfg.Engine}
-	s.Switch = s._switch
-	return s
-}
-
-func (vc *versionFilter) _switch(
-	_ context.Context,
-	b TxRequest,
-	o map[address.Address]TxRequest,
-) error {
-	var (
-		rejected = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
-		accepted = TxRequest{Sender: b.Sender, doneF: b.doneF, Context: b.Context, span: b.span}
-	)
-	ctx, span := vc.T.Debug(b.Context, "tx-filter")
-	defer span.End()
-	for _, op := range b.Operations {
-		if vc.filter(ctx, op) {
-			accepted.Operations = append(accepted.Operations, op)
-		} else {
-			rejected.Operations = append(rejected.Operations, op)
-		}
-	}
-	if len(accepted.Operations) > 0 {
-		o[vc.acceptedTo] = accepted
-	}
-	if len(rejected.Operations) > 0 {
-		o[vc.rejectedTo] = rejected
-	}
-	return nil
-}
-
-func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
-	dig, err := getDigestFromKV(ctx, vc.memKV, op.Key)
-	if err != nil {
-		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
-		if err != nil {
-			return errors.Is(err, query.ErrNotFound)
-		}
-	}
-	// If the versions of the operation are equal, we select a winning operation
-	// based the which leasehold is higher.
-	if op.Version.EqualTo(dig.Version) {
-		return op.Leaseholder > dig.Leaseholder
-	}
-	return op.Version.NewerThan(dig.Version)
-}
-
-func getDigestFromKV(ctx context.Context, kve xkv.DB, key []byte) (Digest, error) {
+func getDigestFromKV(ctx context.Context, r xkv.Reader, key []byte) (Digest, error) {
 	dig := Digest{}
 	key, err := digestKey(key)
 	if err != nil {
 		return dig, err
 	}
-	b, closer, err := kve.Get(ctx, key)
+	b, closer, err := r.Get(ctx, key)
 	if err != nil {
 		return dig, err
 	}
