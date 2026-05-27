@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { edgeChangesToActions, nodeChangesToActions } from "@/schematic/Diagram";
@@ -101,7 +102,7 @@ describe("edgeChangesToActions", () => {
   it("seeds the new edge's config with the pipe variant's default", () => {
     const edge = newEdge("e1");
     const [, setCfg] = edgeChangesToActions([{ type: "add", edge }]);
-    const expected = Edge.REGISTRY.pipe.defaultConfig();
+    const expected = Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown;
     expect(setCfg).toEqual(schematic.setConfig({ key: "e1", config: expected }));
   });
 
@@ -128,7 +129,7 @@ describe("edgeChangesToActions", () => {
       { type: "remove", key: "e2" },
       { type: "add", edge: e3 },
     ];
-    const pipeDefault = Edge.REGISTRY.pipe.defaultConfig();
+    const pipeDefault = Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown;
     expect(edgeChangesToActions(changes)).toEqual([
       schematic.addEdge({ edge: e1 }),
       schematic.setConfig({ key: "e1", config: pipeDefault }),
