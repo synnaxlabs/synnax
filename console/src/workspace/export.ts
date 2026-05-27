@@ -12,7 +12,7 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
-import { type Export } from "@/export";
+import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
@@ -20,8 +20,6 @@ import { Runtime } from "@/runtime";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
 import { selectActive } from "@/workspace/selectors";
-
-const sanitizeDirectoryName = (name: string): string => name.replace(/[/\\]/g, "_");
 
 export interface ExportContext {
   client: Client | null;
@@ -53,7 +51,7 @@ export const export_ = (
     }
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,
-      subdirectory: sanitizeDirectoryName(name),
+      subdirectory: Export.sanitizeFileName(name),
     });
     if (directory == null) return;
     if (
@@ -69,7 +67,7 @@ export const export_ = (
     const namesSet = new Set<string>();
     Object.values(toExport.layouts).forEach((layout) => {
       const deduplicatedName = strings.deduplicateFileName(layout.name, namesSet);
-      layout.name = sanitizeDirectoryName(deduplicatedName);
+      layout.name = Export.sanitizeFileName(deduplicatedName);
       namesSet.add(layout.name);
     });
     await directory.writeText(LAYOUT_FILE_NAME, JSON.stringify(toExport));

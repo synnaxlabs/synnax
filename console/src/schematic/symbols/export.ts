@@ -62,7 +62,7 @@ const exportGroup = async ({
 
   const directory = await Runtime.pickWritableDirectory({
     title: `Select a location to export ${name}`,
-    subdirectory: name.replace(/[^a-z0-9]/gi, "_"),
+    subdirectory: Export.sanitizeFileName(name),
   });
   if (directory == null) return;
   if (directory.preExisted) {
@@ -81,7 +81,7 @@ const exportGroup = async ({
     name,
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
-        const fileName = `${symbol.name.replace(/[^a-z0-9]/gi, "_")}_${symbol.key.slice(0, 8)}.json`;
+        const fileName = `${Export.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
         await directory.writeText(fileName, JSON.stringify(symbol));
         return { file: fileName, key: symbol.key, name: symbol.name };
       }),

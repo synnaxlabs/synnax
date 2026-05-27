@@ -60,9 +60,8 @@ export const FileDrop = ({
       const [file] = files;
       const contents = await file.read();
       const nameWithoutExt = file.name.replace(/\.svg$/i, "");
-      const properName = nameWithoutExt
-        ? caseconv.toProperNoun(nameWithoutExt)
-        : undefined;
+      const properName =
+        nameWithoutExt === "" ? undefined : caseconv.toProperNoun(nameWithoutExt);
       onContentsChange(contents, properName);
     }, "Failed to load SVG file");
 
