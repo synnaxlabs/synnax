@@ -25,8 +25,7 @@ import (
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
 // walks the per-step Migrate functions forward to v1.Data. A nil blob and a blob
 // without a version field both fall through to v0 and walk the full chain. Enum strings
-// outside their closed sets flow through untouched for the latest-Log lift to default;
-// a malformed color, by contrast, fails the decode and surfaces as an error.
+// outside their closed sets flow through untouched for the latest-Log lift to default.
 func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	var peek struct {
 		Version string `json:"version"`
