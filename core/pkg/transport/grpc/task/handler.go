@@ -15,37 +15,36 @@ import (
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
+	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskpb "github.com/synnaxlabs/synnax/pkg/service/task/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/task/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
 	createServer = grpc.UnaryServer[
-		apitask.CreateRequest,
+		task.CreateRequest,
 		*CreateRequest,
-		apitask.CreateResponse,
+		task.CreateResponse,
 		*CreateResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		apitask.RetrieveRequest,
+		task.RetrieveRequest,
 		*RetrieveRequest,
-		apitask.RetrieveResponse,
+		task.RetrieveResponse,
 		*RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
-		apitask.DeleteRequest,
+		task.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	copyServer = grpc.UnaryServer[
-		apitask.CopyRequest,
+		task.CopyRequest,
 		*CopyRequest,
-		apitask.CopyResponse,
+		task.CopyResponse,
 		*CopyResponse,
 	]
 )
@@ -61,48 +60,63 @@ type (
 )
 
 var (
-	_ grpc.Translator[apitask.CreateRequest, *CreateRequest]       = createRequestTranslator{}
-	_ grpc.Translator[apitask.CreateResponse, *CreateResponse]     = createResponseTranslator{}
-	_ grpc.Translator[apitask.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
-	_ grpc.Translator[apitask.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
-	_ grpc.Translator[apitask.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
-	_ grpc.Translator[apitask.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
-	_ grpc.Translator[apitask.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
+	_ grpc.Translator[task.CreateRequest, *CreateRequest]       = createRequestTranslator{}
+	_ grpc.Translator[task.CreateResponse, *CreateResponse]     = createResponseTranslator{}
+	_ grpc.Translator[task.RetrieveRequest, *RetrieveRequest]   = retrieveRequestTranslator{}
+	_ grpc.Translator[task.RetrieveResponse, *RetrieveResponse] = retrieveResponseTranslator{}
+	_ grpc.Translator[task.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
+	_ grpc.Translator[task.CopyRequest, *CopyRequest]           = copyRequestTranslator{}
+	_ grpc.Translator[task.CopyResponse, *CopyResponse]         = copyResponseTranslator{}
 )
 
-func (createRequestTranslator) Forward(_ context.Context, req apitask.CreateRequest) (*CreateRequest, error) {
-	tasks, err := taskpb.TasksToPB(req.Tasks)
+func (createRequestTranslator) Forward(
+	_ context.Context,
+	req task.CreateRequest,
+) (*CreateRequest, error) {
+	tasks, err := pb.TasksToPB(req.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateRequest{Tasks: tasks}, nil
 }
 
-func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (apitask.CreateRequest, error) {
-	tasks, err := taskpb.TasksFromPB(req.Tasks)
+func (createRequestTranslator) Backward(
+	_ context.Context,
+	req *CreateRequest,
+) (task.CreateRequest, error) {
+	tasks, err := pb.TasksFromPB(req.Tasks)
 	if err != nil {
-		return apitask.CreateRequest{}, err
+		return task.CreateRequest{}, err
 	}
-	return apitask.CreateRequest{Tasks: tasks}, nil
+	return task.CreateRequest{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Forward(_ context.Context, res apitask.CreateResponse) (*CreateResponse, error) {
-	tasks, err := taskpb.TasksToPB(res.Tasks)
+func (createResponseTranslator) Forward(
+	_ context.Context,
+	res task.CreateResponse,
+) (*CreateResponse, error) {
+	tasks, err := pb.TasksToPB(res.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &CreateResponse{Tasks: tasks}, nil
 }
 
-func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (apitask.CreateResponse, error) {
-	tasks, err := taskpb.TasksFromPB(res.Tasks)
+func (createResponseTranslator) Backward(
+	_ context.Context,
+	res *CreateResponse,
+) (task.CreateResponse, error) {
+	tasks, err := pb.TasksFromPB(res.Tasks)
 	if err != nil {
-		return apitask.CreateResponse{}, err
+		return task.CreateResponse{}, err
 	}
-	return apitask.CreateResponse{Tasks: tasks}, nil
+	return task.CreateResponse{Tasks: tasks}, nil
 }
 
-func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.RetrieveRequest) (*RetrieveRequest, error) {
+func (retrieveRequestTranslator) Forward(
+	_ context.Context,
+	req task.RetrieveRequest,
+) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
 		Rack:          uint32(req.Rack),
 		Keys:          unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
@@ -112,8 +126,11 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.Retrieve
 	}, nil
 }
 
-func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apitask.RetrieveRequest, error) {
-	return apitask.RetrieveRequest{
+func (retrieveRequestTranslator) Backward(
+	_ context.Context,
+	req *RetrieveRequest,
+) (task.RetrieveRequest, error) {
+	return task.RetrieveRequest{
 		Rack:          rack.Key(req.Rack),
 		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
 		Names:         req.Names,
@@ -122,31 +139,50 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(_ context.Context, res apitask.RetrieveResponse) (*RetrieveResponse, error) {
-	tasks, err := taskpb.TasksToPB(res.Tasks)
+func (retrieveResponseTranslator) Forward(
+	_ context.Context,
+	res task.RetrieveResponse,
+) (*RetrieveResponse, error) {
+	tasks, err := pb.TasksToPB(res.Tasks)
 	if err != nil {
 		return nil, err
 	}
 	return &RetrieveResponse{Tasks: tasks}, nil
 }
 
-func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (apitask.RetrieveResponse, error) {
-	tasks, err := taskpb.TasksFromPB(res.Tasks)
+func (retrieveResponseTranslator) Backward(
+	_ context.Context,
+	res *RetrieveResponse,
+) (task.RetrieveResponse, error) {
+	tasks, err := pb.TasksFromPB(res.Tasks)
 	if err != nil {
-		return apitask.RetrieveResponse{}, err
+		return task.RetrieveResponse{}, err
 	}
-	return apitask.RetrieveResponse{Tasks: tasks}, nil
+	return task.RetrieveResponse{Tasks: tasks}, nil
 }
 
-func (deleteRequestTranslator) Forward(_ context.Context, req apitask.DeleteRequest) (*DeleteRequest, error) {
-	return &DeleteRequest{Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
+func (deleteRequestTranslator) Forward(
+	_ context.Context,
+	req task.DeleteRequest,
+) (*DeleteRequest, error) {
+	return &DeleteRequest{
+		Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
+	}, nil
 }
 
-func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (apitask.DeleteRequest, error) {
-	return apitask.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
+func (deleteRequestTranslator) Backward(
+	_ context.Context,
+	req *DeleteRequest,
+) (task.DeleteRequest, error) {
+	return task.DeleteRequest{
+		Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
+	}, nil
 }
 
-func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest) (*CopyRequest, error) {
+func (copyRequestTranslator) Forward(
+	_ context.Context,
+	req task.CopyRequest,
+) (*CopyRequest, error) {
 	return &CopyRequest{
 		Key:      uint64(req.Key),
 		Name:     req.Name,
@@ -154,60 +190,64 @@ func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest)
 	}, nil
 }
 
-func (copyRequestTranslator) Backward(_ context.Context, req *CopyRequest) (apitask.CopyRequest, error) {
-	return apitask.CopyRequest{
+func (copyRequestTranslator) Backward(
+	_ context.Context,
+	req *CopyRequest,
+) (task.CopyRequest, error) {
+	return task.CopyRequest{
 		Key:      task.Key(req.Key),
 		Name:     req.Name,
 		Snapshot: req.Snapshot,
 	}, nil
 }
 
-func (copyResponseTranslator) Forward(_ context.Context, res apitask.CopyResponse) (*CopyResponse, error) {
-	t, err := taskpb.TaskToPB(res.Task)
+func (copyResponseTranslator) Forward(
+	_ context.Context,
+	res task.CopyResponse,
+) (*CopyResponse, error) {
+	t, err := pb.TaskToPB(res.Task)
 	if err != nil {
 		return nil, err
 	}
 	return &CopyResponse{Task: t}, nil
 }
 
-func (copyResponseTranslator) Backward(_ context.Context, res *CopyResponse) (apitask.CopyResponse, error) {
-	t, err := taskpb.TaskFromPB(res.Task)
+func (copyResponseTranslator) Backward(
+	_ context.Context,
+	res *CopyResponse,
+) (task.CopyResponse, error) {
+	t, err := pb.TaskFromPB(res.Task)
 	if err != nil {
-		return apitask.CopyResponse{}, err
+		return task.CopyResponse{}, err
 	}
-	return apitask.CopyResponse{Task: t}, nil
+	return task.CopyResponse{Task: t}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &TaskCreateService_ServiceDesc,
 	}
-	a.TaskCreate = create
+	t.TaskCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &TaskRetrieveService_ServiceDesc,
 	}
-	a.TaskRetrieve = retrieve
+	t.TaskRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &TaskDeleteService_ServiceDesc,
 	}
-	a.TaskDelete = del
+	t.TaskDelete = del
 	cpy := &copyServer{
 		RequestTranslator:  copyRequestTranslator{},
 		ResponseTranslator: copyResponseTranslator{},
 		ServiceDesc:        &TaskCopyService_ServiceDesc,
 	}
-	a.TaskCopy = cpy
+	t.TaskCopy = cpy
 
-	return grpc.CompoundBindableTransport{
-		create,
-		retrieve,
-		del,
-		cpy,
-	}
+	return grpc.CompoundBindableTransport{create, retrieve, del, cpy}
 }

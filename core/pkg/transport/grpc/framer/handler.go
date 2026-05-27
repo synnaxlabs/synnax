@@ -15,11 +15,9 @@ import (
 
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -40,25 +38,25 @@ type (
 	frameStreamerResponseTranslator struct{ codec *codec.Codec }
 	frameDeleteRequestTranslator    struct{}
 	framerWriterServerCore          = fgrpc.StreamServerCore[
-		apiframer.WriterRequest,
+		framer.WriterRequest,
 		*WriterRequest,
-		apiframer.WriterResponse,
+		framer.WriterResponse,
 		*WriterResponse,
 	]
 	frameIteratorServerCore = fgrpc.StreamServerCore[
-		apiframer.IteratorRequest,
+		framer.IteratorRequest,
 		*IteratorRequest,
-		apiframer.IteratorResponse,
+		framer.IteratorResponse,
 		*IteratorResponse,
 	]
 	frameStreamerServerCore = fgrpc.StreamServerCore[
-		apiframer.StreamerRequest,
+		framer.StreamerRequest,
 		*StreamerRequest,
-		apiframer.StreamerResponse,
+		framer.StreamerResponse,
 		*StreamerResponse,
 	]
 	frameDeleteServer = fgrpc.UnaryServer[
-		apiframer.DeleteRequest,
+		framer.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
@@ -66,18 +64,18 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[apiframer.WriterRequest, *WriterRequest]       = (*frameWriterRequestTranslator)(nil)
-	_ fgrpc.Translator[apiframer.WriterResponse, *WriterResponse]     = (*frameWriterResponseTranslator)(nil)
-	_ fgrpc.Translator[apiframer.IteratorRequest, *IteratorRequest]   = (*frameIteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[apiframer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(nil)
-	_ fgrpc.Translator[apiframer.StreamerRequest, *StreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
-	_ fgrpc.Translator[apiframer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(nil)
-	_ fgrpc.Translator[apiframer.DeleteRequest, *DeleteRequest]       = (*frameDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[framer.WriterRequest, *WriterRequest]       = (*frameWriterRequestTranslator)(nil)
+	_ fgrpc.Translator[framer.WriterResponse, *WriterResponse]     = (*frameWriterResponseTranslator)(nil)
+	_ fgrpc.Translator[framer.IteratorRequest, *IteratorRequest]   = (*frameIteratorRequestTranslator)(nil)
+	_ fgrpc.Translator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(nil)
+	_ fgrpc.Translator[framer.StreamerRequest, *StreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
+	_ fgrpc.Translator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(nil)
+	_ fgrpc.Translator[framer.DeleteRequest, *DeleteRequest]       = (*frameDeleteRequestTranslator)(nil)
 )
 
 func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
-	msg apiframer.WriterRequest,
+	msg framer.WriterRequest,
 ) (*WriterRequest, error) {
 	subj, err := controlpb.SubjectToPB(msg.Config.ControlSubject)
 	if err != nil {
@@ -112,18 +110,18 @@ func (t frameWriterRequestTranslator) Forward(
 func (t frameWriterRequestTranslator) Backward(
 	ctx context.Context,
 	msg *WriterRequest,
-) (apiframer.WriterRequest, error) {
+) (framer.WriterRequest, error) {
 	if msg == nil {
-		return apiframer.WriterRequest{}, nil
+		return framer.WriterRequest{}, nil
 	}
-	r := apiframer.WriterRequest{Command: writer.Command(msg.Command)}
+	r := framer.WriterRequest{Command: writer.Command(msg.Command)}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
 		if err != nil {
-			return apiframer.WriterRequest{}, err
+			return framer.WriterRequest{}, err
 		}
 		keys := channel.KeysFromUint32(msg.Config.Keys)
-		r.Config = apiframer.WriterConfig{
+		r.Config = framer.WriterConfig{
 			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
 			Mode:                     writer.Mode(msg.Config.Mode),
@@ -136,29 +134,29 @@ func (t frameWriterRequestTranslator) Backward(
 		}
 		if t.codec != nil {
 			if err = t.codec.Update(ctx, keys); err != nil {
-				return apiframer.WriterRequest{}, err
+				return framer.WriterRequest{}, err
 			}
 		}
 	}
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		fr, err := t.codec.Decode(msg.Buffer)
 		if err != nil {
-			return apiframer.WriterRequest{}, err
+			return framer.WriterRequest{}, err
 		}
 		r.Frame = fr
 		return r, nil
 	}
 	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
-		return apiframer.WriterRequest{}, err
+		return framer.WriterRequest{}, err
 	}
-	r.Frame = frame.Frame{Frame: frm}
+	r.Frame = framer.Frame{Frame: frm}
 	return r, nil
 }
 
 func (frameWriterResponseTranslator) Forward(
 	_ context.Context,
-	msg apiframer.WriterResponse,
+	msg framer.WriterResponse,
 ) (*WriterResponse, error) {
 	return &WriterResponse{
 		Command: int32(msg.Command),
@@ -170,8 +168,8 @@ func (frameWriterResponseTranslator) Forward(
 func (frameWriterResponseTranslator) Backward(
 	_ context.Context,
 	msg *WriterResponse,
-) (apiframer.WriterResponse, error) {
-	return apiframer.WriterResponse{
+) (framer.WriterResponse, error) {
+	return framer.WriterResponse{
 		Command: writer.Command(msg.Command),
 		End:     telem.TimeStamp(msg.End),
 		Err:     errors.TranslatePayloadBackward(msg.Error),
@@ -180,7 +178,7 @@ func (frameWriterResponseTranslator) Backward(
 
 func (frameIteratorRequestTranslator) Forward(
 	_ context.Context,
-	msg apiframer.IteratorRequest,
+	msg framer.IteratorRequest,
 ) (*IteratorRequest, error) {
 	tr, err := telempb.TimeRangeToPB(msg.Bounds)
 	if err != nil {
@@ -199,18 +197,18 @@ func (frameIteratorRequestTranslator) Forward(
 func (t frameIteratorRequestTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorRequest,
-) (apiframer.IteratorRequest, error) {
+) (framer.IteratorRequest, error) {
 	tr, err := telempb.TimeRangeFromPB(msg.Range)
 	if err != nil {
-		return apiframer.IteratorRequest{}, err
+		return framer.IteratorRequest{}, err
 	}
 	keys := channel.KeysFromUint32(msg.Keys)
 	if t.codec != nil && len(keys) > 0 {
 		if err = t.codec.Update(ctx, keys); err != nil {
-			return apiframer.IteratorRequest{}, err
+			return framer.IteratorRequest{}, err
 		}
 	}
-	return apiframer.IteratorRequest{
+	return framer.IteratorRequest{
 		Command:   iterator.Command(msg.Command),
 		Span:      telem.TimeSpan(msg.Span),
 		Bounds:    tr,
@@ -222,7 +220,7 @@ func (t frameIteratorRequestTranslator) Backward(
 
 func (t frameIteratorResponseTranslator) Forward(
 	ctx context.Context,
-	msg apiframer.IteratorResponse,
+	msg framer.IteratorResponse,
 ) (*IteratorResponse, error) {
 	res := &IteratorResponse{
 		Variant: int32(msg.Variant),
@@ -254,8 +252,8 @@ func (t frameIteratorResponseTranslator) Forward(
 func (t frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorResponse,
-) (apiframer.IteratorResponse, error) {
-	res := apiframer.IteratorResponse{
+) (framer.IteratorResponse, error) {
+	res := framer.IteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
 		NodeKey: node.Key(msg.NodeKey),
@@ -268,14 +266,14 @@ func (t frameIteratorResponseTranslator) Backward(
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		fr, err := t.codec.Decode(msg.Buffer)
 		if err != nil {
-			return apiframer.IteratorResponse{}, err
+			return framer.IteratorResponse{}, err
 		}
 		res.Frame = fr
 		return res, nil
 	}
 	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
-		return apiframer.IteratorResponse{}, err
+		return framer.IteratorResponse{}, err
 	}
 	res.Frame = framer.Frame{Frame: frm}
 	return res, nil
@@ -283,7 +281,7 @@ func (t frameIteratorResponseTranslator) Backward(
 
 func (frameStreamerRequestTranslator) Forward(
 	_ context.Context,
-	msg apiframer.StreamerRequest,
+	msg framer.StreamerRequest,
 ) (*StreamerRequest, error) {
 	return &StreamerRequest{
 		Keys:             msg.Keys.Uint32(),
@@ -296,8 +294,8 @@ func (frameStreamerRequestTranslator) Forward(
 func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
 	msg *StreamerRequest,
-) (apiframer.StreamerRequest, error) {
-	rq := apiframer.StreamerRequest{
+) (framer.StreamerRequest, error) {
+	rq := framer.StreamerRequest{
 		Keys:             channel.KeysFromUint32(msg.Keys),
 		DownsampleFactor: int(msg.DownsampleFactor),
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
@@ -305,7 +303,7 @@ func (t frameStreamerRequestTranslator) Backward(
 	}
 	if t.codec != nil && len(rq.Keys) > 0 {
 		if err := t.codec.Update(ctx, rq.Keys); err != nil {
-			return apiframer.StreamerRequest{}, err
+			return framer.StreamerRequest{}, err
 		}
 	}
 	return rq, nil
@@ -313,7 +311,7 @@ func (t frameStreamerRequestTranslator) Backward(
 
 func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
-	msg apiframer.StreamerResponse,
+	msg framer.StreamerResponse,
 ) (*StreamerResponse, error) {
 	if t.codec != nil && t.codec.Initialized() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
@@ -332,24 +330,24 @@ func (t frameStreamerResponseTranslator) Forward(
 func (t frameStreamerResponseTranslator) Backward(
 	_ context.Context,
 	msg *StreamerResponse,
-) (apiframer.StreamerResponse, error) {
+) (framer.StreamerResponse, error) {
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		fr, err := t.codec.Decode(msg.Buffer)
 		if err != nil {
-			return apiframer.StreamerResponse{}, err
+			return framer.StreamerResponse{}, err
 		}
-		return apiframer.StreamerResponse{Frame: fr}, nil
+		return framer.StreamerResponse{Frame: fr}, nil
 	}
 	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
-		return apiframer.StreamerResponse{}, err
+		return framer.StreamerResponse{}, err
 	}
-	return apiframer.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
+	return framer.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
 }
 
 func (frameDeleteRequestTranslator) Forward(
 	_ context.Context,
-	msg apiframer.DeleteRequest,
+	msg framer.DeleteRequest,
 ) (*DeleteRequest, error) {
 	tr, err := telempb.TimeRangeToPB(msg.Bounds)
 	if err != nil {
@@ -361,12 +359,16 @@ func (frameDeleteRequestTranslator) Forward(
 func (frameDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
-) (apiframer.DeleteRequest, error) {
+) (framer.DeleteRequest, error) {
 	tr, err := telempb.TimeRangeFromPB(msg.Bounds)
 	if err != nil {
-		return apiframer.DeleteRequest{}, err
+		return framer.DeleteRequest{}, err
 	}
-	return apiframer.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys), Names: msg.Names, Bounds: tr}, nil
+	return framer.DeleteRequest{
+		Keys:   channel.KeysFromUint32(msg.Keys),
+		Names:  msg.Names,
+		Bounds: tr,
+	}, nil
 }
 
 type writerServer struct{ *framerWriterServerCore }
@@ -399,13 +401,13 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
+func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[apiframer.WriterRequest, *WriterRequest],
-					fgrpc.Translator[apiframer.WriterResponse, *WriterResponse],
+					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
+					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelSvc)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
@@ -416,8 +418,8 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 		is = &iteratorServer{
 			frameIteratorServerCore: &frameIteratorServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[apiframer.IteratorRequest, *IteratorRequest],
-					fgrpc.Translator[apiframer.IteratorResponse, *IteratorResponse],
+					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
+					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
 				) {
 					codec := codec.NewDynamic(channelSvc)
 					return frameIteratorRequestTranslator{codec: codec},
@@ -429,8 +431,8 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[apiframer.StreamerRequest, *StreamerRequest],
-					fgrpc.Translator[apiframer.StreamerResponse, *StreamerResponse],
+					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
+					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelSvc)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
@@ -443,9 +445,9 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 			ServiceDesc:       &FrameDeleteService_ServiceDesc,
 		}
 	)
-	a.FrameStreamer = ss
-	a.FrameWriter = ws
-	a.FrameIterator = is
-	a.FrameDelete = ds
+	t.FrameStreamer = ss
+	t.FrameWriter = ws
+	t.FrameIterator = is
+	t.FrameDelete = ds
 	return fgrpc.CompoundBindableTransport{ws, is, ss, ds}
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,19 +30,19 @@ type (
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
 	createServer               = grpc.UnaryServer[
-		apiarc.CreateRequest,
+		arc.CreateRequest,
 		*CreateRequest,
-		apiarc.CreateResponse,
+		arc.CreateResponse,
 		*CreateResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		apiarc.RetrieveRequest,
+		arc.RetrieveRequest,
 		*RetrieveRequest,
-		apiarc.RetrieveResponse,
+		arc.RetrieveResponse,
 		*RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
-		apiarc.DeleteRequest,
+		arc.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
@@ -50,16 +50,16 @@ type (
 )
 
 var (
-	_ grpc.Translator[apiarc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ grpc.Translator[apiarc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ grpc.Translator[apiarc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[apiarc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[apiarc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[arc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
+	_ grpc.Translator[arc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
+	_ grpc.Translator[arc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[arc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
 func (createRequestTranslator) Forward(
 	_ context.Context,
-	msg apiarc.CreateRequest,
+	msg arc.CreateRequest,
 ) (*CreateRequest, error) {
 	arcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
@@ -68,20 +68,20 @@ func (createRequestTranslator) Forward(
 	return &CreateRequest{Arcs: arcs}, nil
 }
 
-func (t createRequestTranslator) Backward(
+func (createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
-) (apiarc.CreateRequest, error) {
+) (arc.CreateRequest, error) {
 	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
-		return apiarc.CreateResponse{}, err
+		return arc.CreateRequest{}, err
 	}
-	return apiarc.CreateRequest{Arcs: arcs}, nil
+	return arc.CreateRequest{Arcs: arcs}, nil
 }
 
-func (t createResponseTranslator) Forward(
+func (createResponseTranslator) Forward(
 	_ context.Context,
-	msg apiarc.CreateResponse,
+	msg arc.CreateResponse,
 ) (*CreateResponse, error) {
 	pbArcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
@@ -90,20 +90,20 @@ func (t createResponseTranslator) Forward(
 	return &CreateResponse{Arcs: pbArcs}, nil
 }
 
-func (t createResponseTranslator) Backward(
+func (createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
-) (apiarc.CreateResponse, error) {
+) (arc.CreateResponse, error) {
 	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
-		return apiarc.CreateResponse{}, nil
+		return arc.CreateResponse{}, err
 	}
-	return apiarc.CreateResponse{Arcs: arcs}, nil
+	return arc.CreateResponse{Arcs: arcs}, nil
 }
 
-func (t retrieveRequestTranslator) Forward(
+func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	msg apiarc.RetrieveRequest,
+	msg arc.RetrieveRequest,
 ) (*RetrieveRequest, error) {
 	keys := lo.Map(msg.Keys, func(k svcarc.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
@@ -117,19 +117,19 @@ func (t retrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t retrieveRequestTranslator) Backward(
+func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
-) (apiarc.RetrieveRequest, error) {
+) (arc.RetrieveRequest, error) {
 	keys := make([]svcarc.Key, 0, len(msg.Keys))
 	for _, keyStr := range msg.Keys {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {
-			return apiarc.RetrieveRequest{}, err
+			return arc.RetrieveRequest{}, err
 		}
 		keys = append(keys, key)
 	}
-	return apiarc.RetrieveRequest{
+	return arc.RetrieveRequest{
 		Keys:          keys,
 		Names:         msg.Names,
 		SearchTerm:    msg.SearchTerm,
@@ -140,9 +140,9 @@ func (t retrieveRequestTranslator) Backward(
 	}, nil
 }
 
-func (t retrieveResponseTranslator) Forward(
+func (retrieveResponseTranslator) Forward(
 	_ context.Context,
-	msg apiarc.RetrieveResponse,
+	msg arc.RetrieveResponse,
 ) (*RetrieveResponse, error) {
 	arcs, err := pb.ArcsToPB(msg.Arcs)
 	if err != nil {
@@ -151,41 +151,40 @@ func (t retrieveResponseTranslator) Forward(
 	return &RetrieveResponse{Arcs: arcs}, nil
 }
 
-func (t retrieveResponseTranslator) Backward(
+func (retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
-) (apiarc.RetrieveResponse, error) {
+) (arc.RetrieveResponse, error) {
 	arcs, err := pb.ArcsFromPB(msg.Arcs)
 	if err != nil {
-		return apiarc.RetrieveResponse{}, err
+		return arc.RetrieveResponse{}, err
 	}
-	return apiarc.RetrieveResponse{Arcs: arcs}, nil
+	return arc.RetrieveResponse{Arcs: arcs}, nil
 }
 
-func (t deleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	msg apiarc.DeleteRequest,
+	msg arc.DeleteRequest,
 ) (*DeleteRequest, error) {
 	keys := lo.Map(msg.Keys, func(k svcarc.Key, _ int) string { return k.String() })
 	return &DeleteRequest{Keys: keys}, nil
 }
 
-func (t deleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
-) (apiarc.DeleteRequest, error) {
-	keys := make([]svcarc.Key, 0, len(msg.Keys))
-	for _, keyStr := range msg.Keys {
-		key, err := uuid.Parse(keyStr)
-		if err != nil {
-			return apiarc.DeleteRequest{}, err
+) (arc.DeleteRequest, error) {
+	keys := make([]svcarc.Key, len(msg.Keys))
+	var err error
+	for i, keyStr := range msg.Keys {
+		if keys[i], err = uuid.Parse(keyStr); err != nil {
+			return arc.DeleteRequest{}, err
 		}
-		keys = append(keys, key)
 	}
-	return apiarc.DeleteRequest{Keys: keys}, nil
+	return arc.DeleteRequest{Keys: keys}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	c := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
@@ -201,8 +200,8 @@ func New(a *api.Transport) grpc.BindableTransport {
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ArcDeleteService_ServiceDesc,
 	}
-	a.ArcCreate = c
-	a.ArcRetrieve = r
-	a.ArcDelete = d
+	t.ArcCreate = c
+	t.ArcRetrieve = r
+	t.ArcDelete = d
 	return grpc.CompoundBindableTransport{c, r, d}
 }

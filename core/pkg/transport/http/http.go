@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	"github.com/synnaxlabs/synnax/pkg/api/framer"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -39,7 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	httpframer "github.com/synnaxlabs/synnax/pkg/transport/http/framer"
+	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 )
 
@@ -47,7 +47,7 @@ import (
 // layer's handlers and middleware to them. ch resolves channel keys for the frame
 // codec.
 func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
-	framerServerOption := httpframer.WithCodec(ch)
+	framerServerOption := framer.WithCodec(ch)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
@@ -71,10 +71,10 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ConnectivityCheck: http.NewUnaryServer[types.Nil, connectivity.CheckResponse](router, "/api/v1/connectivity/check"),
 
 		// FRAME
-		FrameWriter:   http.NewStreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
-		FrameIterator: http.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate", framerServerOption),
-		FrameStreamer: http.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
-		FrameDelete:   http.NewUnaryServer[framer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
+		FrameWriter:   http.NewStreamServer[apiframer.WriterRequest, apiframer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
+		FrameIterator: http.NewStreamServer[apiframer.IteratorRequest, apiframer.IteratorResponse](router, "/api/v1/frame/iterate", framerServerOption),
+		FrameStreamer: http.NewStreamServer[apiframer.StreamerRequest, apiframer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
+		FrameDelete:   http.NewUnaryServer[apiframer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 
 		// ONTOLOGY
 		OntologyRetrieve:       http.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](router, "/api/v1/ontology/retrieve"),

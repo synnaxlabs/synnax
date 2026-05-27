@@ -51,8 +51,8 @@ func benchFrame(numChannels, samplesPerSeries int) (
 // benchIteratorFrame mirrors the iterator's "across-domains" shape: each
 // channel appears numDomains times (one series per time domain). This is the
 // frame shape SY-3556 actually optimizes — the request asks the iterator to
-// span more than one domain and the response carries one series per domain
-// per channel.
+// span more than one domain and the response carries one series per domain per
+// channel.
 func benchIteratorFrame(numChannels, numDomains, samples int) (
 	channel.Keys, []telem.DataType, frame.Frame,
 ) {
@@ -131,9 +131,9 @@ func BenchmarkWriterRequestTranslator_Forward(b *testing.B) {
 	}
 }
 
-// BenchmarkWriterRequestTranslator_Backward measures the steady-state hot
-// path: Config is nil (set only on Open), Buffer carries the codec-encoded
-// frame. This is what the server sees per Write after the initial handshake.
+// BenchmarkWriterRequestTranslator_Backward measures the steady-state hot path:
+// Config is nil (set only on Open), Buffer carries the codec-encoded frame.
+// This is what the server sees per Write after the initial handshake.
 func BenchmarkWriterRequestTranslator_Backward(b *testing.B) {
 	for _, nc := range []int{1, 8, 64} {
 		b.Run(fmt.Sprintf("channels=%d", nc), func(b *testing.B) {
@@ -220,8 +220,8 @@ func BenchmarkIteratorResponseTranslator_Forward(b *testing.B) {
 }
 
 // BenchmarkIteratorResponseTranslator_Forward_NoCodec exercises the fall-back
-// path that was the rc default: serialize the frame to protobuf. Comparing
-// this against the codec path shows the speed-up SY-3556 buys.
+// path that was the rc default: serialize the frame to protobuf. Comparing this
+// against the codec path shows the speed-up SY-3556 buys.
 func BenchmarkIteratorResponseTranslator_Forward_NoCodec(b *testing.B) {
 	cases := []struct {
 		channels, domains, samples int

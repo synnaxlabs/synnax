@@ -77,49 +77,49 @@ var (
 	_ grpc.Translator[alias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
 )
 
-func (t setRequestTranslator) Forward(
+func (setRequestTranslator) Forward(
 	_ context.Context,
 	r alias.SetRequest,
 ) (*SetRequest, error) {
 	return &SetRequest{
 		Range:   r.Range.String(),
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
-func (t setRequestTranslator) Backward(
+func (setRequestTranslator) Backward(
 	_ context.Context,
 	r *SetRequest,
 ) (alias.SetRequest, error) {
 	key, err := uuid.Parse(r.Range)
+	if err != nil {
+		return alias.SetRequest{}, err
+	}
 	return alias.SetRequest{
 		Range:   key,
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
-	}, err
-}
-
-func (t resolveRequestTranslator) Forward(
-	_ context.Context,
-	r alias.ResolveRequest,
-) (*ResolveRequest, error) {
-	return &ResolveRequest{
-		Range:   r.Range.String(),
-		Aliases: r.Aliases,
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.Aliases),
 	}, nil
 }
 
-func (t resolveRequestTranslator) Backward(
+func (resolveRequestTranslator) Forward(
+	_ context.Context,
+	r alias.ResolveRequest,
+) (*ResolveRequest, error) {
+	return &ResolveRequest{Range: r.Range.String(), Aliases: r.Aliases}, nil
+}
+
+func (resolveRequestTranslator) Backward(
 	_ context.Context,
 	r *ResolveRequest,
 ) (alias.ResolveRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return alias.ResolveRequest{
-		Range:   key,
-		Aliases: r.Aliases,
-	}, err
+	if err != nil {
+		return alias.ResolveRequest{}, err
+	}
+	return alias.ResolveRequest{Range: key, Aliases: r.Aliases}, nil
 }
 
-func (t resolveResponseTranslator) Forward(
+func (resolveResponseTranslator) Forward(
 	_ context.Context,
 	r alias.ResolveResponse,
 ) (*ResolveResponse, error) {
@@ -128,7 +128,7 @@ func (t resolveResponseTranslator) Forward(
 	}, nil
 }
 
-func (t resolveResponseTranslator) Backward(
+func (resolveResponseTranslator) Backward(
 	_ context.Context,
 	r *ResolveResponse,
 ) (alias.ResolveResponse, error) {
@@ -137,7 +137,7 @@ func (t resolveResponseTranslator) Backward(
 	}, nil
 }
 
-func (t deleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
 	r alias.DeleteRequest,
 ) (*DeleteRequest, error) {
@@ -147,46 +147,48 @@ func (t deleteRequestTranslator) Forward(
 	}, nil
 }
 
-func (t deleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
 ) (alias.DeleteRequest, error) {
 	key, err := uuid.Parse(r.Range)
+	if err != nil {
+		return alias.DeleteRequest{}, err
+	}
 	return alias.DeleteRequest{
 		Range:    key,
 		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
-	}, err
-}
-
-func (t listRequestTranslator) Forward(
-	_ context.Context,
-	r alias.ListRequest,
-) (*ListRequest, error) {
-	return &ListRequest{
-		Range: r.Range.String(),
 	}, nil
 }
 
-func (t listRequestTranslator) Backward(
+func (listRequestTranslator) Forward(
+	_ context.Context,
+	r alias.ListRequest,
+) (*ListRequest, error) {
+	return &ListRequest{Range: r.Range.String()}, nil
+}
+
+func (listRequestTranslator) Backward(
 	_ context.Context,
 	r *ListRequest,
 ) (alias.ListRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return alias.ListRequest{
-		Range: key,
-	}, err
+	if err != nil {
+		return alias.ListRequest{}, err
+	}
+	return alias.ListRequest{Range: key}, nil
 }
 
-func (t listResponseTranslator) Forward(
+func (listResponseTranslator) Forward(
 	_ context.Context,
 	r alias.ListResponse,
 ) (*ListResponse, error) {
 	return &ListResponse{
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
-func (t listResponseTranslator) Backward(
+func (listResponseTranslator) Backward(
 	_ context.Context,
 	r *ListResponse,
 ) (alias.ListResponse, error) {
@@ -195,7 +197,7 @@ func (t listResponseTranslator) Backward(
 	}, nil
 }
 
-func (t retrieveRequestTranslator) Forward(
+func (retrieveRequestTranslator) Forward(
 	_ context.Context,
 	r alias.RetrieveRequest,
 ) (*RetrieveRequest, error) {
@@ -205,18 +207,21 @@ func (t retrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t retrieveRequestTranslator) Backward(
+func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (alias.RetrieveRequest, error) {
 	key, err := uuid.Parse(r.Range)
+	if err != nil {
+		return alias.RetrieveRequest{}, err
+	}
 	return alias.RetrieveRequest{
 		Range:    key,
 		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
-	}, err
+	}, nil
 }
 
-func (t retrieveResponseTranslator) Forward(
+func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	r alias.RetrieveResponse,
 ) (*RetrieveResponse, error) {
@@ -225,7 +230,7 @@ func (t retrieveResponseTranslator) Forward(
 	}, nil
 }
 
-func (t retrieveResponseTranslator) Backward(
+func (retrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *RetrieveResponse,
 ) (alias.RetrieveResponse, error) {
@@ -234,36 +239,36 @@ func (t retrieveResponseTranslator) Backward(
 	}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	set := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AliasSetService_ServiceDesc,
 	}
-	a.AliasSet = set
+	t.AliasSet = set
 	resolve := &resolveServer{
 		RequestTranslator:  resolveRequestTranslator{},
 		ResponseTranslator: resolveResponseTranslator{},
 		ServiceDesc:        &AliasResolveService_ServiceDesc,
 	}
-	a.AliasResolve = resolve
+	t.AliasResolve = resolve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AliasDeleteService_ServiceDesc,
 	}
-	a.AliasDelete = del
+	t.AliasDelete = del
 	list := &listServer{
 		RequestTranslator:  listRequestTranslator{},
 		ResponseTranslator: listResponseTranslator{},
 		ServiceDesc:        &AliasListService_ServiceDesc,
 	}
-	a.AliasList = list
+	t.AliasList = list
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &AliasRetrieveService_ServiceDesc,
 	}
-	a.AliasRetrieve = retrieve
+	t.AliasRetrieve = retrieve
 	return grpc.CompoundBindableTransport{set, resolve, del, list, retrieve}
 }

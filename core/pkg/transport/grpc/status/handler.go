@@ -14,14 +14,15 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
+	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	xpb "github.com/synnaxlabs/x/pb"
 	xstatus "github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
+	"github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -32,19 +33,19 @@ type (
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
 	setServer                  = grpc.UnaryServer[
-		apistatus.SetRequest,
+		status.SetRequest,
 		*SetRequest,
-		apistatus.SetResponse,
+		status.SetResponse,
 		*SetResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		apistatus.RetrieveRequest,
+		status.RetrieveRequest,
 		*RetrieveRequest,
-		apistatus.RetrieveResponse,
+		status.RetrieveResponse,
 		*RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
-		apistatus.DeleteRequest,
+		status.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
@@ -52,77 +53,75 @@ type (
 )
 
 var (
-	_ grpc.Translator[apistatus.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.SetResponse, *SetResponse]           = (*setResponseTranslator)(nil)
-	_ grpc.Translator[apistatus.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[apistatus.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[status.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
+	_ grpc.Translator[status.SetResponse, *SetResponse]           = (*setResponseTranslator)(nil)
+	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[status.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
-func (t setRequestTranslator) Forward(
+func (setRequestTranslator) Forward(
 	_ context.Context,
-	msg apistatus.SetRequest,
+	msg status.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
 	return &SetRequest{Parent: msg.Parent.String(), Statuses: statuses}, nil
 }
 
-func (t setRequestTranslator) Backward(
+func (setRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetRequest,
-) (apistatus.SetRequest, error) {
+) (status.SetRequest, error) {
 	var parent ontology.ID
 	if msg.Parent != "" {
 		var err error
 		parent, err = ontology.ParseID(msg.Parent)
 		if err != nil {
-			return apistatus.SetRequest{}, err
+			return status.SetRequest{}, err
 		}
 	}
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
-		return apistatus.SetRequest{}, err
+		return status.SetRequest{}, err
 	}
-	return apistatus.SetRequest{Parent: parent, Statuses: statuses}, nil
+	return status.SetRequest{Parent: parent, Statuses: statuses}, nil
 }
 
-func (t setResponseTranslator) Forward(
+func (setResponseTranslator) Forward(
 	_ context.Context,
-	msg apistatus.SetResponse,
+	msg status.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
 	return &SetResponse{Statuses: statuses}, nil
 }
 
-func (t setResponseTranslator) Backward(
+func (setResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetResponse,
-) (apistatus.SetResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+) (status.SetResponse, error) {
+	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
-		return apistatus.SetResponse{}, err
+		return status.SetResponse{}, err
 	}
-	return apistatus.SetResponse{Statuses: statuses}, nil
+	return status.SetResponse{Statuses: statuses}, nil
 }
 
-func (t retrieveRequestTranslator) Forward(
+func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	msg apistatus.RetrieveRequest,
+	msg status.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	hasLabels := make([]string, len(msg.HasLabels))
-	for i, label := range msg.HasLabels {
-		hasLabels[i] = label.String()
-	}
-	variants := make([]string, len(msg.Variants))
-	for i, v := range msg.Variants {
-		variants[i] = string(v)
-	}
+	hasLabels := lo.Map(msg.HasLabels, func(k label.Key, _ int) string {
+		return k.String()
+	})
+	variants := lo.Map(msg.Variants, func(v xstatus.Variant, _ int) string {
+		return string(v)
+	})
 	return &RetrieveRequest{
 		Keys:          msg.Keys,
 		SearchTerm:    msg.SearchTerm,
@@ -134,25 +133,20 @@ func (t retrieveRequestTranslator) Forward(
 	}, nil
 }
 
-func (t retrieveRequestTranslator) Backward(
+func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
-) (apistatus.RetrieveRequest, error) {
-	var (
-		err          error
-		hasLabelKeys = make([]label.Key, len(msg.HasLabels))
-	)
-	for i, label := range msg.HasLabels {
-		hasLabelKeys[i], err = uuid.Parse(label)
-		if err != nil {
-			return apistatus.RetrieveRequest{}, err
-		}
+) (status.RetrieveRequest, error) {
+	hasLabelKeys, err := lo.MapErr(msg.HasLabels, func(k string, _ int) (label.Key, error) {
+		return uuid.Parse(k)
+	})
+	if err != nil {
+		return status.RetrieveRequest{}, err
 	}
-	variants := make([]xstatus.Variant, len(msg.Variants))
-	for i, v := range msg.Variants {
-		variants[i] = xstatus.Variant(v)
-	}
-	return apistatus.RetrieveRequest{
+	variants := lo.Map(msg.Variants, func(v string, _ int) xstatus.Variant {
+		return xstatus.Variant(v)
+	})
+	return status.RetrieveRequest{
 		Keys:          msg.Keys,
 		SearchTerm:    msg.SearchTerm,
 		Offset:        int(msg.Offset),
@@ -163,43 +157,43 @@ func (t retrieveRequestTranslator) Backward(
 	}, nil
 }
 
-func (t retrieveResponseTranslator) Forward(
+func (retrieveResponseTranslator) Forward(
 	_ context.Context,
-	msg apistatus.RetrieveResponse,
+	msg status.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	statuses, err := statuspb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
+	statuses, err := pb.StatusesToPB(msg.Statuses, xpb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
 	return &RetrieveResponse{Statuses: statuses}, nil
 }
 
-func (t retrieveResponseTranslator) Backward(
+func (retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
-) (apistatus.RetrieveResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+) (status.RetrieveResponse, error) {
+	statuses, err := pb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
 	if err != nil {
-		return apistatus.RetrieveResponse{}, err
+		return status.RetrieveResponse{}, err
 	}
-	return apistatus.RetrieveResponse{Statuses: statuses}, nil
+	return status.RetrieveResponse{Statuses: statuses}, nil
 }
 
-func (t deleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	msg apistatus.DeleteRequest,
+	msg status.DeleteRequest,
 ) (*DeleteRequest, error) {
 	return &DeleteRequest{Keys: msg.Keys}, nil
 }
 
-func (t deleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
-) (apistatus.DeleteRequest, error) {
-	return apistatus.DeleteRequest{Keys: msg.Keys}, nil
+) (status.DeleteRequest, error) {
+	return status.DeleteRequest{Keys: msg.Keys}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: setResponseTranslator{},
@@ -215,8 +209,8 @@ func New(a *api.Transport) grpc.BindableTransport {
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &StatusDeleteService_ServiceDesc,
 	}
-	a.StatusSet = s
-	a.StatusRetrieve = r
-	a.StatusDelete = d
+	t.StatusSet = s
+	t.StatusRetrieve = r
+	t.StatusDelete = d
 	return grpc.CompoundBindableTransport{s, r, d}
 }

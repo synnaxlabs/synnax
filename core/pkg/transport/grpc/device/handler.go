@@ -59,7 +59,10 @@ var (
 	_ grpc.Translator[device.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(_ context.Context, req device.CreateRequest) (*CreateRequest, error) {
+func (createRequestTranslator) Forward(
+	_ context.Context,
+	req device.CreateRequest,
+) (*CreateRequest, error) {
 	devices, err := pb.DevicesToPB(req.Devices)
 	if err != nil {
 		return nil, err
@@ -67,7 +70,10 @@ func (createRequestTranslator) Forward(_ context.Context, req device.CreateReque
 	return &CreateRequest{Devices: devices}, nil
 }
 
-func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (device.CreateRequest, error) {
+func (createRequestTranslator) Backward(
+	_ context.Context,
+	req *CreateRequest,
+) (device.CreateRequest, error) {
 	devices, err := pb.DevicesFromPB(req.Devices)
 	if err != nil {
 		return device.CreateRequest{}, err
@@ -75,7 +81,10 @@ func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (
 	return device.CreateRequest{Devices: devices}, nil
 }
 
-func (createResponseTranslator) Forward(_ context.Context, res device.CreateResponse) (*CreateResponse, error) {
+func (createResponseTranslator) Forward(
+	_ context.Context,
+	res device.CreateResponse,
+) (*CreateResponse, error) {
 	devices, err := pb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
@@ -83,7 +92,10 @@ func (createResponseTranslator) Forward(_ context.Context, res device.CreateResp
 	return &CreateResponse{Devices: devices}, nil
 }
 
-func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (device.CreateResponse, error) {
+func (createResponseTranslator) Backward(
+	_ context.Context,
+	res *CreateResponse,
+) (device.CreateResponse, error) {
 	devices, err := pb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.CreateResponse{}, err
@@ -91,7 +103,10 @@ func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse)
 	return device.CreateResponse{Devices: devices}, nil
 }
 
-func (retrieveRequestTranslator) Forward(_ context.Context, req device.RetrieveRequest) (*RetrieveRequest, error) {
+func (retrieveRequestTranslator) Forward(
+	_ context.Context,
+	req device.RetrieveRequest,
+) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
 		Keys:           req.Keys,
 		Names:          req.Names,
@@ -108,7 +123,10 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req device.RetrieveR
 	}, nil
 }
 
-func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (device.RetrieveRequest, error) {
+func (retrieveRequestTranslator) Backward(
+	_ context.Context,
+	req *RetrieveRequest,
+) (device.RetrieveRequest, error) {
 	return device.RetrieveRequest{
 		Keys:           req.Keys,
 		Names:          req.Names,
@@ -125,7 +143,10 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(_ context.Context, res device.RetrieveResponse) (*RetrieveResponse, error) {
+func (retrieveResponseTranslator) Forward(
+	_ context.Context,
+	res device.RetrieveResponse,
+) (*RetrieveResponse, error) {
 	devices, err := pb.DevicesToPB(res.Devices)
 	if err != nil {
 		return nil, err
@@ -133,7 +154,10 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res device.Retrieve
 	return &RetrieveResponse{Devices: devices}, nil
 }
 
-func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (device.RetrieveResponse, error) {
+func (retrieveResponseTranslator) Backward(
+	_ context.Context,
+	res *RetrieveResponse,
+) (device.RetrieveResponse, error) {
 	devices, err := pb.DevicesFromPB(res.Devices)
 	if err != nil {
 		return device.RetrieveResponse{}, err
@@ -141,37 +165,39 @@ func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveRespo
 	return device.RetrieveResponse{Devices: devices}, nil
 }
 
-func (deleteRequestTranslator) Forward(_ context.Context, req device.DeleteRequest) (*DeleteRequest, error) {
+func (deleteRequestTranslator) Forward(
+	_ context.Context,
+	req device.DeleteRequest,
+) (*DeleteRequest, error) {
 	return &DeleteRequest{Keys: req.Keys}, nil
 }
 
-func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (device.DeleteRequest, error) {
+func (deleteRequestTranslator) Backward(
+	_ context.Context,
+	req *DeleteRequest,
+) (device.DeleteRequest, error) {
 	return device.DeleteRequest{Keys: req.Keys}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &DeviceCreateService_ServiceDesc,
 	}
-	a.DeviceCreate = create
+	t.DeviceCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &DeviceRetrieveService_ServiceDesc,
 	}
-	a.DeviceRetrieve = retrieve
+	t.DeviceRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &DeviceDeleteService_ServiceDesc,
 	}
-	a.DeviceDelete = del
+	t.DeviceDelete = del
 
-	return grpc.CompoundBindableTransport{
-		create,
-		retrieve,
-		del,
-	}
+	return grpc.CompoundBindableTransport{create, retrieve, del}
 }

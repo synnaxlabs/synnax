@@ -55,12 +55,12 @@ func (responseTranslator) Backward(
 	}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	s := &server{
 		RequestTranslator:  grpc.EmptyTranslator{},
 		ResponseTranslator: responseTranslator{},
 		ServiceDesc:        &ConnectivityService_ServiceDesc,
 	}
-	a.ConnectivityCheck = s
+	t.ConnectivityCheck = s
 	return s
 }

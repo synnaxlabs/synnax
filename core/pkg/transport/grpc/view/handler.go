@@ -14,10 +14,10 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	svcview "github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/view/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -59,7 +59,10 @@ var (
 	_ grpc.Translator[view.DeleteRequest, *DeleteRequest]       = deleteRequestTranslator{}
 )
 
-func (createRequestTranslator) Forward(_ context.Context, req view.CreateRequest) (*CreateRequest, error) {
+func (createRequestTranslator) Forward(
+	_ context.Context,
+	req view.CreateRequest,
+) (*CreateRequest, error) {
 	views, err := pb.ViewsToPB(req.Views)
 	if err != nil {
 		return nil, err
@@ -67,7 +70,10 @@ func (createRequestTranslator) Forward(_ context.Context, req view.CreateRequest
 	return &CreateRequest{Views: views}, nil
 }
 
-func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (view.CreateRequest, error) {
+func (createRequestTranslator) Backward(
+	_ context.Context,
+	req *CreateRequest,
+) (view.CreateRequest, error) {
 	views, err := pb.ViewsFromPB(req.Views)
 	if err != nil {
 		return view.CreateRequest{}, err
@@ -75,7 +81,10 @@ func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (
 	return view.CreateRequest{Views: views}, nil
 }
 
-func (createResponseTranslator) Forward(_ context.Context, res view.CreateResponse) (*CreateResponse, error) {
+func (createResponseTranslator) Forward(
+	_ context.Context,
+	res view.CreateResponse,
+) (*CreateResponse, error) {
 	views, err := pb.ViewsToPB(res.Views)
 	if err != nil {
 		return nil, err
@@ -83,7 +92,10 @@ func (createResponseTranslator) Forward(_ context.Context, res view.CreateRespon
 	return &CreateResponse{Views: views}, nil
 }
 
-func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (view.CreateResponse, error) {
+func (createResponseTranslator) Backward(
+	_ context.Context,
+	res *CreateResponse,
+) (view.CreateResponse, error) {
 	views, err := pb.ViewsFromPB(res.Views)
 	if err != nil {
 		return view.CreateResponse{}, err
@@ -91,11 +103,11 @@ func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse)
 	return view.CreateResponse{Views: views}, nil
 }
 
-func (retrieveRequestTranslator) Forward(_ context.Context, req view.RetrieveRequest) (*RetrieveRequest, error) {
-	keys := make([]string, len(req.Keys))
-	for i, k := range req.Keys {
-		keys[i] = k.String()
-	}
+func (retrieveRequestTranslator) Forward(
+	_ context.Context,
+	req view.RetrieveRequest,
+) (*RetrieveRequest, error) {
+	keys := lo.Map(req.Keys, func(k view.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
 		Keys:       keys,
 		Types:      req.Types,
@@ -105,14 +117,16 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req view.RetrieveReq
 	}, nil
 }
 
-func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (view.RetrieveRequest, error) {
-	keys := make([]svcview.Key, len(req.Keys))
+func (retrieveRequestTranslator) Backward(
+	_ context.Context,
+	req *RetrieveRequest,
+) (view.RetrieveRequest, error) {
+	keys := make([]view.Key, len(req.Keys))
+	var err error
 	for i, k := range req.Keys {
-		parsed, err := uuid.Parse(k)
-		if err != nil {
+		if keys[i], err = uuid.Parse(k); err != nil {
 			return view.RetrieveRequest{}, err
 		}
-		keys[i] = parsed
 	}
 	return view.RetrieveRequest{
 		Keys:       keys,
@@ -123,7 +137,10 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}, nil
 }
 
-func (retrieveResponseTranslator) Forward(_ context.Context, res view.RetrieveResponse) (*RetrieveResponse, error) {
+func (retrieveResponseTranslator) Forward(
+	_ context.Context,
+	res view.RetrieveResponse,
+) (*RetrieveResponse, error) {
 	views, err := pb.ViewsToPB(res.Views)
 	if err != nil {
 		return nil, err
@@ -131,7 +148,10 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res view.RetrieveRe
 	return &RetrieveResponse{Views: views}, nil
 }
 
-func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (view.RetrieveResponse, error) {
+func (retrieveResponseTranslator) Backward(
+	_ context.Context,
+	res *RetrieveResponse,
+) (view.RetrieveResponse, error) {
 	views, err := pb.ViewsFromPB(res.Views)
 	if err != nil {
 		return view.RetrieveResponse{}, err
@@ -139,49 +159,47 @@ func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveRespo
 	return view.RetrieveResponse{Views: views}, nil
 }
 
-func (deleteRequestTranslator) Forward(_ context.Context, req view.DeleteRequest) (*DeleteRequest, error) {
-	keys := make([]string, len(req.Keys))
-	for i, k := range req.Keys {
-		keys[i] = k.String()
-	}
+func (deleteRequestTranslator) Forward(
+	_ context.Context,
+	req view.DeleteRequest,
+) (*DeleteRequest, error) {
+	keys := lo.Map(req.Keys, func(k view.Key, _ int) string { return k.String() })
 	return &DeleteRequest{Keys: keys}, nil
 }
 
-func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (view.DeleteRequest, error) {
-	keys := make([]svcview.Key, len(req.Keys))
+func (deleteRequestTranslator) Backward(
+	_ context.Context,
+	req *DeleteRequest,
+) (view.DeleteRequest, error) {
+	keys := make([]view.Key, len(req.Keys))
+	var err error
 	for i, k := range req.Keys {
-		parsed, err := uuid.Parse(k)
-		if err != nil {
+		if keys[i], err = uuid.Parse(k); err != nil {
 			return view.DeleteRequest{}, err
 		}
-		keys[i] = parsed
 	}
 	return view.DeleteRequest{Keys: keys}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
 		ResponseTranslator: createResponseTranslator{},
 		ServiceDesc:        &ViewCreateService_ServiceDesc,
 	}
-	a.ViewCreate = create
+	t.ViewCreate = create
 	retrieve := &retrieveServer{
 		RequestTranslator:  retrieveRequestTranslator{},
 		ResponseTranslator: retrieveResponseTranslator{},
 		ServiceDesc:        &ViewRetrieveService_ServiceDesc,
 	}
-	a.ViewRetrieve = retrieve
+	t.ViewRetrieve = retrieve
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &ViewDeleteService_ServiceDesc,
 	}
-	a.ViewDelete = del
+	t.ViewDelete = del
 
-	return grpc.CompoundBindableTransport{
-		create,
-		retrieve,
-		del,
-	}
+	return grpc.CompoundBindableTransport{create, retrieve, del}
 }

@@ -186,10 +186,10 @@ func BenchmarkHTTPCodec_StreamerResponse_Decode(b *testing.B) {
 	}
 }
 
-// BenchmarkHTTPCodec_IteratorResponse_Encode covers the new path SY-3556 adds
-// to the HTTP codec: an iterator data response is encoded via the high-perf
-// codec instead of JSON. Cases mirror the iterator's typical "across-domains"
-// shape where each channel appears once per time domain.
+// BenchmarkHTTPCodec_IteratorResponse_Encode covers the new path SY-3556 adds to the
+// HTTP codec: an iterator data response is encoded via the high-perf codec instead of
+// JSON. Cases mirror the iterator's typical "across-domains" shape where each channel
+// appears once per time domain.
 func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 	cases := []struct {
 		channels, domains, samples int

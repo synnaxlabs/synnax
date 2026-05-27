@@ -41,14 +41,14 @@ var (
 	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(nil)
 )
 
-func (l loginRequestTranslator) Forward(
+func (loginRequestTranslator) Forward(
 	_ context.Context,
 	req auth.LoginRequest,
 ) (*LoginRequest, error) {
 	return &LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
 }
 
-func (l loginRequestTranslator) Backward(
+func (loginRequestTranslator) Backward(
 	_ context.Context,
 	req *LoginRequest,
 ) (auth.LoginRequest, error) {
@@ -56,7 +56,7 @@ func (l loginRequestTranslator) Backward(
 	return auth.LoginRequest{Credentials: creds}, nil
 }
 
-func (l loginResponseTranslator) Forward(
+func (loginResponseTranslator) Forward(
 	_ context.Context,
 	r auth.LoginResponse,
 ) (*LoginResponse, error) {
@@ -75,11 +75,14 @@ func (l loginResponseTranslator) Forward(
 	}, nil
 }
 
-func (l loginResponseTranslator) Backward(
+func (loginResponseTranslator) Backward(
 	_ context.Context,
 	r *LoginResponse,
 ) (auth.LoginResponse, error) {
 	key, err := uuid.Parse(r.User.Key)
+	if err != nil {
+		return auth.LoginResponse{}, err
+	}
 	return auth.LoginResponse{
 		Token: r.Token,
 		User: user.User{
@@ -92,15 +95,15 @@ func (l loginResponseTranslator) Backward(
 			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
 			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
-	}, err
+	}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	s := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
 		ResponseTranslator: loginResponseTranslator{},
 		ServiceDesc:        &AuthLoginService_ServiceDesc,
 	}
-	a.AuthLogin = s
+	t.AuthLogin = s
 	return s
 }

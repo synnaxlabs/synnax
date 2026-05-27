@@ -16,27 +16,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apikv "github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
-	svckv "github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
-	kvpb "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
 	getServer = grpc.UnaryServer[
-		apikv.GetRequest,
+		kv.GetRequest,
 		*GetRequest,
-		apikv.GetResponse,
+		kv.GetResponse,
 		*GetResponse,
 	]
 	setServer = grpc.UnaryServer[
-		apikv.SetRequest,
+		kv.SetRequest,
 		*SetRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	deleteServer = grpc.UnaryServer[
-		apikv.DeleteRequest,
+		kv.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
@@ -51,124 +50,111 @@ type (
 )
 
 var (
-	_ grpc.Translator[apikv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
-	_ grpc.Translator[apikv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
-	_ grpc.Translator[apikv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
-	_ grpc.Translator[apikv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[kv.GetRequest, *GetRequest]       = (*getRequestTranslator)(nil)
+	_ grpc.Translator[kv.GetResponse, *GetResponse]     = (*getResponseTranslator)(nil)
+	_ grpc.Translator[kv.SetRequest, *SetRequest]       = (*setRequestTranslator)(nil)
+	_ grpc.Translator[kv.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(nil)
 )
 
-func translatePairsForward(p []svckv.Pair) ([]*kvpb.Pair, error) {
-	return kvpb.PairsToPB(p)
-}
-
-func translatePairsBackward(p []*kvpb.Pair) ([]svckv.Pair, error) {
-	return kvpb.PairsFromPB(p)
-}
-
-func (t getRequestTranslator) Forward(
+func (getRequestTranslator) Forward(
 	_ context.Context,
-	r apikv.GetRequest,
+	r kv.GetRequest,
 ) (*GetRequest, error) {
 	return &GetRequest{
-		Range: r.Range.String(),
-		Keys:  r.Keys,
-	}, nil
+		Range: r.Range.String(), Keys: r.Keys}, nil
 }
 
-func (t getRequestTranslator) Backward(
+func (getRequestTranslator) Backward(
 	_ context.Context,
 	r *GetRequest,
-) (apikv.GetRequest, error) {
+) (kv.GetRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apikv.GetRequest{
-		Range: key,
-		Keys:  r.Keys,
-	}, err
+	if err != nil {
+		return kv.GetRequest{}, err
+	}
+	return kv.GetRequest{Range: key, Keys: r.Keys}, nil
 }
 
-func (t getResponseTranslator) Forward(
+func (getResponseTranslator) Forward(
 	_ context.Context,
-	r apikv.GetResponse,
+	r kv.GetResponse,
 ) (*GetResponse, error) {
-	pairs, err := translatePairsForward(r.Pairs)
+	pairs, err := pb.PairsToPB(r.Pairs)
 	if err != nil {
 		return nil, err
 	}
 	return &GetResponse{Pairs: pairs}, nil
 }
 
-func (t getResponseTranslator) Backward(
+func (getResponseTranslator) Backward(
 	_ context.Context,
 	r *GetResponse,
-) (apikv.GetResponse, error) {
-	pairs, err := translatePairsBackward(r.Pairs)
+) (kv.GetResponse, error) {
+	pairs, err := pb.PairsFromPB(r.Pairs)
 	if err != nil {
-		return apikv.GetResponse{}, err
+		return kv.GetResponse{}, err
 	}
-	return apikv.GetResponse{Pairs: pairs}, nil
+	return kv.GetResponse{Pairs: pairs}, nil
 }
 
-func (t setRequestTranslator) Forward(
+func (setRequestTranslator) Forward(
 	_ context.Context,
-	r apikv.SetRequest,
+	r kv.SetRequest,
 ) (*SetRequest, error) {
-	pairs, err := translatePairsForward(r.Pairs)
+	pairs, err := pb.PairsToPB(r.Pairs)
 	if err != nil {
 		return nil, err
 	}
 	return &SetRequest{Pairs: pairs}, nil
 }
 
-func (t setRequestTranslator) Backward(
+func (setRequestTranslator) Backward(
 	_ context.Context,
 	r *SetRequest,
-) (apikv.SetRequest, error) {
-	pairs, err := translatePairsBackward(r.Pairs)
+) (kv.SetRequest, error) {
+	pairs, err := pb.PairsFromPB(r.Pairs)
 	if err != nil {
-		return apikv.SetRequest{}, err
+		return kv.SetRequest{}, err
 	}
-	return apikv.SetRequest{Pairs: pairs}, nil
+	return kv.SetRequest{Pairs: pairs}, nil
 }
 
-func (t deleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	r apikv.DeleteRequest,
+	r kv.DeleteRequest,
 ) (*DeleteRequest, error) {
-	return &DeleteRequest{
-		Range: r.Range.String(),
-		Keys:  r.Keys,
-	}, nil
+	return &DeleteRequest{Range: r.Range.String(), Keys: r.Keys}, nil
 }
 
-func (t deleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
-) (apikv.DeleteRequest, error) {
+) (kv.DeleteRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apikv.DeleteRequest{
-		Range: key,
-		Keys:  r.Keys,
-	}, err
+	if err != nil {
+		return kv.DeleteRequest{}, err
+	}
+	return kv.DeleteRequest{Range: key, Keys: r.Keys}, nil
 }
 
-func New(a *api.Transport) grpc.BindableTransport {
+func New(t *api.Transport) grpc.BindableTransport {
 	get := &getServer{
 		RequestTranslator:  getRequestTranslator{},
 		ResponseTranslator: getResponseTranslator{},
 		ServiceDesc:        &KVGetService_ServiceDesc,
 	}
-	a.KVGet = get
+	t.KVGet = get
 	set := &setServer{
 		RequestTranslator:  setRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVSetService_ServiceDesc,
 	}
-	a.KVSet = set
+	t.KVSet = set
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &KVDeleteService_ServiceDesc,
 	}
-	a.KVDelete = del
+	t.KVDelete = del
 	return grpc.CompoundBindableTransport{get, set, del}
 }

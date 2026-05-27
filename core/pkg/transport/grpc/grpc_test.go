@@ -12,13 +12,13 @@ package grpc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	grpcapi "github.com/synnaxlabs/synnax/pkg/transport/grpc"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc"
 )
 
 var _ = Describe("GRPC", func() {
 	Describe("Bind", func() {
 		It("Should return one bindable transport per gRPC service", func() {
-			transports := grpcapi.Bind(apiLayer, dist.Channel)
+			transports := grpc.Bind(apiLayer, dist.Channel)
 			Expect(transports).To(HaveLen(13))
 			for _, t := range transports {
 				Expect(t).ToNot(BeNil())
@@ -26,8 +26,8 @@ var _ = Describe("GRPC", func() {
 		})
 
 		It("Should return the same set of transports when bound repeatedly", func() {
-			Expect(grpcapi.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
-			Expect(grpcapi.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
+			Expect(grpc.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
+			Expect(grpc.Bind(apiLayer, dist.Channel)).To(HaveLen(13))
 		})
 	})
 })
