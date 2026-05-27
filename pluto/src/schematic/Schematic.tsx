@@ -13,10 +13,13 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
+import { Icon } from "@/icon";
 import { Key } from "@/key";
+import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
@@ -46,6 +49,14 @@ export interface SchematicProps extends Omit<
 > {
   enableTriggers?: boolean | (() => boolean);
   resourceKey: schematic.Key;
+  /**
+   * Extra items appended to the canvas right-click context menu, below Pluto's
+   * built-in actions (Undo, Redo). The render-prop signature mirrors
+   * {@link Menu.ContextMenu}'s, so consumers can branch on right-clicked
+   * `keys` and cursor position. The schematic key is available via
+   * {@link Key.use}.
+   */
+  extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
@@ -58,6 +69,7 @@ export const Schematic = ({
   onSelectionChange,
   selected,
   enableTriggers,
+  extraMenuItems,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -121,8 +133,8 @@ export const Schematic = ({
       ...edgesRef.current.map((e) => e.key),
     ]);
   }, [onSelectionChange]);
-  const { undo } = useUndo({ key });
-  const { redo } = useRedo({ key });
+  const { undo, canUndo } = useUndo({ key });
+  const { redo, canRedo } = useRedo({ key });
 
   const { onCopy, onPaste } = useClipboard({
     key,
@@ -138,26 +150,62 @@ export const Schematic = ({
     enabled: enableTriggers,
   });
 
+  const contextMenu = Menu.useContextMenu();
+  const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
+    (menuProps) => (
+      <Menu.Menu>
+        <Menu.Item
+          itemKey="undo"
+          onClick={undo}
+          disabled={!canUndo}
+          triggerIndicator={["Control", "Z"]}
+        >
+          <Icon.Undo />
+          Undo
+        </Menu.Item>
+        <Menu.Item
+          itemKey="redo"
+          onClick={redo}
+          disabled={!canRedo}
+          triggerIndicator={["Control", "Shift", "Z"]}
+        >
+          <Icon.Redo />
+          Redo
+        </Menu.Item>
+        {extraMenuItems != null && (
+          <>
+            <Menu.Divider />
+            {extraMenuItems(menuProps)}
+          </>
+        )}
+      </Menu.Menu>
+    ),
+    [undo, redo, canUndo, canRedo, extraMenuItems],
+  );
+
   return (
     <Key.Provider value={key}>
-      <Diagram
-        ref={ref}
-        className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={DRAG_HANDLE_SELECTOR}
-        autoRenderInterval={AUTO_RENDER_INTERVAL}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        viewport={viewport}
-        onSelectionChange={onSelectionChange}
-        onDoubleClick={onDoubleClick}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        nodes={nodes}
-        edges={edges}
-        selected={selected}
-        {...dropProps}
-        {...props}
-      />
+      <Menu.ContextMenu {...contextMenu} menu={renderMenu}>
+        <Diagram
+          ref={ref}
+          className={CSS(CSS.B("schematic"), className)}
+          dragHandleSelector={DRAG_HANDLE_SELECTOR}
+          autoRenderInterval={AUTO_RENDER_INTERVAL}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          viewport={viewport}
+          onSelectionChange={onSelectionChange}
+          onDoubleClick={onDoubleClick}
+          onContextMenu={contextMenu.open}
+          onCopy={onCopy}
+          onPaste={onPaste}
+          nodes={nodes}
+          edges={edges}
+          selected={selected}
+          {...dropProps}
+          {...props}
+        />
+      </Menu.ContextMenu>
     </Key.Provider>
   );
 };

@@ -148,6 +148,7 @@ import {
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
+  MdRedo,
   MdRotate90DegreesCcw,
   MdRotate90DegreesCw,
   MdRotateLeft,
@@ -159,6 +160,7 @@ import {
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdUndo,
   MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -250,6 +252,8 @@ export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
+export const Undo = wrapSVGIcon(MdUndo, "undo");
+export const Redo = wrapSVGIcon(MdRedo, "redo");
 export const Close = wrapSVGIcon(AiOutlineClose, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
@@ -507,6 +511,8 @@ const icons = {
   Copy,
   Cut,
   Paste,
+  Undo,
+  Redo,
   Close,
   Info,
   Warning,

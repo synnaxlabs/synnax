@@ -12,13 +12,15 @@ import {
   Access,
   Control,
   Diagram,
+  Menu,
   Schematic as Base,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { ContextMenu } from "@/components/context-menu";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
@@ -121,10 +123,24 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
     [store, key, hasUpdatePermission],
   );
 
+  const acquired = controlStatus === "acquired";
+  const renderExtraMenuItems = useCallback(
+    (): ReactElement => (
+      <>
+        {hasUpdatePermission && <Diagram.Menu.ToggleEditItem disabled={acquired} />}
+        {!isSnapshot && <Control.Menu.ToggleItem />}
+        <Menu.Divider />
+        <ContextMenu.ReloadConsoleItem />
+      </>
+    ),
+    [hasUpdatePermission, acquired, isSnapshot],
+  );
+
   return (
     <Controller resourceKey={key} authority={authority}>
       <Base.Schematic
         enableTriggers={enableTriggers}
+        extraMenuItems={renderExtraMenuItems}
         resourceKey={key}
         selected={selected}
         onSelectionChange={handleSelectionChange}
