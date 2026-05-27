@@ -250,12 +250,15 @@ const pickWritableDirectoryTauri = async ({
   if (parent == null || Array.isArray(parent)) return null;
   const dirPath = await join(parent, subdirectory);
   const preExisted = await exists(dirPath);
-  await mkdir(dirPath, { recursive: true });
+  let ensured: Promise<void> | null = null;
+  const ensureDir = () => (ensured ??= mkdir(dirPath, { recursive: true }));
   return {
     displayPath: dirPath,
     preExisted,
-    writeText: async (name, contents) =>
-      await writeTextFile(await join(dirPath, name), contents),
+    writeText: async (name, contents) => {
+      await ensureDir();
+      await writeTextFile(await join(dirPath, name), contents);
+    },
   };
 };
 
@@ -273,20 +276,23 @@ const pickWritableDirectoryBrowser = async ({
     if (e instanceof DOMException && e.name === "AbortError") return null;
     throw e;
   }
-  let preExisted = false;
-  let subHandle: FileSystemDirectoryHandle;
+  let subHandle: FileSystemDirectoryHandle | null = null;
+  let preExisted: boolean;
   try {
     subHandle = await root.getDirectoryHandle(subdirectory);
     preExisted = true;
   } catch (e) {
     if (!(e instanceof DOMException) || e.name !== "NotFoundError") throw e;
-    subHandle = await root.getDirectoryHandle(subdirectory, { create: true });
+    preExisted = false;
   }
+  const ensureSubHandle = async (): Promise<FileSystemDirectoryHandle> =>
+    (subHandle ??= await root.getDirectoryHandle(subdirectory, { create: true }));
   return {
     displayPath: `${root.name}/${subdirectory}`,
     preExisted,
     writeText: async (name, contents) => {
-      const fileHandle = await subHandle.getFileHandle(name, { create: true });
+      const dir = await ensureSubHandle();
+      const fileHandle = await dir.getFileHandle(name, { create: true });
       const writable = await fileHandle.createWritable();
       await writable.write(contents);
       await writable.close();
