@@ -43,6 +43,7 @@ var _ = Describe("Registry", func() {
 			Entry("seconds", "s", validEntry{"s", 1e9, false, types.DimTime}),
 			Entry("minutes", "min", validEntry{"min", 60e9, false, types.DimTime}),
 			Entry("hours", "h", validEntry{"h", 3600e9, false, types.DimTime}),
+			Entry("days", "d", validEntry{"d", 86400e9, false, types.DimTime}),
 			// Pressure units
 			Entry("psi", "psi", validEntry{"psi", 6894.76, true, types.DimPressure}),
 			Entry("Pa", "Pa", validEntry{"Pa", 1.0, false, types.DimPressure}),
