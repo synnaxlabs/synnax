@@ -421,53 +421,27 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
 
-		Describe("SetDefaultStatus", func() {
-			It("Should write an unknown-variant status row keyed on the task", func(ctx SpecContext) {
-				m := &task.Task{
-					Key:  task.NewKey(testRack.Key, 0),
-					Name: "Default Status Task",
+		Describe("AttachStatuses", func() {
+			It("Should attach persisted statuses and heal missing ones", func(ctx SpecContext) {
+				kept := &task.Task{Key: task.NewKey(testRack.Key, 0), Name: "Kept Status Task"}
+				Expect(svc.NewWriter(nil).Create(ctx, kept)).To(Succeed())
+				lost := &task.Task{Key: task.NewKey(testRack.Key, 0), Name: "Lost Status Task"}
+				Expect(svc.NewWriter(nil).Create(ctx, lost)).To(Succeed())
+				Expect(stat.NewWriter(nil).
+					Delete(ctx, task.OntologyID(lost.Key).String())).To(Succeed())
+
+				tasks := []task.Task{
+					{Key: kept.Key, Name: kept.Name},
+					{Key: lost.Key, Name: lost.Name},
 				}
-				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(svc.AttachStatuses(ctx, tasks)).To(Succeed())
 
-				fresh := MustSucceed(w.SetDefaultStatus(ctx, m))
-				Expect(fresh).ToNot(BeNil())
-				Expect(fresh.Variant).To(Equal(xstatus.VariantWarning))
-				Expect(fresh.Message).To(Equal("Default Status Task status unknown"))
-				Expect(fresh.Key).To(Equal(task.OntologyID(m.Key).String()))
-				Expect(fresh.Name).To(Equal(m.Name))
-				Expect(fresh.Details.Task).To(Equal(m.Key))
-
-				var persisted task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](fresh.Key)).
-					Entry(&persisted).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(persisted.Variant).To(Equal(xstatus.VariantWarning))
-				Expect(persisted.Message).To(Equal(fresh.Message))
-			})
-
-			It("Should overwrite an existing status with the default unknown one", func(ctx SpecContext) {
-				m := &task.Task{
-					Key:  task.NewKey(testRack.Key, 0),
-					Name: "Overwrite Task",
-					Status: &task.Status{
-						Variant: xstatus.VariantSuccess,
-						Message: "running",
-						Time:    telem.Now(),
-					},
-				}
-				Expect(w.Create(ctx, m)).To(Succeed())
-
-				fresh := MustSucceed(w.SetDefaultStatus(ctx, m))
-				Expect(fresh.Variant).To(Equal(xstatus.VariantWarning))
-
-				var persisted task.Status
-				Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](fresh.Key)).
-					Entry(&persisted).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(persisted.Variant).To(Equal(xstatus.VariantWarning))
-				Expect(persisted.Message).To(Equal("Overwrite Task status unknown"))
+				Expect(tasks[0].Status).ToNot(BeNil())
+				Expect(tasks[0].Status.Key).To(Equal(task.OntologyID(kept.Key).String()))
+				Expect(tasks[1].Status).ToNot(BeNil())
+				Expect(tasks[1].Status.Variant).To(Equal(xstatus.VariantWarning))
+				Expect(tasks[1].Status.Message).To(Equal("Lost Status Task status unknown"))
+				Expect(tasks[1].Status.Details.Task).To(Equal(lost.Key))
 			})
 		})
 	})

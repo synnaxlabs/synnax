@@ -24,11 +24,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -214,6 +216,44 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   s.table.NewRetrieve(),
 	}
+}
+
+// AttachStatuses populates the Status field of each task, writing and attaching
+// a default "status unknown" row for any task that has no persisted status.
+func (s *Service) AttachStatuses(ctx context.Context, tasks []Task) error {
+	statuses := make([]Status, 0, len(tasks))
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		Where(status.MatchKeys[StatusDetails](ontology.IDsToKeys(OntologyIDsFromTasks(tasks))...)).
+		Entries(&statuses).
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+		return err
+	}
+	byKey := make(map[string]*Status, len(statuses))
+	for i := range statuses {
+		byKey[statuses[i].Key] = &statuses[i]
+	}
+	var missing []int
+	for i := range tasks {
+		if stat, ok := byKey[OntologyID(tasks[i].Key).String()]; ok {
+			tasks[i].Status = stat
+		} else {
+			missing = append(missing, i)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := s.NewWriter(tx)
+		for _, i := range missing {
+			fresh := resolveStatus(&tasks[i], nil)
+			if err := w.status.Set(ctx, fresh); err != nil {
+				return err
+			}
+			tasks[i].Status = fresh
+		}
+		return nil
+	})
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

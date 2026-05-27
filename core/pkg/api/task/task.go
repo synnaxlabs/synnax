@@ -19,19 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
 	db     *gorp.DB
 	access *rbac.Service
 	task   *task.Service
-	status *status.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -42,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		db:     cfg.Distribution.DB,
 		task:   cfg.Service.Task,
-		status: cfg.Service.Status,
 		access: cfg.Service.RBAC,
 	}, nil
 }
@@ -148,49 +143,18 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return res, err
 	}
-
-	if req.IncludeStatus {
-		statuses := make([]task.Status, 0, len(res.Tasks))
-		if err = status.NewRetrieve[task.StatusDetails](s.status).
-			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
-			Entries(&statuses).
-			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
-			return res, err
-		}
-		byKey := make(map[string]*task.Status, len(statuses))
-		for i := range statuses {
-			byKey[statuses[i].Key] = &statuses[i]
-		}
-		var missing []int
-		for i := range res.Tasks {
-			if stat, ok := byKey[task.OntologyID(res.Tasks[i].Key).String()]; ok {
-				res.Tasks[i].Status = stat
-			} else {
-				missing = append(missing, i)
-			}
-		}
-		if len(missing) > 0 {
-			if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-				w := s.task.NewWriter(tx)
-				for _, i := range missing {
-					fresh, err := w.SetDefaultStatus(ctx, &res.Tasks[i])
-					if err != nil {
-						return err
-					}
-					res.Tasks[i].Status = fresh
-				}
-				return nil
-			}); err != nil {
-				return res, err
-			}
-		}
-	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+
+	if req.IncludeStatus {
+		if err = s.task.AttachStatuses(ctx, res.Tasks); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
 	return res, nil
 }

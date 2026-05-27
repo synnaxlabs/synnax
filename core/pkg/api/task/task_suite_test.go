@@ -88,7 +88,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		db:     db,
 		access: rbacSvc,
 		task:   taskSvc,
-		status: statusSvc,
 	}
 	testRack = &rack.Rack{Name: "Test Rack"}
 	Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())

@@ -458,7 +458,7 @@ var _ = Describe("setNode.Next", func() {
 	})
 
 	It("Should warn with a 'status.set:' prefix when the service returns an error", func(ctx SpecContext) {
-		// Empty keyOrName trips the service-side ErrEmptyKeyOrName guard.
+		// Empty keyOrName trips the service-side required-input validation guard.
 		n, state := build(ctx, "", "msg", "info")
 		n.Next(nodeCtx(ctx))
 

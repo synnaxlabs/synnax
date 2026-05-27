@@ -73,21 +73,24 @@ export const ZERO_SLICE_STATE: SliceState = {
   arcs: {},
 };
 
+const legacySetStatusZ = z.looseObject({
+  statusKey: z.string().optional(),
+  variant: z.string().optional(),
+  message: z.string().optional(),
+});
+
 // Rewrites the deprecated set_status node to status.set. The bare set_status
 // STL symbol was removed in SY-4122; saved graphs must remap the props.
 const rewriteSetStatusProp = (p: NodeProps): NodeProps => {
   if (p.key !== "set_status") return p;
-  const legacy = p as NodeProps & {
-    statusKey?: string;
-    variant?: string;
-    message?: string;
-  };
-  return {
+  const legacy = legacySetStatusZ.parse(p);
+  const next = {
     key: "status.set",
     key_or_name: legacy.statusKey ?? "",
     variant: legacy.variant ?? "success",
     message: legacy.message ?? "",
-  } as NodeProps;
+  };
+  return next;
 };
 
 const migrateGraphState = (graph: v1.GraphState): GraphState => ({

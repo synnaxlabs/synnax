@@ -21,6 +21,7 @@ import (
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // statusTypeOnly is the type-level ontology ID for granting access across all
@@ -39,7 +40,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "hello",
-				Variant:   string(xstatus.VariantInfo),
+				Variant:   xstatus.VariantInfo,
 			}))
 			MustSucceed(uuid.Parse(res.Key))
 			Expect(res.Key).ToNot(Equal(name))
@@ -64,7 +65,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: key,
 				Message:   "updated",
-				Variant:   string(xstatus.VariantWarning),
+				Variant:   xstatus.VariantWarning,
 			}))
 			Expect(res.Key).To(Equal(key))
 			Expect(res.MultipleMatches).To(BeFalse())
@@ -85,14 +86,14 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "updated",
-				Variant:   string(xstatus.VariantWarning),
+				Variant:   xstatus.VariantWarning,
 			}))
 			Expect(res.MultipleMatches).To(BeTrue())
 		})
 	})
 
 	Describe("failure paths", func() {
-		It("Should propagate ErrInvalidVariant", func(ctx SpecContext) {
+		It("Should propagate a validation error for an unknown variant", func(ctx SpecContext) {
 			name := "api_iv_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
@@ -102,10 +103,10 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   "bogus",
-			})).Error().To(MatchError(status.ErrInvalidVariant))
+			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 		})
 
-		It("Should propagate ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+		It("Should propagate a validation error for empty input", func(ctx SpecContext) {
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
@@ -113,8 +114,8 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: "",
 				Message:   "x",
-				Variant:   string(xstatus.VariantInfo),
-			})).Error().To(MatchError(status.ErrEmptyKeyOrName))
+				Variant:   xstatus.VariantInfo,
+			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 		})
 
 		It("Should refuse unauthorized requests without touching the store", func(ctx SpecContext) {
@@ -124,7 +125,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "noop",
-				Variant:   string(xstatus.VariantInfo),
+				Variant:   xstatus.VariantInfo,
 			})).Error().To(MatchError(access.ErrDenied))
 
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
@@ -141,7 +142,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
-				Variant:   string(xstatus.VariantInfo),
+				Variant:   xstatus.VariantInfo,
 			})).Error().To(MatchError(access.ErrDenied))
 		})
 	})
@@ -252,14 +253,14 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](preKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 		})
 
-		It("Should propagate ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+		It("Should propagate a validation error for empty input", func(ctx SpecContext) {
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
 			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: "",
-			})).Error().To(MatchError(status.ErrEmptyKeyOrName))
+			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 		})
 	})
 })

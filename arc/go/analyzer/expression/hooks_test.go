@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -37,7 +38,7 @@ var _ = Describe("AnalyzeCall hook", func() {
 				Config:  types.Params{{Name: "a", Type: types.I32()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
-			AnalyzeCall: symbol.CallHook(func(_ any, c parser.IFunctionCallSuffixContext) {
+			AnalyzeCall: symbol.CallHook(func(_ *diagnostics.Diagnostics, c parser.IFunctionCallSuffixContext) {
 				called++
 				callAST = c
 			}),

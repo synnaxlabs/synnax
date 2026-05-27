@@ -21,8 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Service struct {
@@ -79,9 +81,9 @@ func (s *Service) Set(
 		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
-		return res, err
+		return SetResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = s.internal.NewWriter(tx).SetManyWithParent(
 			ctx,
 			&req.Statuses,
@@ -91,7 +93,10 @@ func (s *Service) Set(
 		}
 		res.Statuses = req.Statuses
 		return nil
-	})
+	}); err != nil {
+		return SetResponse{}, err
+	}
+	return res, nil
 }
 
 // SetByKeyOrNameRequest is a request to upsert a status by key or by name.
@@ -101,7 +106,7 @@ type SetByKeyOrNameRequest struct {
 	// Message is the new status message.
 	Message string `json:"message" msgpack:"message"`
 	// Variant is the new status variant.
-	Variant string `json:"variant" msgpack:"variant"`
+	Variant xstatus.Variant `json:"variant" msgpack:"variant"`
 }
 
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
@@ -118,15 +123,15 @@ func (s *Service) SetByKeyOrName(
 	req SetByKeyOrNameRequest,
 ) (res SetByKeyOrNameResponse, err error) {
 	// Check before opening a Tx
-	if !xstatus.IsVariant(req.Variant) {
-		return res, status.ErrInvalidVariant
+	if !xstatus.IsVariant(string(req.Variant)) {
+		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
 	}
-	err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 		if err != nil {
 			return err
 		}
-		st := status.SetTarget(matches, req.KeyOrName, req.Message, req.Variant)
+		st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
 		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
@@ -140,8 +145,10 @@ func (s *Service) SetByKeyOrName(
 		res.Key = st.Key
 		res.MultipleMatches = len(matches) > 1
 		return nil
-	})
-	return res, err
+	}); err != nil {
+		return SetByKeyOrNameResponse{}, err
+	}
+	return res, nil
 }
 
 // DeleteByKeyOrNameRequest is a request to delete statuses by key or by name.
@@ -161,7 +168,7 @@ func (s *Service) DeleteByKeyOrName(
 	ctx context.Context,
 	req DeleteByKeyOrNameRequest,
 ) (res DeleteByKeyOrNameResponse, err error) {
-	err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 		if err != nil {
 			return err
@@ -185,8 +192,10 @@ func (s *Service) DeleteByKeyOrName(
 		}
 		res.Count = len(matches)
 		return nil
-	})
-	return res, err
+	}); err != nil {
+		return DeleteByKeyOrNameResponse{}, err
+	}
+	return res, nil
 }
 
 type RetrieveRequest struct {

@@ -87,7 +87,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		ctx.AST,
 	)
 	if funcType.AnalyzeFlowConfig != nil {
-		funcType.AnalyzeFlowConfig(ctx, ctx.AST.ConfigValues())
+		funcType.AnalyzeFlowConfig(ctx.Diagnostics, ctx.AST.ConfigValues())
 	}
 	if prevNode == nil {
 		return

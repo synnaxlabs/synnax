@@ -226,7 +226,7 @@ func (t setByKeyOrNameRequestTranslator) Forward(
 	return &SetByKeyOrNameRequest{
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
-		Variant:   msg.Variant,
+		Variant:   string(msg.Variant),
 	}, nil
 }
 
@@ -237,7 +237,7 @@ func (t setByKeyOrNameRequestTranslator) Backward(
 	return apistatus.SetByKeyOrNameRequest{
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
-		Variant:   msg.Variant,
+		Variant:   xstatus.Variant(msg.Variant),
 	}, nil
 }
 

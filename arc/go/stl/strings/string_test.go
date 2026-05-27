@@ -69,7 +69,7 @@ var _ = Describe("Strings", func() {
 	Describe("from_literal with nil memory", func() {
 		It("Should return 0 when memory is nil", func(ctx SpecContext) {
 			rt2 := testutil.NewRuntime(ctx)
-			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+			DeferCleanup(rt2.Close)
 			ss2 := strings.NewProgramState()
 			MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
 			rt2.Passthrough(ctx, "strings")
@@ -284,7 +284,7 @@ var _ = Describe("Strings", func() {
 		DescribeTable("Should return handle 0 when memory is nil",
 			func(ctx SpecContext, fn string, value uint64) {
 				rt2 := testutil.NewRuntime(ctx)
-				defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+				DeferCleanup(rt2.Close)
 				ss2 := strings.NewProgramState()
 				MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
 				rt2.Passthrough(ctx, "strings")
@@ -329,7 +329,7 @@ var _ = Describe("Strings", func() {
 	Describe("Host.SetMemory", func() {
 		It("Should swap the backing memory used by format_*", func(ctx SpecContext) {
 			rt2 := testutil.NewRuntime(ctx)
-			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+			DeferCleanup(rt2.Close)
 			ss2 := strings.NewProgramState()
 			h := MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
 			rt2.Passthrough(ctx, "strings")

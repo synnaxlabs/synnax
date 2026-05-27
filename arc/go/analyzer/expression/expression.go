@@ -402,7 +402,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
 			if scope.AnalyzeCall != nil {
-				scope.AnalyzeCall(ctx, funcCalls[0])
+				scope.AnalyzeCall(ctx.Diagnostics, funcCalls[0])
 			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])

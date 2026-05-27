@@ -37,16 +37,17 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
 // CallHook runs after the generic func-form validation passes.
-type CallHook func(ctx any, funcCall parser.IFunctionCallSuffixContext)
+type CallHook func(diags *diagnostics.Diagnostics, funcCall parser.IFunctionCallSuffixContext)
 
 // FlowConfigHook runs after the generic flow-form config validation passes.
-type FlowConfigHook func(ctx any, config parser.IConfigValuesContext)
+type FlowConfigHook func(diags *diagnostics.Diagnostics, config parser.IConfigValuesContext)
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int

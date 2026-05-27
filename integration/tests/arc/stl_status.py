@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Callable, NamedTuple, TypeVar
+from typing import Callable, NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -113,8 +113,6 @@ TRIGGER_CHANNELS = [
 ] + [CHAIN_TRIGGER]
 KEY_CHANNELS = [lc.key_channel for lc in LIFECYCLES] + [CHAIN_KEY]
 
-T = TypeVar("T")
-
 
 class StlStatus(ArcConsoleCase):
     """Test status.set / status.delete in flow, func, and chain contexts.
@@ -150,7 +148,7 @@ class StlStatus(ArcConsoleCase):
             s for s in self.client.statuses.retrieve(search_term=name) if s.name == name
         ]
 
-    def _poll(
+    def _poll[T](
         self,
         check: Callable[[], T | None],
         what: str,

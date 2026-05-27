@@ -28,8 +28,7 @@ class State {
     uint32_t config_counter = CONFIG_HANDLE_BASE;
 
 public:
-    /// Creates a transient string handle. Empty input returns handle 0
-    /// (mirrors arc/go/stl/strings.Create).
+    /// Creates a transient string handle. Empty input returns handle 0.
     uint32_t create(const std::string &s) {
         if (s.empty()) return 0;
         const uint32_t handle = this->counter++;

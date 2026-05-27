@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -38,15 +37,6 @@ const (
 	setMemberName    = "set"
 	deleteMemberName = "delete"
 	moduleName       = "status"
-)
-
-// Reporter message templates. Keep in sync with driver/arc/status/status.h.
-const (
-	setMultiMatchMsg    = "status.set: multiple statuses named %q; updated first match (%s)"
-	setFailureMsg       = "status.set: %v"
-	deleteFailureMsg    = "status.delete: %v"
-	deleteNotFoundMsg   = "status.delete: no status found %q"
-	deleteMultiMatchMsg = "status.delete: multiple statuses named %q; deleted all (%d)"
 )
 
 // allowedVariantsList is the human-readable list used in compile-time and
@@ -226,48 +216,50 @@ func dispatchSet(
 	if err != nil {
 		ins.L.Error("status.set failed",
 			zap.String("key_or_name", keyOrName), zap.Error(err))
-		report(ctx, xstatus.VariantWarning,
-			fmt.Sprintf(setFailureMsg, err))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.set: %v", err))
 		return ""
 	}
 	if multi {
-		report(ctx, xstatus.VariantWarning,
-			fmt.Sprintf(setMultiMatchMsg, keyOrName, key))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
+			"status.set: multiple statuses named %q; updated first match (%s)",
+			keyOrName, key,
+		))
 	}
 	return key
 }
 
 const variantIndex = 2
 
-func analyzeStatusSetCall(ctx any, funcCall parser.IFunctionCallSuffixContext) {
-	c, ok := ctx.(acontext.Context[parser.IPostfixExpressionContext])
-	if !ok {
-		return
-	}
+func analyzeStatusSetCall(
+	diags *diagnostics.Diagnostics,
+	funcCall parser.IFunctionCallSuffixContext,
+) {
 	if al := funcCall.ArgumentList(); al != nil {
 		if args := al.AllExpression(); len(args) > variantIndex {
-			checkVariantLiteral(c.Diagnostics, args[variantIndex])
+			checkVariantLiteral(diags, args[variantIndex])
 		}
 	}
 }
 
-func analyzeStatusSetFlowConfig(ctx any, config parser.IConfigValuesContext) {
-	c, ok := ctx.(acontext.Context[parser.IFunctionContext])
-	if !ok || config == nil {
+func analyzeStatusSetFlowConfig(
+	diags *diagnostics.Diagnostics,
+	config parser.IConfigValuesContext,
+) {
+	if config == nil {
 		return
 	}
 	if named := config.NamedConfigValues(); named != nil {
 		for _, cv := range named.AllNamedConfigValue() {
 			if cv.IDENTIFIER().GetText() == "variant" {
 				if e := cv.Expression(); e != nil {
-					checkVariantLiteral(c.Diagnostics, e)
+					checkVariantLiteral(diags, e)
 				}
 				return
 			}
 		}
 	} else if anon := config.AnonymousConfigValues(); anon != nil {
 		if exprs := anon.AllExpression(); len(exprs) > variantIndex {
-			checkVariantLiteral(c.Diagnostics, exprs[variantIndex])
+			checkVariantLiteral(diags, exprs[variantIndex])
 		}
 	}
 }
@@ -334,16 +326,18 @@ func dispatchDelete(
 	count, err := stat.DeleteByKeyOrName(ctx, keyOrName)
 	if err != nil {
 		ins.L.Error("status.delete failed", zap.String("key_or_name", keyOrName), zap.Error(err))
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf(deleteFailureMsg, err))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: %v", err))
 		return false
 	}
 	if count == 0 {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf(deleteNotFoundMsg, keyOrName))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: no status found %q", keyOrName))
 		return false
 	}
 	if count > 1 {
-		report(ctx, xstatus.VariantWarning,
-			fmt.Sprintf(deleteMultiMatchMsg, keyOrName, count))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
+			"status.delete: multiple statuses named %q; deleted all (%d)",
+			keyOrName, count,
+		))
 	}
 	return true
 }

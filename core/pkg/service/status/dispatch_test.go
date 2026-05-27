@@ -24,6 +24,7 @@ import (
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Dispatch", Ordered, func() {
@@ -49,30 +50,30 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 	Describe("SetByKeyOrName", func() {
 		Describe("Input validation", func() {
-			It("Should return ErrInvalidVariant for an unknown variant", func(ctx SpecContext) {
+			It("Should return a validation error for an unknown variant", func(ctx SpecContext) {
 				Expect(svc.SetByKeyOrName(ctx, "dispatch_iv_a", "msg", "bogus")).
-					Error().To(MatchError(status.ErrInvalidVariant))
+					Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 			})
 
 			It("Should reject upper-cased variants (case-sensitive)", func(ctx SpecContext) {
 				Expect(svc.SetByKeyOrName(ctx, "dispatch_iv_b", "msg", "SUCCESS")).
-					Error().To(MatchError(status.ErrInvalidVariant))
+					Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 			})
 
 			It("Should reject the empty variant", func(ctx SpecContext) {
 				Expect(svc.SetByKeyOrName(ctx, "dispatch_iv_c", "msg", "")).
-					Error().To(MatchError(status.ErrInvalidVariant))
+					Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 			})
 
-			It("Should return ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
+			It("Should return a validation error for empty input", func(ctx SpecContext) {
 				Expect(svc.SetByKeyOrName(ctx, "", "msg", string(xstatus.VariantInfo))).
-					Error().To(MatchError(status.ErrEmptyKeyOrName))
+					Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 			})
 
 			It("Should not write anything to the store when the variant is invalid", func(ctx SpecContext) {
 				name := "dispatch_iv_unwritten"
 				Expect(svc.SetByKeyOrName(ctx, name, "msg", "bogus")).
-					Error().To(MatchError(status.ErrInvalidVariant))
+					Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("invalid status variant"))))
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](name)).
 					Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			})
@@ -226,8 +227,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 	Describe("DeleteByKeyOrName", func() {
 		Describe("Input validation", func() {
-			It("Should return ErrEmptyKeyOrName for empty input", func(ctx SpecContext) {
-				Expect(svc.DeleteByKeyOrName(ctx, "")).Error().To(MatchError(status.ErrEmptyKeyOrName))
+			It("Should return a validation error for empty input", func(ctx SpecContext) {
+				Expect(svc.DeleteByKeyOrName(ctx, "")).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 			})
 		})
 

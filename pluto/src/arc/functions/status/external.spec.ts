@@ -10,7 +10,9 @@
 import { describe, expect, it } from "vitest";
 
 import { SPEC, SYMBOLS } from "@/arc/functions/status/external";
-import { type Theming } from "@/theming";
+import { Theming } from "@/theming";
+
+const THEME = Theming.themeZ.parse(Theming.SYNNAX_LIGHT);
 
 describe("status.set SPEC", () => {
   it("Should expose the canonical key", () => {
@@ -22,7 +24,7 @@ describe("status.set SPEC", () => {
   });
 
   it("Should default to key_or_name='', variant='success', message='Notification'", () => {
-    expect(SPEC.defaultProps({} as Theming.Theme)).toEqual({
+    expect(SPEC.defaultProps(THEME)).toEqual({
       key_or_name: "",
       variant: "success",
       message: "Notification",

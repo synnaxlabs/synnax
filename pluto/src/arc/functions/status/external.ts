@@ -13,7 +13,7 @@ import { type Spec } from "@/arc/functions/types/spec";
 
 export const SPEC: Spec<Config> = {
   key: "status.set",
-  name: "Change Status ",
+  name: "Change Status",
   zIndex: 100,
   Form,
   Symbol,
