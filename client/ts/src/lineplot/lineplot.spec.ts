@@ -11,15 +11,9 @@ import { uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { type lineplot } from "@/lineplot";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
-
-const bodyOf = (lp: lineplot.LinePlot): lineplot.SetDataBody => {
-  const { key: _k, name: _n, ...body } = lp;
-  return body;
-};
 
 describe("LinePlot", () => {
   describe("create", () => {
@@ -63,7 +57,7 @@ describe("LinePlot", () => {
           downsampleMode: "decimate",
         },
       ];
-      await client.lineplots.setData(linePlot.key, bodyOf(next));
+      await client.lineplots.setData(linePlot.key, next);
       const res = await client.lineplots.retrieve({ key: linePlot.key });
       expect(res.name).toEqual("Line Plot");
       expect(res.title.level).toEqual("h2");

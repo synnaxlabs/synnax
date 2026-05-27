@@ -179,8 +179,15 @@ func ResolveLeafPrimitive(
 	}
 }
 
-// ResolveGoSliceElemType resolves through alias/distinct chains to find the
-// Go type string for a slice element. Handles nested arrays (e.g., [][]string).
+// ResolveGoSliceElemType resolves through alias chains to find the Go type
+// string for a slice element. Handles nested arrays (e.g., [][]string).
+//
+// Distinct types are NOT unwrapped past their declared name: a distinct
+// channel.Key over uint32 resolves as "channel.Key", because `make([]X, n)`
+// must be assignable to the field's slice type and the field uses the distinct
+// name. The one exception is when a distinct type wraps an Array directly
+// (e.g., `type Tags = string[]` distinct), where we still recurse into the
+// element so nested arrays decode correctly.
 func ResolveGoSliceElemType(
 	typ resolution.Type, table *resolution.Table,
 	goTypeNameFn func(resolution.Type) (string, error),
@@ -188,11 +195,13 @@ func ResolveGoSliceElemType(
 	actual := typ
 	for {
 		var baseRef resolution.TypeRef
+		isDistinct := false
 		switch form := actual.Form.(type) {
 		case resolution.AliasForm:
 			baseRef = form.Target
 		case resolution.DistinctForm:
 			baseRef = form.Base
+			isDistinct = true
 		default:
 			return goTypeNameFn(actual)
 		}
@@ -210,6 +219,9 @@ func ResolveGoSliceElemType(
 				return "", err
 			}
 			return "[]" + innerGoType, nil
+		}
+		if isDistinct {
+			return goTypeNameFn(actual)
 		}
 		actual = target
 	}

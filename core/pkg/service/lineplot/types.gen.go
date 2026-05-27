@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -32,6 +33,16 @@ const (
 	AxisKeyY4 AxisKey = "y4"
 )
 
+// IsValid reports whether a is one of the defined AxisKey values.
+func (a AxisKey) IsValid() bool {
+	switch a {
+	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
 // TickType selects how an axis renders its tick labels.
 type TickType string
 
@@ -40,6 +51,16 @@ const (
 	TickTypeTime   TickType = "time"
 )
 
+// IsValid reports whether t is one of the defined TickType values.
+func (t TickType) IsValid() bool {
+	switch t {
+	case TickTypeLinear, TickTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
 type DownsampleMode string
 
@@ -47,6 +68,16 @@ const (
 	DownsampleModeAverage  DownsampleMode = "average"
 	DownsampleModeDecimate DownsampleMode = "decimate"
 )
+
+// IsValid reports whether d is one of the defined DownsampleMode values.
+func (d DownsampleMode) IsValid() bool {
+	switch d {
+	case DownsampleModeAverage, DownsampleModeDecimate:
+		return true
+	default:
+		return false
+	}
+}
 
 // Title is the plot title configuration.
 type Title struct {
@@ -68,17 +99,17 @@ type Legend struct {
 // carry zero or more channels each.
 type Channels struct {
 	// X1 is the channel rendered on the x1 axis.
-	X1 uint32 `json:"x1" msgpack:"x1"`
+	X1 channel.Key `json:"x1" msgpack:"x1"`
 	// X2 is the channel rendered on the x2 axis.
-	X2 uint32 `json:"x2" msgpack:"x2"`
+	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []uint32 `json:"y1" msgpack:"y1"`
+	Y1 []channel.Key `json:"y1" msgpack:"y1"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []uint32 `json:"y2" msgpack:"y2"`
+	Y2 []channel.Key `json:"y2" msgpack:"y2"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []uint32 `json:"y3" msgpack:"y3"`
+	Y3 []channel.Key `json:"y3" msgpack:"y3"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []uint32 `json:"y4" msgpack:"y4"`
+	Y4 []channel.Key `json:"y4" msgpack:"y4"`
 }
 
 // Ranges binds range keys to each x-axis.

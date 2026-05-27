@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoTypes(t *testing.T) {
@@ -504,6 +505,53 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Direction indicates a compass direction.`))
 				Expect(content).To(ContainSubstring(`type Direction string`))
+			})
+
+			It("Should generate an IsValid method for string enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Variant enum {
+						success = "success"
+						warning = "warning"
+						error = "error"
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// IsValid reports whether v is one of the defined Variant values.`))
+				Expect(content).To(ContainSubstring(`func (v Variant) IsValid() bool {`))
+				Expect(content).To(ContainSubstring(`case VariantSuccess, VariantWarning, VariantError:`))
+				Expect(content).To(ContainSubstring(`return true`))
+				Expect(content).To(ContainSubstring(`return false`))
+			})
+
+			It("Should not generate an IsValid method for int enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/priority"
+
+					Priority enum {
+						low = 0
+						medium = 1
+						high = 2
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Priority uint8`))
+				Expect(content).NotTo(ContainSubstring(`func (p Priority) IsValid()`))
 			})
 
 		})

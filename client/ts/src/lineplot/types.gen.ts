@@ -12,6 +12,7 @@
 import { array, spatial, text } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { ontology } from "@/ontology";
 
 export const AXIS_KEYS = ["x1", "x2", "y1", "y2", "y3", "y4"] as const;
@@ -50,17 +51,17 @@ export interface Legend extends z.infer<typeof legendZ> {}
  */
 export const channelsZ = z.object({
   /** x1 is the channel rendered on the x1 axis. */
-  x1: z.uint32(),
+  x1: channel.keyZ,
   /** x2 is the channel rendered on the x2 axis. */
-  x2: z.uint32(),
+  x2: channel.keyZ,
   /** y1 are the channels rendered on the y1 axis. */
-  y1: array.nullishToEmpty(z.uint32()),
+  y1: array.nullishToEmpty(channel.keyZ),
   /** y2 are the channels rendered on the y2 axis. */
-  y2: array.nullishToEmpty(z.uint32()),
+  y2: array.nullishToEmpty(channel.keyZ),
   /** y3 are the channels rendered on the y3 axis. */
-  y3: array.nullishToEmpty(z.uint32()),
+  y3: array.nullishToEmpty(channel.keyZ),
   /** y4 are the channels rendered on the y4 axis. */
-  y4: array.nullishToEmpty(z.uint32()),
+  y4: array.nullishToEmpty(channel.keyZ),
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 

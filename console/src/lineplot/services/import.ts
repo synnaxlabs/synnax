@@ -24,7 +24,7 @@ const parseImport = (data: unknown, fallbackName: string | undefined): lineplot.
   const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
   if (legacy.pendingUpload == null)
     throw new Error("Imported line plot has no body data");
-  return { ...lineplot.ZERO_NEW, ...legacy.pendingUpload, name: fallbackName ?? "" };
+  return { ...legacy.pendingUpload, name: fallbackName ?? "" };
 };
 
 export const ingest: Import.FileIngester = async (

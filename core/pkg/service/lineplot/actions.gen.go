@@ -12,6 +12,7 @@
 package lineplot
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/union"
 )
 
@@ -49,23 +50,23 @@ type SetLegendPayload struct {
 // by axis_key. No-op when the channel is already present. Returns a validation error
 // when axis_key targets an x-axis.
 type AddChannelPayload struct {
-	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
-	Channel uint32  `json:"channel" msgpack:"channel"`
+	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // RemoveChannelPayload removes the channel from the y-axis named by axis_key. No-op
 // when the channel is not present. Returns a validation error when axis_key targets an
 // x-axis.
 type RemoveChannelPayload struct {
-	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
-	Channel uint32  `json:"channel" msgpack:"channel"`
+	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // SetXChannelPayload replaces the single channel bound to the x-axis named by axis_key.
 // Returns a validation error when axis_key targets a y-axis.
 type SetXChannelPayload struct {
-	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
-	Channel uint32  `json:"channel" msgpack:"channel"`
+	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // AddRangePayload appends the range key to the ranges array bound to the x-axis named

@@ -27,6 +27,8 @@ export const ZERO_CELL_STATE: CellState = latest.ZERO_CELL_STATE;
 export type RowLayout = latest.RowLayout;
 export type CellLayout = latest.CellLayout;
 export const ZERO_CELL_PROPS = latest.ZERO_CELL_PROPS;
+export const fromWire = latest.fromWire;
+export const toWire = latest.toWire;
 
 export const SLICE_NAME = "table";
 

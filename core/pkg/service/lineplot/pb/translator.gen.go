@@ -13,6 +13,8 @@ package pb
 
 import (
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
@@ -130,12 +132,12 @@ func LegendsFromPB(pbs []*Legend) ([]lineplot.Legend, error) {
 // ChannelsToPB converts Channels to Channels.
 func ChannelsToPB(r lineplot.Channels) (*Channels, error) {
 	pb := &Channels{
-		X1: r.X1,
-		X2: r.X2,
-		Y1: r.Y1,
-		Y2: r.Y2,
-		Y3: r.Y3,
-		Y4: r.Y4,
+		X1: uint32(r.X1),
+		X2: uint32(r.X2),
+		Y1: lo.Map(r.Y1, func(v channel.Key, _ int) uint32 { return uint32(v) }),
+		Y2: lo.Map(r.Y2, func(v channel.Key, _ int) uint32 { return uint32(v) }),
+		Y3: lo.Map(r.Y3, func(v channel.Key, _ int) uint32 { return uint32(v) }),
+		Y4: lo.Map(r.Y4, func(v channel.Key, _ int) uint32 { return uint32(v) }),
 	}
 	return pb, nil
 }
@@ -146,12 +148,12 @@ func ChannelsFromPB(pb *Channels) (lineplot.Channels, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.X1 = pb.X1
-	r.X2 = pb.X2
-	r.Y1 = pb.Y1
-	r.Y2 = pb.Y2
-	r.Y3 = pb.Y3
-	r.Y4 = pb.Y4
+	r.X1 = channel.Key(pb.X1)
+	r.X2 = channel.Key(pb.X2)
+	r.Y1 = lo.Map(pb.Y1, func(v uint32, _ int) channel.Key { return channel.Key(v) })
+	r.Y2 = lo.Map(pb.Y2, func(v uint32, _ int) channel.Key { return channel.Key(v) })
+	r.Y3 = lo.Map(pb.Y3, func(v uint32, _ int) channel.Key { return channel.Key(v) })
+	r.Y4 = lo.Map(pb.Y4, func(v uint32, _ int) channel.Key { return channel.Key(v) })
 	return r, nil
 }
 

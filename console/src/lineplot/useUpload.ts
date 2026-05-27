@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
 import { type Flux, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
@@ -33,7 +32,6 @@ export const useAutoUpload = (key: string): boolean => {
   useEffect(() => {
     if (pendingUpload == null) return;
     create({
-      ...lineplot.ZERO_NEW,
       ...pendingUpload,
       key,
       workspace: workspaceKey ?? undefined,

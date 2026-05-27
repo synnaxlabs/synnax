@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/channel"
 import "schemas/spatial"
 import "schemas/text"
 
@@ -67,22 +68,22 @@ Legend struct {
 }
 
 Channels struct {
-    x1 uint32   {
+    x1 channel.Key   {
         @doc value "is the channel rendered on the x1 axis."
     }
-    x2 uint32   {
+    x2 channel.Key   {
         @doc value "is the channel rendered on the x2 axis."
     }
-    y1 uint32[] {
+    y1 channel.Key[] {
         @doc value "are the channels rendered on the y1 axis."
     }
-    y2 uint32[] {
+    y2 channel.Key[] {
         @doc value "are the channels rendered on the y2 axis."
     }
-    y3 uint32[] {
+    y3 channel.Key[] {
         @doc value "are the channels rendered on the y3 axis."
     }
-    y4 uint32[] {
+    y4 channel.Key[] {
         @doc value "are the channels rendered on the y4 axis."
     }
 
@@ -302,7 +303,7 @@ LinePlot struct {
 
     action AddChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             appends the channel to the channels array bound to the y-axis
@@ -313,7 +314,7 @@ LinePlot struct {
 
     action RemoveChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             removes the channel from the y-axis named by axis_key. No-op
@@ -324,7 +325,7 @@ LinePlot struct {
 
     action SetXChannel {
         axis_key AxisKey
-        channel  uint32
+        channel  channel.Key
 
         @doc value """
             replaces the single channel bound to the x-axis named by
