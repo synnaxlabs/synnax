@@ -12,7 +12,7 @@ import "@/table/Table.css";
 import { table } from "@synnaxlabs/client";
 import { box, clamp, dimensions, direction, type record, xy } from "@synnaxlabs/x";
 import {
-  type ClipboardEventHandler,
+  type ComponentPropsWithRef,
   memo,
   type ReactElement,
   type ReactNode,
@@ -23,25 +23,49 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { table as aetherTable } from "@/table/aether";
 import { CELLS } from "@/table/cells/registry";
+import { useClipboard } from "@/table/clipboard";
 import {
   cellsInRegion,
   findCellPosition,
   MIN_CELL_DIM,
+  useAddCol,
+  useAddRow,
+  useCellPosition,
+  useClearSelected,
   useDispatch,
   useEnsureRetrieved,
+  useRedo,
+  useRemoveCol,
+  useRemoveRow,
   useSelectCell,
   useSelectColumns,
   useSelectRows,
+  useUndo,
 } from "@/table/queries";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 import { stopPropagation } from "@/util/event";
 import { Canvas } from "@/vis/canvas";
+
+type TriggerMode = "clear" | "undo" | "redo" | "default";
+
+const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
+  clear: [["Delete"], ["Backspace"]],
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
+  default: [],
+  defaultMode: "default",
+};
+
+const FLATTENED_TRIGGERS_CONFIG = Triggers.flattenConfig(TRIGGERS_CONFIG);
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -51,22 +75,10 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 // the table renders.
 export const getCellColumn = (index: number): string => ALPHABET[index];
 
-export interface ContextMenuTarget {
-  // cellKey identifies the cell that was right-clicked, or null when the
-  // user right-clicked a resizer or the empty area of the table.
-  cellKey: string | null;
-  // rowResizerIndex identifies a right-clicked row resizer, or null when
-  // the target isn't a row resizer.
-  rowResizerIndex: number | null;
-  // colResizerIndex identifies a right-clicked column resizer, or null when
-  // the target isn't a column resizer.
-  colResizerIndex: number | null;
-}
-
-export interface TableProps extends Pick<
-  z.infer<typeof aetherTable.Table.stateZ>,
-  "visible"
-> {
+export interface TableProps
+  extends
+    Omit<ComponentPropsWithRef<"div">, "onCopy" | "onPaste" | "onContextMenu">,
+    Pick<z.infer<typeof aetherTable.Table.stateZ>, "visible"> {
   // resourceKey is the table key the component reads from the Pluto flux
   // store. The table data must be loaded into flux before the component
   // mounts; useEnsureRetrieved kicks off the fetch.
@@ -79,25 +91,20 @@ export interface TableProps extends Pick<
   // selection. The component computes the next array (including
   // shift-click region geometry) and hands it to the consumer to store.
   onSelectionChange?: (next: string[]) => void;
-  // editable gates whether cell content edits, resize gestures, and select
-  // gestures fire dispatch and selection changes.
+  // editable gates whether cell content edits, resize gestures, select
+  // gestures, structural mutations (add/remove row/col, paste, clear), and
+  // the in-menu structural items fire.
   editable?: boolean;
-  // onContextMenu fires when the user right-clicks anywhere inside the
-  // table. The metadata identifies the click target (cell, row resizer,
-  // column resizer, or empty area) so consumers can render the appropriate
-  // menu items.
-  onContextMenu?: (e: React.MouseEvent, target: ContextMenuTarget) => void;
-  // className passes through to the rendered <table> element.
-  className?: string;
-  // onCopy fires for the native copy event on the table. Wire the handler
-  // returned by useClipboard to enable cell-region copy.
-  onCopy?: ClipboardEventHandler<HTMLTableElement>;
-  // onPaste fires for the native paste event on the table. Wire the handler
-  // returned by useClipboard to enable cell-region paste.
-  onPaste?: ClipboardEventHandler<HTMLTableElement>;
-  // children renders inside the table's <tbody> after the row indicators
-  // and rows.
-  children?: ReactNode;
+  // onEditableChange, when defined, surfaces a "Enable/Disable editing"
+  // item in the context menu. The callback receives the toggled value.
+  onEditableChange?: (editable: boolean) => void;
+  // extraMenuItems is appended to the default context menu items so
+  // consumers can add app-specific entries (e.g. "Reload Console").
+  extraMenuItems?: ReactNode;
+  // enableTriggers gates the in-table keyboard shortcuts (Delete/Backspace
+  // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true; pass a
+  // function to gate dynamically (e.g. only the focused mosaic tab).
+  enableTriggers?: boolean | (() => boolean);
 }
 
 export const Table = ({
@@ -105,17 +112,65 @@ export const Table = ({
   selected = [],
   onSelectionChange,
   editable = false,
+  onEditableChange,
+  extraMenuItems,
+  enableTriggers = true,
   visible,
-  onContextMenu,
   className,
-  onCopy,
-  onPaste,
-  children,
+  ...rest
 }: TableProps): ReactElement => {
   useEnsureRetrieved({ key: resourceKey });
   const rows = useSelectRows({ key: resourceKey });
   const columns = useSelectColumns({ key: resourceKey });
   const { dispatch } = useDispatch();
+
+  const addRow = useAddRow({ key: resourceKey });
+  const addCol = useAddCol({ key: resourceKey });
+  const removeRow = useRemoveRow({ key: resourceKey });
+  const removeCol = useRemoveCol({ key: resourceKey });
+  const clearSelected = useClearSelected({ key: resourceKey });
+  const { undo } = useUndo({ key: resourceKey });
+  const { redo } = useRedo({ key: resourceKey });
+
+  const handlePasted = useCallback(
+    (overwrittenKeys: string[]) => {
+      if (overwrittenKeys.length === 0) return;
+      onSelectionChange?.(overwrittenKeys);
+    },
+    [onSelectionChange],
+  );
+  const { onCopy, onPaste } = useClipboard({
+    key: resourceKey,
+    selected,
+    onPaste: handlePasted,
+  });
+
+  const menuProps = Menu.useContextMenu();
+  const renderMenu = useCallback(
+    ({ keys }: Menu.ContextMenuMenuProps) => (
+      <DefaultContextMenu
+        resourceKey={resourceKey}
+        targetID={keys[0] ?? null}
+        editable={editable}
+        onEditableChange={onEditableChange}
+        onAddRow={addRow}
+        onAddCol={addCol}
+        onRemoveRow={removeRow}
+        onRemoveCol={removeCol}
+        extra={extraMenuItems}
+      />
+    ),
+    [
+      resourceKey,
+      editable,
+      onEditableChange,
+      addRow,
+      addCol,
+      removeRow,
+      removeCol,
+      extraMenuItems,
+    ],
+  );
 
   const [{ path }, , setState] = Aether.use({
     type: aetherTable.Table.TYPE,
@@ -131,6 +186,25 @@ export const Table = ({
   const lastSelectedRef = useRef<string | null>(null);
   const rowsRef = useSyncedRef(rows);
   const tableElRef = useRef<HTMLTableElement>(null);
+
+  Triggers.use({
+    triggers: FLATTENED_TRIGGERS_CONFIG,
+    region: tableElRef,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !editable) return;
+        if (enableTriggers === false) return;
+        if (typeof enableTriggers === "function" && !enableTriggers()) return;
+        const mode = Triggers.determineMode(TRIGGERS_CONFIG, triggers);
+        if (mode === "clear") {
+          if (selected.length === 0) return;
+          clearSelected(selected);
+        } else if (mode === "undo") undo();
+        else if (mode === "redo") redo();
+      },
+      [editable, enableTriggers, selected, clearSelected, undo, redo],
+    ),
+  });
 
   const handleCellSelect = useCallback(
     (cellKey: string, ev: MouseEvent) => {
@@ -206,88 +280,197 @@ export const Table = ({
     [dispatch, editable, resourceKey],
   );
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      if (onContextMenu == null) return;
-      const targetEl = e.target as HTMLElement;
-      const tdEl = targetEl.closest<HTMLElement>("td[id]");
-      let cellKey: string | null = null;
-      let rowResizerIndex: number | null = null;
-      let colResizerIndex: number | null = null;
-      if (tdEl != null) {
-        const id = tdEl.id;
-        if (id.startsWith("resizer-")) {
-          const [, dir, idx] = id.split("-");
-          const parsed = Number.parseInt(idx, 10);
-          if (Number.isFinite(parsed))
-            if (dir === "x") colResizerIndex = parsed;
-            else if (dir === "y") rowResizerIndex = parsed;
-        } else cellKey = id;
-      }
-      onContextMenu(e, { cellKey, rowResizerIndex, colResizerIndex });
-    },
-    [onContextMenu],
-  );
-
   const colSizes = columns.map((c) => c.size);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
   const totalRow = rows.reduce((a, r) => a + r.size, 0);
 
   let rowYCursor = 3.5 * 6;
   return (
-    <>
-      <div
-        ref={canvasRef}
-        style={{
-          right: 0,
-          bottom: 0,
-          position: "absolute",
-          top: 6,
-          left: 6,
-        }}
-      />
-      <table
-        ref={tableElRef}
-        className={CSS(CSS.B("table"), className)}
-        style={{ width: totalCol, height: totalRow }}
-        onContextMenu={handleContextMenu}
-        onCopy={onCopy}
-        onPaste={onPaste}
-        tabIndex={-1}
-      >
-        <tbody>
-          <Aether.Composite path={path}>
-            <ColumnIndicators
-              columns={colSizes}
-              rows={rows}
-              selected={selected}
-              onSelect={handleColSelect}
-              onResize={handleColResize}
-            />
-            {rows.map((row, rowIndex) => {
-              const yPos = rowYCursor;
-              rowYCursor += row.size;
-              return (
-                <Row
-                  key={rowIndex}
-                  index={rowIndex}
-                  resourceKey={resourceKey}
-                  cells={row.cells}
-                  columns={colSizes}
-                  position={yPos}
-                  size={row.size}
-                  selected={selected}
-                  onSelect={handleRowSelect}
-                  onResize={handleRowResize}
-                  onCellSelect={handleCellSelect}
-                />
-              );
-            })}
-            {children}
-          </Aether.Composite>
-        </tbody>
-      </table>
-    </>
+    <div className={CSS(CSS.B("table-frame"), className)} {...rest}>
+      <Menu.ContextMenu menu={renderMenu} {...menuProps}>
+        <div ref={canvasRef} className={CSS.BE("table-frame", "canvas")} />
+        <table
+          ref={tableElRef}
+          className={CSS(CSS.B("table"), menuProps.className)}
+          style={{ width: totalCol, height: totalRow }}
+          onContextMenu={menuProps.open}
+          onCopy={onCopy}
+          onPaste={editable ? onPaste : undefined}
+          tabIndex={-1}
+        >
+          <tbody>
+            <Aether.Composite path={path}>
+              <ColumnIndicators
+                columns={colSizes}
+                rows={rows}
+                selected={selected}
+                onSelect={handleColSelect}
+                onResize={handleColResize}
+              />
+              {rows.map((row, rowIndex) => {
+                const yPos = rowYCursor;
+                rowYCursor += row.size;
+                return (
+                  <Row
+                    key={rowIndex}
+                    index={rowIndex}
+                    resourceKey={resourceKey}
+                    cells={row.cells}
+                    columns={colSizes}
+                    position={yPos}
+                    size={row.size}
+                    selected={selected}
+                    onSelect={handleRowSelect}
+                    onResize={handleRowResize}
+                    onCellSelect={handleCellSelect}
+                  />
+                );
+              })}
+            </Aether.Composite>
+          </tbody>
+        </table>
+      </Menu.ContextMenu>
+      {editable && (
+        <>
+          <Button.Button
+            className={CSS.BE("table-frame", "add-col")}
+            justify="center"
+            align="center"
+            size="tiny"
+            variant="filled"
+            onClick={() => addCol()}
+          >
+            <Icon.Add />
+          </Button.Button>
+          <Button.Button
+            className={CSS.BE("table-frame", "add-row")}
+            justify="center"
+            align="center"
+            size="tiny"
+            variant="filled"
+            onClick={() => addRow()}
+          >
+            <Icon.Add />
+          </Button.Button>
+        </>
+      )}
+    </div>
+  );
+};
+
+interface DefaultContextMenuProps {
+  resourceKey: table.Key;
+  targetID: string | null;
+  editable: boolean;
+  onEditableChange?: (editable: boolean) => void;
+  onAddRow: (index?: number) => void;
+  onAddCol: (index?: number) => void;
+  onRemoveRow: (index: number) => void;
+  onRemoveCol: (index: number) => void;
+  extra?: ReactNode;
+}
+
+const parseResizer = (id: string): { dir: "x" | "y"; index: number } | null => {
+  if (!id.startsWith("resizer-")) return null;
+  const [, dir, idx] = id.split("-");
+  if (dir !== "x" && dir !== "y") return null;
+  const parsed = Number.parseInt(idx, 10);
+  if (!Number.isFinite(parsed)) return null;
+  return { dir, index: parsed };
+};
+
+const DefaultContextMenu = ({
+  resourceKey,
+  targetID,
+  editable,
+  onEditableChange,
+  onAddRow,
+  onAddCol,
+  onRemoveRow,
+  onRemoveCol,
+  extra,
+}: DefaultContextMenuProps): ReactElement => {
+  const resizer = targetID != null ? parseResizer(targetID) : null;
+  const cellKey = resizer == null ? targetID : null;
+  const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
+  const rowIdx = resizer?.dir === "y" ? resizer.index : (cellPos?.y ?? null);
+  const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
+  const handleToggleEditable = useCallback(
+    () => onEditableChange?.(!editable),
+    [onEditableChange, editable],
+  );
+  return (
+    <Menu.Menu level="small" gap="small">
+      {editable && rowIdx != null && (
+        <>
+          <Menu.Item
+            size="small"
+            itemKey="addRowBelow"
+            onClick={() => onAddRow(rowIdx + 1)}
+          >
+            <Icon.Add />
+            Add row below
+          </Menu.Item>
+          <Menu.Item
+            size="small"
+            itemKey="addRowAbove"
+            onClick={() => onAddRow(rowIdx)}
+          >
+            <Icon.Add />
+            Add row above
+          </Menu.Item>
+        </>
+      )}
+      {editable && colIdx != null && (
+        <>
+          <Menu.Divider />
+          <Menu.Item
+            size="small"
+            itemKey="addColRight"
+            onClick={() => onAddCol(colIdx + 1)}
+          >
+            <Icon.Add />
+            Add column right
+          </Menu.Item>
+          <Menu.Item size="small" itemKey="addColLeft" onClick={() => onAddCol(colIdx)}>
+            <Icon.Add />
+            Add column left
+          </Menu.Item>
+        </>
+      )}
+      {editable && rowIdx != null && (
+        <>
+          <Menu.Divider />
+          <Menu.Item
+            size="small"
+            itemKey="deleteRow"
+            onClick={() => onRemoveRow(rowIdx)}
+          >
+            <Icon.Delete />
+            Delete row
+          </Menu.Item>
+        </>
+      )}
+      {editable && colIdx != null && (
+        <Menu.Item size="small" itemKey="deleteCol" onClick={() => onRemoveCol(colIdx)}>
+          <Icon.Delete />
+          Delete column
+        </Menu.Item>
+      )}
+      {editable && (rowIdx != null || colIdx != null) && <Menu.Divider />}
+      {onEditableChange != null && (
+        <Menu.Item size="small" itemKey="toggleEdit" onClick={handleToggleEditable}>
+          {editable ? <Icon.EditOff /> : <Icon.Edit />}
+          {`${editable ? "Disable" : "Enable"} editing`}
+        </Menu.Item>
+      )}
+      {extra != null && (
+        <>
+          <Menu.Divider />
+          {extra}
+        </>
+      )}
+    </Menu.Menu>
   );
 };
 
@@ -398,8 +581,6 @@ const VariantCell = memo(
   },
 );
 VariantCell.displayName = "VariantCell";
-
-export { Cell, type CellProps } from "@/table/cells/Cell";
 
 interface ColumnIndicatorsProps {
   columns: number[];
