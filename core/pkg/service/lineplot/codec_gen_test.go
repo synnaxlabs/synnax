@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -223,28 +224,28 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", lineplot.Channels{
-				X1: 2,
-				X2: 3,
-				Y1: []uint32{4},
-				Y2: []uint32{5},
-				Y3: []uint32{6},
-				Y4: []uint32{7},
+				X1: channel.Key(2),
+				X2: channel.Key(3),
+				Y1: []channel.Key{channel.Key(4)},
+				Y2: []channel.Key{channel.Key(5)},
+				Y3: []channel.Key{channel.Key(6)},
+				Y4: []channel.Key{channel.Key(7)},
 			}),
 			Entry("zero values", lineplot.Channels{
-				X1: 0,
-				X2: 0,
+				X1: channel.Key(0),
+				X2: channel.Key(0),
 				Y1: nil,
 				Y2: nil,
 				Y3: nil,
 				Y4: nil,
 			}),
 			Entry("empty collections", lineplot.Channels{
-				X1: 2,
-				X2: 3,
-				Y1: []uint32{},
-				Y2: []uint32{},
-				Y3: []uint32{},
-				Y4: []uint32{},
+				X1: channel.Key(2),
+				X2: channel.Key(3),
+				Y1: []channel.Key{},
+				Y2: []channel.Key{},
+				Y3: []channel.Key{},
+				Y4: []channel.Key{},
 			}),
 		)
 	})
@@ -351,12 +352,12 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Channels: lineplot.Channels{
-					X1: 19,
-					X2: 20,
-					Y1: []uint32{21},
-					Y2: []uint32{22},
-					Y3: []uint32{23},
-					Y4: []uint32{24},
+					X1: channel.Key(19),
+					X2: channel.Key(20),
+					Y1: []channel.Key{channel.Key(21)},
+					Y2: []channel.Key{channel.Key(22)},
+					Y3: []channel.Key{channel.Key(23)},
+					Y4: []channel.Key{channel.Key(24)},
 				},
 				Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 				Axes: lineplot.Axes{
@@ -458,8 +459,8 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Channels: lineplot.Channels{
-					X1: 0,
-					X2: 0,
+					X1: channel.Key(0),
+					X2: channel.Key(0),
 					Y1: nil,
 					Y2: nil,
 					Y3: nil,
@@ -554,12 +555,12 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Channels: lineplot.Channels{
-					X1: 19,
-					X2: 20,
-					Y1: []uint32{},
-					Y2: []uint32{},
-					Y3: []uint32{},
-					Y4: []uint32{},
+					X1: channel.Key(19),
+					X2: channel.Key(20),
+					Y1: []channel.Key{},
+					Y2: []channel.Key{},
+					Y3: []channel.Key{},
+					Y4: []channel.Key{},
 				},
 				Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
 				Axes: lineplot.Axes{
@@ -818,12 +819,12 @@ func BenchmarkEncodeDecodeAxis(b *testing.B) {
 
 func BenchmarkEncodeDecodeChannels(b *testing.B) {
 	c := lineplot.Channels{
-		X1: 2,
-		X2: 3,
-		Y1: []uint32{4},
-		Y2: []uint32{5},
-		Y3: []uint32{6},
-		Y4: []uint32{7},
+		X1: channel.Key(2),
+		X2: channel.Key(3),
+		Y1: []channel.Key{channel.Key(4)},
+		Y2: []channel.Key{channel.Key(5)},
+		Y3: []channel.Key{channel.Key(6)},
+		Y4: []channel.Key{channel.Key(7)},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -922,12 +923,12 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			},
 		},
 		Channels: lineplot.Channels{
-			X1: 19,
-			X2: 20,
-			Y1: []uint32{21},
-			Y2: []uint32{22},
-			Y3: []uint32{23},
-			Y4: []uint32{24},
+			X1: channel.Key(19),
+			X2: channel.Key(20),
+			Y1: []channel.Key{channel.Key(21)},
+			Y2: []channel.Key{channel.Key(22)},
+			Y3: []channel.Key{channel.Key(23)},
+			Y4: []channel.Key{channel.Key(24)},
 		},
 		Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 		Axes: lineplot.Axes{
@@ -1371,12 +1372,12 @@ func FuzzDecodeAxis(f *testing.F) {
 func FuzzDecodeChannels(f *testing.F) {
 	{
 		seed := lineplot.Channels{
-			X1: 2,
-			X2: 3,
-			Y1: []uint32{4},
-			Y2: []uint32{5},
-			Y3: []uint32{6},
-			Y4: []uint32{7},
+			X1: channel.Key(2),
+			X2: channel.Key(3),
+			Y1: []channel.Key{channel.Key(4)},
+			Y2: []channel.Key{channel.Key(5)},
+			Y3: []channel.Key{channel.Key(6)},
+			Y4: []channel.Key{channel.Key(7)},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1386,8 +1387,8 @@ func FuzzDecodeChannels(f *testing.F) {
 	}
 	{
 		seed := lineplot.Channels{
-			X1: 0,
-			X2: 0,
+			X1: channel.Key(0),
+			X2: channel.Key(0),
 			Y1: nil,
 			Y2: nil,
 			Y3: nil,
@@ -1401,12 +1402,12 @@ func FuzzDecodeChannels(f *testing.F) {
 	}
 	{
 		seed := lineplot.Channels{
-			X1: 2,
-			X2: 3,
-			Y1: []uint32{},
-			Y2: []uint32{},
-			Y3: []uint32{},
-			Y4: []uint32{},
+			X1: channel.Key(2),
+			X2: channel.Key(3),
+			Y1: []channel.Key{},
+			Y2: []channel.Key{},
+			Y3: []channel.Key{},
+			Y4: []channel.Key{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1599,12 +1600,12 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				},
 			},
 			Channels: lineplot.Channels{
-				X1: 19,
-				X2: 20,
-				Y1: []uint32{21},
-				Y2: []uint32{22},
-				Y3: []uint32{23},
-				Y4: []uint32{24},
+				X1: channel.Key(19),
+				X2: channel.Key(20),
+				Y1: []channel.Key{channel.Key(21)},
+				Y2: []channel.Key{channel.Key(22)},
+				Y3: []channel.Key{channel.Key(23)},
+				Y4: []channel.Key{channel.Key(24)},
 			},
 			Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
 			Axes: lineplot.Axes{
@@ -1713,8 +1714,8 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				},
 			},
 			Channels: lineplot.Channels{
-				X1: 0,
-				X2: 0,
+				X1: channel.Key(0),
+				X2: channel.Key(0),
 				Y1: nil,
 				Y2: nil,
 				Y3: nil,
@@ -1816,12 +1817,12 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				},
 			},
 			Channels: lineplot.Channels{
-				X1: 19,
-				X2: 20,
-				Y1: []uint32{},
-				Y2: []uint32{},
-				Y3: []uint32{},
-				Y4: []uint32{},
+				X1: channel.Key(19),
+				X2: channel.Key(20),
+				Y1: []channel.Key{},
+				Y2: []channel.Key{},
+				Y3: []channel.Key{},
+				Y4: []channel.Key{},
 			},
 			Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
 			Axes: lineplot.Axes{

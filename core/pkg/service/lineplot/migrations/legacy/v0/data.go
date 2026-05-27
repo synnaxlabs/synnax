@@ -14,6 +14,8 @@
 // forward into the typed lineplot.LinePlot.
 package v0
 
+import "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+
 // Version is the semantic version string written by the console at this state
 // version.
 const Version = "0.0.0"
@@ -83,12 +85,12 @@ type AxesContainer struct {
 
 // Channels binds channel keys to each axis.
 type Channels struct {
-	X1 uint32   `json:"x1"`
-	X2 uint32   `json:"x2"`
-	Y1 []uint32 `json:"y1"`
-	Y2 []uint32 `json:"y2"`
-	Y3 []uint32 `json:"y3"`
-	Y4 []uint32 `json:"y4"`
+	X1 channel.Key   `json:"x1"`
+	X2 channel.Key   `json:"x2"`
+	Y1 []channel.Key `json:"y1"`
+	Y2 []channel.Key `json:"y2"`
+	Y3 []channel.Key `json:"y3"`
+	Y4 []channel.Key `json:"y4"`
 }
 
 // Ranges binds opaque range keys to each x-axis. Strings (not UUIDs) because

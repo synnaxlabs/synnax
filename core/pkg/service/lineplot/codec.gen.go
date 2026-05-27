@@ -12,6 +12,7 @@
 package lineplot
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -192,12 +193,19 @@ func (c Channels) EncodeOrc(w *orc.Writer) error {
 }
 
 func (c *Channels) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if c.X1, err = r.Uint32(); err != nil {
-		return err
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		c.X1 = channel.Key(v)
 	}
-	if c.X2, err = r.Uint32(); err != nil {
-		return err
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		c.X2 = channel.Key(v)
 	}
 	{
 		present, err := r.Bool()
@@ -209,10 +217,14 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			c.Y1 = make([]uint32, n)
+			c.Y1 = make([]channel.Key, n)
 			for i := range c.Y1 {
-				if c.Y1[i], err = r.Uint32(); err != nil {
-					return err
+				{
+					v, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					c.Y1[i] = channel.Key(v)
 				}
 			}
 		}
@@ -227,10 +239,14 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			c.Y2 = make([]uint32, n)
+			c.Y2 = make([]channel.Key, n)
 			for i := range c.Y2 {
-				if c.Y2[i], err = r.Uint32(); err != nil {
-					return err
+				{
+					v, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					c.Y2[i] = channel.Key(v)
 				}
 			}
 		}
@@ -245,10 +261,14 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			c.Y3 = make([]uint32, n)
+			c.Y3 = make([]channel.Key, n)
 			for i := range c.Y3 {
-				if c.Y3[i], err = r.Uint32(); err != nil {
-					return err
+				{
+					v, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					c.Y3[i] = channel.Key(v)
 				}
 			}
 		}
@@ -263,10 +283,14 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			c.Y4 = make([]uint32, n)
+			c.Y4 = make([]channel.Key, n)
 			for i := range c.Y4 {
-				if c.Y4[i], err = r.Uint32(); err != nil {
-					return err
+				{
+					v, err := r.Uint32()
+					if err != nil {
+						return err
+					}
+					c.Y4[i] = channel.Key(v)
 				}
 			}
 		}

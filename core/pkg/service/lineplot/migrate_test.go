@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -149,7 +150,7 @@ var _ = Describe("MigrateLinePlot", func() {
 			Expect(got.Name).To(Equal("Tank Pressure"))
 			Expect(got.Title.Level).To(Equal(text.LevelH4))
 			Expect(got.Channels.X1).To(BeEquivalentTo(1))
-			Expect(got.Channels.Y1).To(ConsistOf(uint32(10)))
+			Expect(got.Channels.Y1).To(ConsistOf(channel.Key(10)))
 			Expect(got.Axes.X1.Type).NotTo(BeNil())
 			Expect(*got.Axes.X1.Type).To(Equal(lineplot.TickTypeTime))
 			Expect(got.Axes.Y1.Type).To(BeNil())
@@ -232,8 +233,8 @@ var _ = Describe("MigrateLinePlot", func() {
 		It("Should preserve Channels arrays per axis", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"channels": {"x1": 99, "x2": 0, "y1": [10, 11], "y2": [12], "y3": [], "y4": []}`)
 			Expect(out.Channels.X1).To(BeEquivalentTo(99))
-			Expect(out.Channels.Y1).To(Equal([]uint32{10, 11}))
-			Expect(out.Channels.Y2).To(Equal([]uint32{12}))
+			Expect(out.Channels.Y1).To(Equal([]channel.Key{10, 11}))
+			Expect(out.Channels.Y2).To(Equal([]channel.Key{12}))
 		})
 
 		It("Should preserve Ranges arrays per x-axis", func(ctx SpecContext) {

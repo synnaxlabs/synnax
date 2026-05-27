@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -98,17 +99,17 @@ type Legend struct {
 // carry zero or more channels each.
 type Channels struct {
 	// X1 is the channel rendered on the x1 axis.
-	X1 uint32 `json:"x1" msgpack:"x1"`
+	X1 channel.Key `json:"x1" msgpack:"x1"`
 	// X2 is the channel rendered on the x2 axis.
-	X2 uint32 `json:"x2" msgpack:"x2"`
+	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []uint32 `json:"y1" msgpack:"y1"`
+	Y1 []channel.Key `json:"y1" msgpack:"y1"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []uint32 `json:"y2" msgpack:"y2"`
+	Y2 []channel.Key `json:"y2" msgpack:"y2"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []uint32 `json:"y3" msgpack:"y3"`
+	Y3 []channel.Key `json:"y3" msgpack:"y3"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []uint32 `json:"y4" msgpack:"y4"`
+	Y4 []channel.Key `json:"y4" msgpack:"y4"`
 }
 
 // Ranges binds range keys to each x-axis.

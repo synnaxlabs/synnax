@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v1"
@@ -42,7 +43,7 @@ func nonZeroV0() v0.Data {
 		Legend:        v0.Legend{Visible: false},
 		Channels: v0.Channels{
 			X1: 1, X2: 2,
-			Y1: []uint32{10, 11}, Y2: []uint32{12}, Y3: []uint32{}, Y4: []uint32{},
+			Y1: []channel.Key{10, 11}, Y2: []channel.Key{12}, Y3: []channel.Key{}, Y4: []channel.Key{},
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v0.AxesContainer{
