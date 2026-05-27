@@ -8,8 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
 import random
 import re
+import shutil
+import tempfile
 from typing import Any, Literal, TypeVar, overload
 
 from playwright.sync_api import Locator
@@ -36,9 +39,10 @@ __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
-# SY-3670 — Shared JS snippet that walks the React fiber tree from #root
-# to find the Redux store. Used by import_page and export_workspace as a
-# browser-mode workaround for features that normally rely on Tauri APIs.
+# Shared JS snippet that walks the React fiber tree from #root to find the
+# Redux store. Used by import_workspace and export_workspace to bypass the
+# Tauri *directory* dialog, which has no browser equivalent — workspace
+# import/export stays Tauri-only on real desktop builds.
 _FIND_REDUX_STORE_JS = """
 const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('Root element not found');
@@ -584,72 +588,43 @@ class WorkspaceClient:
         return self.layout.page.evaluate(js, args)
 
     def import_page(self, json_path: str, name: str) -> None:
-        """Import a page from a JSON file via direct JS injection.
+        """Import a component via the real "Import component(s)" command palette flow.
 
-        Since the console uses Tauri's native file dialog for imports
-        (unavailable in browser mode), this method bypasses the dialog
-        by reading the JSON file and dispatching Redux actions directly.
+        The import pipeline derives the tab name from the chosen filename (via
+        trimFileName), so we copy ``json_path`` into a temp file named
+        ``{name}.json`` to control the resulting tab name independently of
+        the source fixture's filename.
 
-        # SY-3670 will address this issue.
+        Waits for the page to appear in the workspace resource tree before
+        returning. Non-schematic types (lineplot/log/table) only persist to
+        the server via the mounted tab's debounced ``useSyncComponent`` hook;
+        if the caller closes the tab before that debounce flushes, the save
+        is cancelled and the tree row never appears. Waiting on the tree row
+        guarantees the server-side resource exists.
 
         Args:
             json_path: Path to the JSON file to import.
             name: Display name for the imported page tab.
         """
-        with open(json_path, "r") as f:
-            data: dict[str, Any] = json.load(f)
-
-        resource_type = data.get("type")
-        if resource_type is None:
-            raise ValueError(f"JSON file missing 'type' field: {json_path}")
-
-        type_config: dict[str, dict[str, str]] = {
-            "lineplot": {"slice": "line", "icon": "Visualize"},
-            "schematic": {"slice": "schematic", "icon": "Schematic"},
-            "log": {"slice": "log", "icon": "Log"},
-            "table": {"slice": "table", "icon": "Table"},
-        }
-
-        config = type_config.get(resource_type)
-        if config is None:
-            raise ValueError(f"Unsupported resource type: {resource_type}")
-
-        self._evaluate_with_redux(
-            """
-            const [data, name, sliceName, icon] = args;
-            const key = crypto.randomUUID();
-            const createPayload = sliceName === 'schematic'
-                ? { key, data }
-                : { ...data, key };
-            store.dispatch({
-                type: sliceName + '/create',
-                payload: createPayload,
-            });
-            store.dispatch({
-                type: 'layout/place',
-                payload: {
-                    key, name,
-                    location: 'mosaic',
-                    type: data.type,
-                    icon,
-                    windowKey: 'main',
-                }
-            });
-            """,
-            [data, name, config["slice"], config["icon"]],
-        )
-
-        self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, f"{name}.json")
+            shutil.copyfile(json_path, tmp_path)
+            with self.layout.page.expect_file_chooser() as fc_info:
+                self.layout.command_palette("Import component(s)")
+            fc_info.value.set_files(tmp_path)
+            self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
+            if not self.page_exists(name):
+                raise AssertionError(
+                    f"Imported page {name!r} did not appear in workspace tree"
+                )
+            self.layout.close_left_toolbar()
 
     def import_workspace(self, name: str, data: dict[str, Any]) -> None:
         """Import a workspace via command palette with JS injection fallback.
 
-        Triggers "Import a workspace" from the command palette. Since the
-        console uses Tauri's native directory dialog (unavailable in browser
-        mode), the actual import falls back to dispatching Redux actions
-        via JS injection.
-
-        # SY-3670 will address the browser-mode limitation.
+        Triggers "Import a workspace" from the command palette. The real flow
+        uses a *directory* picker with no clean browser equivalent, so on
+        non-Tauri builds we bypass it and dispatch Redux actions directly.
 
         Args:
             name: Name for the imported workspace.
@@ -699,12 +674,10 @@ class WorkspaceClient:
     def export_workspace(self, name: str) -> dict[str, Any]:
         """Export a workspace via context menu with JS injection fallback.
 
-        Opens the context menu on the workspace and clicks Export. Since the
-        console uses Tauri's native directory dialog and file system APIs
-        (unavailable in browser mode), the actual data extraction falls back
-        to reading Redux state via JS injection.
-
-        # SY-3670 will address the browser-mode limitation.
+        Opens the context menu on the workspace and clicks Export. The real
+        flow writes multiple files into a directory chosen via Tauri's native
+        directory dialog, which has no clean browser equivalent — so on
+        non-Tauri builds we read Redux state directly instead.
 
         Args:
             name: Name of the workspace to export.

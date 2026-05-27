@@ -9,11 +9,10 @@
 
 import { Flex, Haul, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
+import { Runtime } from "@/runtime";
 
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
@@ -54,18 +53,16 @@ export const FileDrop = ({
 
   const handleFileSelect = () =>
     handleError(async () => {
-      const path = await open({
-        directory: false,
+      const files = await Runtime.pickFiles({
         filters: [{ name: "SVG Files", extensions: ["svg"] }],
       });
-      if (path == null) return;
-      const contents = await readTextFile(path);
-      if (contents == null) return;
-      const filename = path
-        .split(/[/\\]/)
-        .pop()
-        ?.replace(/\.svg$/i, "");
-      const properName = filename ? caseconv.toProperNoun(filename) : undefined;
+      if (files == null) return;
+      const [file] = files;
+      const contents = await file.read();
+      const nameWithoutExt = file.name.replace(/\.svg$/i, "");
+      const properName = nameWithoutExt
+        ? caseconv.toProperNoun(nameWithoutExt)
+        : undefined;
       onContentsChange(contents, properName);
     }, "Failed to load SVG file");
 

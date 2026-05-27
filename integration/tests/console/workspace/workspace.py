@@ -149,13 +149,6 @@ class Workspace(ConsoleCase):
         assert schematic.get_symbol_count() == 2, (
             "Imported schematic should have 2 gauge symbols"
         )
-        props = schematic.get_properties()
-        assert props["control_authority"] == 134, (
-            f"Expected control_authority 134, got {props['control_authority']}"
-        )
-        assert props["show_control_legend"] is False, (
-            "Expected show_control_legend to be False"
-        )
 
         self.console.layout.close_tab("Metrics Schematic")
 

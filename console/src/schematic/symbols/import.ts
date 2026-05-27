@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { Group, Status, Synnax } from "@synnaxlabs/pluto";
 import { status, uuid } from "@synnaxlabs/x";
-import { join, sep } from "@tauri-apps/api/path";
+import { join } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
@@ -24,12 +24,11 @@ import { useCallback } from "react";
 import { Runtime } from "@/runtime";
 import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/schematic/symbols/types";
 
-const parseAndCreateSymbol = async (
+const createSymbolFromData = async (
   client: Client,
-  filePath: string,
+  data: string,
   parentID: ontology.ID,
 ): Promise<schematic.symbol.Symbol> => {
-  const data = await readTextFile(filePath);
   const parsed = schematic.symbol.symbolZ.parse(JSON.parse(data));
   return await client.schematics.symbols.create({
     ...parsed,
@@ -45,34 +44,29 @@ export const useImport = (parentGroup?: string): (() => void) => {
 
   return useCallback(() => {
     handleError(async () => {
-      if (Runtime.ENGINE !== "tauri")
-        throw new Error(
-          "Cannot import symbols from a dialog when running Synnax in the browser.",
-        );
       if (client == null) throw new DisconnectedError();
-      const paths = await open({
+      const files = await Runtime.pickFiles({
         title: "Import Symbol",
         filters: SYMBOL_FILE_FILTERS,
         multiple: true,
-        directory: false,
       });
-      if (paths == null) return;
+      if (files == null) return;
       const symbolGroup = await client.schematics.symbols.retrieveGroup();
       const parentID = parentGroup
         ? group.ontologyID(parentGroup)
         : group.ontologyID(symbolGroup.key);
 
       await Promise.all(
-        paths.map(async (path) => {
+        files.map(async (file) => {
           try {
-            const created = await parseAndCreateSymbol(client, path, parentID);
+            const data = await file.read();
+            const created = await createSymbolFromData(client, data, parentID);
             addStatus({
               variant: "success",
               message: `Successfully imported symbol: ${created.name}`,
             });
           } catch (e) {
-            const fileName = path.split(sep()).pop();
-            handleError(e, `Failed to import symbol from ${fileName}`);
+            handleError(e, `Failed to import symbol from ${file.name}`);
           }
         }),
       );
@@ -119,7 +113,8 @@ export const useImportGroup = (): (() => void) => {
         manifest.symbols.map(async (symbolRef) => {
           try {
             const symbolPath = await join(dirPath, symbolRef.file);
-            await parseAndCreateSymbol(client, symbolPath, parentID);
+            const data = await readTextFile(symbolPath);
+            await createSymbolFromData(client, data, parentID);
             successCount++;
           } catch (e) {
             errors.push(e);
