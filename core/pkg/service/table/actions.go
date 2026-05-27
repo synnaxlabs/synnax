@@ -1,0 +1,145 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package table
+
+// Handle replaces the table's name.
+func (p RenamePayload) Handle(state Table) (Table, error) {
+	state.Name = p.Name
+	return state, nil
+}
+
+// Handle inserts a row at the given index with the provided cell values, and
+// records each cell in the table's cells map. Out-of-range indices clamp to
+// the end of the rows slice; cells whose keys collide with existing entries
+// overwrite the prior value.
+func (p AddRowPayload) Handle(state Table) (Table, error) {
+	keys := make([]string, len(p.Cells))
+	for i, c := range p.Cells {
+		keys[i] = c.Key
+	}
+	row := Row{Size: p.Size, Cells: keys}
+	idx := int(p.Index)
+	if idx > len(state.Rows) {
+		idx = len(state.Rows)
+	}
+	state.Rows = append(state.Rows[:idx], append([]Row{row}, state.Rows[idx:]...)...)
+	if state.Cells == nil {
+		state.Cells = make(map[string]Cell, len(p.Cells))
+	}
+	for _, c := range p.Cells {
+		state.Cells[c.Key] = c
+	}
+	return state, nil
+}
+
+// Handle removes the row at the given index and drops every cell it
+// referenced. No-op if the index is out of range.
+func (p RemoveRowPayload) Handle(state Table) (Table, error) {
+	idx := int(p.Index)
+	if idx >= len(state.Rows) {
+		return state, nil
+	}
+	for _, k := range state.Rows[idx].Cells {
+		delete(state.Cells, k)
+	}
+	state.Rows = append(state.Rows[:idx], state.Rows[idx+1:]...)
+	return state, nil
+}
+
+// Handle inserts a column at the given index with the provided cell values.
+// Each cell is inserted at the column index inside the corresponding row's
+// cells list and recorded in the table's cells map. Out-of-range indices
+// clamp to the end of every row's cells list. When the payload carries fewer
+// cells than there are rows the trailing rows are left without a new cell
+// entry; extra cells beyond the row count are still added to the map but not
+// referenced by any row.
+func (p AddColPayload) Handle(state Table) (Table, error) {
+	idx := int(p.Index)
+	if idx > len(state.Columns) {
+		idx = len(state.Columns)
+	}
+	state.Columns = append(
+		state.Columns[:idx],
+		append([]Column{{Size: p.Size}}, state.Columns[idx:]...)...,
+	)
+	if state.Cells == nil {
+		state.Cells = make(map[string]Cell, len(p.Cells))
+	}
+	for i := range state.Rows {
+		if i >= len(p.Cells) {
+			break
+		}
+		rowIdx := idx
+		if rowIdx > len(state.Rows[i].Cells) {
+			rowIdx = len(state.Rows[i].Cells)
+		}
+		state.Rows[i].Cells = append(
+			state.Rows[i].Cells[:rowIdx],
+			append([]string{p.Cells[i].Key}, state.Rows[i].Cells[rowIdx:]...)...,
+		)
+	}
+	for _, c := range p.Cells {
+		state.Cells[c.Key] = c
+	}
+	return state, nil
+}
+
+// Handle removes the column at the given index and drops every cell that
+// column referenced across every row. No-op if the index is out of range.
+func (p RemoveColPayload) Handle(state Table) (Table, error) {
+	idx := int(p.Index)
+	if idx >= len(state.Columns) {
+		return state, nil
+	}
+	state.Columns = append(state.Columns[:idx], state.Columns[idx+1:]...)
+	for i := range state.Rows {
+		if idx >= len(state.Rows[i].Cells) {
+			continue
+		}
+		delete(state.Cells, state.Rows[i].Cells[idx])
+		state.Rows[i].Cells = append(
+			state.Rows[i].Cells[:idx],
+			state.Rows[i].Cells[idx+1:]...,
+		)
+	}
+	return state, nil
+}
+
+// Handle resizes the row at the given index. No-op if the index is out of
+// range.
+func (p ResizeRowPayload) Handle(state Table) (Table, error) {
+	idx := int(p.Index)
+	if idx >= len(state.Rows) {
+		return state, nil
+	}
+	state.Rows[idx].Size = p.Size
+	return state, nil
+}
+
+// Handle resizes the column at the given index. No-op if the index is out
+// of range.
+func (p ResizeColPayload) Handle(state Table) (Table, error) {
+	idx := int(p.Index)
+	if idx >= len(state.Columns) {
+		return state, nil
+	}
+	state.Columns[idx].Size = p.Size
+	return state, nil
+}
+
+// Handle replaces the cell stored under p.Cell.Key. No-op if no entry with
+// that key exists.
+func (p SetCellPayload) Handle(state Table) (Table, error) {
+	if _, ok := state.Cells[p.Cell.Key]; !ok {
+		return state, nil
+	}
+	state.Cells[p.Cell.Key] = p.Cell
+	return state, nil
+}
