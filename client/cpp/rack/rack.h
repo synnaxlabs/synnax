@@ -23,7 +23,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/api/grpc/rack/rack.pb.h"
+#include "core/pkg/transport/grpc/rack/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
