@@ -445,10 +445,7 @@ describe("queries", () => {
         name: "Source Schematic",
       });
       const lp = await client.lineplots.create(ws.key, { name: "A Plot" });
-      const t1 = await client.tables.create(ws.key, {
-        name: "A Table",
-        data: {},
-      });
+      const t1 = await client.tables.create(ws.key, { name: "A Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "A Log",
         data: {},
@@ -486,10 +483,7 @@ describe("queries", () => {
         name: "Other Schematic",
       });
       const lp = await client.lineplots.create(ws.key, { name: "Plot" });
-      const t1 = await client.tables.create(ws.key, {
-        name: "Table",
-        data: {},
-      });
+      const t1 = await client.tables.create(ws.key, { name: "Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "Log",
         data: {},

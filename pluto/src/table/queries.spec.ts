@@ -30,18 +30,17 @@ describe("table queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const table = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(workspace.key, {
         name: "retrieve_test",
-        data: {},
       });
 
-      const { result } = renderHook(() => Table.useRetrieve({ key: table.key }), {
+      const { result } = renderHook(() => Table.useRetrieve({ key: created.key }), {
         wrapper,
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.data?.key).toEqual(table.key);
+      expect(result.current.data?.key).toEqual(created.key);
       expect(result.current.data?.name).toEqual("retrieve_test");
     });
 
@@ -50,19 +49,18 @@ describe("table queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const table = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(workspace.key, {
         name: "cached_table",
-        data: {},
       });
 
       const { result: result1 } = renderHook(
-        () => Table.useRetrieve({ key: table.key }),
+        () => Table.useRetrieve({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
       const { result: result2 } = renderHook(
-        () => Table.useRetrieve({ key: table.key }),
+        () => Table.useRetrieve({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
@@ -85,7 +83,6 @@ describe("table queries", () => {
           key,
           workspace: workspace.key,
           name: "created_table",
-          data: {},
         });
       });
 
@@ -113,7 +110,6 @@ describe("table queries", () => {
           key,
           workspace: workspace.key,
           name: "stored_table",
-          data: {},
         });
       });
 
@@ -131,14 +127,13 @@ describe("table queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const table = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(workspace.key, {
         name: "original_name",
-        data: {},
       });
 
       const { result } = renderHook(
         () => {
-          const retrieve = Table.useRetrieve({ key: table.key });
+          const retrieve = Table.useRetrieve({ key: created.key });
           const rename = Table.useRename();
           return { retrieve, rename };
         },
@@ -150,12 +145,12 @@ describe("table queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: table.key,
+          key: created.key,
           name: "renamed_table",
         });
       });
 
-      const retrieved = await client.tables.retrieve({ key: table.key });
+      const retrieved = await client.tables.retrieve({ key: created.key });
       expect(retrieved.name).toEqual("renamed_table");
     });
 
@@ -164,14 +159,13 @@ describe("table queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const table = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(workspace.key, {
         name: "cache_original",
-        data: {},
       });
 
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: table.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           rename: Table.useRename(),
         }),
         { wrapper },
@@ -180,7 +174,7 @@ describe("table queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: table.key,
+          key: created.key,
           name: "cache_renamed",
         });
       });
@@ -197,18 +191,17 @@ describe("table queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const table = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(workspace.key, {
         name: "delete_single",
-        data: {},
       });
 
       const { result } = renderHook(() => Table.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(table.key);
+        await result.current.updateAsync(created.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.tables.retrieve({ key: table.key })).rejects.toThrow(
+      await expect(client.tables.retrieve({ key: created.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -218,27 +211,25 @@ describe("table queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const table1 = await client.tables.create(workspace.key, {
+      const created1 = await client.tables.create(workspace.key, {
         name: "delete_multi_1",
-        data: {},
       });
-      const table2 = await client.tables.create(workspace.key, {
+      const created2 = await client.tables.create(workspace.key, {
         name: "delete_multi_2",
-        data: {},
       });
 
       const { result } = renderHook(() => Table.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync([table1.key, table2.key]);
+        await result.current.updateAsync([created1.key, created2.key]);
       });
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.tables.retrieve({ key: table1.key })).rejects.toThrow(
+      await expect(client.tables.retrieve({ key: created1.key })).rejects.toThrow(
         NotFoundError,
       );
-      await expect(client.tables.retrieve({ key: table2.key })).rejects.toThrow(
+      await expect(client.tables.retrieve({ key: created2.key })).rejects.toThrow(
         NotFoundError,
       );
     });

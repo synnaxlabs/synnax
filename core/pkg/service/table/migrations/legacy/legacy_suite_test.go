@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Link } from "@/link";
-import { Table } from "@/table";
-import { fromWire } from "@/table/slice";
+package legacy_test
 
-export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const table = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ ...fromWire(table), name: table.name }));
-};
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestLegacy(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Table Legacy Migrations Suite")
+}
