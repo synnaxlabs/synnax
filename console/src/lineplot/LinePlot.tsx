@@ -65,8 +65,8 @@ import {
 import {
   type AxesState,
   type AxisState,
+  fromWire,
   internalCreate,
-  linePlotBody,
   type LineState,
   setActiveToolbarTab,
   setAxis,
@@ -83,8 +83,8 @@ import {
   setYChannels,
   shouldDisplayAxis,
   type State,
-  stateFromLinePlot,
   storeViewport,
+  toWire,
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
@@ -106,7 +106,7 @@ const useSyncComponent = Workspace.createSyncComponent(
     await client.lineplots.create(workspace, {
       key,
       name: la.name,
-      ...linePlotBody(data),
+      ...toWire(data),
     });
   },
 );
@@ -515,7 +515,7 @@ const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate(stateFromLinePlot(v)),
+  actionCreator: (v) => internalCreate(fromWire(v)),
 });
 
 export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {

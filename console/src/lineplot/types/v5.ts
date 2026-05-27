@@ -152,7 +152,7 @@ export const sliceStateZ = v4.sliceStateZ
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 
-// linePlotBody projects a per-plot State into the server-typed LinePlot body.
+// toWire projects a per-plot State into the server-typed LinePlot body.
 // Drops the UI-only fields (viewport, selection, mode, control, toolbar,
 // measure, annotations, selectedRule, remoteCreated, key, version) and
 // unwraps the AxesState render-trigger bookkeeping so the result matches the
@@ -162,7 +162,7 @@ export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 // Deleted in the SY-4065 (3/3) PR once Pluto's flux store takes over body
 // ownership and the Redux <-> server projection boundary disappears. No new
 // callers should be added.
-export const linePlotBody = (
+export const toWire = (
   state: State,
 ): Omit<lineplot.LinePlot, "key" | "name"> => ({
   title: state.title,
@@ -174,16 +174,16 @@ export const linePlotBody = (
   rules: state.rules,
 });
 
-// stateFromLinePlot hydrates a server-typed LinePlot into a per-plot State,
-// filling in the UI-only fields from the zero state. Used when retrieving a
-// stored line plot or when the local Redux store needs to be reset to match
-// what the server holds.
+// fromWire hydrates a server-typed LinePlot into a per-plot State, filling in
+// the UI-only fields from the zero state. Used when retrieving a stored line
+// plot or when the local Redux store needs to be reset to match what the
+// server holds.
 //
 // TRANSITIONAL: only exists while Redux still owns the line plot body.
 // Deleted in the SY-4065 (3/3) PR once Pluto's flux store takes over body
 // ownership and the Redux <-> server projection boundary disappears. No new
 // callers should be added.
-export const stateFromLinePlot = (lp: lineplot.LinePlot): State => ({
+export const fromWire = (lp: lineplot.LinePlot): State => ({
   ...ZERO_STATE,
   key: lp.key,
   remoteCreated: true,

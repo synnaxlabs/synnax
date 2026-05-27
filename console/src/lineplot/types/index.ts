@@ -92,8 +92,8 @@ export type SliceState = v5.SliceState;
 export const ZERO_SLICE_STATE = v5.ZERO_SLICE_STATE;
 
 // Re-export typed body helpers for server projection.
-export const linePlotBody = v5.linePlotBody;
-export const stateFromLinePlot = v5.stateFromLinePlot;
+export const toWire = v5.toWire;
+export const fromWire = v5.fromWire;
 
 export type AnyState = v0.State | v1.State | v2.State | v3.State | v4.State | v5.State;
 export type AnySliceState =
