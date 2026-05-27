@@ -28,7 +28,7 @@
 #include "x/cpp/json/struct.h"
 #include "x/cpp/status/status.h"
 
-#include "core/pkg/api/grpc/device/device.pb.h"
+#include "core/pkg/transport/grpc/device/device.pb.h"
 
 namespace synnax::device {
 const std::string SET_CHANNEL = "sy_device_set";

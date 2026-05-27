@@ -46,6 +46,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
+	Key  = task.Key
 	Task = task.Task
 )
 

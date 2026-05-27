@@ -27,7 +27,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Arc = arc.Arc
+type (
+	Arc = arc.Arc
+	Key = arc.Key
+)
 
 type Service struct {
 	db       *gorp.DB

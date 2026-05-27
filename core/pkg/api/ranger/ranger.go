@@ -28,6 +28,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Key = ranger.Key
+
 func translateRangesToService(ranges []Range) []ranger.Range {
 	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
 }
