@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
@@ -83,13 +83,7 @@ export class ClusterRetriever implements Retriever {
   }
 
   private async execute(request: RetrieveRequest): Promise<Payload[]> {
-    const res = await sendRequired(
-      this.client,
-      "/channel/retrieve",
-      request,
-      reqZ,
-      resZ,
-    );
+    const res = await this.client.send("/channel/retrieve", request, reqZ, resZ);
     return res.channels;
   }
 }

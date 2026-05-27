@@ -75,17 +75,17 @@ class Button(Symbol):
         self.page.get_by_text("Control").last.click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Output Channel", channel_name=channel_name)
+            self.set_channel(input_field="Output channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:
-            self.layout.fill_input_field("Activation Delay", str(activation_delay))
+            self.layout.fill_input_field("Activation delay", str(activation_delay))
             self.page.keyboard.press("Enter")
             applied_properties["activation_delay"] = activation_delay
 
         if show_control_chip is not None:
             chip_toggle = (
-                self.page.locator("text=Show Control Chip")
+                self.page.locator("text=Show control chip")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -112,21 +112,21 @@ class Button(Symbol):
             "mode": "",
         }
 
-        # Channel Name
+        # Channel name
         channel_display = (
-            self.page.locator("text=Output Channel").locator("..").locator("button")
+            self.page.locator("text=Output channel").locator("..").locator("button")
         )
         if channel_display.count() > 0:
             props["channel"] = channel_display.inner_text().strip()
 
-        # Activation Delay
+        # Activation delay
         props["activation_delay"] = float(
-            self.layout.get_input_field("Activation Delay")
+            self.layout.get_input_field("Activation delay")
         )
 
-        # Show Control Chip
+        # Show control chip
         chip_toggle = (
-            self.page.locator("text=Show Control Chip")
+            self.page.locator("text=Show control chip")
             .locator("..")
             .locator("input[type='checkbox']")
         )

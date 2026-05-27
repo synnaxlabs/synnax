@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
-import { Primitive } from "@/schematic/node/general/stateIndicator/Primitive";
+import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
@@ -35,7 +35,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = ({ color }: Config): ReactElement => (
-  <Primitive
+  <StateIndicator
     matchedOptionKey="1"
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={color}

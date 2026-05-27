@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -91,8 +92,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  table.Key      `json:"key" msgpack:"key"`
+	Data table.Table `json:"data" msgpack:"data"`
+	Key  table.Key   `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
@@ -105,6 +106,29 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
+	})
+}
+
+// DispatchRequest carries an action sequence to apply to a single table.
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding on the originator before the request is sent. The server echoes
+// it verbatim on the broadcast frame so the originator can recognize its own
+// echo race-safely.
+type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
+
+// Dispatch applies the action sequence to the target table atomically.
+// Subscribers to the table action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{table.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 

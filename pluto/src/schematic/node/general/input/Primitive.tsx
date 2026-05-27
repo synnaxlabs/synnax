@@ -15,7 +15,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
 
 interface PrimitiveProps extends Omit<Config, "variant"> {
@@ -24,68 +24,45 @@ interface PrimitiveProps extends Omit<Config, "variant"> {
   onSend?: (value: string) => void;
 }
 
-export const Primitive = ({
+export const Input = ({
   className,
   initialValue = "",
   orientation = "left",
-  color: colorVal,
+  color,
   size,
   onSend,
   disabled,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
   return (
-    <Base.Div
+    <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("input-symbol"), className)}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle
-          location="left"
-          orientation={orientation}
-          left={0}
-          top={50}
-          id="1"
-        />
-        <Handle.Handle
-          location="right"
-          orientation={orientation}
-          left={100}
-          top={50}
-          id="2"
-        />
-        <Handle.Handle
-          location="top"
-          orientation={orientation}
-          left={50}
-          top={0}
-          id="3"
-        />
-        <Handle.Handle
-          location="bottom"
-          orientation={orientation}
-          left={50}
-          top={100}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={0}
+        right={100}
+        bottom={100}
+      />
       <BaseInput.Text
         value={value}
         onChange={setValue}
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={colorVal}
+        color={color}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
-          color={colorVal}
+          color={color}
         >
           Send
         </BaseButton.Button>
       </BaseInput.Text>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

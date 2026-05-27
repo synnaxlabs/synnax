@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon, Text } from "@synnaxlabs/pluto";
+import { type text } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 interface TextFactoryProps {
-  level: Text.Level;
+  level: text.Level;
   includeAnchor?: boolean;
 }
 
