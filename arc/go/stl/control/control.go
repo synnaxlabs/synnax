@@ -17,18 +17,35 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 const (
-	bareSymbolName      = "set_authority"
-	qualifiedMemberName = "set_authority"
-	name                = "control"
+	symbolName = "set_authority"
+	name       = "control"
 )
 
 var (
-	symbolProps = types.Function(types.FunctionProperties{
+	memberDoc = doc.New(
+		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Divider(),
+		doc.Code("arc", "control.set_authority{value=255}"),
+		doc.Divider(),
+		doc.Paragraph("Set authority for a specific channel:"),
+		doc.Divider(),
+		doc.Code("arc", "control.set_authority{value=255, channel=valve_cmd}"),
+		doc.Divider(),
+		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+	)
+)
+
+func newSymbolProps() types.Type {
+	return types.Function(types.FunctionProperties{
 		Config: types.Params{
 			{Name: "value", Type: types.U8()},
 			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
@@ -37,26 +54,26 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 		},
 	})
-	memberSymbol = symbol.Symbol{
-		Name: qualifiedMemberName,
+}
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the control module plus the deprecated bare alias
+// (set_authority) whose Deprecated field points at the canonical member.
+func NewSymbols() []*symbol.Symbol {
+	member := &symbol.Symbol{
+		Name: symbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
-		Type: symbolProps,
+		Type: newSymbolProps(),
+		Doc:  memberDoc,
 	}
-	module     = symbol.NewModule(name, memberSymbol)
-	bareSymbol = symbol.Symbol{
-		Name:       bareSymbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Type:       symbolProps,
-		Deprecated: module.FindChild(qualifiedMemberName),
-	}
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the control module plus the deprecated bare alias
-// (set_authority) whose Deprecated field points at the canonical member.
-var Symbols = []*symbol.Symbol{module, &bareSymbol}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := *member
+	bare.Parent = nil
+	bare.Deprecated = mod.FindChild(symbolName)
+	return []*symbol.Symbol{mod, &bare}
+}
 
 // Host is the runtime host-side support for the control module: it acts as
 // the node factory for set_authority. There are no WASM bindings for
@@ -71,7 +88,7 @@ type Host struct {
 func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
+	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig
