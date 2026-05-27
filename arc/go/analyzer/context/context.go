@@ -44,6 +44,7 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -170,7 +171,7 @@ func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
 		"'%s' is deprecated, use '%s' instead",
 		name,
 		sym.Deprecated.QualifiedName(),
-	))
+	).WithCode(codes.DeprecatedSymbol))
 }
 
 // NewRoot creates a new root context for program analysis. NewRoot
@@ -192,7 +193,7 @@ func NewRoot[ASTNode antlr.ParserRuleContext](
 	root *symbol.Symbol,
 ) Context[ASTNode] {
 	if root == nil {
-		root = symbol.NewRoot(nil)
+		root = symbol.NewRoot(nil, nil)
 	}
 	return Context[ASTNode]{
 		Context:     ctx,

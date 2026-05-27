@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -33,46 +34,55 @@ const (
 	moduleName          = "status"
 )
 
-var symbolProps = types.Function(types.FunctionProperties{
-	Config: types.Params{
-		{Name: "status_key", Type: types.String()},
-		{Name: "variant", Type: types.String()},
-		{Name: "message", Type: types.String()},
-		{Name: "name", Type: types.String(), Value: ""},
-	},
-	Inputs: types.Params{
-		{Name: ir.DefaultOutputParam, Type: types.U8()},
-	},
-})
+var (
+	memberDoc = doc.New(
+		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+		doc.Divider(),
+		doc.Paragraph("Accepted variants: success, error, warning, info."),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	)
+)
 
-// memberSymbol is the canonical status.set symbol that lives inside the
-// status module. The deprecated bare global below points at it via
-// Deprecated so analyzer hints can name the replacement.
-var memberSymbol = symbol.Symbol{
-	Name: qualifiedMemberName,
-	Kind: symbol.KindFunction,
-	Exec: symbol.ExecFlow,
-	Type: symbolProps,
+func newSymbolProps() types.Type {
+	return types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "status_key", Type: types.String()},
+			{Name: "variant", Type: types.String()},
+			{Name: "message", Type: types.String()},
+			{Name: "name", Type: types.String(), Value: ""},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8()},
+		},
+	})
 }
 
-// module is the status module, built once at package init. Its sole child
-// is the `set` function above.
-var module = symbol.NewModule(moduleName, memberSymbol)
-
-// bareSymbolPtr is the deprecated `set_status` bare global. Its
-// Deprecated field points at the module's `set` member so warnings name
-// the qualified replacement.
-var bareSymbolPtr = &symbol.Symbol{
-	Name:       bareSymbolName,
-	Kind:       symbol.KindFunction,
-	Exec:       symbol.ExecFlow,
-	Type:       symbolProps,
-	Deprecated: module.FindChild(qualifiedMemberName),
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the status module plus the deprecated `set_status` bare
+// global whose Deprecated field points at the canonical status.set member.
+func NewSymbols() []*symbol.Symbol {
+	member := &symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: newSymbolProps(),
+		Doc:  memberDoc,
+	}
+	mod := &symbol.Symbol{Name: moduleName, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := &symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       newSymbolProps(),
+		Deprecated: mod.FindChild(qualifiedMemberName),
+	}
+	return []*symbol.Symbol{mod, bare}
 }
-
-// Symbols are the symbols this package contributes to a program's
-// ambient prelude: the status module plus the deprecated bare global.
-var Symbols = []*symbol.Symbol{module, bareSymbolPtr}
 
 type Module struct {
 	stat *status.Service

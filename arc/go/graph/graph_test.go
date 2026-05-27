@@ -139,7 +139,7 @@ var _ = Describe("Graph", func() {
 					},
 				},
 			}
-			root := symbol.NewRoot(nil, stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.NewSymbols())
 			root.Parent.AddChild(&symbol.Symbol{
 				Name: "ox_pt_1",
 				Type: types.Chan(types.F32()),
@@ -1249,7 +1249,8 @@ var _ = Describe("Graph", func() {
 					{Name: ir.DefaultOutputParam, Type: types.U8()},
 				},
 			})
-			statusModule := symbol.NewModule("status", symbol.Symbol{
+			statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+			statusModule.AddChild(&symbol.Symbol{
 				Name: "set",
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecFlow,
@@ -1258,7 +1259,7 @@ var _ = Describe("Graph", func() {
 			channels := []symbol.Symbol{
 				{Name: "sensor", Type: types.Chan(types.U8()), Kind: symbol.KindChannel, ID: 100},
 			}
-			root := symbol.NewRoot(nil, stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.NewSymbols())
 			for i := range channels {
 				s := channels[i]
 				root.Parent.AddChild(&s)

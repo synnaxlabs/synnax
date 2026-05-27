@@ -9,5 +9,6 @@
 
 export * from "@/runtime/download";
 export * from "@/runtime/externalLinks";
+export * from "@/runtime/files";
 export * from "@/runtime/isMainWindow";
 export * from "@/runtime/runtime";
