@@ -73,22 +73,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
-	// Now returns the current timestamp used to stamp collected metric samples. It is
-	// wrapped in a telem.MonoClock to guarantee strictly increasing timestamps, so a
-	// backward jump returned here is clamped rather than faulting the writer. Provided
-	// for testing.
-	//
-	// [OPTIONAL] - Defaults to telem.Now
-	Now func() telem.TimeStamp
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for a metrics service.
-	DefaultServiceConfig = ServiceConfig{
-		CollectionInterval: 2 * time.Second,
-		Now:                telem.Now,
-	}
+	DefaultServiceConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
 )
 
 // Override implements config.Config.
@@ -105,7 +95,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -120,7 +109,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "now", c.Now)
 	return v.Error()
 }
 
@@ -160,9 +148,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
-		clock:    telem.MonoClock{Source: cfg.Now},
 	}
-	c.idx = channel.Channel{
+	idx := channel.Channel{
 		Name:     namePrefix + "time",
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
@@ -172,7 +159,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		chWriter := cfg.Channel.NewWriter(tx)
 		if err = chWriter.Create(
 			ctx,
-			&c.idx,
+			&idx,
 			channel.RetrieveIfNameExists(),
 			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
@@ -182,11 +169,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err := s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			[]ontology.ID{c.idx.OntologyID()},
+			[]ontology.ID{idx.OntologyID()},
 		); err != nil {
 			return err
 		}
-		metrics := s.createMetrics(namePrefix, c.idx.LocalKey)
+		metrics := s.createMetrics(namePrefix, idx.LocalKey)
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			return m.ch
 		})
@@ -251,11 +238,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
-			Keys: append(
-				distchannel.KeysFromChannels(metricsChannels),
-				c.idx.Key(),
-			),
-			Start:                    c.clock.Now(),
+			Keys:                     distchannel.KeysFromChannels(metricsChannels),
+			AutoIndex:                new(true),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
 	)

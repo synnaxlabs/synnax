@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -26,14 +25,8 @@ import (
 
 type collector struct {
 	confluence.AbstractUnarySource[framer.WriterRequest]
-	stop chan struct{}
-	idx  channel.Channel
-	ins  alamos.Instrumentation
-	// clock stamps each collected sample. It guarantees strictly increasing
-	// timestamps even if the host wall clock steps backward (e.g. an NTP
-	// correction), which would otherwise produce a sample older than the
-	// previous commit and permanently fault the metrics writer.
-	clock    telem.MonoClock
+	stop     chan struct{}
+	ins      alamos.Instrumentation
 	metrics  []metric
 	interval time.Duration
 }
@@ -53,10 +46,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-c.stop:
 				return nil
 			case <-t.C:
-				frame := frame.NewUnary(
-					c.idx.Key(),
-					telem.NewSeriesV(c.clock.Now()),
-				)
+				var fr frame.Frame
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
 					if err != nil {
@@ -67,12 +57,12 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 						)
 						continue
 					}
-					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV(value))
+					fr = fr.Append(metric.ch.Key(), telem.NewSeriesV(value))
 				}
 				if err := signal.SendUnderContext(
 					ctx,
 					c.Out.Inlet(),
-					framer.WriterRequest{Command: writer.CommandWrite, Frame: frame},
+					framer.WriterRequest{Command: writer.CommandWrite, Frame: fr},
 				); err != nil {
 					return err
 				}
