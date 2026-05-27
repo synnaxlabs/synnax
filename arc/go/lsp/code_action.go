@@ -48,13 +48,14 @@ func (s *Server) CodeAction(
 	s.mu.RLock()
 	content := doc.Content
 	symbols := doc.IR.Symbols
+	isBlock := doc.isBlock()
 	s.mu.RUnlock()
 	snap := codeActionSnapshot{
 		URI:     doc.URI,
 		Content: content,
 		Symbols: symbols,
 		Tokens:  tokenizeContent(content),
-		IsBlock: doc.isBlock(),
+		IsBlock: isBlock,
 	}
 	var actions []protocol.CodeAction
 	for _, diag := range params.Context.Diagnostics {
