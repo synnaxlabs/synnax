@@ -10,9 +10,7 @@
 // Package api implements the client interfaces for interacting with the Synnax cluster.
 // The package is transport agnostic, defining freighter-compatible interfaces (via the
 // Transport struct) and service implementations (via the Layer struct) for all of its
-// services. Transport-specific implementations that bind these definitions to a concrete
-// protocol live in the sibling github.com/synnaxlabs/synnax/pkg/transport package
-// (transport/http and transport/grpc).
+// services.
 package api
 
 import (

@@ -42,10 +42,7 @@ type LayerConfig struct {
 	Channel *distchannel.Service
 }
 
-var (
-	_                  config.Config[LayerConfig] = LayerConfig{}
-	DefaultLayerConfig                            = LayerConfig{}
-)
+var _ config.Config[LayerConfig] = LayerConfig{}
 
 // Validate implements config.Config.
 func (c LayerConfig) Validate() error {
@@ -69,15 +66,15 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 // are registered directly onto the configured router; gRPC services are exposed via
 // GRPC for registration with the server's gRPC branch.
 type Layer struct {
-	// GRPC holds the bindable gRPC transports that must be registered with the
-	// server's gRPC branch.
+	// GRPC holds the bindable gRPC transports that must be registered with the server's
+	// gRPC branch.
 	GRPC []fgrpc.BindableTransport
 }
 
 // NewLayer binds the configured API layer to the HTTP router and gRPC transports,
 // returning a Layer that exposes the gRPC transports for server registration.
 func NewLayer(cfgs ...LayerConfig) (Layer, error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return Layer{}, err
 	}

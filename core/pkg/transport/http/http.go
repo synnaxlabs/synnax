@@ -44,7 +44,8 @@ import (
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
-// layer's handlers and middleware to them. ch resolves channel keys for the frame codec.
+// layer's handlers and middleware to them. ch resolves channel keys for the frame
+// codec.
 func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 	framerServerOption := httpframer.WithCodec(ch)
 	layer.BindTo(api.Transport{
