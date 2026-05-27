@@ -19,7 +19,7 @@
 
 namespace arc::stl::stateful {
 
-inline constexpr const char *MODULE_NAME = "state";
+inline constexpr const char *MODULE_NAME = "stateful";
 
 class Module : public stl::Module {
     std::shared_ptr<Variables> vars;

@@ -39,14 +39,14 @@ func resolveQualified(
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	if sym, err := scope.Resolve(ctx, name); err == nil {
+	if sym, err := scope.Resolve(ctx, name, symbol.IncludeInternal); err == nil {
 		return sym, nil
 	}
 	head, tail, ok := strings.Cut(name, ".")
 	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	headSym, err := scope.Resolve(ctx, head)
+	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
 	if err != nil {
 		return nil, err
 	}

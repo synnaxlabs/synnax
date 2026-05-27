@@ -55,13 +55,14 @@ func newRuntimeHarness(
 	channelSyms []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
-	ambient := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(channelSyms))
-	ambient = append(ambient, stl.Symbols...)
+	stlSyms := stl.NewSymbols()
+	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
+	ambient = append(ambient, stlSyms...)
 	for i := range channelSyms {
 		s := channelSyms[i]
 		ambient = append(ambient, &s)
 	}
-	root := symbol.NewRoot(nil, ambient...)
+	root := symbol.NewRoot(nil, ambient)
 	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 
 	nodeState := node.New(prog.IR)
