@@ -127,6 +127,7 @@ type IteratorResponse struct {
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,7,opt,name=error,proto3" json:"error,omitempty"`
+	Buffer        []byte                 `protobuf:"bytes,8,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -210,6 +211,13 @@ func (x *IteratorResponse) GetError() *errors.PBPayload {
 	return nil
 }
 
+func (x *IteratorResponse) GetBuffer() []byte {
+	if x != nil {
+		return x.Buffer
+	}
+	return nil
+}
+
 type WriterConfig struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
 	Keys                     []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
@@ -220,6 +228,7 @@ type WriterConfig struct {
 	EnableAutoCommit         bool                   `protobuf:"varint,6,opt,name=enable_auto_commit,json=enableAutoCommit,proto3" json:"enable_auto_commit,omitempty"`
 	AutoIndexPersistInterval int64                  `protobuf:"varint,7,opt,name=auto_index_persist_interval,json=autoIndexPersistInterval,proto3" json:"auto_index_persist_interval,omitempty"`
 	ErrOnUnauthorized        bool                   `protobuf:"varint,8,opt,name=err_on_unauthorized,json=errOnUnauthorized,proto3" json:"err_on_unauthorized,omitempty"`
+	AutoIndex                bool                   `protobuf:"varint,9,opt,name=auto_index,json=autoIndex,proto3" json:"auto_index,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -306,6 +315,13 @@ func (x *WriterConfig) GetAutoIndexPersistInterval() int64 {
 func (x *WriterConfig) GetErrOnUnauthorized() bool {
 	if x != nil {
 		return x.ErrOnUnauthorized
+	}
+	return false
+}
+
+func (x *WriterConfig) GetAutoIndex() bool {
+	if x != nil {
+		return x.AutoIndex
 	}
 	return false
 }
@@ -455,14 +471,13 @@ func (x *WriterResponse) GetEnd() int64 {
 }
 
 type StreamerRequest struct {
-	state                   protoimpl.MessageState `protogen:"open.v1"`
-	Keys                    []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	DownsampleFactor        int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
-	EnableExperimentalCodec bool                   `protobuf:"varint,3,opt,name=enable_experimental_codec,json=enableExperimentalCodec,proto3" json:"enable_experimental_codec,omitempty"`
-	ThrottleRateHz          float64                `protobuf:"fixed64,4,opt,name=throttle_rate_hz,json=throttleRateHz,proto3" json:"throttle_rate_hz,omitempty"`
-	ExcludeGroups           []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Keys             []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	DownsampleFactor int32                  `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
+	ThrottleRateHz   float64                `protobuf:"fixed64,4,opt,name=throttle_rate_hz,json=throttleRateHz,proto3" json:"throttle_rate_hz,omitempty"`
+	ExcludeGroups    []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *StreamerRequest) Reset() {
@@ -507,13 +522,6 @@ func (x *StreamerRequest) GetDownsampleFactor() int32 {
 		return x.DownsampleFactor
 	}
 	return 0
-}
-
-func (x *StreamerRequest) GetEnableExperimentalCodec() bool {
-	if x != nil {
-		return x.EnableExperimentalCodec
-	}
-	return false
 }
 
 func (x *StreamerRequest) GetThrottleRateHz() float64 {
@@ -654,7 +662,7 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x05stamp\x18\x04 \x01(\x03R\x05stamp\x12\x12\n" +
 	"\x04keys\x18\x05 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
-	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xde\x01\n" +
+	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xf6\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
@@ -662,7 +670,8 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
-	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\xcb\x02\n" +
+	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x16\n" +
+	"\x06buffer\x18\b \x01(\fR\x06buffer\"\xea\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12 \n" +
 	"\vauthorities\x18\x02 \x03(\rR\vauthorities\x12\x14\n" +
@@ -671,7 +680,9 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
-	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x9d\x01\n" +
+	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\x12\x1d\n" +
+	"\n" +
+	"auto_index\x18\t \x01(\bR\tautoIndex\"\x9d\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +
@@ -682,11 +693,10 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x05 \x01(\x03R\x03end\"\xdf\x01\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"\xa3\x01\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
-	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12:\n" +
-	"\x19enable_experimental_codec\x18\x03 \x01(\bR\x17enableExperimentalCodec\x12(\n" +
+	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12(\n" +
 	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
 	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\"S\n" +
 	"\x10StreamerResponse\x12'\n" +

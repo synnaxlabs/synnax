@@ -23,6 +23,8 @@ import (
 // fully qualified name.
 func holdUntilSignal(done <-chan struct{}) { <-done }
 
+const holdUntilSignalName = "github.com/synnaxlabs/x/testutil.holdUntilSignal"
+
 var _ = Describe("Leak", func() {
 	Describe("buildLeakConfig", func() {
 		It("returns a zero config when no options are supplied", func() {
@@ -82,7 +84,9 @@ var _ = Describe("Leak", func() {
 			done := make(chan struct{})
 			defer close(done)
 			go holdUntilSignal(done)
-			Eventually(gleak.Goroutines).Should(HaveLen(len(snapshot) + 1))
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
 
 			failures := InterceptGomegaFailures(func() {
 				assertNoLeakedGoroutines(snapshot, leakConfig{
@@ -98,13 +102,13 @@ var _ = Describe("Leak", func() {
 			done := make(chan struct{})
 			defer close(done)
 			go holdUntilSignal(done)
-			Eventually(gleak.Goroutines).Should(HaveLen(len(snapshot) + 1))
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
 
 			cfg := buildLeakConfig([]LeakOption{
 				LeakWithin(100 * time.Millisecond),
-				LeakIgnoring(gleak.IgnoringTopFunction(
-					"github.com/synnaxlabs/x/testutil.holdUntilSignal",
-				)),
+				LeakIgnoring(gleak.IgnoringTopFunction(holdUntilSignalName)),
 			})
 			assertNoLeakedGoroutines(snapshot, cfg)
 		})
@@ -116,8 +120,10 @@ var _ = Describe("Leak", func() {
 				time.Sleep(50 * time.Millisecond)
 				close(done)
 			}()
-			go func() { <-done }()
-			Eventually(gleak.Goroutines).Should(HaveLen(len(snapshot) + 2))
+			go holdUntilSignal(done)
+			Eventually(gleak.Goroutines).Should(ContainElement(
+				HaveField("TopFunction", holdUntilSignalName),
+			))
 
 			assertNoLeakedGoroutines(snapshot, leakConfig{
 				timeout: 1 * time.Second,
@@ -130,8 +136,7 @@ var _ = Describe("Leak", func() {
 		It("does not fail a clean spec", func() {
 			ShouldNotLeakGoroutines()
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() { defer wg.Done() }()
+			wg.Go(func() {})
 			wg.Wait()
 		})
 

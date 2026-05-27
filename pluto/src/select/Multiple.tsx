@@ -30,11 +30,14 @@ export interface MultipleProps<
     Omit<MultipleFrameProps<K, E>, "multiple" | "children">,
     Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
     Omit<BaseDialog.FrameProps, "onChange" | "children" | "variant">,
-    Pick<MultipleTriggerProps<K>, "disabled" | "icon" | "haulType">,
+    Pick<
+      MultipleTriggerProps<K, E>,
+      "disabled" | "icon" | "haulType" | "createHaulItem"
+    >,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
-  renderTag?: MultipleTriggerProps<K>["children"];
-  triggerProps?: MultipleTriggerProps<K>;
+  renderTag?: MultipleTriggerProps<K, E>["children"];
+  triggerProps?: MultipleTriggerProps<K, E>;
   dialogProps?: BaseDialog.FrameProps;
   variant?: Variant;
 }
@@ -47,6 +50,7 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
   getItem,
   subscribe,
   haulType,
+  createHaulItem,
   icon,
   disabled,
   onSearch,
@@ -77,8 +81,9 @@ export const Multiple = <K extends record.Key, E extends record.Keyed<K> | undef
       replaceOnSingle={replaceOnSingle}
       virtual={virtual}
     >
-      <MultipleTrigger
+      <MultipleTrigger<K, E>
         haulType={haulType}
+        createHaulItem={createHaulItem}
         icon={icon}
         placeholder={`Select ${plural(resourceName)}`}
         disabled={disabled}

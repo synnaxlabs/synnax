@@ -12,14 +12,17 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/context"
+	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	aexpression "github.com/synnaxlabs/arc/analyzer/expression"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
+	"github.com/synnaxlabs/arc/compiler/resolve"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,7 +48,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(scopeB).ToNot(BeNil())
 			// Compile expression using both variables
 			expr := MustSucceed(parser.ParseExpression("a + b"))
-			exprType := MustSucceed(expression.Compile(context.Child(ctx, expr)))
+			exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
 			bytecode := ctx.Writer.Bytes()
 			Expect(bytecode).To(MatchOpcodes(
 				OpLocalGet, 0, // Resolve 'a'
@@ -532,7 +535,7 @@ var _ = Describe("Identifier Compilation", func() {
 			bytecode, exprType := compileWithAnalyzer(
 				ctx,
 				"time.now()",
-				stl.SymbolResolver,
+				nil,
 			)
 			Expect(exprType).To(Equal(types.TimeStamp()))
 			Expect(bytecode).To(MatchOpcodes(
@@ -540,36 +543,42 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
-			_, exprType := compileWithAnalyzer(
+		It("Should compile bare now() (deprecated)", func(ctx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(
 				ctx,
-				`string.len("hello")`,
-				stl.SymbolResolver,
+				"now()",
+				nil,
 			)
-			Expect(exprType).To(Equal(types.I64()))
+			Expect(exprType).To(Equal(types.TimeStamp()))
+			Expect(bytecode).To(MatchOpcodes(
+				OpCall, uint32(0),
+			))
 		})
 
-		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
-			_, exprType := compileWithAnalyzer(
-				ctx,
-				`string.concat("a", "b")`,
-				stl.SymbolResolver,
+		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("t.now()"))
+			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
+			timeMod := analyzerCtx.Scope.Parent.FindChild("time")
+			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
+				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+			}))
+			aexpression.Analyze(analyzerCtx)
+			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
+
+			compilerCtx := ccontext.NewRoot(
+				bCtx,
+				analyzerCtx.Scope,
+				analyzerCtx.TypeMap,
+				resolve.NewResolver(),
 			)
-			Expect(exprType).To(Equal(types.String()))
+			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
+			Expect(exprType).To(Equal(types.TimeStamp()))
+			Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
 		})
 
-		It("Should compile math.pow() with type variable resolution", func(ctx SpecContext) {
-			resolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"x": {Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
-				},
-				stl.SymbolResolver,
-			}
-			_, exprType := compileWithAnalyzer(
-				ctx,
-				"math.pow(x, 2)",
-				resolver,
-			)
+		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
+			channels := []symbol.Symbol{{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0}}
+			_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
 			Expect(exprType).To(Equal(types.F64()))
 		})
 	})

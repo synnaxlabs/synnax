@@ -27,7 +27,7 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
-	table     *gorp.Table[uuid.UUID, View]
+	table     *gorp.Table[Key, View]
 }
 
 // Create creates or updates a view within the DB. If the view already has a key and an
@@ -69,9 +69,8 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 }
 
 // Delete deletes the view with the given key. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	if err := w.table.NewDelete().
-		WhereKeys(key).
+func (w Writer) Delete(ctx context.Context, key Key) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](key)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
@@ -79,7 +78,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 }
 
 // DeleteMany deletes multiple views with the given keys. DeleteMany is idempotent.
-func (w Writer) DeleteMany(ctx context.Context, keys ...uuid.UUID) error {
+func (w Writer) DeleteMany(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
 		if err := w.Delete(ctx, key); err != nil {
 			return err

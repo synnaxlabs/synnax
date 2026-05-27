@@ -21,6 +21,7 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Table } from "@/table";
+import { fromWire } from "@/table/slice";
 
 const useDelete = createUseDelete({
   type: "Table",
@@ -96,7 +97,7 @@ const loadTable = async (
   placeLayout: Layout.Placer,
 ) => {
   const table = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
+  placeLayout(Table.create({ ...fromWire(table), name: table.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -126,9 +127,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const table = await client.tables.retrieve({ key });
     placeLayout(
       Table.create({
+        ...fromWire(table),
         name: table.name,
-        ...table.data,
-        key,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
@@ -141,9 +141,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Table />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [
-    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
-  ],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

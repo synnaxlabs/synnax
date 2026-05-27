@@ -12,7 +12,7 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
@@ -44,6 +44,16 @@ const (
 	OperationTypeDerivative OperationType = "derivative"
 )
 
+// IsValid reports whether o is one of the defined OperationType values.
+func (o OperationType) IsValid() bool {
+	switch o {
+	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:
+		return true
+	default:
+		return false
+	}
+}
+
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.
@@ -65,7 +75,7 @@ type Channel struct {
 	Name Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
-	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this channel is an index channel. Index channels must have int64

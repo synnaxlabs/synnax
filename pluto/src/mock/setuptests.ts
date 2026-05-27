@@ -18,7 +18,7 @@ class MockIntersectionObserver {
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
-  vi.stubGlobal("OffscreenCanvas", {} as OffscreenCanvas);
+  vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
 });
 

@@ -403,6 +403,35 @@ describe("caseconv", () => {
         expect(result.values[0].data.One).toBe(1);
       });
 
+      it("should resolve array element schema through wrapper schemas (default, optional, nullable)", () => {
+        const elementZ = z.object({
+          data: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const input = {
+          items: [{ data: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } } }],
+        };
+        const expectPreserved = (result: R) => {
+          expect(result.items[0].data.CamelKey).toBe(1);
+          expect(result.items[0].data.snake_key).toBe(2);
+          expect(result.items[0].data.PascalKey.Inner_Key).toBe(3);
+        };
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().default(() => []) }),
+          }),
+        );
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().optional() }),
+          }),
+        );
+        expectPreserved(
+          caseconv.snakeToCamel(input, {
+            schema: z.object({ items: elementZ.array().nullable() }),
+          }),
+        );
+      });
+
       it("should handle array.nullishToEmpty with preserveCase on element field", async () => {
         const { nullishToEmpty } = await import("@/array/nullable");
         const elementZ = z.object({
@@ -690,6 +719,48 @@ describe("caseconv", () => {
         expect(decoded.linePlots[0].data.myCustomKey).toBe(123);
         expect(decoded.linePlots[0].data.AnotherKey.nested_value).toBe(456);
         expect(decoded.linePlots[0].data.my_custom_key).toBeUndefined();
+      });
+    });
+
+    describe("discriminated union shape merging", () => {
+      it("should resolve a per-variant field schema when walking a discriminated union", () => {
+        const variantA = z.object({
+          type: z.literal("a"),
+          fieldA: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const variantB = z.object({
+          type: z.literal("b"),
+          fieldB: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const unionZ = z.discriminatedUnion("type", [variantA, variantB]);
+        const wrapperZ = z.object({ envelope: unionZ });
+        const inputB = {
+          envelope: {
+            type: "b",
+            fieldB: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } },
+          },
+        };
+        const encoded = caseconv.camelToSnake(inputB, { schema: wrapperZ }) as R;
+        expect(encoded.envelope.field_b.CamelKey).toBe(1);
+        expect(encoded.envelope.field_b.snake_key).toBe(2);
+        expect(encoded.envelope.field_b.PascalKey.Inner_Key).toBe(3);
+        expect(encoded.envelope.field_b.camel_key).toBeUndefined();
+      });
+
+      it("should preserve case through preserveCase wrapping a union (record.nullishToEmpty)", () => {
+        const innerZ = caseconv.preserveCase(
+          z
+            .union([z.null().transform(() => ({})), z.record(z.string(), z.unknown())])
+            .default(() => ({})),
+        );
+        const schema = z.object({ payload: innerZ });
+        const input = {
+          payload: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } },
+        };
+        const encoded = caseconv.camelToSnake(input, { schema }) as R;
+        expect(encoded.payload.CamelKey).toBe(1);
+        expect(encoded.payload.snake_key).toBe(2);
+        expect(encoded.payload.PascalKey.Inner_Key).toBe(3);
       });
     });
   });

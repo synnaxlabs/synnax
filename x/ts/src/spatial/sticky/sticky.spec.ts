@@ -134,7 +134,7 @@ describe("sticky", () => {
     ];
     SPECS.forEach(({ value, valid }, i) => {
       test(`xy schema ${i}`, () => {
-        const result = sticky.xy.safeParse(value);
+        const result = sticky.xyZ.safeParse(value);
         expect(result.success).toBe(valid);
       });
     });
@@ -196,7 +196,7 @@ describe("sticky", () => {
     ];
     SPECS.forEach(({ value, valid }, i) => {
       test(`completeXY schema ${i}`, () => {
-        const result = sticky.completeXY.safeParse(value);
+        const result = sticky.completeXYZ.safeParse(value);
         expect(result.success).toBe(valid);
       });
     });

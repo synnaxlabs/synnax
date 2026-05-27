@@ -9,7 +9,7 @@
 
 import "@/input/Time.css";
 
-import { type direction, TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
+import { type direction, TimeSpan, TimeStamp, type TimeZone } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
@@ -22,7 +22,7 @@ export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =
 
 export interface TimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {
-  tzInfo?: TZInfo;
+  timeZone?: TimeZone;
   showDragHandle?: boolean;
   dragDirection?: direction.Direction;
 }
@@ -32,7 +32,7 @@ const DRAG_SCALE = {
   y: Number(TimeSpan.MINUTE.valueOf()),
 };
 
-interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
+interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "timeZone"> {}
 
 export interface UseTimeReturn {
   inputValue: string;
@@ -40,7 +40,7 @@ export interface UseTimeReturn {
   handleChange: Control<string | number>["onChange"];
 }
 
-export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
+export const useTime = ({ value, onChange, timeZone }: UseTimeProps): UseTimeReturn => {
   const ts = new TimeStamp(value, "UTC");
 
   // We want to check for remainder overflow in LOCAL time.
@@ -62,10 +62,10 @@ export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeRetur
       else ts = new TimeStamp(value, "local");
       onChange(Number(ts.valueOf()));
     },
-    [onChange, tzInfo],
+    [onChange, timeZone],
   );
 
-  const inputValue = ts.toString("time", tzInfo);
+  const inputValue = ts.toString("time", timeZone);
 
   return { inputValue, ts, handleChange };
 };
@@ -94,7 +94,7 @@ export const Time = ({
   ref,
   size,
   value,
-  tzInfo = "local",
+  timeZone = "local",
   onChange,
   dragDirection,
   showDragHandle = true,
@@ -102,7 +102,7 @@ export const Time = ({
   children,
   ...rest
 }: TimeProps) => {
-  const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
+  const { inputValue, ts, handleChange } = useTime({ value, onChange, timeZone });
   return (
     <Text
       ref={ref}

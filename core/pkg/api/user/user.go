@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -30,10 +29,10 @@ import (
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	db            *gorp.DB
-	authenticator svcauth.Authenticator
-	access        *rbac.Service
-	internal      *user.Service
+	db       *gorp.DB
+	access   *rbac.Service
+	internal *user.Service
+	auth     *svcauth.Service
 }
 
 // NewService creates a new Service that allows for registering, updating, and
@@ -44,20 +43,20 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:            cfg.Distribution.DB,
-		authenticator: cfg.Service.Auth,
-		access:        cfg.Service.RBAC,
-		internal:      cfg.Service.User,
+		db:       cfg.Distribution.DB,
+		access:   cfg.Service.RBAC,
+		internal: cfg.Service.User,
+		auth:     cfg.Service.Auth,
 	}, nil
 }
 
-// NewUser holds information for creating a new user in a Synnax server. The username
-// and password are required, and the first and last name are optional.
+// NewUser is the create-request payload for a single user. It bundles the user-record
+// fields and the credentials the auth service will store.
 type NewUser struct {
-	svcauth.InsecureCredentials
-	FirstName string    `json:"first_name" msgpack:"first_name"`
-	LastName  string    `json:"last_name" msgpack:"last_name"`
-	Key       uuid.UUID `json:"key" msgpack:"key"`
+	svcauth.Credentials
+	FirstName string   `json:"first_name" msgpack:"first_name"`
+	LastName  string   `json:"last_name"  msgpack:"last_name"`
+	Key       user.Key `json:"key"        msgpack:"key"`
 }
 
 type (
@@ -80,40 +79,52 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 		return CreateResponse{}, err
 	}
 	var res CreateResponse
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		authW := s.auth.NewWriter(tx)
+		userW := s.internal.NewWriter(tx)
 		newUsers := make([]user.User, len(req.Users))
-		for i, u := range req.Users {
-			if err := s.authenticator.NewWriter(tx).Register(ctx, u.InsecureCredentials); err != nil {
+		for i, nu := range req.Users {
+			err := authW.Register(ctx, nu.Credentials)
+			if err != nil {
 				return err
 			}
-			newUsers[i].Username = u.Username
-			newUsers[i].FirstName = u.FirstName
-			newUsers[i].LastName = u.LastName
-			newUsers[i].Key = u.Key
-			if err := w.Create(ctx, &newUsers[i]); err != nil {
+			if newUsers[i], err = userW.Create(ctx, user.User{
+				Username:  nu.Username,
+				FirstName: nu.FirstName,
+				LastName:  nu.LastName,
+				Key:       nu.Key,
+			}); err != nil {
 				return err
 			}
-
 		}
 		res.Users = newUsers
 		return nil
-	})
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	return res, nil
 }
 
 type ChangeUsernameRequest struct {
-	Username string    `json:"username" msgpack:"username"`
-	Key      uuid.UUID `json:"key" msgpack:"key"`
+	Username string   `json:"username" msgpack:"username"`
+	Key      user.Key `json:"key" msgpack:"key"`
 }
 
 // ChangeUsername changes the username for the user with the given key.
-func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest) (types.Nil, error) {
+func (s *Service) ChangeUsername(
+	ctx context.Context,
+	req ChangeUsernameRequest,
+) (types.Nil, error) {
 	subject := auth.GetSubject(ctx)
 	if subject.Key == req.Key.String() {
-		return types.Nil{}, errors.New("you cannot change your own username through the user service")
+		return types.Nil{}, errors.New(
+			"you cannot change your own username through the user service",
+		)
 	}
 	var u user.User
-	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
 	if u.Username == req.Username {
@@ -127,25 +138,22 @@ func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest)
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.authenticator.NewWriter(tx).InsecureUpdateUsername(
-			ctx,
-			u.Username,
-			req.Username,
-		); err != nil {
+		if err := s.internal.NewWriter(tx).
+			ChangeUsername(ctx, req.Key, req.Username); err != nil {
 			return err
 		}
-		return s.internal.NewWriter(tx).ChangeUsername(ctx, req.Key, req.Username)
+		return s.auth.NewWriter(tx).UpdateUsername(ctx, u.Username, req.Username)
 	})
 }
 
 type RenameRequest struct {
-	FirstName string    `json:"first_name" msgpack:"first_name"`
-	LastName  string    `json:"last_name" msgpack:"last_name"`
-	Key       uuid.UUID `json:"key" msgpack:"key"`
+	FirstName string   `json:"first_name" msgpack:"first_name"`
+	LastName  string   `json:"last_name" msgpack:"last_name"`
+	Key       user.Key `json:"key" msgpack:"key"`
 }
 
-// Rename changes the name for the user with the provided key. If either the first
-// or last name is empty, the corresponding field will not be updated.
+// Rename changes the name for the user with the provided key. If either the first or
+// last name is empty, the corresponding field will not be updated.
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
@@ -155,14 +163,15 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, err
 		return types.Nil{}, err
 	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).ChangeName(ctx, req.Key, req.FirstName, req.LastName)
+		return s.internal.NewWriter(tx).
+			ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 	})
 }
 
 type (
 	RetrieveRequest struct {
-		Keys      []uuid.UUID `json:"keys" msgpack:"keys"`
-		Usernames []string    `json:"usernames" msgpack:"usernames"`
+		Keys      []user.Key `json:"keys" msgpack:"keys"`
+		Usernames []string   `json:"usernames" msgpack:"usernames"`
 	}
 	RetrieveResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
@@ -170,14 +179,16 @@ type (
 )
 
 // Retrieve returns the users with the provided keys or usernames.
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	q := s.internal.NewRetrieve()
-
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
-		q = q.WhereUsernames(req.Usernames...)
+		q = q.Where(user.MatchUsernames(req.Usernames...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -194,7 +205,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []user.Key `json:"keys" msgpack:"keys"`
 }
 
 // Delete removes the users with the provided keys from the Synnax cluster.
@@ -206,25 +217,29 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, err
 	}); err != nil {
 		return types.Nil{}, err
 	}
-
-	// we have to retrieve individually here in case one of the users is already deleted
-	users := make([]user.User, 0, len(req.Keys))
-	for _, key := range req.Keys {
-		var u user.User
-		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return types.Nil{}, err
-		}
-		users = append(users, u)
-	}
-
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.authenticator.NewWriter(tx).
-			InsecureDeactivate(ctx, lo.Map(users, func(u user.User, _ int) string {
-				return u.Username
-			})...); err != nil {
+		// Look up the usernames of the keys that actually exist so we can
+		// deactivate the matching auth rows. A bare-key retrieve wraps
+		// query.ErrNotFound when any key is missing; we treat that as "those
+		// keys are simply not here" and continue with whatever was found, so
+		// deleting a non-existent user is a no-op rather than an error.
+		var toDelete []user.User
+		err := s.internal.NewRetrieve().
+			Where(user.MatchKeys(req.Keys...)).
+			Entries(&toDelete).
+			Exec(ctx, tx)
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+		if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
+			return err
+		}
+		if len(toDelete) == 0 {
+			return nil
+		}
+		usernames := lo.Map(toDelete, func(u user.User, _ int) string {
+			return u.Username
+		})
+		return s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
 	})
 }

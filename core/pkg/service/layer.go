@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -68,7 +69,7 @@ type LayerConfig struct {
 	// user will be provisioned during service layer initialization.
 	//
 	// [OPTIONAL]
-	RootCredentials auth.InsecureCredentials
+	RootCredentials auth.Credentials
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -110,10 +111,10 @@ type Layer struct {
 	User *user.Service
 	// RBAC implements role-based access control for users.
 	RBAC *rbac.Service
+	// Auth validates credentials and manages credential storage.
+	Auth *auth.Service
 	// Token is for creating and validating authentication tokens.
 	Token *token.Service
-	// Auth is for authenticating users with credentials.
-	Auth auth.Authenticator
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
 	// Alias is for working with channel aliases on ranges.
@@ -149,6 +150,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// ImEx is the central import/export registry.
+	ImEx *imex.Service
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
@@ -173,21 +176,20 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
-	var authKV *auth.KV
-	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
+	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-	}); !ok(err, authKV) {
+	}); !ok(err, l.Auth) {
 		return nil, err
 	}
-	l.Auth = authKV
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
-		Auth:            authKV,
+		Signals:         cfg.Distribution.Signals,
+		Auth:            l.Auth,
 		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, l.User) {
 		return nil, err
@@ -266,11 +268,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
+		DB: cfg.Distribution.DB,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}

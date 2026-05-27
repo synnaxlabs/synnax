@@ -20,8 +20,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -63,16 +63,6 @@ func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-s", "-w"}},
-}
-
-// PostWrite runs gofmt on all generated Go files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 // Generate produces translator functions for structs with @pb flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -133,16 +123,53 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 	}
 
+	// Register pb output paths for schemas that opt into @pb but declare
+	// only enums (no structs or distinct typedefs). Cross-namespace fields
+	// referencing these enums depend on the foreign translator existing;
+	// without this pass the schema produces nothing and the dependent
+	// schema fails to compile against its missing import.
+	enumOnlyNamespace := make(map[string]string)
+	for _, e := range req.Resolutions.EnumTypes() {
+		if omit.IsType(e, "pb") {
+			continue
+		}
+		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
+		if outputPath == "" {
+			continue
+		}
+		if _, hasStruct := outputStructs[outputPath]; hasStruct {
+			continue
+		}
+		if _, hasTypeDef := outputTypeDefs[outputPath]; hasTypeDef {
+			continue
+		}
+		if _, alreadyRegistered := enumOnlyNamespace[outputPath]; alreadyRegistered {
+			continue
+		}
+		enumOnlyNamespace[outputPath] = e.Namespace
+		outputOrder = append(outputOrder, outputPath)
+	}
+
+	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
+		return enum.FindPBOutputPath(typ, table)
+	}
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
-		namespace := ""
-		if len(structs) > 0 {
+		var namespace string
+		switch {
+		case len(structs) > 0:
 			namespace = structs[0].Namespace
-		} else if len(typeDefs) > 0 {
+		case len(typeDefs) > 0:
 			namespace = typeDefs[0].Namespace
+		default:
+			namespace = enumOnlyNamespace[outputPath]
 		}
-		enums := req.Resolutions.EnumsInNamespace(namespace)
+		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
+		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
+		// different schema that happens to share this namespace name does
+		// not bleed into this output.
+		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
 		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -353,6 +380,7 @@ func (p *Plugin) processFieldForTranslation(
 	isHardOptional := field.IsHardOptional
 	isOptional := isHardOptional
 	isOptionalStruct := isOptional && isStructType(field.Type, data.table)
+	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
@@ -364,6 +392,7 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
 		IsOptionalStruct: isOptionalStruct,
+		IsOptionalEnum:   isOptionalEnum,
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
@@ -379,22 +408,14 @@ func (p *Plugin) processFieldForTranslation(
 		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
 	}
 
-	// Maps with value types that need conversion (e.g., map[uint32]uint8 <-> map[uint32]uint32)
-	// require element-wise conversion loops. Force into OptionalFields so the template
-	// renders a nil-guarded loop rather than a direct struct initializer assignment.
+	// Maps whose value type does not survive a direct copy (numeric primitives that
+	// widen, opaque records that bridge through structpb.Struct, struct values that
+	// have their own pb translator) require element-wise conversion loops. Force
+	// into OptionalFields so the template renders a nil-guarded loop rather than a
+	// direct struct initializer assignment.
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
-		valArg := typeRef.TypeArgs[1]
-		if resolution.IsPrimitive(valArg.Name) && primitiveNeedsConversion(valArg.Name) {
-			keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
-			goValType := valArg.Name
-			pbValType := primitiveToProtoType(valArg.Name)
-			fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
-			fd.MapValueConversion = &mapValueConversionData{
-				GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
-				PBMapType:         fmt.Sprintf("map[%s]%s", keyType, pbValType),
-				ForwardValueExpr:  fwd,
-				BackwardValueExpr: bwd,
-			}
+		if mvc := p.buildMapValueConversion(typeRef, data); mvc != nil {
+			fd.MapValueConversion = mvc
 			fd.IsOptional = true
 			fd.ForwardExpr = ""
 			fd.BackwardExpr = ""
@@ -402,6 +423,61 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	return fd
+}
+
+// buildMapValueConversion returns the per-element conversion data for a Map
+// field whose value type does not round-trip directly between the Go domain
+// type and the proto wire type. Returns nil when no conversion is needed (the
+// caller should fall back to direct field copy).
+func (p *Plugin) buildMapValueConversion(
+	typeRef resolution.TypeRef, data *templateData,
+) *mapValueConversionData {
+	keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
+	valArg := typeRef.TypeArgs[1]
+
+	if resolution.IsPrimitive(valArg.Name) {
+		switch valArg.Name {
+		case "record":
+			data.imports.AddInternal("msgpack", "github.com/synnaxlabs/x/encoding/msgpack")
+			data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+			return &mapValueConversionData{
+				GoMapType:         fmt.Sprintf("map[%s]msgpack.EncodedJSON", keyType),
+				PBMapType:         fmt.Sprintf("map[%s]*structpb.Struct", keyType),
+				ForwardValueExpr:  "structpb.NewStruct(v)",
+				BackwardValueExpr: "msgpack.EncodedJSON(v.AsMap())",
+				ForwardHasError:   true,
+			}
+		default:
+			if primitiveNeedsConversion(valArg.Name) {
+				fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
+				return &mapValueConversionData{
+					GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valArg.Name),
+					PBMapType:         fmt.Sprintf("map[%s]%s", keyType, primitiveToProtoType(valArg.Name)),
+					ForwardValueExpr:  fwd,
+					BackwardValueExpr: bwd,
+				}
+			}
+			return nil
+		}
+	}
+
+	resolved, ok := valArg.Resolve(data.table)
+	if !ok {
+		return nil
+	}
+	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+		return nil
+	}
+	goValType := p.resolveGoTypeLiteral(valArg, data)
+	translatorPrefix, structName := p.resolvePBTranslatorInfo(resolved, data)
+	return &mapValueConversionData{
+		GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+		PBMapType:         fmt.Sprintf("map[%s]*%s%s", keyType, translatorPrefix, structName),
+		ForwardValueExpr:  fmt.Sprintf("%s%sToPB(v)", translatorPrefix, structName),
+		BackwardValueExpr: fmt.Sprintf("%s%sFromPB(v)", translatorPrefix, structName),
+		ForwardHasError:   true,
+		BackwardHasError:  true,
+	}
 }
 
 func (p *Plugin) processGenericStructForTranslation(
@@ -421,13 +497,18 @@ func (p *Plugin) processGenericStructForTranslation(
 		pbName = s.Name
 	}
 
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
-
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
 		typeParamNames = append(typeParamNames, tp.Name)
+	}
+
+	// anypb is only referenced from translator signatures of structs whose
+	// generics survive default-substitution; for fully-defaulted generics the
+	// emitted translator is concrete and the import would be unused.
+	if len(typeParamNames) > 0 {
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	goTypeBase := fmt.Sprintf("%s.%s", data.parentAlias, goName)
@@ -502,6 +583,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 				BackwardCast:     backwardCast,
 				IsOptional:       isOptional,
 				IsOptionalStruct: isOptional && isStructType(*typeRef.TypeParam.Default, data.table),
+				IsOptionalEnum:   isOptional && isEnumType(*typeRef.TypeParam.Default, data.table),
 				HasError:         hasError,
 				HasBackwardError: hasBackwardError,
 			}, false
@@ -534,7 +616,8 @@ func (p *Plugin) processGenericFieldForTranslation(
 		BackwardExpr:     backwardExpr,
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
-		IsOptionalStruct: isOptional && isStructType(typeRef, data.table),
+		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
+		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}, false
@@ -836,7 +919,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName)
+		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.IsHardOptional)
 		return f, b, "", true, true
 	}
 
@@ -914,9 +997,15 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
 			fmt.Sprintf("int8(%s)", pbField), false, false
+	case "int16":
+		return fmt.Sprintf("int32(%s)", goField),
+			fmt.Sprintf("int16(%s)", pbField), false, false
 	case "uint8":
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("uint8(%s)", pbField), false, false
+	case "uint16":
+		return fmt.Sprintf("uint32(%s)", goField),
+			fmt.Sprintf("uint16(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -980,10 +1069,10 @@ func (p *Plugin) generateStructConversion(
 		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
 	}
 
-	if actualForm.IsGeneric() {
-		return goField, pbField, "", false
-	}
-
+	// A fully-defaulted generic struct (every type param has a default and the
+	// caller supplied no args) emits a non-generic Go pb translator under its
+	// bare name, so the call site falls through to the regular non-generic
+	// branch below instead of returning the raw field names.
 	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	if isHardOptional {
@@ -1118,18 +1207,25 @@ func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
+	isHardOptional bool,
 ) (forward, backward string) {
 	enumName := resolved.Name
+	forwardArg := goField
+	backwardArg := pbField
+	if isHardOptional {
+		forwardArg = "*" + goField
+		backwardArg = "*" + pbField
+	}
 
 	if resolved.Namespace != data.Namespace {
-		pbPath := findEnumPBPath(resolved, data.table)
+		pbPath := enum.FindPBOutputPath(resolved, data.table)
 		if pbPath != "" {
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
 				data.imports.AddInternal(alias, importPath)
-				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, goField),
-					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, pbField)
+				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
+					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
 			}
 		}
 	}
@@ -1138,19 +1234,8 @@ func (p *Plugin) generateEnumConversion(
 		data.usedEnums[resolved.QualifiedName] = &resolved
 	}
 
-	return fmt.Sprintf("%sToPB(%s)", enumName, goField),
-		fmt.Sprintf("%sFromPB(%s)", enumName, pbField)
-}
-
-func findEnumPBPath(e resolution.Type, table *resolution.Table) string {
-	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
-			if path := output.GetPBPath(s); path != "" {
-				return path
-			}
-		}
-	}
-	return ""
+	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
+		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
 }
 
 func (p *Plugin) generateTypeDefConversion(
@@ -1180,18 +1265,20 @@ func (p *Plugin) generateTypeDefConversion(
 		typedefPrefix = data.parentAlias + "."
 	}
 
+	resolvedGoName := naming.GetGoName(resolved)
+
 	if baseType.Name == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolved.Name)
+		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
 		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(baseType.Name)
 
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolved.Name, pbField)
+	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolvedGoName, pbField)
 
 	return forward, backward, "", false
 }
@@ -1220,18 +1307,20 @@ func (p *Plugin) generateAliasConversion(
 		aliasPrefix = data.parentAlias + "."
 	}
 
+	resolvedGoName := naming.GetGoName(resolved)
+
 	// Handle uuid specially
 	if primitiveName == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolved.Name)
+		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
 		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(primitiveName)
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolved.Name, pbField)
+	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolvedGoName, pbField)
 	return forward, backward, "", false
 }
 
@@ -1564,6 +1653,42 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		return true
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if target, ok := aliasForm.Target.Resolve(table); ok {
+			_, isEnum := target.Form.(resolution.EnumForm)
+			return isEnum
+		}
+	}
+	return false
+}
+
+func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return ""
+	}
+	goName := naming.GetGoName(resolved)
+	goOutput := output.GetPath(resolved, "go")
+	if goOutput == "" || goOutput == data.ParentGoPath {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+	if err != nil {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
+	data.imports.AddInternal(alias, importPath)
+	return fmt.Sprintf("%s.%s", alias, goName)
+}
+
 type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table
@@ -1616,6 +1741,10 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
+	// IsOptionalEnum is true for a hard-optional field whose underlying type is an
+	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
+	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
+	IsOptionalEnum bool
 	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
 	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
@@ -1636,6 +1765,13 @@ type mapValueConversionData struct {
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	BackwardValueExpr string // e.g., "uint8(v)"
+	// ForwardHasError is true when ForwardValueExpr returns (T, error). The
+	// template must capture both, propagate err on failure, and assign T into
+	// the map.
+	ForwardHasError bool
+	// BackwardHasError is true when BackwardValueExpr returns (T, error). The
+	// template emits the same shape on the FromPB side.
+	BackwardHasError bool
 }
 
 // enumTranslatorData holds data for enum translator functions.

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -83,8 +84,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver, arcstatus.Symbols...)
+			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
@@ -94,8 +96,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver, arcstatus.Symbols...)
+			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
@@ -279,7 +282,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
@@ -303,7 +306,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("not found"))
@@ -331,7 +334,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task configured successfully"))
@@ -361,7 +364,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task started successfully"))
@@ -500,7 +503,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchKeys[svcarc.StatusDetails]("ox_alarm")).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
@@ -1156,7 +1159,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					WhereKeys(task.OntologyID(svcTask.Key).String()).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
@@ -1278,7 +1281,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					WhereKeys(task.OntologyID(svcTask.Key).String()).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).To(ContainSubstring("integer divide by zero"))

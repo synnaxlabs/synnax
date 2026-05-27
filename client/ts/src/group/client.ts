@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -39,8 +39,7 @@ export class Client {
   }
 
   async create(args: CreateArgs): Promise<Group> {
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/ontology/create-group",
       args,
       createReqZ,
@@ -50,8 +49,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/ontology/rename-group",
       { key, name },
       renameReqZ,
@@ -60,8 +58,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/ontology/delete-group",
       { keys: array.toArray(keys) },
       deleteReqZ,

@@ -702,8 +702,7 @@ describe("Aether Worker", () => {
           result: undefined,
           error: expect.objectContaining({
             name: "Error",
-            message:
-              "Failed to execute throwError(req-5) with args [] on invoke-leaf(invoke-test): Test error",
+            data: "Failed to execute throwError(req-5) with args [] on invoke-leaf(invoke-test): Test error",
           }),
         });
       });
@@ -736,7 +735,7 @@ describe("Aether Worker", () => {
           key: "req-6",
           result: undefined,
           error: expect.objectContaining({
-            message: expect.stringContaining("unknownMethod"),
+            data: expect.stringContaining("unknownMethod"),
           }),
         });
       });
@@ -794,6 +793,157 @@ describe("Aether Worker", () => {
         const found = composite.findChildAtPath([]);
         expect(found).toBeNull();
       });
+    });
+  });
+});
+
+describe("message", () => {
+  describe("NOOP_MAIN_COMMS", () => {
+    it("should provide no-op send and handle", () => {
+      expect(() =>
+        aether.NOOP_MAIN_COMMS.send({ variant: "update" } as any),
+      ).not.toThrow();
+      expect(() => aether.NOOP_MAIN_COMMS.handle(() => {})).not.toThrow();
+    });
+  });
+
+  describe("wrapWorker", () => {
+    it("should forward send to worker.postMessage with transfer", () => {
+      const postMessage = vi.fn();
+      const worker = { postMessage, onmessage: null } as unknown as Worker;
+      const comms = aether.wrapWorker(worker);
+      const msg: aether.MainMessage = {
+        variant: "update",
+        path: ["a"],
+        type: "t",
+        state: { x: 1 },
+      };
+      const transfer: Transferable[] = [];
+      comms.send(msg, transfer);
+      expect(postMessage).toHaveBeenCalledWith(msg, transfer);
+    });
+
+    it("should default transfer to empty array when omitted", () => {
+      const postMessage = vi.fn();
+      const worker = { postMessage, onmessage: null } as unknown as Worker;
+      const comms = aether.wrapWorker(worker);
+      const msg: aether.MainMessage = {
+        variant: "delete",
+        path: ["a"],
+      };
+      comms.send(msg);
+      expect(postMessage).toHaveBeenCalledWith(msg, []);
+    });
+
+    it("should route worker.onmessage events to the registered handler", () => {
+      const worker = { postMessage: vi.fn(), onmessage: null } as unknown as Worker;
+      const comms = aether.wrapWorker(worker);
+      const handler = vi.fn();
+      comms.handle(handler);
+      const msg: aether.WorkerMessage = {
+        variant: "update",
+        key: "k",
+        state: { x: 1 },
+      };
+      (worker as any).onmessage({ data: msg });
+      expect(handler).toHaveBeenCalledWith(msg);
+    });
+  });
+
+  describe("wrapWorkerScope", () => {
+    it("should forward send to global postMessage with transfer", () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("postMessage", postMessage);
+      try {
+        const comms = aether.wrapWorkerScope();
+        const msg: aether.WorkerMessage = {
+          variant: "update",
+          key: "k",
+          state: { x: 1 },
+        };
+        const transfer: Transferable[] = [];
+        comms.send(msg, transfer);
+        expect(postMessage).toHaveBeenCalledWith(msg, { transfer });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("should route global onmessage events to the registered handler", () => {
+      vi.stubGlobal("onmessage", null);
+      try {
+        const comms = aether.wrapWorkerScope();
+        const handler = vi.fn();
+        comms.handle(handler);
+        const msg: aether.MainMessage = {
+          variant: "update",
+          path: ["a"],
+          type: "t",
+          state: { x: 1 },
+        };
+        (globalThis as any).onmessage({ data: msg });
+        expect(handler).toHaveBeenCalledWith(msg);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+  });
+
+  describe("createMockPair", () => {
+    it("should deliver main-side sends to the worker-side handler", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      const workerHandler = vi.fn();
+      workerSide.handle(workerHandler);
+      const msg: aether.MainMessage = {
+        variant: "update",
+        path: ["a"],
+        type: "t",
+        state: { x: 1 },
+      };
+      mainSide.send(msg);
+      expect(workerHandler).toHaveBeenCalledWith(msg);
+    });
+
+    it("should deliver worker-side sends to the main-side handler", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      const mainHandler = vi.fn();
+      mainSide.handle(mainHandler);
+      const msg: aether.WorkerMessage = {
+        variant: "update",
+        key: "k",
+        state: { x: 1 },
+      };
+      workerSide.send(msg);
+      expect(mainHandler).toHaveBeenCalledWith(msg);
+    });
+
+    it("should drop sends made before a handler is registered", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      expect(() =>
+        mainSide.send({
+          variant: "update",
+          path: ["a"],
+          type: "t",
+          state: { x: 1 },
+        }),
+      ).not.toThrow();
+      const workerHandler = vi.fn();
+      workerSide.handle(workerHandler);
+      expect(workerHandler).not.toHaveBeenCalled();
+    });
+
+    it("should replace the previously registered handler on re-handle", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      const first = vi.fn();
+      const second = vi.fn();
+      workerSide.handle(first);
+      workerSide.handle(second);
+      mainSide.send({
+        variant: "delete",
+        path: ["a"],
+      });
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(1);
     });
   });
 });

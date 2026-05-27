@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package stl defines the standard library module interfaces for Arc. A Module is the
-// unit of STL organization: it provides symbols for the analyzer, node factories for
-// the scheduler, and host function implementations for the WASM runtime.
+// Package stl is the Arc standard library. It exposes a flat slice of
+// symbols that callers pass to symbol.NewRoot as ambient globals.
+// The package owns no root-building or scope-assembly logic; that lives
+// in the symbol package.
 package stl
 
 import (
-	"github.com/synnaxlabs/arc/stl/channel"
+	"slices"
+
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
@@ -22,25 +25,24 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
-	"github.com/synnaxlabs/arc/symbol"
 )
 
-var SymbolResolver = symbol.CompoundResolver{
-	channel.SymbolResolver,
-	constant.SymbolResolver,
-	control.SymbolResolver,
-	errors.SymbolResolver,
-	math.SymbolResolver,
-	op.SymbolResolver,
-	selector.SymbolResolver,
-	series.SymbolResolver,
-	stable.SymbolResolver,
-	stat.SymbolResolver,
-	stateful.SymbolResolver,
-	strings.SymbolResolver,
-	time.SymbolResolver,
-}
+// Symbols is the flattened set of symbols every STL package contributes
+// to a program's ambient prelude.
+var Symbols = slices.Concat(
+	channels.Symbols,
+	constant.Symbols,
+	control.Symbols,
+	errors.Symbols,
+	math.Symbols,
+	op.Symbols,
+	selector.Symbols,
+	series.Symbols,
+	stable.Symbols,
+	stateful.Symbols,
+	strings.Symbols,
+	time.Symbols,
+)

@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package writer exposes the Synnax cluster for framed writes as a monolithic data space.
-// It provides a Writer interface that automatically handles the distribution of writes
-// across the cluster. It also provides a StreamWriter interface that enables the user to
-// optimize the concurrency of writes by passing requests and receiving responses through
-// a channel (implementing the confluence.Segment interface).
+// Package writer exposes the Synnax cluster for framed writes as a monolithic data
+// space. It provides a Writer interface that automatically handles the distribution of
+// writes across the cluster. It also provides a StreamWriter interface that enables the
+// user to optimize the concurrency of writes by passing requests and receiving
+// responses through a channel (implementing the confluence.Segment interface).
 //
-// As Synnax is in its early stages, the writer package still has a number of issues, the
-// most relevant of which is a lack of proper distributed transaction support. This means
-// that commits that succeed on one node may fail on another. Caveat emptor.
+// As Synnax is in its early stages, the writer package still has a number of issues,
+// the most relevant of which is a lack of proper distributed transaction support. This
+// means that commits that succeed on one node may fail on another. Caveat emptor.
 package writer
 
 import (
@@ -26,8 +26,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -45,9 +45,10 @@ import (
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
 	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to write to a channel that it does not have authority over.
-	// In non-control scenarios, this value should be set to true. In scenarios
-	// that require control handoff, this value should be set to false.
+	// attempting to write to a channel that it does not have authority over. In
+	// non-control scenarios, this value should be set to true. In scenarios that
+	// require control handoff, this value should be set to false.
+	//
 	// [OPTIONAL] - Defaults to False
 	ErrOnUnauthorized *bool
 	// EnableAutoCommit determines whether the writer will automatically commit after
@@ -72,31 +73,49 @@ type Config struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Keys are the channel keys to write to. At least one key must be provided. All
-	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
-	// calls Frame.Even must return true).
+	// Frames written to the Writer must have a array specified for each key, and all
+	// series must be the same length (i.e. calls Frame.Even must return true).
+	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Authorities sets the control authority the writer has on each channel for the
-	// write. This should either be a single authority for all channels or a slice
-	// of authorities with the same length as the number of channels where each
-	// authority corresponds to the channel at the same index. Defaults to
-	// absolute authority for all channels.
+	// write. This should either be a single authority for all channels or a slice of
+	// authorities with the same length as the number of channels where each authority
+	// corresponds to the channel at the same index. Defaults to absolute authority for
+	// all channels.
+	//
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
-	// [REQUIRED]
+	// telemetry occupying the given timestamp already exists for the provided keys, the
+	// writer will fail to open.
+	//
+	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// WriterModePersistStream.
+	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	// AutoIndex causes each leaseholder to generate timestamps for any index channel
+	// local to it (and in the writer's Keys) whose series is omitted from a Write
+	// frame. The first sample in each Write call is stamped with telem.Now() on the
+	// leaseholder that owns the index; remaining samples in the same call are spaced
+	// 1ns apart. A per-leaseholder high-water mark guarantees strict monotonicity
+	// across Write calls for indexes owned by that leaseholder.
+	//
+	// When AutoIndex is true and the caller's Keys reference data channels whose index
+	// channels are not also in Keys, those index channels are implicitly added to the
+	// writer at open time so the storage layer opens them for writing.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndex *bool `json:"auto_index" msgpack:"auto_index"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -120,7 +139,7 @@ type keyAuthority struct {
 var _ proxy.Entry = keyAuthority{}
 
 // Lease implements proxy.Entry.
-func (k keyAuthority) Lease() cluster.NodeKey { return k.key.Lease() }
+func (k keyAuthority) Lease() node.Key { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
@@ -136,6 +155,7 @@ func DefaultConfig() Config {
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
+		AutoIndex:                new(false),
 	}
 }
 
@@ -161,6 +181,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 		Sync:                     c.Sync,
+		AutoIndex:                c.AutoIndex,
 	}
 }
 
@@ -172,6 +193,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	validate.NotNil(v, "sync", c.Sync)
 	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "auto_index", c.AutoIndex)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -193,6 +215,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.Sync = override.Nil(c.Sync, other.Sync)
+	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
 }
 
@@ -208,7 +231,7 @@ type ServiceConfig struct {
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
 	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
@@ -427,7 +450,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	if err := s.cfg.Channel.
 		NewRetrieve().
 		Entries(&channels).
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}

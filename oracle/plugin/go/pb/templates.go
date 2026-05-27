@@ -92,13 +92,29 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 	if r.{{.GoName}} != nil {
 		pb.{{.PBName}} = make({{.MapValueConversion.PBMapType}}, len(r.{{.GoName}}))
 		for k, v := range r.{{.GoName}} {
+{{- if .MapValueConversion.ForwardHasError}}
+			converted, err := {{.MapValueConversion.ForwardValueExpr}}
+			if err != nil {
+				return nil, err
+			}
+			pb.{{.PBName}}[k] = converted
+{{- else}}
 			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
 	if r.{{.GoName}} != nil {
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
+	}
+{{- else if .IsOptionalEnum}}
+	if r.{{.GoName}} != nil {
+		val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &val
 	}
 {{- else}}
 	if r.{{.GoName}} != nil {
@@ -155,7 +171,15 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.BackwardHasError}}
+			converted, err := {{.MapValueConversion.BackwardValueExpr}}
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+			r.{{.GoName}}[k] = converted
+{{- else}}
 			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
@@ -165,7 +189,7 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
-{{- if .IsOptionalStruct}}
+{{- if or .IsOptionalStruct .IsOptionalEnum}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
 			return {{$goType}}{}, err
@@ -279,13 +303,29 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 	if r.{{.GoName}} != nil {
 		pb.{{.PBName}} = make({{.MapValueConversion.PBMapType}}, len(r.{{.GoName}}))
 		for k, v := range r.{{.GoName}} {
+{{- if .MapValueConversion.ForwardHasError}}
+			converted, err := {{.MapValueConversion.ForwardValueExpr}}
+			if err != nil {
+				return nil, err
+			}
+			pb.{{.PBName}}[k] = converted
+{{- else}}
 			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
 	if r.{{.GoName}} != nil {
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
+	}
+{{- else if .IsOptionalEnum}}
+	if r.{{.GoName}} != nil {
+		val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = &val
 	}
 {{- else}}
 	if r.{{.GoName}} != nil {
@@ -354,7 +394,15 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.BackwardHasError}}
+			converted, err := {{.MapValueConversion.BackwardValueExpr}}
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+			r.{{.GoName}}[k] = converted
+{{- else}}
 			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
@@ -364,7 +412,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
-{{- if .IsOptionalStruct}}
+{{- if or .IsOptionalStruct .IsOptionalEnum}}
 		val, err := {{.BackwardExpr}}
 		if err != nil {
 			return {{$goType}}{}, err

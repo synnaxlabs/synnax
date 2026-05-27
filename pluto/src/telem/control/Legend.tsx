@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { color, unique } from "@synnaxlabs/x";
+import { type color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -36,8 +36,8 @@ const parseSubjectName = (name: string): ParsedName => {
 };
 
 export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
-  colors?: Record<string, string>;
-  onColorsChange?: (colors: Record<string, string>) => void;
+  colors?: Record<string, color.Color>;
+  onColorsChange?: (colors: Record<string, color.Color>) => void;
 }
 
 export const Legend = (props: LegendProps): ReactElement | null => {
@@ -57,14 +57,13 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   const {
     position,
     onPositionChange,
-    allowVisibleChange: _,
+    allowEntryVisibleChange: _,
     background = 1,
     ...rest
   } = restProps;
 
   const handleColorChange = useCallback(
-    (key: string, c: color.Crude) =>
-      onColorsChange?.({ ...colors, [key]: color.hex(c) }),
+    (key: string, c: color.Color) => onColorsChange?.({ ...colors, [key]: c }),
     [colors, onColorsChange],
   );
 
@@ -101,7 +100,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
       {data.map((d) => (
         <LegendEntry
           key={d.key}
-          entryKey={d.key}
+          itemKey={d.key}
           name={d.name}
           color={d.color}
           isSelf={d.isSelf}
@@ -114,16 +113,16 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 };
 
 interface LegendEntryProps {
-  entryKey: string;
+  itemKey: string;
   name: string;
-  color: color.Crude;
+  color: color.Color;
   isSelf: boolean;
-  onColorChange: (key: string, color: color.Crude) => void;
+  onColorChange: (key: string, color: color.Color) => void;
   onColorPickerVisibleChange: state.Setter<boolean>;
 }
 
 const LegendEntry = ({
-  entryKey,
+  itemKey,
   name,
   color: entryColor,
   isSelf,
@@ -132,8 +131,8 @@ const LegendEntry = ({
 }: LegendEntryProps): ReactElement => {
   const parsed = parseSubjectName(name);
   const handleColorChange = useCallback(
-    (c: color.Crude) => onColorChange(entryKey, c),
-    [entryKey, onColorChange],
+    (c: color.Color) => onColorChange(itemKey, c),
+    [itemKey, onColorChange],
   );
   return (
     <Flex.Box align="center" className={CSS(CSS.B("legend-entry"))} gap="small" x grow>

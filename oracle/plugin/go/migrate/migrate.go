@@ -24,7 +24,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -44,15 +43,6 @@ func (p *Plugin) Name() string                { return "go/migrate" }
 func (p *Plugin) Domains() []string           { return []string{"go"} }
 func (p *Plugin) Requires() []string          { return []string{"go/types", "go/marshal"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-s", "-w"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 type migrationEntry struct {
 	GoName           string

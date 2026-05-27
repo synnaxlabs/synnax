@@ -15,14 +15,14 @@ from freighter.transport import RQ, RS, AsyncTransport, Transport
 class AsyncStreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of response asynchronously."""
 
-    async def receive(self) -> tuple[RS, None] | tuple[None, Exception]:
+    async def receive(self) -> RS:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 
-        :returns freighter.errors.EOF: if the server closed the stream nominally.
-        :returns Exception: if the server closed the stream abnormally, returns the
-            error the server returned.
-        :raises Exception: if the transport fails.
+        :returns: the next response from the stream.
+        :raises freighter.errors.EOF: if the server closed the stream nominally.
+        :raises Exception: if the server closed the stream abnormally, raises the error
+            the server returned, or if the transport fails.
         """
         ...
 
@@ -30,9 +30,7 @@ class AsyncStreamReceiver(Protocol[RS]):
 class StreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of responses."""
 
-    def receive(
-        self, timeout: float | None = None
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def receive(self, timeout: float | None = None) -> RS:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 
@@ -40,11 +38,11 @@ class StreamReceiver(Protocol[RS]):
             method will block indefinitely. Not all implementations support this
             parameter.
 
-        :returns freighter.errors.EOF: if the server closed the stream nominally.
+        :returns: the next response from the stream.
+        :raises freighter.errors.EOF: if the server closed the stream nominally.
         :raises TimeoutError: if the timeout is reached.
-        :returns Exception: if the server closed the stream abnormally, returns the
-            error the server returned.
-        :raises Exception: if the transport fails.
+        :raises Exception: if the server closed the stream abnormally, raises the error
+            the server returned, or if the transport fails.
         """
         ...
 
@@ -56,15 +54,14 @@ class StreamReceiver(Protocol[RS]):
 class AsyncStreamSender(Protocol[RQ]):
     """Protocol for an entity that asynchronously sends a stream of requests."""
 
-    async def send(self, request: RQ) -> Exception | None:
+    async def send(self, request: RQ) -> None:
         """
         Sends a request to the stream. It is not safe to call send concurrently with
         close_send or send.
 
         :param request: the request to send.
-        :returns freighter.errors.EOF: if the server closed the stream. The caller can
+        :raises freighter.errors.EOF: if the server closed the stream. The caller can
             discover the error returned by the server by calling receive().
-        :returns None: if the message was sent successfully.
         :raises freighter.errors.StreamClosed: if the client called close_send()
         :raises Exception: if the transport fails.
         """
@@ -74,15 +71,14 @@ class AsyncStreamSender(Protocol[RQ]):
 class StreamSender(Protocol[RQ]):
     """Protocol for an entity that sends a stream of requests."""
 
-    def send(self, request: RQ) -> Exception | None:
+    def send(self, request: RQ) -> None:
         """
         Sends a request to the stream. It is not safe to call send concurrently with
         close_send or send.
 
         :param request: the request to send.
-        :returns freighter.errors.EOF: if the server closed the stream. The caller can
+        :raises freighter.errors.EOF: if the server closed the stream. The caller can
             discover the error returned by the server by calling receive().
-        :returns None: if the message was sent successfully.
         :raises freighter.errors.StreamClosed: if the client called close_send()
         :raises Exception: if the transport fails.
         """
@@ -96,7 +92,7 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
     requests.
     """
 
-    async def close_send(self) -> Exception | None:
+    async def close_send(self) -> None:
         """
         Lets the server know no more messages will be sent. If the client attempts to
         call send() after calling close_send(), a freighter.errors.StreamClosed
@@ -106,7 +102,7 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
         After calling close_send, the client is responsible for calling receive() to
         successfully receive the server's acknowledgement.
 
-        :return: None
+        :raises Exception: if the transport fails to communicate the closure.
         """
         ...
 
@@ -117,7 +113,7 @@ class StreamSenderCloser(StreamSender[RQ], Protocol):
     sending direction of the stream when finished issuing requests.
     """
 
-    def close_send(self) -> Exception | None:
+    def close_send(self) -> None:
         """
         Lets the server know no more messages will be sent. If the client attempts to
         call send() after calling close_send(), a freighter.errors.StreamClosed
@@ -127,7 +123,7 @@ class StreamSenderCloser(StreamSender[RQ], Protocol):
         After calling close_send, the client is responsible for calling receive() to
         successfully receive the server's acknowledgement.
 
-        :return: None
+        :raises Exception: if the transport fails to communicate the closure.
         """
         ...
 

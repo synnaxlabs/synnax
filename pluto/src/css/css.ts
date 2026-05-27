@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, direction, location, type spatial } from "@synnaxlabs/x";
+import { color, direction, location, type spatial, type text } from "@synnaxlabs/x";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type text } from "@/text/base";
+import { type Theming } from "@/theming";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
@@ -21,7 +21,7 @@ export interface CSSType extends BEM {
   loc: (location: location.Crude) => string;
   align: (position: spatial.Alignment | "") => string;
   dir: (direction?: direction.Crude) => string | false;
-  clickable: (shade?: text.Shade) => string;
+  clickable: (shade?: Theming.Shade) => string;
   sharp: (sharp?: boolean) => string | false;
   disabled: (disabled?: boolean) => string | false;
   rounded: (rounded?: boolean) => string | false;
@@ -37,8 +37,9 @@ export interface CSSType extends BEM {
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
-  shade: ((value: text.Shade) => string) & ((value?: text.Shade) => string | false);
-  colorVar: (value?: false | text.Shade | color.Crude) => string | undefined;
+  shade: ((value: Theming.Shade) => string) &
+    ((value?: Theming.Shade) => string | false);
+  colorVar: (value?: false | Theming.Shade | color.Crude) => string | undefined;
   levelSizeVar: (value: string) => string;
 }
 

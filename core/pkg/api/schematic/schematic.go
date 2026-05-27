@@ -13,15 +13,16 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -47,7 +48,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
+		Workspace  workspace.Key         `json:"workspace" msgpack:"workspace"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -74,27 +75,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	})
 }
 
-type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-}
-
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
-}
-
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
+	Data schematic.Schematic `json:"data" msgpack:"data"`
+	Key  schematic.Key       `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
@@ -110,9 +93,32 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	})
 }
 
+// DispatchRequest carries an action sequence to apply to a single schematic.
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding on the originator before the request is sent. The server echoes
+// it verbatim on the broadcast frame so the originator can recognize its own
+// echo race-safely.
+type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
+
+// Dispatch applies the action sequence to the target schematic atomically.
+// Subscribers to the schematic action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	})
+}
+
 type (
 	RetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys []schematic.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -121,7 +127,7 @@ type (
 
 func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
 	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.Schematics).Exec(ctx, nil)
+		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -136,7 +142,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []schematic.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
@@ -154,9 +160,9 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil,
 
 type (
 	CopyRequest struct {
-		Name     string    `json:"name" msgpack:"name"`
-		Key      uuid.UUID `json:"key" msgpack:"key"`
-		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
+		Name     string        `json:"name" msgpack:"name"`
+		Key      schematic.Key `json:"key" msgpack:"key"`
+		Snapshot bool          `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
 		Schematic schematic.Schematic `json:"schematic" msgpack:"schematic"`
@@ -219,8 +225,8 @@ func (s *Service) CreateSymbol(ctx context.Context, req CreateSymbolRequest) (re
 
 type (
 	RetrieveSymbolRequest struct {
-		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+		SearchTerm string          `json:"search_term" msgpack:"search_term"`
+		Keys       []schematic.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -230,7 +236,7 @@ type (
 func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest) (res RetrieveSymbolResponse, err error) {
 	q := s.internal.Symbol.NewRetrieve()
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(symbol.MatchKeys(req.Keys...))
 	}
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
@@ -250,8 +256,8 @@ func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest)
 }
 
 type RenameSymbolRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string        `json:"name" msgpack:"name"`
+	Key  schematic.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) RenameSymbol(ctx context.Context, req RenameSymbolRequest) (res types.Nil, err error) {
@@ -268,7 +274,7 @@ func (s *Service) RenameSymbol(ctx context.Context, req RenameSymbolRequest) (re
 }
 
 type DeleteSymbolRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []schematic.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) DeleteSymbol(ctx context.Context, req DeleteSymbolRequest) (res types.Nil, err error) {

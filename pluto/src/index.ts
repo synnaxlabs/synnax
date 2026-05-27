@@ -36,6 +36,7 @@ export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
 export { JSON } from "@/json";
+export { Key } from "@/key";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
 export { List } from "@/list";
@@ -88,7 +89,6 @@ export { Line } from "@/vis/line";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";
-export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";
 export {
   type CrudeDataType,
@@ -106,7 +106,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
+  type TimeZone,
   type TypedArray,
-  type TZInfo,
 } from "@synnaxlabs/x";

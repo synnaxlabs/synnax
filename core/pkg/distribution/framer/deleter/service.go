@@ -16,7 +16,7 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -30,7 +30,7 @@ type Service struct{ proxy *leaseProxy }
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	TSChannel    *ts.DB
 	Transport    Transport
 }

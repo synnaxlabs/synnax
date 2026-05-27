@@ -7,41 +7,137 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package http provides HTTP and websocket transports for freighter. It includes both
+// unary and streaming servers (use in production for communicating with the TypeScript
+// and Python clients) and unary and streaming clients for testing.
 package http
 
 import (
+	"context"
+	"crypto/tls"
+	"net/http"
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/utils/v2"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	xhttp "github.com/synnaxlabs/x/http"
 )
 
+// BindableTransport is a freighter.Transport that knows how to register its routes on a
+// fiber.App. The Router and any individual server registered through it satisfy this
+// interface.
 type BindableTransport interface {
 	freighter.Transport
+	// BindTo registers the transport's HTTP and websocket routes on the given
+	// fiber.App.
 	BindTo(*fiber.App)
 }
 
-var streamReporter = freighter.Reporter{
-	Protocol:  "websocket",
-	Encodings: http.SupportedContentTypes(),
+const (
+	unaryProtocol      = "http"
+	streamProtocol     = "websocket"
+	freighterCtxPrefix = "freighterctx"
+)
+
+func isFreighterQueryStringParam(key string) bool {
+	return strings.HasPrefix(key, freighterCtxPrefix)
 }
 
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: http.SupportedContentTypes(),
-}
-
-type serverOptions struct{ codecResolver http.CodecResolver }
-
-type ServerOption func(*serverOptions)
-
-func WithCodecResolver(r http.CodecResolver) ServerOption {
-	return func(o *serverOptions) { o.codecResolver = r }
-}
-
-func newServerOptions(opts []ServerOption) serverOptions {
-	so := serverOptions{codecResolver: http.ResolveCodec}
-	for _, opt := range opts {
-		opt(&so)
+func parseQueryString(ctx fiber.Ctx) map[string]string {
+	data := make(map[string]string)
+	for key, val := range ctx.RequestCtx().QueryArgs().All() {
+		k := utils.UnsafeString(key)
+		v := utils.UnsafeString(val)
+		data[k] = v
 	}
-	return so
+	return data
 }
+
+func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
+	var info freighter.SecurityInfo
+	if ctx.RequestCtx().IsTLS() {
+		info.TLS.Used = true
+		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+	}
+	return info
+}
+
+func parseRequestCtx(
+	ctx context.Context,
+	fiberCtx fiber.Ctx,
+	target address.Address,
+	stream bool,
+) freighter.Context {
+	freighterCtx := freighter.Context{
+		Context:  ctx,
+		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
+		Target:   target,
+		Sec:      parseSecurityInfo(fiberCtx),
+		Role:     freighter.RoleServer,
+		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
+	}
+	headers := fiberCtx.GetReqHeaders()
+	freighterCtx.Params = make(freighter.Params, len(headers))
+	for k, v := range fiberCtx.GetReqHeaders() {
+		if len(v) > 0 {
+			freighterCtx.Params[k] = v[0]
+		}
+	}
+	for k, v := range parseQueryString(fiberCtx) {
+		if isFreighterQueryStringParam(k) {
+			freighterCtx.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
+		}
+	}
+	return freighterCtx
+}
+
+func setRequestCtx(req *http.Request, ctx freighter.Context) {
+	for k, v := range ctx.Params {
+		if vStr, ok := v.(string); ok {
+			req.Header.Set(k, vStr)
+		}
+	}
+}
+
+func setResponseCtx(fiberCtx fiber.Ctx, freighterCtx freighter.Context) {
+	for k, v := range freighterCtx.Params {
+		if vStr, ok := v.(string); ok {
+			fiberCtx.Set(k, vStr)
+		}
+	}
+}
+
+func parseResponseCtx(
+	res *http.Response,
+	target address.Address,
+	stream bool,
+) freighter.Context {
+	ctx := freighter.Context{
+		Role:     freighter.RoleClient,
+		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
+		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
+		Target:   target,
+		Params: lo.Ternary(
+			len(res.Header) > 0,
+			make(freighter.Params, len(res.Header)),
+			nil,
+		),
+	}
+	for k, v := range res.Header {
+		if len(v) > 0 {
+			ctx.Params[k] = v[0]
+		}
+	}
+	return ctx
+}
+
+var (
+	defaultEncoders = []xhttp.Encoder{json.Codec, msgpack.Codec}
+	defaultDecoders = []xhttp.Decoder{json.Codec, msgpack.Codec}
+	defaultCodecs   = []xhttp.Codec{json.Codec, msgpack.Codec}
+)

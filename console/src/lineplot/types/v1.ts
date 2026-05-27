@@ -14,7 +14,7 @@ import * as v0 from "@/lineplot/types/v0";
 
 export const VERSION = "1.0.0";
 
-export const legendStateZ = v0.legendStateZ.extend({ position: sticky.xy });
+export const legendStateZ = v0.legendStateZ.extend({ position: sticky.xyZ });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 export const ZERO_LEGEND_STATE: LegendState = {
   ...v0.ZERO_LEGEND_STATE,

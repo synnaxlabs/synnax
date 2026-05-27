@@ -236,11 +236,16 @@ func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) typ
 
 func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		name := parser.QualifiedName(qid)
-		if resolved, err := ctx.Scope.Resolve(ctx, name); err == nil {
-			return resolved.Type
+		head, tail := parser.QualifiedNameParts(qid)
+		headSym, err := ctx.Scope.Resolve(ctx, head)
+		if err != nil {
+			return types.Type{}
 		}
-		return types.Type{}
+		resolved, err := headSym.Resolve(ctx, tail)
+		if err != nil {
+			return types.Type{}
+		}
+		return resolved.Type
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
@@ -280,8 +285,7 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
 		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
 	}
-	text := ctx.AST.GetText()
-	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
+	if parser.StringTerminal(ctx.AST) != nil {
 		t := types.String()
 		ctx.TypeMap[ctx.AST] = t
 		return t

@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -76,7 +75,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg    ServiceConfig
 	group  group.Group
-	table  *gorp.Table[uuid.UUID, View]
+	table  *gorp.Table[Key, View]
 	closer xio.MultiCloser
 }
 
@@ -93,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {

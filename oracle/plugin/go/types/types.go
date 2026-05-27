@@ -15,10 +15,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -26,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -66,16 +65,6 @@ func (p *Plugin) Requires() []string { return nil }
 
 // Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-s", "-w"}},
-}
-
-// PostWrite runs gofmt on all generated Go files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -383,7 +372,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	return fieldData{
 		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
-		JSONName:       lo.SnakeCase(field.Name),
+		JSONName:       casing.FieldSnake(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,
 		IsHardOptional: field.IsHardOptional,
 		Doc:            doc.Get(field.Domains),
@@ -506,6 +495,10 @@ type enumData struct {
 	StartsAtOne bool
 }
 
+// Receiver returns the single-letter, lowercased method receiver name for the enum type
+// (e.g. "n" for Notation).
+func (e enumData) Receiver() string { return strings.ToLower(e.Name[:1]) }
+
 type enumValueData struct {
 	Name     string
 	Value    string
@@ -585,6 +578,18 @@ const (
 	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
 {{- end}}
 )
+{{- if $enum.Values}}
+
+// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.
+func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
+	switch {{$enum.Receiver}} {
+	case {{range $i, $v := $enum.Values}}{{if $i}}, {{end}}{{$enum.Name}}{{$v.Name}}{{end}}:
+		return true
+	default:
+		return false
+	}
+}
+{{- end}}
 {{- end}}
 {{- end}}
 {{range .Structs}}

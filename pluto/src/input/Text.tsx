@@ -13,6 +13,7 @@ import { type status } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
+import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
@@ -210,7 +211,7 @@ export const Text = ({
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
           )}
-          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? SIZE_TEXT_LEVELS[size]}
         >
           {placeholder}
         </BaseText.Text>
@@ -218,7 +219,7 @@ export const Text = ({
       {startContent != null && (
         <BaseText.Text
           className={CSS.BE("input", "start-content")}
-          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? SIZE_TEXT_LEVELS[size]}
         >
           {startContent}
         </BaseText.Text>
@@ -245,7 +246,7 @@ export const Text = ({
       {endContent != null && (
         <BaseText.Text
           className={CSS.BE("input", "end-content")}
-          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? SIZE_TEXT_LEVELS[size]}
         >
           {endContent}
         </BaseText.Text>

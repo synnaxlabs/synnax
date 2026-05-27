@@ -10,6 +10,7 @@
 package pb_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -379,6 +380,104 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("if r.Name != nil {").
 					ToContain("if pb.Name != nil {")
+			})
+
+			It("Should deref the pointer on forward and rebind on backward for hard-optional string enums", func(ctx SpecContext) {
+				// Regression: a hard-optional enum field was emitting
+				// `pb.Type, err = TickTypeToPB(r.Type)` even though r.Type
+				// is *TickType and TickTypeToPB takes a value. Backward
+				// emitted `r.Type = TickTypeFromPB(pb.Type)` ignoring both
+				// the returned error and the pointer target type. The fix
+				// derefs in the forward call and uses the same val/&val
+				// dance the optional struct branch already had.
+				source := `
+					@go output "core/test"
+					@pb
+
+					TickType enum {
+						linear = "linear"
+						time   = "time"
+					}
+
+					Axis struct {
+						key   string
+						type  TickType??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("val, err := TickTypeToPB(*r.Type)")
+				content.ToContain("pb.Type = &val")
+				content.ToContain("val, err := TickTypeFromPB(*pb.Type)")
+				content.ToContain("r.Type = &val")
+				content.ToNotContain("TickTypeToPB(r.Type)")
+				content.ToNotContain("pb.Type, err = TickTypeToPB")
+				content.ToNotContain("TickTypeFromPB(pb.Type)")
+			})
+
+			It("Should deref the pointer on forward and rebind on backward for hard-optional integer enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Level enum {
+						low    = 0
+						medium = 1
+						high   = 2
+					}
+
+					Item struct {
+						key   string
+						level Level??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("val, err := LevelToPB(*r.Level)")
+				content.ToContain("pb.Level = &val")
+				content.ToContain("val, err := LevelFromPB(*pb.Level)")
+				content.ToContain("r.Level = &val")
+				content.ToNotContain("LevelToPB(r.Level)")
+				content.ToNotContain("pb.Level, err = LevelToPB")
+				content.ToNotContain("LevelFromPB(pb.Level)")
+			})
+		})
+
+		Context("generic struct with all-defaulted type params", func() {
+			It("Should emit a non-generic translator call when every type param is defaulted and no args are provided", func(ctx SpecContext) {
+				// Regression: a field whose type is a generic struct with a
+				// fully-defaulted parameter list (e.g. Bounds<T extends
+				// numeric = float64>) used to short-circuit to a raw
+				// `pb.Bounds = r.Bounds` assignment because the generic
+				// branch required at least one explicit type arg, and the
+				// non-generic branch was guarded behind an early return.
+				// The fix falls through to the regular non-generic
+				// translator call, which matches the Go pb shape that
+				// itself emits a concrete BoundsToPB signature for the
+				// defaulted instantiation.
+				source := `
+					@go output "core/test"
+					@pb
+
+					Bounds struct<T extends numeric = float64> {
+						lower T
+						upper T
+					}
+
+					Axis struct {
+						key    string
+						bounds Bounds
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				content := ExpectContent(resp, "translator.gen.go")
+				content.ToContain("BoundsToPB(r.Bounds)")
+				content.ToContain("BoundsFromPB(pb.Bounds)")
+				content.ToNotContain("pb.Bounds = r.Bounds")
+				content.ToNotContain("r.Bounds = pb.Bounds")
 			})
 		})
 
@@ -769,7 +868,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.timestamp(pb.CreatedAt)")
+					ToContain("telem.Timestamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -787,7 +886,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.timespan(pb.Duration)")
+					ToContain("telem.Timespan(pb.Duration)")
 			})
 		})
 
@@ -970,6 +1069,53 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		Context("map with record value conversion", func() {
+			It("Should generate error-returning forward loop for map<K, record>", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						bags map<uint32, record>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("pb.Bags = make(map[uint32]*structpb.Struct").
+					ToContain("converted, err := structpb.NewStruct(v)").
+					ToContain("pb.Bags[k] = converted").
+					ToContain("r.Bags = make(map[uint32]msgpack.EncodedJSON").
+					ToContain("r.Bags[k] = msgpack.EncodedJSON(v.AsMap())")
+			})
+		})
+
+		Context("map with struct value conversion", func() {
+			It("Should generate error-returning loops in both directions for map<K, Struct>", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Inner struct {
+						value uint32
+					}
+
+					Outer struct {
+						items map<uint32, Inner>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("pb.Items = make(map[uint32]*Inner").
+					ToContain("converted, err := InnerToPB(v)").
+					ToContain("pb.Items[k] = converted").
+					ToContain("r.Items = make(map[uint32]test.Inner").
+					ToContain("converted, err := InnerFromPB(v)").
+					ToContain("r.Items[k] = converted")
+			})
+		})
+
 		Context("any field conversion", func() {
 			It("Should handle any fields with json.Marshal", func(ctx SpecContext) {
 				source := `
@@ -998,19 +1144,6 @@ var _ = Describe("Go PB Plugin", func() {
 				Test struct { key uuid }
 			`, "test", loader)
 			Expect(pbPlugin.Check(req)).To(Succeed())
-		})
-	})
-
-	Describe("PostWrite", func() {
-		It("Should return nil for empty file list", func() {
-			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
-			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
-		})
-
-		It("Should filter to only Go files", func() {
-			// PostWrite filters non-.go files internally
-			err := pbPlugin.PostWrite([]string{"test.proto", "config.yaml"})
-			Expect(err).To(Succeed())
 		})
 	})
 
@@ -1269,6 +1402,48 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("Name: r.Name")
 			})
+
+			It("Should round-trip a soft optional struct as a non-nullable wire field", func(ctx SpecContext) {
+				// A struct field with a single "?" keeps its Go type as a
+				// value, and the proto field is plain (no `optional` keyword).
+				// The translator converts unconditionally in both directions:
+				// no zero-value guard on the Go side, no nil-check carve-out
+				// on the proto side. AnchorFromPB's own pb == nil guard makes
+				// the unconditional FromPB call safe even when the proto
+				// pointer is unset. Enum translators tolerate the Go zero, so
+				// converting a zero-valued Anchor does not error.
+				source := `
+					@go output "core/test"
+					@pb
+
+					Side enum {
+						left  = "left"
+						right = "right"
+					}
+
+					Anchor struct {
+						side Side
+					}
+
+					Test struct {
+						key    uuid
+						anchor Anchor?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"anchorVal, err := AnchorToPB(r.Anchor)",
+						"Anchor: anchorVal",
+						"r.Anchor, err = AnchorFromPB(pb.Anchor)",
+					).
+					ToNotContain(
+						"if r.Anchor != (test.Anchor{}) {",
+						"if pb.Anchor != nil {",
+					)
+			})
+
 		})
 
 		Context("cross-namespace struct reference", func() {
@@ -1527,6 +1702,105 @@ var _ = Describe("Go PB Plugin", func() {
 						"StatusToPB[control.Details]",
 						"StatusFromPB[control.Details]",
 					)
+			})
+		})
+
+		Context("cross-schema namespace collision", func() {
+			It("Should not emit a non-@pb enum into another schema's pb translator when both schemas derive the same namespace", func(ctx SpecContext) {
+				// schemas/text.oracle and schemas/arc/text.oracle both
+				// derive namespace "text" via DeriveNamespace. The first
+				// declares Level without @pb. The second is @pb with its
+				// own type. Level must not bleed into arc/text/pb because
+				// its declaring file is not opted into pb.
+				loader.Add("schemas/text", `
+					@go output "x/go/text"
+
+					Level enum {
+						h1 = "h1"
+						h2 = "h2"
+					}
+				`)
+				loader.Add("schemas/arc/text", `
+					@go output "arc/go/text"
+					@pb
+
+					Text struct {
+						content string
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				var translatorFiles []string
+				for _, f := range resp.Files {
+					translatorFiles = append(translatorFiles, f.Path)
+					if strings.HasSuffix(f.Path, "/translator.gen.go") {
+						Expect(string(f.Content)).ToNot(
+							ContainSubstring("Level"),
+							"non-@pb Level enum bled into pb output at %s",
+							f.Path,
+						)
+					}
+				}
+				Expect(translatorFiles).To(ConsistOf("arc/go/text/pb/translator.gen.go"))
+			})
+		})
+
+		Context("enum-only @pb schema", func() {
+			It("Should emit a translator file for a schema that declares only @pb enums", func(ctx SpecContext) {
+				// Without this, a dependent schema's @pb struct that
+				// references the enum has no foreign translator to call.
+				loader.Add("schemas/text", `
+					@go output "x/go/text"
+					@pb
+
+					Level enum {
+						h1    = "h1"
+						h2    = "h2"
+						small = "small"
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/translator.gen.go"))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("func LevelToPB"))
+				Expect(content).To(ContainSubstring("func LevelFromPB"))
+				Expect(content).To(ContainSubstring("text.LevelH1"))
+			})
+
+			It("Should call the foreign translator when an @pb struct references a cross-namespace @pb enum", func(ctx SpecContext) {
+				loader.Add("schemas/text", `
+					@go output "x/go/text"
+					@pb
+
+					Level enum {
+						h1 = "h1"
+						h2 = "h2"
+					}
+				`)
+				loader.Add("schemas/lineplot", `
+					import "schemas/text"
+
+					@go output "core/lineplot"
+					@pb
+
+					Title struct {
+						level text.Level
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, pbPlugin)
+
+				var lineplotTranslator string
+				for _, f := range resp.Files {
+					if f.Path == "core/lineplot/pb/translator.gen.go" {
+						lineplotTranslator = string(f.Content)
+					}
+				}
+				Expect(lineplotTranslator).ToNot(BeEmpty())
+				Expect(lineplotTranslator).To(ContainSubstring("textpb.LevelToPB"))
+				Expect(lineplotTranslator).To(ContainSubstring("textpb.LevelFromPB"))
+				Expect(lineplotTranslator).ToNot(ContainSubstring("func LevelToPB"))
 			})
 		})
 	})

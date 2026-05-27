@@ -41,11 +41,11 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    __stream_client: WebsocketClient
-    __async_client: AsyncStreamClient
-    __unary_client: UnaryClient
-    __channels: Retriever
-    __deleter: Deleter
+    _stream_client: WebsocketClient
+    _async_client: AsyncStreamClient
+    _unary_client: UnaryClient
+    _channels: Retriever
+    _deleter: Deleter
     instrumentation: Instrumentation
 
     def __init__(
@@ -57,11 +57,11 @@ class Client:
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self.__stream_client = stream_client
-        self.__async_client = async_client
-        self.__unary_client = unary_client
-        self.__channels = retriever
-        self.__deleter = deleter
+        self._stream_client = stream_client
+        self._async_client = async_client
+        self._unary_client = unary_client
+        self._channels = retriever
+        self._deleter = deleter
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -78,40 +78,46 @@ class Client:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        auto_index: bool = False,
         err_on_extra_chans: bool = True,
-        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
         :param start: Sets the starting timestamp for the first sample in the writer. If
-        this timestamp overlaps with existing data for ANY of the provided channels,
-        the writer will fail to open.
-        :param channels: The channels to write to. This can be a single channel name,
-        a list of channel names, a single channel key, or a list of channel keys.
-        :param authorities: The control authority to set for each channel on the writer.
-        Defaults to absolute authority. If not working with concurrent control,
-        it's best to leave this as the default.
+        this timestamp overlaps with existing data for ANY of the provided channels, the
+        writer will fail to open.
+        :param channels: The channels to write to. This can be a single channel name, a
+        list of channel names, a single channel key, or a list of channel keys. :param
+        authorities: The control authority to set for each channel on the writer.
+        Defaults to absolute authority. If not working with concurrent control, it's
+        best to leave this as the default.
         :param name: The name of the writer used in control subject.
         :param strict: Sets whether the writer will fail to write if the data for a
-        particular channel does not exactly match this data type. When False,
-        the default, the writer will automatically convert the data to the correct
-        type if possible.
-        :param suppress_warnings: Suppress various print warnings that may be emitted
-        by the writer.
+        particular channel does not exactly match this data type. When False, the
+        default, the writer will automatically convert the data to the correct type if
+        possible.
+        :param suppress_warnings: Suppress various print warnings that may be emitted by
+        the writer.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
-        :param err_on_unauthorized: sets whether the writer should return an error if
-        it attempts to write to a channel it does not have control over.
-        :param enable_auto_commit: determines whether the writer will automatically
-        commit. If enable_auto_commit is true, then the writer will commit after each
-        write, and will flush that commit to index after the specified
-        auto_index_persist_interval.
+        :param err_on_unauthorized: sets whether the writer should return an error if it
+        attempts to write to a channel it does not have control over. :param
+        enable_auto_commit: determines whether the writer will automatically commit. If
+        enable_auto_commit is true, then the writer will commit after each write, and
+        will flush that commit to index after the specified auto_index_persist_interval.
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
+        :param auto_index: when True, Synnax automatically generates timestamps for any
+        index channel that is not included in a write call. The first sample in each
+        write is stamped at the time the write is received, and subsequent samples are
+        spaced 1 nanosecond apart. Generated timestamps are guaranteed to be strictly
+        monotonic across all writes on the writer. If you open the writer with data
+        channels whose index channels are not included, those index channels are added
+        to the writer implicitly.
         """
         adapter = WriteFrameAdapter(
-            retriever=self.__channels,
+            retriever=self._channels,
             err_on_extra_chans=err_on_extra_chans,
             strict_data_types=strict,
             suppress_warnings=suppress_warnings,
@@ -120,7 +126,7 @@ class Client:
         return Writer(
             start=start,
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             authorities=authorities,
             name=name,
             group=group,
@@ -128,7 +134,7 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
-            use_experimental_codec=use_experimental_codec,
+            auto_index=auto_index,
         )
 
     def open_iterator(
@@ -150,12 +156,12 @@ class Client:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         return Iterator(
             tr=tr,
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             chunk_size=chunk_size,
             downsample_factor=downsample_factor,
             instrumentation=self.instrumentation,
@@ -302,7 +308,6 @@ class Client:
         channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
-        use_experimental_codec: bool = True,
         exclude_groups: list[int] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -316,14 +321,13 @@ class Client:
         :param exclude_groups: Writer group IDs whose frames should be filtered out by
         the Core. Used for telemetry bypass deduplication.
         """
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         return Streamer(
             adapter=adapter,
-            client=self.__stream_client,
+            client=self._stream_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
-            use_experimental_codec=use_experimental_codec,
             exclude_groups=exclude_groups,
         )
 
@@ -334,11 +338,11 @@ class Client:
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
     ) -> AsyncStreamer:
-        adapter = ReadFrameAdapter(self.__channels)
+        adapter = ReadFrameAdapter(self._channels)
         adapter.update(channels)
         s = AsyncStreamer(
             adapter=adapter,
-            client=self.__async_client,
+            client=self._async_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
             exclude_groups=exclude_groups,
@@ -355,7 +359,7 @@ class Client:
         :param channels: channels to delete data from.
         :param tr: time range to delete data from.
         """
-        self.__deleter.delete(channels, tr)
+        self._deleter.delete(channels, tr)
 
     def _read_frame(
         self,

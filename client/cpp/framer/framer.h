@@ -171,8 +171,6 @@ public:
     std::vector<channel::Key> channels;
     /// @brief the downsample factor for the streamer.
     int downsample_factor = 1;
-    /// @brief enable experimental high-performance codec for the writer.
-    bool enable_experimental_codec = true;
     /// @brief writer group IDs whose frames should be filtered out by the server. Used
     /// for telemetry bypass deduplication.
     std::vector<std::uint32_t> exclude_groups;
@@ -239,8 +237,7 @@ private:
 
     StreamerConfig cfg;
 
-    /// @brief custom framing codec. only used when cfg.enable_experimental_codec is
-    /// set to true.
+    /// @brief custom framing codec.
     Codec codec;
 
     /// @brief throws if methods have been called on the streamer before it is open.
@@ -312,19 +309,14 @@ struct WriterConfig {
     /// Defaults to 1s when auto-commit is enabled.
     x::telem::TimeSpan auto_index_persist_interval = 1 * x::telem::SECOND;
 
-    /// @brief enable protobuf frame caching for the writer. This allows
-    /// the writer to avoid repeated allocation and deallocation of protobuf frames,
-    /// releasing significant heap pressure.
-    ///
-    /// @details IMPORTANT: This option should only be used for writers that write
-    /// a frame with the EXACT same dimensions on every write i.e. same number of
-    /// channels and series in the same order. Each series must have the same data
-    /// type and the same number of samples. BEHAVIOR IS UNDEFINED IF YOU DO NOT
-    /// FOLLOW THIS RULE.
-    bool enable_proto_frame_caching = false;
-
-    /// @brief enable experimental high-performance codec for the writer.
-    bool enable_experimental_codec = true;
+    /// @brief when true, Synnax automatically generates timestamps for any index
+    /// channel that is not included in a write call. The first sample in each write is
+    /// stamped at the time the write is received, and subsequent samples are spaced 1
+    /// nanosecond apart. Generated timestamps are guaranteed to be strictly monotonic
+    /// across all writes on the writer. If the writer is opened with data channels
+    /// whose index channels are not included, those index channels are added
+    /// implicitly.
+    bool auto_index = false;
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
@@ -416,8 +408,7 @@ private:
     /// @brief the configuration used to open the writer.
     WriterConfig cfg;
 
-    /// @brief the custom synnax frame codec for encoding/decoding frames. This codec
-    /// is only used when cfg.enable_experimental_codec is true.
+    /// @brief the custom synnax frame codec for encoding/decoding frames.
     Codec codec;
     /// @brief the data buffer for storing encoded frames.
     std::vector<std::uint8_t> codec_data;
@@ -427,8 +418,6 @@ private:
 
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
-    /// @brief cached frame within the request for reuse
-    ::x::telem::pb::Frame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.

@@ -15,18 +15,72 @@ Key = uuid {
     @doc value "is a unique identifier for a table, represented as a UUID."
 }
 
+Cell struct {
+    key     string {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    variant string {
+        @doc value """
+            is the cell variant identifier (e.g. "text", "value"). The variant
+            determines the shape of props and which Pluto cell component renders
+            the cell.
+        """
+    }
+    props   record {
+        @doc value        """
+            is the variant-specific cell configuration. The shape is determined
+            by the variant; the wire format intentionally stores it as an
+            opaque record so new variants can be added without a schema
+            migration.
+        """
+        @ts preserve_case
+    }
+
+    @doc value "is a single cell in a table, identified by key and variant."
+}
+
+Row struct {
+    size  float64  {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right.
+            Each key points at an entry in the table's cells map.
+        """
+    }
+
+    @doc value "is a single row in a table, with height and ordered cell keys."
+}
+
+Column struct {
+    size float64 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value "is a single column in a table, with width."
+}
+
 Table struct {
-    key  Key    {
+    key     Key               {
         @doc value "is the unique identifier for this table."
         @key
     }
-    name string {
+    name    string            {
         @doc value "is a human-readable name for the table."
     }
-    data record {
+    rows    Row[]             {
+        @doc value "are the table rows in display order, top to bottom."
+    }
+    columns Column[]          {
+        @doc value "are the table columns in display order, left to right."
+    }
+    cells   map<string, Cell> {
         @doc value        """
-            is the table configuration including column definitions, channel
-            references, and formatting options.
+            contains all cells in the table, keyed by cell key. Cell positions
+            are derived from rows[*].cells[*] references; cells not referenced
+            by any row are orphaned and will be pruned on the next structural
+            edit.
         """
         @ts preserve_case
     }
@@ -37,16 +91,36 @@ Table struct {
         customizable formatting options.
     """
     @ontology type "table"
+    @retrieve
     @go marshal
     @go migrate
 }
 
 New struct extends Table {
-    key Key? {
+    key     Key?               {
         @doc value """
             is an optional key for the table. If not provided, one will be
             automatically assigned.
         """
+    }
+    rows    Row[]?             {
+        @doc value """
+            are the table rows in display order, top to bottom. Defaults to an
+            empty list.
+        """
+    }
+    columns Column[]?          {
+        @doc value """
+            are the table columns in display order, left to right. Defaults to
+            an empty list.
+        """
+    }
+    cells   map<string, Cell>? {
+        @doc value        """
+            contains all cells in the table, keyed by cell key. Defaults to an
+            empty map.
+        """
+        @ts preserve_case
     }
 
     @doc value    "contains parameters for creating a new table."

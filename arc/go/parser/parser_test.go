@@ -952,6 +952,78 @@ func broken() {
 					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
+
+		Context("String Literals", func() {
+			It("Should lex a backtick string spanning newlines as a single STR_LITERAL_MULTI token", func() {
+				expr := MustSucceed(parser.ParseExpression("`a\nb`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("`a\nb`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex an f-prefixed double-quoted string as STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`f"hi {x}"`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`f"hi {x}"`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
+
+			It("Should lex an rf-prefixed backtick string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("rf`path: {p}\nraw: \\n`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("rf`path: {p}\nraw: \\n`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex a raw string with embedded escapes as a single STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`r"say \"hi\""`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`r"say \"hi\""`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
+
+			It("Should lex an f-prefixed backtick string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("f`v={x}\nt={t}`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("f`v={x}\nt={t}`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex a backtick raw string as STR_LITERAL_MULTI", func() {
+				expr := MustSucceed(parser.ParseExpression("r`line1\nline2`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				multiTok := lit.STR_LITERAL_MULTI()
+				Expect(multiTok).NotTo(BeNil())
+				Expect(multiTok.GetText()).To(Equal("r`line1\nline2`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+
+			It("Should lex an rf-prefixed single-quoted string as STR_LITERAL", func() {
+				expr := MustSucceed(parser.ParseExpression(`rf"path: {p}"`))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				tok := lit.STR_LITERAL()
+				Expect(tok).NotTo(BeNil())
+				Expect(tok.GetText()).To(Equal(`rf"path: {p}"`))
+				Expect(lit.STR_LITERAL_MULTI()).To(BeNil())
+			})
+		})
 	})
 
 	Describe("Wrapper Functions", func() {
@@ -1643,7 +1715,7 @@ sequence main {
 
 	Describe("Qualified Identifiers", func() {
 		It("Should parse a qualified identifier in an expression", func() {
-			expr := mustParseExpression("math.pow")
+			expr := mustParseExpression("math.avg")
 			primary := parser.GetPrimaryExpression(expr)
 			Expect(primary).ToNot(BeNil())
 			qid := primary.QualifiedIdentifier()
@@ -1651,21 +1723,21 @@ sequence main {
 			ids := qid.AllIDENTIFIER()
 			Expect(ids).To(HaveLen(2))
 			Expect(ids[0].GetText()).To(Equal("math"))
-			Expect(ids[1].GetText()).To(Equal("pow"))
+			Expect(ids[1].GetText()).To(Equal("avg"))
 		})
 
 		It("Should parse a qualified function call", func() {
-			expr := mustParseExpression("math.pow(2.0, 3.0)")
+			expr := mustParseExpression("math.avg(x)")
 			postfix := getPostfixExpression(expr)
 			Expect(postfix).ToNot(BeNil())
 			primary := postfix.PrimaryExpression()
 			qid := primary.QualifiedIdentifier()
 			Expect(qid).ToNot(BeNil())
-			Expect(parser.QualifiedName(qid)).To(Equal("math.pow"))
+			Expect(parser.QualifiedName(qid)).To(Equal("math.avg"))
 			funcCalls := postfix.AllFunctionCallSuffix()
 			Expect(funcCalls).To(HaveLen(1))
 			args := funcCalls[0].ArgumentList().AllExpression()
-			Expect(args).To(HaveLen(2))
+			Expect(args).To(HaveLen(1))
 		})
 
 		It("Should not confuse float literals with qualified identifiers", func() {

@@ -97,6 +97,8 @@ const getArrayElementSchema = (
   if (schema == null) return undefined;
   const def = (schema as ZodSchema)._zod?.def;
   if (def?.type === "array" && def.element != null) return def.element as z.ZodType;
+  // Traverse through wrappers (optional, nullable, default, catch) to inner schema
+  if (def?.innerType != null) return getArrayElementSchema(def.innerType);
   // Handle union types that may contain arrays (e.g., nullishToEmpty)
   if (def?.type === "union" && Array.isArray(def.options))
     for (const option of def.options) {
@@ -111,6 +113,12 @@ const getArrayElementSchema = (
  * Extracts the shape (field name → ZodType map) from a Zod schema.
  * Traverses through wrappers (optional, nullable, default, catch, union, pipe)
  * to find the inner object schema's shape. Returns null for non-object schemas.
+ *
+ * For unions (including discriminated unions), the shapes of every option are
+ * merged, with earlier options taking precedence on key conflicts. This lets a
+ * caller looking up a single field name resolve it to the variant that
+ * actually declares it — e.g., walking a discriminated union of action
+ * payloads where each variant carries a distinct inner field.
  */
 const getSchemaShape = (
   schema: z.ZodType | z.core.SomeType | undefined,
@@ -125,11 +133,16 @@ const getSchemaShape = (
   const def = s._zod?.def;
   if (def == null) return null;
   if (def.innerType != null) return getSchemaShape(def.innerType);
-  if (def.type === "union" && Array.isArray(def.options))
+  if (def.type === "union" && Array.isArray(def.options)) {
+    let merged: Record<string, z.ZodType> | null = null;
     for (const option of def.options) {
       const result = getSchemaShape(option);
-      if (result != null) return result;
+      if (result == null) continue;
+      if (merged == null) merged = { ...result };
+      else for (const k in result) if (!(k in merged)) merged[k] = result[k];
     }
+    return merged;
+  }
 
   if (def.type === "pipe") return getSchemaShape(def.in) ?? getSchemaShape(def.out);
   return null;

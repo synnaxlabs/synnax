@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/zyn"
@@ -25,11 +26,11 @@ import (
 
 const keySeparator = "---"
 
-func gorpKey(r uuid.UUID, ch channel.Key) string {
+func gorpKey(r ranger.Key, ch channel.Key) string {
 	return fmt.Sprintf("%s%s%s", r, keySeparator, ch)
 }
 
-func parseGorpKey(key string) (uuid.UUID, channel.Key, error) {
+func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
 	split := strings.Split(key, keySeparator)
 	if len(split) != 2 {
 		return uuid.Nil, 0, errors.Newf("[alias] - invalid key")
@@ -54,12 +55,12 @@ func (a Alias) GorpKey() string { return gorpKey(a.Range, a.Channel) }
 func (a Alias) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology ID for an alias.
-func OntologyID(r uuid.UUID, ch channel.Key) ontology.ID {
+func OntologyID(r ranger.Key, ch channel.Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: gorpKey(r, ch)}
 }
 
 // OntologyIDs returns ontology IDs for multiple aliases.
-func OntologyIDs(r uuid.UUID, chs []channel.Key) []ontology.ID {
+func OntologyIDs(r ranger.Key, chs []channel.Key) []ontology.ID {
 	return lo.Map(chs, func(ch channel.Key, _ int) ontology.ID {
 		return OntologyID(r, ch)
 	})

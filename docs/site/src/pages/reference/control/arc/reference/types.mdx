@@ -189,7 +189,7 @@ further use, but they are not spelled in source code.
 
 ## Type Casting
 
-Explicit casting converts between numeric types:
+Explicit casting converts between numeric types, or from a numeric type to `str`:
 
 ```arc
 x i32 := 42
@@ -197,17 +197,25 @@ y f64 := f64(x) // int to float
 
 a f64 := 3.7
 b i64 := i64(a) // truncates to 3
+
+n i64 := 42
+s str := str(n) // numeric to string: "42"
 ```
 
 ### Casting Rules
 
-| Conversion                      | Behavior                                     |
-| ------------------------------- | -------------------------------------------- |
-| Widening (e.g., `i16` to `i64`) | Safe, sign/zero extend                       |
-| Narrowing (e.g., `i64` to `i8`) | Truncates                                    |
-| Signed to unsigned              | Saturates at bounds                          |
-| Float to integer                | Truncates toward zero, saturates on overflow |
-| Integer overflow                | Two's-complement wrapping                    |
+| Conversion                          | Behavior                                     |
+| ----------------------------------- | -------------------------------------------- |
+| Widening (e.g., `i16` to `i64`)     | Safe, sign/zero extend                       |
+| Narrowing (e.g., `i64` to `i8`)     | Truncates                                    |
+| Signed to unsigned                  | Saturates at bounds                          |
+| Float to integer                    | Truncates toward zero, saturates on overflow |
+| Integer overflow                    | Two's-complement wrapping                    |
+| Numeric to string (e.g., `str(42)`) | Decimal text (e.g., `"42"`, `"3.14"`)        |
+
+Float values render without trailing zeros (`str(1.0)` returns `"1"`), and special
+values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numeric type
+is not supported.
 
 <Note.Note variant="info">
   Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
@@ -259,3 +267,7 @@ equal := msg == "Hello" // equality (returns u8: 1 or 0)
 | `[:]` (slicing)       | Yes       |
 | `len()`               | Yes       |
 | `<`, `>`, `<=`, `>=`  | No        |
+
+To build strings from runtime values, use
+[format strings](/reference/control/arc/reference/syntax#format-strings) with `{expr}`
+placeholders instead of repeated concatenation.

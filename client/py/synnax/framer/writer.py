@@ -69,6 +69,7 @@ class WriterConfig(BaseModel):
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+    auto_index: bool = False
 
 
 class WriterRequest(BaseModel):
@@ -189,13 +190,12 @@ class Writer:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
-        use_experimental_codec: bool = True,
+        auto_index: bool = False,
         group: int = 0,
     ) -> None:
         self.start = start
         self._adapter = adapter
-        if use_experimental_codec:
-            client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
@@ -206,15 +206,10 @@ class Writer:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            auto_index=auto_index,
         )
-        exc = self._stream.send(
-            WriterRequest(command=WriterCommand.OPEN, config=config)
-        )
-        if exc is not None:
-            raise exc
-        _, exc = self._stream.receive()
-        if exc is not None:
-            raise exc
+        self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
+        self._stream.receive()
 
     @overload
     def write(
@@ -433,28 +428,32 @@ class Writer:
                 if isinstance(self._close_exc, WriterClosed):
                     return
                 raise self._close_exc
-            res, recv_exc = self._stream.receive()
-            if recv_exc is not None:
-                self._close_exc = (
-                    WriterClosed() if isinstance(recv_exc, EOF) else recv_exc
-                )
-            elif res is not None:
-                self._close_exc = decode_exception(res.err)
+            try:
+                res = self._stream.receive()
+            except EOF:
+                self._close_exc = WriterClosed()
+                continue
+            except Exception as recv_exc:
+                self._close_exc = recv_exc
+                continue
+            self._close_exc = decode_exception(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
     ) -> WriterResponse | None:
-        send_exc = self._stream.send(req)
-        if send_exc is not None:
+        try:
+            self._stream.send(req)
+        except Exception as send_exc:
             self._close(send_exc)
             return None
         while True:
-            res, recv_exc = self._stream.receive(timeout)
-            if recv_exc is not None:
+            try:
+                res = self._stream.receive(timeout)
+            except TimeoutError:
+                raise
+            except Exception as recv_exc:
                 self._close(recv_exc)
                 return None
-            if res is None:
-                continue
             decoded_exc = decode_exception(res.err)
             if decoded_exc is not None:
                 self._close(decoded_exc)

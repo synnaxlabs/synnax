@@ -13,25 +13,20 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	telemOp "github.com/synnaxlabs/x/telem/op"
 )
 
-type Module struct{}
+// Host is the runtime host-side support for operators: a node factory for
+// arithmetic, comparison, logical, and unary ops. Operators have no WASM
+// host bindings and no per-program state.
+type Host struct{}
 
-func NewModule() *Module { return &Module{} }
+// NewHost constructs an op Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
 		return &binary{State: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
@@ -39,10 +34,6 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	opFn, ok := logicalOps[cfg.Node.Type]
 	if ok {
 		return &binary{State: cfg.State, op: opFn}, nil
-	}
-	unCat, ok := typedUnaryOps[cfg.Node.Type]
-	if ok {
-		return &unary{State: cfg.State, op: unCat[cfg.State.Input(0).DataType]}, nil
 	}
 	unOpFn, ok := unaryOps[cfg.Node.Type]
 	if ok {

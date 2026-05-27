@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -67,7 +66,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
-	table  *gorp.Table[uuid.UUID, Workspace]
+	table  *gorp.Table[Key, Workspace]
 	group  group.Group
 }
 
@@ -79,9 +78,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Workspace](ctx, gorp.TableConfig[Workspace]{
+	if s.table, err = gorp.OpenTable[Key, Workspace](ctx, gorp.TableConfig[Key, Workspace]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Workspace]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Workspace]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

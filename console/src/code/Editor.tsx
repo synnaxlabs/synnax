@@ -96,11 +96,17 @@ const forwardGlobalTriggers = (
   };
 };
 
+// Plug-in point for attaching language-specific behavior to a Monaco editor.
+export type EditorExtension = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+) => Monaco.IDisposable;
+
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
+  extensions?: EditorExtension[];
 }
 
 const useTheme = (language: string) => {
@@ -122,6 +128,7 @@ const use = ({
   isBlock = false,
   scrollBeyondLastLine = false,
   openContextMenu,
+  extensions,
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -152,7 +159,7 @@ const use = ({
       model = monaco.editor.createModel(value, language, uri);
     }
 
-    editorRef.current = monaco.editor.create(container, {
+    const editor = monaco.editor.create(container, {
       value: customURI != null ? undefined : value,
       model: model ?? undefined,
       language: customURI != null ? undefined : language,
@@ -160,15 +167,15 @@ const use = ({
       ...ZERO_OPTIONS,
       scrollBeyondLastLine,
     });
+    editorRef.current = editor;
 
     disableMonacoCommandPalette(monaco);
 
-    const contentDispose = editorRef.current.onDidChangeModelContent(() => {
-      if (editorRef.current == null) return;
-      onChange(editorRef.current.getValue());
+    const contentDispose = editor.onDidChangeModelContent(() => {
+      onChange(editor.getValue());
     });
-    const triggerDispose = forwardGlobalTriggers(editorRef.current);
-    const contextMenuDispose = editorRef.current.onContextMenu((e) =>
+    const triggerDispose = forwardGlobalTriggers(editor);
+    const contextMenuDispose = editor.onContextMenu((e) =>
       openContextMenuRef.current?.({
         clientX: e.event.posx,
         clientY: e.event.posy,
@@ -177,15 +184,17 @@ const use = ({
         target: container,
       }),
     );
+    const extensionDisposables = extensions?.map((ext) => ext(editor)) ?? [];
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
-      editorRef.current?.dispose();
+      extensionDisposables.forEach((d) => d.dispose());
+      editor.dispose();
       model?.dispose();
     };
-  }, [monaco, customURI]);
+  }, [monaco, customURI, extensions]);
 
   useEffect(() => {
     if (monaco == null) return;
@@ -199,6 +208,7 @@ export interface EditorProps
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
+  extensions?: EditorExtension[];
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -216,6 +226,7 @@ export const Editor = ({
   language,
   isBlock,
   scrollBeyondLastLine,
+  extensions,
   ...rest
 }: EditorProps) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -226,6 +237,7 @@ export const Editor = ({
     isBlock,
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
+    extensions,
   });
 
   const createMenuAction = useCallback(

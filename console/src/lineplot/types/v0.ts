@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { telem, Text, Viewport } from "@synnaxlabs/pluto";
-import { bounds, box, dimensions, direction, xy } from "@synnaxlabs/x";
+import { telem, Viewport } from "@synnaxlabs/pluto";
+import { bounds, box, dimensions, direction, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { axisKeyZ } from "@/lineplot/axis";
 
 export const VERSION = "0.0.0";
 
-export const titleStateZ = z.object({ level: Text.levelZ, visible: z.boolean() });
+export const titleStateZ = z.object({ level: text.levelZ, visible: z.boolean() });
 export interface TitleState extends z.infer<typeof titleStateZ> {}
 export const ZERO_TITLE_STATE: TitleState = { level: "h4", visible: false };
 
@@ -43,10 +43,10 @@ export const axisStateZ = z.object({
   key: axisKeyZ,
   label: z.string(),
   labelDirection: direction.directionZ,
-  bounds: bounds.boundsZ,
+  bounds: bounds.boundsZ(),
   autoBounds: z.object({ lower: z.boolean(), upper: z.boolean() }),
   tickSpacing: z.number(),
-  labelLevel: Text.levelZ,
+  labelLevel: text.levelZ,
 });
 export interface AxisState extends z.infer<typeof axisStateZ> {}
 export const ZERO_AXIS_STATE: AxisState = {

@@ -9,11 +9,11 @@
 
 import { abs, add, equal as mathEqual, min as mathMin, sub } from "@/math/math";
 import { type numeric } from "@/numeric";
-import { type Bounds, boundsZ, type CrudeBounds } from "@/spatial/base";
+import { type Bounds, boundsZ, type NumberCouple } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
 
-export type Crude<T extends numeric.Value = number> = CrudeBounds<T>;
+export type Crude<T extends numeric.Value = number> = Bounds<T> | NumberCouple<T>;
 
 /** Options for the `construct` function. */
 interface ConstructOptions {
@@ -209,7 +209,7 @@ export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T =
  */
 export const contains = <T extends numeric.Value>(
   bounds: Crude<T>,
-  target: T | CrudeBounds<T>,
+  target: T | Crude<T>,
 ): boolean => {
   const _bounds = construct(bounds);
   if (typeof target === "number" || typeof target === "bigint")
@@ -594,7 +594,7 @@ export const traverse = <T extends numeric.Value = number>(
   if (dir === 0) return start;
 
   let remainingDist = dist;
-  let currentPosition = start as number | bigint;
+  let currentPosition = start;
 
   while (mathEqual(remainingDist, 0) === false) {
     // Find the bound we're currently in or adjacent to
@@ -607,15 +607,15 @@ export const traverse = <T extends numeric.Value = number>(
       const b = _bounds[index];
       let distanceInBound: T;
       if (dir > 0) distanceInBound = sub(b.upper, currentPosition);
-      else distanceInBound = sub(currentPosition, b.lower) as T;
+      else distanceInBound = sub(currentPosition, b.lower);
 
       if (distanceInBound > (0 as T)) {
         const moveDist = mathMin(abs(remainingDist), distanceInBound);
-        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist) as T;
+        currentPosition = add(currentPosition, dir > 0 ? moveDist : -moveDist);
         remainingDist = sub<T>(remainingDist, dir > 0 ? moveDist : -moveDist);
 
         // If we've exhausted the distance, return the current position
-        if (mathEqual(remainingDist, 0)) return currentPosition as T;
+        if (mathEqual(remainingDist, 0)) return currentPosition;
         continue;
       }
     }
@@ -626,17 +626,17 @@ export const traverse = <T extends numeric.Value = number>(
       const nextBounds = _bounds.filter((b) => b.lower > currentPosition);
       if (nextBounds.length > 0) currentPosition = nextBounds[0].lower;
       // No more bounds in this direction
-      else return currentPosition as T;
+      else return currentPosition;
     } else {
       // Move to the previous bound's upper value
       const prevBounds = _bounds.filter((b) => b.upper < currentPosition);
       if (prevBounds.length > 0)
         currentPosition = prevBounds[prevBounds.length - 1].upper;
       // No more bounds in this direction
-      else return currentPosition as T;
+      else return currentPosition;
     }
   }
-  return currentPosition as T;
+  return currentPosition;
 };
 
 /**

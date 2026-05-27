@@ -79,8 +79,6 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_BUILTIN, nil
 	case ontology.ResourceTypeChannel:
 		return ResourceType_RESOURCE_TYPE_CHANNEL, nil
-	case ontology.ResourceTypeCluster:
-		return ResourceType_RESOURCE_TYPE_CLUSTER, nil
 	case ontology.ResourceTypeDevice:
 		return ResourceType_RESOURCE_TYPE_DEVICE, nil
 	case ontology.ResourceTypeFramer:
@@ -135,8 +133,6 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeBuiltin, nil
 	case ResourceType_RESOURCE_TYPE_CHANNEL:
 		return ontology.ResourceTypeChannel, nil
-	case ResourceType_RESOURCE_TYPE_CLUSTER:
-		return ontology.ResourceTypeCluster, nil
 	case ResourceType_RESOURCE_TYPE_DEVICE:
 		return ontology.ResourceTypeDevice, nil
 	case ResourceType_RESOURCE_TYPE_FRAMER:

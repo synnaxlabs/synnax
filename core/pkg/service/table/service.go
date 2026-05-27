@@ -12,10 +12,10 @@ package table
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -65,7 +65,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying tables from Synnax.
 type Service struct {
 	ServiceConfig
-	table *gorp.Table[uuid.UUID, Table]
+	table *gorp.Table[Key, Table]
 }
 
 // OpenService instantiates a new table service using the provided configurations. Each
@@ -76,9 +76,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Table](ctx, gorp.TableConfig[Table]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Table]("msgpack_to_orc")},
+	table, err := gorp.OpenTable[Key, Table](ctx, gorp.TableConfig[Key, Table]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[Key, v55.Table]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[Key, Key, v55.Table, Table](
+					"v55_lift_typed_table",
+					MigrateTable,
+				),
+				"msgpack_to_orc",
+			),
+		},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

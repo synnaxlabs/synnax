@@ -26,13 +26,13 @@ import (
 )
 
 // OntologyID returns unique identifier for the lineplot within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeLineplot, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the schematics within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // OntologyIDsFromLinePlots returns the ontology IDs of the schematics.
@@ -58,7 +58,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[uuid.UUID, LinePlot]
+type change = xchange.Change[Key, LinePlot]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeLineplot }
 
@@ -72,7 +72,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, err
 	}
 	var linePlot LinePlot
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&linePlot).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&linePlot).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(linePlot), nil
@@ -88,7 +88,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, LinePlot]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, LinePlot]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

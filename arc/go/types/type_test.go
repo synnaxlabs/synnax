@@ -636,6 +636,23 @@ var _ = Describe("Types", func() {
 		})
 	})
 
+	Describe("UnitsAssignable", func() {
+		ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+		psi := &types.Unit{Name: "psi", Scale: 1}
+		bar := &types.Unit{Name: "bar", Scale: 1}
+
+		DescribeTable("unit compatibility",
+			func(a, b *types.Unit, want bool) {
+				Expect(types.UnitsAssignable(a, b)).To(Equal(want))
+			},
+			Entry("nil + nil", (*types.Unit)(nil), (*types.Unit)(nil), true),
+			Entry("nil + ns (wildcard)", (*types.Unit)(nil), ns, true),
+			Entry("ns + nil (wildcard)", ns, (*types.Unit)(nil), true),
+			Entry("ns + ns (match)", ns, ns, true),
+			Entry("psi + bar (mismatch)", psi, bar, false),
+		)
+	})
+
 	Describe("Function constructor", func() {
 		It("Should create function with nil inputs/outputs/config", func() {
 			var props types.FunctionProperties

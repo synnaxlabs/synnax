@@ -27,19 +27,26 @@ var (
 	sym        = symbol.Symbol{
 		Name: symName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
 			Config:  types.Params{{Name: "value", Type: typeVar}},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symName: sym}
 )
 
-type Module struct{}
+// Symbols are the symbols this package contributes to a program's ambient
+// prelude: the `constant` builtin installed at root scope.
+var Symbols = []*symbol.Symbol{&sym}
 
-func NewModule() *Module { return &Module{} }
+// Host is the runtime host-side support for the constant builtin: a node
+// factory only. No WASM bindings, no per-program state.
+type Host struct{}
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+// NewHost constructs a constant Host.
+func NewHost() *Host { return &Host{} }
+
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
 		return nil, query.ErrNotFound
 	}

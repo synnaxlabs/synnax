@@ -13,12 +13,37 @@ program
     ;
 
 topLevelItem
-    : authorityBlock
+    : importStatement
+    | authorityBlock
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
     | stageDeclaration
     | globalConstant
+    ;
+
+// =============================================================================
+// Imports
+// =============================================================================
+
+importStatement
+    : IMPORT importItem
+    | IMPORT LPAREN importItem* RPAREN
+    ;
+
+importItem
+    : importPath (AS IDENTIFIER)?
+    ;
+
+// AUTHORITY is a lexer keyword that also names a module, so it is allowed as
+// the head of a path. Subsequent segments are IDENTIFIER.
+importPath
+    : importPathHead (DOT IDENTIFIER)*
+    ;
+
+importPathHead
+    : IDENTIFIER
+    | AUTHORITY
     ;
 
 // =============================================================================
@@ -170,8 +195,14 @@ function
     | IDENTIFIER configValues
     ;
 
+// AUTHORITY is a lexer keyword but also a valid module name
+// (authority.set). FOR is a lexer keyword but also a valid module
+// member name (stable.for). Without these alternatives the lexer
+// tokenizes them as keywords and the IDENTIFIER-only rule rejects them.
 qualifiedIdentifier
     : IDENTIFIER DOT IDENTIFIER
+    | IDENTIFIER DOT FOR
+    | AUTHORITY DOT IDENTIFIER
     ;
 
 configValues
@@ -401,6 +432,7 @@ typeCast
 literal
     : numericLiteral
     | STR_LITERAL
+    | STR_LITERAL_MULTI
     | seriesLiteral
     ;
 

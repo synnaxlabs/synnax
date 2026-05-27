@@ -17,10 +17,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -110,7 +110,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[0]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -122,7 +122,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[1]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -134,7 +134,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[2]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -146,7 +146,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[3]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -158,7 +158,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[4]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -170,7 +170,7 @@ var _ = Describe("Metrics", func() {
 			expectedName := names[5]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
+				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -193,7 +193,7 @@ var _ = Describe("Metrics", func() {
 			Expect(dist.
 				Channel.
 				NewRetrieve().
-				WhereNames(names...).
+				Where(channel.MatchNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -217,7 +217,7 @@ var _ = Describe("Metrics", func() {
 
 			var cpuChannel channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names[1]).
+				Where(channel.MatchNames(names[1])).
 				Entry(&cpuChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -296,7 +296,7 @@ var _ = Describe("Metrics", func() {
 
 			var memChannel channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names[2]).
+				Where(channel.MatchNames(names[2])).
 				Entry(&memChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -397,7 +397,7 @@ var _ = Describe("Metrics", func() {
 			var channels []channel.Channel
 			names := getNames(dist.Cluster.HostKey())
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(names...).
+				Where(channel.MatchNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -490,7 +490,7 @@ var _ = Describe("Metrics", func() {
 
 			var idxCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().
-				WhereNames(getNames(host.HostKey())[0]).
+				Where(channel.MatchNames(getNames(host.HostKey())[0])).
 				Entry(&idxCh).
 				Exec(ctx, nil),
 			).To(Succeed())
@@ -535,7 +535,7 @@ var _ = Describe("Metrics", func() {
 	})
 })
 
-func getNames(hostKey cluster.NodeKey) []string {
+func getNames(hostKey node.Key) []string {
 	prefix := "sy_node_" + hostKey.String() + "_metrics_"
 	return []string{
 		prefix + "time",

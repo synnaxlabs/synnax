@@ -12,6 +12,7 @@ package literal
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
@@ -41,7 +42,7 @@ func Parse(
 	if num := literal.NumericLiteral(); num != nil {
 		return ParseNumeric(num, targetType)
 	}
-	if str := literal.STR_LITERAL(); str != nil {
+	if str := parser.StringTerminal(literal); str != nil {
 		return ParseString(str.GetText(), targetType)
 	}
 	if series := literal.SeriesLiteral(); series != nil {
@@ -50,20 +51,41 @@ func Parse(
 	return ParsedValue{}, errors.New("unknown literal type")
 }
 
-// ParseString parses a string literal and returns its value and type.
-// It handles escape sequences according to the Arc grammar:
-// - \b, \t, \n, \f, \r, \", \\
-// - \uXXXX (4-digit Unicode escape)
-// The text parameter should include the surrounding double quotes.
+// ParseString parses any of the eight string literal forms ("..." / `...`
+// crossed with optional r/f/rf/fr prefix) and returns the cooked Go string. For
+// format-prefixed strings without placeholders, {{ and }} are collapsed to
+// literal braces; for format strings with placeholders the body is returned
+// with placeholders intact so callers can run FmtStrParse themselves.
 func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
 	}
-	unquoted, err := strconv.Unquote(text)
-	if err != nil {
-		return ParsedValue{}, errors.Wrapf(err, "invalid string literal: %s", text)
+	body, flags, ok := StripQuotes(text)
+	if !ok {
+		return ParsedValue{}, errors.Newf("invalid string literal: %s", text)
 	}
-	return ParsedValue{Value: unquoted, Type: types.String()}, nil
+	value := body
+	if !flags.Raw {
+		var err error
+		value, err = UnescapeString(body, flags.Multi)
+		if err != nil {
+			return ParsedValue{}, errors.Wrapf(err, "invalid string literal %s", text)
+		}
+	}
+	if flags.Format {
+		segments, err := FmtStrParse(value)
+		if err != nil {
+			return ParsedValue{}, errors.Wrapf(err, "invalid format string %s", text)
+		}
+		if !FmtStrHasPlaceholder(segments) {
+			var sb strings.Builder
+			for _, seg := range segments {
+				sb.WriteString(seg.Text)
+			}
+			value = sb.String()
+		}
+	}
+	return ParsedValue{Value: value, Type: types.String()}, nil
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
@@ -417,4 +439,26 @@ func IsExactInteger(value float64) bool {
 	}
 	// Use relative tolerance: difference should be tiny compared to the magnitude
 	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
+}
+
+// Negate negates a parsed literal value. Supports the numeric types produced by Parse.
+func Negate(v any) any {
+	switch val := v.(type) {
+	case int8:
+		return -val
+	case int16:
+		return -val
+	case int32:
+		return -val
+	case int64:
+		return -val
+	case float32:
+		return -val
+	case float64:
+		return -val
+	case telem.TimeSpan:
+		return -val
+	default:
+		return v
+	}
 }

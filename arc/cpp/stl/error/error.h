@@ -19,6 +19,8 @@
 
 namespace arc::stl::error {
 
+inline constexpr const char *MODULE_NAME = "error";
+
 class Module : public stl::Module {
     runtime::errors::Handler handler;
     wasmtime::Store *store = nullptr;
@@ -34,7 +36,7 @@ public:
         auto self = this;
         linker
             .func_wrap(
-                "error",
+                MODULE_NAME,
                 "panic",
                 [self](uint32_t ptr, uint32_t len) {
                     std::string message;
