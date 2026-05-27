@@ -9,10 +9,11 @@
 
 import { createTestClient, NotFoundError, table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -668,6 +669,249 @@ describe("table queries", () => {
     });
   });
 
+  describe("useAddCol", () => {
+    const seedTable = async (
+      rows: table.Row[] = [{ size: 30, cells: ["a", "b"] }],
+      columns: table.Column[] = [{ size: 80 }, { size: 80 }],
+      cells: Record<string, table.Cell> = {
+        a: { key: "a", variant: "value", props: { units: "psi" } },
+        b: { key: "b", variant: "value", props: { units: "psi" } },
+      },
+    ) => {
+      const ws = await client.workspaces.create({
+        name: `add_col_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        name: "add_col_test",
+        rows,
+        columns,
+        cells,
+      });
+    };
+
+    const loadAndUse = async (key: table.Key) => {
+      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const hooks = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key }),
+          addCol: Table.useAddCol({ key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(hooks.result.current.retrieve.variant).toEqual("success"),
+      );
+      return hooks;
+    };
+
+    it("appends a column at the end with default text cells for every existing row", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.addCol());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.columns).toHaveLength(3);
+        expect(result.current.retrieve.data?.rows[0].cells).toHaveLength(3);
+      });
+      const newCellKey = result.current.retrieve.data?.rows[0].cells[2];
+      expect(newCellKey).not.toBeUndefined();
+      expect(result.current.retrieve.data?.cells[newCellKey!].variant).toEqual("text");
+    });
+
+    it("inserts a column at the given index", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.addCol(1));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.columns).toHaveLength(3);
+        const row = result.current.retrieve.data?.rows[0].cells;
+        expect(row?.[0]).toEqual("a");
+        expect(row?.[2]).toEqual("b");
+      });
+    });
+
+    it("bootstraps an empty table with both a row and a column", async () => {
+      const seeded = await seedTable([], [], {});
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.addCol());
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(1);
+        expect(result.current.retrieve.data?.columns).toHaveLength(1);
+        expect(result.current.retrieve.data?.rows[0].cells).toHaveLength(1);
+      });
+    });
+  });
+
+  describe("useRemoveRow", () => {
+    const seedTable = async () => {
+      const ws = await client.workspaces.create({
+        name: `remove_row_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        name: "remove_row_test",
+        rows: [
+          { size: 30, cells: ["a", "b"] },
+          { size: 30, cells: ["c", "d"] },
+          { size: 30, cells: ["e", "f"] },
+        ],
+        columns: [{ size: 80 }, { size: 80 }],
+        cells: {
+          a: { key: "a", variant: "text", props: {} },
+          b: { key: "b", variant: "text", props: {} },
+          c: { key: "c", variant: "text", props: {} },
+          d: { key: "d", variant: "text", props: {} },
+          e: { key: "e", variant: "text", props: {} },
+          f: { key: "f", variant: "text", props: {} },
+        },
+      });
+    };
+
+    const loadAndUse = async (key: table.Key) => {
+      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const hooks = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key }),
+          removeRow: Table.useRemoveRow({ key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(hooks.result.current.retrieve.variant).toEqual("success"),
+      );
+      return hooks;
+    };
+
+    it("removes the row at the given index and drops its cells", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.removeRow(1));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.rows).toHaveLength(2);
+        expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "b"]);
+        expect(result.current.retrieve.data?.rows[1].cells).toEqual(["e", "f"]);
+        expect(result.current.retrieve.data?.cells.c).toBeUndefined();
+        expect(result.current.retrieve.data?.cells.d).toBeUndefined();
+      });
+    });
+
+    it("is a no-op for an out-of-range index", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.removeRow(99));
+      expect(result.current.retrieve.data?.rows).toHaveLength(3);
+      expect(Object.keys(result.current.retrieve.data?.cells ?? {})).toHaveLength(6);
+    });
+  });
+
+  describe("useRemoveCol", () => {
+    const seedTable = async () => {
+      const ws = await client.workspaces.create({
+        name: `remove_col_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return client.tables.create(ws.key, {
+        name: "remove_col_test",
+        rows: [
+          { size: 30, cells: ["a", "b", "c"] },
+          { size: 30, cells: ["d", "e", "f"] },
+        ],
+        columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
+        cells: {
+          a: { key: "a", variant: "text", props: {} },
+          b: { key: "b", variant: "text", props: {} },
+          c: { key: "c", variant: "text", props: {} },
+          d: { key: "d", variant: "text", props: {} },
+          e: { key: "e", variant: "text", props: {} },
+          f: { key: "f", variant: "text", props: {} },
+        },
+      });
+    };
+
+    const loadAndUse = async (key: table.Key) => {
+      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const hooks = renderHook(
+        () => ({
+          retrieve: Table.useRetrieve({ key }),
+          removeCol: Table.useRemoveCol({ key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(hooks.result.current.retrieve.variant).toEqual("success"),
+      );
+      return hooks;
+    };
+
+    it("removes the column at the given index and drops those cells across every row", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.removeCol(1));
+      await waitFor(() => {
+        expect(result.current.retrieve.data?.columns).toHaveLength(2);
+        expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "c"]);
+        expect(result.current.retrieve.data?.rows[1].cells).toEqual(["d", "f"]);
+        expect(result.current.retrieve.data?.cells.b).toBeUndefined();
+        expect(result.current.retrieve.data?.cells.e).toBeUndefined();
+      });
+    });
+
+    it("is a no-op for an out-of-range index", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndUse(seeded.key);
+      await act(async () => result.current.removeCol(99));
+      expect(result.current.retrieve.data?.columns).toHaveLength(3);
+      expect(Object.keys(result.current.retrieve.data?.cells ?? {})).toHaveLength(6);
+    });
+  });
+
+  describe("useEnsureRetrieved", () => {
+    // Single-hook bootstrap component so the suspending useEnsureRetrieved
+    // is not followed by additional hooks, which trips a React 19 concurrent
+    // replay warning (same pattern as schematic queries.spec.tsx).
+    const loadTable = async (
+      Wrapper: FC<PropsWithChildren>,
+      key: table.Key,
+    ): Promise<void> => {
+      const Bootstrap = (): ReactElement => {
+        Table.useEnsureRetrieved({ key });
+        return <div data-testid="loaded" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Bootstrap />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      await utils.findByTestId("loaded");
+    };
+
+    it("populates the store so downstream selectors resolve", async () => {
+      const ws = await client.workspaces.create({
+        name: `ensure_ws_${uuid.create()}`,
+        layout: {},
+      });
+      const seeded = await client.tables.create(ws.key, {
+        name: "ensure_test",
+        rows: [{ size: 30, cells: ["a"] }],
+        columns: [{ size: 80 }],
+        cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
+      });
+      await loadTable(wrapper, seeded.key);
+      const { result } = renderHook(() => Table.useSelectName({ key: seeded.key }), {
+        wrapper,
+      });
+      expect(result.current).toEqual("ensure_test");
+    });
+  });
+
   describe("selectors", () => {
     const seedTable = async () => {
       const ws = await client.workspaces.create({
@@ -690,7 +934,7 @@ describe("table queries", () => {
       });
     };
 
-    const loadAndSelect = async <T>(
+    const loadAndSelect = async <T,>(
       key: table.Key,
       hook: () => T,
     ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
