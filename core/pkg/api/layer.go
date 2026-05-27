@@ -130,6 +130,7 @@ type Transport struct {
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[table.RenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[table.SetDataRequest, types.Nil]
+	TableDispatch freighter.UnaryServer[table.DispatchRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
@@ -328,6 +329,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
+		t.TableDispatch,
 
 		// LABEL
 		t.LabelCreate,
@@ -480,6 +482,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TableDelete.BindHandler(l.Table.Delete)
 	t.TableRename.BindHandler(l.Table.Rename)
 	t.TableSetData.BindHandler(l.Table.SetData)
+	t.TableDispatch.BindHandler(l.Table.Dispatch)
 
 	// LABEL
 	t.LabelCreate.BindHandler(l.Label.Create)

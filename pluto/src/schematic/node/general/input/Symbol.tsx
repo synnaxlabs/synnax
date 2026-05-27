@@ -13,7 +13,7 @@ import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/input/config";
-import { Primitive } from "@/schematic/node/general/input/Primitive";
+import { Input } from "@/schematic/node/general/input/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Input as InputTelem } from "@/vis/input";
 
@@ -21,15 +21,14 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  draggable,
-  config: { label, control, sink, ...restConfig },
+  config: { label, control, sink, ...rest },
 }: NodeProps<Config>): ReactElement => {
   const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
-    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
-      <Control.State config={control} />
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
+      <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive onSend={set} {...restConfig} />
+      <Input onSend={set} {...rest} />
     </Grid.Grid>
   );
 };

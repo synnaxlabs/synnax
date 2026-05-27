@@ -30,12 +30,12 @@ export const TankForm = ({
       <Label.Form path="label" />
       <Flex.Box x>
         <Form.ColorField path="color" />
-        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Form.ColorField path="backgroundColor" label="Background color" />
         <Base.NumericField
           path="borderRadius.x"
           hideIfNull
           optional
-          label="X Border Radius"
+          label="X border radius"
           grow
           inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
         />
@@ -43,7 +43,7 @@ export const TankForm = ({
           path="borderRadius.y"
           hideIfNull
           optional
-          label="Y Border Radius"
+          label="Y border radius"
           grow
           inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
         />
@@ -52,7 +52,7 @@ export const TankForm = ({
             path="borderRadius"
             hideIfNull
             optional
-            label="Border Radius"
+            label="Border radius"
             grow
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
@@ -62,7 +62,7 @@ export const TankForm = ({
             path="strokeWidth"
             hideIfNull
             optional
-            label="Border Width"
+            label="Border width"
             grow
             inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
@@ -81,6 +81,6 @@ export const TankForm = ({
         />
       </Flex.Box>
     </Flex.Box>
-    <Orientation.Field path="" hideInner showOuterCenter label="Label Location" />
+    <Orientation.Field path="" hideInner showOuterCenter label="Label location" />
   </Form.Wrapper>
 );

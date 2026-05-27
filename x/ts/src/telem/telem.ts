@@ -12,22 +12,10 @@ import { z } from "zod";
 import { math } from "@/math";
 import { primitive } from "@/primitive";
 import { type bounds } from "@/spatial";
-import { type TimeZone } from "@/telem/types.gen";
+import { type TimestampFormat, type TimeZone } from "@/telem/types.gen";
 
 const SIMPLE_DAYS_IN_YEAR = 365;
 const SIMPLE_DAYS_IN_MONTH = 30;
-
-/** Different string formats for time stamps. */
-export type TimeStampStringFormat =
-  | "ISO"
-  | "ISODate"
-  | "ISOTime"
-  | "time"
-  | "preciseTime"
-  | "date"
-  | "preciseDate"
-  | "shortDate"
-  | "dateTime";
 
 /** Different string formats for time spans. */
 export type TimeSpanStringFormat = "full" | "semantic";
@@ -650,12 +638,10 @@ export class TimeStamp
    * @param timeZone - Optional TimeZone. Defaults to "UTC".
    * @returns A string representation of the TimeStamp.
    */
-  toString(format: TimeStampStringFormat = "ISO", timeZone: TimeZone = "UTC"): string {
+  toString(format: TimestampFormat = "ISO", timeZone: TimeZone = "UTC"): string {
     switch (format) {
       case "ISODate":
         return this.toISOString(timeZone).slice(0, 10);
-      case "ISOTime":
-        return this.toISOString(timeZone).slice(11, 23);
       case "time":
         return this.timeString(false, timeZone);
       case "preciseTime":
@@ -705,22 +691,19 @@ export class TimeStamp
    * Determines the appropriate string format based on the span magnitude.
    *
    * @param span - The span that provides context for format selection
-   * @returns The appropriate TimeStampStringFormat
+   * @returns The appropriate TimestampFormat
    *
    * Rules:
-   * - For spans >= 30 days: "shortDate" (e.g., "Nov 5")
+   * - For spans >= 30 days: "date" (e.g., "Nov 5")
    * - For spans >= 1 day: "dateTime" (e.g., "Nov 5 14:23:45")
    * - For spans >= 1 hour: "time" (e.g., "14:23:45")
-   * - For spans >= 1 second: "preciseTime" (e.g., "14:23:45.123")
-   * - For spans < 1 second: "ISOTime" (full precision time)
+   * - For spans < 1 hour: "preciseTime" (e.g., "14:23:45.123")
    */
-  formatBySpan(span: TimeSpan): TimeStampStringFormat {
-    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "shortDate";
+  formatBySpan(span: TimeSpan): TimestampFormat {
+    if (span.greaterThanOrEqual(TimeSpan.days(30))) return "date";
     if (span.greaterThanOrEqual(TimeSpan.DAY)) return "dateTime";
     if (span.greaterThanOrEqual(TimeSpan.HOUR)) return "time";
-    if (span.greaterThanOrEqual(TimeSpan.SECOND)) return "preciseTime";
-
-    return "ISOTime";
+    return "preciseTime";
   }
 
   /**

@@ -86,7 +86,7 @@ class Value(Symbol):
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:
-            self.set_channel(input_field="Input Channel", channel_name=channel_name)
+            self.set_channel(input_field="Input channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if notation is not None:
@@ -101,7 +101,7 @@ class Value(Symbol):
             applied_properties["precision"] = precision
 
         if averaging_window is not None:
-            self.layout.fill_input_field("Averaging Window", str(averaging_window))
+            self.layout.fill_input_field("Averaging window", str(averaging_window))
             self.page.keyboard.press("Enter")
             applied_properties["averaging_window"] = averaging_window
 
@@ -117,7 +117,7 @@ class Value(Symbol):
             applied_properties["stale_color"] = stale_color
 
         if stale_timeout is not None:
-            self.layout.fill_input_field("Stale Timeout", str(stale_timeout))
+            self.layout.fill_input_field("Stale timeout", str(stale_timeout))
             self.page.keyboard.press("Enter")
 
             applied_properties["stale_timeout"] = stale_timeout
@@ -139,7 +139,7 @@ class Value(Symbol):
 
         # Channel Name
         channel_display = (
-            self.page.locator("text=Input Channel").locator("..").locator("button")
+            self.page.locator("text=Input channel").locator("..").locator("button")
         )
         if channel_display.count() > 0:
             props["channel"] = channel_display.inner_text().strip()
@@ -148,10 +148,10 @@ class Value(Symbol):
         props["precision"] = int(self.layout.get_input_field("Precision"))
 
         # Averaging Window
-        props["averaging_window"] = int(self.layout.get_input_field("Averaging Window"))
+        props["averaging_window"] = int(self.layout.get_input_field("Averaging window"))
 
         # Staleness Timeout
-        props["stale_timeout"] = int(self.layout.get_input_field("Stale Timeout"))
+        props["stale_timeout"] = int(self.layout.get_input_field("Stale timeout"))
 
         # Notation
         notation_options = ["Scientific", "Engineering", "Standard"]

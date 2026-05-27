@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
@@ -122,16 +123,53 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 	}
 
+	// Register pb output paths for schemas that opt into @pb but declare
+	// only enums (no structs or distinct typedefs). Cross-namespace fields
+	// referencing these enums depend on the foreign translator existing;
+	// without this pass the schema produces nothing and the dependent
+	// schema fails to compile against its missing import.
+	enumOnlyNamespace := make(map[string]string)
+	for _, e := range req.Resolutions.EnumTypes() {
+		if omit.IsType(e, "pb") {
+			continue
+		}
+		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
+		if outputPath == "" {
+			continue
+		}
+		if _, hasStruct := outputStructs[outputPath]; hasStruct {
+			continue
+		}
+		if _, hasTypeDef := outputTypeDefs[outputPath]; hasTypeDef {
+			continue
+		}
+		if _, alreadyRegistered := enumOnlyNamespace[outputPath]; alreadyRegistered {
+			continue
+		}
+		enumOnlyNamespace[outputPath] = e.Namespace
+		outputOrder = append(outputOrder, outputPath)
+	}
+
+	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
+		return enum.FindPBOutputPath(typ, table)
+	}
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
-		namespace := ""
-		if len(structs) > 0 {
+		var namespace string
+		switch {
+		case len(structs) > 0:
 			namespace = structs[0].Namespace
-		} else if len(typeDefs) > 0 {
+		case len(typeDefs) > 0:
 			namespace = typeDefs[0].Namespace
+		default:
+			namespace = enumOnlyNamespace[outputPath]
 		}
-		enums := req.Resolutions.EnumsInNamespace(namespace)
+		// CollectNamespaceEnums with FindPBOutputPath respects each enum's
+		// own @pb opt-in (HasPB) and FilePath, so an enum declared in a
+		// different schema that happens to share this namespace name does
+		// not bleed into this output.
+		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
 		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -342,6 +380,7 @@ func (p *Plugin) processFieldForTranslation(
 	isHardOptional := field.IsHardOptional
 	isOptional := isHardOptional
 	isOptionalStruct := isOptional && isStructType(field.Type, data.table)
+	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
@@ -353,6 +392,7 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
 		IsOptionalStruct: isOptionalStruct,
+		IsOptionalEnum:   isOptionalEnum,
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}
@@ -543,6 +583,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 				BackwardCast:     backwardCast,
 				IsOptional:       isOptional,
 				IsOptionalStruct: isOptional && isStructType(*typeRef.TypeParam.Default, data.table),
+				IsOptionalEnum:   isOptional && isEnumType(*typeRef.TypeParam.Default, data.table),
 				HasError:         hasError,
 				HasBackwardError: hasBackwardError,
 			}, false
@@ -576,6 +617,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		BackwardCast:     backwardCast,
 		IsOptional:       isOptional,
 		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
+		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
 	}, false
@@ -877,7 +919,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName)
+		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.IsHardOptional)
 		return f, b, "", true, true
 	}
 
@@ -1027,10 +1069,10 @@ func (p *Plugin) generateStructConversion(
 		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
 	}
 
-	if actualForm.IsGeneric() {
-		return goField, pbField, "", false
-	}
-
+	// A fully-defaulted generic struct (every type param has a default and the
+	// caller supplied no args) emits a non-generic Go pb translator under its
+	// bare name, so the call site falls through to the regular non-generic
+	// branch below instead of returning the raw field names.
 	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	if isHardOptional {
@@ -1165,18 +1207,25 @@ func (p *Plugin) generateEnumConversion(
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
+	isHardOptional bool,
 ) (forward, backward string) {
 	enumName := resolved.Name
+	forwardArg := goField
+	backwardArg := pbField
+	if isHardOptional {
+		forwardArg = "*" + goField
+		backwardArg = "*" + pbField
+	}
 
 	if resolved.Namespace != data.Namespace {
-		pbPath := findEnumPBPath(resolved, data.table)
+		pbPath := enum.FindPBOutputPath(resolved, data.table)
 		if pbPath != "" {
 			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
 			if err == nil {
 				alias := strings.ToLower(resolved.Namespace) + "pb"
 				data.imports.AddInternal(alias, importPath)
-				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, goField),
-					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, pbField)
+				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
+					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
 			}
 		}
 	}
@@ -1185,19 +1234,8 @@ func (p *Plugin) generateEnumConversion(
 		data.usedEnums[resolved.QualifiedName] = &resolved
 	}
 
-	return fmt.Sprintf("%sToPB(%s)", enumName, goField),
-		fmt.Sprintf("%sFromPB(%s)", enumName, pbField)
-}
-
-func findEnumPBPath(e resolution.Type, table *resolution.Table) string {
-	for _, s := range table.StructTypes() {
-		if s.Namespace == e.Namespace {
-			if path := output.GetPBPath(s); path != "" {
-				return path
-			}
-		}
-	}
-	return ""
+	return fmt.Sprintf("%sToPB(%s)", enumName, forwardArg),
+		fmt.Sprintf("%sFromPB(%s)", enumName, backwardArg)
 }
 
 func (p *Plugin) generateTypeDefConversion(
@@ -1615,6 +1653,23 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+func isEnumType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		return true
+	}
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if target, ok := aliasForm.Target.Resolve(table); ok {
+			_, isEnum := target.Form.(resolution.EnumForm)
+			return isEnum
+		}
+	}
+	return false
+}
+
 func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
@@ -1686,6 +1741,10 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
+	// IsOptionalEnum is true for a hard-optional field whose underlying type is an
+	// enum. Triggers the same val/&val backward dance as IsOptionalStruct so the
+	// pointer-typed Go field is populated from the value-returning EnumFromPB call.
+	IsOptionalEnum bool
 	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
 	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool

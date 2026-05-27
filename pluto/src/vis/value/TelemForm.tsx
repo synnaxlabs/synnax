@@ -94,7 +94,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   return (
     <>
-      <Input.Item label="Input Channel" grow>
+      <Input.Item label="Input channel" grow>
         <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
@@ -111,7 +111,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handlePrecisionChange}
           />
         </Input.Item>
-        <Input.Item label="Averaging Window" align="start">
+        <Input.Item label="Averaging window" align="start">
           <Input.Numeric
             value={rollingAverage.windowSize ?? 1}
             bounds={{ lower: 1, upper: 100 }}
@@ -120,7 +120,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Input.Item>
         <Form.Field<color.Crude>
           hideIfNull
-          label="Stale Color"
+          label="Stale color"
           align="start"
           path="stalenessColor"
         >
@@ -134,7 +134,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
         </Form.Field>
         <Form.NumericField
           path="stalenessTimeout"
-          label="Stale Timeout"
+          label="Stale timeout"
           inputProps={{
             bounds: { lower: 1, upper: Infinity },
             endContent: "s",

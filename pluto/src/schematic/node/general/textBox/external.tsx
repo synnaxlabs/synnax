@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/textBox/config";
 import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
-import { Primitive } from "@/schematic/node/general/textBox/Primitive";
+import { TextBox } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
@@ -32,7 +32,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = (props: Config): ReactElement => (
-  <Primitive {...props} autoFit value="Text Box" />
+  <TextBox {...props} autoFit value="Text Box" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {

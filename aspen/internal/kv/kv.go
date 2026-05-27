@@ -82,7 +82,9 @@ func (d *DB) OpenTx() xkv.Tx {
 
 // OnChange satisfies xkv.Observable: handler receives every persisted
 // TxRequest as a flattened xkv.TxReader, regardless of which node was the
-// leaseholder. For filtered views over the same stream, see NewObservable.
+// leaseholder. Each (key, version) tuple is delivered at most once, even
+// when gossip replicates the same op to this node multiple times. For
+// filtered views over the same stream, see NewObservable.
 func (d *DB) OnChange(handler func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
 	return d.NewObservable().OnChange(handler)
 }
@@ -94,6 +96,12 @@ func (d *DB) OnChange(handler func(ctx context.Context, reader xkv.TxReader)) ob
 // Options reshape what subscribers see — for example, IgnoreHostLeaseholder
 // drops TxRequests led by the host node so subscribers only observe writes
 // that originated on a remote node and were replicated here via gossip.
+//
+// Subscribers see each (key, version) tuple at most once. Gossip replication
+// is at-least-once at the wire level, but the ingress pipeline atomically
+// dedupes against the persisted digest so duplicate deliveries do not result
+// in duplicate observer invocations. Subscribers can therefore be written
+// without idempotency wrappers.
 //
 // Each call to NewObservable returns an independent observable; multiple
 // subscribers to the same observable share its filter, while subscribers
@@ -144,7 +152,7 @@ func (d *DB) Report() alamos.Report {
 }
 
 const (
-	versionFilterAddr     = "version_filter"
+	filterPersistAddr     = "filter_persist"
 	versionAssignerAddr   = "version_assigner"
 	persistAddr           = "persist"
 	persistDeltaAddr      = "persist_delta"
@@ -204,8 +212,8 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 	plumber.SetSource[TxRequest](pipe, operationReceiverAddr, opServer)
 	plumber.SetSegment[TxRequest](
 		pipe,
-		versionFilterAddr,
-		newVersionFilter(cfg, persistAddr, feedbackSenderAddr),
+		filterPersistAddr,
+		newFilterPersist(cfg, persistDeltaAddr, feedbackSenderAddr),
 	)
 	plumber.SetSegment[TxRequest](pipe, versionAssignerAddr, va)
 	plumber.SetSink[TxRequest](pipe, leaseSenderAddr, newLeaseSender(cfg))
@@ -264,26 +272,26 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{operationReceiverAddr, operationSenderAddr},
-		SinkTargets:   []address.Address{versionFilterAddr},
-		Stitch:        plumber.StitchUnary,
-		Capacity:      chanBuffer,
-	}.MustRoute(pipe)
-
-	plumber.MultiRouter[TxRequest]{
-		SourceTargets: []address.Address{versionFilterAddr, versionAssignerAddr},
-		SinkTargets:   []address.Address{persistAddr},
+		SinkTargets:   []address.Address{filterPersistAddr},
 		Stitch:        plumber.StitchUnary,
 		Capacity:      chanBuffer,
 	}.MustRoute(pipe)
 
 	plumber.UnaryRouter[TxRequest]{
-		SourceTarget: persistAddr,
-		SinkTarget:   persistDeltaAddr,
+		SourceTarget: versionAssignerAddr,
+		SinkTarget:   persistAddr,
 		Capacity:     chanBuffer,
 	}.MustRoute(pipe)
 
+	plumber.MultiRouter[TxRequest]{
+		SourceTargets: []address.Address{persistAddr, filterPersistAddr},
+		SinkTargets:   []address.Address{persistDeltaAddr},
+		Stitch:        plumber.StitchUnary,
+		Capacity:      chanBuffer,
+	}.MustRoute(pipe)
+
 	plumber.UnaryRouter[TxRequest]{
-		SourceTarget: versionFilterAddr,
+		SourceTarget: filterPersistAddr,
 		SinkTarget:   feedbackSenderAddr,
 		Capacity:     chanBuffer,
 	}.MustRoute(pipe)

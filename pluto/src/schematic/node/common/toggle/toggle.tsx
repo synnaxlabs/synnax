@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
@@ -57,11 +58,15 @@ export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
 };
 
 export const createToggle = <C extends ToggleConfig>(
-  BaseSymbol: FC<any>,
+  BaseSymbol: FC<Omit<C, "label"> & ButtonProps>,
   overrides?: {
     grid?: Partial<Omit<Grid.GridProps, "editable">>;
   },
 ): FC<NodeProps<C>> => {
+  // BaseSymbol's prop type is derived from C so callers are checked, but the node only
+  // renders it with the shared button props; the config's symbol-specific fields reach
+  // it at runtime via the rest spread.
+  const Sym = BaseSymbol as FC<ButtonProps>;
   const Inner = ({
     nodeKey,
     onConfigChange,
@@ -87,7 +92,7 @@ export const createToggle = <C extends ToggleConfig>(
       >
         <Label.Label config={label} onChange={onConfigChange} />
         <Control.State config={control} onChange={onConfigChange} />
-        <BaseSymbol
+        <Sym
           enabled={enabled}
           onClick={toggle}
           onClickDelay={onClickDelay}
@@ -109,8 +114,9 @@ export const dummyToggleConfigZ = Label.labeledConfigZ.extend({
 export type DummyToggleConfig = z.infer<typeof dummyToggleConfigZ>;
 
 export const createDummyToggle = <C extends DummyToggleConfig>(
-  Primitive: FC<any>,
+  Primitive: FC<Omit<C, "label"> & ButtonProps>,
 ): FC<NodeProps<C>> => {
+  const Sym = Primitive as FC<ButtonProps>;
   const DummyToggle = ({
     nodeKey,
     onConfigChange,
@@ -135,7 +141,7 @@ export const createDummyToggle = <C extends DummyToggleConfig>(
         onRotate={onConfigChange}
       >
         <Label.Label config={label} onChange={onConfigChange} />
-        <Primitive
+        <Sym
           orientation={orientation}
           enabled={enabled}
           onClick={handleToggleChange}
