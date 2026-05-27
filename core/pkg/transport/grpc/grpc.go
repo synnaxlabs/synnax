@@ -47,7 +47,10 @@ import (
 	viewgrpc "github.com/synnaxlabs/synnax/pkg/transport/grpc/view"
 )
 
-func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.BindableTransport) {
+// Bind constructs the gRPC transport for every API service, binds the API layer's
+// handlers and middleware to it, and returns the bindable transports for registration
+// with the server's gRPC branch. channelSvc resolves channel keys for the frame codec.
+func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTransport {
 	var a api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channelgrpc.New(&a),
@@ -161,5 +164,6 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	// ARC LSP
 	a.ArcLSP = noop.StreamServer[arc.LSPMessage, arc.LSPMessage]{}
 
-	return a, transports
+	layer.BindTo(a)
+	return transports
 }

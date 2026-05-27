@@ -43,9 +43,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 )
 
-func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
+// Bind registers an HTTP endpoint for every API service onto router and binds the API
+// layer's handlers and middleware to them. ch resolves channel keys for the frame codec.
+func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 	framerServerOption := httpframer.WithCodec(ch)
-	return api.Transport{
+	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
 		AuthChangePassword: http.NewUnaryServer[auth.ChangePasswordRequest, types.Nil](router, "/api/v1/auth/change-password"),
@@ -197,5 +199,5 @@ func NewTransport(router *http.Router, ch *distchannel.Service) api.Transport {
 		// IMPORT/EXPORT
 		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", http.WithRequestDecoders(json.Codec)),
 		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", http.WithResponseEncoders(json.Codec)),
-	}
+	})
 }
