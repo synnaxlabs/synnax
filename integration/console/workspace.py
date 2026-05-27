@@ -39,11 +39,13 @@ __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
-# JS snippet that installs an in-memory mock of window.showDirectoryPicker so
-# Playwright can drive the real workspace/symbol-group export flow without
-# popping the OS directory picker. Captured file writes land in
-# window.__synnaxExportedFiles as { "relativePath": "contents" }, which the
-# Python side reads back to materialize the export as a real on-disk directory.
+# Playwright has expect_file_chooser for <input type="file"> but no analogue
+# for the File System Access API's showDirectoryPicker, which is what the real
+# browser-mode export uses. This snippet installs an in-memory mock that
+# captures writes into window.__synnaxExportedFiles as
+# { "relativePath": "contents" }; production export code runs unchanged. The
+# Python side reads the map back and materializes a real on-disk directory the
+# import test can consume verbatim.
 _INSTALL_DIRECTORY_PICKER_MOCK_JS = """
 window.__synnaxExportedFiles = {};
 window.showDirectoryPicker = async () => ({

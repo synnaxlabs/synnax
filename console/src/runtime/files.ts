@@ -49,6 +49,31 @@ const browserAccept = (filters?: FileFilter[]): string | undefined => {
     .join(",");
 };
 
+const MIME_TYPES: Record<string, string> = {
+  json: "application/json",
+  svg: "image/svg+xml",
+  csv: "text/csv",
+  xml: "application/xml",
+  txt: "text/plain",
+};
+
+const inferMimeType = (filename: string): string => {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  return (ext != null && MIME_TYPES[ext]) || "application/octet-stream";
+};
+
+/**
+ * Resolves a settle callback after the user appears to have dismissed a file
+ * picker but the `cancel` event never fired (older browsers, sandboxed
+ * iframes). Listens for the window regaining focus once, then waits for
+ * `change` to fire on its own before falling back to null. Idempotent with
+ * the change/cancel listeners — first to settle wins.
+ */
+const settleOnFocusReturn = (settle: () => void): void => {
+  const handler = () => setTimeout(settle, 500);
+  window.addEventListener("focus", handler, { once: true });
+};
+
 const pickFilesTauri = async ({
   title,
   filters,
@@ -98,6 +123,7 @@ const pickFilesBrowser = ({
       );
     });
     input.addEventListener("cancel", () => settle(null));
+    settleOnFocusReturn(() => settle(null));
     input.click();
   });
 
@@ -135,7 +161,10 @@ export const saveFile = async ({
     await writeTextFile(path, contents);
     return path;
   }
-  downloadFromBrowser(new Blob([contents], { type: "application/json" }), defaultName);
+  downloadFromBrowser(
+    new Blob([contents], { type: inferMimeType(defaultName) }),
+    defaultName,
+  );
   return defaultName;
 };
 
@@ -199,6 +228,7 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
       });
     });
     input.addEventListener("cancel", () => settle(null));
+    settleOnFocusReturn(() => settle(null));
     input.click();
   });
 
