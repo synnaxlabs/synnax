@@ -210,6 +210,49 @@ var _ = Describe("Writer", func() {
 			Expect(res.Columns[1].Size).To(Equal(200.0))
 		})
 
+		It("Should replicate AddRow's CellTemplate across existing columns", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Size:  36,
+					CellTemplate: table.Cell{
+						Key:     "11111111-2222-4333-8444-555555555555",
+						Variant: "text",
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(2))
+			// Two existing columns -> two derived replicas with hex-suffixed keys.
+			Expect(res.Rows[1].Cells).To(Equal([]string{
+				"11111111-2222-4333-8444-555555550000",
+				"11111111-2222-4333-8444-555555550001",
+			}))
+			Expect(res.Cells["11111111-2222-4333-8444-555555550000"].Variant).To(Equal("text"))
+		})
+
+		It("Should replicate AddCol's CellTemplate across existing rows", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddColAction(table.AddColPayload{
+					Index: 2,
+					Size:  72,
+					CellTemplate: table.Cell{
+						Key:     "11111111-2222-4333-8444-555555555555",
+						Variant: "text",
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Columns).To(HaveLen(3))
+			Expect(res.Rows[0].Cells).To(Equal([]string{
+				"a", "b", "11111111-2222-4333-8444-555555550000",
+			}))
+		})
+
 		It("Should bootstrap columns when AddRow fires against an empty table", func(ctx SpecContext) {
 			t := table.Table{Name: "empty"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())

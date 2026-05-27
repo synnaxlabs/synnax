@@ -368,6 +368,105 @@ describe("Table", () => {
       expect(next.rows[1].cells).toEqual(["b"]);
     });
 
+    test("addRow with cellTemplate replicates the template across existing columns", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [{ size: 36, cells: ["a", "b"] }],
+          columns: [{ size: 80 }, { size: 80 }],
+          cells: {
+            a: { key: "a", variant: "text", props: {} },
+            b: { key: "b", variant: "text", props: {} },
+          },
+        },
+        [
+          table.addRow({
+            index: 1,
+            size: 36,
+            cells: [],
+            cellTemplate: {
+              key: "11111111-2222-4333-8444-555555555555",
+              variant: "text",
+              props: { value: "t" },
+            },
+          }),
+        ],
+      );
+      expect(next.rows).toHaveLength(2);
+      // Derived keys: template[0..32] + "0000", template[0..32] + "0001"
+      expect(next.rows[1].cells).toEqual([
+        "11111111-2222-4333-8444-555555550000",
+        "11111111-2222-4333-8444-555555550001",
+      ]);
+      expect(next.cells["11111111-2222-4333-8444-555555550000"].variant).toEqual(
+        "text",
+      );
+      expect(next.cells["11111111-2222-4333-8444-555555550000"].props).toEqual({
+        value: "t",
+      });
+    });
+
+    test("addCol with cellTemplate replicates the template across existing rows", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [
+            { size: 36, cells: ["a"] },
+            { size: 36, cells: ["b"] },
+          ],
+          columns: [{ size: 80 }],
+          cells: {
+            a: { key: "a", variant: "text", props: {} },
+            b: { key: "b", variant: "text", props: {} },
+          },
+        },
+        [
+          table.addCol({
+            index: 1,
+            size: 80,
+            cells: [],
+            cellTemplate: {
+              key: "11111111-2222-4333-8444-555555555555",
+              variant: "text",
+              props: {},
+            },
+          }),
+        ],
+      );
+      expect(next.columns).toHaveLength(2);
+      expect(next.rows[0].cells).toEqual(["a", "11111111-2222-4333-8444-555555550000"]);
+      expect(next.rows[1].cells).toEqual(["b", "11111111-2222-4333-8444-555555550001"]);
+    });
+
+    test("addRow with cellTemplate on an empty table creates one column + one replica", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [],
+          columns: [],
+          cells: {},
+        },
+        [
+          table.addRow({
+            index: 0,
+            size: 36,
+            cells: [],
+            cellTemplate: {
+              key: "11111111-2222-4333-8444-555555555555",
+              variant: "text",
+              props: {},
+            },
+          }),
+        ],
+      );
+      expect(next.columns).toHaveLength(1);
+      expect(next.rows).toHaveLength(1);
+      expect(next.rows[0].cells).toEqual(["11111111-2222-4333-8444-555555550000"]);
+    });
+
     test("addRow clamps below-minimum sizes to the floor", () => {
       const { next } = table.reduceAll(
         {

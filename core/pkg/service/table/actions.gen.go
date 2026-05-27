@@ -31,14 +31,18 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// AddRowPayload inserts a row at the given index with the provided cell values. cells
-// carries one Cell per column in left-to-right order; each cell is added to the table's
-// cells map and its key is appended to the new row's cells list. Out-of-range indices
-// clamp to the end.
+// AddRowPayload inserts a row at the given index. When cell_template is set, the
+// reducer ignores cells and creates one replica per existing column (or one if the
+// table has no columns yet), copying the template's variant and props and deriving each
+// replica's key from the template's by replacing the last four hex digits with the
+// column index. When cell_template is unset, cells carries one Cell per column in
+// left-to-right order; each cell is added to the table's cells map and its key is
+// appended to the new row's cells list. Out-of-range indices clamp to the end.
 type AddRowPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
-	Cells []Cell  `json:"cells" msgpack:"cells"`
+	Index        uint32  `json:"index" msgpack:"index"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate Cell    `json:"cell_template" msgpack:"cell_template"`
 }
 
 // RemoveRowPayload removes the row at the given index. All cells referenced by the
@@ -47,14 +51,19 @@ type RemoveRowPayload struct {
 	Index uint32 `json:"index" msgpack:"index"`
 }
 
-// AddColPayload inserts a column at the given index with the provided cell values.
-// cells carries one Cell per row in top-to-bottom order; each cell is added to the
-// table's cells map and its key is inserted into the corresponding row's cells list at
-// the column index. Out-of-range indices clamp to the end.
+// AddColPayload inserts a column at the given index. When cell_template is set, the
+// reducer ignores cells and creates one replica per existing row (or one if the table
+// has no rows yet), copying the template's variant and props and deriving each
+// replica's key from the template's by replacing the last four hex digits with the row
+// index. When cell_template is unset, cells carries one Cell per row in top-to-bottom
+// order; each cell is added to the table's cells map and its key is inserted into the
+// corresponding row's cells list at the column index. Out-of-range indices clamp to the
+// end.
 type AddColPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
-	Cells []Cell  `json:"cells" msgpack:"cells"`
+	Index        uint32  `json:"index" msgpack:"index"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate Cell    `json:"cell_template" msgpack:"cell_template"`
 }
 
 // RemoveColPayload removes the column at the given index. All cells in that column

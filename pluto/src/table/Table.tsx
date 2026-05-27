@@ -10,7 +10,7 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { box } from "@synnaxlabs/x";
+import { box, id, math } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -28,25 +28,23 @@ import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { table as aetherTable } from "@/table/aether";
+import { CELLS } from "@/table/cells/registry";
 import { useClipboard } from "@/table/clipboard";
 import { DefaultContextMenu } from "@/table/ContextMenu";
 import { ColumnIndicators } from "@/table/Indicator";
 import {
   cellsInRegion,
   findCellPosition,
-  useAddCol,
-  useAddRow,
   useDispatch,
   useEnsureRetrieved,
   useEraseSelected,
   useRedo,
-  useRemoveCol,
-  useRemoveRow,
   useSelectColumns,
   useSelectRows,
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
+import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
@@ -63,6 +61,15 @@ const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
 };
 
 const FLATTENED_TRIGGERS_CONFIG = Triggers.flattenConfig(TRIGGERS_CONFIG);
+
+const BASE_ROW_SIZE = 36;
+const BASE_COL_SIZE = 72;
+
+const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
+  key: id.create(),
+  variant: "text",
+  props: CELLS.text.defaultProps(theme),
+});
 
 export interface TableProps
   extends
@@ -112,11 +119,46 @@ export const Table = ({
   const rows = useSelectRows({ key });
   const columns = useSelectColumns({ key });
   const { dispatch } = useDispatch();
+  const theme = Theming.use();
 
-  const addRow = useAddRow({ key });
-  const addCol = useAddCol({ key });
-  const removeRow = useRemoveRow({ key });
-  const removeCol = useRemoveCol({ key });
+  const addRow = useCallback(
+    (atIndex?: number) =>
+      dispatch({
+        key,
+        actions: [
+          table.addRow({
+            index: atIndex ?? math.MAX_UINT32,
+            size: BASE_ROW_SIZE,
+            cells: [],
+            cellTemplate: newDefaultCell(theme),
+          }),
+        ],
+      }),
+    [dispatch, key, theme],
+  );
+  const addCol = useCallback(
+    (atIndex?: number) =>
+      dispatch({
+        key,
+        actions: [
+          table.addCol({
+            index: atIndex ?? math.MAX_UINT32,
+            size: BASE_COL_SIZE,
+            cells: [],
+            cellTemplate: newDefaultCell(theme),
+          }),
+        ],
+      }),
+    [dispatch, key, theme],
+  );
+  const removeRow = useCallback(
+    (index: number) => dispatch({ key, actions: [table.removeRow({ index })] }),
+    [dispatch, key],
+  );
+  const removeCol = useCallback(
+    (index: number) => dispatch({ key, actions: [table.removeCol({ index })] }),
+    [dispatch, key],
+  );
   const eraseSelected = useEraseSelected({ key });
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });

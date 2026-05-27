@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ontology, table, type workspace } from "@synnaxlabs/client";
-import { array, id, math, uuid, type xy } from "@synnaxlabs/x";
+import { array, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
@@ -311,96 +311,6 @@ export const cellsInRegion = (
 export const useCellPosition = ({ key, cellKey }: SelectCellArgs): xy.XY | null => {
   const rows = useSelectRows({ key });
   return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
-};
-
-const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
-  key: id.create(),
-  variant: "text",
-  props: CELLS.text.defaultProps(theme),
-});
-
-export interface UseAddRowReturn {
-  (atIndex?: number): void;
-}
-
-// useAddRow returns a callback that inserts a new row at the given index
-// with one default text cell per existing column. A missing index defaults
-// to math.MAX_UINT32, which the AddRow reducer clamps to the end of the
-// rows slice. The AddRow reducer also bootstraps the missing columns when
-// the table has none yet.
-export const useAddRow = ({ key }: SelectKeyArgs): UseAddRowReturn => {
-  const { dispatch } = useDispatch();
-  const columns = useSelectColumns({ key });
-  const theme = Theming.use();
-  return useCallback(
-    (atIndex?: number) => {
-      const colCount = Math.max(columns.length, 1);
-      const cells = Array.from({ length: colCount }, () => newDefaultCell(theme));
-      dispatch({
-        key,
-        actions: [
-          table.addRow({
-            index: atIndex ?? math.MAX_UINT32,
-            size: BASE_ROW_SIZE,
-            cells,
-          }),
-        ],
-      });
-    },
-    [dispatch, key, columns.length, theme],
-  );
-};
-
-export interface UseAddColReturn {
-  (atIndex?: number): void;
-}
-
-// useAddCol returns a callback that inserts a new column at the given index
-// with one default text cell per existing row. A missing index defaults to
-// math.MAX_UINT32, which the AddCol reducer clamps to the end of the
-// columns slice. The AddCol reducer also bootstraps the missing rows when
-// the table has none yet.
-export const useAddCol = ({ key }: SelectKeyArgs): UseAddColReturn => {
-  const { dispatch } = useDispatch();
-  const rows = useSelectRows({ key });
-  const theme = Theming.use();
-  return useCallback(
-    (atIndex?: number) => {
-      const rowCount = Math.max(rows.length, 1);
-      const cells = Array.from({ length: rowCount }, () => newDefaultCell(theme));
-      dispatch({
-        key,
-        actions: [
-          table.addCol({
-            index: atIndex ?? math.MAX_UINT32,
-            size: BASE_COL_SIZE,
-            cells,
-          }),
-        ],
-      });
-    },
-    [dispatch, key, rows.length, theme],
-  );
-};
-
-export interface UseRemoveAtIndexReturn {
-  (atIndex: number): void;
-}
-
-export const useRemoveRow = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => {
-  const { dispatch } = useDispatch();
-  return useCallback(
-    (index: number) => dispatch({ key, actions: [table.removeRow({ index })] }),
-    [dispatch, key],
-  );
-};
-
-export const useRemoveCol = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => {
-  const { dispatch } = useDispatch();
-  return useCallback(
-    (index: number) => dispatch({ key, actions: [table.removeCol({ index })] }),
-    [dispatch, key],
-  );
 };
 
 export interface UseEraseSelectedReturn {

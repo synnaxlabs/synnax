@@ -23,15 +23,21 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * AddRow inserts a row at the given index with the provided cell values.
- * cells carries one Cell per column in left-to-right order; each
- * cell is added to the table's cells map and its key is appended to
- * the new row's cells list. Out-of-range indices clamp to the end.
+ * AddRow inserts a row at the given index. When cell_template is set, the
+ * reducer ignores cells and creates one replica per existing column
+ * (or one if the table has no columns yet), copying the template's
+ * variant and props and deriving each replica's key from the
+ * template's by replacing the last four hex digits with the column
+ * index. When cell_template is unset, cells carries one Cell per
+ * column in left-to-right order; each cell is added to the table's
+ * cells map and its key is appended to the new row's cells list.
+ * Out-of-range indices clamp to the end.
  */
 export const addRowPayloadZ = z.object({
   index: z.uint32(),
   size: z.number(),
   cells: array.nullishToEmpty(cellZ),
+  cellTemplate: cellZ.optional(),
 });
 
 export type AddRowPayload = z.infer<typeof addRowPayloadZ>;
@@ -48,16 +54,22 @@ export const removeRowPayloadZ = z.object({
 export type RemoveRowPayload = z.infer<typeof removeRowPayloadZ>;
 
 /**
- * AddCol inserts a column at the given index with the provided cell values.
- * cells carries one Cell per row in top-to-bottom order; each cell
- * is added to the table's cells map and its key is inserted into
- * the corresponding row's cells list at the column index.
- * Out-of-range indices clamp to the end.
+ * AddCol inserts a column at the given index. When cell_template is set,
+ * the reducer ignores cells and creates one replica per existing
+ * row (or one if the table has no rows yet), copying the
+ * template's variant and props and deriving each replica's key
+ * from the template's by replacing the last four hex digits with
+ * the row index. When cell_template is unset, cells carries one
+ * Cell per row in top-to-bottom order; each cell is added to the
+ * table's cells map and its key is inserted into the corresponding
+ * row's cells list at the column index. Out-of-range indices clamp
+ * to the end.
  */
 export const addColPayloadZ = z.object({
   index: z.uint32(),
   size: z.number(),
   cells: array.nullishToEmpty(cellZ),
+  cellTemplate: cellZ.optional(),
 });
 
 export type AddColPayload = z.infer<typeof addColPayloadZ>;

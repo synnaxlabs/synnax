@@ -40,6 +40,28 @@ const BASE_COL_DIM = 72;
 // would crash.
 const snapshot = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
+// deriveCellKey derives a unique-per-index cell key from a template key by
+// replacing the last four hex digits with the index encoded in hex. The
+// template key is assumed to be a 36-character UUID; positions 14 (version)
+// and 19 (variant) sit in the prefix so the derived key keeps the UUID v4
+// layout. Both Go and TS reducers run the same scheme so the optimistic
+// flux store agrees with the server.
+const deriveCellKey = (templateKey: string, index: number): string => {
+  const suffix = index.toString(16).padStart(4, "0");
+  if (templateKey.length < 36) return `${templateKey}-${suffix}`;
+  return templateKey.slice(0, 32) + suffix;
+};
+
+// expandTemplate returns a slice of replica cells derived from a template,
+// one per axis position. The first replica gets key deriveCellKey(template,
+// 0), the second deriveCellKey(template, 1), and so on.
+const expandTemplate = (template: Cell, count: number): Cell[] =>
+  Array.from({ length: count }, (_, i) => ({
+    key: deriveCellKey(template.key, i),
+    variant: template.variant,
+    props: template.props,
+  }));
+
 const handlers: Handlers = {
   rename: (state, payload) => {
     const oldName = state.name;
@@ -51,16 +73,18 @@ const handlers: Handlers = {
   },
 
   addRow: (state, payload) => {
-    if (state.columns.length === 0 && payload.cells.length > 0)
-      for (let i = 0; i < payload.cells.length; i++)
-        state.columns.push({ size: BASE_COL_DIM });
+    const cells = payload.cellTemplate
+      ? expandTemplate(payload.cellTemplate, Math.max(state.columns.length, 1))
+      : payload.cells;
+    if (state.columns.length === 0 && cells.length > 0)
+      for (let i = 0; i < cells.length; i++) state.columns.push({ size: BASE_COL_DIM });
     const idx = Math.min(payload.index, state.rows.length);
-    const keys = payload.cells.map((c) => c.key);
+    const keys = cells.map((c) => c.key);
     state.rows.splice(idx, 0, {
       size: Math.max(payload.size, MIN_CELL_DIM),
       cells: keys,
     });
-    for (const c of payload.cells) state.cells[c.key] = c;
+    for (const c of cells) state.cells[c.key] = c;
     return {
       inverse: [removeRow({ index: idx })],
       targets: keys,
@@ -84,20 +108,23 @@ const handlers: Handlers = {
   },
 
   addCol: (state, payload) => {
-    if (state.rows.length === 0 && payload.cells.length > 0)
-      for (let i = 0; i < payload.cells.length; i++)
+    const cells = payload.cellTemplate
+      ? expandTemplate(payload.cellTemplate, Math.max(state.rows.length, 1))
+      : payload.cells;
+    if (state.rows.length === 0 && cells.length > 0)
+      for (let i = 0; i < cells.length; i++)
         state.rows.push({ size: BASE_ROW_DIM, cells: [] });
     const idx = Math.min(payload.index, state.columns.length);
     state.columns.splice(idx, 0, { size: Math.max(payload.size, MIN_CELL_DIM) });
     for (let i = 0; i < state.rows.length; i++) {
-      if (i >= payload.cells.length) break;
+      if (i >= cells.length) break;
       const rowIdx = Math.min(idx, state.rows[i].cells.length);
-      state.rows[i].cells.splice(rowIdx, 0, payload.cells[i].key);
+      state.rows[i].cells.splice(rowIdx, 0, cells[i].key);
     }
-    for (const c of payload.cells) state.cells[c.key] = c;
+    for (const c of cells) state.cells[c.key] = c;
     return {
       inverse: [removeCol({ index: idx })],
-      targets: payload.cells.map((c) => c.key),
+      targets: cells.map((c) => c.key),
     };
   },
 
