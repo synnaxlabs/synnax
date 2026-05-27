@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sep } from "@tauri-apps/api/path";
+import { join, sep } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import {
+  exists,
+  mkdir,
+  readDir,
+  readTextFile,
+  writeTextFile,
+} from "@tauri-apps/plugin-fs";
 
 import { downloadFromBrowser } from "@/runtime/download";
 import { ENGINE } from "@/runtime/runtime";
@@ -20,7 +26,13 @@ export interface FileFilter {
 }
 
 export interface PickedFile {
+  /** File's basename, e.g., "manifest.json". */
   name: string;
+  /**
+   * Path relative to the picked root, e.g., "manifest.json" for top-level or
+   * "sub/foo.json" for nested. For pickFiles this always equals name.
+   */
+  path: string;
   read: () => Promise<string>;
 }
 
@@ -52,10 +64,10 @@ const pickFilesTauri = async ({
   const paths = Array.isArray(result) ? result : [result];
   if (paths.length === 0) return null;
   const separator = sep();
-  return paths.map((path) => ({
-    name: path.split(separator).pop() ?? path,
-    read: () => readTextFile(path),
-  }));
+  return paths.map((path) => {
+    const name = path.split(separator).pop() ?? path;
+    return { name, path: name, read: () => readTextFile(path) };
+  });
 };
 
 const pickFilesBrowser = ({
@@ -80,6 +92,7 @@ const pickFilesBrowser = ({
       settle(
         Array.from(files).map((file) => ({
           name: file.name,
+          path: file.name,
           read: () => file.text(),
         })),
       );
@@ -125,3 +138,172 @@ export const saveFile = async ({
   downloadFromBrowser(new Blob([contents], { type: "application/json" }), defaultName);
   return defaultName;
 };
+
+export interface PickedDirectory {
+  /** The picked directory's basename. */
+  name: string;
+  /** Files contained in the directory, with paths relative to it. */
+  files: PickedFile[];
+}
+
+export interface PickDirectoryArgs {
+  title?: string;
+}
+
+const pickDirectoryTauri = async ({
+  title,
+}: PickDirectoryArgs): Promise<PickedDirectory | null> => {
+  const result = await open({ title, directory: true, multiple: false });
+  if (result == null || Array.isArray(result)) return null;
+  const dirPath = result;
+  const separator = sep();
+  const name = dirPath.split(separator).pop() ?? dirPath;
+  const entries = await readDir(dirPath);
+  const files: PickedFile[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile) continue;
+    const fullPath = await join(dirPath, entry.name);
+    files.push({
+      name: entry.name,
+      path: entry.name,
+      read: () => readTextFile(fullPath),
+    });
+  }
+  return { name, files };
+};
+
+const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
+  new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    let settled = false;
+    const settle = (value: PickedDirectory | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    input.addEventListener("change", () => {
+      const files = input.files;
+      if (files == null || files.length === 0) return settle(null);
+      const arr = Array.from(files);
+      const rootName = arr[0].webkitRelativePath.split("/")[0];
+      settle({
+        name: rootName,
+        files: arr.map((file) => {
+          const rel = file.webkitRelativePath.startsWith(`${rootName}/`)
+            ? file.webkitRelativePath.slice(rootName.length + 1)
+            : file.webkitRelativePath;
+          return { name: file.name, path: rel, read: () => file.text() };
+        }),
+      });
+    });
+    input.addEventListener("cancel", () => settle(null));
+    input.click();
+  });
+
+/**
+ * Opens a native directory picker and returns the directory's name plus the
+ * files inside it. On Tauri this walks the directory's top-level entries via
+ * the filesystem plugin; in the browser it uses
+ * `<input type="file" webkitdirectory>` which recursively includes every file
+ * under the picked folder (each file's `path` is relative to the root).
+ * Returns null if the user cancels.
+ */
+export const pickDirectory = (
+  args: PickDirectoryArgs = {},
+): Promise<PickedDirectory | null> =>
+  ENGINE === "tauri" ? pickDirectoryTauri(args) : pickDirectoryBrowser();
+
+export interface WritableDirectory {
+  /** A human-readable target path for status messages. */
+  displayPath: string;
+  /** True if the target directory already had contents before this pick. */
+  preExisted: boolean;
+  /** Writes a UTF-8 text file at the given top-level filename. */
+  writeText: (name: string, contents: string) => Promise<void>;
+}
+
+export interface PickWritableDirectoryArgs {
+  title?: string;
+  /**
+   * Name of the subdirectory to create under the picked location and use as
+   * the write target. The returned handle's writeText writes into this
+   * subdirectory.
+   */
+  subdirectory: string;
+}
+
+declare global {
+  interface Window {
+    showDirectoryPicker?: (options?: {
+      mode?: "read" | "readwrite";
+    }) => Promise<FileSystemDirectoryHandle>;
+  }
+}
+
+const pickWritableDirectoryTauri = async ({
+  title,
+  subdirectory,
+}: PickWritableDirectoryArgs): Promise<WritableDirectory | null> => {
+  const parent = await open({ title, directory: true, multiple: false });
+  if (parent == null || Array.isArray(parent)) return null;
+  const dirPath = await join(parent, subdirectory);
+  const preExisted = await exists(dirPath);
+  await mkdir(dirPath, { recursive: true });
+  return {
+    displayPath: dirPath,
+    preExisted,
+    writeText: async (name, contents) =>
+      await writeTextFile(await join(dirPath, name), contents),
+  };
+};
+
+const pickWritableDirectoryBrowser = async ({
+  subdirectory,
+}: PickWritableDirectoryArgs): Promise<WritableDirectory | null> => {
+  if (window.showDirectoryPicker == null)
+    throw new Error(
+      "This browser does not support writing to a chosen directory. Use Chrome, Edge, or Safari, or run the desktop app.",
+    );
+  let root: FileSystemDirectoryHandle;
+  try {
+    root = await window.showDirectoryPicker({ mode: "readwrite" });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return null;
+    throw e;
+  }
+  let preExisted = false;
+  let subHandle: FileSystemDirectoryHandle;
+  try {
+    subHandle = await root.getDirectoryHandle(subdirectory);
+    preExisted = true;
+  } catch (e) {
+    if (!(e instanceof DOMException) || e.name !== "NotFoundError") throw e;
+    subHandle = await root.getDirectoryHandle(subdirectory, { create: true });
+  }
+  return {
+    displayPath: `${root.name}/${subdirectory}`,
+    preExisted,
+    writeText: async (name, contents) => {
+      const fileHandle = await subHandle.getFileHandle(name, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(contents);
+      await writable.close();
+    },
+  };
+};
+
+/**
+ * Opens a native picker for a directory to write into. On Tauri the user picks
+ * a parent directory and {subdirectory} is created inside it. In the browser
+ * this uses the File System Access API's showDirectoryPicker (Chrome, Edge,
+ * Safari); Firefox does not implement it and throws a clear error. Returns
+ * null if the user cancels.
+ */
+export const pickWritableDirectory = (
+  args: PickWritableDirectoryArgs,
+): Promise<WritableDirectory | null> =>
+  ENGINE === "tauri"
+    ? pickWritableDirectoryTauri(args)
+    : pickWritableDirectoryBrowser(args);

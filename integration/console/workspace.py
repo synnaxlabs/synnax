@@ -39,30 +39,38 @@ __all__ = ["WorkspaceClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
-# Shared JS snippet that walks the React fiber tree from #root to find the
-# Redux store. Used by import_workspace and export_workspace to bypass the
-# Tauri *directory* dialog, which has no browser equivalent — workspace
-# import/export stays Tauri-only on real desktop builds.
-_FIND_REDUX_STORE_JS = """
-const rootEl = document.getElementById('root');
-if (!rootEl) throw new Error('Root element not found');
-const containerKey = Object.keys(rootEl).find(
-    k => k.startsWith('__reactContainer$')
-);
-if (!containerKey) throw new Error('React container not found');
-let store = null;
-const stack = [rootEl[containerKey]];
-while (stack.length > 0) {
-    const fiber = stack.pop();
-    if (!fiber) continue;
-    if (fiber.memoizedProps?.store?.dispatch) {
-        store = fiber.memoizedProps.store;
-        break;
-    }
-    if (fiber.child) stack.push(fiber.child);
-    if (fiber.sibling) stack.push(fiber.sibling);
-}
-if (!store) throw new Error('Redux store not found');
+# JS snippet that installs an in-memory mock of window.showDirectoryPicker so
+# Playwright can drive the real workspace/symbol-group export flow without
+# popping the OS directory picker. Captured file writes land in
+# window.__synnaxExportedFiles as { "relativePath": "contents" }, which the
+# Python side reads back to materialize the export as a real on-disk directory.
+_INSTALL_DIRECTORY_PICKER_MOCK_JS = """
+window.__synnaxExportedFiles = {};
+window.showDirectoryPicker = async () => ({
+    name: '__synnaxExportMock',
+    getDirectoryHandle: async (subdir, opts) => {
+        if (!opts || !opts.create) {
+            const err = new Error('NotFoundError');
+            err.name = 'NotFoundError';
+            throw err;
+        }
+        return {
+            name: subdir,
+            getFileHandle: async (name) => ({
+                name,
+                createWritable: async () => ({
+                    write: async (data) => {
+                        const text = typeof data === 'string'
+                            ? data
+                            : await new Response(data).text();
+                        window.__synnaxExportedFiles[subdir + '/' + name] = text;
+                    },
+                    close: async () => {},
+                }),
+            }),
+        };
+    },
+});
 """
 
 
@@ -573,19 +581,17 @@ class WorkspaceClient:
             result: dict[str, Any] = json.load(f)
             return result
 
-    def _evaluate_with_redux(self, js_body: str, args: Any = None) -> Any:
-        """Execute JS with the Redux store available as ``store``.
+    def _install_directory_picker_mock(self) -> None:
+        """Replace window.showDirectoryPicker with an in-memory capture."""
+        self.layout.page.evaluate(_INSTALL_DIRECTORY_PICKER_MOCK_JS)
 
-        # SY-3670 — Uses React fiber walking to locate the Redux store
-        # from the React root. This is a browser-mode workaround for
-        # features that normally rely on Tauri APIs.
-
-        Args:
-            js_body: JS code to execute. ``store`` and ``args`` are in scope.
-            args: Optional arguments forwarded to the JS function.
-        """
-        js = "(args) => {" + _FIND_REDUX_STORE_JS + js_body + "}"
-        return self.layout.page.evaluate(js, args)
+    def _drain_exported_files(self) -> dict[str, str]:
+        """Read and clear files captured by the showDirectoryPicker mock."""
+        files: dict[str, str] = self.layout.page.evaluate(
+            "() => { const f = window.__synnaxExportedFiles || {};"
+            " window.__synnaxExportedFiles = {}; return f; }"
+        )
+        return files
 
     def import_page(self, json_path: str, name: str) -> None:
         """Import a component via the real "Import component(s)" command palette flow.
@@ -619,108 +625,64 @@ class WorkspaceClient:
                 )
             self.layout.close_left_toolbar()
 
-    def import_workspace(self, name: str, data: dict[str, Any]) -> None:
-        """Import a workspace via command palette with JS injection fallback.
+    def import_workspace_from_directory(self, directory_path: str) -> None:
+        """Import a workspace via the real "Import a workspace" command flow.
 
-        Triggers "Import a workspace" from the command palette. The real flow
-        uses a *directory* picker with no clean browser equivalent, so on
-        non-Tauri builds we bypass it and dispatch Redux actions directly.
-
-        Args:
-            name: Name for the imported workspace.
-            data: Export data dict with 'layout' and 'components' keys
-                  (as returned by export_workspace).
+        Opens the command palette, fulfills the resulting directory chooser
+        with ``directory_path`` (Playwright walks it and uploads each file
+        with its webkitRelativePath set), then waits for the workspace
+        selector to display the directory's basename. The directory must
+        contain ``LAYOUT.json`` and one ``{component_name}.json`` file per
+        layout entry, matching the Console export format.
         """
-        self.layout.command_palette("Import a workspace")
-
-        sliceMap: dict[str, str] = {
-            "lineplot": "line",
-            "schematic": "schematic",
-            "log": "log",
-            "table": "table",
-        }
-
-        self._evaluate_with_redux(
-            """
-            const [name, layoutData, components, sliceMap] = args;
-            const wsKey = crypto.randomUUID();
-            store.dispatch({
-                type: 'workspace/setActive',
-                payload: { key: wsKey, name, layout: layoutData },
-            });
-            store.dispatch({
-                type: 'layout/setWorkspace',
-                payload: { slice: layoutData, keepNav: false },
-            });
-            for (const [key, component] of Object.entries(components)) {
-                const sliceName = sliceMap[component.type];
-                if (!sliceName) continue;
-                const createPayload = sliceName === 'schematic'
-                    ? { key, data: component }
-                    : { ...component, key };
-                store.dispatch({
-                    type: sliceName + '/create',
-                    payload: createPayload,
-                });
-            }
-            """,
-            [name, data["layout"], data["components"], sliceMap],
-        )
-
-        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
+        with self.layout.page.expect_file_chooser() as fc_info:
+            self.layout.command_palette("Import a workspace")
+        fc_info.value.set_files(directory_path)
+        expected_name = os.path.basename(directory_path.rstrip(os.sep))
+        self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
             state="visible", timeout=10000
         )
 
-    def export_workspace(self, name: str) -> dict[str, Any]:
-        """Export a workspace via context menu with JS injection fallback.
+    def export_workspace(self, name: str) -> str:
+        """Export a workspace via the real Export context menu action.
 
-        Opens the context menu on the workspace and clicks Export. The real
-        flow writes multiple files into a directory chosen via Tauri's native
-        directory dialog, which has no clean browser equivalent — so on
-        non-Tauri builds we read Redux state directly instead.
-
-        Args:
-            name: Name of the workspace to export.
-
-        Returns:
-            Dict with 'layout' (the layout state) and 'components'
-            (dict of component key -> exported state with type field).
+        Installs an in-memory mock of ``window.showDirectoryPicker`` so the
+        real export code path runs unchanged but writes captured into a JS
+        Map instead of touching the OS file picker. Materializes the
+        captured files into a real directory under the results dir and
+        returns its path.
         """
+        self._install_directory_picker_mock()
         self.layout.show_resource_toolbar("workspace")
         workspace_item = self.get_item(name)
         workspace_item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(workspace_item, "Export")
+
+        deadline = self.layout.page.evaluate("() => Date.now()") + 10000
+        files: dict[str, str] = {}
+        while True:
+            files = self._drain_exported_files()
+            if "LAYOUT.json" in {os.path.basename(p) for p in files}:
+                break
+            if self.layout.page.evaluate("() => Date.now()") > deadline:
+                raise AssertionError(
+                    f"Export of workspace {name!r} did not produce a LAYOUT.json "
+                    "via the showDirectoryPicker mock"
+                )
+            self.layout.page.wait_for_timeout(200)
+
+        export_dir = get_results_path(f"{name}_export")
+        if os.path.isdir(export_dir):
+            shutil.rmtree(export_dir)
+        os.makedirs(export_dir)
+        for rel_path, contents in files.items():
+            basename = os.path.basename(rel_path)
+            with open(os.path.join(export_dir, basename), "w") as f:
+                f.write(contents)
+
         self.notifications.close_all()
-
-        result: dict[str, Any] = self._evaluate_with_redux("""
-            const state = store.getState();
-            const layoutState = state.layout;
-            const sliceMap = {
-                lineplot: { slice: 'line', collection: 'plots' },
-                schematic: { slice: 'schematic', collection: 'schematics' },
-                log: { slice: 'log', collection: 'logs' },
-                table: { slice: 'table', collection: 'tables' },
-            };
-            const components = {};
-            const layouts = {};
-            for (const [key, layout] of Object.entries(layoutState.layouts)) {
-                if (layout.excludeFromWorkspace || layout.location === 'modal')
-                    continue;
-                layouts[key] = layout;
-                const mapping = sliceMap[layout.type];
-                if (!mapping) continue;
-                const cs = state[mapping.slice]?.[mapping.collection]?.[key];
-                if (cs) components[key] = { ...cs, type: layout.type };
-            }
-            return { layout: { ...layoutState, layouts }, components };
-            """)
-
-        save_path = get_results_path(f"{name}_export.json")
-        with open(save_path, "w") as f:
-            json.dump(result, f, indent=2)
-
         self.layout.close_left_toolbar()
-        return result
+        return export_dir
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.

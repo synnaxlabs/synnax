@@ -16,9 +16,6 @@ import {
 } from "@synnaxlabs/client";
 import { Group, Status, Synnax } from "@synnaxlabs/pluto";
 import { status, uuid } from "@synnaxlabs/x";
-import { join } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 
 import { Runtime } from "@/runtime";
@@ -82,21 +79,13 @@ export const useImportGroup = (): (() => void) => {
 
   return useCallback(() => {
     handleError(async () => {
-      if (Runtime.ENGINE !== "tauri")
-        throw new Error(
-          "Cannot import symbol groups from a dialog when running Synnax in the browser.",
-        );
-
       if (client == null) throw new DisconnectedError();
-      const dirPath = await open({
-        title: "Import Symbol Group",
-        directory: true,
-        multiple: false,
-      });
-      if (dirPath == null) return;
-      const manifestPath = await join(dirPath, "manifest.json");
-      const manifestData = await readTextFile(manifestPath);
-      const manifest = groupManifestZ.parse(JSON.parse(manifestData));
+      const directory = await Runtime.pickDirectory({ title: "Import Symbol Group" });
+      if (directory == null) return;
+      const manifestFile = directory.files.find((f) => f.path === "manifest.json");
+      if (manifestFile == null)
+        throw new Error("manifest.json not found in selected directory");
+      const manifest = groupManifestZ.parse(JSON.parse(await manifestFile.read()));
       const symbolGroup = await client.schematics.symbols.retrieveGroup();
       const newGroupKey = uuid.create();
       await createGroup({
@@ -112,8 +101,10 @@ export const useImportGroup = (): (() => void) => {
       await Promise.all(
         manifest.symbols.map(async (symbolRef) => {
           try {
-            const symbolPath = await join(dirPath, symbolRef.file);
-            const data = await readTextFile(symbolPath);
+            const symbolFile = directory.files.find((f) => f.path === symbolRef.file);
+            if (symbolFile == null)
+              throw new Error(`Symbol file ${symbolRef.file} not found`);
+            const data = await symbolFile.read();
             await createSymbolFromData(client, data, parentID);
             successCount++;
           } catch (e) {
