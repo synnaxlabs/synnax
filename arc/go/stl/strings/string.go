@@ -125,9 +125,6 @@ func registerFormat[T any](
 }
 
 func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
-	if memory == nil {
-		return ""
-	}
 	spec, ok := memory.Read(ptr, length)
 	if !ok {
 		return ""

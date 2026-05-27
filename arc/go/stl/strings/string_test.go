@@ -280,24 +280,6 @@ var _ = Describe("Strings", func() {
 			Entry("format_f32 with OOB spec", "format_f32", testutil.F32(3.14)),
 			Entry("format_f64 with OOB spec", "format_f64", testutil.F64(3.14)),
 		)
-
-		DescribeTable("Should return handle 0 when memory is nil",
-			func(ctx SpecContext, fn string, value uint64) {
-				rt2 := testutil.NewRuntime(ctx)
-				DeferCleanup(rt2.Close)
-				ss2 := strings.NewProgramState()
-				MustSucceed(strings.NewHost(ctx, rt2.Underlying(), ss2, nil))
-				rt2.Passthrough(ctx, "strings")
-				res := rt2.Call(ctx, "strings", fn, value, testutil.U32(0), testutil.U32(3))
-				Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
-			},
-			Entry("format_i32 with nil memory", "format_i32", testutil.I32(42)),
-			Entry("format_u32 with nil memory", "format_u32", testutil.U32(42)),
-			Entry("format_i64 with nil memory", "format_i64", testutil.I64(42)),
-			Entry("format_u64 with nil memory", "format_u64", testutil.U64(42)),
-			Entry("format_f32 with nil memory", "format_f32", testutil.F32(3.14)),
-			Entry("format_f64 with nil memory", "format_f64", testutil.F64(3.14)),
-		)
 	})
 
 	Describe("format_str", func() {
