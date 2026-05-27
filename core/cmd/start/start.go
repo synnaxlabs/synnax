@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
-	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
@@ -38,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/transport"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -161,6 +160,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		distributionLayer *distribution.Layer
 		serviceLayer      *service.Layer
 		apiLayer          *api.Layer
+		transportLayer    transport.Layer
 		rootServer        *server.Server
 		embeddedDriver    *driver.Driver
 	)
@@ -250,11 +250,14 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}); !ok(err, nil) {
 		return err
 	}
-	apiLayer.BindTo(httpapi.NewTransport(r, distributionLayer.Channel))
-
-	// Configure the GRPC Layer AspenTransport.
-	grpcAPI, grpcAPITrans := grpcapi.NewTransport(distributionLayer.Channel)
-	apiLayer.BindTo(grpcAPI)
+	if transportLayer, err = transport.NewLayer(transport.LayerConfig{
+		Instrumentation: cfg.Child("transport"),
+		API:             apiLayer,
+		Router:          r,
+		Channel:         distributionLayer.Channel,
+	}); !ok(err, nil) {
+		return err
+	}
 
 	var embeddedConsole *console.Console
 	if embeddedConsole, err = console.New(); !ok(err, nil) {
@@ -268,7 +271,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
-					grpcAPITrans,
+					transportLayer.GRPC,
 					distributionTransports,
 				)},
 				server.NewHTTPRedirectBranch(),
