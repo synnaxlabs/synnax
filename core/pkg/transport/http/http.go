@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
-	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -71,10 +70,10 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ConnectivityCheck: http.NewUnaryServer[types.Nil, connectivity.CheckResponse](router, "/api/v1/connectivity/check"),
 
 		// FRAME
-		FrameWriter:   http.NewStreamServer[apiframer.WriterRequest, apiframer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
-		FrameIterator: http.NewStreamServer[apiframer.IteratorRequest, apiframer.IteratorResponse](router, "/api/v1/frame/iterate", framerServerOption),
-		FrameStreamer: http.NewStreamServer[apiframer.StreamerRequest, apiframer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
-		FrameDelete:   http.NewUnaryServer[apiframer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
+		FrameWriter:   http.NewStreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
+		FrameIterator: http.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate", framerServerOption),
+		FrameStreamer: http.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
+		FrameDelete:   http.NewUnaryServer[framer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 
 		// ONTOLOGY
 		OntologyRetrieve:       http.NewUnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse](router, "/api/v1/ontology/retrieve"),

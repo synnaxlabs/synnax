@@ -121,12 +121,11 @@ func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	req *RetrieveRequest,
 ) (view.RetrieveRequest, error) {
-	keys := make([]view.Key, len(req.Keys))
-	var err error
-	for i, k := range req.Keys {
-		if keys[i], err = uuid.Parse(k); err != nil {
-			return view.RetrieveRequest{}, err
-		}
+	keys, err := lo.MapErr(req.Keys, func(keyStr string, _ int) (view.Key, error) {
+		return uuid.Parse(keyStr)
+	})
+	if err != nil {
+		return view.RetrieveRequest{}, err
 	}
 	return view.RetrieveRequest{
 		Keys:       keys,
@@ -171,12 +170,11 @@ func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
 ) (view.DeleteRequest, error) {
-	keys := make([]view.Key, len(req.Keys))
-	var err error
-	for i, k := range req.Keys {
-		if keys[i], err = uuid.Parse(k); err != nil {
-			return view.DeleteRequest{}, err
-		}
+	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (view.Key, error) {
+		return uuid.Parse(k)
+	})
+	if err != nil {
+		return view.DeleteRequest{}, err
 	}
 	return view.DeleteRequest{Keys: keys}, nil
 }

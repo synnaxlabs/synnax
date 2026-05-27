@@ -27,6 +27,18 @@ import (
 	"go.uber.org/zap"
 )
 
+type (
+	WriterConfig   = framer.WriterConfig
+	WriterRequest  = framer.WriterRequest
+	WriterResponse = framer.WriterResponse
+
+	IteratorRequest  = framer.IteratorRequest
+	IteratorResponse = framer.IteratorResponse
+	StreamerRequest  = framer.StreamerRequest
+	StreamerResponse = framer.StreamerResponse
+	DeleteRequest    = framer.DeleteRequest
+)
+
 type Codec struct {
 	*codec.Codec
 	LowerPerfCodec encoding.Codec
@@ -54,17 +66,17 @@ func (c *Codec) DecodeStream(
 	value any,
 ) error {
 	switch v := value.(type) {
-	case *http.WSMessage[framer.WriterRequest]:
+	case *http.WSMessage[WriterRequest]:
 		return c.decodeWriteRequest(ctx, r, v)
-	case *http.WSMessage[framer.WriterResponse]:
+	case *http.WSMessage[WriterResponse]:
 		return c.decodeWriteResponse(ctx, r, v)
-	case *http.WSMessage[framer.StreamerRequest]:
+	case *http.WSMessage[StreamerRequest]:
 		return c.decodeStreamRequest(ctx, r, v)
-	case *http.WSMessage[framer.StreamerResponse]:
+	case *http.WSMessage[StreamerResponse]:
 		return c.decodeStreamResponse(ctx, r, v)
-	case *http.WSMessage[framer.IteratorRequest]:
+	case *http.WSMessage[IteratorRequest]:
 		return c.decodeIteratorRequest(ctx, r, v)
-	case *http.WSMessage[framer.IteratorResponse]:
+	case *http.WSMessage[IteratorResponse]:
 		return c.decodeIteratorResponse(ctx, r, v)
 	default:
 		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
@@ -83,17 +95,17 @@ func (c *Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
 	switch v := value.(type) {
-	case http.WSMessage[framer.WriterRequest]:
+	case http.WSMessage[WriterRequest]:
 		return c.encodeWriteRequest(ctx, w, v)
-	case http.WSMessage[framer.WriterResponse]:
+	case http.WSMessage[WriterResponse]:
 		return c.lowPerfEncode(ctx, true, w, v)
-	case http.WSMessage[framer.StreamerRequest]:
+	case http.WSMessage[StreamerRequest]:
 		return c.lowPerfEncode(ctx, false, w, v)
-	case http.WSMessage[framer.StreamerResponse]:
+	case http.WSMessage[StreamerResponse]:
 		return c.encodeStreamResponse(ctx, w, v)
-	case http.WSMessage[framer.IteratorRequest]:
+	case http.WSMessage[IteratorRequest]:
 		return c.lowPerfEncode(ctx, false, w, v)
-	case http.WSMessage[framer.IteratorResponse]:
+	case http.WSMessage[IteratorResponse]:
 		return c.encodeIteratorResponse(ctx, w, v)
 	default:
 		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
@@ -133,7 +145,7 @@ func (c *Codec) decodeIsLowPerf(r io.Reader) (bool, error) {
 func (c *Codec) decodeWriteResponse(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.WriterResponse],
+	v *http.WSMessage[WriterResponse],
 ) error {
 	isLowPerf, err := c.decodeIsLowPerf(r)
 	if err != nil {
@@ -152,7 +164,7 @@ func (c *Codec) lowPerfDecode(ctx context.Context, r io.Reader, value any) error
 func (c *Codec) decodeWriteRequest(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.WriterRequest],
+	v *http.WSMessage[WriterRequest],
 ) error {
 	isLowPerf, err := c.decodeIsLowPerf(r)
 	if err != nil {
@@ -183,7 +195,7 @@ func (c *Codec) decodeWriteRequest(
 func (c *Codec) encodeWriteRequest(
 	ctx context.Context,
 	w io.Writer,
-	v http.WSMessage[framer.WriterRequest],
+	v http.WSMessage[WriterRequest],
 ) error {
 	if v.Type != http.WSMessageTypeData || v.Payload.Command != writer.CommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
@@ -197,7 +209,7 @@ func (c *Codec) encodeWriteRequest(
 func (c *Codec) decodeStreamResponse(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.StreamerResponse],
+	v *http.WSMessage[StreamerResponse],
 ) error {
 	isLowPerf, err := c.decodeIsLowPerf(r)
 	if err != nil {
@@ -218,7 +230,7 @@ func (c *Codec) decodeStreamResponse(
 func (c *Codec) encodeStreamResponse(
 	ctx context.Context,
 	w io.Writer,
-	v http.WSMessage[framer.StreamerResponse],
+	v http.WSMessage[StreamerResponse],
 ) error {
 	if v.Type != http.WSMessageTypeData || v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(ctx, true, w, v)
@@ -232,7 +244,7 @@ func (c *Codec) encodeStreamResponse(
 func (c *Codec) decodeStreamRequest(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.StreamerRequest],
+	v *http.WSMessage[StreamerRequest],
 ) error {
 	if err := c.lowPerfDecode(ctx, r, v); err != nil {
 		return err
@@ -249,7 +261,7 @@ func (c *Codec) decodeStreamRequest(
 func (c *Codec) decodeIteratorRequest(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.IteratorRequest],
+	v *http.WSMessage[IteratorRequest],
 ) error {
 	if err := c.lowPerfDecode(ctx, r, v); err != nil {
 		return err
@@ -266,7 +278,7 @@ func (c *Codec) decodeIteratorRequest(
 func (c *Codec) decodeIteratorResponse(
 	ctx context.Context,
 	r io.Reader,
-	v *http.WSMessage[framer.IteratorResponse],
+	v *http.WSMessage[IteratorResponse],
 ) error {
 	isLowPerf, err := c.decodeIsLowPerf(r)
 	if err != nil {
@@ -288,7 +300,7 @@ func (c *Codec) decodeIteratorResponse(
 func (c *Codec) encodeIteratorResponse(
 	ctx context.Context,
 	w io.Writer,
-	v http.WSMessage[framer.IteratorResponse],
+	v http.WSMessage[IteratorResponse],
 ) error {
 	if v.Type != http.WSMessageTypeData ||
 		v.Payload.Variant != iterator.ResponseVariantData ||
