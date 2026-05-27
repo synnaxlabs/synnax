@@ -20,7 +20,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "core/pkg/api/grpc/auth/auth.pb.h"
+#include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
 /// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
