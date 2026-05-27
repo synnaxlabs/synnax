@@ -44,7 +44,6 @@ const (
 	SemanticTokenTypeConfig
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
-	SemanticTokenTypeUnit
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
@@ -71,7 +70,6 @@ var semanticTokenTypes = []string{
 	"config",
 	"input",
 	"output",
-	"unit",
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
@@ -299,6 +297,17 @@ func classifyTokenAt(
 	if inImport && (antlrType == parser.ArcLexerIDENTIFIER || antlrType == parser.ArcLexerAUTHORITY) {
 		tokenType := uint32(SemanticTokenTypeNamespace)
 		return &tokenType
+	}
+	// An IDENTIFIER immediately following a numeric literal is that literal's unit
+	// suffix (e.g. "min" in "3min"), which the parser attaches to the literal via
+	// an adjacency predicate rather than treating as a symbol reference. Emit no
+	// token and defer to the grammar; otherwise a unit whose name collides with a
+	// builtin (e.g. the "min" function) would be colored as that symbol, unlike
+	// units such as "s" or "h" that resolve to nothing.
+	if antlrType == parser.ArcLexerIDENTIFIER &&
+		(prevTokenType == parser.ArcLexerINTEGER_LITERAL ||
+			prevTokenType == parser.ArcLexerFLOAT_LITERAL) {
+		return nil
 	}
 	// IDENTIFIER after DOT is the member part of a qualified name
 	// (e.g., "set_authority" in "control.set_authority"). Color it as a function.

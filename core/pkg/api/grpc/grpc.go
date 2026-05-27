@@ -136,6 +136,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.TableDelete = noop.UnaryServer[table.DeleteRequest, types.Nil]{}
 	a.TableRename = noop.UnaryServer[table.RenameRequest, types.Nil]{}
 	a.TableSetData = noop.UnaryServer[table.SetDataRequest, types.Nil]{}
+	a.TableDispatch = noop.UnaryServer[table.DispatchRequest, types.Nil]{}
 
 	// LABEL
 	a.LabelCreate = noop.UnaryServer[label.CreateRequest, label.CreateResponse]{}
