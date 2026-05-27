@@ -19,9 +19,9 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	grpcapi "github.com/synnaxlabs/synnax/pkg/transport/grpc"
-	httpapi "github.com/synnaxlabs/synnax/pkg/transport/http"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc"
+	"github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -39,7 +39,7 @@ type LayerConfig struct {
 	Router *fhttp.Router
 	// Channel resolves channel keys to data types for the frame codec used by both the
 	// HTTP and gRPC framer endpoints.
-	Channel *distchannel.Service
+	Channel *channel.Service
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
@@ -78,6 +78,6 @@ func NewLayer(cfgs ...LayerConfig) (Layer, error) {
 	if err != nil {
 		return Layer{}, err
 	}
-	httpapi.Bind(cfg.API, cfg.Router, cfg.Channel)
-	return Layer{GRPC: grpcapi.Bind(cfg.API, cfg.Channel)}, nil
+	http.Bind(cfg.API, cfg.Router, cfg.Channel)
+	return Layer{GRPC: grpc.Bind(cfg.API, cfg.Channel)}, nil
 }

@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"testing"
 
-	apifra "github.com/synnaxlabs/synnax/pkg/api/framer"
+	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -116,7 +116,7 @@ func BenchmarkWriterRequestTranslator_Forward(b *testing.B) {
 			keys, dataTypes, fr := benchFrame(nc, 100)
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameWriterRequestTranslator{codec: cdec}
-			req := apifra.WriterRequest{
+			req := framer.WriterRequest{
 				Command: writer.CommandWrite,
 				Frame:   fr,
 			}
@@ -163,7 +163,7 @@ func BenchmarkIteratorRequestTranslator_RoundTrip(b *testing.B) {
 	keys, dataTypes, _ := benchIteratorFrame(8, 1, 100)
 	cdec := codec.NewStatic(keys, dataTypes)
 	t := frameIteratorRequestTranslator{codec: cdec}
-	req := apifra.IteratorRequest{
+	req := framer.IteratorRequest{
 		Command: iterator.CommandNext,
 		Span:    telem.Second,
 	}
@@ -198,7 +198,7 @@ func BenchmarkIteratorResponseTranslator_Forward(b *testing.B) {
 			keys, dataTypes, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameIteratorResponseTranslator{codec: cdec}
-			res := apifra.IteratorResponse{
+			res := framer.IteratorResponse{
 				Variant: iterator.ResponseVariantData,
 				Command: iterator.CommandNext,
 				Frame:   fr,
@@ -236,7 +236,7 @@ func BenchmarkIteratorResponseTranslator_Forward_NoCodec(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			_, _, fr := benchIteratorFrame(c.channels, c.domains, c.samples)
 			t := frameIteratorResponseTranslator{}
-			res := apifra.IteratorResponse{
+			res := framer.IteratorResponse{
 				Variant: iterator.ResponseVariantData,
 				Command: iterator.CommandNext,
 				Frame:   fr,
@@ -267,7 +267,7 @@ func BenchmarkIteratorResponseTranslator_Backward(b *testing.B) {
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			ctx := context.Background()
-			pb, err := t.Forward(ctx, apifra.IteratorResponse{
+			pb, err := t.Forward(ctx, framer.IteratorResponse{
 				Variant: iterator.ResponseVariantData,
 				Command: iterator.CommandNext,
 				Frame:   fr,
@@ -293,7 +293,7 @@ func BenchmarkStreamerResponseTranslator_RoundTrip(b *testing.B) {
 			keys, dataTypes, fr := benchFrame(nc, 100)
 			cdec := codec.NewStatic(keys, dataTypes)
 			t := frameStreamerResponseTranslator{codec: cdec}
-			res := apifra.StreamerResponse{Frame: fr}
+			res := framer.StreamerResponse{Frame: fr}
 			ctx := context.Background()
 			b.ReportAllocs()
 			for b.Loop() {

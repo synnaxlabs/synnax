@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	entitypb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
+	channelpb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/unsafe"
@@ -61,7 +61,7 @@ func (t createRequestTranslator) Forward(
 	_ context.Context,
 	msg apichannel.CreateRequest,
 ) (*CreateRequest, error) {
-	channels, err := entitypb.ChannelsToPB(msg.Channels)
+	channels, err := channelpb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (t createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
 ) (apichannel.CreateRequest, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := channelpb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.CreateRequest{}, err
 	}
@@ -89,7 +89,7 @@ func (t createResponseTranslator) Forward(
 	_ context.Context,
 	msg apichannel.CreateResponse,
 ) (*CreateResponse, error) {
-	channels, err := entitypb.ChannelsToPB(msg.Channels)
+	channels, err := channelpb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (t createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
 ) (apichannel.CreateResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := channelpb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.CreateResponse{}, err
 	}
@@ -135,7 +135,7 @@ func (t retrieveResponseTranslator) Forward(
 	_ context.Context,
 	msg apichannel.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsToPB(msg.Channels)
+	channels, err := channelpb.ChannelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
 ) (apichannel.RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := channelpb.ChannelsFromPB(msg.Channels)
 	if err != nil {
 		return apichannel.RetrieveResponse{}, err
 	}

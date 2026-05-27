@@ -57,7 +57,7 @@ var (
 	_ grpc.Translator[apiarc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
-func (t createRequestTranslator) Forward(
+func (createRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.CreateRequest,
 ) (*CreateRequest, error) {

@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -24,33 +24,33 @@ import (
 
 type (
 	setServer = grpc.UnaryServer[
-		apialias.SetRequest,
+		alias.SetRequest,
 		*SetRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	resolveServer = grpc.UnaryServer[
-		apialias.ResolveRequest,
+		alias.ResolveRequest,
 		*ResolveRequest,
-		apialias.ResolveResponse,
+		alias.ResolveResponse,
 		*ResolveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
-		apialias.DeleteRequest,
+		alias.DeleteRequest,
 		*DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	listServer = grpc.UnaryServer[
-		apialias.ListRequest,
+		alias.ListRequest,
 		*ListRequest,
-		apialias.ListResponse,
+		alias.ListResponse,
 		*ListResponse,
 	]
 	retrieveServer = grpc.UnaryServer[
-		apialias.RetrieveRequest,
+		alias.RetrieveRequest,
 		*RetrieveRequest,
-		apialias.RetrieveResponse,
+		alias.RetrieveResponse,
 		*RetrieveResponse,
 	]
 )
@@ -67,19 +67,19 @@ type (
 )
 
 var (
-	_ grpc.Translator[apialias.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
-	_ grpc.Translator[apialias.ResolveRequest, *ResolveRequest]     = (*resolveRequestTranslator)(nil)
-	_ grpc.Translator[apialias.ResolveResponse, *ResolveResponse]   = (*resolveResponseTranslator)(nil)
-	_ grpc.Translator[apialias.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[apialias.ListRequest, *ListRequest]           = (*listRequestTranslator)(nil)
-	_ grpc.Translator[apialias.ListResponse, *ListResponse]         = (*listResponseTranslator)(nil)
-	_ grpc.Translator[apialias.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[apialias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[alias.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
+	_ grpc.Translator[alias.ResolveRequest, *ResolveRequest]     = (*resolveRequestTranslator)(nil)
+	_ grpc.Translator[alias.ResolveResponse, *ResolveResponse]   = (*resolveResponseTranslator)(nil)
+	_ grpc.Translator[alias.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[alias.ListRequest, *ListRequest]           = (*listRequestTranslator)(nil)
+	_ grpc.Translator[alias.ListResponse, *ListResponse]         = (*listResponseTranslator)(nil)
+	_ grpc.Translator[alias.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[alias.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
 )
 
 func (t setRequestTranslator) Forward(
 	_ context.Context,
-	r apialias.SetRequest,
+	r alias.SetRequest,
 ) (*SetRequest, error) {
 	return &SetRequest{
 		Range:   r.Range.String(),
@@ -90,9 +90,9 @@ func (t setRequestTranslator) Forward(
 func (t setRequestTranslator) Backward(
 	_ context.Context,
 	r *SetRequest,
-) (apialias.SetRequest, error) {
+) (alias.SetRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apialias.SetRequest{
+	return alias.SetRequest{
 		Range:   key,
 		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
 	}, err
@@ -100,7 +100,7 @@ func (t setRequestTranslator) Backward(
 
 func (t resolveRequestTranslator) Forward(
 	_ context.Context,
-	r apialias.ResolveRequest,
+	r alias.ResolveRequest,
 ) (*ResolveRequest, error) {
 	return &ResolveRequest{
 		Range:   r.Range.String(),
@@ -111,9 +111,9 @@ func (t resolveRequestTranslator) Forward(
 func (t resolveRequestTranslator) Backward(
 	_ context.Context,
 	r *ResolveRequest,
-) (apialias.ResolveRequest, error) {
+) (alias.ResolveRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apialias.ResolveRequest{
+	return alias.ResolveRequest{
 		Range:   key,
 		Aliases: r.Aliases,
 	}, err
@@ -121,7 +121,7 @@ func (t resolveRequestTranslator) Backward(
 
 func (t resolveResponseTranslator) Forward(
 	_ context.Context,
-	r apialias.ResolveResponse,
+	r alias.ResolveResponse,
 ) (*ResolveResponse, error) {
 	return &ResolveResponse{
 		Aliases: unsafe.ReinterpretMapValues[string, channel.Key, uint32](r.Aliases),
@@ -131,15 +131,15 @@ func (t resolveResponseTranslator) Forward(
 func (t resolveResponseTranslator) Backward(
 	_ context.Context,
 	r *ResolveResponse,
-) (apialias.ResolveResponse, error) {
-	return apialias.ResolveResponse{
+) (alias.ResolveResponse, error) {
+	return alias.ResolveResponse{
 		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.Aliases),
 	}, nil
 }
 
 func (t deleteRequestTranslator) Forward(
 	_ context.Context,
-	r apialias.DeleteRequest,
+	r alias.DeleteRequest,
 ) (*DeleteRequest, error) {
 	return &DeleteRequest{
 		Range:    r.Range.String(),
@@ -150,9 +150,9 @@ func (t deleteRequestTranslator) Forward(
 func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
-) (apialias.DeleteRequest, error) {
+) (alias.DeleteRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apialias.DeleteRequest{
+	return alias.DeleteRequest{
 		Range:    key,
 		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
 	}, err
@@ -160,7 +160,7 @@ func (t deleteRequestTranslator) Backward(
 
 func (t listRequestTranslator) Forward(
 	_ context.Context,
-	r apialias.ListRequest,
+	r alias.ListRequest,
 ) (*ListRequest, error) {
 	return &ListRequest{
 		Range: r.Range.String(),
@@ -170,16 +170,16 @@ func (t listRequestTranslator) Forward(
 func (t listRequestTranslator) Backward(
 	_ context.Context,
 	r *ListRequest,
-) (apialias.ListRequest, error) {
+) (alias.ListRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apialias.ListRequest{
+	return alias.ListRequest{
 		Range: key,
 	}, err
 }
 
 func (t listResponseTranslator) Forward(
 	_ context.Context,
-	r apialias.ListResponse,
+	r alias.ListResponse,
 ) (*ListResponse, error) {
 	return &ListResponse{
 		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
@@ -189,15 +189,15 @@ func (t listResponseTranslator) Forward(
 func (t listResponseTranslator) Backward(
 	_ context.Context,
 	r *ListResponse,
-) (apialias.ListResponse, error) {
-	return apialias.ListResponse{
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+) (alias.ListResponse, error) {
+	return alias.ListResponse{
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.Aliases),
 	}, nil
 }
 
 func (t retrieveRequestTranslator) Forward(
 	_ context.Context,
-	r apialias.RetrieveRequest,
+	r alias.RetrieveRequest,
 ) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
 		Range:    r.Range.String(),
@@ -208,9 +208,9 @@ func (t retrieveRequestTranslator) Forward(
 func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
-) (apialias.RetrieveRequest, error) {
+) (alias.RetrieveRequest, error) {
 	key, err := uuid.Parse(r.Range)
-	return apialias.RetrieveRequest{
+	return alias.RetrieveRequest{
 		Range:    key,
 		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
 	}, err
@@ -218,19 +218,19 @@ func (t retrieveRequestTranslator) Backward(
 
 func (t retrieveResponseTranslator) Forward(
 	_ context.Context,
-	r apialias.RetrieveResponse,
+	r alias.RetrieveResponse,
 ) (*RetrieveResponse, error) {
 	return &RetrieveResponse{
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
 func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *RetrieveResponse,
-) (apialias.RetrieveResponse, error) {
-	return apialias.RetrieveResponse{
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+) (alias.RetrieveResponse, error) {
+	return alias.RetrieveResponse{
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.Aliases),
 	}, nil
 }
 
