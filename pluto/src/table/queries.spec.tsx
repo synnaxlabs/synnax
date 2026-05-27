@@ -545,7 +545,7 @@ describe("table queries", () => {
     });
   });
 
-  describe("useClearSelected", () => {
+  describe("useEraseSelected", () => {
     const seedTable = async () => {
       const ws = await client.workspaces.create({
         name: `clear_ws_${uuid.create()}`,
@@ -579,7 +579,7 @@ describe("table queries", () => {
       const hooks = renderHook(
         () => ({
           retrieve: Table.useRetrieve({ key }),
-          clear: Table.useClearSelected({ key }),
+          erase: Table.useEraseSelected({ key }),
           undo: Table.useUndo({ key }),
         }),
         { wrapper },
@@ -590,7 +590,7 @@ describe("table queries", () => {
     it("resets variant and props of selected cells without removing rows or columns", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["b", "e"]));
+      await act(async () => result.current.erase(["b", "e"]));
       await waitFor(() => {
         expect(result.current.retrieve.data?.cells.b.variant).toEqual("text");
         expect(result.current.retrieve.data?.cells.e.variant).toEqual("text");
@@ -603,7 +603,7 @@ describe("table queries", () => {
     it("removes a fully-selected row", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["d", "e", "f"]));
+      await act(async () => result.current.erase(["d", "e", "f"]));
       await waitFor(() => {
         expect(result.current.retrieve.data?.rows).toHaveLength(2);
         expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "b", "c"]);
@@ -615,7 +615,7 @@ describe("table queries", () => {
     it("removes a fully-selected column", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["b", "e", "h"]));
+      await act(async () => result.current.erase(["b", "e", "h"]));
       await waitFor(() => {
         expect(result.current.retrieve.data?.columns).toHaveLength(2);
         expect(result.current.retrieve.data?.rows[0].cells).toEqual(["a", "c"]);
@@ -626,7 +626,7 @@ describe("table queries", () => {
     it("removes a full row and a full column in the same gesture", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["a", "b", "c", "f", "i"]));
+      await act(async () => result.current.erase(["a", "b", "c", "f", "i"]));
       await waitFor(() => {
         expect(result.current.retrieve.data?.rows).toHaveLength(2);
         expect(result.current.retrieve.data?.columns).toHaveLength(2);
@@ -638,7 +638,7 @@ describe("table queries", () => {
     it("removes a fully-selected row and resets stray selected cells outside that row", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["d", "e", "f", "h"]));
+      await act(async () => result.current.erase(["d", "e", "f", "h"]));
       await waitFor(() => {
         expect(result.current.retrieve.data?.rows).toHaveLength(2);
         expect(result.current.retrieve.data?.cells.h.variant).toEqual("text");
@@ -650,7 +650,7 @@ describe("table queries", () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      await act(async () => result.current.clear([]));
+      await act(async () => result.current.erase([]));
       expect(result.current.retrieve.data?.rows).toHaveLength(3);
       expect(result.current.retrieve.data?.columns).toHaveLength(3);
       expect(result.current.undo.canUndo).toBe(false);
@@ -659,7 +659,7 @@ describe("table queries", () => {
     it("collapses into a single undo step", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndUse(seeded.key);
-      await act(async () => result.current.clear(["a", "b", "c", "e"]));
+      await act(async () => result.current.erase(["a", "b", "c", "e"]));
       await waitFor(() => expect(result.current.retrieve.data?.rows).toHaveLength(2));
       await act(async () => result.current.undo.undo());
       await waitFor(() => {

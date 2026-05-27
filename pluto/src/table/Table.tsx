@@ -37,9 +37,9 @@ import {
   MIN_CELL_DIM,
   useAddCol,
   useAddRow,
-  useClearSelected,
   useDispatch,
   useEnsureRetrieved,
+  useEraseSelected,
   useRedo,
   useRemoveCol,
   useRemoveRow,
@@ -98,7 +98,7 @@ export interface TableProps
 }
 
 export const Table = ({
-  resourceKey,
+  resourceKey: key,
   selected = [],
   onSelectionChange,
   editable = false,
@@ -109,18 +109,18 @@ export const Table = ({
   className,
   ...rest
 }: TableProps): ReactElement => {
-  useEnsureRetrieved({ key: resourceKey });
-  const rows = useSelectRows({ key: resourceKey });
-  const columns = useSelectColumns({ key: resourceKey });
+  useEnsureRetrieved({ key });
+  const rows = useSelectRows({ key });
+  const columns = useSelectColumns({ key });
   const { dispatch } = useDispatch();
 
-  const addRow = useAddRow({ key: resourceKey });
-  const addCol = useAddCol({ key: resourceKey });
-  const removeRow = useRemoveRow({ key: resourceKey });
-  const removeCol = useRemoveCol({ key: resourceKey });
-  const clearSelected = useClearSelected({ key: resourceKey });
-  const { undo } = useUndo({ key: resourceKey });
-  const { redo } = useRedo({ key: resourceKey });
+  const addRow = useAddRow({ key });
+  const addCol = useAddCol({ key });
+  const removeRow = useRemoveRow({ key });
+  const removeCol = useRemoveCol({ key });
+  const eraseSelected = useEraseSelected({ key });
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
 
   const handlePasted = useCallback(
     (overwrittenKeys: string[]) => {
@@ -130,7 +130,7 @@ export const Table = ({
     [onSelectionChange],
   );
   const { onCopy, onPaste } = useClipboard({
-    key: resourceKey,
+    key,
     selected,
     onPaste: handlePasted,
   });
@@ -139,7 +139,7 @@ export const Table = ({
   const renderMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => (
       <DefaultContextMenu
-        resourceKey={resourceKey}
+        resourceKey={key}
         targetID={keys[0] ?? null}
         editable={editable}
         onEditableChange={onEditableChange}
@@ -151,7 +151,7 @@ export const Table = ({
       />
     ),
     [
-      resourceKey,
+      key,
       editable,
       onEditableChange,
       addRow,
@@ -188,11 +188,11 @@ export const Table = ({
         const mode = Triggers.determineMode(TRIGGERS_CONFIG, triggers);
         if (mode === "clear") {
           if (selected.length === 0) return;
-          clearSelected(selected);
+          eraseSelected(selected);
         } else if (mode === "undo") undo();
         else if (mode === "redo") redo();
       },
-      [editable, enableTriggers, selected, clearSelected, undo, redo],
+      [editable, enableTriggers, selected, eraseSelected, undo, redo],
     ),
   });
 
@@ -252,22 +252,22 @@ export const Table = ({
     (size: number, index: number) => {
       if (!editable) return;
       dispatch({
-        key: resourceKey,
+        key,
         actions: [table.resizeRow({ index, size: clamp(size, MIN_CELL_DIM) })],
       });
     },
-    [dispatch, editable, resourceKey],
+    [dispatch, editable, key],
   );
 
   const handleColResize = useCallback(
     (size: number, index: number) => {
       if (!editable) return;
       dispatch({
-        key: resourceKey,
+        key,
         actions: [table.resizeCol({ index, size: clamp(size, MIN_CELL_DIM) })],
       });
     },
-    [dispatch, editable, resourceKey],
+    [dispatch, editable, key],
   );
 
   const colSizes = columns.map((c) => c.size);
@@ -304,7 +304,7 @@ export const Table = ({
                   <Row
                     key={rowIndex}
                     index={rowIndex}
-                    resourceKey={resourceKey}
+                    resourceKey={key}
                     cells={row.cells}
                     columns={colSizes}
                     position={yPos}

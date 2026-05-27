@@ -408,17 +408,17 @@ export const useRemoveCol = ({ key }: SelectKeyArgs): UseRemoveAtIndexReturn => 
   );
 };
 
-export interface UseClearSelectedReturn {
+export interface UseEraseSelectedReturn {
   (selected: string[]): void;
 }
 
-// useClearSelected returns a callback that takes a selected cell-key array
+// useEraseSelected returns a callback that takes a selected cell-key array
 // and, in a single batched dispatch, removes every fully-selected row,
 // removes every fully-selected column, and resets each remaining selected
 // cell to the default text variant. Cells whose row or column is removed in
 // the same batch fall through as setCell no-ops because the reducer skips
 // unknown keys.
-export const useClearSelected = ({ key }: SelectKeyArgs): UseClearSelectedReturn => {
+export const useEraseSelected = ({ key }: SelectKeyArgs): UseEraseSelectedReturn => {
   const { dispatch } = useDispatch();
   const rows = useSelectRows({ key });
   const columns = useSelectColumns({ key });
