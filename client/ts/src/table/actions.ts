@@ -26,10 +26,12 @@ import { type Cell } from "@/table/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
-// MIN_CELL_DIM is the floor enforced on row and column sizes by the resize
-// handlers. Callers may apply their own UX clamp on top of this, but every
-// dispatched resize action lands here so the action store is the authority.
+// MIN_CELL_DIM is the floor enforced on row and column sizes.
 const MIN_CELL_DIM = 32;
+// BASE_ROW_DIM / BASE_COL_DIM are the defaults used when AddRow / AddCol
+// fire against an empty table and need to bootstrap the missing axis.
+const BASE_ROW_DIM = 36;
+const BASE_COL_DIM = 72;
 
 // snapshot pulls a value out of an Immer draft so the result is safe to embed
 // in an action stored on the undo stack. When reduceAll applies multiple
@@ -49,6 +51,9 @@ const handlers: Handlers = {
   },
 
   addRow: (state, payload) => {
+    if (state.columns.length === 0 && payload.cells.length > 0)
+      for (let i = 0; i < payload.cells.length; i++)
+        state.columns.push({ size: BASE_COL_DIM });
     const idx = Math.min(payload.index, state.rows.length);
     const keys = payload.cells.map((c) => c.key);
     state.rows.splice(idx, 0, {
@@ -79,6 +84,9 @@ const handlers: Handlers = {
   },
 
   addCol: (state, payload) => {
+    if (state.rows.length === 0 && payload.cells.length > 0)
+      for (let i = 0; i < payload.cells.length; i++)
+        state.rows.push({ size: BASE_ROW_DIM, cells: [] });
     const idx = Math.min(payload.index, state.columns.length);
     state.columns.splice(idx, 0, { size: Math.max(payload.size, MIN_CELL_DIM) });
     for (let i = 0; i < state.rows.length; i++) {

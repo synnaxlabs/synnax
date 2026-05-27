@@ -121,17 +121,16 @@ export const Table = ({
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
-  const handlePasted = useCallback(
-    (overwrittenKeys: string[]) => {
-      if (overwrittenKeys.length === 0) return;
-      onSelectionChange?.(overwrittenKeys);
+  const handlePaste = useCallback(
+    (overwritten: string[]) => {
+      if (overwritten.length !== 0) onSelectionChange?.(overwritten);
     },
     [onSelectionChange],
   );
   const { onCopy, onPaste } = useClipboard({
     key,
     selected,
-    onPaste: handlePasted,
+    onPaste: handlePaste,
   });
 
   const menuProps = Menu.useContextMenu();

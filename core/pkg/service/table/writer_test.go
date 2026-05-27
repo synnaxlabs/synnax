@@ -210,6 +210,49 @@ var _ = Describe("Writer", func() {
 			Expect(res.Columns[1].Size).To(Equal(200.0))
 		})
 
+		It("Should bootstrap columns when AddRow fires against an empty table", func(ctx SpecContext) {
+			t := table.Table{Name: "empty"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, t.Key, "dk-1", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 0,
+					Size:  36,
+					Cells: []table.Cell{
+						{Key: "a", Variant: "text"},
+						{Key: "b", Variant: "text"},
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(t.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(1))
+			Expect(res.Columns).To(HaveLen(2))
+			Expect(res.Columns[0].Size).To(Equal(72.0))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"a", "b"}))
+		})
+
+		It("Should bootstrap rows when AddCol fires against an empty table", func(ctx SpecContext) {
+			t := table.Table{Name: "empty"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, t.Key, "dk-1", []table.Action{
+				table.NewAddColAction(table.AddColPayload{
+					Index: 0,
+					Size:  72,
+					Cells: []table.Cell{
+						{Key: "a", Variant: "text"},
+						{Key: "b", Variant: "text"},
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(t.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Columns).To(HaveLen(1))
+			Expect(res.Rows).To(HaveLen(2))
+			Expect(res.Rows[0].Size).To(Equal(36.0))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"a"}))
+			Expect(res.Rows[1].Cells).To(Equal([]string{"b"}))
+		})
+
 		It("Should clamp AddRow sizes below the minimum cell dimension", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{

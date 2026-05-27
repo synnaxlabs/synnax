@@ -9,10 +9,14 @@
 
 package table
 
-// minCellDim is the floor enforced on row and column sizes by the resize
-// reducers. Clients may apply their own UX clamp on top of this, but every
-// dispatched resize action lands here so the server is the authority.
-const minCellDim = 32
+const (
+	// minCellDim is the floor enforced on row and column sizes.
+	minCellDim = 32
+	// baseRowDim and baseColDim are the defaults the AddRow / AddCol
+	// reducers use when bootstrapping the missing axis on an empty table.
+	baseRowDim = 36
+	baseColDim = 72
+)
 
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
@@ -26,6 +30,14 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 // end of the rows slice; cells whose keys collide with existing entries
 // overwrite the prior value.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
+	// Bootstrap: a row arriving against an empty table implies the columns
+	// the row needs. Create one default-sized column per cell in the payload.
+	if len(state.Columns) == 0 && len(p.Cells) > 0 {
+		state.Columns = make([]Column, len(p.Cells))
+		for i := range state.Columns {
+			state.Columns[i].Size = baseColDim
+		}
+	}
 	keys := make([]string, len(p.Cells))
 	for i, c := range p.Cells {
 		keys[i] = c.Key
@@ -68,6 +80,15 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 // extra cells beyond the row count are still added to the map but not
 // referenced by any row.
 func (p AddColPayload) Handle(state Table) (Table, error) {
+	// Bootstrap: a column arriving against an empty table implies the rows
+	// the column needs. Create one default-sized empty row per cell in the
+	// payload; the loop below splices each cell into its row.
+	if len(state.Rows) == 0 && len(p.Cells) > 0 {
+		state.Rows = make([]Row, len(p.Cells))
+		for i := range state.Rows {
+			state.Rows[i].Size = baseRowDim
+		}
+	}
 	idx := int(p.Index)
 	if idx > len(state.Columns) {
 		idx = len(state.Columns)

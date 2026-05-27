@@ -313,6 +313,61 @@ describe("Table", () => {
       }
     });
 
+    test("addRow on an empty table bootstraps one default column per cell", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [],
+          columns: [],
+          cells: {},
+        },
+        [
+          table.addRow({
+            index: 0,
+            size: 36,
+            cells: [
+              { key: "a", variant: "text", props: {} },
+              { key: "b", variant: "text", props: {} },
+            ],
+          }),
+        ],
+      );
+      expect(next.rows).toHaveLength(1);
+      expect(next.columns).toHaveLength(2);
+      expect(next.columns[0].size).toEqual(72);
+      expect(next.columns[1].size).toEqual(72);
+      expect(next.rows[0].cells).toEqual(["a", "b"]);
+    });
+
+    test("addCol on an empty table bootstraps one default row per cell", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [],
+          columns: [],
+          cells: {},
+        },
+        [
+          table.addCol({
+            index: 0,
+            size: 72,
+            cells: [
+              { key: "a", variant: "text", props: {} },
+              { key: "b", variant: "text", props: {} },
+            ],
+          }),
+        ],
+      );
+      expect(next.columns).toHaveLength(1);
+      expect(next.rows).toHaveLength(2);
+      expect(next.rows[0].size).toEqual(36);
+      expect(next.rows[1].size).toEqual(36);
+      expect(next.rows[0].cells).toEqual(["a"]);
+      expect(next.rows[1].cells).toEqual(["b"]);
+    });
+
     test("addRow clamps below-minimum sizes to the floor", () => {
       const { next } = table.reduceAll(
         {
