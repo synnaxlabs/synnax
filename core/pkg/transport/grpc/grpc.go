@@ -25,8 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
-	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
-	apialias "github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
@@ -82,10 +80,6 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, types.Nil]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}
-
-	// RANGE
-	t.RangeRename = noop.UnaryServer[apiranger.RenameRequest, types.Nil]{}
-	t.AliasRetrieve = noop.UnaryServer[apialias.RetrieveRequest, apialias.RetrieveResponse]{}
 
 	// ONTOLOGY
 	t.OntologyRetrieve = noop.UnaryServer[ontology.RetrieveRequest, ontology.RetrieveResponse]{}
