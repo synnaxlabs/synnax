@@ -144,8 +144,8 @@ TemporalUnit ::= 'ns' | 'us' | 'ms' | 's' | 'min' | 'h' | 'd'
 FrequencyUnit ::= 'hz' | 'khz' | 'mhz'
 ```
 
-Examples: `100ms`, `5s`, `1min` (minute), `1d` (day), `10hz` (= 100ms period),
-`1khz` (= 1ms period)
+Examples: `100ms`, `5s`, `1min` (minute), `1d` (day), `10hz` (= 100ms period), `1khz` (=
+1ms period)
 
 **Note**: `min` is minutes; `m` alone is the meter (a length unit). Frequency units
 convert to timespan by inverting the period.
