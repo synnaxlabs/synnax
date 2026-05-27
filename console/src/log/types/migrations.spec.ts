@@ -119,6 +119,34 @@ describe("log type migrations", () => {
       const result = anyStateZ.parse(v2.ZERO_STATE);
       expect(result.version).toBe(v2.VERSION);
     });
+
+    it("should parse a persisted v1 log export with an empty color and no timestamp", () => {
+      const result = anyStateZ.parse({
+        key: "424ef02f-6ec3-4af6-bdd2-242964a747d8",
+        version: "1.0.0",
+        channels: [
+          {
+            channel: 1048581,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+          },
+        ],
+        remoteCreated: true,
+        timestampPrecision: 0,
+        showChannelNames: true,
+        showReceiptTimestamp: true,
+        toolbar: { activeTab: "channels" },
+        type: "log",
+      });
+      expect(result.version).toBe(v2.VERSION);
+      expect(result.channels[0].color).toEqual(color.ZERO);
+      expect(result.channels[0].timestamp).toEqual({
+        format: "preciseDate",
+        tz: "local",
+      });
+    });
   });
 
   describe("stateFromLog", () => {
