@@ -227,6 +227,80 @@ describe("schematic queries", () => {
       );
       expect(result.current.size).toBe(0);
     });
+
+    it("useSelectNodes keeps its reference when an unrelated node changes", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      expect(initial.map((n) => n.key)).toEqual(["n1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n2", position: { x: 50, y: 50 } }),
+          ],
+        });
+      });
+      expect(result.current.nodes).toBe(initial);
+    });
+
+    it("useSelectNodes returns a new array when a requested node changes", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n1", position: { x: 99, y: 99 } }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.nodes).not.toBe(initial);
+        expect(result.current.nodes[0].position).toEqual({ x: 99, y: 99 });
+      });
+    });
+
+    it("useSelectConfigs keeps its reference when an unrelated change occurs", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          configs: Schematic.useSelectConfigs({
+            key: isolated.key,
+            keys: ["n1", "n2"],
+          }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.configs;
+      expect(initial.size).toBe(2);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } }),
+          ],
+        });
+      });
+      expect(result.current.configs).toBe(initial);
+    });
   });
 
   describe("useCreate", () => {
