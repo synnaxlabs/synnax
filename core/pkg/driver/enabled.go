@@ -17,12 +17,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
-	"github.com/synnaxlabs/x/breaker"
+	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -39,6 +39,10 @@ const (
 	configFlag          = "--config"
 	debugFlag           = "--debug"
 )
+
+// restartScale is the exponential growth factor applied to the restart backoff after
+// each consecutive unexpected driver exit.
+const restartScale = 1.1
 
 var (
 	errStartTimeout = errors.New(
@@ -101,6 +105,9 @@ type Driver struct {
 	// closeErr stores the result of the single close() invocation for subsequent Close
 	// calls to return.
 	closeErr error
+	// closing reports whether Close has begun, so the supervisor can distinguish an
+	// expected shutdown (do not restart) from an unexpected exit (restart with backoff).
+	closing atomic.Bool
 }
 
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -125,10 +132,11 @@ func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
-	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
-		BaseInterval: 1 * time.Second,
-		Scale:        1.1,
-		MaxRetries:   100,
+	policy, err := restart.New(sCtx, restart.Config{
+		BaseInterval:  d.cfg.RestartBaseInterval,
+		Scale:         restartScale,
+		MaxRetries:    d.cfg.RestartMaxRetries,
+		HealthyUptime: d.cfg.RestartHealthyUptime,
 	})
 	if err != nil {
 		return err
@@ -169,6 +177,7 @@ func (d *Driver) start(ctx context.Context) error {
 		if err := d.cmd.Start(); err != nil {
 			return err
 		}
+		startedAt := time.Now()
 
 		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 		defer cancel()
@@ -196,19 +205,27 @@ func (d *Driver) start(ctx context.Context) error {
 			signal.WithKey("wait"),
 			signal.RecoverWithErrOnPanic())
 		err = internalSCtx.Wait()
-		isSignal := false
-		if err != nil {
-			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
-			if !isSignal && bre.Wait() {
-				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
-				return runProcess(ctx)
-			}
-		}
-		if isSignal {
+		expected := d.closing.Load()
+		if !expected {
 			d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
+		}
+		switch policy.Decide(expected, time.Since(startedAt)) {
+		case restart.Restart:
+			return runProcess(ctx)
+		case restart.GiveUp:
+			// A shutdown that lands here (context canceled mid-backoff) is expected,
+			// not a crash loop — return quietly.
+			if d.closing.Load() {
+				return nil
+			}
+			d.cfg.L.Error(
+				"embedded driver exceeded restart limit; giving up",
+				zap.Error(err),
+			)
+			return err
+		default: // restart.Stop
 			return nil
 		}
-		return err
 	}
 	sCtx.Go(runProcess)
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
@@ -237,6 +254,9 @@ func (d *Driver) Close() error {
 }
 
 func (d *Driver) close() error {
+	// Mark the shutdown as expected before stopping the process so the supervisor does
+	// not treat the resulting exit as a crash and restart it.
+	d.closing.Store(true)
 	if d.shutdown == nil {
 		return nil
 	}

@@ -15,6 +15,8 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -125,6 +127,54 @@ var _ = Describe("Open", func() {
 			Expect(d.Close()).To(Succeed())
 			Expect(buffer.String()).To(ContainSubstring("debug mode enabled"))
 		})
+	})
+})
+
+var _ = Describe("restart", func() {
+	It("Should restart and recover after transient startup crashes", func(ctx SpecContext) {
+		crashFile := filepath.Join(GinkgoT().TempDir(), "crashes")
+		Expect(os.WriteFile(crashFile, []byte("2"), 0o644)).To(Succeed())
+		Expect(os.Setenv("MOCK_CRASH_COUNT_FILE", crashFile)).To(Succeed())
+		defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
+		logger, buffer := newTestLogger()
+		d := openMockDriver(ctx, logger, driver.Config{
+			StartTimeout:        5 * time.Second,
+			RestartBaseInterval: time.Millisecond,
+			RestartMaxRetries:   10,
+		})
+		Expect(d).ToNot(BeNil())
+		Expect(d.Close()).To(Succeed())
+		Expect(strings.Count(buffer.String(), "exited unexpectedly")).
+			To(BeNumerically(">=", 2))
+	})
+
+	It("Should give up after exceeding the restart limit", func(ctx SpecContext) {
+		crashFile := filepath.Join(GinkgoT().TempDir(), "crashes")
+		Expect(os.WriteFile(crashFile, []byte("10"), 0o644)).To(Succeed())
+		Expect(os.Setenv("MOCK_CRASH_COUNT_FILE", crashFile)).To(Succeed())
+		defer func() { Expect(os.Unsetenv("MOCK_CRASH_COUNT_FILE")).To(Succeed()) }()
+		logger, buffer := newTestLogger()
+		d, err := driver.Open(ctx, driver.Config{
+			Instrumentation:     alamos.New("test", alamos.WithLogger(logger)),
+			BinaryPath:          mockBinaryPath,
+			Insecure:            new(true),
+			Address:             "localhost:9090",
+			ParentDirname:       GinkgoT().TempDir(),
+			StartTimeout:        2 * time.Second,
+			StopTimeout:         500 * time.Millisecond,
+			RestartBaseInterval: time.Millisecond,
+			RestartMaxRetries:   2,
+		})
+		Expect(err).To(MatchError(ContainSubstring("timed out")))
+		Expect(d).To(BeNil())
+		Expect(buffer.String()).To(ContainSubstring("exceeded restart limit"))
+	})
+
+	It("Should not restart after a graceful stop", func(ctx SpecContext) {
+		logger, buffer := newTestLogger()
+		d := openMockDriver(ctx, logger)
+		Expect(d.Close()).To(Succeed())
+		Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
 	})
 })
 
