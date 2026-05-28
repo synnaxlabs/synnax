@@ -228,8 +228,8 @@ const (
 var configCodec = json.Codec
 
 // Driver manages the lifecycle of an embedded C++ driver subprocess. The driver binary
-// is either extracted from an embedded filesystem or loaded from a configured path,
-// then executed as a child process that communicates with the Synnax cluster.
+// is read from the configured filesystem (Config.FS), extracted to disk, and executed
+// as a child process that communicates with the Synnax cluster.
 //
 // On startup, Open launches the subprocess and two goroutines that pipe its stdout and
 // stderr through PipeToLogger. A third goroutine waits for the process to exit. All
