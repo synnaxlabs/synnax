@@ -24,6 +24,15 @@ import (
 
 const StartedMessage = "started successfully"
 
+// isCrashBanner reports whether line is the first line of a crash dump emitted by the
+// driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
+// a banner, an optional what() line, "stack trace:", and one line per frame.
+func isCrashBanner(line string) bool {
+	return strings.Contains(line, "*** ") &&
+		(strings.Contains(line, " crashed: ") ||
+			strings.Contains(line, " terminated: unhandled exception"))
+}
+
 // ParsedLine holds the parsed components of a single driver log line.
 type ParsedLine struct {
 	Level   byte
@@ -85,14 +94,28 @@ func PipeToLogger(
 		callerBuf []byte
 	)
 	loggers := make(map[string]*alamos.Logger)
+	inCrash := false
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		if len(b) == 0 {
-			logger.Warn("received empty log line from driver")
+			if !inCrash {
+				logger.Warn("received empty log line from driver")
+			}
 			continue
 		}
 		line := unsafe.String(unsafe.SliceData(b), len(b))
+		// A crash dump is terminal: once the banner appears the driver is dying and the
+		// remaining lines are its (non-glog) stack trace. Log them verbatim at Error so
+		// the severity is correct and bracketed frame addresses are not chopped up by
+		// ParseLine treating ']' as glog structure.
+		if !inCrash && isCrashBanner(line) {
+			inCrash = true
+		}
+		if inCrash {
+			logger.Error(line)
+			continue
+		}
 		p := ParseLine(line, caller)
 
 		if p.Caller != caller {

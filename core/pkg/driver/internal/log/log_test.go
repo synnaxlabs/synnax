@@ -291,6 +291,79 @@ var _ = Describe("PipeToLogger", func() {
 		Eventually(done).Should(BeClosed())
 		Expect(buffer.String()).ToNot(ContainSubstring("ERROR"))
 	})
+
+	Describe("crash output", func() {
+		It("Should log a signal crash dump verbatim at error level", func() {
+			entries := pipeAndCollect(logger, nil, nil,
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
+					"stack trace:\n"+
+					"0   driver  0x000000010000a1b0  synnax::run() + 48\n",
+			)
+			Expect(entries).To(HaveLen(3))
+			for _, entry := range entries {
+				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
+			}
+			Expect(entries[0]).To(HaveKeyWithValue("M",
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***"))
+			Expect(entries[1]).To(HaveKeyWithValue("M", "stack trace:"))
+			Expect(entries[2]).To(HaveKeyWithValue("M",
+				"0   driver  0x000000010000a1b0  synnax::run() + 48"))
+		})
+
+		It("Should log an unhandled-exception dump at error level including what()", func() {
+			entries := pipeAndCollect(logger, nil, nil,
+				"*** synnax-driver terminated: unhandled exception ***\n"+
+					"  what(): boom-message\n"+
+					"stack trace:\n",
+			)
+			Expect(entries).To(HaveLen(3))
+			for _, entry := range entries {
+				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
+			}
+			Expect(entries[1]).To(HaveKeyWithValue("M", ContainSubstring("boom-message")))
+		})
+
+		It("Should preserve bracketed frame lines instead of parsing them as glog", func() {
+			frame := "./driver(_ZN3foo3barEv+0x18) [0x55a3c1d2e4f0]"
+			entries := pipeAndCollect(logger, nil, nil,
+				"*** synnax-driver crashed: SIGABRT (abort) ***\n"+
+					"stack trace:\n"+frame+"\n",
+			)
+			Expect(entries).To(HaveLen(3))
+			Expect(entries[2]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				HaveKeyWithValue("M", frame),
+				Not(HaveKey("N")),
+			))
+		})
+
+		It("Should escalate only after the crash banner", func() {
+			entries := pipeAndCollect(logger, nil, nil,
+				"I20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:50] running normally\n"+
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
+					"stack trace:\n",
+			)
+			Expect(entries).To(HaveLen(3))
+			Expect(entries[0]).To(And(
+				HaveKeyWithValue("L", "INFO"),
+				HaveKeyWithValue("M", "running normally"),
+			))
+			Expect(entries[1]).To(HaveKeyWithValue("L", "ERROR"))
+			Expect(entries[2]).To(HaveKeyWithValue("L", "ERROR"))
+		})
+
+		It("Should not warn on blank lines within a crash dump", func() {
+			entries := pipeAndCollect(logger, nil, nil,
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
+					"\n"+
+					"stack trace:\n",
+			)
+			Expect(entries).To(HaveLen(2))
+			for _, entry := range entries {
+				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
+			}
+		})
+	})
 })
 
 var _ = Describe("ParseLine", func() {

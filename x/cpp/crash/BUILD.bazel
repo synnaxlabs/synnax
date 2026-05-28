@@ -1,0 +1,44 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "crash",
+    srcs = select({
+        "@platforms//os:windows": ["windows.cpp"],
+        "//conditions:default": ["unix.cpp"],
+    }),
+    hdrs = ["crash.h"],
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:dbghelp.lib"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+cc_binary(
+    name = "crash_demo",
+    srcs = ["crash_demo.cpp"],
+    # -rdynamic exports symbols so the demo's traces name their frames.
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-rdynamic"],
+    }),
+    deps = ["//x/cpp/crash"],
+)
+
+cc_test(
+    name = "crash_test",
+    size = "small",
+    srcs = ["crash_test.cpp"],
+    # -rdynamic exports the test's symbols so backtrace can name the throwing frame.
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-rdynamic"],
+    }),
+    deps = [
+        "//x/cpp/crash",
+        "@googletest//:gtest_main",
+    ],
+)
