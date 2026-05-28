@@ -61,17 +61,19 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
 
 #ifndef _WIN32
 /// @brief it should produce a demangled, human-readable trace rather than raw mangled
-/// symbols. The std::terminate frame is always present on the unhandled-exception path,
-/// and its mangled name (_ZSt9terminatev) only reads as "std::terminate" once demangled
-/// — so matching it proves the demangler ran. (Windows resolves names via .pdb, which
-/// fastbuild does not produce, so this is POSIX-only.)
+/// symbols. The gtest frame that invokes the test body is always on the death-test
+/// stack, and its mangled name (_ZN7testing4Test3RunEv) only reads as
+/// "testing::Test::Run" once demangled — so matching it proves the demangler ran. This
+/// frame resolves on both libc++ (macOS) and libstdc++ (Linux), unlike the C++
+/// runtime's own terminate frames, which differ by standard library. (Windows resolves
+/// names via .pdb, which fastbuild does not produce, so this is POSIX-only.)
 TEST(CrashDeathTest, UnhandledExceptionTraceIsDemangled) {
     EXPECT_DEATH(
         {
             x::crash::install("test-driver");
             crash_test_unhandled_throw();
         },
-        HasSubstr("std::terminate")
+        HasSubstr("testing::Test::Run")
     );
 }
 
