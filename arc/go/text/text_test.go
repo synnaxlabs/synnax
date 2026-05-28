@@ -3028,7 +3028,8 @@ time.wait{duration=500ms} -> output`
 					{Name: "variant", Type: types.String()},
 				},
 			})
-			mod := symbol.NewModule("stub", symbol.Symbol{
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
 				Name: "both",
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecBoth,
@@ -3069,7 +3070,8 @@ sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
 			sinkType := types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "value", Type: types.U8()}},
 			})
-			mod := symbol.NewModule("stub", symbol.Symbol{
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
 				Name: "sink",
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecFlow,
