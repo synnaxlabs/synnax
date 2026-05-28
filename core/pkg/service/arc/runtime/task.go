@@ -154,11 +154,10 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return err
 	}
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
-		Status:          t.factoryCfg.Status,
-		Strings:         drt.state.strings,
-		Runtime:         wasmRT,
-		Reporter:        t.reporter(),
-		Instrumentation: t.factoryCfg.Instrumentation,
+		Status:   t.factoryCfg.Status,
+		Strings:  drt.state.strings,
+		Runtime:  wasmRT,
+		Reporter: t.reporter(),
 	})
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())

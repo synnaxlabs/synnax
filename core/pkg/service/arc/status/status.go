@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -30,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
-	"go.uber.org/zap"
 )
 
 const (
@@ -80,7 +78,6 @@ type ModuleConfig struct {
 	Strings  *stlstrings.ProgramState
 	Runtime  wazero.Runtime
 	Reporter taskreporter.Reporter
-	alamos.Instrumentation
 }
 
 func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
@@ -89,7 +86,6 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 		return m, nil
 	}
 	strings := cfg.Strings
-	ins := cfg.Instrumentation
 	builder := cfg.Runtime.NewHostModuleBuilder(moduleName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyOrNameH, msgH, variantH uint32) uint32 {
@@ -101,7 +97,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 					"status.set: invalid string handle from WASM runtime")
 				return 0
 			}
-			return strings.Create(dispatchSet(ctx, m.stat, ins, m.report, keyOrName, msg, variant))
+			return strings.Create(dispatchSet(ctx, m.stat, m.report, keyOrName, msg, variant))
 		}).Export(setMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -121,7 +117,6 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 		return &setNode{
 			State:     cfg.State,
 			stat:      m.stat,
-			ins:       cfg.Instrumentation,
 			report:    m.report,
 			keyOrName: sc.KeyOrName,
 			message:   sc.Message,
@@ -147,7 +142,6 @@ var setConfigSchema = zyn.Object(map[string]zyn.Schema{
 type setNode struct {
 	*node.State
 	stat      *status.Service
-	ins       alamos.Instrumentation
 	report    taskreporter.Reporter
 	keyOrName string
 	message   string
@@ -155,7 +149,7 @@ type setNode struct {
 }
 
 func (s *setNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.ins, s.report, s.keyOrName, s.message, s.variant)
+	key := dispatchSet(ctx, s.stat, s.report, s.keyOrName, s.message, s.variant)
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
@@ -166,14 +160,11 @@ func (s *setNode) Next(ctx node.Context) {
 func dispatchSet(
 	ctx context.Context,
 	stat *status.Service,
-	ins alamos.Instrumentation,
 	report taskreporter.Reporter,
 	keyOrName, message, variantStr string,
 ) string {
 	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
 	if err != nil {
-		ins.L.Error("status.set failed",
-			zap.String("key_or_name", keyOrName), zap.Error(err))
 		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.set: %v", err))
 		return ""
 	}
