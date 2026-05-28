@@ -72,20 +72,6 @@ namespace {
     return node;
 }
 
-::arc::ir::Node make_delete_ir_node(const std::string &key_or_name) {
-    ::arc::ir::Node node;
-    node.key = "status";
-    node.type = "delete";
-    ::arc::types::Type str_type;
-    str_type.kind = ::arc::types::Kind::String;
-    ::arc::types::Param key_param;
-    key_param.name = "key_or_name";
-    key_param.type = str_type;
-    key_param.value = key_or_name;
-    node.config = ::arc::types::Params{key_param};
-    return node;
-}
-
 // recordingReporter pushes (variant, message) pairs into the provided vector.
 Reporter recordingReporter(std::vector<std::pair<std::string, std::string>> *out) {
     return
@@ -115,11 +101,11 @@ std::string unique_name(const std::string &prefix) {
 
 } // namespace
 
-TEST(StatusModuleTest, HandlesSetAndDelete) {
+TEST(StatusModuleTest, HandlesSet) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     Module module(client, noopReporter());
     EXPECT_TRUE(module.handles("set"));
-    EXPECT_TRUE(module.handles("delete"));
+    EXPECT_FALSE(module.handles("delete"));
     EXPECT_FALSE(module.handles("set_status"));
     EXPECT_FALSE(module.handles("anything_else"));
 }
@@ -145,23 +131,6 @@ TEST(StatusModuleTest, CreatesSetNodeFromBareType) {
     );
     ASSERT_NE(created, nullptr);
     EXPECT_NE(dynamic_cast<SetStatus *>(created.get()), nullptr);
-}
-
-TEST(StatusModuleTest, CreatesDeleteNodeFromBareType) {
-    auto node = make_delete_ir_node("test_key");
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    ASSERT_NE(created, nullptr);
-    EXPECT_NE(dynamic_cast<DeleteStatus *>(created.get()), nullptr);
 }
 
 TEST(StatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
@@ -305,79 +274,6 @@ TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     EXPECT_NO_THROW({ (void) created->is_output_truthy(0); });
-}
-
-TEST(DeleteStatusTest, NextDeletesByName) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto name = unique_name("del_name_");
-
-    // Pre-create via set_by_key_or_name so we know the resolved key.
-    const auto preset_key = ASSERT_NIL_P(
-                                client->statuses.set_by_key_or_name(name, "x", "info")
-    )
-                                .key;
-
-    auto node = make_delete_ir_node(name);
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-
-    ASSERT_OCCURRED_AS_P(client->statuses.retrieve(preset_key), x::errors::NOT_FOUND);
-}
-
-TEST(DeleteStatusTest, NextDeletesByUUID) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto name = unique_name("del_uuid_");
-
-    const auto preset_key = ASSERT_NIL_P(
-                                client->statuses.set_by_key_or_name(name, "x", "info")
-    )
-                                .key;
-
-    auto node = make_delete_ir_node(preset_key);
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, noopReporter());
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-    ASSERT_OCCURRED_AS_P(client->statuses.retrieve(preset_key), x::errors::NOT_FOUND);
-}
-
-TEST(DeleteStatusTest, NextWarnsWhenMissing) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-
-    std::vector<std::pair<std::string, std::string>> calls;
-    auto node = make_delete_ir_node(unique_name("del_missing_"));
-    auto ir = build_ir(node);
-    ::arc::runtime::state::State s(
-        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
-        ::arc::runtime::errors::noop_handler
-    );
-    auto st = ASSERT_NIL_P(s.node("status"));
-    Module module(client, recordingReporter(&calls));
-    auto created = ASSERT_NIL_P(
-        module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
-    );
-    auto ctx = make_context();
-    ASSERT_NIL(created->next(ctx));
-    ASSERT_EQ(calls.size(), 1u);
-    EXPECT_NE(calls[0].second.find("no status found"), std::string::npos);
 }
 
 }

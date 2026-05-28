@@ -55,7 +55,6 @@ struct Transport {
     std::shared_ptr<status::SetClient> status_set;
     std::shared_ptr<status::DeleteClient> status_delete;
     std::shared_ptr<status::SetByKeyOrNameClient> status_set_by_key_or_name;
-    std::shared_ptr<status::DeleteByKeyOrNameClient> status_delete_by_key_or_name;
     std::shared_ptr<arc::CreateClient> arc_create;
     std::shared_ptr<arc::RetrieveClient> arc_retrieve;
     std::shared_ptr<arc::DeleteClient> arc_delete;

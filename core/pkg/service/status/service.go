@@ -220,28 +220,6 @@ func (s *Service) SetByKeyOrName(
 	return key, multipleMatches, nil
 }
 
-// DeleteByKeyOrName deletes the status matching keyOrName by key, or all statuses
-// matching by name when none match by key, returning the number deleted.
-func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (count int, err error) {
-	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		matches, err := s.ResolveKeyOrName(ctx, tx, keyOrName)
-		if err != nil {
-			return err
-		}
-		w := s.NewWriter(tx)
-		for _, m := range matches {
-			if err = w.Delete(ctx, m.Key); err != nil {
-				return err
-			}
-		}
-		count = len(matches)
-		return nil
-	}); err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
 func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	return Writer[D]{
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),

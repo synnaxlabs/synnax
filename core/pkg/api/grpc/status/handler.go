@@ -26,16 +26,14 @@ import (
 )
 
 type (
-	setRequestTranslator                struct{}
-	setResponseTranslator               struct{}
-	retrieveRequestTranslator           struct{}
-	retrieveResponseTranslator          struct{}
-	deleteRequestTranslator             struct{}
-	setByKeyOrNameRequestTranslator     struct{}
-	setByKeyOrNameResponseTranslator    struct{}
-	deleteByKeyOrNameRequestTranslator  struct{}
-	deleteByKeyOrNameResponseTranslator struct{}
-	setServer                           = grpc.UnaryServer[
+	setRequestTranslator             struct{}
+	setResponseTranslator            struct{}
+	retrieveRequestTranslator        struct{}
+	retrieveResponseTranslator       struct{}
+	deleteRequestTranslator          struct{}
+	setByKeyOrNameRequestTranslator  struct{}
+	setByKeyOrNameResponseTranslator struct{}
+	setServer                        = grpc.UnaryServer[
 		apistatus.SetRequest,
 		*SetRequest,
 		apistatus.SetResponse,
@@ -59,24 +57,16 @@ type (
 		apistatus.SetByKeyOrNameResponse,
 		*SetByKeyOrNameResponse,
 	]
-	deleteByKeyOrNameServer = grpc.UnaryServer[
-		apistatus.DeleteByKeyOrNameRequest,
-		*DeleteByKeyOrNameRequest,
-		apistatus.DeleteByKeyOrNameResponse,
-		*DeleteByKeyOrNameResponse,
-	]
 )
 
 var (
-	_ grpc.Translator[apistatus.SetRequest, *SetRequest]                               = (*setRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.SetResponse, *SetResponse]                             = (*setResponseTranslator)(nil)
-	_ grpc.Translator[apistatus.RetrieveRequest, *RetrieveRequest]                     = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.RetrieveResponse, *RetrieveResponse]                   = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[apistatus.DeleteRequest, *DeleteRequest]                         = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.SetByKeyOrNameRequest, *SetByKeyOrNameRequest]         = (*setByKeyOrNameRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.SetByKeyOrNameResponse, *SetByKeyOrNameResponse]       = (*setByKeyOrNameResponseTranslator)(nil)
-	_ grpc.Translator[apistatus.DeleteByKeyOrNameRequest, *DeleteByKeyOrNameRequest]   = (*deleteByKeyOrNameRequestTranslator)(nil)
-	_ grpc.Translator[apistatus.DeleteByKeyOrNameResponse, *DeleteByKeyOrNameResponse] = (*deleteByKeyOrNameResponseTranslator)(nil)
+	_ grpc.Translator[apistatus.SetRequest, *SetRequest]                         = (*setRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.SetResponse, *SetResponse]                       = (*setResponseTranslator)(nil)
+	_ grpc.Translator[apistatus.RetrieveRequest, *RetrieveRequest]               = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.RetrieveResponse, *RetrieveResponse]             = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[apistatus.DeleteRequest, *DeleteRequest]                   = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.SetByKeyOrNameRequest, *SetByKeyOrNameRequest]   = (*setByKeyOrNameRequestTranslator)(nil)
+	_ grpc.Translator[apistatus.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(nil)
 )
 
 func (t setRequestTranslator) Forward(
@@ -255,34 +245,6 @@ func (setByKeyOrNameResponseTranslator) Backward(
 	return apistatus.SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
 }
 
-func (deleteByKeyOrNameRequestTranslator) Forward(
-	_ context.Context,
-	msg apistatus.DeleteByKeyOrNameRequest,
-) (*DeleteByKeyOrNameRequest, error) {
-	return &DeleteByKeyOrNameRequest{KeyOrName: msg.KeyOrName}, nil
-}
-
-func (deleteByKeyOrNameRequestTranslator) Backward(
-	_ context.Context,
-	msg *DeleteByKeyOrNameRequest,
-) (apistatus.DeleteByKeyOrNameRequest, error) {
-	return apistatus.DeleteByKeyOrNameRequest{KeyOrName: msg.KeyOrName}, nil
-}
-
-func (deleteByKeyOrNameResponseTranslator) Forward(
-	_ context.Context,
-	msg apistatus.DeleteByKeyOrNameResponse,
-) (*DeleteByKeyOrNameResponse, error) {
-	return &DeleteByKeyOrNameResponse{Count: int32(msg.Count)}, nil
-}
-
-func (deleteByKeyOrNameResponseTranslator) Backward(
-	_ context.Context,
-	msg *DeleteByKeyOrNameResponse,
-) (apistatus.DeleteByKeyOrNameResponse, error) {
-	return apistatus.DeleteByKeyOrNameResponse{Count: int(msg.Count)}, nil
-}
-
 func New(a *api.Transport) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
@@ -304,15 +266,9 @@ func New(a *api.Transport) grpc.BindableTransport {
 		ResponseTranslator: setByKeyOrNameResponseTranslator{},
 		ServiceDesc:        &StatusSetByKeyOrNameService_ServiceDesc,
 	}
-	dbkn := &deleteByKeyOrNameServer{
-		RequestTranslator:  deleteByKeyOrNameRequestTranslator{},
-		ResponseTranslator: deleteByKeyOrNameResponseTranslator{},
-		ServiceDesc:        &StatusDeleteByKeyOrNameService_ServiceDesc,
-	}
 	a.StatusSet = s
 	a.StatusRetrieve = r
 	a.StatusDelete = d
 	a.StatusSetByKeyOrName = sbkn
-	a.StatusDeleteByKeyOrName = dbkn
-	return grpc.CompoundBindableTransport{s, r, d, sbkn, dbkn}
+	return grpc.CompoundBindableTransport{s, r, d, sbkn}
 }

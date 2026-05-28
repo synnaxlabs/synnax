@@ -196,22 +196,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("resolved status key as a string"))
 		})
 
-		It("should provide hover for 'status.delete' function", func(ctx SpecContext) {
-			content := `sensor -> status.delete{key_or_name="alarm"}`
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 17},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### status.delete"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Deletes a status notification"))
-		})
-
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
 			content := "t := time.now()"
 			OpenArcDocument(server, ctx, uri, content)

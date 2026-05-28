@@ -34,9 +34,8 @@ import (
 )
 
 const (
-	setMemberName    = "set"
-	deleteMemberName = "delete"
-	moduleName       = "status"
+	setMemberName = "set"
+	moduleName    = "status"
 )
 
 // allowedVariantsList is the human-readable list used in compile-time and
@@ -57,15 +56,6 @@ var setSymbolProps = types.Function(types.FunctionProperties{
 	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 })
 
-var deleteParams = types.Params{
-	{Name: "key_or_name", Type: types.String(), Value: ""},
-}
-
-var deleteSymbolProps = types.Function(types.FunctionProperties{
-	Inputs: deleteParams,
-	Config: deleteParams,
-})
-
 var Symbols = []*symbol.Symbol{
 	symbol.NewModule(moduleName,
 		symbol.Symbol{
@@ -75,12 +65,6 @@ var Symbols = []*symbol.Symbol{
 			Type:              setSymbolProps,
 			AnalyzeCall:       analyzeStatusSetCall,
 			AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
-		},
-		symbol.Symbol{
-			Name: deleteMemberName,
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecBoth,
-			Type: deleteSymbolProps,
 		},
 	),
 }
@@ -119,16 +103,6 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 			}
 			return strings.Create(dispatchSet(ctx, m.stat, ins, m.report, keyOrName, msg, variant))
 		}).Export(setMemberName)
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(ctx context.Context, keyOrNameH uint32) {
-			keyOrName, ok := strings.Get(keyOrNameH)
-			if !ok {
-				m.report(ctx, xstatus.VariantWarning,
-					"status.delete: invalid string handle from WASM runtime")
-				return
-			}
-			dispatchDelete(ctx, m.stat, ins, m.report, keyOrName)
-		}).Export(deleteMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -152,18 +126,6 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 			keyOrName: sc.KeyOrName,
 			message:   sc.Message,
 			variant:   sc.Variant,
-		}, nil
-	case deleteMemberName:
-		var dc deleteConfig
-		if err := deleteConfigSchema.Parse(cfg.Node.Config.ValueMap(), &dc); err != nil {
-			return nil, errors.Wrap(err, "status.delete config")
-		}
-		return &deleteNode{
-			State:     cfg.State,
-			stat:      m.stat,
-			ins:       cfg.Instrumentation,
-			report:    m.report,
-			keyOrName: dc.KeyOrName,
 		}, nil
 	default:
 		return nil, query.ErrNotFound
@@ -281,51 +243,4 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		"%q is not a valid status variant: [%s]",
 		value, allowedVariantsList,
 	))
-}
-
-type deleteConfig struct {
-	KeyOrName string `json:"key_or_name"`
-}
-
-var deleteConfigSchema = zyn.Object(map[string]zyn.Schema{
-	"key_or_name": zyn.String(),
-})
-
-type deleteNode struct {
-	*node.State
-	stat      *status.Service
-	ins       alamos.Instrumentation
-	report    taskreporter.Reporter
-	keyOrName string
-}
-
-func (s *deleteNode) Next(ctx node.Context) {
-	dispatchDelete(ctx, s.stat, s.ins, s.report, s.keyOrName)
-}
-
-// dispatchDelete deletes a status by key or by name, reporting warnings on
-// not-found, multi-match (deletes all), or failure.
-func dispatchDelete(
-	ctx context.Context,
-	stat *status.Service,
-	ins alamos.Instrumentation,
-	report taskreporter.Reporter,
-	keyOrName string,
-) {
-	count, err := stat.DeleteByKeyOrName(ctx, keyOrName)
-	if err != nil {
-		ins.L.Error("status.delete failed", zap.String("key_or_name", keyOrName), zap.Error(err))
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: %v", err))
-		return
-	}
-	if count == 0 {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: no status found %q", keyOrName))
-		return
-	}
-	if count > 1 {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
-			"status.delete: multiple statuses named %q; deleted all (%d)",
-			keyOrName, count,
-		))
-	}
 }

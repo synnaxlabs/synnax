@@ -43,11 +43,6 @@ using SetByKeyOrNameClient = freighter::UnaryClient<
     grpc::status::SetByKeyOrNameRequest,
     grpc::status::SetByKeyOrNameResponse>;
 
-/// @brief Freighter delete-by-key-or-name transport.
-using DeleteByKeyOrNameClient = freighter::UnaryClient<
-    grpc::status::DeleteByKeyOrNameRequest,
-    grpc::status::DeleteByKeyOrNameResponse>;
-
 /// @brief Result of Client::set_by_key_or_name.
 struct SetByKeyOrNameResult {
     /// @brief The resulting status key.
@@ -67,14 +62,12 @@ public:
         std::shared_ptr<RetrieveClient> retrieve_client,
         std::shared_ptr<SetClient> set_client,
         std::shared_ptr<DeleteClient> delete_client,
-        std::shared_ptr<SetByKeyOrNameClient> set_by_key_or_name_client,
-        std::shared_ptr<DeleteByKeyOrNameClient> delete_by_key_or_name_client
+        std::shared_ptr<SetByKeyOrNameClient> set_by_key_or_name_client
     ):
         retrieve_client(std::move(retrieve_client)),
         set_client(std::move(set_client)),
         delete_client(std::move(delete_client)),
-        set_by_key_or_name_client(std::move(set_by_key_or_name_client)),
-        delete_by_key_or_name_client(std::move(delete_by_key_or_name_client)) {}
+        set_by_key_or_name_client(std::move(set_by_key_or_name_client)) {}
 
     /// @brief Creates or updates the given status in the Synnax cluster.
     /// @tparam Details The type of custom details for the status.
@@ -225,29 +218,11 @@ public:
         };
     }
 
-    /// @brief Deletes a status by UUID key (count 0 or 1) or by name (deletes
-    /// all matches).
-    /// @param key_or_name UUID-form key or name.
-    /// @returns A pair of the number of rows deleted and an error where ok() is
-    /// false if the delete failed.
-    [[nodiscard]] std::pair<int, x::errors::Error>
-    delete_by_key_or_name(const std::string &key_or_name) const {
-        grpc::status::DeleteByKeyOrNameRequest req;
-        req.set_key_or_name(key_or_name);
-        auto [res, err] = this->delete_by_key_or_name_client->send(
-            "/status/delete_by_key_or_name",
-            req
-        );
-        if (err) return {0, err};
-        return {res.count(), x::errors::NIL};
-    }
-
 private:
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;
     std::shared_ptr<SetByKeyOrNameClient> set_by_key_or_name_client;
-    std::shared_ptr<DeleteByKeyOrNameClient> delete_by_key_or_name_client;
 };
 
 }

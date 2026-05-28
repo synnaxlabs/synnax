@@ -349,14 +349,6 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Outputs the resolved status key as a string."),
 	).Render(),
-	"status.delete": doc.New(
-		doc.TitleWithKind("status.delete", "Function"),
-		doc.Paragraph("Deletes a status notification from the cluster by key or name. When matching by name, deletes every match."),
-		doc.Divider(),
-		arcCode("sensor -> status.delete{key_or_name=\"ox_alarm\"}"),
-		doc.Divider(),
-		doc.Paragraph("Produces no output."),
-	).Render(),
 	"math.avg": doc.New(
 		doc.TitleWithKind("math.avg", "Function"),
 		doc.Paragraph("Computes a running average of input values."),

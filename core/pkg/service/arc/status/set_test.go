@@ -69,11 +69,7 @@ func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Modu
 // buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze,
 // which rejects unwired ExecBoth nodes) so node.Output(0) is usable.
 func buildState(_ context.Context, bareType string, config types.Params) (*node.ProgramState, ir.Node) {
-	var outputs types.Params
-	if bareType != "delete" {
-		outputs = setOutputs
-	}
-	irNode := ir.Node{Key: "n", Type: bareType, Config: config, Outputs: outputs}
+	irNode := ir.Node{Key: "n", Type: bareType, Config: config, Outputs: setOutputs}
 	prog := ir.IR{Nodes: ir.Nodes{irNode}}
 	return node.New(prog), irNode
 }
@@ -87,12 +83,6 @@ func setConfig(keyOrName, message, variant string) types.Params {
 		{Name: "key_or_name", Type: types.String(), Value: keyOrName},
 		{Name: "message", Type: types.String(), Value: message},
 		{Name: "variant", Type: types.String(), Value: variant},
-	}
-}
-
-func deleteConfig(keyOrName string) types.Params {
-	return types.Params{
-		{Name: "key_or_name", Type: types.String(), Value: keyOrName},
 	}
 }
 
@@ -114,13 +104,13 @@ var _ = Describe("Symbols", func() {
 			Expect(mod.Kind).To(Equal(symbol.KindModule))
 		})
 
-		It("Should expose set and delete as the only members", func() {
+		It("Should expose set as the only member", func() {
 			children := statusModule().Children()
 			names := make([]string, len(children))
 			for i, c := range children {
 				names[i] = c.Name
 			}
-			Expect(names).To(ConsistOf("set", "delete"))
+			Expect(names).To(ConsistOf("set"))
 		})
 
 		It("Should not expose a deprecated bare set_status symbol", func() {
@@ -166,30 +156,6 @@ var _ = Describe("Symbols", func() {
 			})
 		})
 
-		Describe("status.delete", func() {
-			var sym *symbol.Symbol
-			BeforeEach(func() { sym = statusModule().FindChild("delete") })
-
-			It("Should be a KindFunction with ExecBoth", func() {
-				Expect(sym).ToNot(BeNil())
-				Expect(sym.Kind).To(Equal(symbol.KindFunction))
-				Expect(sym.Exec).To(Equal(symbol.ExecBoth))
-			})
-
-			It("Should have one string config parameter", func() {
-				Expect(sym.Type.Config).To(HaveLen(1))
-				Expect(sym.Type.Config[0].Name).To(Equal("key_or_name"))
-				Expect(sym.Type.Config[0].Type).To(Equal(types.String()))
-			})
-
-			It("Should mirror Config in Inputs (ExecBoth contract)", func() {
-				Expect(sym.Type.Inputs).To(Equal(sym.Type.Config))
-			})
-
-			It("Should have no outputs", func() {
-				Expect(sym.Type.Outputs).To(BeEmpty())
-			})
-		})
 	})
 })
 
@@ -258,15 +224,6 @@ var _ = Describe("Module", func() {
 			Expect(n.IsOutputTruthy(0)).To(BeFalse())
 		})
 
-		It("Should construct a delete node from valid config", func(ctx SpecContext) {
-			state, irNode := buildState(ctx, "delete", deleteConfig("alarm"))
-			n := MustSucceed(mod.Create(ctx, node.Config{
-				Node:  irNode,
-				State: state.Node(irNode.Key),
-			}))
-			Expect(n).ToNot(BeNil())
-		})
-
 		// Missing config returns an error instead of panicking on unchecked assertion.
 		It("Should return a clean error when set config is missing key_or_name", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -286,11 +243,6 @@ var _ = Describe("Module", func() {
 				}},
 			}
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.set config")))
-		})
-
-		It("Should return a clean error when delete config is missing key_or_name", func(ctx SpecContext) {
-			cfg := node.Config{Node: ir.Node{Type: "delete", Config: types.Params{}}}
-			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(ContainSubstring("status.delete config")))
 		})
 	})
 })
@@ -462,83 +414,6 @@ var _ = Describe("setNode.Next", func() {
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
-	})
-})
-
-var _ = Describe("deleteNode.Next", func() {
-	var (
-		mod *arcstatus.Module
-		rep *recordingReporter
-	)
-	BeforeEach(func(ctx SpecContext) {
-		rep = &recordingReporter{}
-		mod = newModule(ctx, rep)
-	})
-
-	build := func(ctx context.Context, keyOrName string) (node.Node, *node.State) {
-		state, irNode := buildState(ctx, "delete", deleteConfig(keyOrName))
-		s := state.Node(irNode.Key)
-		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
-		return n, s
-	}
-
-	nodeCtx := func(ctx context.Context) node.Context {
-		return node.Context{Context: ctx, MarkChanged: func(int) {}}
-	}
-
-	It("Should delete by UUID", func(ctx SpecContext) {
-		key := uuid.NewString()
-		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Key: key, Name: "del_uuid", Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, _ := build(ctx, key)
-		n.Next(nodeCtx(ctx))
-
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
-			To(MatchError(query.ErrNotFound))
-	})
-
-	It("Should delete by name (single match)", func(ctx SpecContext) {
-		name := "del_name_" + uuid.NewString()
-		key := uuid.NewString()
-		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Key: key, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, _ := build(ctx, name)
-		n.Next(nodeCtx(ctx))
-
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).
-			Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-	})
-
-	It("Should warn on multi-match", func(ctx SpecContext) {
-		name := "del_multi_" + uuid.NewString()
-		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "a", Time: telem.Now(),
-		})).To(Succeed())
-		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, _ := build(ctx, name)
-		n.Next(nodeCtx(ctx))
-
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].message).To(ContainSubstring(`multiple statuses named`))
-		Expect(calls[0].message).To(ContainSubstring("(2)"))
-	})
-
-	It("Should warn when no status is found", func(ctx SpecContext) {
-		n, _ := build(ctx, "del_missing_"+uuid.NewString())
-		n.Next(nodeCtx(ctx))
-
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
-		Expect(calls[0].message).To(ContainSubstring("no status found"))
 	})
 })
 
@@ -740,53 +615,5 @@ var _ = Describe("WASM host functions", func() {
 			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
 			Expect(rep.get()).To(HaveLen(1))
 		})
-	})
-
-	Describe("delete", func() {
-		It("Should delete a status", func(ctx SpecContext) {
-			name := "wasm_del_" + uuid.NewString()
-			key := uuid.NewString()
-			Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: key, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
-			})).To(Succeed())
-			keyH := strs.Create(name)
-
-			rt.CallVoid(ctx, "status", "delete", arctest.U32(keyH))
-
-			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).
-				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should warn on an invalid key_or_name handle", func(ctx SpecContext) {
-			rt.CallVoid(ctx, "status", "delete", arctest.U32(9999))
-			calls := rep.get()
-			Expect(calls).To(HaveLen(1))
-			Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
-			Expect(calls[0].message).To(ContainSubstring("status.delete: invalid string handle"))
-		})
-
-		It("Should warn when dispatchDelete reports no match", func(ctx SpecContext) {
-			keyH := strs.Create("wasm_missing_" + uuid.NewString())
-			rt.CallVoid(ctx, "status", "delete", arctest.U32(keyH))
-			calls := rep.get()
-			Expect(calls).To(HaveLen(1))
-			Expect(calls[0].message).To(ContainSubstring("no status found"))
-		})
-	})
-})
-
-var _ = Describe("deleteNode.Next error propagation", func() {
-	It("Should warn with a 'status.delete:' prefix when the service returns an error", func(ctx SpecContext) {
-		rep := &recordingReporter{}
-		mod := newModule(ctx, rep)
-		state, irNode := buildState(ctx, "delete", deleteConfig(""))
-		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: state.Node(irNode.Key)}))
-
-		n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
-
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
-		Expect(calls[0].message).To(HavePrefix("status.delete:"))
 	})
 })

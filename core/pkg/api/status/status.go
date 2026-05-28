@@ -151,54 +151,6 @@ func (s *Service) SetByKeyOrName(
 	return res, nil
 }
 
-// DeleteByKeyOrNameRequest is a request to delete statuses by key or by name.
-type DeleteByKeyOrNameRequest struct {
-	// KeyOrName is either an existing status key or a status name to match.
-	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
-}
-
-// DeleteByKeyOrNameResponse is a response to a DeleteByKeyOrNameRequest.
-type DeleteByKeyOrNameResponse struct {
-	// Count is the number of statuses deleted. Retained only so the Arc driver
-	// runtime can surface not-found and multi-match delete warnings.
-	Count int `json:"count" msgpack:"count"`
-}
-
-// DeleteByKeyOrName deletes statuses matched by key or by name.
-func (s *Service) DeleteByKeyOrName(
-	ctx context.Context,
-	req DeleteByKeyOrNameRequest,
-) (res DeleteByKeyOrNameResponse, err error) {
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
-		if err != nil {
-			return err
-		}
-		ids := make([]ontology.ID, len(matches))
-		for i, m := range matches {
-			ids[i] = status.OntologyID(m.Key)
-		}
-		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: ids,
-		}); err != nil {
-			return err
-		}
-		w := s.internal.NewWriter(tx)
-		for _, m := range matches {
-			if err = w.Delete(ctx, m.Key); err != nil {
-				return err
-			}
-		}
-		res.Count = len(matches)
-		return nil
-	}); err != nil {
-		return DeleteByKeyOrNameResponse{}, err
-	}
-	return res, nil
-}
-
 type RetrieveRequest struct {
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
