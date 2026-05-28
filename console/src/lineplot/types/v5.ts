@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { color, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v1 from "@/lineplot/types/v1";
@@ -84,7 +84,6 @@ export const ZERO_AXES_STATE: AxesState = {
 export const lineStateZ = lineplot.lineZ;
 export type LineState = lineplot.Line;
 export const ZERO_LINE_STATE: Omit<LineState, "key"> = {
-  color: "",
   strokeWidth: 2,
   downsample: 1,
   downsampleMode: "decimate",
@@ -96,8 +95,9 @@ export const ZERO_LINES_STATE: LinesState = [];
 
 export const ruleStateZ = lineplot.ruleZ;
 export type RuleState = lineplot.Rule;
+export const DEFAULT_RULE_COLOR: color.Color = color.construct("#3774D0");
 export const ZERO_RULE_STATE: Omit<RuleState, "key"> = {
-  color: "#3774D0",
+  color: DEFAULT_RULE_COLOR,
   label: "",
   axis: "y1",
   lineWidth: 1,

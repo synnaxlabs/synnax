@@ -133,21 +133,36 @@
     {
       "key": "y1-ra-200",
       "label": "P main",
-      "color": "#ff0000",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "stroke_width": 2,
       "downsample": 1,
       "downsample_mode": "decimate"
     },
     {
       "key": "y1-ra-201",
-      "color": "#00aa00",
+      "color": {
+        "r": 0,
+        "g": 170,
+        "b": 0,
+        "a": 1
+      },
       "stroke_width": 2,
       "downsample": 1,
       "downsample_mode": "decimate"
     },
     {
       "key": "y2-ra-300",
-      "color": "#0000ff",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "stroke_width": 1,
       "downsample": 4,
       "downsample_mode": "average"
@@ -157,7 +172,12 @@
     {
       "key": "rule-1",
       "label": "ceiling",
-      "color": "#888888",
+      "color": {
+        "r": 136,
+        "g": 136,
+        "b": 136,
+        "a": 1
+      },
       "axis": "y1",
       "line_width": 1,
       "line_dash": 4,
@@ -167,7 +187,12 @@
     {
       "key": "rule-2",
       "label": "floor",
-      "color": "#aaaaaa",
+      "color": {
+        "r": 170,
+        "g": 170,
+        "b": 170,
+        "a": 1
+      },
       "axis": "y1",
       "line_width": 1,
       "line_dash": 2,

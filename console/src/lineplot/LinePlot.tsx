@@ -65,6 +65,7 @@ import {
 import {
   type AxesState,
   type AxisState,
+  DEFAULT_RULE_COLOR,
   fromWire,
   internalCreate,
   type LineState,
@@ -187,7 +188,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   >(
     (d): void => {
       const newLine = { ...d } as const as LineState;
-      if (d.color != null) newLine.color = color.hex(d.color);
+      if (d.color != null) newLine.color = color.construct(d.color);
       syncDispatch(setLine({ key: layoutKey, line: [newLine] }));
     },
     [syncDispatch, layoutKey],
@@ -202,7 +203,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           key: layoutKey,
           rule: {
             ...rule,
-            color: rule.color != null ? color.hex(rule.color) : undefined,
+            color: rule.color != null ? color.construct(rule.color) : undefined,
             axis: rule.axis != null ? (rule.axis as AxisKey) : undefined,
           },
         }),
@@ -460,7 +461,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           title={name}
           axes={axes}
           lines={propsLines}
-          rules={vis.rules}
+          rules={vis.rules.map((r) => ({
+            ...r,
+            color: r.color ?? DEFAULT_RULE_COLOR,
+          }))}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={hasUpdatePermission ? handleTitleChange : undefined}
           visible={visible}

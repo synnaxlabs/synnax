@@ -32,7 +32,13 @@ import {
   useSelectRules,
   useSelectSelectedRules,
 } from "@/lineplot/selectors";
-import { removeRule, type RuleState, setRule, setSelectedRule } from "@/lineplot/slice";
+import {
+  DEFAULT_RULE_COLOR,
+  removeRule,
+  type RuleState,
+  setRule,
+  setSelectedRule,
+} from "@/lineplot/slice";
 
 interface EmptyContentProps {
   onCreateRule: () => void;
@@ -166,7 +172,7 @@ interface RuleContentProps {
 }
 
 const RuleContent = ({
-  rule: { label, units, position, color, axis, lineWidth, lineDash },
+  rule: { label, units, position, color: ruleColor, axis, lineWidth, lineDash },
   onChangeLabel,
   onChangeUnits,
   onChangePosition,
@@ -196,7 +202,10 @@ const RuleContent = ({
     </Flex.Box>
     <Flex.Box x wrap>
       <Input.Item label="Color">
-        <Color.Swatch value={color} onChange={onChangeColor} />
+        <Color.Swatch
+          value={ruleColor ?? DEFAULT_RULE_COLOR}
+          onChange={onChangeColor}
+        />
       </Input.Item>
       <Input.Item label="Line Width">
         <Input.Numeric
@@ -233,7 +242,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const shownRule = rules.find((rule) => rule.key === shownRuleKey);
   const handleCreateRule = (): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
-    const colorVal = color.hex(
+    const colorVal = color.construct(
       visColors[rules.length % visColors.length] ?? color.ZERO,
     );
     const key = id.create();
@@ -254,9 +263,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, position } }));
   };
   const handleChangeColor = (v: color.Color): void => {
-    dispatch(
-      setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: color.hex(v) } }),
-    );
+    dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: v } }));
   };
   const handleChangeAxis = (axis: AxisKey): void => {
     const position = bounds.mean(axes[axis].bounds);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -48,10 +48,11 @@ describe("LinePlot", () => {
       const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
       const next = await client.lineplots.create(ws.key, { name: "intermediate" });
       next.title.level = "h2";
+      const lineColor = color.construct("#abcdef");
       next.lines = [
         {
           key: "l1",
-          color: "#abcdef",
+          color: lineColor,
           strokeWidth: 2,
           downsample: 1,
           downsampleMode: "decimate",
@@ -62,7 +63,7 @@ describe("LinePlot", () => {
       expect(res.name).toEqual("Line Plot");
       expect(res.title.level).toEqual("h2");
       expect(res.lines).toHaveLength(1);
-      expect(res.lines[0].color).toEqual("#abcdef");
+      expect(res.lines[0].color).toEqual(lineColor);
     });
   });
   describe("delete", () => {

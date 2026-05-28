@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb2 "github.com/synnaxlabs/x/color/pb"
 	pb1 "github.com/synnaxlabs/x/spatial/pb"
 	pb "github.com/synnaxlabs/x/text/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -716,8 +717,9 @@ type Line struct {
 	// label is the user-specified line label. Null means derive from the channel name at
 	// render time; non-null is an override.
 	Label *string `protobuf:"bytes,2,opt,name=label,proto3,oneof" json:"label,omitempty"`
-	// color is the line color as a hex string.
-	Color string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// color is the line color. When null, the Console assigns one from the visualization
+	// palette at render time.
+	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	// stroke_width is the line stroke width in pixels.
 	StrokeWidth float64 `protobuf:"fixed64,4,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
 	// downsample is the downsample factor applied before rendering. 1 means render every
@@ -773,11 +775,11 @@ func (x *Line) GetLabel() string {
 	return ""
 }
 
-func (x *Line) GetColor() string {
+func (x *Line) GetColor() *pb2.Color {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 func (x *Line) GetStrokeWidth() float64 {
@@ -808,8 +810,8 @@ type Rule struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// label is the human-readable label rendered alongside the rule.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	// color is the rule color as a hex string.
-	Color string `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// color is the display color of the rule.
+	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	// axis is the axis the rule is anchored to.
 	Axis AxisKey `protobuf:"varint,4,opt,name=axis,proto3,enum=service.lineplot.pb.AxisKey" json:"axis,omitempty"`
 	// line_width is the rule line width in pixels.
@@ -868,11 +870,11 @@ func (x *Rule) GetLabel() string {
 	return ""
 }
 
-func (x *Rule) GetColor() string {
+func (x *Rule) GetColor() *pb2.Color {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 func (x *Rule) GetAxis() AxisKey {
@@ -1035,7 +1037,7 @@ var File_core_pkg_service_lineplot_pb_lineplot_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"I\n" +
+	"+core/pkg/service/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"I\n" +
 	"\x05Title\x12&\n" +
 	"\x05level\x18\x01 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x18\n" +
 	"\avisible\x18\x02 \x01(\bR\avisible\"V\n" +
@@ -1074,21 +1076,21 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\x02y1\x18\x03 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y1\x12)\n" +
 	"\x02y2\x18\x04 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y2\x12)\n" +
 	"\x02y3\x18\x05 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y3\x12)\n" +
-	"\x02y4\x18\x06 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y4\"\xe4\x01\n" +
+	"\x02y4\x18\x06 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y4\"\xf7\x01\n" +
 	"\x04Line\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x19\n" +
-	"\x05label\x18\x02 \x01(\tH\x00R\x05label\x88\x01\x01\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05color\x12!\n" +
+	"\x05label\x18\x02 \x01(\tH\x00R\x05label\x88\x01\x01\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12!\n" +
 	"\fstroke_width\x18\x04 \x01(\x01R\vstrokeWidth\x12\x1e\n" +
 	"\n" +
 	"downsample\x18\x05 \x01(\rR\n" +
 	"downsample\x12L\n" +
 	"\x0fdownsample_mode\x18\x06 \x01(\x0e2#.service.lineplot.pb.DownsampleModeR\x0edownsampleModeB\b\n" +
-	"\x06_label\"\xe4\x01\n" +
+	"\x06_label\"\xf7\x01\n" +
 	"\x04Rule\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05color\x120\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x120\n" +
 	"\x04axis\x18\x04 \x01(\x0e2\x1c.service.lineplot.pb.AxisKeyR\x04axis\x12\x1d\n" +
 	"\n" +
 	"line_width\x18\x05 \x01(\x01R\tlineWidth\x12\x1b\n" +
@@ -1152,6 +1154,7 @@ var file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = []any{
 	(*pb1.StickyXY)(nil), // 14: x.spatial.pb.StickyXY
 	(pb1.Direction)(0),   // 15: x.spatial.pb.Direction
 	(*pb1.Bounds)(nil),   // 16: x.spatial.pb.Bounds
+	(*pb2.Color)(nil),    // 17: x.color.pb.Color
 }
 var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
 	13, // 0: service.lineplot.pb.Title.level:type_name -> x.text.pb.Level
@@ -1168,20 +1171,22 @@ var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
 	8,  // 11: service.lineplot.pb.Axes.y2:type_name -> service.lineplot.pb.Axis
 	8,  // 12: service.lineplot.pb.Axes.y3:type_name -> service.lineplot.pb.Axis
 	8,  // 13: service.lineplot.pb.Axes.y4:type_name -> service.lineplot.pb.Axis
-	2,  // 14: service.lineplot.pb.Line.downsample_mode:type_name -> service.lineplot.pb.DownsampleMode
-	0,  // 15: service.lineplot.pb.Rule.axis:type_name -> service.lineplot.pb.AxisKey
-	3,  // 16: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
-	4,  // 17: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
-	5,  // 18: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
-	6,  // 19: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
-	9,  // 20: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
-	10, // 21: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
-	11, // 22: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	17, // 14: service.lineplot.pb.Line.color:type_name -> x.color.pb.Color
+	2,  // 15: service.lineplot.pb.Line.downsample_mode:type_name -> service.lineplot.pb.DownsampleMode
+	17, // 16: service.lineplot.pb.Rule.color:type_name -> x.color.pb.Color
+	0,  // 17: service.lineplot.pb.Rule.axis:type_name -> service.lineplot.pb.AxisKey
+	3,  // 18: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
+	4,  // 19: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
+	5,  // 20: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
+	6,  // 21: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
+	9,  // 22: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
+	10, // 23: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
+	11, // 24: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_lineplot_pb_lineplot_proto_init() }

@@ -21,6 +21,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v4"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -59,11 +60,11 @@ func nonZeroV0() v0.Data {
 			},
 		},
 		Lines: []v0.Line{
-			{Key: "y1-rng1-ch10", Label: &label, Color: "#ff0000", StrokeWidth: 2, Downsample: 1, DownsampleMode: "decimate"},
-			{Key: "y1-rng1-ch11", Color: "#00ff00", StrokeWidth: 1, Downsample: 2, DownsampleMode: "average"},
+			{Key: "y1-rng1-ch10", Label: &label, Color: color.MustFromHex("#ff0000"), StrokeWidth: 2, Downsample: 1, DownsampleMode: "decimate"},
+			{Key: "y1-rng1-ch11", Color: color.MustFromHex("#00ff00"), StrokeWidth: 1, Downsample: 2, DownsampleMode: "average"},
 		},
 		Rules: []v0.Rule{
-			{Key: "r1", Label: "max", Color: "#0000ff", Axis: "y1", LineWidth: 1, LineDash: 0, Units: "psi", Position: 4.5},
+			{Key: "r1", Label: "max", Color: color.MustFromHex("#0000ff"), Axis: "y1", LineWidth: 1, LineDash: 0, Units: "psi", Position: 4.5},
 		},
 	}
 }

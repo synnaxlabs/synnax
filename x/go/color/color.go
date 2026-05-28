@@ -77,10 +77,19 @@ func MustFromHex(s string) Color {
 //   - string: "#ff0000" or "#ff000080"
 //   - array:  [255, 0, 0, 1.0]
 //   - object: {"r": 255, "g": 0, "b": 0, "a": 1.0}
+//
+// JSON null and the empty string both decode to the zero Color.
 func (c *Color) UnmarshalJSON(data []byte) error {
-	// Try string first
+	if string(data) == "null" {
+		*c = Color{}
+		return nil
+	}
 	var s string
 	if json.Unmarshal(data, &s) == nil {
+		if s == "" {
+			*c = Color{}
+			return nil
+		}
 		parsed, err := FromHex(s)
 		if err != nil {
 			return err
