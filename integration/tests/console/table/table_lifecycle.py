@@ -100,6 +100,7 @@ class TableLifecycle(ConsoleCase):
             self.test_delete_removes_full_row(interaction)
             self.test_delete_removes_full_col(interaction)
             self.test_copy_paste_in_bounds(interaction)
+            self.test_copy_paste_value_variant(interaction)
             self.test_paste_grows_table(interaction)
             self.test_undo_redo_add_row(interaction)
             self.test_undo_redo_text_edit(interaction)
@@ -383,6 +384,50 @@ class TableLifecycle(ConsoleCase):
         assert table.has_text("src-a", row=0, col=0), (
             "Source row must remain untouched after paste"
         )
+
+    def test_copy_paste_value_variant(self, table: Table) -> None:
+        """Test that copy/paste carries a value cell's variant + channel onto
+        a previously-text destination cell. Exercises the Aether
+        register/unregister path on the destination because the Spec.Cell
+        component swaps from Text to Value mid-render."""
+        self.log("Testing copy/paste of a value-variant cell")
+        # The grid is left in some prior shape by earlier interaction tests;
+        # normalize to a clean 2x2 of text cells before seeding the source.
+        while table.get_row_count() < 2:
+            table.add_row()
+        while table.get_column_count() < 2:
+            table.add_column()
+        table.set_cell_text(0, 0, "kept")
+        table.set_cell_text(1, 0, "overwritten")
+
+        table.set_cell_channel(self.data_name, row=0, col=0)
+        assert table.has_channel(self.data_name, row=0, col=0), (
+            "Setup: source cell should hold the channel after set_cell_channel"
+        )
+
+        table.select_cell(0, 0)
+        table.copy()
+        table.select_cell(1, 0)
+        table.paste()
+
+        assert table.has_channel(self.data_name, row=1, col=0), (
+            f"Destination (1,0) should hold channel '{self.data_name}' after "
+            f"paste, got '{table.get_cell_channel(1, 0)}'"
+        )
+        assert table.has_channel(self.data_name, row=0, col=0), (
+            "Source (0,0) must remain a value cell after copy"
+        )
+
+        # Reset (0,0) and (1,0) back to text so the rest of the interaction
+        # suite can dblclick them into edit mode. A value cell's dblclick is
+        # a no-op, so any keyboard input that follows leaks to the document
+        # and fires console shortcuts (notably opening nav drawers).
+        for r in (0, 1):
+            table.select_cell(r, 0)
+            table.delete_selected()
+            assert table.has_text("", row=r, col=0), (
+                f"({r},0) should be cleared to empty text after Delete"
+            )
 
     def test_paste_grows_table(self, table: Table) -> None:
         """Test that pasting beyond the current bounds grows the table."""
