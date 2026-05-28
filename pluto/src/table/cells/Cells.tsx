@@ -132,6 +132,7 @@ export const Value = ({
       outlet: "gradient",
     }),
     location: { x: "center", y: "center" },
+    clip: true,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
 

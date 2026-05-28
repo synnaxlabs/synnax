@@ -9,7 +9,11 @@
 
 package table
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/synnaxlabs/x/set"
+)
 
 const (
 	// minCellDim is the floor enforced on row and column sizes.
@@ -243,10 +247,7 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 	if len(p.Cells) == 0 {
 		return state, nil
 	}
-	selected := make(map[string]struct{}, len(p.Cells))
-	for _, k := range p.Cells {
-		selected[k] = struct{}{}
-	}
+	selected := set.New(p.Cells...)
 	fullRowIdx := []int{}
 	for i, row := range state.Rows {
 		if len(row.Cells) == 0 {
@@ -254,7 +255,7 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		}
 		all := true
 		for _, c := range row.Cells {
-			if _, ok := selected[c]; !ok {
+			if !selected.Contains(c) {
 				all = false
 				break
 			}
@@ -272,7 +273,7 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 					all = false
 					break
 				}
-				if _, ok := selected[row.Cells[colIdx]]; !ok {
+				if !selected.Contains(row.Cells[colIdx]) {
 					all = false
 					break
 				}
