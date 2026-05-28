@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -35,6 +36,22 @@ alignas(16) char alt_stack[ALT_STACK_SIZE];
 /// so that the signal handler can read it without touching the allocator. Empty until
 /// install sets it.
 char program_name[256] = {};
+
+/// @brief guards against concurrent and recursive crash handling. The driver is
+/// multi-threaded, so a fault (e.g. a use-after-free) can hit several threads at once;
+/// without this, each would dump its own trace and the output would interleave into an
+/// unreadable flood. Only the first thread to arrive dumps and terminates the process;
+/// any other crashing thread blocks here instead.
+std::atomic_flag crash_in_progress;
+
+/// @brief lets the first crashing thread through; any later thread blocks forever (the
+/// first thread takes the process down). This serializes crash handling so the trace is
+/// written once and a faulting thread never returns to re-run the faulting instruction.
+void claim_crash() {
+    if (crash_in_progress.test_and_set())
+        while (true)
+            pause();
+}
 
 /// @brief writes a null-terminated string to fd. Async-signal-safe: uses only strlen
 /// and write. The write result is intentionally unchecked, as there is no recovery
@@ -103,18 +120,22 @@ std::string demangle_line(const std::string &line) {
 }
 
 void signal_handler(const int sig) {
+    claim_crash();
     write_str(STDERR_FILENO, "*** ");
     write_str(STDERR_FILENO, program_name);
     write_str(STDERR_FILENO, " crashed: ");
     write_str(STDERR_FILENO, signal_name(sig));
     write_str(STDERR_FILENO, " ***\nstack trace:\n");
     print_trace_safe(STDERR_FILENO);
-    // SA_RESETHAND has already restored the default disposition, so re-raising produces
-    // normal crash semantics: core dump and 128+signal exit code.
+    // Restore the default disposition and re-raise so the process dies with normal
+    // crash semantics (core dump, 128+signal exit). claim_crash has parked any other
+    // crashing threads, so exactly one full trace is written before we go down.
+    std::signal(sig, SIG_DFL);
     std::raise(sig);
 }
 
 [[noreturn]] void terminate_handler() {
+    claim_crash();
     write_str(STDERR_FILENO, "*** ");
     write_str(STDERR_FILENO, program_name);
     write_str(STDERR_FILENO, " terminated: unhandled exception ***\n");
@@ -144,10 +165,12 @@ void install_signal(const int sig) {
     sa.sa_handler = signal_handler;
     sigemptyset(&sa.sa_mask);
     // SA_ONSTACK runs the handler on the alternate stack so a stack-overflow crash can
-    // still be traced. SA_RESETHAND restores the default disposition on entry, so the
-    // handler's re-raise produces normal crash semantics and a fault inside the handler
-    // dies immediately instead of recursing.
-    sa.sa_flags = SA_ONSTACK | SA_RESETHAND;
+    // still be traced. We deliberately do NOT set SA_RESETHAND: keeping the handler
+    // installed means that in a multi-threaded crash the other faulting threads
+    // re-enter it and park in claim_crash, rather than hitting the default action and
+    // killing the process before the first thread finishes writing its trace. The first
+    // thread restores the default disposition itself before re-raising.
+    sa.sa_flags = SA_ONSTACK;
     sigaction(sig, &sa, nullptr);
 }
 }

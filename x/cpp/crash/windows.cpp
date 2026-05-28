@@ -16,6 +16,7 @@
 #include <dbghelp.h>
 // clang-format on
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -31,7 +32,22 @@ constexpr DWORD MAX_SYMBOL_NAME = 255;
 /// @brief name printed in the crash banner. Empty until install sets it.
 char program_name[256] = {};
 
+/// @brief guards against concurrent and recursive crash handling. The driver is
+/// multi-threaded, so a fault can hit several threads at once; without this, each would
+/// dump its own trace and the output would interleave into an unreadable flood. Only
+/// the first thread to arrive dumps; any other crashing thread blocks here instead.
+std::atomic_flag crash_in_progress;
+
+/// @brief lets the first crashing thread through; any later thread blocks forever so
+/// the trace is written once.
+void claim_crash() {
+    if (crash_in_progress.test_and_set())
+        while (true)
+            Sleep(1000);
+}
+
 LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
+    claim_crash();
     std::fprintf(
         stderr,
         "*** %s crashed: exception code 0x%lx ***\nstack trace:\n",
@@ -47,6 +63,7 @@ LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
 }
 
 [[noreturn]] void terminate_handler() {
+    claim_crash();
     std::fprintf(stderr, "*** %s terminated: unhandled exception ***\n", program_name);
     if (const std::exception_ptr eptr = std::current_exception()) {
         try {

@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <exception>
 #include <stdexcept>
+#include <thread>
+#include <vector>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -146,6 +148,25 @@ TEST(CrashDeathTest, FatalSignalDumpsTraceAndReraises) {
         },
         KilledBySignal(SIGABRT),
         AllOf(HasSubstr("SIGABRT"), HasSubstr("0x"))
+    );
+}
+
+/// @brief it should terminate cleanly when many threads crash at once, rather than
+/// interleaving a flood of traces or deadlocking. The driver is multi-threaded, so a
+/// fault (e.g. a use-after-free) routinely hits several threads simultaneously; the
+/// handler's one-shot guard must let only the first through and take the process down.
+TEST(CrashDeathTest, ConcurrentFatalSignalsTerminateCleanly) {
+    EXPECT_EXIT(
+        {
+            x::crash::install("test-driver");
+            std::vector<std::thread> threads;
+            for (int i = 0; i < 8; i++)
+                threads.emplace_back([] { std::raise(SIGABRT); });
+            for (auto &t: threads)
+                t.join();
+        },
+        KilledBySignal(SIGABRT),
+        HasSubstr("SIGABRT")
     );
 }
 

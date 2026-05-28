@@ -98,7 +98,8 @@ type Driver struct {
 	// shutdown wraps the signal context's cancel and wait, allowing Close to tear down
 	// the goroutines that manage the subprocess's I/O and lifetime.
 	shutdown io.Closer
-	// mu guards the cmd and stdInPipe fields during subprocess setup in start().
+	// mu guards the cmd and stdInPipe fields, which the supervisor goroutine writes
+	// during (re)setup while Close concurrently reads them to stop the process.
 	mu sync.Mutex
 	// closeOnce ensures close() executes exactly once, making Close idempotent.
 	closeOnce sync.Once
@@ -261,11 +262,12 @@ func (d *Driver) close() error {
 		return nil
 	}
 	d.cfg.L.Info("stopping embedded driver")
-	if d.cmd != nil && d.cmd.Process != nil {
+	cmd, stdInPipe := d.currentProcess()
+	if cmd != nil && cmd.Process != nil && stdInPipe != nil {
 		// Best-effort: ask the process to exit gracefully. If the process already
 		// exited (e.g. crash or timeout cleanup race), the pipe is closed and the write
 		// fails harmlessly.
-		_, _ = d.stdInPipe.Write([]byte(stopKeyword))
+		_, _ = stdInPipe.Write([]byte(stopKeyword))
 	}
 	done := make(chan error, 1)
 	go func() { done <- d.shutdown.Close() }()
@@ -274,8 +276,9 @@ func (d *Driver) close() error {
 		return err
 	case <-time.After(d.cfg.StopTimeout):
 		d.cfg.L.Warn("embedded driver did not stop within grace period, escalating to kill")
-		if d.cmd != nil && d.cmd.Process != nil {
-			if killErr := d.cmd.Process.Kill(); killErr != nil {
+		// Re-read the process: a restart may have replaced cmd while we waited.
+		if cmd, _ := d.currentProcess(); cmd != nil && cmd.Process != nil {
+			if killErr := cmd.Process.Kill(); killErr != nil {
 				d.cfg.L.Error("failed to kill embedded driver process", zap.Error(killErr))
 			}
 		}
@@ -286,6 +289,15 @@ func (d *Driver) close() error {
 			return errForceKillFailed
 		}
 	}
+}
+
+// currentProcess returns the active subprocess command and its stdin pipe, read under
+// d.mu so it does not race with setupCmd replacing them during a restart. Either return
+// may be nil before the first process has been set up.
+func (d *Driver) currentProcess() (*exec.Cmd, io.WriteCloser) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.cmd, d.stdInPipe
 }
 
 // setupCmd prepares the driver subprocess command under d.mu, writing the config file,

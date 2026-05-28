@@ -293,21 +293,20 @@ var _ = Describe("PipeToLogger", func() {
 	})
 
 	Describe("crash output", func() {
-		It("Should log a signal crash dump verbatim at error level", func() {
+		It("Should collapse a multi-line signal crash dump into one error entry", func() {
 			entries := pipeAndCollect(logger, nil, nil,
 				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
 					"stack trace:\n"+
 					"0   driver  0x000000010000a1b0  synnax::run() + 48\n",
 			)
-			Expect(entries).To(HaveLen(3))
-			for _, entry := range entries {
-				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
-			}
-			Expect(entries[0]).To(HaveKeyWithValue("M",
-				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***"))
-			Expect(entries[1]).To(HaveKeyWithValue("M", "stack trace:"))
-			Expect(entries[2]).To(HaveKeyWithValue("M",
-				"0   driver  0x000000010000a1b0  synnax::run() + 48"))
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				HaveKeyWithValue("M",
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
+						"stack trace:\n"+
+						"0   driver  0x000000010000a1b0  synnax::run() + 48"),
+			))
 		})
 
 		It("Should log an unhandled-exception dump at error level including what()", func() {
@@ -316,11 +315,11 @@ var _ = Describe("PipeToLogger", func() {
 					"  what(): boom-message\n"+
 					"stack trace:\n",
 			)
-			Expect(entries).To(HaveLen(3))
-			for _, entry := range entries {
-				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
-			}
-			Expect(entries[1]).To(HaveKeyWithValue("M", ContainSubstring("boom-message")))
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				HaveKeyWithValue("M", ContainSubstring("boom-message")),
+			))
 		})
 
 		It("Should preserve bracketed frame lines instead of parsing them as glog", func() {
@@ -329,10 +328,10 @@ var _ = Describe("PipeToLogger", func() {
 				"*** synnax-driver crashed: SIGABRT (abort) ***\n"+
 					"stack trace:\n"+frame+"\n",
 			)
-			Expect(entries).To(HaveLen(3))
-			Expect(entries[2]).To(And(
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(And(
 				HaveKeyWithValue("L", "ERROR"),
-				HaveKeyWithValue("M", frame),
+				HaveKeyWithValue("M", ContainSubstring(frame)),
 				Not(HaveKey("N")),
 			))
 		})
@@ -343,13 +342,16 @@ var _ = Describe("PipeToLogger", func() {
 					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n"+
 					"stack trace:\n",
 			)
-			Expect(entries).To(HaveLen(3))
+			Expect(entries).To(HaveLen(2))
 			Expect(entries[0]).To(And(
 				HaveKeyWithValue("L", "INFO"),
 				HaveKeyWithValue("M", "running normally"),
 			))
-			Expect(entries[1]).To(HaveKeyWithValue("L", "ERROR"))
-			Expect(entries[2]).To(HaveKeyWithValue("L", "ERROR"))
+			Expect(entries[1]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				HaveKeyWithValue("M", ContainSubstring(
+					"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***")),
+			))
 		})
 
 		It("Should not warn on blank lines within a crash dump", func() {
@@ -358,10 +360,74 @@ var _ = Describe("PipeToLogger", func() {
 					"\n"+
 					"stack trace:\n",
 			)
-			Expect(entries).To(HaveLen(2))
-			for _, entry := range entries {
-				Expect(entry).To(HaveKeyWithValue("L", "ERROR"))
-			}
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(HaveKeyWithValue("L", "ERROR"))
+		})
+	})
+
+	Describe("Go stacktrace suppression", func() {
+		// The harness logger above has no AddStacktrace, so it cannot show suppression.
+		// pipeProd mirrors the production server's logger (a Go stacktrace attached to
+		// every Error entry) so the suppression on forwarded content is observable.
+		// zap.NewDevelopmentEncoderConfig encodes that stacktrace under "S".
+		newProd := func() (*alamos.Logger, *bytes.Buffer) {
+			buf := &bytes.Buffer{}
+			l := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(
+					zapcore.NewCore(
+						zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
+						zapcore.AddSync(buf),
+						zapcore.DebugLevel,
+					),
+					zap.AddStacktrace(zapcore.ErrorLevel),
+				),
+			}))
+			return l, buf
+		}
+		pipeProd := func(input string) []map[string]any {
+			l, buf := newProd()
+			r, w := io.Pipe()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				log.PipeToLogger(r, l, nil, nil)
+			}()
+			MustSucceed(w.Write([]byte(input)))
+			Expect(w.Close()).To(Succeed())
+			Eventually(done).Should(BeClosed())
+			return parseLogEntries(buf)
+		}
+
+		It("Should keep the Go stacktrace on a direct error (control)", func() {
+			l, buf := newProd()
+			l.Error("reader failure")
+			entries := parseLogEntries(buf)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(HaveKey("S"))
+		})
+
+		It("Should not attach a Go stacktrace to a forwarded driver error line", func() {
+			entries := pipeProd(
+				"E20260208 14:34:21.000000 0x1fa2cec40 rack.cpp:99] boom\n",
+			)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				Not(HaveKey("S")),
+			))
+		})
+
+		It("Should not attach a Go stacktrace to a crash dump", func() {
+			entries := pipeProd(
+				"*** synnax-driver crashed: SIGSEGV (segmentation fault) ***\n" +
+					"stack trace:\n" +
+					"0   driver  0x000000010000a1b0  synnax::run() + 48\n",
+			)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(And(
+				HaveKeyWithValue("L", "ERROR"),
+				Not(HaveKey("S")),
+			))
 		})
 	})
 })
