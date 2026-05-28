@@ -2785,7 +2785,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text(
-        start_cmd_name +
+        "import status\n\n" + start_cmd_name +
         " => main\n"
         "sequence main {\n"
         "    stage on {\n"
