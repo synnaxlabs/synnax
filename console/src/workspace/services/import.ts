@@ -11,9 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax, workspace } from "@synnaxlabs/client";
 import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { join, sep } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
@@ -86,24 +83,14 @@ export const import_ = ({
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import items from a dialog when running Synnax in the browser.",
-      );
-    const path = await open({
-      title: "Import a Workspace",
-      multiple: false,
-      directory: true,
-    });
-    if (path == null) return;
-    name = path.split(sep()).at(-1);
-    if (name == null) throw new Error("Cannot read workspace");
-    const files = await readDir(path);
+    const directory = await Runtime.pickDirectory({ title: "Import a Workspace" });
+    if (directory == null) return;
+    name = directory.name;
     const fileData = await Promise.all(
-      files.map(
+      directory.files.map(
         async (file): Promise<Import.File> => ({
           name: file.name,
-          data: JSON.parse(await readTextFile(await join(path, file.name))),
+          data: JSON.parse(await file.read()),
         }),
       ),
     );

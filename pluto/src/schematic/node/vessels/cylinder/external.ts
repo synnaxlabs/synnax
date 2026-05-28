@@ -13,7 +13,7 @@ import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/vessels/cylinder/config";
 import { CylinderForm } from "@/schematic/node/vessels/cylinder/Form";
-import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
+import { Cylinder } from "@/schematic/node/vessels/cylinder/Primitive";
 import { Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
 import { type Theming } from "@/theming";
 
@@ -33,7 +33,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Cylinder",
   Form: CylinderForm,
   Node: Symbol,
-  Preview: Primitive,
+  Preview: Cylinder,
   defaultConfig,
   zIndex: 2,
 };

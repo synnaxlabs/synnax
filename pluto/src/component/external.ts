@@ -11,3 +11,4 @@ export * from "@/component/removeProps";
 export * from "@/component/renderProp";
 export * from "@/component/SelectSize";
 export * from "@/component/size";
+export * from "@/component/text";

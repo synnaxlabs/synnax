@@ -494,7 +494,12 @@ func analyzeFunctionNode(
 		Channels: sym.Channels.Copy(),
 		Config:   slices.Clone(freshType.Config),
 		Outputs:  slices.Clone(freshType.Outputs),
-		Inputs:   slices.Clone(freshType.Inputs),
+	}
+	// STL ExecBoth inputs mirror config; in flow form the upstream is a
+	// trigger, so omit Inputs. User-defined funcs (AST != nil) keep them.
+	upstreamIsTrigger := sym.Exec == symbol.ExecBoth && sym.AST == nil
+	if !upstreamIsTrigger {
+		n.Inputs = slices.Clone(freshType.Inputs)
 	}
 	var ok bool
 	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)

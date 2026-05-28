@@ -1604,4 +1604,100 @@ var _ = Describe("upstreamIsTrigger Suppression", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
+
+	Describe("In select routing branches", func() {
+		It("Should accept a select branch routing into an ExecBoth fn with a mismatched input type", func(bCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				execBothFn(
+					"setter",
+					types.Params{
+						{Name: "key_or_name", Type: types.String()},
+						{Name: "message", Type: types.String()},
+						{Name: "variant", Type: types.String()},
+					},
+					types.String(),
+				),
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+				true: setter{key_or_name="a", message="up", variant="info"},
+				false: setter{key_or_name="b", message="down", variant="info"}
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should reject a select branch routing into an ExecFlow fn with a mismatched input type", func(bCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				execFlowFn("sink", types.Params{{Name: "v", Type: types.String()}}, types.Type{}),
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+				true: sink{},
+				false: sink{}
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+		})
+
+		It("Should reject a select branch routing into an ExecBoth fn with empty Config and a mismatched input type", func(bCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				{
+					Name: "target",
+					Kind: symbol.KindFunction,
+					Exec: symbol.ExecBoth,
+					Type: types.Function(types.FunctionProperties{
+						Inputs:  types.Params{{Name: "v", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
+					}),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+				true: target{},
+				false: target{}
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+		})
+
+		It("Should accept select branches routing into a user-defined func with no inputs", func(bCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				execFlowFn("example_func", nil, types.Type{}),
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+				true: example_func{},
+				false: example_func{}
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept a select chain through time.now into an i64 channel", func(bCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				{Name: "i64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 2},
+			}
+			ast := MustSucceed(parser.Parse(`
+			import time
+			flag -> select{} -> {
+				true: time.now{} -> i64_ch,
+				false: time.now{} -> i64_ch
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
 })

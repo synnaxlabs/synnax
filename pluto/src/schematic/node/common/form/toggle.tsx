@@ -10,7 +10,7 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { COMMON_TOGGLE_FORM_TABS } from "@/schematic/node/common/form/input";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
@@ -54,7 +54,7 @@ export const DummyToggleForm = (): ReactElement => (
       <Flex.Box x grow>
         <ColorField path="color" />
         <ScaleField path="scale" />
-        <Base.SwitchField path="clickable" label="Clickable" hideIfNull optional />
+        <Form.SwitchField path="clickable" label="Clickable" hideIfNull optional />
       </Flex.Box>
     </Flex.Box>
     <Orientation.Field path="" />

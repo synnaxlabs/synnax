@@ -16,9 +16,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/keywords"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -53,12 +53,14 @@ var goAcronyms = []string{
 }
 
 // ToPascalCase converts a name to PascalCase, preserving Go acronym conventions
-// (e.g. "id" → "ID", "sticky_xy" → "StickyXY").
+// (e.g. "id" → "ID", "sticky_xy" → "StickyXY"). Routes through casing.TypePascal
+// so PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep
+// their boundaries instead of collapsing to SetXchannel / Urlvalue.
 func ToPascalCase(s string) string {
 	if IsScreamingCase(s) {
 		return s
 	}
-	result := lo.PascalCase(s)
+	result := casing.TypePascal(s)
 	for _, acr := range goAcronyms {
 		result = strings.ReplaceAll(result, acr, strings.ToUpper(acr))
 	}

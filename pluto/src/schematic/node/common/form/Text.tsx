@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Input } from "@/input";
 import { Select } from "@/select";
-import { type Text } from "@/text";
 
 export const SelectTextLevel = ({
   value,
   onChange,
-}: Input.Control<Text.Level>): ReactElement => (
+}: Input.Control<text.Level>): ReactElement => (
   <Select.Text.Level value={value} onChange={onChange} />
 );

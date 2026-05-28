@@ -32,9 +32,9 @@ const (
 	tokenTypeNumber            = uint32(5)
 	tokenTypeFunction          = uint32(7)
 	tokenTypeChannel           = uint32(9)
-	tokenTypeNamespace         = uint32(21)
-	tokenTypeStringRaw         = uint32(22)
-	tokenTypeStringPlaceholder = uint32(23)
+	tokenTypeNamespace         = uint32(20)
+	tokenTypeStringRaw         = uint32(21)
+	tokenTypeStringPlaceholder = uint32(22)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -194,6 +194,31 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(str).To(HaveLen(2))
 			Expect(str[0].Line).To(Equal(uint32(0)))
 			Expect(str[1].Line).To(Equal(uint32(1)))
+		})
+	})
+
+	Describe("Numeric-literal unit suffixes", func() {
+		// "3min" lexes as INTEGER_LITERAL "3" + IDENTIFIER "min"; the parser binds
+		// the identifier to the literal as a unit suffix. Some unit names collide
+		// with builtins (here the "min" function), so the suffix must not resolve
+		// as a symbol — otherwise it is colored unlike units such as "s" or "h".
+		// The suffix sits at line 1, char 7; the real call sits at line 2, char 8.
+		const src = "func f() i64 {\n\tx := 3min\n\treturn min(1, 2)\n}"
+
+		It("does not classify a unit suffix as the builtin it collides with", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, src)
+			fn := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			Expect(fn).ToNot(ContainElement(
+				decodedToken{Line: 1, StartChar: 7, Length: 3, TokenType: tokenTypeFunction},
+			))
+		})
+
+		It("still classifies a real call to that builtin as a function", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, src)
+			fn := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			Expect(fn).To(ContainElement(
+				decodedToken{Line: 2, StartChar: 8, Length: 3, TokenType: tokenTypeFunction},
+			))
 		})
 	})
 
@@ -393,6 +418,30 @@ var _ = Describe("Semantic Tokens", func() {
 				"func cat() i64 { return time.now() }\n")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
+		})
+
+		It("routes sequence and stage names to the function token type", func(ctx SpecContext) {
+			// Sequence and stage names should share the same highlight
+			// color as function names — they are declarations of named,
+			// callable scopes.
+			OpenArcDocument(server, ctx, uri, "sequence main {\n    stage first {\n    }\n}")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			var mainTok, firstTok *decodedToken
+			for i := range tokens {
+				t := tokens[i]
+				if t.Line == 0 && t.StartChar == 9 && t.Length == 4 {
+					mainTok = &t
+				}
+				if t.Line == 1 && t.StartChar == 10 && t.Length == 5 {
+					firstTok = &t
+				}
+			}
+			Expect(mainTok).ToNot(BeNil(), "sequence name token not emitted")
+			Expect(firstTok).ToNot(BeNil(), "stage name token not emitted")
+			Expect(mainTok.TokenType).To(Equal(tokenTypeFunction),
+				"sequence name must be the function token type")
+			Expect(firstTok.TokenType).To(Equal(tokenTypeFunction),
+				"stage name must be the function token type")
 		})
 
 		It("routes import and as alongside func and authority to the keyword token type", func(ctx SpecContext) {

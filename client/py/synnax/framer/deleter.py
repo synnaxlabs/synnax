@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from alamos import Instrumentation, trace
-from freighter import UnaryClient, send_required
+from freighter import UnaryClient
 from synnax.telem import TimeRange
 
 
@@ -48,4 +48,4 @@ class Deleter:
             req.keys = normal.channels
         else:
             req.names = normal.channels
-        send_required(self._client, "/frame/delete", req, _Response)
+        self._client.send("/frame/delete", req, _Response)

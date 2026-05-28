@@ -327,23 +327,68 @@ var _ = Describe("CollectWithOwnOutput", func() {
 })
 
 var _ = Describe("FindPBOutputPath", func() {
-	It("should find pb path from struct in same namespace", func() {
-		e := resolution.Type{Name: "Status", Namespace: "task", Form: resolution.EnumForm{}}
+	It("should find pb path from struct in same namespace and file", func() {
+		// File-level @pb and @go output propagate to every type declared in
+		// the file, so the enum carries the same domains as the struct.
+		fileDomains := map[string]resolution.Domain{
+			"go": {Expressions: []resolution.Expression{{
+				Name:   "output",
+				Values: []resolution.ExpressionValue{{StringValue: "core/task"}},
+			}}},
+			"pb": {Expressions: []resolution.Expression{}},
+		}
+		e := resolution.Type{
+			Name:      "Status",
+			Namespace: "task",
+			FilePath:  "schemas/task.oracle",
+			Form:      resolution.EnumForm{},
+			Domains:   fileDomains,
+		}
 		table := resolution.NewTable()
 		Expect(table.Add(resolution.Type{
 			Name:          "Task",
 			QualifiedName: "task.Task",
 			Namespace:     "task",
+			FilePath:      "schemas/task.oracle",
+			Form:          resolution.StructForm{},
+			Domains:       fileDomains,
+		})).To(Succeed())
+		Expect(enum.FindPBOutputPath(e, table)).To(Equal("core/task/pb"))
+	})
+
+	It("should return empty when the enum's own file lacks @pb even if a same-namespace struct has @pb", func() {
+		// Regression: previously the routing would walk any struct sharing
+		// the namespace and use that struct's pb path, leaking an enum from
+		// a non-pb schema into another schema's pb output whenever the two
+		// happened to share a namespace name.
+		e := resolution.Type{
+			Name:      "Level",
+			Namespace: "text",
+			FilePath:  "schemas/text.oracle",
+			Form:      resolution.EnumForm{},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "x/go/text"}},
+				}}},
+			},
+		}
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Text",
+			QualifiedName: "text.Text",
+			Namespace:     "text",
+			FilePath:      "schemas/arc/text.oracle",
 			Form:          resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
 				"go": {Expressions: []resolution.Expression{{
 					Name:   "output",
-					Values: []resolution.ExpressionValue{{StringValue: "core/task"}},
+					Values: []resolution.ExpressionValue{{StringValue: "arc/go/text"}},
 				}}},
 				"pb": {Expressions: []resolution.Expression{}},
 			},
 		})).To(Succeed())
-		Expect(enum.FindPBOutputPath(e, table)).To(Equal("core/task/pb"))
+		Expect(enum.FindPBOutputPath(e, table)).To(BeEmpty())
 	})
 
 	It("should return empty when no struct has pb domain", func() {
@@ -482,25 +527,31 @@ var _ = Describe("CollectNamespaceEnums", func() {
 	})
 
 	It("should use custom path function when provided", func() {
+		// File-level @go and @pb propagate to every type in the file, so
+		// the enum carries the same domains as the struct.
+		fileDomains := map[string]resolution.Domain{
+			"go": {Expressions: []resolution.Expression{{
+				Name:   "output",
+				Values: []resolution.ExpressionValue{{StringValue: "x/go/control"}},
+			}}},
+			"pb": {Expressions: []resolution.Expression{}},
+		}
 		table := resolution.NewTable()
 		Expect(table.Add(resolution.Type{
 			Name:          "Status",
 			Namespace:     "control",
 			QualifiedName: "control.Status",
+			FilePath:      "schemas/control.oracle",
 			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+			Domains:       fileDomains,
 		})).To(Succeed())
 		Expect(table.Add(resolution.Type{
 			Name:          "Subject",
 			QualifiedName: "control.Subject",
 			Namespace:     "control",
+			FilePath:      "schemas/control.oracle",
 			Form:          resolution.StructForm{},
-			Domains: map[string]resolution.Domain{
-				"go": {Expressions: []resolution.Expression{{
-					Name:   "output",
-					Values: []resolution.ExpressionValue{{StringValue: "x/go/control"}},
-				}}},
-				"pb": {Expressions: []resolution.Expression{}},
-			},
+			Domains:       fileDomains,
 		})).To(Succeed())
 
 		customPathFunc := func(typ resolution.Type, t *resolution.Table) string {

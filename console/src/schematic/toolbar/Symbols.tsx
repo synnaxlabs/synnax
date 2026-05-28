@@ -263,7 +263,7 @@ const RemoteListEmptyContent = ({
   return (
     <EmptyAction
       message="No symbols found."
-      action="Create Symbol"
+      action="Create symbol"
       onClick={createSymbol}
     />
   );
@@ -607,7 +607,7 @@ export const Symbols = (): ReactElement => {
           placeholder={
             <>
               <Icon.Search />
-              Search Symbols
+              Search symbols
             </>
           }
           size="small"

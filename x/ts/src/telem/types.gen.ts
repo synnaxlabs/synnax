@@ -11,6 +11,18 @@
 
 import { z } from "zod";
 
+export const TIMESTAMP_FORMATS = [
+  "ISO",
+  "ISODate",
+  "time",
+  "preciseTime",
+  "date",
+  "preciseDate",
+  "dateTime",
+] as const;
+export const timestampFormatZ = z.enum(TIMESTAMP_FORMATS);
+export type TimestampFormat = z.infer<typeof timestampFormatZ>;
+
 export const TIME_ZONES = ["local", "UTC"] as const;
 export const timeZoneZ = z.enum(TIME_ZONES);
 export type TimeZone = z.infer<typeof timeZoneZ>;

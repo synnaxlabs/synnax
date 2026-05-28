@@ -10,7 +10,7 @@
 from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -61,7 +61,7 @@ class Writer:
         channels: list[Payload | New],
     ) -> list[Payload]:
         req = _CreateRequest(channels=channels)
-        res = send_required(self._client, "/channel/create", req, _Response)
+        res = self._client.send("/channel/create", req, _Response)
         if self._cache is not None:
             self._cache.set(res.channels)
         return res.channels
@@ -73,7 +73,7 @@ class Writer:
             req = _DeleteRequest(names=normal.channels)
         else:
             req = _DeleteRequest(keys=normal.channels)
-        send_required(self._client, "/channel/delete", req, Empty)
+        self._client.send("/channel/delete", req, Empty)
         if self._cache is not None:
             self._cache.delete(normal.channels)
 
@@ -82,6 +82,6 @@ class Writer:
         self, keys: list[Key] | tuple[Key], names: list[str] | tuple[str]
     ) -> None:
         req = _RenameRequest(keys=keys, names=names)
-        send_required(self._client, "/channel/rename", req, Empty)
+        self._client.send("/channel/rename", req, Empty)
         if self._cache is not None:
             self._cache.rename(list(keys), list(names))

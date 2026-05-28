@@ -44,7 +44,6 @@ const (
 	SemanticTokenTypeConfig
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
-	SemanticTokenTypeUnit
 	SemanticTokenTypeNamespace
 	SemanticTokenTypeStringRaw
 	SemanticTokenTypeStringPlaceholder
@@ -71,7 +70,6 @@ var semanticTokenTypes = []string{
 	"config",
 	"input",
 	"output",
-	"unit",
 	"namespace",
 	"stringRaw",
 	"stringPlaceholder",
@@ -300,6 +298,17 @@ func classifyTokenAt(
 		tokenType := uint32(SemanticTokenTypeNamespace)
 		return &tokenType
 	}
+	// An IDENTIFIER immediately following a numeric literal is that literal's unit
+	// suffix (e.g. "min" in "3min"), which the parser attaches to the literal via
+	// an adjacency predicate rather than treating as a symbol reference. Emit no
+	// token and defer to the grammar; otherwise a unit whose name collides with a
+	// builtin (e.g. the "min" function) would be colored as that symbol, unlike
+	// units such as "s" or "h" that resolve to nothing.
+	if antlrType == parser.ArcLexerIDENTIFIER &&
+		(prevTokenType == parser.ArcLexerINTEGER_LITERAL ||
+			prevTokenType == parser.ArcLexerFLOAT_LITERAL) {
+		return nil
+	}
 	// IDENTIFIER after DOT is the member part of a qualified name
 	// (e.g., "set_authority" in "control.set_authority"). Color it as a function.
 	if antlrType == parser.ArcLexerIDENTIFIER && prevTokenType == parser.ArcLexerDOT {
@@ -348,10 +357,11 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeOutput
 	case symbol.KindChannel:
 		tokenType = SemanticTokenTypeChannel
-	case symbol.KindSequence:
-		tokenType = SemanticTokenTypeSequence
-	case symbol.KindStage:
-		tokenType = SemanticTokenTypeStage
+	case symbol.KindSequence, symbol.KindStage:
+		// Sequence and stage names share the function highlight: they are
+		// declarations of named, callable scopes, and using the function
+		// color keeps them visually consistent with `func` declarations.
+		tokenType = SemanticTokenTypeFunction
 	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = SemanticTokenTypeBlock
 	case symbol.KindLoopVariable:

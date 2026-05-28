@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/offPageReference/config";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
-import { Primitive } from "@/schematic/node/general/offPageReference/Primitive";
+import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
@@ -27,7 +27,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 });
 
 const Preview = ({ label: _, ...rest }: Config): ReactElement => (
-  <Primitive label="Off Page" {...rest} orientation="right" />
+  <OffPageReference label="Off Page" {...rest} orientation="right" />
 );
 
 export const spec: Spec<typeof VARIANT, Config> = {

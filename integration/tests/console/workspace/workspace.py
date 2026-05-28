@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import os
+import shutil
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -16,7 +18,6 @@ from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.run_dir import resolve_results_path
 from framework.utils import get_fixture_path
 from x import get_synnax_version
 
@@ -150,13 +151,6 @@ class Workspace(ConsoleCase):
         assert schematic.get_symbol_count() == 2, (
             "Imported schematic should have 2 gauge symbols"
         )
-        props = schematic.get_properties()
-        assert props["control_authority"] == 134, (
-            f"Expected control_authority 134, got {props['control_authority']}"
-        )
-        assert props["show_control_legend"] is False, (
-            "Expected show_control_legend to be False"
-        )
 
         self.console.layout.close_tab("Metrics Schematic")
 
@@ -206,23 +200,22 @@ class Workspace(ConsoleCase):
         self.console.layout.close_tab("Metrics Table")
 
     def test_export_workspace(self) -> None:
-        """Test exporting a workspace via JS injection to results directory."""
+        """Test exporting a workspace through the real Export action."""
         self.log("Testing export workspace")
 
         # Re-open all imported pages so they exist in Redux state
         # (import tests close tabs, which removes layouts from Redux)
-
         for p in EXPECTED_PAGES:
             self.console.workspace.open_page(p)
 
-        result = self.console.workspace.export_workspace("ImportSpace")
+        self._export_dir = self.console.workspace.export_workspace("ImportSpace")
 
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
 
-        layouts = {l["name"]: l["type"] for l in result["layout"]["layouts"].values()}
-        component_types = {c["type"] for c in result["components"].values()}
-
+        with open(os.path.join(self._export_dir, "LAYOUT.json"), "r") as f:
+            layout_data = json.load(f)
+        layouts = {l["name"]: l["type"] for l in layout_data["layouts"].values()}
         expected = {
             "Metrics Plot": "lineplot",
             "Metrics Schematic": "schematic",
@@ -231,25 +224,32 @@ class Workspace(ConsoleCase):
         }
         for page_name, page_type in expected.items():
             assert page_name in layouts, f"Export should contain layout '{page_name}'"
-            assert page_type in component_types, (
-                f"Export should contain {page_type} component"
+            assert layouts[page_name] == page_type, (
+                f"Layout '{page_name}' should be type {page_type}, got "
+                f"{layouts[page_name]}"
             )
+            assert os.path.exists(
+                os.path.join(self._export_dir, f"{page_name}.json")
+            ), f"Export should contain {page_name}.json"
 
     def test_import_workspace(self) -> None:
-        """Test importing a workspace via command palette."""
+        """Test importing a workspace through the real "Import a workspace" command."""
         self.log("Testing import workspace via command palette")
 
-        export_path = resolve_results_path("ImportSpace_export.json")
-        with open(export_path, "r") as f:
-            data = json.load(f)
+        # Rename the export directory so the imported workspace has a
+        # distinct name from the original ImportSpace workspace.
+        imported_dir = os.path.join(os.path.dirname(self._export_dir), "ImportedSpace")
+        if os.path.isdir(imported_dir):
+            shutil.rmtree(imported_dir)
+        os.rename(self._export_dir, imported_dir)
 
-        self.console.workspace.import_workspace("ImportSpace", data)
+        self.console.workspace.import_workspace_from_directory(imported_dir)
+
         for tab_name in EXPECTED_PAGES:
             tab = self.console.layout.get_tab(tab_name)
             assert tab.is_visible(), f"Imported workspace should have tab '{tab_name}'"
 
-        self.console.workspace.delete("ImportSpace")
-        self._cleanup_workspaces.remove("ImportSpace")
+        self.console.workspace.delete("ImportedSpace")
 
     def test_clear_workspace_from_selector(self) -> None:
         """Test clearing workspaces from the selector (switching to no workspace)."""

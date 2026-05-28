@@ -258,7 +258,7 @@ var _ = Describe("Math", func() {
 
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, stlmath.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, stlmath.NewSymbols()) })
 		math := func(ctx context.Context, member string) *symbol.Symbol {
 			mod := MustSucceed(root.Resolve(ctx, "math", symbol.IncludeInternal))
 			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))

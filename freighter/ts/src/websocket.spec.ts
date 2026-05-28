@@ -15,12 +15,9 @@ import { EOF } from "@/errors";
 import { type Context } from "@/middleware";
 import { WebSocketClient } from "@/websocket";
 
-const url = new URL({
-  host: "127.0.0.1",
-  port: 8080,
-});
+const url = new URL({ host: "127.0.0.1", port: 8080 });
 
-const MessageSchema = z.object({
+const messageSchema = z.object({
   id: z.number().optional(),
   message: z.string().optional(),
 });
@@ -47,73 +44,63 @@ const decodeTestError = (encoded: errors.Payload): errors.Typed | null => {
   return new MyCustomError(message, parseInt(code, 10));
 };
 
-errors.register({
-  encode: encodeTestError,
-  decode: decodeTestError,
-});
+errors.register({ encode: encodeTestError, decode: decodeTestError });
 
 describe("websocket", () => {
   test("basic exchange", async () => {
-    const stream = await client.stream("stream/echo", MessageSchema, MessageSchema);
+    const stream = await client.stream("stream/echo", messageSchema, messageSchema);
     for (let i = 0; i < 10; i++) {
       stream.send({ id: i, message: "hello" });
-      const [response, error] = await stream.receive();
-      expect(error).toBeNull();
-      expect(response?.id).toEqual(i + 1);
-      expect(response?.message).toEqual("hello");
+      const response = await stream.receive();
+      expect(response.id).toEqual(i + 1);
+      expect(response.message).toEqual("hello");
     }
     stream.closeSend();
-    const [response, error] = await stream.receive();
-    expect(EOF.matches(error)).toBeTruthy();
-    expect(response).toBeNull();
+    await expect(stream.receive()).rejects.toThrow(EOF);
   });
 
   test("receive message after close", async () => {
     const stream = await client.stream(
       "stream/sendMessageAfterClientClose",
-      MessageSchema,
-      MessageSchema,
+      messageSchema,
+      messageSchema,
     );
     stream.closeSend();
-    const [response, error] = await stream.receive();
-    expect(error).toBeNull();
-    expect(response?.id).toEqual(0);
-    expect(response?.message).toEqual("Close Acknowledged");
-    const [, recvError] = await stream.receive();
-    expect(EOF.matches(recvError)).toBeTruthy();
+    const response = await stream.receive();
+    expect(response.id).toEqual(0);
+    expect(response.message).toEqual("Close Acknowledged");
+    await expect(stream.receive()).rejects.toThrow(EOF);
   });
 
   test("receive error", async () => {
     const stream = await client.stream(
       "stream/receiveAndExitWithErr",
-      MessageSchema,
-      MessageSchema,
+      messageSchema,
+      messageSchema,
     );
     stream.send({ id: 0, message: "hello" });
-    const [response, error] = await stream.receive();
-    expect(MyCustomError.matches(error)).toBeTruthy();
-    expect(response).toBeNull();
+    await expect(stream.receive()).rejects.toThrow(MyCustomError);
   });
 
   describe("middleware", () => {
     test("receive middleware", async () => {
       const myClient = new WebSocketClient(url, new binary.JSONCodec());
       let c = 0;
-      myClient.use(async (md, next): Promise<[Context, Error | null]> => {
+      myClient.use(async (md, next): Promise<Context> => {
         if (md.params !== undefined) {
           c++;
           md.params.Test = "test";
         }
         return await next(md);
       });
-      await myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema);
+      await myClient.stream("stream/middlewareCheck", messageSchema, messageSchema);
       expect(c).toEqual(1);
     });
 
     test("middleware error on server", async () => {
       const myClient = new WebSocketClient(url, new binary.JSONCodec());
       await expect(
-        myClient.stream("stream/middlewareCheck", MessageSchema, MessageSchema),
+        myClient.stream("stream/middlewareCheck", messageSchema, messageSchema),
       ).rejects.toThrow("test param not found");
     });
   });

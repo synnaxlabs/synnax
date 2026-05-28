@@ -22,12 +22,16 @@ import (
 )
 
 var _ = Describe("Authority Analyzer", func() {
-	channels := []symbol.Symbol{
-		{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
-		{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
-	}
-	var root *symbol.Symbol
-	BeforeEach(func() { root = NewRoot(nil, channels...) })
+	var (
+		channels = []symbol.Symbol{
+			{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+			{Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
+		}
+		root *symbol.Symbol
+	)
+	BeforeEach(func() {
+		root = NewRoot(nil, channels...)
+	})
 
 	Describe("Simple Form", func() {
 		It("Should parse a simple authority declaration", func(specCtx SpecContext) {

@@ -7,7 +7,7 @@ cc_library(
     hdrs = ["checker.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/api/grpc:api_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/telem",
         "@glog",
