@@ -61,7 +61,7 @@ version_of() {
         echo "❌ File not found: $pyproject" >&2
         return 1
     fi
-    version="$(grep -m1 '^version[[:space:]]*=' "$pyproject" | cut -d '"' -f2)"
+    version="$(grep -m1 '^version[[:space:]]*=' "$pyproject" | sed "s/.*=[[:space:]]*['\"]//;s/['\"].*//")"
     if [[ -z "$version" ]]; then
         echo "❌ Could not read version from $pyproject" >&2
         return 1
@@ -79,10 +79,24 @@ constraint_for() {
     echo ">=${version},<${major}.$((minor + 1)).0"
 }
 
+# Fails if any internal package is still listed as an unconstrained dependency. This
+# guards against a silent sed no-op (e.g. an unexpected pyproject.toml format) leaving a
+# release with the very unconstrained metadata this script exists to prevent.
+verify_pinned() {
+    local pyproject="$1" name
+    for name in "${INTERNAL_PACKAGES[@]}"; do
+        if grep -Eq "^[[:space:]]*\"${name}\"" "$pyproject"; then
+            echo "❌ ${pyproject}: '${name}' is still unconstrained after pinning" >&2
+            return 1
+        fi
+    done
+    return 0
+}
+
 SED_ARGS=()
 for name in "${INTERNAL_PACKAGES[@]}"; do
     dep_constraint="$(constraint_for "$(version_of "$(pyproject_for "$name")")")"
-    SED_ARGS+=(-e "s|^([[:space:]]*)\"${name}([<>=!~][^\"]*)?\",|\1\"${name}${dep_constraint}\",|")
+    SED_ARGS+=(-e "s|^([[:space:]]*)\"${name}([<>=!~][^\"]*)?\"(,?)[[:space:]]*\$|\1\"${name}${dep_constraint}\"\3|")
     echo "→ ${name}${dep_constraint}"
 done
 
@@ -95,5 +109,8 @@ for d in "${PACKAGE_DIRS[@]}"; do
     tmp="$(mktemp)"
     sed -E "${SED_ARGS[@]}" "$pyproject" > "$tmp"
     mv "$tmp" "$pyproject"
+    if ! verify_pinned "$pyproject"; then
+        exit 1
+    fi
     echo "✅ Pinned internal deps in $pyproject"
 done
