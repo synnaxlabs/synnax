@@ -150,7 +150,12 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentFormattingProvider:      true,
 			DocumentRangeFormattingProvider: true,
 			FoldingRangeProvider:            true,
-			RenameProvider:                  true,
+			CodeActionProvider: &protocol.CodeActionOptions{
+				CodeActionKinds: []protocol.CodeActionKind{protocol.QuickFix},
+			},
+			RenameProvider: protocol.RenameOptions{
+				PrepareProvider: true,
+			},
 			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),

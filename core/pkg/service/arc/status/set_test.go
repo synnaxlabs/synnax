@@ -88,7 +88,7 @@ func setConfig(keyOrName, message, variant string) types.Params {
 
 var _ = Describe("Symbols", func() {
 	statusModule := func() *symbol.Symbol {
-		for _, s := range arcstatus.Symbols {
+		for _, s := range arcstatus.NewSymbols() {
 			if s.Kind == symbol.KindModule && s.Name == "status" {
 				return s
 			}
@@ -114,7 +114,7 @@ var _ = Describe("Symbols", func() {
 		})
 
 		It("Should not expose a deprecated bare set_status symbol", func() {
-			for _, s := range arcstatus.Symbols {
+			for _, s := range arcstatus.NewSymbols() {
 				Expect(s.Name).ToNot(Equal("set_status"))
 			}
 		})
@@ -425,7 +425,7 @@ var _ = Describe("Analyzer hooks", func() {
 	}
 	buildRoot := func() *symbol.Symbol {
 		root := symboltestutil.NewRoot(nil, channels...)
-		for _, s := range arcstatus.Symbols {
+		for _, s := range arcstatus.NewSymbols() {
 			root.Parent.AddChild(s)
 		}
 		return root

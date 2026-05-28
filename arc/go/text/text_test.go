@@ -259,7 +259,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -689,7 +689,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -725,7 +726,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -2209,7 +2211,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -2943,11 +2945,10 @@ time.wait{duration=500ms} -> output`
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
-			import error
 			func print{} () {
 			}
 
-			sensor -> error.panic{} -> print{}
+			sensor -> len{} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))

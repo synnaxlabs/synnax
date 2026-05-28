@@ -86,7 +86,7 @@ var _ = Describe("Task", Ordered, func() {
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.NewChannelResolver(dist.Channel, nil)
-			root := arc.NewRoot(resolver, arcstatus.Symbols...)
+			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
 				return svcarc.Arc{}, err
@@ -98,7 +98,7 @@ var _ = Describe("Task", Ordered, func() {
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
 			resolver := symbol.NewChannelResolver(dist.Channel, nil)
-			root := arc.NewRoot(resolver, arcstatus.Symbols...)
+			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err

@@ -68,42 +68,43 @@ func (r *Resolver) EmitChannelWrite(w *wasm.Writer, wID int, elemType types.Type
 	r.EmitImportCallWithSuffix(w, wID, "channels", "write", ct, suffixForType(elemType))
 }
 
-// EmitStateLoad emits a call to state.load for the given type. The host
+// EmitStateLoad emits a call to stateful.load for the given type. The host
 // function is polymorphic; suffix derives from t.
 func (r *Resolver) EmitStateLoad(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}, {Type: t}},
 		Outputs: types.Params{{Type: t}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "state", "load", ct, suffixForType(t))
+	r.EmitImportCallWithSuffix(w, wID, "stateful", "load", ct, suffixForType(t))
 }
 
-// EmitStateStore emits a call to state.store for the given type. The host
-// function is polymorphic; suffix derives from t.
+// EmitStateStore emits a call to stateful.store for the given type. The
+// host function is polymorphic; suffix derives from t.
 func (r *Resolver) EmitStateStore(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: t}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "state", "store", ct, suffixForType(t))
+	r.EmitImportCallWithSuffix(w, wID, "stateful", "store", ct, suffixForType(t))
 }
 
-// EmitStateLoadSeries emits a call to state.load_series. The elemType is used
-// to derive the type suffix (e.g., "f64") even though the WASM params are all i32.
+// EmitStateLoadSeries emits a call to stateful.load_series. The elemType
+// is used to derive the type suffix (e.g., "f64") even though the WASM
+// params are all i32.
 func (r *Resolver) EmitStateLoadSeries(w *wasm.Writer, wID int, elemType types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}, {Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "state", "load_series", ct, elemType.String())
+	r.EmitImportCallWithSuffix(w, wID, "stateful", "load_series", ct, elemType.String())
 }
 
-// EmitStateStoreSeries emits a call to state.store_series. The elemType is used
-// to derive the type suffix.
+// EmitStateStoreSeries emits a call to stateful.store_series. The
+// elemType is used to derive the type suffix.
 func (r *Resolver) EmitStateStoreSeries(w *wasm.Writer, wID int, elemType types.Type) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs: types.Params{{Type: types.I32()}, {Type: types.I32()}},
 	})
-	r.EmitImportCallWithSuffix(w, wID, "state", "store_series", ct, elemType.String())
+	r.EmitImportCallWithSuffix(w, wID, "stateful", "store_series", ct, elemType.String())
 }
 
 var opToArithName = map[string]string{

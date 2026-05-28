@@ -19,7 +19,7 @@
 #include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/status/status.pb.h"
+#include "core/pkg/transport/grpc/status/status.pb.h"
 
 namespace synnax::status {
 using Status = x::status::Status<x::json::json>;

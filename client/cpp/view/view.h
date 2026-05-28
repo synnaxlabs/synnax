@@ -23,7 +23,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 
-#include "core/pkg/api/grpc/view/view.pb.h"
+#include "core/pkg/transport/grpc/view/view.pb.h"
 
 namespace synnax::view {
 

@@ -30,7 +30,7 @@ import (
 // STL-populated root, suitable for compiler unit tests that exercise
 // expressions referencing host functions (channels.write, series.add, ...).
 func FunctionScope(ctx context.Context) *symbol.Symbol {
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	s := testutil.MustSucceed(root.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: arctypes.I32()}))
 	return testutil.MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }

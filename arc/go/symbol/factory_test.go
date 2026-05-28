@@ -22,38 +22,6 @@ import (
 )
 
 var _ = Describe("Factories", func() {
-	Describe("NewModule", func() {
-		It("Should construct a sealed module with the given name", func() {
-			mod := symbol.NewModule("time")
-			Expect(mod.Name).To(Equal("time"))
-			Expect(mod.Kind).To(Equal(symbol.KindModule))
-			Expect(mod.Parent).To(BeNil())
-		})
-
-		It("Should set each member's Parent to the module", func() {
-			mod := symbol.NewModule("time",
-				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
-				symbol.Symbol{Name: "sleep", Kind: symbol.KindFunction, Type: types.F64()},
-			)
-			Expect(mod.Children()).To(HaveLen(2))
-			for _, child := range mod.Children() {
-				Expect(child.Parent).To(Equal(mod))
-			}
-		})
-
-		It("Should copy each member so caller mutations do not leak", func() {
-			member := symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()}
-			mod := symbol.NewModule("time", member)
-			member.Name = "mutated"
-			Expect(mod.Children()[0].Name).To(Equal("now"))
-		})
-
-		It("Should permit construction with no members", func() {
-			mod := symbol.NewModule("empty")
-			Expect(mod.Children()).To(BeEmpty())
-		})
-	})
-
 	Describe("InternalHostFunc", func() {
 		It("Should build a KindFunction symbol flagged Internal and Exec=WASM", func() {
 			sym := symbol.InternalHostFunc(
@@ -83,43 +51,15 @@ var _ = Describe("Factories", func() {
 		})
 	})
 
-	Describe("Deprecate", func() {
-		It("Should return a copy with Deprecated set to the replacement", func() {
-			replacement := &symbol.Symbol{Name: "math.avg", Kind: symbol.KindFunction}
-			deprecated := symbol.Deprecate(
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
-				replacement,
-			)
-			Expect(deprecated.Name).To(Equal("avg"))
-			Expect(deprecated.Deprecated).To(Equal(replacement))
-		})
-
-		It("Should not mutate the input symbol", func() {
-			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()}
-			symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
-			Expect(input.Deprecated).To(BeNil())
-		})
-
-		It("Should return a heap-allocated pointer the caller can mutate independently", func() {
-			input := symbol.Symbol{Name: "avg", Kind: symbol.KindFunction}
-			first := symbol.Deprecate(input, &symbol.Symbol{Name: "math.avg"})
-			second := symbol.Deprecate(input, &symbol.Symbol{Name: "stats.avg"})
-			Expect(first).ToNot(Equal(second))
-			Expect(first.Deprecated.Name).To(Equal("math.avg"))
-			Expect(second.Deprecated.Name).To(Equal("stats.avg"))
-		})
-	})
-
 	Describe("QualifiedName", func() {
 		It("Should prefix the module name for a module member", func() {
-			mod := symbol.NewModule("math",
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction},
-			)
+			mod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{Name: "avg", Kind: symbol.KindFunction})
 			Expect(mod.FindChild("avg").QualifiedName()).To(Equal("math.avg"))
 		})
 
 		It("Should return the bare name for a top-level symbol", func(bCtx SpecContext) {
-			rootScope := symbol.NewRoot(nil)
+			rootScope := symbol.NewRoot(nil, nil)
 			sym := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
@@ -128,7 +68,7 @@ var _ = Describe("Factories", func() {
 		})
 
 		It("Should return the bare name when the parent is not a module", func(bCtx SpecContext) {
-			rootScope := symbol.NewRoot(nil)
+			rootScope := symbol.NewRoot(nil, nil)
 			funcScope := MustSucceed(rootScope.Add(
 				bCtx,
 				symbol.Symbol{Name: "f", Kind: symbol.KindFunction},
@@ -148,16 +88,14 @@ var _ = Describe("Factories", func() {
 
 	Describe("AutoImportModules", func() {
 		It("Should install a KindModuleAlias child for each module in the ambient prelude", func() {
-			timeMod := symbol.NewModule("time",
-				symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()},
-			)
-			mathMod := symbol.NewModule("math",
-				symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()},
-			)
+			timeMod := &symbol.Symbol{Name: "time", Kind: symbol.KindModule}
+			timeMod.AddChild(&symbol.Symbol{Name: "now", Kind: symbol.KindFunction, Type: types.F64()})
+			mathMod := &symbol.Symbol{Name: "math", Kind: symbol.KindModule}
+			mathMod.AddChild(&symbol.Symbol{Name: "avg", Kind: symbol.KindFunction, Type: types.F64()})
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(timeMod)
 			ambient.AddChild(mathMod)
-			root := symbol.NewRoot(nil)
+			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
@@ -180,8 +118,8 @@ var _ = Describe("Factories", func() {
 		It("Should skip non-module children of the ambient prelude", func() {
 			ambient := &symbol.Symbol{Kind: symbol.KindAmbient}
 			ambient.AddChild(&symbol.Symbol{Name: "global_const", Kind: symbol.KindGlobalConstant})
-			ambient.AddChild(symbol.NewModule("time"))
-			root := symbol.NewRoot(nil)
+			ambient.AddChild(&symbol.Symbol{Name: "time", Kind: symbol.KindModule})
+			root := symbol.NewRoot(nil, nil)
 			ambient.AddChild(root)
 
 			symbol.AutoImportModules(root)
@@ -194,7 +132,7 @@ var _ = Describe("Factories", func() {
 	Describe("NewRoot", func() {
 		It("Should attach ambient globals as siblings of the root", func() {
 			channel := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			root := symbol.NewRoot(nil, channel)
+			root := symbol.NewRoot(nil, []*symbol.Symbol{channel})
 			Expect(root.Parent).ToNot(BeNil())
 			Expect(root.Parent.Kind).To(Equal(symbol.KindAmbient))
 			Expect(root.Parent.FindChild("sensor")).ToNot(BeNil())
@@ -202,7 +140,7 @@ var _ = Describe("Factories", func() {
 
 		It("Should shallow-copy each ambient global so callers can reuse them across roots", func() {
 			original := &symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			root := symbol.NewRoot(nil, original)
+			root := symbol.NewRoot(nil, []*symbol.Symbol{original})
 			attached := root.Parent.FindChild("sensor")
 			Expect(attached.Parent).To(Equal(root.Parent))
 			Expect(original.Parent).To(BeNil())
@@ -210,8 +148,8 @@ var _ = Describe("Factories", func() {
 
 		It("Should isolate Parent assignment between concurrent roots", func() {
 			shared := &symbol.Symbol{Name: "shared", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
-			rootA := symbol.NewRoot(nil, shared)
-			rootB := symbol.NewRoot(nil, shared)
+			rootA := symbol.NewRoot(nil, []*symbol.Symbol{shared})
+			rootB := symbol.NewRoot(nil, []*symbol.Symbol{shared})
 			attachedA := rootA.Parent.FindChild("shared")
 			attachedB := rootB.Parent.FindChild("shared")
 			Expect(attachedA).ToNot(BeIdenticalTo(attachedB))
@@ -219,10 +157,9 @@ var _ = Describe("Factories", func() {
 			Expect(attachedB.Parent).To(BeIdenticalTo(rootB.Parent))
 		})
 
-		It("Should install the given dynamic resolver on the root", func(bCtx SpecContext) {
+		It("Should consult the given dynamic resolver on root.Resolve misses", func(bCtx SpecContext) {
 			resolver := &recordingResolver{}
-			root := symbol.NewRoot(resolver)
-			Expect(root.GlobalResolver).To(Equal(resolver))
+			root := symbol.NewRoot(resolver, nil)
 			_, _ = root.Resolve(bCtx, "missing")
 			Expect(resolver.resolveCalls).To(Equal(1))
 		})
