@@ -11,6 +11,7 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"io/fs"
 	"os"
@@ -28,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -39,46 +39,46 @@ import (
 
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
-	// Insecure sets whether not to use TLS for communication. If insecure
-	// is set to true, CACertPath, ClientCertFile, and ClientKeyFile are ignored.
+	// Insecure sets whether not to use TLS for communication. If insecure is set to
+	// true, CACertPath, ClientCertFile, and ClientKeyFile are ignored.
 	Insecure *bool `json:"insecure"`
-	// Enabled is used to enable or disable the embedded driver.
+	// Enabled is used to enable or disable the embedded Driver.
 	Enabled *bool `json:"enabled"`
 	// Debug sets whether to enable debug logging.
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
-	// Credentials are the authentication credentials the driver should use when
+	// Credentials are the authentication credentials the Driver should use when
 	// connecting to the Core.
 	Credentials auth.Credentials
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already
 	// installed on the users' system.
 	CACertPath string `json:"ca_cert_path"`
-	// ClientCertFile sets the path to the client cert file to use for authenticated/
-	// encrypted communication.
+	// ClientCertFile sets the path to the client cert file to use for
+	// authenticated/encrypted communication.
 	ClientCertFile string `json:"client_cert_file"`
-	// ClientKeyFile sets the secret key file used for authenticated/encrypted communication
-	// between the driver and cluster.
+	// ClientKeyFile sets the secret key file used for authenticated/encrypted
+	// communication between the Driver and the Core.
 	ClientKeyFile string `json:"client_key_file"`
-	// Address is the reachable address of the cluster for the driver to connect to.
+	// Address is the reachable address of the Core for the Driver to connect to.
 	Address address.Address `json:"address"`
-	// ParentDirname is the parent directory in which the driver will create a 'driver'
-	// directory to extract and execute the driver binary and extract configuration files
-	// into.
+	// ParentDirname is the parent directory in which the Driver will create a 'driver'
+	// directory to extract and execute the Driver binary and extract configuration
+	// files into.
 	ParentDirname string `json:"parent_dirname"`
-	// FS is the filesystem containing the driver binary. The binary is read from this
+	// FS is the filesystem containing the Driver binary. The binary is read from this
 	// filesystem at the OS-specific name (driver / driver.exe), extracted to disk under
-	// ParentDirname, and executed. When nil, the embedded driver is unavailable and
-	// Open returns a no-op Driver. Defaults to the embedded driver binary when built
+	// ParentDirname, and executed. When nil, the embedded Driver is unavailable and
+	// Open returns a no-op Driver. Defaults to the embedded Driver binary when built
 	// with -tags=driver, and is nil otherwise.
 	FS fs.FS `json:"-"`
 	// Integrations define which device integrations are enabled.
 	Integrations []string `json:"integrations"`
-	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
+	// StartTimeout sets the maximum acceptable time to wait for the Driver to bootup
 	// successfully before timing out and returning a failed startup error.
 	StartTimeout time.Duration `json:"start_timeout"`
-	// StopTimeout is the time to wait for the driver to exit gracefully
+	// StopTimeout is the time to wait for the Driver to exit gracefully
 	// after sending STOP before escalating to a forceful kill.
 	StopTimeout time.Duration `json:"stop_timeout"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
@@ -87,7 +87,7 @@ type Config struct {
 	TaskPollInterval time.Duration `json:"task_poll_interval"`
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
-	// RackKey is the key of the rack that the driver should assume the identity of.
+	// RackKey is the key of the rack that the Driver should assume the identity of.
 	RackKey rack.Key `json:"rack_key"`
 	// ClusterKey is the key of the current cluster.
 	ClusterKey uuid.UUID `json:"cluster_key"`
@@ -197,36 +197,6 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-const (
-	startCmdName        = "start"
-	startStandaloneFlag = "--standalone"
-	blockSigStopFlag    = "--disable-sig-stop"
-	noColorFlag         = "--no-color"
-	configFlag          = "--config"
-	debugFlag           = "--debug"
-)
-
-var (
-	errStartTimeout = errors.New(
-		`timed out waiting for embedded Driver to start. This occurs either because
-the Driver could not reach the Core or a task took an unusual amount of time to
-start. Check logs above categorized 'driver' for more information.
-`,
-	)
-	errForceKillFailed = errors.New(
-		`embedded Driver shutdown timed out after being force killed. This may indicate
-a hardware deadlock or other issue preventing the Driver from exiting gracefully.
-`,
-	)
-)
-
-const (
-	configFileName     = "config.json"
-	extractedDriverDir = "driver"
-)
-
-var configCodec = json.Codec
-
 // Driver manages the lifecycle of an embedded C++ driver subprocess. The driver binary
 // is read from the configured filesystem (Config.FS), extracted to disk, and executed
 // as a child process that communicates with the Synnax cluster.
@@ -272,7 +242,7 @@ type Driver struct {
 
 // Open creates and starts an embedded Driver. When the server is built with
 // -tags=driver, the driver binary is extracted from the embedded filesystem and
-// executed as a subprocess. Otherwise, Open returns a Driver whose methods are no-ops.
+// executed as a subprocess. Otherwise, Open returns a [Driver] whose methods are no-ops.
 // Open also returns a no-op Driver when cfg.Enabled is false.
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(Config{FS: defaultFS}.Override(DefaultConfig), cfgs...)
@@ -299,9 +269,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 // enabled reports whether Open should launch the driver subprocess. The subprocess is
 // only launched when the configuration enables it AND a driver binary is available via
 // the configured filesystem.
-func (d *Driver) enabled() bool {
-	return *d.cfg.Enabled && d.cfg.FS != nil
-}
+func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded driver")
@@ -315,7 +283,7 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var runProcess func(ctx context.Context) error
+	var runProcess func(context.Context) error
 	runProcess = func(ctx context.Context) error {
 		cfgFile, extractedBinary, err := d.setupCmd(ctx)
 		if cfgFile != "" {
@@ -396,7 +364,10 @@ func (d *Driver) start(ctx context.Context) error {
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
-			return errors.Combine(errStartTimeout, closeErr)
+			return errors.Combine(
+				errors.New(
+					"timed out waiting for embedded Driver to start. This occurs either because the Driver could not reach the Core or a task took an unusual amount of time to start. Check logs above categorized 'driver' for more information",
+				), closeErr)
 		}
 		return errors.Combine(
 			errors.Wrap(err, "failed to start Embedded Driver"),
@@ -445,7 +416,9 @@ func (d *Driver) close() error {
 		case err := <-done:
 			return err
 		case <-time.After(d.cfg.StopTimeout):
-			return errForceKillFailed
+			return errors.New(
+				"embedded Driver shutdown timed out after being force killed. This may indicate a hardware deadlock or other issue preventing the Driver from exiting gracefully.",
+			)
 		}
 	}
 }
@@ -458,15 +431,15 @@ func (d *Driver) setupCmd(
 ) (cfgFile, extractedBinary string, _ error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	b, err := configCodec.Encode(ctx, d.cfg.format())
+	b, err := json.Marshal(d.cfg.format())
 	if err != nil {
 		return "", "", err
 	}
-	workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
+	workDir := filepath.Join(d.cfg.ParentDirname, "driver")
 	if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
 		return "", "", err
 	}
-	cfgFile = filepath.Join(workDir, configFileName)
+	cfgFile = filepath.Join(workDir, "config.json")
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
 		return "", "", err
 	}
@@ -479,15 +452,15 @@ func (d *Driver) setupCmd(
 		return cfgFile, "", err
 	}
 	flags := []string{
-		startCmdName,
-		startStandaloneFlag,
-		blockSigStopFlag,
-		noColorFlag,
+		"start",
+		"--standalone",
+		"--disable-sig-stop",
+		"--no-color",
 	}
 	if *d.cfg.Debug {
-		flags = append(flags, debugFlag)
+		flags = append(flags, "--debug")
 	}
-	flags = append(flags, configFlag, cfgFile)
+	flags = append(flags, "--config", cfgFile)
 	d.cmd = exec.Command(extractedBinary, flags...)
 	configureSysProcAttr(d.cmd)
 	return cfgFile, extractedBinary, nil
