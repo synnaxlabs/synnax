@@ -23,12 +23,11 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { Select } from "@/select";
+import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { CELLS } from "@/table/cells/registry";
 import { useClipboard } from "@/table/clipboard";
@@ -109,6 +108,10 @@ export interface TableProps
   // editable is true so structural controls remain reachable, and let it
   // follow a persistent preference otherwise.
   showIndicators?: boolean;
+  // onShowIndicatorsChange, when defined, surfaces a Show / Hide indicators
+  // item in the context menu while editable is false. The callback receives
+  // the next visibility value.
+  onShowIndicatorsChange?: (next: boolean) => void;
   // extraMenuItems is appended to the default context menu items so
   // consumers can add app-specific entries (e.g. "Reload Console").
   extraMenuItems?: ReactNode;
@@ -125,6 +128,7 @@ export const Table = ({
   editable = false,
   onEditableChange,
   showIndicators = true,
+  onShowIndicatorsChange,
   extraMenuItems,
   enableTriggers = true,
   visible,
@@ -138,33 +142,37 @@ export const Table = ({
   const theme = Theming.use();
 
   const addRow = useCallback(
-    (atIndex?: number) =>
-      dispatch({
-        key,
-        actions: [
+    (atIndex?: number, count: number = 1) => {
+      if (count < 1) return;
+      const actions: table.Action[] = [];
+      for (let i = 0; i < count; i++)
+        actions.push(
           table.addRow({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_ROW_SIZE,
             cells: [],
             cellTemplate: newDefaultCell(theme),
           }),
-        ],
-      }),
+        );
+      dispatch({ key, actions });
+    },
     [dispatch, key, theme],
   );
   const addCol = useCallback(
-    (atIndex?: number) =>
-      dispatch({
-        key,
-        actions: [
+    (atIndex?: number, count: number = 1) => {
+      if (count < 1) return;
+      const actions: table.Action[] = [];
+      for (let i = 0; i < count; i++)
+        actions.push(
           table.addCol({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_COL_SIZE,
             cells: [],
             cellTemplate: newDefaultCell(theme),
           }),
-        ],
-      }),
+        );
+      dispatch({ key, actions });
+    },
     [dispatch, key, theme],
   );
   const removeRow = useCallback(
@@ -233,6 +241,8 @@ export const Table = ({
         selected={selected}
         editable={editable}
         onEditableChange={onEditableChange}
+        showIndicators={showIndicators}
+        onShowIndicatorsChange={onShowIndicatorsChange}
         onAddRow={addRow}
         onAddCol={addCol}
         onRemoveRow={removeRow}
@@ -245,6 +255,8 @@ export const Table = ({
       selected,
       editable,
       onEditableChange,
+      showIndicators,
+      onShowIndicatorsChange,
       addRow,
       addCol,
       removeRow,
@@ -409,6 +421,15 @@ export const Table = ({
     [dispatch, editable, key],
   );
 
+  const handleSelectAll = useCallback(() => {
+    if (!editable) return;
+    tableElRef.current?.focus({ preventScroll: true });
+    const all: string[] = [];
+    for (const row of rowsRef.current) for (const k of row.cells) all.push(k);
+    lastSelectedRef.current = all[all.length - 1] ?? null;
+    onSelectionChange?.(all);
+  }, [editable, onSelectionChange]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTableElement>) => {
       if (!editable) return;
@@ -469,6 +490,7 @@ export const Table = ({
                     selected={selected}
                     editable={editable}
                     onSelect={handleColSelect}
+                    onSelectAll={handleSelectAll}
                     onResize={handleColResize}
                   />
                 )}
@@ -499,26 +521,16 @@ export const Table = ({
       </Menu.ContextMenu>
       {editable && (
         <>
-          <Button.Button
+          <AddCountControl
             className={CSS.BE("table-frame", "add-col")}
-            justify="center"
-            align="center"
-            size="tiny"
-            variant="filled"
-            onClick={() => addCol()}
-          >
-            <Icon.Add />
-          </Button.Button>
-          <Button.Button
+            resourceName="column"
+            onAdd={(n) => addCol(undefined, n)}
+          />
+          <AddCountControl
             className={CSS.BE("table-frame", "add-row")}
-            justify="center"
-            align="center"
-            size="tiny"
-            variant="filled"
-            onClick={() => addRow()}
-          >
-            <Icon.Add />
-          </Button.Button>
+            resourceName="row"
+            onAdd={(n) => addRow(undefined, n)}
+          />
         </>
       )}
     </div>

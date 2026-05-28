@@ -9,7 +9,6 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
-import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import {

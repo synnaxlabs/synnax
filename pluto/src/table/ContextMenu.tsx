@@ -21,6 +21,12 @@ export interface DefaultContextMenuProps {
   selected: string[];
   editable: boolean;
   onEditableChange?: (editable: boolean) => void;
+  // showIndicators reflects whether the row/column indicator strips are
+  // currently visible. When onShowIndicatorsChange is also provided and
+  // editable is false, the context menu surfaces a Show / Hide indicators
+  // item.
+  showIndicators?: boolean;
+  onShowIndicatorsChange?: (next: boolean) => void;
   onAddRow: (index?: number) => void;
   onAddCol: (index?: number) => void;
   onRemoveRow: (indices: number[]) => void;
@@ -43,6 +49,8 @@ export const DefaultContextMenu = ({
   selected,
   editable,
   onEditableChange,
+  showIndicators = true,
+  onShowIndicatorsChange,
   onAddRow,
   onAddCol,
   onRemoveRow,
@@ -97,6 +105,11 @@ export const DefaultContextMenu = ({
     () => onEditableChange?.(!editable),
     [onEditableChange, editable],
   );
+  const handleToggleIndicators = useCallback(
+    () => onShowIndicatorsChange?.(!showIndicators),
+    [onShowIndicatorsChange, showIndicators],
+  );
+  const showIndicatorToggle = !editable && onShowIndicatorsChange != null;
   return (
     <Menu.Menu level="small" gap="small">
       {editable && rowIdx != null && (
@@ -168,6 +181,16 @@ export const DefaultContextMenu = ({
         <Menu.Item size="small" itemKey="toggleEdit" onClick={handleToggleEditable}>
           {editable ? <Icon.EditOff /> : <Icon.Edit />}
           {`${editable ? "Disable" : "Enable"} editing`}
+        </Menu.Item>
+      )}
+      {showIndicatorToggle && (
+        <Menu.Item
+          size="small"
+          itemKey="toggleIndicators"
+          onClick={handleToggleIndicators}
+        >
+          {showIndicators ? <Icon.Hidden /> : <Icon.Visible />}
+          {`${showIndicators ? "Hide" : "Show"} indicators`}
         </Menu.Item>
       )}
       {extra != null && (

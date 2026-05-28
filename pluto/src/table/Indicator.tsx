@@ -32,6 +32,7 @@ export interface ColumnIndicatorsProps {
   selected: string[];
   editable: boolean;
   onSelect: (index: number, ev: React.MouseEvent) => void;
+  onSelectAll: () => void;
   onResize: (size: number, index: number) => void;
 }
 
@@ -42,6 +43,7 @@ export const ColumnIndicators = memo(
     selected,
     editable,
     onSelect,
+    onSelectAll,
     onResize,
   }: ColumnIndicatorsProps): ReactElement => {
     // cellToCol indexes the rows once per layout change so selectedCols can
@@ -59,9 +61,18 @@ export const ColumnIndicators = memo(
       }
       return cols;
     }, [cellToCol, selected]);
+    const totalCells = useMemo(
+      () => rows.reduce((n, r) => n + r.cells.length, 0),
+      [rows],
+    );
+    const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
       <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-        <td />
+        <td
+          className={CSS(CSS.BE("table", "select-all"), CSS.selected(allSelected))}
+          onClick={onSelectAll}
+          onContextMenu={onSelectAll}
+        />
         {columns.map((size, i) => (
           <Indicator
             key={i}

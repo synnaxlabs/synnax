@@ -49,6 +49,17 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const handleShowIndicatorsChange = useCallback(
+    (next: boolean) =>
+      dispatch(setHideIndicators({ key: layoutKey, hideIndicators: !next })),
+    [dispatch, layoutKey],
+  );
+
+  const handleDoubleClick = useCallback(() => {
+    if (canEdit)
+      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [canEdit, dispatch]);
+
   // When editing, indicators always show; the hideIndicators setting only
   // takes effect outside edit mode.
   const showIndicators = canEdit || !hideIndicators;
@@ -63,6 +74,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         visible={visible}
         onEditableChange={hasUpdatePermission ? handleEditableChange : undefined}
         showIndicators={showIndicators}
+        onShowIndicatorsChange={handleShowIndicatorsChange}
+        onDoubleClick={handleDoubleClick}
         extraMenuItems={<ContextMenu.ReloadConsoleItem />}
       />
       <TableControls tableKey={layoutKey} />

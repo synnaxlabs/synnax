@@ -686,6 +686,56 @@ describe("table queries", () => {
       expect(result.current).toBeUndefined();
     });
 
+    it("useSelectCells returns the requested cells keyed by id", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () =>
+        Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "c"] }),
+      );
+      expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
+      expect(result.current.get("a")?.props.value).toEqual("A");
+      expect(result.current.get("c")?.props.value).toEqual("C");
+    });
+
+    it("useSelectCells omits missing keys without throwing", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () =>
+        Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "ghost", "c"] }),
+      );
+      expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
+      expect(result.current.has("ghost")).toBe(false);
+    });
+
+    it("useSelectCells returns an empty map when cellKeys is empty", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () =>
+        Table.useSelectCells({ key: seeded.key, cellKeys: [] }),
+      );
+      expect(result.current.size).toBe(0);
+    });
+
+    it("useSelectCells returns a new map when one of the requested cells changes", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        cells: Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "b"] }),
+        dispatch: Table.useDispatch(),
+      }));
+      const initial = result.current.cells;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "a", variant: "value", props: { units: "psi" } },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.cells).not.toBe(initial);
+        expect(result.current.cells.get("a")?.variant).toEqual("value");
+      });
+    });
+
     it("useCellPosition returns the grid coordinates of a known cell and null for an unknown one", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndSelect(seeded.key, () => ({
