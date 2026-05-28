@@ -2198,6 +2198,37 @@ time.wait{duration=500ms} -> output`
 				Expect(main.Liveness).To(Equal(ir.LivenessGated))
 			})
 
+			It("Should emit a distinct gated synth sibling for each body when inline flow targets are nested", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31081},
+					{Name: "inner_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31082},
+				}
+				source := `
+				trigger -> stage {
+				    1 -> stage { 1 -> inner_ch }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var synths []*ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
+							synths = append(synths, m.Scope)
+						}
+					}
+				}
+				Expect(synths).To(HaveLen(2),
+					"outer and nested inline bodies must each surface as a root synth sibling")
+				Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
+				for _, s := range synths {
+					Expect(s.Liveness).To(Equal(ir.LivenessGated))
+					Expect(s.Activation).ToNot(BeNil(),
+						"each synth must be gated by its own activation handle")
+				}
+			})
+
 			It("Should reject `=> next` inside an inline routing case body", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30081},

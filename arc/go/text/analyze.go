@@ -88,6 +88,9 @@ type shellBuilder struct {
 	// inlineBodyBases records the stack length at the entry of each enclosing
 	// inline routing case body; `next` is rejected if no frame was pushed since.
 	inlineBodyBases []int
+	// synthByAST maps each inline-body declaration to its synth scope, keyed by
+	// the declaration's parser node.
+	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
 }
 
 // rootInline is an inline routing case body whose IR was lowered while an
@@ -98,8 +101,11 @@ type rootInline struct {
 	edges []ir.Edge
 }
 
-func newShellBuilder() *shellBuilder {
-	return &shellBuilder{activations: map[string]ir.Handle{}}
+func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
+	return &shellBuilder{
+		activations: map[string]ir.Handle{},
+		synthByAST:  synthByAST,
+	}
 }
 
 // pushSeq declares a new sequential frame with the given member keys.
@@ -336,7 +342,7 @@ func analyzeInlineBody(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (flowNodeResult, bool) {
-	synth := findSynthInlineByAST(ctx.Scope.Root(), decl)
+	synth := shell.synthByAST[decl]
 	if synth == nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
 			"internal: synth scope not registered for inline body"))
@@ -730,7 +736,7 @@ func Analyze(
 		})
 	}
 	kg := newKeyGenerator(&i.Functions)
-	shell := newShellBuilder()
+	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -1167,17 +1173,21 @@ func extractConfigValues(
 	return config, true
 }
 
-// findSynthInlineByAST returns the synth scope whose AST is ast, or nil.
-func findSynthInlineByAST(root *symbol.Symbol, ast antlr.ParserRuleContext) *symbol.Symbol {
-	for _, child := range root.Children() {
-		if child.AST == ast {
-			return child
-		}
-		if found := findSynthInlineByAST(child, ast); found != nil {
-			return found
+// collectSynthByAST returns a map from each inline-body declaration in the tree
+// rooted at root to its synth scope, keyed by the declaration's parser node.
+func collectSynthByAST(root *symbol.Symbol) map[antlr.ParserRuleContext]*symbol.Symbol {
+	m := map[antlr.ParserRuleContext]*symbol.Symbol{}
+	var walk func(s *symbol.Symbol)
+	walk = func(s *symbol.Symbol) {
+		for _, child := range s.Children() {
+			if child.AST != nil && strings.HasPrefix(child.Name, ir.InlinePrefix) {
+				m[child.AST] = child
+			}
+			walk(child)
 		}
 	}
-	return nil
+	walk(root)
+	return m
 }
 
 // processInlineBody lowers an inline stage/sequence body to IR with the current
