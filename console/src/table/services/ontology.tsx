@@ -21,7 +21,6 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Table } from "@/table";
-import { fromWire } from "@/table/slice";
 
 const useDelete = createUseDelete({
   type: "Table",
@@ -96,8 +95,8 @@ const loadTable = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const table = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ ...fromWire(table), name: table.name }));
+  const t = await client.tables.retrieve({ key });
+  placeLayout(Table.create({ key: t.key, name: t.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -124,11 +123,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const table = await client.tables.retrieve({ key });
+    const t = await client.tables.retrieve({ key });
     placeLayout(
       Table.create({
-        ...fromWire(table),
-        name: table.name,
+        key: t.key,
+        name: t.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
