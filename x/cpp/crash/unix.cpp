@@ -177,6 +177,12 @@ void install_signal(const int sig) {
 
 void install(const std::string &name) {
     std::snprintf(program_name, sizeof(program_name), "%s", name.c_str());
+    // Pre-warm the unwinder: glibc's first backtrace() lazily dlopens libgcc and may
+    // allocate. Doing it here keeps the signal path allocation-free, avoiding a
+    // deadlock if the crash is taken while the allocator lock is held (e.g. a fault in
+    // malloc).
+    void *warm[MAX_FRAMES];
+    backtrace(warm, MAX_FRAMES);
     stack_t ss = {};
     ss.ss_sp = alt_stack;
     ss.ss_size = sizeof(alt_stack);

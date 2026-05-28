@@ -142,93 +142,29 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var runProcess func(ctx context.Context) error
-	runProcess = func(ctx context.Context) error {
-		cfgFile, extractedBinary, err := d.setupCmd(ctx)
-		if cfgFile != "" {
-			defer func() {
-				if rmErr := os.Remove(cfgFile); rmErr != nil {
-					d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+	sCtx.Go(func(ctx context.Context) error {
+		for {
+			action, err := d.runOnce(ctx, policy)
+			switch action {
+			case restart.Restart:
+				continue
+			case restart.GiveUp:
+				if d.closing.Load() {
+					return nil
 				}
-			}()
-		}
-		if extractedBinary != "" {
-			defer func() {
-				if rmErr := os.Remove(extractedBinary); rmErr != nil {
-					d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
+				d.cfg.L.Error(
+					"embedded driver exceeded restart limit; giving up",
+					zap.Error(err),
+				)
+				return err
+			default: // restart.Stop: expected shutdown (nil), or a launch failure.
+				if d.closing.Load() {
+					return nil
 				}
-			}()
-		}
-		if err != nil {
-			return err
-		}
-		stdoutPipe, err := d.cmd.StdoutPipe()
-		if err != nil {
-			return err
-		}
-		stderrPipe, err := d.cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-		d.stdInPipe, err = d.cmd.StdinPipe()
-		if err != nil {
-			return err
-		}
-
-		if err := d.cmd.Start(); err != nil {
-			return err
-		}
-		startedAt := time.Now()
-
-		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-		defer cancel()
-
-		startedOnce := &sync.Once{}
-		internalSCtx.Go(func(context.Context) error {
-			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
-			return nil
-		},
-			signal.WithKey("stdout_pipe"),
-			signal.RecoverWithErrOnPanic(),
-			signal.WithRetryOnPanic(),
-		)
-		internalSCtx.Go(func(context.Context) error {
-			log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
-			return nil
-		},
-			signal.WithKey("stderr_pipe"),
-			signal.RecoverWithErrOnPanic(),
-			signal.WithRetryOnPanic(),
-		)
-		internalSCtx.Go(func(context.Context) error {
-			return d.cmd.Wait()
-		},
-			signal.WithKey("wait"),
-			signal.RecoverWithErrOnPanic())
-		err = internalSCtx.Wait()
-		expected := d.closing.Load()
-		if !expected {
-			d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
-		}
-		switch policy.Decide(expected, time.Since(startedAt)) {
-		case restart.Restart:
-			return runProcess(ctx)
-		case restart.GiveUp:
-			// A shutdown that lands here (context canceled mid-backoff) is expected,
-			// not a crash loop — return quietly.
-			if d.closing.Load() {
-				return nil
+				return err
 			}
-			d.cfg.L.Error(
-				"embedded driver exceeded restart limit; giving up",
-				zap.Error(err),
-			)
-			return err
-		default: // restart.Stop
-			return nil
 		}
-	}
-	sCtx.Go(runProcess)
+	})
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -240,6 +176,78 @@ func (d *Driver) start(ctx context.Context) error {
 		)
 	}
 	return nil
+}
+
+// runOnce launches the driver subprocess, pipes its output, and blocks until it exits.
+// Its deferred temp-file and context cleanup run before it returns, so a supervisor that
+// calls runOnce in a loop neither accumulates cleanups nor grows its stack per restart.
+// It returns the restart Action for the exit and the exit (or launch) error.
+func (d *Driver) runOnce(
+	ctx context.Context,
+	policy *restart.Policy,
+) (restart.Action, error) {
+	cfgFile, extractedBinary, err := d.setupCmd(ctx)
+	if cfgFile != "" {
+		defer func() {
+			if rmErr := os.Remove(cfgFile); rmErr != nil {
+				d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+			}
+		}()
+	}
+	if extractedBinary != "" {
+		defer func() {
+			if rmErr := os.Remove(extractedBinary); rmErr != nil {
+				d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
+			}
+		}()
+	}
+	if err != nil {
+		return restart.Stop, err
+	}
+	stdoutPipe, err := d.cmd.StdoutPipe()
+	if err != nil {
+		return restart.Stop, err
+	}
+	stderrPipe, err := d.cmd.StderrPipe()
+	if err != nil {
+		return restart.Stop, err
+	}
+	if err = d.cmd.Start(); err != nil {
+		return restart.Stop, err
+	}
+	startedAt := time.Now()
+
+	internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
+	defer cancel()
+
+	startedOnce := &sync.Once{}
+	internalSCtx.Go(func(context.Context) error {
+		log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
+		return nil
+	},
+		signal.WithKey("stdout_pipe"),
+		signal.RecoverWithErrOnPanic(),
+		signal.WithRetryOnPanic(),
+	)
+	internalSCtx.Go(func(context.Context) error {
+		log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
+		return nil
+	},
+		signal.WithKey("stderr_pipe"),
+		signal.RecoverWithErrOnPanic(),
+		signal.WithRetryOnPanic(),
+	)
+	internalSCtx.Go(func(context.Context) error {
+		return d.cmd.Wait()
+	},
+		signal.WithKey("wait"),
+		signal.RecoverWithErrOnPanic())
+	err = internalSCtx.Wait()
+	expected := d.closing.Load()
+	if !expected {
+		d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
+	}
+	return policy.Decide(expected, time.Since(startedAt)), err
 }
 
 const stopKeyword = "STOP\n"
@@ -347,5 +355,10 @@ func (d *Driver) setupCmd(
 	flags = append(flags, configFlag, cfgFile)
 	d.cmd = exec.Command(driverPath, flags...)
 	configureSysProcAttr(d.cmd)
+	// Create the stdin pipe here, under d.mu, so cmd and stdInPipe are published together
+	// and Close (via currentProcess) never reads a half-set pair during a restart.
+	if d.stdInPipe, err = d.cmd.StdinPipe(); err != nil {
+		return cfgFile, extractedBinary, err
+	}
 	return cfgFile, extractedBinary, nil
 }

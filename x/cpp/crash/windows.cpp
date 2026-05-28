@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <mutex>
 #include <string>
 
 #include "x/cpp/crash/crash.h"
@@ -90,6 +91,13 @@ void install(const std::string &name) {
 }
 
 std::string capture_trace() {
+    // DbgHelp uses a single global, single-threaded symbol session, so concurrent calls
+    // race (one's SymCleanup tears down another's session). Serialize it; POSIX
+    // backtrace is reentrant and needs no guard. The crash path is already
+    // single-threaded via claim_crash, so this only matters for concurrent diagnostic
+    // calls.
+    static std::mutex sym_mu;
+    const std::lock_guard lock(sym_mu);
     const HANDLE process = GetCurrentProcess();
     SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
     SymInitialize(process, nullptr, TRUE);

@@ -139,7 +139,7 @@ var (
 		Debug:                new(false),
 		StartTimeout:         time.Second * 10,
 		StopTimeout:          10 * time.Second,
-		RestartBaseInterval:  time.Second,
+		RestartBaseInterval:  2 * time.Second,
 		RestartMaxRetries:    100,
 		RestartHealthyUptime: time.Minute,
 		TaskOpTimeout:        time.Second * 60,
