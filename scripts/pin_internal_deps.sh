@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Pins the version constraints of internal workspace dependencies (alamos,
+# synnax-freighter, synnax-x) in each Python package's pyproject.toml to
+# ">=<dep-version>,<<dep-next-minor>>".
+#
+# Each constraint is derived from the depended-on package's own version, not the
+# depending package's. This keeps the published metadata satisfiable even when versions
+# diverge: if synnax is 0.55.2 but synnax-x is still 0.55.1, synnax pins
+# "synnax-x>=0.55.1,<0.56.0" (the release that actually exists) rather than demanding a
+# nonexistent 0.55.2.
+#
+# uv does not rewrite workspace dependency constraints at publish time, and the
+# pyproject.toml entries are intentionally left unconstrained for local development.
+# This script is run by the deploy pipeline immediately before `uv build` so the
+# published wheel metadata pins matching releases (see SY-4246). It is not meant to be
+# committed: it mutates the working tree of an ephemeral release checkout.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(
+    cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
+    pwd
+)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
+
+INTERNAL_PACKAGES=("alamos" "synnax-freighter" "synnax-x")
+
+PACKAGE_DIRS=(
+    "$ROOT_DIR/alamos/py"
+    "$ROOT_DIR/freighter/py"
+    "$ROOT_DIR/client/py"
+    "$ROOT_DIR/x/py"
+)
+
+# pyproject.toml that defines each internal package.
+pyproject_for() {
+    case "$1" in
+        alamos) echo "$ROOT_DIR/alamos/py/pyproject.toml" ;;
+        synnax-freighter) echo "$ROOT_DIR/freighter/py/pyproject.toml" ;;
+        synnax-x) echo "$ROOT_DIR/x/py/pyproject.toml" ;;
+        *)
+            echo "❌ Unknown internal package: $1" >&2
+            return 1
+            ;;
+    esac
+}
+
+version_of() {
+    local pyproject="$1" version
+    if [[ ! -f "$pyproject" ]]; then
+        echo "❌ File not found: $pyproject" >&2
+        return 1
+    fi
+    version="$(grep -m1 '^version[[:space:]]*=' "$pyproject" | cut -d '"' -f2)"
+    if [[ -z "$version" ]]; then
+        echo "❌ Could not read version from $pyproject" >&2
+        return 1
+    fi
+    echo "$version"
+}
+
+# Maps a version to a ">=<version>,<<next-minor>>" constraint, e.g. 0.55.1 ->
+# >=0.55.1,<0.56.0.
+constraint_for() {
+    local version="$1" major minor
+    major="${version%%.*}"
+    minor="${version#*.}"
+    minor="${minor%%.*}"
+    echo ">=${version},<${major}.$((minor + 1)).0"
+}
+
+SED_ARGS=()
+for name in "${INTERNAL_PACKAGES[@]}"; do
+    dep_constraint="$(constraint_for "$(version_of "$(pyproject_for "$name")")")"
+    SED_ARGS+=(-e "s|^([[:space:]]*)\"${name}([<>=!~][^\"]*)?\",|\1\"${name}${dep_constraint}\",|")
+    echo "→ ${name}${dep_constraint}"
+done
+
+for d in "${PACKAGE_DIRS[@]}"; do
+    pyproject="$d/pyproject.toml"
+    if [[ ! -f "$pyproject" ]]; then
+        echo "❌ File not found: $pyproject" >&2
+        exit 1
+    fi
+    tmp="$(mktemp)"
+    sed -E "${SED_ARGS[@]}" "$pyproject" > "$tmp"
+    mv "$tmp" "$pyproject"
+    echo "✅ Pinned internal deps in $pyproject"
+done
