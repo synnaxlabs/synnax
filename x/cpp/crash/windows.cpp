@@ -84,7 +84,10 @@ LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
         info->ExceptionRecord->ExceptionCode
     );
     print_trace();
-    return EXCEPTION_EXECUTE_HANDLER;
+    // Return EXCEPTION_CONTINUE_SEARCH so the OS default unhandled-exception path
+    // (Windows Error Reporting, minidump, JIT debugger) still runs after the trace is
+    // written, mirroring the POSIX handler's re-raise that preserves crash semantics.
+    return EXCEPTION_CONTINUE_SEARCH;
 }
 
 [[noreturn]] void terminate_handler() {
