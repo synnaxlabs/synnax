@@ -41,4 +41,15 @@ namespace x::crash {
 ///
 /// @param program_name name printed in the crash banner. Truncated to 255 bytes.
 void install(const std::string &program_name = "synnax-driver");
+
+/// @brief captures a formatted, symbolized stack trace of the calling thread and
+/// returns it, one frame per line. It uses the same capture and symbolization machinery
+/// as the crash handlers (backtrace + demangling on POSIX, DbgHelp on Windows), so it
+/// doubles as a way to exercise that machinery outside of a crash — both for voluntary
+/// diagnostics (logging a trace on a suspicious but non-fatal path) and for testing.
+///
+/// Unlike the signal handler's trace, this allocates and is NOT async-signal-safe; do
+/// not call it from a signal handler. Symbol name resolution depends on the available
+/// symbols (see install): without symbols, frames are addresses only.
+std::string capture_trace();
 }

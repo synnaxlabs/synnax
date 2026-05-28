@@ -7,8 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <csignal>
+#include <cstdlib>
+#include <exception>
 #include <stdexcept>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -18,7 +28,6 @@
 using ::testing::AllOf;
 using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
-using ::testing::KilledBySignal;
 using ::testing::Not;
 
 #if defined(_MSC_VER)
@@ -59,7 +68,27 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
     );
 }
 
+/// @brief it should capture a symbolized stack trace of the calling thread on demand,
+/// without a crash. Exercises the trace engine (DbgHelp on Windows, backtrace on POSIX)
+/// deterministically on every platform; CI's crash death tests cannot, since they only
+/// assert an address is present.
+TEST(CrashTest, CaptureTraceProducesFrames) {
+    const std::string trace = x::crash::capture_trace();
+    EXPECT_THAT(trace, ContainsRegex("0x[0-9a-fA-F]+"));
+    EXPECT_GE(std::count(trace.begin(), trace.end(), '\n'), 2);
+}
+
 #ifndef _WIN32
+using ::testing::KilledBySignal;
+
+/// @brief it should resolve and demangle symbol names in the captured trace where
+/// symbols are available. capture_trace is reached through testing::Test::Run, whose
+/// mangled name only reads as "testing::Test::Run" once demangled. (Windows needs a
+/// .pdb, absent in fastbuild, so POSIX-only.)
+TEST(CrashTest, CaptureTraceSymbolizesFrames) {
+    EXPECT_THAT(x::crash::capture_trace(), HasSubstr("testing::Test::Run"));
+}
+
 /// @brief it should produce a demangled, human-readable trace rather than raw mangled
 /// symbols. The gtest frame that invokes the test body is always on the death-test
 /// stack, and its mangled name (_ZN7testing4Test3RunEv) only reads as
@@ -133,5 +162,20 @@ TEST(CrashDeathTest, DoesNotInterceptSigterm) {
         KilledBySignal(SIGTERM),
         Not(HasSubstr("crashed"))
     );
+}
+#endif
+
+#ifdef _WIN32
+/// @brief it should install both the unhandled-exception filter and the terminate
+/// handler. Inspects the registered handlers rather than triggering a crash, mirroring
+/// the POSIX InstallsHandlersForFatalSignals test.
+TEST(CrashTest, InstallsWindowsHandlers) {
+    std::set_terminate(+[] { std::abort(); });
+    const std::terminate_handler sentinel = std::get_terminate();
+    x::crash::install("test-driver");
+    EXPECT_NE(std::get_terminate(), sentinel);
+    const LPTOP_LEVEL_EXCEPTION_FILTER prev = SetUnhandledExceptionFilter(nullptr);
+    SetUnhandledExceptionFilter(prev);
+    EXPECT_NE(prev, nullptr);
 }
 #endif

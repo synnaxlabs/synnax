@@ -34,48 +34,6 @@ constexpr DWORD MAX_SYMBOL_NAME = 255;
 /// @brief name printed in the crash banner.
 char program_name[256] = "synnax-driver";
 
-/// @brief captures and writes the current stack trace to stderr, resolving symbol
-/// names from the loaded .pdb via DbgHelp. Frames that cannot be resolved are printed
-/// as raw addresses.
-void print_trace() {
-    const HANDLE process = GetCurrentProcess();
-    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
-    SymInitialize(process, nullptr, TRUE);
-
-    void *frames[MAX_FRAMES];
-    const USHORT n = CaptureStackBackTrace(0, MAX_FRAMES, frames, nullptr);
-
-    // SYMBOL_INFO is variable-length (the name trails the struct); allocate an aligned
-    // buffer large enough for the struct plus the name, per the DbgHelp contract.
-    ULONG64 buffer
-        [(sizeof(SYMBOL_INFO) + MAX_SYMBOL_NAME + sizeof(ULONG64) - 1) /
-         sizeof(ULONG64)];
-    auto *symbol = reinterpret_cast<SYMBOL_INFO *>(buffer);
-    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-    symbol->MaxNameLen = MAX_SYMBOL_NAME;
-
-    for (USHORT i = 0; i < n; i++) {
-        const auto addr = reinterpret_cast<DWORD64>(frames[i]);
-        if (SymFromAddr(process, addr, nullptr, symbol))
-            std::fprintf(
-                stderr,
-                "  %u: %s [0x%llx]\n",
-                i,
-                symbol->Name,
-                static_cast<unsigned long long>(addr)
-            );
-        else
-            std::fprintf(
-                stderr,
-                "  %u: [0x%llx]\n",
-                i,
-                static_cast<unsigned long long>(addr)
-            );
-    }
-    std::fflush(stderr);
-    SymCleanup(process);
-}
-
 LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
     std::fprintf(
         stderr,
@@ -83,7 +41,8 @@ LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
         program_name,
         info->ExceptionRecord->ExceptionCode
     );
-    print_trace();
+    std::fputs(capture_trace().c_str(), stderr);
+    std::fflush(stderr);
     // Return EXCEPTION_CONTINUE_SEARCH so the OS default unhandled-exception path
     // (Windows Error Reporting, minidump, JIT debugger) still runs after the trace is
     // written, mirroring the POSIX handler's re-raise that preserves crash semantics.
@@ -100,7 +59,8 @@ LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
         } catch (...) { std::fprintf(stderr, "  (non-standard exception)\n"); }
     }
     std::fputs("stack trace:\n", stderr);
-    print_trace();
+    std::fputs(capture_trace().c_str(), stderr);
+    std::fflush(stderr);
     std::abort();
 }
 }
@@ -113,5 +73,49 @@ void install(const std::string &name) {
     SetThreadStackGuarantee(&guarantee);
     SetUnhandledExceptionFilter(exception_filter);
     std::set_terminate(terminate_handler);
+}
+
+std::string capture_trace() {
+    const HANDLE process = GetCurrentProcess();
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+    SymInitialize(process, nullptr, TRUE);
+
+    void *frames[MAX_FRAMES];
+    const USHORT n = CaptureStackBackTrace(0, MAX_FRAMES, frames, nullptr);
+
+    // SYMBOL_INFO is variable-length (the name trails the struct); allocate an aligned
+    // buffer large enough for the struct plus the name, per the DbgHelp contract.
+    ULONG64 buffer
+        [(sizeof(SYMBOL_INFO) + MAX_SYMBOL_NAME + sizeof(ULONG64) - 1) /
+         sizeof(ULONG64)];
+    auto *symbol = reinterpret_cast<SYMBOL_INFO *>(buffer);
+    symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+    symbol->MaxNameLen = MAX_SYMBOL_NAME;
+
+    std::string out;
+    char line[512];
+    for (USHORT i = 0; i < n; i++) {
+        const auto addr = reinterpret_cast<DWORD64>(frames[i]);
+        if (SymFromAddr(process, addr, nullptr, symbol))
+            std::snprintf(
+                line,
+                sizeof(line),
+                "  %u: %s [0x%llx]\n",
+                i,
+                symbol->Name,
+                static_cast<unsigned long long>(addr)
+            );
+        else
+            std::snprintf(
+                line,
+                sizeof(line),
+                "  %u: [0x%llx]\n",
+                i,
+                static_cast<unsigned long long>(addr)
+            );
+        out += line;
+    }
+    SymCleanup(process);
+    return out;
 }
 }

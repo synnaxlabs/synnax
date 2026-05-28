@@ -104,20 +104,6 @@ std::string demangle_line(const std::string &line) {
     return out;
 }
 
-/// @brief captures and writes the current stack trace to fd with demangled symbol
-/// names. Falls back to print_trace_safe if symbol strings are unavailable.
-void print_trace_demangled(const int fd) {
-    void *frames[MAX_FRAMES];
-    const int n = backtrace(frames, MAX_FRAMES);
-    char **symbols = backtrace_symbols(frames, n);
-    if (symbols == nullptr) return print_trace_safe(fd);
-    for (int i = 0; i < n; i++) {
-        const std::string line = demangle_line(symbols[i]) + "\n";
-        write_str(fd, line.c_str());
-    }
-    std::free(symbols);
-}
-
 void signal_handler(const int sig) {
     write_str(STDERR_FILENO, "*** ");
     write_str(STDERR_FILENO, program_name);
@@ -144,7 +130,11 @@ void signal_handler(const int sig) {
         } catch (...) { write_str(STDERR_FILENO, "  (non-standard exception)\n"); }
     }
     write_str(STDERR_FILENO, "stack trace:\n");
-    print_trace_demangled(STDERR_FILENO);
+    const std::string trace = capture_trace();
+    if (trace.empty())
+        print_trace_safe(STDERR_FILENO);
+    else
+        write_str(STDERR_FILENO, trace.c_str());
     // SIGABRT is one of our handled signals; reset it so abort() dies cleanly instead
     // of re-entering signal_handler and printing a second, redundant banner.
     std::signal(SIGABRT, SIG_DFL);
@@ -177,5 +167,19 @@ void install(const std::string &name) {
     install_signal(SIGFPE);
     install_signal(SIGBUS);
     std::set_terminate(terminate_handler);
+}
+
+std::string capture_trace() {
+    void *frames[MAX_FRAMES];
+    const int n = backtrace(frames, MAX_FRAMES);
+    char **symbols = backtrace_symbols(frames, n);
+    if (symbols == nullptr) return "";
+    std::string out;
+    for (int i = 0; i < n; i++) {
+        out += demangle_line(symbols[i]);
+        out += '\n';
+    }
+    std::free(symbols);
+    return out;
 }
 }
