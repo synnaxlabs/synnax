@@ -713,6 +713,27 @@ describe("table queries", () => {
       expect(result.current.size).toBe(0);
     });
 
+    it("useSelectCells keeps its reference when an unrelated cell changes", async () => {
+      const seeded = await seedTable();
+      const { result } = await loadAndSelect(seeded.key, () => ({
+        cells: Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "b"] }),
+        dispatch: Table.useDispatch(),
+      }));
+      const initial = result.current.cells;
+      expect(initial.size).toBe(2);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            table.setCell({
+              cell: { key: "c", variant: "value", props: { units: "psi" } },
+            }),
+          ],
+        });
+      });
+      expect(result.current.cells).toBe(initial);
+    });
+
     it("useSelectCells returns a new map when one of the requested cells changes", async () => {
       const seeded = await seedTable();
       const { result } = await loadAndSelect(seeded.key, () => ({
