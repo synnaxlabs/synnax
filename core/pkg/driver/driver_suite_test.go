@@ -14,11 +14,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/driver"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -33,7 +33,11 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func() {
 	tmpDir := GinkgoT().TempDir()
-	binaryPath := filepath.Join(tmpDir, driver.DriverName)
+	driverName := "driver"
+	if runtime.GOOS == "windows" {
+		driverName = "driver.exe"
+	}
+	binaryPath := filepath.Join(tmpDir, driverName)
 	cmd := exec.Command(
 		"go", "build", "-o", binaryPath,
 		"./testdata/mockdriver",
