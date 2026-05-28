@@ -219,7 +219,7 @@ func (t deleteRequestTranslator) Backward(
 	return apistatus.DeleteRequest{Keys: msg.Keys}, nil
 }
 
-func (t setByKeyOrNameRequestTranslator) Forward(
+func (setByKeyOrNameRequestTranslator) Forward(
 	_ context.Context,
 	msg apistatus.SetByKeyOrNameRequest,
 ) (*SetByKeyOrNameRequest, error) {
@@ -230,7 +230,7 @@ func (t setByKeyOrNameRequestTranslator) Forward(
 	}, nil
 }
 
-func (t setByKeyOrNameRequestTranslator) Backward(
+func (setByKeyOrNameRequestTranslator) Backward(
 	_ context.Context,
 	msg *SetByKeyOrNameRequest,
 ) (apistatus.SetByKeyOrNameRequest, error) {
@@ -241,42 +241,42 @@ func (t setByKeyOrNameRequestTranslator) Backward(
 	}, nil
 }
 
-func (t setByKeyOrNameResponseTranslator) Forward(
+func (setByKeyOrNameResponseTranslator) Forward(
 	_ context.Context,
 	msg apistatus.SetByKeyOrNameResponse,
 ) (*SetByKeyOrNameResponse, error) {
 	return &SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
 }
 
-func (t setByKeyOrNameResponseTranslator) Backward(
+func (setByKeyOrNameResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetByKeyOrNameResponse,
 ) (apistatus.SetByKeyOrNameResponse, error) {
 	return apistatus.SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
 }
 
-func (t deleteByKeyOrNameRequestTranslator) Forward(
+func (deleteByKeyOrNameRequestTranslator) Forward(
 	_ context.Context,
 	msg apistatus.DeleteByKeyOrNameRequest,
 ) (*DeleteByKeyOrNameRequest, error) {
 	return &DeleteByKeyOrNameRequest{KeyOrName: msg.KeyOrName}, nil
 }
 
-func (t deleteByKeyOrNameRequestTranslator) Backward(
+func (deleteByKeyOrNameRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteByKeyOrNameRequest,
 ) (apistatus.DeleteByKeyOrNameRequest, error) {
 	return apistatus.DeleteByKeyOrNameRequest{KeyOrName: msg.KeyOrName}, nil
 }
 
-func (t deleteByKeyOrNameResponseTranslator) Forward(
+func (deleteByKeyOrNameResponseTranslator) Forward(
 	_ context.Context,
 	msg apistatus.DeleteByKeyOrNameResponse,
 ) (*DeleteByKeyOrNameResponse, error) {
 	return &DeleteByKeyOrNameResponse{Count: int32(msg.Count)}, nil
 }
 
-func (t deleteByKeyOrNameResponseTranslator) Backward(
+func (deleteByKeyOrNameResponseTranslator) Backward(
 	_ context.Context,
 	msg *DeleteByKeyOrNameResponse,
 ) (apistatus.DeleteByKeyOrNameResponse, error) {

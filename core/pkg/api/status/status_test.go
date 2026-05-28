@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package status
+package status_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -37,7 +38,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "hello",
 				Variant:   xstatus.VariantInfo,
@@ -62,7 +63,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(key))
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: key,
 				Message:   "updated",
 				Variant:   xstatus.VariantWarning,
@@ -83,7 +84,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "updated",
 				Variant:   xstatus.VariantWarning,
@@ -99,7 +100,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   "bogus",
@@ -111,7 +112,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: "",
 				Message:   "x",
 				Variant:   xstatus.VariantInfo,
@@ -122,7 +123,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			name := "api_unauth_" + uuid.New().String()
 			anon := freshUser(ctx)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "noop",
 				Variant:   xstatus.VariantInfo,
@@ -139,7 +140,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(uuid.NewString()))
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   xstatus.VariantInfo,
@@ -160,7 +161,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			}))
 			Expect(res.Count).To(Equal(1))
@@ -181,7 +182,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			}))
 			Expect(res.Count).To(Equal(2))
@@ -198,7 +199,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				status.OntologyID(preKey))
 
-			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, rower), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, rower), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			}))
 			Expect(res.Count).To(Equal(1))
@@ -210,7 +211,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			}))
 			Expect(res.Count).To(Equal(0))
@@ -226,7 +227,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			})).To(Succeed())
 			anon := freshUser(ctx)
 
-			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), DeleteByKeyOrNameRequest{
+			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			})).Error().To(MatchError(access.ErrDenied))
 
@@ -245,7 +246,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				status.OntologyID(uuid.NewString()))
 
-			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), DeleteByKeyOrNameRequest{
+			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			})).Error().To(MatchError(access.ErrDenied))
 
@@ -258,7 +259,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			Expect(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), apistatus.DeleteByKeyOrNameRequest{
 				KeyOrName: "",
 			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 		})

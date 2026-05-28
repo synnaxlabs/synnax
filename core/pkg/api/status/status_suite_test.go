@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package status
+package status_test
 
 import (
 	"testing"
@@ -16,9 +16,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -44,7 +48,7 @@ var (
 	rbacSvc   *rbac.Service
 	statusSvc *status.Service
 	labelSvc  *label.Service
-	apiSvc    *Service
+	apiSvc    *apistatus.Service
 	author    user.User
 	userSvc   *user.Service
 )
@@ -68,12 +72,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
 	}))
-	apiSvc = &Service{
-		db:       db,
-		access:   rbacSvc,
-		internal: statusSvc,
-		label:    labelSvc,
-	}
+	apiSvc = MustSucceed(apistatus.NewService(apicfg.LayerConfig{
+		Distribution: &distribution.Layer{DB: db},
+		Service: &svc.Layer{
+			Status: statusSvc,
+			Label:  labelSvc,
+			RBAC:   rbacSvc,
+		},
+	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
 })
 

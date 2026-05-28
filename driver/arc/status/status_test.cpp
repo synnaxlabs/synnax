@@ -380,4 +380,4 @@ TEST(DeleteStatusTest, NextWarnsWhenMissing) {
     EXPECT_NE(calls[0].second.find("no status found"), std::string::npos);
 }
 
-} // namespace driver::arc::status
+}
