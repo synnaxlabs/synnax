@@ -21,12 +21,10 @@ Key = uuid {
 
 TimestampConfig struct {
     format telem.TimestampFormat {
-        @doc value        "controls how channel timestamps are rendered."
-        @validate default "preciseDate"
+        @doc value "controls how channel timestamps are rendered."
     }
     tz     telem.TimeZone        {
-        @doc value        "is the time zone used when rendering timestamps."
-        @validate default "local"
+        @doc value "is the time zone used when rendering timestamps."
     }
 
     @doc value "is per-channel timestamp display configuration."
@@ -58,7 +56,8 @@ ChannelEntry struct {
         @validate default ""
     }
     timestamp TimestampConfig   {
-        @doc value "is the per-channel timestamp display configuration."
+        @doc value        "is the per-channel timestamp display configuration."
+        @validate default { format "preciseDate", tz "local" }
     }
 
     @doc value "is a per-channel display configuration entry within a log."

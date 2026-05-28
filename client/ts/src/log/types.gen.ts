@@ -18,9 +18,9 @@ import { ontology } from "@/ontology";
 /** TimestampConfig is per-channel timestamp display configuration. */
 export const timestampConfigZ = z.object({
   /** format controls how channel timestamps are rendered. */
-  format: telem.timestampFormatZ.default("preciseDate"),
+  format: telem.timestampFormatZ,
   /** tz is the time zone used when rendering timestamps. */
-  tz: telem.timeZoneZ.default("local"),
+  tz: telem.timeZoneZ,
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
 
@@ -44,7 +44,7 @@ export const channelEntryZ = z.object({
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().default(""),
   /** timestamp is the per-channel timestamp display configuration. */
-  timestamp: timestampConfigZ,
+  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
 });
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 
