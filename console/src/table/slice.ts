@@ -63,6 +63,11 @@ export interface SetSelectedCellsPayload {
   anchor?: string | null;
 }
 
+export interface SetHideIndicatorsPayload {
+  key: string;
+  hideIndicators?: boolean;
+}
+
 export interface ClearPendingUploadPayload {
   key: string;
 }
@@ -116,6 +121,14 @@ export const { actions, reducer } = createSlice({
         table.lastSelected = null;
       }
     },
+    setHideIndicators: (
+      state,
+      { payload }: PayloadAction<SetHideIndicatorsPayload>,
+    ) => {
+      const t = state.tables[payload.key];
+      if (t == null) return;
+      t.hideIndicators = payload.hideIndicators ?? !t.hideIndicators;
+    },
     clearPendingUpload: (
       state,
       { payload }: PayloadAction<ClearPendingUploadPayload>,
@@ -133,6 +146,7 @@ export const {
   selectCells,
   setSelectedCells,
   setEditable,
+  setHideIndicators,
   clearPendingUpload,
 } = actions;
 

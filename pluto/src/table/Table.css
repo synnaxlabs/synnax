@@ -10,11 +10,19 @@
  */
 
 .pluto-table-frame {
+    --pluto-table-indicator-size: 4.5rem;
+
     display: grid;
     width: fit-content;
-    grid-template-rows: auto 3.5rem;
-    grid-template-columns: auto 3.5rem;
+    grid-template-rows: auto var(--pluto-table-indicator-size);
+    grid-template-columns: auto var(--pluto-table-indicator-size);
     gap: 0;
+
+    &,
+    & *:focus,
+    & *:focus-visible {
+        outline: none;
+    }
 
     & .pluto-table-frame__canvas {
         position: absolute;
@@ -25,8 +33,8 @@
     }
 
     & .pluto-table-frame__add-col {
-        width: 3.5rem;
-        height: 3.5rem;
+        width: var(--pluto-table-indicator-size);
+        height: var(--pluto-table-indicator-size);
         border-bottom-left-radius: 0;
         border-top-left-radius: 0;
         grid-column-start: 2;
@@ -39,8 +47,8 @@
     }
 
     & .pluto-table-frame__add-row {
-        width: 3.5rem;
-        height: 3.5rem;
+        width: var(--pluto-table-indicator-size);
+        height: var(--pluto-table-indicator-size);
         grid-column-start: 1;
         grid-column-end: 1;
         grid-row-start: 2;
@@ -71,14 +79,17 @@
         }
     }
 
+    .pluto-table__row:not(.pluto-table__col-resizer):has(.pluto--selected)
+        .pluto-table__resizer {
+        background: var(--pluto-primary-z-15);
+    }
+
     .pluto-table__resizer {
+        position: relative;
         background: var(--pluto-gray-l2);
         z-index: 6;
         &.pluto--selected {
-            background: var(--pluto-primary-z-30);
-            .pluto-text {
-                color: var(--pluto-gray-l11) !important;
-            }
+            background: var(--pluto-primary-z-15);
         }
 
         &.pluto--direction-y {
@@ -86,18 +97,16 @@
             border-bottom: var(--pluto-border-l5);
 
             & button {
-                transform: translateY(-3px);
+                bottom: 0;
                 left: 0;
                 cursor: row-resize;
                 height: 6px;
-                width: calc(100% + 3.5rem);
-                border-bottom: var(--pluto-border);
-                border-color: transparent;
+                width: 100%;
 
                 &::after {
                     content: "";
                     position: absolute;
-                    top: 50%;
+                    bottom: 0;
                     left: 0;
                     width: 100%;
                     height: 2px;
@@ -106,23 +115,21 @@
         }
 
         &.pluto--direction-x {
-            height: 3.5rem;
+            height: var(--pluto-table-indicator-size);
             border-bottom: var(--pluto-border-l5);
             border-right: var(--pluto-border-l5);
 
             & button {
                 top: 0;
-                transform: translateX(-1px);
+                right: 0;
                 cursor: col-resize;
                 height: 100%;
                 width: 6px;
-                border-right: var(--pluto-border);
-                border-color: transparent;
                 &::after {
                     content: "";
                     position: absolute;
                     top: 0;
-                    left: 50%;
+                    right: 0;
                     width: 2px;
                     height: 100%;
                 }
@@ -152,6 +159,19 @@
         border-top: none;
         border-left: none;
         padding: 0;
+        overflow: hidden;
+
+        /*
+         * The inner content div is locked to the row's stored size so a cell
+         * whose content wants more vertical room (e.g. wrapped text) clips
+         * at the row's bottom instead of growing the row. Without this, the
+         * row's drag handle (positioned from rowYCursor + row.size) and the
+         * row's visible bottom border drift apart.
+         */
+        & > .pluto-table__cell__content {
+            overflow: hidden;
+            width: 100%;
+        }
         &::after {
             content: "";
             box-sizing: content-box;
@@ -171,19 +191,17 @@
             border: none;
             &::after {
                 opacity: 1;
-                border-color: var(
-                    --pluto-primary-p1
-                ); /* Border is now handled by the pseudo-element */
+                border-color: var(--pluto-primary-z);
             }
         }
     }
 
     .pluto-table__col-resizer {
         & > *:first-child {
-            width: 3.5rem;
-            height: 3.5rem;
-            max-width: 3.5rem;
-            min-width: 3.5rem;
+            width: var(--pluto-table-indicator-size);
+            height: var(--pluto-table-indicator-size);
+            max-width: var(--pluto-table-indicator-size);
+            min-width: var(--pluto-table-indicator-size);
             margin: 0;
             border-right: var(--pluto-border-l5);
             border-bottom: var(--pluto-border-l5);

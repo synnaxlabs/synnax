@@ -779,6 +779,49 @@ describe("findCellPosition", () => {
   });
 });
 
+describe("nextCellPosition", () => {
+  const rows: table.Row[] = [
+    { size: 30, cells: ["a", "b"] },
+    { size: 30, cells: ["c", "d"] },
+  ];
+
+  it("steps forward within a row", () => {
+    expect(Table.nextCellPosition(rows, { x: 0, y: 0 }, 1)).toEqual({ x: 1, y: 0 });
+  });
+
+  it("wraps forward to the start of the next row at row-end", () => {
+    expect(Table.nextCellPosition(rows, { x: 1, y: 0 }, 1)).toEqual({ x: 0, y: 1 });
+  });
+
+  it("returns null when stepping forward past the last cell", () => {
+    expect(Table.nextCellPosition(rows, { x: 1, y: 1 }, 1)).toBeNull();
+  });
+
+  it("steps backward within a row", () => {
+    expect(Table.nextCellPosition(rows, { x: 1, y: 1 }, -1)).toEqual({ x: 0, y: 1 });
+  });
+
+  it("wraps backward to the end of the previous row at row-start", () => {
+    expect(Table.nextCellPosition(rows, { x: 0, y: 1 }, -1)).toEqual({ x: 1, y: 0 });
+  });
+
+  it("returns null when stepping backward past the first cell", () => {
+    expect(Table.nextCellPosition(rows, { x: 0, y: 0 }, -1)).toBeNull();
+  });
+
+  it("returns null when pos's row is out of range", () => {
+    expect(Table.nextCellPosition(rows, { x: 0, y: 5 }, 1)).toBeNull();
+  });
+
+  it("skips empty neighbor rows when wrapping", () => {
+    const ragged: table.Row[] = [
+      { size: 30, cells: ["a"] },
+      { size: 30, cells: [] },
+    ];
+    expect(Table.nextCellPosition(ragged, { x: 0, y: 0 }, 1)).toBeNull();
+  });
+});
+
 describe("cellsInRegion", () => {
   const rows: table.Row[] = [
     { size: 30, cells: ["a", "b", "c"] },

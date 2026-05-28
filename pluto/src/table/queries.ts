@@ -129,6 +129,34 @@ export const useSelectCell = Flux.createSelector<
   select: (store, { key, cellKey }) => store.tables.get(key)?.cells?.[cellKey],
 });
 
+export interface SelectCellsArgs {
+  key: table.Key;
+  cellKeys: string[];
+}
+
+// useSelectCells returns a Map<cellKey, Cell> for the given cellKeys, omitting
+// keys that don't resolve to a cell. The map preserves caller-provided key
+// order; consumers that need positional iteration should iterate cellKeys and
+// look up via the map.
+export const useSelectCells = Flux.createSelector<
+  FluxSubStore,
+  SelectCellsArgs,
+  Map<string, table.Cell>
+>({
+  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+  select: (store, { key, cellKeys }) => {
+    const result = new Map<string, table.Cell>();
+    if (cellKeys.length === 0) return result;
+    const t = store.tables.get(key);
+    if (t == null) return result;
+    for (const cellKey of cellKeys) {
+      const cell = t.cells?.[cellKey];
+      if (cell != null) result.set(cellKey, cell);
+    }
+    return result;
+  },
+});
+
 export type DeleteParams = table.Key | table.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
@@ -285,6 +313,28 @@ export const findCellPosition = (rows: table.Row[], cellKey: string): xy.XY | nu
     if (x !== -1) return { x, y };
   }
   return null;
+};
+
+// nextCellPosition returns the (x, y) grid coordinates of the cell one step
+// forward (dir=1) or backward (dir=-1) from pos in row-major order. At a
+// row's end (forward) the position wraps to the start of the next row;
+// (backward) to the end of the previous row. Returns null when the move
+// would step past the first or last cell of the table, when pos's row is
+// out of range, or when the resulting row has no cells (e.g. a ragged
+// asymmetric state).
+export const nextCellPosition = (
+  rows: table.Row[],
+  pos: xy.XY,
+  dir: 1 | -1,
+): xy.XY | null => {
+  if (rows[pos.y] == null) return null;
+  const x = pos.x + dir;
+  if (x >= 0 && x < rows[pos.y].cells.length) return { x, y: pos.y };
+  const y = pos.y + dir;
+  if (y < 0 || y >= rows.length) return null;
+  const row = rows[y];
+  if (row.cells.length === 0) return null;
+  return { x: dir === 1 ? 0 : row.cells.length - 1, y };
 };
 
 // cellsInRegion returns the cell keys inside the inclusive axis-aligned

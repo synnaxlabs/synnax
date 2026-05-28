@@ -9,9 +9,10 @@
 
 import { table } from "@synnaxlabs/client";
 import { box, dimensions, type record, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback } from "react";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { Select } from "@/select";
 import { CELLS } from "@/table/cells/registry";
 import { Indicator } from "@/table/Indicator";
 import { useDispatch, useSelectCell } from "@/table/queries";
@@ -23,81 +24,100 @@ export interface RowProps {
   resourceKey: table.Key;
   cells: string[];
   columns: number[];
-  selected: string[];
   editable: boolean;
+  showIndicator?: boolean;
   onResize: (size: number, index: number) => void;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, ev: React.MouseEvent) => void;
   onCellSelect: (cellKey: string, ev: MouseEvent) => void;
 }
 
-export const Row = ({
-  index,
-  size,
-  position,
-  resourceKey,
-  cells,
-  columns,
-  selected,
-  editable,
-  onResize,
-  onSelect,
-  onCellSelect,
-}: RowProps): ReactElement => {
-  let xCursor = 3.5 * 6;
-  return (
-    <tr className={CSS(CSS.BE("table", "row"))}>
-      <Indicator
-        direction="y"
-        index={index}
-        value={size}
-        position={position}
-        editable={editable}
-        onChange={onResize}
-        onSelect={onSelect}
-      />
-      {cells.map((cellKey, i) => {
-        const xPos = xCursor;
-        xCursor += columns[i];
-        return (
-          <VariantCell
-            key={cellKey}
-            resourceKey={resourceKey}
-            cellKey={cellKey}
-            box={box.construct(
-              xy.construct({ x: xPos, y: position }),
-              dimensions.construct(columns[i], size),
-            )}
-            selected={selected.includes(cellKey)}
-            onSelect={onCellSelect}
+export const Row = memo(
+  ({
+    index,
+    size,
+    position,
+    resourceKey,
+    cells,
+    columns,
+    editable,
+    showIndicator = true,
+    onResize,
+    onSelect,
+    onCellSelect,
+  }: RowProps): ReactElement => {
+    let xCursor = showIndicator ? 4.5 * 6 : 0;
+    return (
+      <tr className={CSS(CSS.BE("table", "row"))}>
+        {showIndicator && (
+          <Indicator
+            direction="y"
+            index={index}
+            value={size}
+            editable={editable}
+            onChange={onResize}
+            onSelect={onSelect}
           />
-        );
-      })}
-    </tr>
-  );
-};
+        )}
+        {cells.map((cellKey, i) => {
+          const xPos = xCursor;
+          xCursor += columns[i];
+          return (
+            <VariantCell
+              key={cellKey}
+              resourceKey={resourceKey}
+              cellKey={cellKey}
+              x={xPos}
+              y={position}
+              width={columns[i]}
+              height={size}
+              editable={editable}
+              onSelect={onCellSelect}
+            />
+          );
+        })}
+      </tr>
+    );
+  },
+);
+Row.displayName = "Row";
 
 interface VariantCellProps {
   resourceKey: table.Key;
   cellKey: string;
-  box: box.Box;
-  selected: boolean;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  editable: boolean;
   onSelect: (cellKey: string, ev: MouseEvent) => void;
 }
 
 // VariantCell is the bridge between the connected Table and the per-variant
 // cell components in @/table/cells. The variant component renders its own
 // <td> (via the Cell primitive); VariantCell wires it to flux state and a
-// dispatch-backed onChange handler.
+// dispatch-backed onChange handler. It takes x/y/width/height as primitives
+// (not a Box) so the memo barrier compares stable scalars; the Box is
+// constructed once per geometry change inside. Selection is read via
+// Select.useItemState so a cell re-renders only when its own selection flips,
+// not on every selection event elsewhere in the table.
 const VariantCell = memo(
   ({
     resourceKey,
     cellKey,
-    box,
-    selected,
+    x,
+    y,
+    width,
+    height,
+    editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
     const cell = useSelectCell({ key: resourceKey, cellKey });
+    const { selected } = Select.useItemState(cellKey);
     const { dispatch } = useDispatch();
+    const b = useMemo(
+      () => box.construct(xy.construct({ x, y }), dimensions.construct(width, height)),
+      [x, y, width, height],
+    );
     const handleChange = useCallback(
       (props: record.Unknown) => {
         if (cell == null) return;
@@ -116,8 +136,9 @@ const VariantCell = memo(
     return (
       <Spec.Cell
         cellKey={cellKey}
-        box={box}
+        box={b}
         selected={selected}
+        editable={editable}
         onSelect={onSelect}
         onChange={handleChange}
         {...cell.props}

@@ -9,7 +9,7 @@
 
 import "@/table/cells/Cells.css";
 
-import { type box, color, location, type record, scale, text } from "@synnaxlabs/x";
+import { box, color, location, type record, scale, text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -35,6 +35,7 @@ export type CellProps<P extends object = record.Unknown> = P & {
   cellKey: string;
   box: box.Box;
   selected: boolean;
+  editable: boolean;
   onSelect: (key: string, ev: React.MouseEvent) => void;
   onChange: (props: P) => void;
 };
@@ -44,7 +45,9 @@ export const Text = ({
   onChange,
   value,
   selected,
+  editable,
   onSelect,
+  box: b,
   align,
   level,
   weight,
@@ -62,6 +65,7 @@ export const Text = ({
         CSS.BEM("table", "cell", "text"),
       )}
       selected={selected}
+      height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
       style={{ backgroundColor: color.cssString(backgroundColor) }}
@@ -72,6 +76,7 @@ export const Text = ({
         weight={weight}
         onChange={handleValueChange}
         style={{ justifyContent: align }}
+        allowDoubleClick={editable}
         allowEmpty
         outline={false}
       />
@@ -134,9 +139,10 @@ export const Value = ({
     <Base
       id={cellKey}
       selected={selected}
+      height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ height: "5rem", width }}
+      style={{ width }}
       className={CSS(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,

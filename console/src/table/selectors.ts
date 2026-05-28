@@ -38,6 +38,12 @@ export const selectEditable = (state: StoreState, key: string): boolean =>
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
+export const selectHideIndicators = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key)?.hideIndicators ?? false;
+
+export const useSelectHideIndicators = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectHideIndicators(state, key), [key]);
+
 export const selectSelectedCellKeys = (state: StoreState, key: string): string[] =>
   selectOptional(state, key)?.selectedCells ?? [];
 

@@ -21,7 +21,6 @@ const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>)
             direction="x"
             index={0}
             value={80}
-            position={0}
             editable
             onChange={() => {}}
             onSelect={() => {}}
@@ -43,13 +42,22 @@ describe("Indicator", () => {
     expect(container.querySelector("button")).toBeNull();
   });
 
-  it("forwards click and context menu to onSelect", () => {
+  it("forwards click and context menu to onSelect with the event", () => {
     const onSelect = vi.fn();
     const { container } = renderIndicator({ editable: false, onSelect });
     const td = container.querySelector("td.pluto-table__resizer");
     fireEvent.click(td!);
     fireEvent.contextMenu(td!);
     expect(onSelect).toHaveBeenCalledTimes(2);
-    expect(onSelect).toHaveBeenCalledWith(0);
+    expect(onSelect).toHaveBeenNthCalledWith(
+      1,
+      0,
+      expect.objectContaining({ type: "click" }),
+    );
+    expect(onSelect).toHaveBeenNthCalledWith(
+      2,
+      0,
+      expect.objectContaining({ type: "contextmenu" }),
+    );
   });
 });

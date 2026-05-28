@@ -9,8 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-table {
-    width: 100%;
-    height: 100%;
-    overflow: auto;
+.pluto-table-cell-select-variant {
+    min-width: 30rem;
 }

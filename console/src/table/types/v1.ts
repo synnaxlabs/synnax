@@ -32,6 +32,10 @@ export const stateZ = z.object({
   lastSelected: z.string().nullable(),
   editable: z.boolean(),
   selectedCells: z.array(z.string()).default([]),
+  // hideIndicators controls whether the row/column indicator strips are
+  // hidden when editable is false. Setting only takes effect outside edit
+  // mode; entering edit mode always shows them.
+  hideIndicators: z.boolean().default(false),
   pendingUpload: pendingUploadZ.optional(),
 });
 
@@ -43,6 +47,7 @@ export const ZERO_STATE: State = {
   lastSelected: null,
   editable: true,
   selectedCells: [],
+  hideIndicators: false,
   pendingUpload: undefined,
 };
 
@@ -92,6 +97,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
     lastSelected: state.lastSelected,
     editable: state.editable,
     selectedCells: [],
+    hideIndicators: false,
     pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
   }),
 });

@@ -9,7 +9,7 @@
 
 import { type table } from "@synnaxlabs/client";
 import { box, direction } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
@@ -31,65 +31,69 @@ export interface ColumnIndicatorsProps {
   rows: table.Row[];
   selected: string[];
   editable: boolean;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, ev: React.MouseEvent) => void;
   onResize: (size: number, index: number) => void;
 }
 
-export const ColumnIndicators = ({
-  columns,
-  rows,
-  selected,
-  editable,
-  onSelect,
-  onResize,
-}: ColumnIndicatorsProps): ReactElement => {
-  const selectedSet = new Set(selected);
-  const selectedCols = new Set<number>();
-  for (const row of rows)
-    row.cells.forEach((k, i) => {
-      if (selectedSet.has(k)) selectedCols.add(i);
-    });
-  let xCursor = 2.5 * 6;
-  return (
-    <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
-      <td />
-      {columns.map((size, i) => {
-        const xPos = xCursor;
-        xCursor += size;
-        return (
+export const ColumnIndicators = memo(
+  ({
+    columns,
+    rows,
+    selected,
+    editable,
+    onSelect,
+    onResize,
+  }: ColumnIndicatorsProps): ReactElement => {
+    // cellToCol indexes the rows once per layout change so selectedCols can
+    // resolve each selected cell to its column in O(1).
+    const cellToCol = useMemo(() => {
+      const map = new Map<string, number>();
+      for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
+      return map;
+    }, [rows]);
+    const selectedCols = useMemo(() => {
+      const cols = new Set<number>();
+      for (const k of selected) {
+        const idx = cellToCol.get(k);
+        if (idx !== undefined) cols.add(idx);
+      }
+      return cols;
+    }, [cellToCol, selected]);
+    return (
+      <tr className={CSS(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
+        <td />
+        {columns.map((size, i) => (
           <Indicator
             key={i}
             direction="x"
             index={i}
             value={size}
-            position={xPos}
             selected={selectedCols.has(i)}
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
           />
-        );
-      })}
-    </tr>
-  );
-};
+        ))}
+      </tr>
+    );
+  },
+);
+ColumnIndicators.displayName = "ColumnIndicators";
 
 export interface IndicatorProps {
   direction: direction.Direction;
   index: number;
   value: number;
-  position: number;
   editable: boolean;
   selected?: boolean;
   onChange: (size: number, index: number) => void;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, ev: React.MouseEvent) => void;
 }
 
 export const Indicator = ({
   direction: dir,
   index,
   value,
-  position,
   editable,
   selected = false,
   onChange,
@@ -117,19 +121,14 @@ export const Indicator = ({
         selected && Menu.CONTEXT_SELECTED,
       )}
       style={{ [direction.dimension(dir)]: value }}
-      onClick={() => onSelect(index)}
-      onContextMenu={() => onSelect(index)}
+      onClick={(e) => onSelect(index, e)}
+      onContextMenu={(e) => onSelect(index, e)}
     >
       <Text.Text full="x" justify="center" align="center" square={false}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       {editable && (
-        <button
-          onClick={stopPropagation}
-          style={{ [direction.location(dir)]: position + value }}
-          onDragStart={onDragStart}
-          draggable
-        />
+        <button onClick={stopPropagation} onDragStart={onDragStart} draggable />
       )}
     </td>
   );

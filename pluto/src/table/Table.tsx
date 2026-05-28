@@ -10,13 +10,14 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { box, id, math } from "@synnaxlabs/x";
+import { box, id, math, type xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { type z } from "zod";
@@ -27,6 +28,7 @@ import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
+import { Select } from "@/select";
 import { table as aetherTable } from "@/table/aether";
 import { CELLS } from "@/table/cells/registry";
 import { useClipboard } from "@/table/clipboard";
@@ -35,6 +37,7 @@ import { ColumnIndicators } from "@/table/Indicator";
 import {
   cellsInRegion,
   findCellPosition,
+  nextCellPosition,
   useDispatch,
   useEnsureRetrieved,
   useRedo,
@@ -60,6 +63,14 @@ const TRIGGERS_CONFIG: Triggers.ModeConfig<TriggerMode> = {
 };
 
 const FLATTENED_TRIGGERS_CONFIG = Triggers.flattenConfig(TRIGGERS_CONFIG);
+
+const NAV_KEYS = new Set<Triggers.Key>([
+  "Tab",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+]);
 
 const BASE_ROW_SIZE = 36;
 const BASE_COL_SIZE = 72;
@@ -93,6 +104,11 @@ export interface TableProps
   // onEditableChange, when defined, surfaces a "Enable/Disable editing"
   // item in the context menu. The callback receives the toggled value.
   onEditableChange?: (editable: boolean) => void;
+  // showIndicators controls whether the row and column indicator strips
+  // render. Defaults to true. Consumers typically force this to true while
+  // editable is true so structural controls remain reachable, and let it
+  // follow a persistent preference otherwise.
+  showIndicators?: boolean;
   // extraMenuItems is appended to the default context menu items so
   // consumers can add app-specific entries (e.g. "Reload Console").
   extraMenuItems?: ReactNode;
@@ -108,6 +124,7 @@ export const Table = ({
   onSelectionChange,
   editable = false,
   onEditableChange,
+  showIndicators = true,
   extraMenuItems,
   enableTriggers = true,
   visible,
@@ -151,11 +168,26 @@ export const Table = ({
     [dispatch, key, theme],
   );
   const removeRow = useCallback(
-    (index: number) => dispatch({ key, actions: [table.removeRow({ index })] }),
+    (indices: number[]) => {
+      if (indices.length === 0) return;
+      // Descending order so earlier removes don't shift later indices.
+      const sorted = [...indices].sort((a, b) => b - a);
+      dispatch({
+        key,
+        actions: sorted.map((index) => table.removeRow({ index })),
+      });
+    },
     [dispatch, key],
   );
   const removeCol = useCallback(
-    (index: number) => dispatch({ key, actions: [table.removeCol({ index })] }),
+    (indices: number[]) => {
+      if (indices.length === 0) return;
+      const sorted = [...indices].sort((a, b) => b - a);
+      dispatch({
+        key,
+        actions: sorted.map((index) => table.removeCol({ index })),
+      });
+    },
     [dispatch, key],
   );
   const eraseSelected = useCallback(
@@ -198,6 +230,7 @@ export const Table = ({
       <DefaultContextMenu
         resourceKey={key}
         targetID={keys[0] ?? null}
+        selected={selected}
         editable={editable}
         onEditableChange={onEditableChange}
         onAddRow={addRow}
@@ -209,6 +242,7 @@ export const Table = ({
     ),
     [
       key,
+      selected,
       editable,
       onEditableChange,
       addRow,
@@ -257,7 +291,8 @@ export const Table = ({
     (cellKey: string, ev: MouseEvent) => {
       if (!editable) return;
       tableElRef.current?.focus({ preventScroll: true });
-      const { shiftKey, ctrlKey, metaKey } = ev;
+      const { shiftKey, ctrlKey, metaKey, type } = ev;
+      if (type === "contextmenu" && selectedRef.current.includes(cellKey)) return;
       if (shiftKey && lastSelectedRef.current != null) {
         const start = findCellPosition(rowsRef.current, lastSelectedRef.current);
         const end = findCellPosition(rowsRef.current, cellKey);
@@ -281,11 +316,37 @@ export const Table = ({
   );
 
   const handleRowSelect = useCallback(
-    (index: number) => {
+    (index: number, ev: React.MouseEvent) => {
       if (!editable) return;
       tableElRef.current?.focus({ preventScroll: true });
       const row = rowsRef.current[index];
       if (row == null) return;
+      const { shiftKey, ctrlKey, metaKey, type } = ev;
+      if (
+        type === "contextmenu" &&
+        row.cells.every((k) => selectedRef.current.includes(k))
+      )
+        return;
+      if (shiftKey && lastSelectedRef.current != null) {
+        const anchor = findCellPosition(rowsRef.current, lastSelectedRef.current);
+        if (anchor != null) {
+          const minY = Math.min(anchor.y, index);
+          const maxY = Math.max(anchor.y, index);
+          const cells: string[] = [];
+          for (let y = minY; y <= maxY; y++)
+            for (const k of rowsRef.current[y]?.cells ?? []) cells.push(k);
+          lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+          onSelectionChange?.(cells);
+          return;
+        }
+      }
+      if (ctrlKey || metaKey) {
+        const next = new Set(selectedRef.current);
+        for (const k of row.cells) next.add(k);
+        lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
+        onSelectionChange?.(Array.from(next));
+        return;
+      }
       lastSelectedRef.current = row.cells[row.cells.length - 1] ?? null;
       onSelectionChange?.(row.cells);
     },
@@ -293,12 +354,41 @@ export const Table = ({
   );
 
   const handleColSelect = useCallback(
-    (index: number) => {
+    (index: number, ev: React.MouseEvent) => {
       if (!editable) return;
       tableElRef.current?.focus({ preventScroll: true });
       const colCells = rowsRef.current
         .map((r) => r.cells[index])
         .filter((k): k is string => k != null);
+      const { shiftKey, ctrlKey, metaKey, type } = ev;
+      if (
+        type === "contextmenu" &&
+        colCells.every((k) => selectedRef.current.includes(k))
+      )
+        return;
+      if (shiftKey && lastSelectedRef.current != null) {
+        const anchor = findCellPosition(rowsRef.current, lastSelectedRef.current);
+        if (anchor != null) {
+          const minX = Math.min(anchor.x, index);
+          const maxX = Math.max(anchor.x, index);
+          const cells: string[] = [];
+          for (const row of rowsRef.current)
+            for (let x = minX; x <= maxX; x++) {
+              const k = row.cells[x];
+              if (k != null) cells.push(k);
+            }
+          lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+          onSelectionChange?.(cells);
+          return;
+        }
+      }
+      if (ctrlKey || metaKey) {
+        const next = new Set(selectedRef.current);
+        for (const k of colCells) next.add(k);
+        lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
+        onSelectionChange?.(Array.from(next));
+        return;
+      }
       lastSelectedRef.current = colCells[colCells.length - 1] ?? null;
       onSelectionChange?.(colCells);
     },
@@ -319,14 +409,43 @@ export const Table = ({
     [dispatch, editable, key],
   );
 
-  const colSizes = columns.map((c) => c.size);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableElement>) => {
+      if (!editable) return;
+      const key = Triggers.eventKey(e);
+      if (!NAV_KEYS.has(key)) return;
+      const anchor = lastSelectedRef.current;
+      if (anchor == null) return;
+      const pos = findCellPosition(rowsRef.current, anchor);
+      if (pos == null) return;
+      e.preventDefault();
+      let next: xy.XY | null = null;
+      if (key === "Tab")
+        next = nextCellPosition(rowsRef.current, pos, e.shiftKey ? -1 : 1);
+      else if (key === "ArrowRight" && pos.x + 1 < rowsRef.current[pos.y].cells.length)
+        next = { x: pos.x + 1, y: pos.y };
+      else if (key === "ArrowLeft" && pos.x > 0) next = { x: pos.x - 1, y: pos.y };
+      else if (key === "ArrowDown" && pos.y + 1 < rowsRef.current.length)
+        next = { x: pos.x, y: pos.y + 1 };
+      else if (key === "ArrowUp" && pos.y > 0) next = { x: pos.x, y: pos.y - 1 };
+      if (next == null) return;
+      const nextKey = rowsRef.current[next.y]?.cells[next.x];
+      if (nextKey == null) return;
+      lastSelectedRef.current = nextKey;
+      onSelectionChange?.([nextKey]);
+    },
+    [editable, onSelectionChange],
+  );
+
+  const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
   const totalRow = rows.reduce((a, r) => a + r.size, 0);
 
-  let rowYCursor = 3.5 * 6;
+  let rowYCursor = showIndicators ? 4.5 * 6 : 0;
   return (
     <div
       className={CSS(CSS.B("table-frame"), CSS.editable(editable), className)}
+      onContextMenu={menuProps.open}
       {...rest}
     >
       <Menu.ContextMenu menu={renderMenu} {...menuProps}>
@@ -335,41 +454,45 @@ export const Table = ({
           ref={tableElRef}
           className={CSS(CSS.B("table"), menuProps.className)}
           style={{ width: totalCol, height: totalRow }}
-          onContextMenu={menuProps.open}
           onCopy={onCopy}
           onPaste={editable ? onPaste : undefined}
+          onKeyDown={handleKeyDown}
           tabIndex={-1}
         >
           <tbody>
             <Aether.Composite path={path}>
-              <ColumnIndicators
-                columns={colSizes}
-                rows={rows}
-                selected={selected}
-                editable={editable}
-                onSelect={handleColSelect}
-                onResize={handleColResize}
-              />
-              {rows.map((row, rowIndex) => {
-                const yPos = rowYCursor;
-                rowYCursor += row.size;
-                return (
-                  <Row
-                    key={rowIndex}
-                    index={rowIndex}
-                    resourceKey={key}
-                    cells={row.cells}
+              <Select.Provider value={selected}>
+                {showIndicators && (
+                  <ColumnIndicators
                     columns={colSizes}
-                    position={yPos}
-                    size={row.size}
+                    rows={rows}
                     selected={selected}
                     editable={editable}
-                    onSelect={handleRowSelect}
-                    onResize={handleRowResize}
-                    onCellSelect={handleCellSelect}
+                    onSelect={handleColSelect}
+                    onResize={handleColResize}
                   />
-                );
-              })}
+                )}
+                {rows.map((row, rowIndex) => {
+                  const yPos = rowYCursor;
+                  rowYCursor += row.size;
+                  return (
+                    <Row
+                      key={rowIndex}
+                      index={rowIndex}
+                      resourceKey={key}
+                      cells={row.cells}
+                      columns={colSizes}
+                      position={yPos}
+                      size={row.size}
+                      editable={editable}
+                      showIndicator={showIndicators}
+                      onSelect={handleRowSelect}
+                      onResize={handleRowResize}
+                      onCellSelect={handleCellSelect}
+                    />
+                  );
+                })}
+              </Select.Provider>
             </Aether.Composite>
           </tbody>
         </table>
