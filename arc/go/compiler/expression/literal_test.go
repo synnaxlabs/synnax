@@ -104,6 +104,22 @@ var _ = Describe("Literal Compilation", func() {
 			float64(3.14),
 		),
 
+		Entry(
+			"time-span literal in i64 cast context",
+			"i64(5400s)",
+			types.I64(),
+			OpI64Const,
+			int64(5_400_000_000_000),
+		),
+
+		Entry(
+			"time-span literal in u64 cast context",
+			"u64(5400s)",
+			types.U64(),
+			OpI64Const,
+			int64(5_400_000_000_000),
+		),
+
 		// Boolean Literals (parsed as identifiers in the grammar)
 		Entry(
 			"boolean true",
