@@ -95,7 +95,9 @@ verify_pinned() {
 
 SED_ARGS=()
 for name in "${INTERNAL_PACKAGES[@]}"; do
-    dep_constraint="$(constraint_for "$(version_of "$(pyproject_for "$name")")")"
+    dep_pyproject="$(pyproject_for "$name")"
+    dep_version="$(version_of "$dep_pyproject")"
+    dep_constraint="$(constraint_for "$dep_version")"
     SED_ARGS+=(-e "s|^([[:space:]]*)\"${name}([<>=!~][^\"]*)?\"(,?)[[:space:]]*\$|\1\"${name}${dep_constraint}\"\3|")
     echo "→ ${name}${dep_constraint}"
 done
