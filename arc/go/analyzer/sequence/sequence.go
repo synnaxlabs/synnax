@@ -35,25 +35,21 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 			collectTopLevelStage(context.Child(ctx, stageDecl), ctx.Scope)
 		}
 	}
-	desugarInlineRoutingDecls(ctx)
+	desugarInlineDecls(ctx)
 }
 
-// desugarInlineRoutingDecls registers a synth scope under the lexically
-// enclosing scope for each inline stage/sequence routing case body.
-func desugarInlineRoutingDecls(ctx context.Context[parser.IProgramContext]) {
+// desugarInlineDecls registers a synth scope under the lexically enclosing
+// scope for each anonymous inline stage/sequence body used as a flow target.
+func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 	counter := 0
 	var walk func(enclosing *symbol.Symbol, node antlr.Tree)
 	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
-		if entry, ok := node.(parser.IRoutingEntryContext); ok {
+		if fn, ok := node.(parser.IFlowNodeContext); ok {
 			var decl antlr.ParserRuleContext
-			// Inline bodies live in the flowNode rule (e.g. `case: stage { ... }`),
-			// so the declaration is reached through the entry's single flow node.
-			if flowNodes := entry.AllFlowNode(); len(flowNodes) == 1 {
-				if s := flowNodes[0].StageDeclaration(); s != nil {
-					decl = s
-				} else if s := flowNodes[0].SequenceDeclaration(); s != nil {
-					decl = s
-				}
+			if s := fn.StageDeclaration(); s != nil {
+				decl = s
+			} else if s := fn.SequenceDeclaration(); s != nil {
+				decl = s
 			}
 			if decl != nil {
 				if synth := registerInlineBody(ctx, enclosing, decl, &counter); synth != nil {

@@ -319,7 +319,36 @@ func analyzeFlowNode(
 	if ctx.AST.NEXT() != nil {
 		return analyzeNextToken(ctx, shell)
 	}
+	if s := ctx.AST.StageDeclaration(); s != nil {
+		return analyzeInlineBody(ctx, s, kg, shell)
+	}
+	if s := ctx.AST.SequenceDeclaration(); s != nil {
+		return analyzeInlineBody(ctx, s, kg, shell)
+	}
 	return flowNodeResult{}, true
+}
+
+// analyzeInlineBody lowers an anonymous inline stage/sequence body used as a
+// flow target, returning an activation intent so the upstream handle gates it.
+func analyzeInlineBody(
+	ctx acontext.Context[parser.IFlowNodeContext],
+	decl antlr.ParserRuleContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (flowNodeResult, bool) {
+	synth := findSynthInlineByAST(ctx.Scope.Root(), decl)
+	if synth == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+			"internal: synth scope not registered for inline body"))
+		return flowNodeResult{}, false
+	}
+	if !processInlineBody(ctx, synth, kg, shell) {
+		return flowNodeResult{}, false
+	}
+	return flowNodeResult{transition: &transitionIntent{
+		activateKey:  synth.Name,
+		suppressExit: true,
+	}}, true
 }
 
 func analyzeIdentifierByRole(
@@ -1138,23 +1167,6 @@ func extractConfigValues(
 	return config, true
 }
 
-// inlineRoutingAST returns the inline stage/sequence decl from a routing entry's
-// single flow node, or nil when the entry is a regular flow-chain target.
-func inlineRoutingAST(entry parser.IRoutingEntryContext) antlr.ParserRuleContext {
-	flowNodes := entry.AllFlowNode()
-	if len(flowNodes) != 1 {
-		return nil
-	}
-	fn := flowNodes[0]
-	if s := fn.StageDeclaration(); s != nil {
-		return s
-	}
-	if s := fn.SequenceDeclaration(); s != nil {
-		return s
-	}
-	return nil
-}
-
 // findSynthInlineByAST returns the synth scope whose AST is ast, or nil.
 func findSynthInlineByAST(root *symbol.Symbol, ast antlr.ParserRuleContext) *symbol.Symbol {
 	for _, child := range root.Children() {
@@ -1168,10 +1180,10 @@ func findSynthInlineByAST(root *symbol.Symbol, ast antlr.ParserRuleContext) *sym
 	return nil
 }
 
-// processInlineBody lowers an inline routing case body to IR with the current
+// processInlineBody lowers an inline stage/sequence body to IR with the current
 // shell stack live, then queues the result for emission as a root-level scope.
 func processInlineBody(
-	ctx acontext.Context[parser.IRoutingTableContext],
+	ctx acontext.Context[parser.IFlowNodeContext],
 	synth *symbol.Symbol,
 	kg *keyGenerator,
 	shell *shellBuilder,
@@ -1225,24 +1237,6 @@ func analyzeOutputRoutingTable(
 				outputName,
 			))
 			return nil, nil, false
-		}
-
-		if inlineAST := inlineRoutingAST(entry); inlineAST != nil {
-			synth := findSynthInlineByAST(ctx.Scope.Root(), inlineAST)
-			if synth == nil {
-				ctx.Diagnostics.Add(diagnostics.Errorf(entry,
-					"internal: synth scope not registered for inline routing body"))
-				return nil, nil, false
-			}
-			sourceOutput := ir.Handle{Node: sourceNode.Key, Param: outputName}
-			shell.applyTransitionIntent(sourceOutput, transitionIntent{
-				activateKey:  synth.Name,
-				suppressExit: true,
-			})
-			if !processInlineBody(ctx, synth, kg, shell) {
-				return nil, nil, false
-			}
-			continue
 		}
 
 		flowNodes := entry.AllFlowNode()
