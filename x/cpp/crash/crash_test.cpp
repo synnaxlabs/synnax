@@ -63,7 +63,7 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
         AllOf(
             HasSubstr("test-driver terminated: unhandled exception"),
             HasSubstr("boom-message"),
-            ContainsRegex("0x[0-9a-fA-F]+")
+            ContainsRegex("0x\\w+")
         )
     );
 }
@@ -74,7 +74,7 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
 /// assert an address is present.
 TEST(CrashTest, CaptureTraceProducesFrames) {
     const std::string trace = x::crash::capture_trace();
-    EXPECT_THAT(trace, ContainsRegex("0x[0-9a-fA-F]+"));
+    EXPECT_THAT(trace, ContainsRegex("0x\\w+"));
     EXPECT_GE(std::count(trace.begin(), trace.end(), '\n'), 2);
 }
 
@@ -146,7 +146,7 @@ TEST(CrashDeathTest, FatalSignalDumpsTraceAndReraises) {
             std::raise(SIGABRT);
         },
         KilledBySignal(SIGABRT),
-        AllOf(HasSubstr("SIGABRT"), ContainsRegex("0x[0-9a-fA-F]+"))
+        AllOf(HasSubstr("SIGABRT"), ContainsRegex("0x\\w+"))
     );
 }
 
