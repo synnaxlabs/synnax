@@ -34,6 +34,12 @@ func (d *Doc) Add(blocks ...Block) *Doc {
 	return d
 }
 
+// Blocks returns the underlying block slice for composition into a larger
+// Doc. Use this when one Doc is embedded inside another (e.g., the LSP
+// hover renderer splices a symbol's Doc into the rendered card after the
+// auto-generated title and signature).
+func (d Doc) Blocks() []Block { return d.blocks }
+
 // Render joins all blocks with double newlines and returns the result.
 func (d Doc) Render() string {
 	if len(d.blocks) == 0 {
