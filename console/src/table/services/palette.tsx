@@ -9,20 +9,18 @@
 
 import { table } from "@synnaxlabs/client";
 import { Access, Table as PTable } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 import { useCreate } from "@/table/useCreate";
 
 const CreateCommand: Palette.Command = (listProps) => {
   const create = useCreate({});
-  const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a table"
       icon={<PTable.CreateIcon />}
-      onSelect={handleSelect}
+      onSelect={create}
     />
   );
 };
