@@ -28,6 +28,8 @@
 
 namespace arc::stl::math {
 
+inline constexpr const char *MODULE_NAME = "math";
+
 template<typename T>
 T int_pow(T base, T exp) {
     if (exp == 0) return 1;
@@ -555,7 +557,7 @@ private:
 
 class Module : public stl::Module {
 public:
-    [[nodiscard]] std::string module_name() const override { return "math"; }
+    [[nodiscard]] std::string module_name() const override { return MODULE_NAME; }
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         bind_float<float>(linker, "f32");
@@ -654,7 +656,7 @@ private:
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(
-                "math",
+                MODULE_NAME,
                 "pow_" + suffix,
                 [](W a, W b) -> W {
                     return static_cast<W>(
@@ -670,7 +672,7 @@ private:
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(
-                "math",
+                MODULE_NAME,
                 "pow_" + suffix,
                 [](W a, W b) -> W {
                     return static_cast<W>(
@@ -686,7 +688,7 @@ private:
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(
-                "math",
+                MODULE_NAME,
                 "neg_" + suffix,
                 [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
             )
@@ -698,7 +700,7 @@ private:
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(
-                "math",
+                MODULE_NAME,
                 "neg_" + suffix,
                 [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
             )

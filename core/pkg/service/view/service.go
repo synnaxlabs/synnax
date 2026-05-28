@@ -92,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[View]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {

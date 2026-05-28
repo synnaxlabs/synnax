@@ -12,7 +12,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
 from x.normalize import normalize
@@ -103,19 +103,15 @@ class Client:
             users = [user]
         if users is None:
             raise ValueError("Either username, user, or users must be provided")
-        res = send_required(
-            self.client,
-            "/user/create",
-            _CreateRequest(users=users),
-            _CreateResponse,
+        res = self.client.send(
+            "/user/create", _CreateRequest(users=users), _CreateResponse
         ).users
         if single:
             return res[0]
         return res
 
     def change_username(self, key: UUID, username: str) -> None:
-        send_required(
-            self.client,
+        self.client.send(
             "/user/change_username",
             _ChangeUsernameRequest(key=key, username=username),
             Empty,
@@ -124,8 +120,7 @@ class Client:
     def change_name(
         self, key: UUID, *, first_name: str = "", last_name: str = ""
     ) -> None:
-        send_required(
-            self.client,
+        self.client.send(
             "/user/change_name",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
             Empty,
@@ -157,8 +152,7 @@ class Client:
         if username is not None:
             usernames = normalize(username)
         single = key is not None or username is not None
-        res = send_required(
-            self.client,
+        res = self.client.send(
             "/user/retrieve",
             _RetrieveRequest(keys=keys, usernames=usernames),
             _RetrieveResponse,
@@ -171,9 +165,4 @@ class Client:
         return users[0]
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
-        send_required(
-            self.client,
-            "/user/delete",
-            _DeleteRequest(keys=normalize(keys)),
-            Empty,
-        )
+        self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)

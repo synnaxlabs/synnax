@@ -10,8 +10,10 @@
 // Package actions emits a TypeScript discriminated-union action codec for any
 // oracle struct that declares one or more actions. Each action becomes a zod
 // payload schema, an Action union dispatches by literal type, and the plugin
-// emits a Handlers interface together with createReducer / createReduceAll
-// factories that bind a caller-provided Handlers object via immer's produce.
+// emits a Handlers interface plus a createReduceAll factory that binds a
+// caller-provided Handlers object. HandlerResult, ReduceAllResult, and the
+// outer reduceAll loop live in the shared @synnaxlabs/client actions package;
+// this plugin emits type aliases and a thin wrapper that delegate to them.
 // The per-action handler functions are hand-written and supplied by the
 // caller; this plugin does not generate them.
 package actions
@@ -20,9 +22,9 @@ import (
 	"bytes"
 	"text/template"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
@@ -93,14 +95,14 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Manager:        mgr,
-		TargetType:     lo.CamelCase(typ.Name),
+		TargetType:     casing.TypeCamel(typ.Name),
 		TargetTypeName: typ.Name,
 	}
 
 	for _, action := range form.Actions {
 		a := actionData{
-			Name:     lo.PascalCase(action.Name),
-			TypeName: lo.SnakeCase(action.Name),
+			Name:     casing.TypePascal(action.Name),
+			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
 		for _, field := range action.Fields {
@@ -111,9 +113,11 @@ func (p *Plugin) generateFile(
 	}
 
 	mgr.AddImport("zod", "z")
-	mgr.AddImport("immer", "produce")
+	mgr.AddImport("immer", "Draft")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
+	mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -137,8 +141,8 @@ type actionData struct {
 }
 
 var templateFuncs = template.FuncMap{
-	"camelCase":  lo.CamelCase,
-	"pascalCase": lo.PascalCase,
+	"camelCase":  casing.TypeCamel,
+	"pascalCase": casing.TypePascal,
 	"formatDoc":  doc.FormatTS,
 }
 
@@ -164,12 +168,6 @@ export const {{ camelCase .Name }}PayloadZ = z.object({
 
 export type {{ .Name }}Payload = z.infer<typeof {{ camelCase .Name }}PayloadZ>;
 {{end}}
-export const ACTION_TYPES = {
-{{- range .Actions}}
-  {{ .TypeName }}: "{{ .TypeName }}",
-{{- end}}
-} as const;
-
 export const actionZ = z.discriminatedUnion("type", [
 {{- range .Actions}}
   z.object({ type: z.literal("{{ .TypeName }}"), {{ camelCase .Name }}: {{ camelCase .Name }}PayloadZ }),
@@ -183,29 +181,27 @@ export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   {{ camelCase .Name }}: payload,
 });
 {{end}}
+export type HandlerResult = actions.HandlerResult<Action>;
+
+export type ReduceAllResult = actions.ReduceAllResult<{{ .TargetTypeName }}, Action>;
+
 export interface Handlers {
 {{- range .Actions}}
-  {{ camelCase .Name }}: (state: {{ $.TargetTypeName }}, payload: {{ .Name }}Payload) => void;
+  {{ camelCase .Name }}: (state: Draft<{{ $.TargetTypeName }}>, payload: {{ .Name }}Payload) => HandlerResult;
 {{- end}}
 }
 
-export const createReducer =
-  (handlers: Handlers) =>
-  (state: {{ .TargetTypeName }}, action: Action): {{ .TargetTypeName }} => {
+export const createReduceAll = (handlers: Handlers) =>
+  actions.createReduceAll<{{ .TargetTypeName }}, Action>((state, action) => {
     switch (action.type) {
 {{- range .Actions}}
       case "{{ .TypeName }}":
-        if (action.{{ camelCase .Name }} == null) break;
-        handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
-        break;
+        return handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
 {{- end}}
     }
-    return state;
-  };
+  });
 
-export const createReduceAll = (handlers: Handlers) => {
-  const reduce = createReducer(handlers);
-  return (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} =>
-    produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
-};
+export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+
+export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
 `))

@@ -31,10 +31,13 @@ import (
 )
 
 func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
+	checkImportOrder(ctx)
+	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
+	reportUnusedImports(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
 			addUnificationError(ctx.Diagnostics, err, ctx.AST)
@@ -369,12 +372,12 @@ func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {
 
 func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 ) {
 	if scope.Type.IsValid() {
 		scope.Type = ctx.Constraints.ApplySubstitutions(scope.Type)
 	}
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		applyTypeSubstitutionsToSymbols[T](ctx, child)
 	}
 }

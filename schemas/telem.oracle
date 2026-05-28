@@ -106,6 +106,31 @@ Alignment uint64 {
     @py omit
 }
 
+TimestampFormat enum {
+    iso         = "ISO"
+    isoDate     = "ISODate"
+    time        = "time"
+    preciseTime = "preciseTime"
+    date        = "date"
+    preciseDate = "preciseDate"
+    dateTime    = "dateTime"
+
+    @doc value "is the rendered form of a timestamp displayed alongside a sample."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
+TimeZone enum {
+    local = "local"
+    utc   = "UTC"
+
+    @doc value "is the time zone used when rendering timestamps."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
 Series struct {
     time_range TimeRange {
         @doc value "is the time range covered by the samples in this series."

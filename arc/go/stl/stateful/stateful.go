@@ -22,7 +22,13 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-type Module struct {
+// Host is the runtime host-side support for the state module: it registers
+// the WASM host bindings (load_*, store_*, load_series_*, store_series_*)
+// and holds the per-program state maps. Stateful depends on the series and
+// strings ProgramStates because some state operations allocate values
+// through them (e.g. store_str stores a string handle from the strings
+// ProgramState).
+type Host struct {
 	series  *series.ProgramState
 	strings *strings.ProgramState
 
@@ -42,15 +48,21 @@ type Module struct {
 	stateSeries map[string]map[uint32]telem.Series
 }
 
-func (m *Module) SetNodeKey(key string) { m.currentNodeKey = key }
+// SetNodeKey sets the active node key so subsequent state.load / state.store
+// operations scope to the right node's slots. Called by the scheduler when
+// entering a node.
+func (h *Host) SetNodeKey(key string) { h.currentNodeKey = key }
 
-func NewModule(
+// NewHost registers the state module's WASM host bindings with rt. The
+// stateful module's host functions allocate values through the series and
+// strings ProgramStates, so both must be supplied.
+func NewHost(
 	ctx context.Context,
+	rt wazero.Runtime,
 	seriesState *series.ProgramState,
 	stringsState *strings.ProgramState,
-	rat wazero.Runtime,
-) (*Module, error) {
-	m := &Module{
+) (*Host, error) {
+	h := &Host{
 		series:      seriesState,
 		strings:     stringsState,
 		stateU8:     make(map[string]map[uint32]uint8),
@@ -66,84 +78,72 @@ func NewModule(
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
-	if rat == nil {
-		return m, nil
+	if rt == nil {
+		return h, nil
 	}
-	builder := rat.NewHostModuleBuilder("state")
-	bindScalarI32[uint8](builder, m, m.stateU8, "u8")
-	bindScalarI32[uint16](builder, m, m.stateU16, "u16")
-	bindScalarI32[uint32](builder, m, m.stateU32, "u32")
-	bindScalarI32[int8](builder, m, m.stateI8, "i8")
-	bindScalarI32[int16](builder, m, m.stateI16, "i16")
-	bindScalarI32[int32](builder, m, m.stateI32, "i32")
-	bindScalarI64[uint64](builder, m, m.stateU64, "u64")
-	bindScalarI64[int64](builder, m, m.stateI64, "i64")
-	bindScalarF32(builder, m)
-	bindScalarF64(builder, m)
-	bindStr(builder, m)
-	bindSeries(builder, m, "u8")
-	bindSeries(builder, m, "u16")
-	bindSeries(builder, m, "u32")
-	bindSeries(builder, m, "u64")
-	bindSeries(builder, m, "i8")
-	bindSeries(builder, m, "i16")
-	bindSeries(builder, m, "i32")
-	bindSeries(builder, m, "i64")
-	bindSeries(builder, m, "f32")
-	bindSeries(builder, m, "f64")
+	builder := rt.NewHostModuleBuilder(Name)
+	bindScalarI32[uint8](builder, h, h.stateU8, "u8")
+	bindScalarI32[uint16](builder, h, h.stateU16, "u16")
+	bindScalarI32[uint32](builder, h, h.stateU32, "u32")
+	bindScalarI32[int8](builder, h, h.stateI8, "i8")
+	bindScalarI32[int16](builder, h, h.stateI16, "i16")
+	bindScalarI32[int32](builder, h, h.stateI32, "i32")
+	bindScalarI64[uint64](builder, h, h.stateU64, "u64")
+	bindScalarI64[int64](builder, h, h.stateI64, "i64")
+	bindScalarF32(builder, h)
+	bindScalarF64(builder, h)
+	bindStr(builder, h)
+	bindSeries(builder, h, "u8")
+	bindSeries(builder, h, "u16")
+	bindSeries(builder, h, "u32")
+	bindSeries(builder, h, "u64")
+	bindSeries(builder, h, "i8")
+	bindSeries(builder, h, "i16")
+	bindSeries(builder, h, "i32")
+	bindSeries(builder, h, "i64")
+	bindSeries(builder, h, "f32")
+	bindSeries(builder, h, "f64")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return h, nil
 }
 
 var numConstraint = types.NumericConstraint()
 
-var SymbolResolver = &symbol.ModuleResolver{
-	Name: "state",
-	Members: symbol.MapResolver{
-		"load": {
-			Name:     "load",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
-				Outputs: types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-			}),
-		},
-		"store": {
-			Name:     "store",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
-			}),
-		},
-		"load_series": {
-			Name:     "load_series",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
-				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
-			}),
-		},
-		"store_series": {
-			Name:     "store_series",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
-			}),
-		},
-	},
+// Name is the module name.
+const Name = "stateful"
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the stateful module only (no bare globals).
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
+		symbol.InternalHostFunc(
+			"load",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+		),
+		symbol.InternalHostFunc(
+			"store",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			nil,
+		),
+		symbol.InternalHostFunc(
+			"load_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{{Name: "handle", Type: types.I32()}},
+		),
+		symbol.InternalHostFunc(
+			"store_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			nil,
+		),
+	)
+	return []*symbol.Symbol{mod}
 }
 
-func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }
 
@@ -153,13 +153,13 @@ type i32Compatible interface {
 
 func bindScalarI32[T i32Compatible](
 	builder wazero.HostModuleBuilder,
-	m *Module,
+	h *Host,
 	store map[string]map[uint32]T,
 	suffix string,
 ) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initValue uint32) uint32 {
-			key := m.currentNodeKey
+			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -173,7 +173,7 @@ func bindScalarI32[T i32Compatible](
 		}).Export("load_" + suffix)
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, value uint32) {
-			key := m.currentNodeKey
+			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -189,13 +189,13 @@ type i64Compatible interface {
 
 func bindScalarI64[T i64Compatible](
 	builder wazero.HostModuleBuilder,
-	m *Module,
+	h *Host,
 	store map[string]map[uint32]T,
 	suffix string,
 ) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initValue uint64) uint64 {
-			key := m.currentNodeKey
+			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -209,7 +209,7 @@ func bindScalarI64[T i64Compatible](
 		}).Export("load_" + suffix)
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, value uint64) {
-			key := m.currentNodeKey
+			key := h.currentNodeKey
 			inner, ok := store[key]
 			if !ok {
 				inner = make(map[uint32]T)
@@ -219,14 +219,14 @@ func bindScalarI64[T i64Compatible](
 		}).Export("store_" + suffix)
 }
 
-func bindScalarF32(builder wazero.HostModuleBuilder, m *Module) {
+func bindScalarF32(builder wazero.HostModuleBuilder, h *Host) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initValue float32) float32 {
-			key := m.currentNodeKey
-			inner, ok := m.stateF32[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateF32[key]
 			if !ok {
 				inner = make(map[uint32]float32)
-				m.stateF32[key] = inner
+				h.stateF32[key] = inner
 			}
 			if value, ok := inner[varID]; ok {
 				return value
@@ -236,24 +236,24 @@ func bindScalarF32(builder wazero.HostModuleBuilder, m *Module) {
 		}).Export("load_f32")
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, value float32) {
-			key := m.currentNodeKey
-			inner, ok := m.stateF32[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateF32[key]
 			if !ok {
 				inner = make(map[uint32]float32)
-				m.stateF32[key] = inner
+				h.stateF32[key] = inner
 			}
 			inner[varID] = value
 		}).Export("store_f32")
 }
 
-func bindScalarF64(builder wazero.HostModuleBuilder, m *Module) {
+func bindScalarF64(builder wazero.HostModuleBuilder, h *Host) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initValue float64) float64 {
-			key := m.currentNodeKey
-			inner, ok := m.stateF64[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateF64[key]
 			if !ok {
 				inner = make(map[uint32]float64)
-				m.stateF64[key] = inner
+				h.stateF64[key] = inner
 			}
 			if value, ok := inner[varID]; ok {
 				return value
@@ -263,75 +263,75 @@ func bindScalarF64(builder wazero.HostModuleBuilder, m *Module) {
 		}).Export("load_f64")
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, value float64) {
-			key := m.currentNodeKey
-			inner, ok := m.stateF64[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateF64[key]
 			if !ok {
 				inner = make(map[uint32]float64)
-				m.stateF64[key] = inner
+				h.stateF64[key] = inner
 			}
 			inner[varID] = value
 		}).Export("store_f64")
 }
 
-func bindStr(builder wazero.HostModuleBuilder, m *Module) {
+func bindStr(builder wazero.HostModuleBuilder, h *Host) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
-			key := m.currentNodeKey
-			inner, ok := m.stateString[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateString[key]
 			if !ok {
 				inner = make(map[uint32]string)
-				m.stateString[key] = inner
+				h.stateString[key] = inner
 			}
 			if str, ok := inner[varID]; ok {
-				return m.strings.Create(str)
+				return h.strings.Create(str)
 			}
-			if initStr, ok := m.strings.Get(initHandle); ok {
+			if initStr, ok := h.strings.Get(initHandle); ok {
 				inner[varID] = initStr
 			}
 			return initHandle
 		}).Export("load_str")
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
-			str, ok := m.strings.Get(handle)
+			str, ok := h.strings.Get(handle)
 			if !ok {
 				return
 			}
-			key := m.currentNodeKey
-			inner, ok := m.stateString[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateString[key]
 			if !ok {
 				inner = make(map[uint32]string)
-				m.stateString[key] = inner
+				h.stateString[key] = inner
 			}
 			inner[varID] = str
 		}).Export("store_str")
 }
 
-func bindSeries(builder wazero.HostModuleBuilder, m *Module, suffix string) {
+func bindSeries(builder wazero.HostModuleBuilder, h *Host, suffix string) {
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, initHandle uint32) uint32 {
-			key := m.currentNodeKey
-			inner, ok := m.stateSeries[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateSeries[key]
 			if !ok {
 				inner = make(map[uint32]telem.Series)
-				m.stateSeries[key] = inner
+				h.stateSeries[key] = inner
 			}
 			if s, ok := inner[varID]; ok {
-				return m.series.Store(s)
+				return h.series.Store(s)
 			}
-			if initS, ok := m.series.Get(initHandle); ok {
+			if initS, ok := h.series.Get(initHandle); ok {
 				inner[varID] = initS.DeepCopy()
 			}
 			return initHandle
 		}).Export("load_series_" + suffix)
 	builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, varID uint32, handle uint32) {
-			key := m.currentNodeKey
-			inner, ok := m.stateSeries[key]
+			key := h.currentNodeKey
+			inner, ok := h.stateSeries[key]
 			if !ok {
 				inner = make(map[uint32]telem.Series)
-				m.stateSeries[key] = inner
+				h.stateSeries[key] = inner
 			}
-			if s, ok := m.series.Get(handle); ok {
+			if s, ok := h.series.Get(handle); ok {
 				inner[varID] = s.DeepCopy()
 			}
 		}).Export("store_series_" + suffix)

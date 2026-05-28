@@ -75,7 +75,7 @@ func MatchKeys(keys ...Key) Filter {
 
 // MatchNames returns a filter for tasks whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Task] {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})
@@ -84,7 +84,7 @@ func MatchNames(vals ...string) Filter {
 
 // MatchTypes returns a filter for tasks whose Type matches any of the provided values.
 func MatchTypes(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Task] {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 			return lo.Contains(vals, e.Type), nil
 		})
@@ -93,7 +93,7 @@ func MatchTypes(vals ...string) Filter {
 
 // MatchInternal returns a filter for tasks by their Internal field.
 func MatchInternal(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Task] {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 			return e.Internal == v, nil
 		})
@@ -102,7 +102,7 @@ func MatchInternal(v bool) Filter {
 
 // MatchSnapshot returns a filter for tasks by their Snapshot field.
 func MatchSnapshot(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Task] {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
 			return e.Snapshot == v, nil
 		})

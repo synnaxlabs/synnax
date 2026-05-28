@@ -62,6 +62,53 @@ var _ = Describe("Signal", func() {
 
 		})
 
+		// Regression: when a routine fails with a genuine (non-context) error and
+		// cancels the context, sibling routines return context.Canceled. The
+		// underlying errgroup records only the first returned error, so a sibling's
+		// context.Canceled can win the race and mask the real failure. Wait must still
+		// surface the genuine failure rather than the incidental cancellation.
+		Describe("Genuine failure masked by sibling cancellation", func() {
+			It("Should report the genuine failure when a sibling's context.Canceled is recorded first", func() {
+				ctx, cancel := signal.Isolated()
+				release := make(chan struct{})
+				siblingReturned := make(chan struct{})
+				ctx.Go(func(ctx context.Context) error {
+					<-ctx.Done()
+					close(siblingReturned)
+					return ctx.Err()
+				})
+				ctx.Go(func(context.Context) error {
+					<-release
+					return errRoutineFailed
+				})
+				cancel()
+				Eventually(siblingReturned).Should(BeClosed())
+				close(release)
+				Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
+			})
+
+			It("Should let NewHardShutdown surface the genuine failure instead of skipping it as a cancellation", func() {
+				ctx, cancel := signal.Isolated()
+				release := make(chan struct{})
+				siblingReturned := make(chan struct{})
+				ctx.Go(func(ctx context.Context) error {
+					<-ctx.Done()
+					close(siblingReturned)
+					return ctx.Err()
+				})
+				ctx.Go(func(context.Context) error {
+					<-release
+					return errRoutineFailed
+				})
+				go func() {
+					<-siblingReturned
+					close(release)
+				}()
+				closer := signal.NewHardShutdown(ctx, cancel)
+				Expect(closer.Close()).To(MatchError(errRoutineFailed))
+			})
+		})
+
 	})
 
 	Describe("Go Utilities", func() {

@@ -11,9 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import { type Synnax, workspace } from "@synnaxlabs/client";
 import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { join, sep } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
@@ -44,21 +41,27 @@ export const ingest: Import.DirectoryIngester = async (
     }),
   );
 
-  Object.entries(layout.layouts).forEach(([key, layout]) => {
-    const ingest = fileIngesters[layout.type];
-    if (ingest == null) return;
+  for (const [key, childLayout] of Object.entries(layout.layouts)) {
+    const ingest = fileIngesters[childLayout.type];
+    if (ingest == null) continue;
     const data = files.find(
       (file) =>
-        file.name === `${layout.name}.json` ||
+        file.name === `${childLayout.name}.json` ||
         file.name === `${key}.json` ||
         (typeof file.data === "object" &&
           file.data != null &&
           (("key" in file.data && file.data.key === key) ||
-            ("name" in file.data && file.data.name === layout.name))),
+            ("name" in file.data && file.data.name === childLayout.name))),
     )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    ingest(data, { layout, placeLayout, store: fluxStore, client });
-  });
+    await ingest(data, {
+      layout: childLayout,
+      placeLayout,
+      store: fluxStore,
+      client,
+      workspaceKey: wsKey,
+    });
+  }
 };
 
 export interface IngestContext {
@@ -80,24 +83,14 @@ export const import_ = ({
 }: IngestContext) => {
   let name: string | undefined = "workspace";
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import items from a dialog when running Synnax in the browser.",
-      );
-    const path = await open({
-      title: "Import a Workspace",
-      multiple: false,
-      directory: true,
-    });
-    if (path == null) return;
-    name = path.split(sep()).at(-1);
-    if (name == null) throw new Error("Cannot read workspace");
-    const files = await readDir(path);
+    const directory = await Runtime.pickDirectory({ title: "Import a Workspace" });
+    if (directory == null) return;
+    name = directory.name;
     const fileData = await Promise.all(
-      files.map(
+      directory.files.map(
         async (file): Promise<Import.File> => ({
           name: file.name,
-          data: JSON.parse(await readTextFile(await join(path, file.name))),
+          data: JSON.parse(await file.read()),
         }),
       ),
     );

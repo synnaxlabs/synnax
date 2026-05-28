@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The package is transport agnostic, defining freighter-compatible interfaces (via the
+// Transport struct) and service implementations (via the Layer struct) for all of its
+// services.
 package api
 
 import (
@@ -109,7 +109,6 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
-	SchematicRename   freighter.UnaryServer[schematic.RenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
@@ -131,6 +130,7 @@ type Transport struct {
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[table.RenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[table.SetDataRequest, types.Nil]
+	TableDispatch freighter.UnaryServer[table.DispatchRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
@@ -296,7 +296,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
-		t.SchematicRename,
 		t.SchematicSetData,
 		t.SchematicDispatch,
 		t.SchematicCopy,
@@ -328,6 +327,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
+		t.TableDispatch,
 
 		// LABEL
 		t.LabelCreate,
@@ -447,7 +447,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
-	t.SchematicRename.BindHandler(l.Schematic.Rename)
 	t.SchematicSetData.BindHandler(l.Schematic.SetData)
 	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
@@ -479,6 +478,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TableDelete.BindHandler(l.Table.Delete)
 	t.TableRename.BindHandler(l.Table.Rename)
 	t.TableSetData.BindHandler(l.Table.SetData)
+	t.TableDispatch.BindHandler(l.Table.Dispatch)
 
 	// LABEL
 	t.LabelCreate.BindHandler(l.Label.Create)

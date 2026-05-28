@@ -448,4 +448,69 @@ describe("status", () => {
       });
     });
   });
+
+  describe("toError", () => {
+    it("should use the wrapped status message as the Error message", () => {
+      const inner = new Error("raw");
+      const s = status.fromException(inner, "Failed to fetch");
+      const err = status.toError(s);
+
+      expect(err.message).toBe("Failed to fetch");
+    });
+
+    it("should copy name from the inner error", () => {
+      class NotFoundError extends Error {
+        constructor(message: string) {
+          super(message);
+          this.name = "NotFoundError";
+        }
+      }
+      const inner = new NotFoundError("missing");
+      const s = status.fromException(inner, "Failed to fetch");
+      const err = status.toError(s);
+
+      expect(err.name).toBe("NotFoundError");
+    });
+
+    it("should copy stack from the inner error", () => {
+      const inner = new Error("raw");
+      inner.stack = "Error: raw\n    at someFn (file.ts:1:1)";
+      const s = status.fromException(inner, "Failed to fetch");
+      const err = status.toError(s);
+
+      expect(err.stack).toBe("Error: raw\n    at someFn (file.ts:1:1)");
+    });
+
+    it("should not leak the toError call-site stack when inner stack is missing", () => {
+      const inner = new Error("raw");
+      inner.stack = undefined;
+      const s = status.fromException(inner, "Failed to fetch");
+      const err = status.toError(s);
+
+      expect(err.stack).toBeUndefined();
+    });
+
+    it("should set cause to the original status", () => {
+      const inner = new Error("raw");
+      const s = status.fromException(inner, "Failed to fetch");
+      const err = status.toError(s);
+
+      expect(err.cause).toBe(s);
+    });
+
+    it("should round-trip through throw/catch", () => {
+      const inner = new TypeError("not a function");
+      const s = status.fromException(inner, "Failed to invoke");
+
+      try {
+        throw status.toError(s);
+      } catch (caught) {
+        expect(caught).toBeInstanceOf(Error);
+        const e = caught as Error;
+        expect(e.name).toBe("TypeError");
+        expect(e.message).toBe("Failed to invoke");
+        expect(e.cause).toBe(s);
+      }
+    });
+  });
 });

@@ -703,7 +703,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					if isFieldUnchanged(parentField, field) {
 						continue
 					} else if isOnlyOptionalityChange(parentField, field) {
-						sd.PartialFields = append(sd.PartialFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: camelCase(field.Name)})
 					} else {
 						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
@@ -1176,6 +1176,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	} else if isAnyOptional {
 		if !field.Type.IsTypeParam() {
 			fd.ZodType += ".optional()"
+		} else if field.IsHardOptional {
+			// Hard-optional (??) on a type-param field: the field is ALWAYS
+			// optional, even when a caller passes a concrete schema. Wrap the
+			// whole "param ?? fallback" expression in .optional() so caller
+			// schemas get wrapped too. Strip a trailing .optional() from the
+			// fallback first so we don't emit redundant nesting.
+			fd.ZodType = fmt.Sprintf("(%s).optional()", strings.TrimSuffix(fd.ZodType, ".optional()"))
 		}
 		fd.ZodSchemaType = fmt.Sprintf("z.ZodOptional<%s>", fd.ZodSchemaType)
 	}
@@ -1736,6 +1743,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
+	// String-valued enums are emitted as `z.enum([...])` plus a type alias and
+	// have no runtime object to dot into. Emit the raw string literal instead;
+	// only numeric enums get the `Type.variant` form, since those emit as TS
+	// runtime enums.
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return fmt.Sprintf("%q", ev.Variant.StringValue())
+	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.Namespace != data.Namespace {
@@ -1996,7 +2010,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ $p.Name }
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2062,7 +2076,7 @@ export type {{ .TSName }}ZodObject<{{ range $i, $p := .TypeParams }}{{ if $i }},
     {{ .TSName }}: {{ .ZodSchemaType }};
 {{- end }}
 {{- range .ConditionalFields }}
-    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ .TypeParamName }};
+    {{ .Field.TSName }}: [{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {{ .FallbackSchemaType }} : {{ if .Field.IsHardOptional }}z.ZodOptional<{{ .TypeParamName }}>{{ else }}{{ .TypeParamName }}{{ end }};
 {{- end }}
 }>;
 
@@ -2146,13 +2160,13 @@ export type {{ .TSName }}<S extends {{ .TSName }}Schemas = {{ .TSName }}Schemas>
 {{- range .BaseFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .CoalescedTSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([S["{{ .TypeParamName | camelCase }}"]] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.CoalescedTSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- else }}
 export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.Constraint }}{{ if $p.HasDefault }} = {{ $p.Default }}{{ end }}{{ end }}> = {
 {{- range .BaseFields }}
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
+}{{ range .ConditionalFields }} & ([{{ .TypeParamName }}] extends [{{ .NeverType }}] ? {} : { {{ .Field.TSName }}{{ if .Field.IsHardOptional }}?{{ end }}: {{ .Field.TSType }}{{ if .Field.IsArray }}[]{{ end }} }){{ end }};
 {{- end }}
 {{- else }}
 {{- if .CoalesceTypeParams }}

@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/spatial"
-import "schemas/color"
-import "schemas/control"
 
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
@@ -17,20 +15,6 @@ import "schemas/control"
 
 Key = uuid {
     @doc value "is a unique identifier for a schematic, represented as a UUID."
-}
-
-Legend struct {
-    visible  bool                     {
-        @doc value "is whether the legend is visible."
-    }
-    position spatial.StickyXY         {
-        @doc value "is the legend position within the schematic."
-    }
-    colors   map<string, color.Color> {
-        @doc value "maps control status keys to their display colors."
-    }
-
-    @doc value "is the control legend overlay configuration."
 }
 
 Node struct {
@@ -87,38 +71,37 @@ Edge struct {
 }
 
 Schematic struct {
-    key       Key                 {
+    key      Key                 {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name      string              {
+    name     string              {
         @doc value "is a human-readable name for the schematic."
     }
-    snapshot  bool                {
+    snapshot bool                {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
     }
-    authority control.Authority   {
-        @validate default 1
-        @doc value        "is the control authority level for this schematic."
-    }
-    legend    Legend              {
-        @doc value "is the control legend overlay configuration."
-    }
-    nodes     Node[]              {
+    nodes    Node[]              {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges     Edge[]              {
+    edges    Edge[]              {
         @doc value "contains all connections between nodes."
     }
-    configs   map<string, record> {
+    configs  map<string, record> {
         @doc value        """
             contains per-element configuration keyed by node or edge key. The
             shape of each value is determined by the element's variant; the
             wire format intentionally stores it as an opaque record.
         """
         @ts preserve_case
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the schematic."
     }
 
     action SetNodePosition {
@@ -158,12 +141,12 @@ Schematic struct {
         @doc value "removes a node and any config stored under its key."
     }
 
-    action SetEdge {
+    action AddEdge {
         edge Edge
 
         @doc value """
-            inserts the edge if no edge with the same key exists, otherwise
-            replaces the existing edge with the same key.
+            appends the edge to the schematic. No-op when an edge with the
+            same key already exists.
         """
     }
 
@@ -179,19 +162,14 @@ Schematic struct {
             @ts preserve_case
         }
 
-        @doc value "sets the config entry for the given node or edge key."
-    }
-
-    action SetAuthority {
-        value control.Authority
-
-        @doc value "sets the control authority level for this schematic."
-    }
-
-    action SetLegend {
-        legend Legend
-
-        @doc value "replaces the schematic's control-legend overlay configuration."
+        @doc value """
+            merges the given config fields into the existing config entry for
+            the given node or edge key. Top-level fields present in the payload
+            overwrite existing fields; fields absent from the payload are
+            preserved. When no entry exists yet and the key matches an edge
+            whose source node carries a color, the source color overrides
+            whatever color (if any) was in the payload.
+        """
     }
 
     @doc value     """

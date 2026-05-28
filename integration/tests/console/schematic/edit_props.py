@@ -22,11 +22,12 @@ def assert_properties(
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
     assert props["control_authority"] == control_authority, (
-        f"Control Authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
+        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
     )
     assert props["show_control_legend"] == show_control_legend, (
-        f"Show Control Legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
     )
+    ...
 
 
 def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:

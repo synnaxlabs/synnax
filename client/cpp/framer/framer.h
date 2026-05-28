@@ -21,7 +21,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/framer/framer.pb.h"
 
 namespace synnax::framer {
 /// @brief validates that the authorities vector is compatible with the keys vector.
@@ -308,6 +308,15 @@ struct WriterConfig {
     /// all writes durable immediately. Lower values will decrease write throughput.
     /// Defaults to 1s when auto-commit is enabled.
     x::telem::TimeSpan auto_index_persist_interval = 1 * x::telem::SECOND;
+
+    /// @brief when true, Synnax automatically generates timestamps for any index
+    /// channel that is not included in a write call. The first sample in each write is
+    /// stamped at the time the write is received, and subsequent samples are spaced 1
+    /// nanosecond apart. Generated timestamps are guaranteed to be strictly monotonic
+    /// across all writes on the writer. If the writer is opened with data channels
+    /// whose index channels are not included, those index channels are added
+    /// implicitly.
+    bool auto_index = false;
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.

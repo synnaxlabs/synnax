@@ -197,7 +197,7 @@ func getChannelSymbol(ctx context.Context[parser.IExpressionContext]) *symbol.Sy
 	// Must be an actual channel symbol (KindChannel), not just a symbol with channel type.
 	// Config params with channel type (KindConfig) should be read from, not aliased.
 	if sym.Kind == symbol.KindChannel && sym.Type.Kind == types.KindChan {
-		return &sym.Symbol
+		return sym
 	}
 	return nil
 }
@@ -757,7 +757,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 // analyzeIndexedAssignment validates indexed assignment statements (series[i] = value)
 func analyzeIndexedAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	varScope *symbol.Scope,
+	varScope *symbol.Symbol,
 	indexOrSlice parser.IIndexOrSliceContext,
 ) {
 	// 1. Verify base is a series type
@@ -822,7 +822,7 @@ func analyzeIndexedAssignment(
 // analyzeIndexedCompoundAssignment validates indexed compound assignment statements (series[i] += value)
 func analyzeIndexedCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	varScope *symbol.Scope,
+	varScope *symbol.Symbol,
 	indexOrSlice parser.IIndexOrSliceContext,
 	compoundOp parser.ICompoundOpContext,
 ) {
@@ -895,7 +895,7 @@ func analyzeIndexedCompoundAssignment(
 // Supports both series += scalar (broadcast) and series += series (element-wise)
 func analyzeSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	varScope *symbol.Scope,
+	varScope *symbol.Symbol,
 	compoundOp parser.ICompoundOpContext,
 ) {
 	elemType := *varScope.Type.Elem
@@ -960,7 +960,7 @@ func analyzeSeriesCompoundAssignment(
 
 func analyzeCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
-	varScope *symbol.Scope,
+	varScope *symbol.Symbol,
 	compoundOp parser.ICompoundOpContext,
 ) {
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
@@ -1052,7 +1052,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	}
 
 	if varScope.Type.Kind == types.KindChan {
-		analyzeChannelAssignment(ctx, &varScope.Symbol)
+		analyzeChannelAssignment(ctx, varScope)
 		return
 	}
 

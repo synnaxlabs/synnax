@@ -29,7 +29,7 @@ func (s *Server) FoldingRange(
 	return ranges, nil
 }
 
-func collectFoldingRanges(scope *symbol.Scope, ranges *[]protocol.FoldingRange) {
+func collectFoldingRanges(scope *symbol.Symbol, ranges *[]protocol.FoldingRange) {
 	if scope.AST != nil && isFoldableKind(scope.Kind) {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()
@@ -48,7 +48,7 @@ func collectFoldingRanges(scope *symbol.Scope, ranges *[]protocol.FoldingRange) 
 			}
 		}
 	}
-	for _, child := range scope.Children {
+	for _, child := range scope.Children() {
 		collectFoldingRanges(child, ranges)
 	}
 }

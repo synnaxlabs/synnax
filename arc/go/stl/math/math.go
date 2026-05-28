@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -52,8 +53,8 @@ type (
 	)
 )
 
-func createBaseSymbol(name string) symbol.Symbol {
-	return symbol.Symbol{
+func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -70,11 +71,54 @@ func createBaseSymbol(name string) symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
 			},
 		}),
+		Doc: doc,
 	}
 }
 
 var (
-	powSymbol = symbol.Symbol{
+	avgDoc = doc.New(
+		doc.Paragraph("Computes a running average of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
+		doc.Divider(),
+		doc.Paragraph("An optional reset input clears the accumulated average:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
+	)
+	minDoc = doc.New(
+		doc.Paragraph("Tracks the running minimum of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.min{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
+	)
+	maxDoc = doc.New(
+		doc.Paragraph("Tracks the running maximum of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.max{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
+	)
+	derivativeDoc = doc.New(
+		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.derivative{} -> rate_output"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
+	)
+)
+
+func newPowSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name:     powSymbolName,
 		Kind:     symbol.KindFunction,
 		Exec:     symbol.ExecWASM,
@@ -84,10 +128,10 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
 	}
-	avgSymbol        = createBaseSymbol(avgSymbolName)
-	minSymbol        = createBaseSymbol(minSymbolName)
-	maxSymbol        = createBaseSymbol(maxSymbolName)
-	derivativeSymbol = symbol.Symbol{
+}
+
+func newDerivativeSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -99,45 +143,48 @@ var (
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
+		Doc: derivativeDoc,
 	}
-)
-
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
 }
 
-var deprecatedBareResolver = symbol.MapResolver{
-	avgSymbolName:        deprecated(avgSymbol, "math.avg"),
-	minSymbolName:        deprecated(minSymbol, "math.min"),
-	maxSymbolName:        deprecated(maxSymbol, "math.max"),
-	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
+const name = "math"
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the math module and the deprecated bare aliases (avg, min,
+// max, derivative) whose Deprecated field points at the canonical module
+// member. Every call allocates new Symbol values so analyses can mutate
+// them (e.g. apply type substitutions) without corrupting other analyses.
+func NewSymbols() []*symbol.Symbol {
+	avg := createBaseSymbol(avgSymbolName, avgDoc)
+	min := createBaseSymbol(minSymbolName, minDoc)
+	max := createBaseSymbol(maxSymbolName, maxDoc)
+	derivative := newDerivativeSymbol()
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(newPowSymbol(), avg, min, max, derivative)
+	avgBare := *avg
+	avgBare.Deprecated = avg
+	minBare := *min
+	minBare.Deprecated = min
+	maxBare := *max
+	maxBare.Deprecated = max
+	derivativeBare := *derivative
+	derivativeBare.Deprecated = derivative
+	return []*symbol.Symbol{mod, &avgBare, &minBare, &maxBare, &derivativeBare}
 }
 
-var moduleMembers = symbol.MapResolver{
-	powSymbolName:        powSymbol,
-	avgSymbolName:        avgSymbol,
-	minSymbolName:        minSymbol,
-	maxSymbolName:        maxSymbol,
-	derivativeSymbolName: derivativeSymbol,
-}
+// Host is the runtime host-side support for math: it registers the WASM
+// host-function bindings (pow_*, neg_*) and acts as the node factory for
+// avg / min / max / derivative.
+type Host struct{}
 
-var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "math", Members: moduleMembers},
-}
-
-type Module struct{}
-
-func NewModule(
-	ctx context.Context,
-	rt wazero.Runtime,
-) (*Module, error) {
-	m := &Module{}
+// NewHost registers math's WASM host bindings with rt and returns a Host
+// handle that satisfies node.Factory for math's runtime nodes.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{}
 	if rt == nil {
-		return m, nil
+		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder("math")
+	builder := rt.NewHostModuleBuilder(name)
 	// i32-compatible types: WASM uses uint32, convert internally
 	builder = bindI32Pow[uint8](builder, "u8")
 	builder = bindI32Pow[uint16](builder, "u16")
@@ -167,10 +214,10 @@ func NewModule(
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return h, nil
 }
 
-func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
 	}

@@ -19,7 +19,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError
@@ -139,7 +139,7 @@ class Task:
     config: dict[str, Any] = {}
     snapshot: bool = False
     status: Status | None = None
-    __frame_client: FrameClient | None = None
+    _cached_frame_client: FrameClient | None = None
 
     def __init__(
         self,
@@ -163,15 +163,15 @@ class Task:
         self.internal = internal
         self.snapshot = snapshot
         self.status = status
-        self.__frame_client = _frame_client
+        self._cached_frame_client = _frame_client
 
     @property
     def _frame_client(self) -> FrameClient:
-        if self.__frame_client is None:
+        if self._cached_frame_client is None:
             raise RuntimeError(
                 "Cannot execute commands on a task that has not been created or retrieved from the cluster."
             )
-        return self.__frame_client
+        return self._cached_frame_client
 
     def to_payload(self) -> Payload:
         return Payload(
@@ -187,7 +187,7 @@ class Task:
         self.type = task.type
         self.config = task.config
         self.snapshot = task.snapshot
-        self.__frame_client = task.__frame_client
+        self._cached_frame_client = task._cached_frame_client
 
     @property
     def ontology_id(self) -> ID:
@@ -411,12 +411,12 @@ class Client:
         for pld in payloads:
             self.maybe_assign_def_rack(pld, rack)
         req = _CreateRequest(tasks=payloads)
-        created = self.__exec_create(req)
+        created = self._exec_create(req)
         sugared = self.sugar(created)
         return sugared[0] if is_single else sugared
 
-    def __exec_create(self, req: _CreateRequest) -> list[Payload]:
-        res = send_required(self._client, "/task/create", req, _CreateResponse)
+    def _exec_create(self, req: _CreateRequest) -> list[Payload]:
+        res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
@@ -438,7 +438,7 @@ class Client:
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
-            tasks = self.__exec_create(req)
+            tasks = self._exec_create(req)
             task.set_internal(self.sugar(tasks)[0])
             while True:
                 frame = streamer.read(timeout)
@@ -469,7 +469,7 @@ class Client:
 
     def delete(self, keys: int | list[int]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, "/task/delete", req, Empty)
+        self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -500,8 +500,7 @@ class Client:
         types: list[str] | None = None,
     ) -> list[Task] | Task:
         is_single = check_for_none(names, keys, types)
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
@@ -539,8 +538,7 @@ class Client:
                 self._default_rack = self._racks.retrieve_embedded_rack()
             rack = self._default_rack.key
 
-        res = send_required(
-            self._client,
+        res = self._client.send(
             _RETRIEVE_ENDPOINT,
             _RetrieveRequest(rack=rack, internal=False),
             _RetrieveResponse,
@@ -559,5 +557,5 @@ class Client:
         :return: The newly created task.
         """
         req = _CopyRequest(key=key, name=name, snapshot=False)
-        res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
+        res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

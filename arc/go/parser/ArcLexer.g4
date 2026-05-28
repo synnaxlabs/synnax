@@ -11,6 +11,8 @@ RETURN      : 'return';
 FOR         : 'for';
 BREAK       : 'break';
 CONTINUE    : 'continue';
+IMPORT      : 'import';
+AS          : 'as';
 
 // Sequencing keywords
 SEQUENCE    : 'sequence';
@@ -111,20 +113,23 @@ FLOAT_LITERAL
     | '.' DIGITS
     ;
 
-// String literal
+// Multi-line string literal. Backtick-delimited; may span newlines. An optional
+// prefix selects raw and/or format semantics. The lexer is permissive: any
+// '\\' followed by any character is accepted, and the literal package
+// interprets escapes (or skips them for raw strings).
+STR_LITERAL_MULTI
+    : STR_PREFIX? '`' (~[`\\] | '\\' .)* '`'
+    ;
+
+// Single-line string literal. An optional prefix selects raw and/or format
+// semantics. The lexer accepts any '\\' followed by any character; the literal
+// package validates and interprets escapes.
 STR_LITERAL
-    : '"' (~["\\\r\n] | ESCAPE_SEQUENCE)* '"'
+    : STR_PREFIX? '"' (~["\\\r\n] | '\\' .)* '"'
     ;
 
-// Raw multi-line string literal. Supports \` for a literal backtick; all other
-// content is verbatim.
-STR_LITERAL_RAW
-    : '`' ('\\`' | ~[`])* '`'
-    ;
-
-fragment ESCAPE_SEQUENCE
-    : '\\' [btnfr"\\]
-    | '\\u' [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]
+fragment STR_PREFIX
+    : 'r' | 'f' | 'rf' | 'fr'
     ;
 
 // =============================================================================

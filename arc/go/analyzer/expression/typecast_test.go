@@ -373,6 +373,16 @@ var _ = Describe("Type Casts", func() {
 				y := str(-3.14)
 			}
 		`),
+		Entry("float literal to str (negative zero)", `
+			func testFunc() {
+				y := str(-0.0)
+			}
+		`),
+		Entry("float literal to str (negative zero with trailing zeros)", `
+			func testFunc() {
+				y := str(-0.0000)
+			}
+		`),
 		Entry("float literal to str (trailing zero)", `
 			func testFunc() {
 				y := str(1.0)

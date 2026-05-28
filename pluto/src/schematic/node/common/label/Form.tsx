@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction } from "@synnaxlabs/x";
+import { type direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
@@ -15,7 +15,6 @@ import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { type Input } from "@/input";
 import { Select } from "@/select";
-import { type Text } from "@/text";
 
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
@@ -40,15 +39,15 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
       style={MAX_INLINE_SIZE_STYLE}
       path={`${path}.maxInlineSize`}
       hideIfNull
-      label="Label Wrap Width"
+      label="Label wrap width"
       inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
-    <Base.Field<Text.Level>
+    <Base.Field<text.Level>
       hideIfNull
       visible={!omit.includes("level")}
       path={`${path}.level`}
-      label="Label Size"
+      label="Label size"
       padHelpText={false}
     >
       {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
@@ -56,7 +55,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     <Base.Field<Flex.Alignment>
       visible={!omit.includes("align")}
       path={`${path}.align`}
-      label="Label Alignment"
+      label="Label alignment"
       padHelpText={false}
       hideIfNull
     >
@@ -67,7 +66,7 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
     <Base.Field<direction.Direction>
       visible={!omit.includes("direction")}
       path={`${path}.direction`}
-      label="Label Direction"
+      label="Label direction"
       padHelpText={false}
       hideIfNull
     >

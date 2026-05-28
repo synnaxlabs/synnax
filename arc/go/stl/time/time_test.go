@@ -10,6 +10,7 @@
 package time_test
 
 import (
+	"context"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -28,16 +31,16 @@ import (
 var _ = Describe("Time", func() {
 	Describe("NewModule", func() {
 		It("Should create module with max timing base", func(ctx SpecContext) {
-			factory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory := MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			Expect(factory).ToNot(BeNil())
 		})
 	})
 	Describe("Interval", func() {
-		var factory *time.Module
+		var factory *time.Host
 		var s *node.ProgramState
 		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -57,7 +60,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -310,11 +313,11 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("Wait", func() {
-		var factory *time.Module
+		var factory *time.Host
 		var s *node.ProgramState
 		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -334,7 +337,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -845,7 +848,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("TimingBase", func() {
 		It("Should compute GCD of multiple intervals", func(ctx SpecContext) {
-			factory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory := MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{
@@ -873,7 +876,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 
@@ -905,32 +908,42 @@ var _ = Describe("Time", func() {
 			Expect(factory.BaseInterval).To(Equal(50 * telem.Millisecond))
 		})
 	})
-	Describe("SymbolResolver", func() {
-		It("Should resolve interval symbol", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "interval"))
-			Expect(sym.Name).To(Equal("interval"))
+	Describe("Symbols", func() {
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, time.NewSymbols()) })
+		bare := func(ctx context.Context, name string) *symbol.Symbol {
+			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
+		}
+		timeM := func(ctx context.Context, member string) *symbol.Symbol {
+			mod := MustSucceed(root.Resolve(ctx, "time", symbol.IncludeInternal))
+			return MustSucceed(mod.Resolve(ctx, member, symbol.IncludeInternal))
+		}
+		It("Should expose interval bare symbol", func(ctx SpecContext) {
+			Expect(bare(ctx, "interval").Name).To(Equal("interval"))
 		})
-		It("Should resolve wait symbol", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
-			Expect(sym.Name).To(Equal("wait"))
+		It("Should expose wait bare symbol", func(ctx SpecContext) {
+			Expect(bare(ctx, "wait").Name).To(Equal("wait"))
 		})
-		It("Should resolve now via module-qualified name", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "time.now"))
+		It("Should expose time.now (not deprecated)", func(ctx SpecContext) {
+			sym := timeM(ctx, "now")
 			Expect(sym.Name).To(Equal("now"))
-			Expect(sym.Deprecated).To(Equal(""))
+			Expect(sym.Deprecated).To(BeNil())
 		})
-		It("Should resolve bare now symbol (deprecated)", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "now"))
+		It("Should expose bare now as deprecated", func(ctx SpecContext) {
+			sym := bare(ctx, "now")
 			Expect(sym.Name).To(Equal("now"))
-			Expect(sym.Deprecated).To(Equal("time.now"))
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.now"))
 		})
 		It("Should mark bare interval as deprecated", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "interval"))
-			Expect(sym.Deprecated).To(Equal("time.interval"))
+			sym := bare(ctx, "interval")
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.interval"))
 		})
 		It("Should mark bare wait as deprecated", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
-			Expect(sym.Deprecated).To(Equal("time.wait"))
+			sym := bare(ctx, "wait")
+			Expect(sym.Deprecated).ToNot(BeNil())
+			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
 	})
 	Describe("CalculateTolerance", func() {
@@ -952,11 +965,11 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("Tolerance Behavior", func() {
-		var factory *time.Module
+		var factory *time.Host
 		var s *node.ProgramState
 		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -976,7 +989,7 @@ var _ = Describe("Time", func() {
 					},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -1171,10 +1184,10 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				waitState := node.New(analyzed)
-				waitFactory := MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+				waitFactory := MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 
 				cfg := node.Config{
 					Node: ir.Node{
@@ -1223,10 +1236,10 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
-			var factory *time.Module
+			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewModule(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{
 						Key:  "interval_1",
@@ -1245,7 +1258,7 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s = node.New(analyzed)
 			})
@@ -1312,10 +1325,10 @@ var _ = Describe("Time", func() {
 			})
 		})
 		Describe("Wait", func() {
-			var factory *time.Module
+			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewModule(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{
 						Key:  "wait_1",
@@ -1334,7 +1347,7 @@ var _ = Describe("Time", func() {
 						},
 					}},
 				}
-				analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue())
 				s = node.New(analyzed)
 			})
@@ -1454,11 +1467,11 @@ var _ = Describe("Time", func() {
 		})
 	})
 	Describe("Now", func() {
-		var factory *time.Module
+		var factory *time.Host
 		var s *node.ProgramState
 		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			factory = MustSucceed(time.NewHost(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
@@ -1470,7 +1483,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 				}},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})

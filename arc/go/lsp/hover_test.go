@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
@@ -112,11 +112,11 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### set_authority"))
-			Expect(hover.Contents.Value).To(ContainSubstring("authority.set{}"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control.set_authority"))
 		})
 
-		It("should provide hover for 'authority.set' function", func(ctx SpecContext) {
-			content := "authority.set{value=255}"
+		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
+			content := "control.set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -127,7 +127,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### authority.set"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### control.set_authority"))
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
@@ -177,22 +177,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.for"))
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
-		})
-
-		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
-			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 17},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### status.set"))
-			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
@@ -558,6 +542,57 @@ func add(a i32, b i32) i32 {
 		})
 	})
 
+	DescribeTable("kind label hover",
+		func(
+			ctx SpecContext,
+			content string,
+			line, char uint32,
+			expectedTitle, expectedKind string,
+		) {
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, line, char)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
+			Expect(hover.Contents.Value).To(ContainSubstring(expectedKind))
+		},
+		Entry("function",
+			"func foo() i32 { return 0 }\n",
+			uint32(0), uint32(5),
+			"foo", "Function"),
+		Entry("variable",
+			"func test() {\n    x i32 := 42\n    y := x + 10\n}\n",
+			uint32(2), uint32(9),
+			"x", "Variable"),
+		Entry("stateful variable",
+			"func counter{} () u32 {\n    count u32 $= 0\n    count = count + 1\n    return count\n}\n",
+			uint32(2), uint32(5),
+			"count", "Stateful Variable"),
+		Entry("input parameter",
+			"func multiply(x f64, y f64) f64 {\n    return x * y\n}\n",
+			uint32(1), uint32(11),
+			"x", "Input Parameter"),
+		Entry("output parameter",
+			"func compute() result f64 {\n    result = 1.0\n}\n",
+			uint32(1), uint32(4),
+			"result", "Output Parameter"),
+		Entry("config parameter",
+			"func compute{k f64}() f64 {\n    return k\n}\n",
+			uint32(1), uint32(11),
+			"k", "Configuration Parameter"),
+		Entry("module alias",
+			"import time\n\nfunc test() {\n    time.now()\n}\n",
+			uint32(3), uint32(5),
+			"time", "Module"),
+		Entry("sequence",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(0), uint32(10),
+			"main", "Sequence"),
+		Entry("stage",
+			"sequence main {\n    stage first {}\n}\n",
+			uint32(1), uint32(11),
+			"first", "Stage"),
+	)
+
 	DescribeTable("operator hover",
 		func(ctx SpecContext, content string, char uint32, expectedOp, expectedSubstring string) {
 			OpenArcDocument(server, ctx, uri, content)
@@ -621,15 +656,11 @@ func add(a i32, b i32) i32 {
 
 	Describe("GlobalResolver", func() {
 		It("should provide hover for global variables from GlobalResolver", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"myGlobal": symbol.Symbol{
-					Name: "myGlobal",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "myGlobal",
 					Type: types.I32(),
-					Kind: symbol.KindVariable,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindVariable})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
@@ -643,7 +674,9 @@ func add(a i32, b i32) i32 {
 	Describe("Qualified Module Identifiers", func() {
 		It("Should provide hover for qualified module function", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -656,7 +689,9 @@ func add(a i32, b i32) i32 {
 
 		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
-				GlobalResolver: stl.SymbolResolver,
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil)
+				},
 			}))
 			server.SetClient(&MockClient{})
 
@@ -788,16 +823,16 @@ func add(a i32, b i32) i32 {
 			Expect(foundInput).To(BeTrue())
 		})
 
-		It("should tokenize sequence names as sequence type", func(ctx SpecContext) {
+		It("should tokenize sequence names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
-			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeSequence)))
+			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
-		It("should tokenize stage names as stage type", func(ctx SpecContext) {
+		It("should tokenize stage names as function type", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "sequence main { stage init {} }")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
@@ -811,7 +846,7 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(stageKeywordIdx).ToNot(Equal(-1))
-			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeStage)))
+			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
 		})
 
 		It("should tokenize stateful variables as statefulVariable type", func(ctx SpecContext) {
@@ -829,15 +864,11 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize channel variables as channel type", func(ctx SpecContext) {
-			globalResolver := symbol.MapResolver{
-				"sensorData": symbol.Symbol{
-					Name: "sensorData",
+			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+				return NewRoot(nil, symbol.Symbol{Name: "sensorData",
 					Type: types.Chan(types.F64()),
-					Kind: symbol.KindChannel,
-				},
-			}
-
-			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+					Kind: symbol.KindChannel})
+			}}))
 			server.SetClient(&MockClient{})
 
 			OpenArcDocument(server, ctx, uri, "func test() { x := sensorData }")
@@ -873,14 +904,6 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(foundFunction).To(BeTrue())
-		})
-
-		It("should tokenize keyword as variable when used as module prefix", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "authority.set{value=255}")
-			tokens := SemanticTokens(server, ctx, uri)
-			Expect(tokens).ToNot(BeNil())
-			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
-			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
 		})
 
 		It("should tokenize keyword normally when not a module prefix", func(ctx SpecContext) {

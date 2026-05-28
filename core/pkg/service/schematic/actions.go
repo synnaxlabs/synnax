@@ -10,24 +10,22 @@
 package schematic
 
 import (
+	"maps"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// ScopedAction wraps an action sequence with the targeted schematic key and the
-// originating client's session key. Subscribers to the action signal channel
-// compare SessionKey against their own client key to skip self-originated
-// updates (optimistic-UI dedup).
-type ScopedAction struct {
-	Key        Key      `json:"key" msgpack:"key"`
-	SessionKey string   `json:"session_key" msgpack:"session_key"`
-	Actions    []Action `json:"actions" msgpack:"actions"`
+// Handle replaces the schematic's name.
+func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
+	state.Name = p.Name
+	return state, nil
 }
 
 // Handle moves the named node to the given position. No-op if no node matches.
-func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
+func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
-		if state.Nodes[i].Key == a.Key {
-			state.Nodes[i].Position = a.Position
+		if state.Nodes[i].Key == p.Key {
+			state.Nodes[i].Position = p.Position
 			break
 		}
 	}
@@ -36,10 +34,10 @@ func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
 
 // Handle records the rendered pixel size of the named node. No-op if no node
 // matches.
-func (a SetNodeMeasured) Handle(state Schematic) (Schematic, error) {
+func (p SetNodeMeasuredPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
-		if state.Nodes[i].Key == a.Key {
-			state.Nodes[i].Measured = a.Measured
+		if state.Nodes[i].Key == p.Key {
+			state.Nodes[i].Measured = p.Measured
 			break
 		}
 	}
@@ -49,81 +47,100 @@ func (a SetNodeMeasured) Handle(state Schematic) (Schematic, error) {
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.
-func (a SetNode) Handle(state Schematic) (Schematic, error) {
+func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	replaced := false
 	for i := range state.Nodes {
-		if state.Nodes[i].Key == a.Node.Key {
-			state.Nodes[i] = a.Node
+		if state.Nodes[i].Key == p.Node.Key {
+			state.Nodes[i] = p.Node
 			replaced = true
 			break
 		}
 	}
 	if !replaced {
-		state.Nodes = append(state.Nodes, a.Node)
+		state.Nodes = append(state.Nodes, p.Node)
 	}
-	if a.Config != nil {
+	if p.Config != nil {
 		if state.Configs == nil {
 			state.Configs = make(map[string]msgpack.EncodedJSON)
 		}
-		state.Configs[a.Node.Key] = a.Config
+		state.Configs[p.Node.Key] = p.Config
 	}
 	return state, nil
 }
 
 // Handle removes the node with the matching key and discards any config entry
 // stored under that key.
-func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
+func (p RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
-		if state.Nodes[i].Key == a.Key {
+		if state.Nodes[i].Key == p.Key {
 			state.Nodes = append(state.Nodes[:i], state.Nodes[i+1:]...)
 			break
 		}
 	}
-	delete(state.Configs, a.Key)
+	delete(state.Configs, p.Key)
 	return state, nil
 }
 
-// Handle inserts the edge if no edge with the same key exists, otherwise
-// replaces the existing edge in place.
-func (a SetEdge) Handle(state Schematic) (Schematic, error) {
+// Handle appends the edge to the schematic. No-op when an edge with the
+// same key already exists.
+func (p AddEdgePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
-		if state.Edges[i].Key == a.Edge.Key {
-			state.Edges[i] = a.Edge
+		if state.Edges[i].Key == p.Edge.Key {
 			return state, nil
 		}
 	}
-	state.Edges = append(state.Edges, a.Edge)
+	state.Edges = append(state.Edges, p.Edge)
 	return state, nil
 }
 
-// Handle removes the edge with the matching key. No-op if no edge matches.
-func (a RemoveEdge) Handle(state Schematic) (Schematic, error) {
+// Handle removes the edge with the matching key and discards any config entry
+// stored under that key.
+func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
-		if state.Edges[i].Key == a.Key {
+		if state.Edges[i].Key == p.Key {
 			state.Edges = append(state.Edges[:i], state.Edges[i+1:]...)
 			break
 		}
 	}
+	delete(state.Configs, p.Key)
 	return state, nil
 }
 
-// Handle sets the configs entry for the given key, replacing any prior value.
-func (a SetConfig) Handle(state Schematic) (Schematic, error) {
+// Handle merges the payload config into the configs entry for the given key.
+// Top-level fields present in the payload overwrite existing fields; fields
+// absent from the payload are preserved. When no entry exists yet and the
+// key matches an edge whose source node carries a color, the source color
+// overrides whatever color (if any) was in the payload.
+func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if state.Configs == nil {
 		state.Configs = make(map[string]msgpack.EncodedJSON)
 	}
-	state.Configs[a.Key] = a.Config
-	return state, nil
-}
-
-// Handle replaces the schematic's control authority level with the new value.
-func (a SetAuthority) Handle(state Schematic) (Schematic, error) {
-	state.Authority = a.Value
-	return state, nil
-}
-
-// Handle replaces the schematic's legend configuration with the new value.
-func (a SetLegend) Handle(state Schematic) (Schematic, error) {
-	state.Legend = a.Legend
+	if existing := state.Configs[p.Key]; existing != nil {
+		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
+		maps.Copy(merged, existing)
+		maps.Copy(merged, p.Config)
+		state.Configs[p.Key] = merged
+		return state, nil
+	}
+	cfg := p.Config
+	for _, e := range state.Edges {
+		if e.Key != p.Key {
+			continue
+		}
+		srcCfg := state.Configs[e.Source.Node]
+		if srcCfg == nil {
+			break
+		}
+		c, ok := srcCfg["color"]
+		if !ok || c == nil {
+			break
+		}
+		next := make(msgpack.EncodedJSON, len(cfg)+1)
+		maps.Copy(next, cfg)
+		next["color"] = c
+		cfg = next
+		break
+	}
+	state.Configs[p.Key] = cfg
 	return state, nil
 }

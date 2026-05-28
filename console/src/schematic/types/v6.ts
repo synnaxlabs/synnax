@@ -8,15 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Schematic } from "@synnaxlabs/pluto";
-import { color, migrate, record } from "@synnaxlabs/x";
+import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
+import { color, control as xControl, migrate, record, sticky, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
-import * as v5 from "@/schematic/types/v5";
+import type * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
+
+export const toolbarTabZ = v0.toolbarTabZ;
+export type ToolbarTab = v0.ToolbarTab;
+
+export const viewportZ = z.object({
+  position: xy.xyZ,
+  zoom: z.number(),
+  mode: Viewport.modeZ.default("select"),
+});
+export interface ViewportState extends z.infer<typeof viewportZ> {}
 
 export const nodeZ = schematic.nodeZ;
 export type Node = schematic.Node;
@@ -24,73 +34,69 @@ export const edgeZ = schematic.edgeZ;
 export type Edge = schematic.Edge;
 export const handleZ = schematic.handleZ;
 export type Handle = schematic.Handle;
-export const legendZ = schematic.legendZ;
-export type Legend = schematic.Legend;
 
-export const configZ = Schematic.elementConfigZ;
+export const elementConfigZ = Schematic.elementConfigZ;
 export type EdgeConfig = Schematic.Edge.Config;
 export type NodeConfig = Schematic.Node.Config;
 export type ElementConfig = Schematic.ElementConfig;
 
-export const legendStateZ = v1.legendStateZ
-  .omit({ colors: true })
-  .extend({ colors: z.record(z.string(), color.colorZ).default({}) });
-export interface LegendState extends z.infer<typeof legendStateZ> {}
-const ZERO_LEGEND_STATE: LegendState = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
-export const stateZ = v5.stateZ
-  .omit({ version: true, nodes: true, edges: true, props: true, legend: true })
-  .extend({
-    version: z.literal(VERSION),
-    nodes: z.array(nodeZ),
-    edges: z.array(edgeZ),
-    configs: z.record(z.string(), configZ),
-    legend: legendStateZ,
-    selected: z.array(z.string()).default([]),
-  });
-export interface State extends z.infer<typeof stateZ> {}
-const { props: _, ...v5Defaults } = v5.ZERO_STATE;
-export const ZERO_STATE: State = {
-  ...v5Defaults,
-  version: VERSION,
-  nodes: [],
-  edges: [],
-  configs: {},
-  legend: ZERO_LEGEND_STATE,
-  selected: [],
-};
-
-export const copyBufferZ = z.object({
-  pos: v0.copyBufferZ.shape.pos,
-  nodes: z.array(nodeZ),
-  edges: z.array(edgeZ),
-  configs: z.record(z.string(), configZ),
+export const legendStateZ = z.object({
+  visible: z.boolean(),
+  position: sticky.xyZ,
+  colors: z.record(z.string(), color.colorZ).default({}),
 });
-export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
-export const ZERO_COPY_BUFFER: CopyBuffer = {
-  pos: { x: 0, y: 0 },
-  nodes: [],
-  edges: [],
-  configs: {},
+export interface LegendState extends z.infer<typeof legendStateZ> {}
+
+export const pendingUploadZ = schematic.schematicZ
+  .omit({ configs: true, name: true })
+  .extend({
+    configs: z.record(z.string(), elementConfigZ),
+  });
+export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+
+export const stateZ = z.object({
+  version: z.literal(VERSION),
+  selected: z.array(z.string()).default([]),
+  controlStatus: control.statusZ,
+  authority: xControl.authorityZ,
+  legend: legendStateZ,
+  toolbar: v0.toolbarStateZ,
+  editable: z.boolean(),
+  fitViewOnResize: z.boolean(),
+  viewport: viewportZ,
+  pendingUpload: pendingUploadZ.optional(),
+});
+export interface State extends z.infer<typeof stateZ> {}
+
+export const ZERO_STATE: State = {
+  version: VERSION,
+  selected: [],
+  controlStatus: "released",
+  authority: 1,
+  legend: {
+    visible: true,
+    position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+    colors: {},
+  },
+  toolbar: {
+    activeTab: "symbols",
+    selectedSymbolGroup: "general",
+  },
+  editable: false,
+  fitViewOnResize: false,
+  viewport: { position: xy.ZERO, zoom: 1, mode: "select" },
+  pendingUpload: undefined,
 };
 
-export const sliceStateZ = v5.sliceStateZ
-  .omit({ version: true, schematics: true, copy: true })
-  .extend({
-    version: z.literal(VERSION),
-    schematics: z.record(z.string(), stateZ),
-    copy: copyBufferZ,
-  });
+export const sliceStateZ = z.object({
+  version: z.literal(VERSION),
+  schematics: z.record(z.string(), stateZ),
+});
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
+
 export const ZERO_SLICE_STATE: SliceState = {
-  ...v5.ZERO_SLICE_STATE,
   version: VERSION,
   schematics: {},
-  copy: ZERO_COPY_BUFFER,
 };
 
 const migrateNode = (node: v0.Node): Node => {
@@ -105,21 +111,21 @@ const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
     target: { node: edge.target, param: edge.targetHandle ?? "" },
   };
-  const edgeProps: EdgeConfig = {
+  const edgeConfig: EdgeConfig = {
     variant: "pipe" as Schematic.Edge.Variant,
     segments: [],
     color: color.ZERO,
   };
   const parseDataResult = record.unknownZ().safeParse(edge.data);
-  if (!parseDataResult.success) return [next, edgeProps];
+  if (!parseDataResult.success) return [next, edgeConfig];
   const data = parseDataResult.data;
   const segments = z.array(Schematic.Edge.Segmented.segmentZ).safeParse(data.segments);
-  if (segments.success) edgeProps.segments = segments.data;
+  if (segments.success) edgeConfig.segments = segments.data;
   const parsedColor = color.colorZ.safeParse(data.color);
-  if (parsedColor.success) edgeProps.color = parsedColor.data;
+  if (parsedColor.success) edgeConfig.color = parsedColor.data;
   const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);
-  if (parsedVariant.success) edgeProps.variant = parsedVariant.data;
-  return [next, edgeProps];
+  if (parsedVariant.success) edgeConfig.variant = parsedVariant.data;
+  return [next, edgeConfig];
 };
 
 const migrateLegendColors = (
@@ -144,44 +150,50 @@ const migratePropsToConfigs = (
     }),
   );
 
-export const stateMigration = migrate.createMigration<v5.State, State>({
-  name: v1.STATE_MIGRATION_NAME,
-  migrate: (state) => {
-    const configs = migratePropsToConfigs(state.props);
-    const edges = state.edges.map((e) => {
-      const [edge, edgeProps] = migrateEdge(e);
-      configs[edge.key] = edgeProps;
-      return edge;
-    });
-    const { props: _props, ...rest } = state;
-    return {
-      ...rest,
-      version: VERSION,
-      nodes: state.nodes.map(migrateNode),
-      edges,
-      configs,
-      legend: { ...state.legend, colors: migrateLegendColors(state.legend?.colors) },
-      selected: [],
-    };
-  },
-});
-
-const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
-  const configs = migratePropsToConfigs(copy.props);
-  const edges = copy.edges.map((e) => {
-    const [edge, edgeProps] = migrateEdge(e);
-    configs[edge.key] = edgeProps;
+const buildPendingUpload = (state: v5.State): PendingUpload => {
+  const configs = migratePropsToConfigs(state.props);
+  const edges = state.edges.map((e) => {
+    const [edge, edgeConfig] = migrateEdge(e);
+    configs[edge.key] = edgeConfig;
     return edge;
   });
-  return { pos: copy.pos, nodes: copy.nodes.map(migrateNode), edges, configs };
+  return {
+    key: state.key,
+    nodes: state.nodes.map(migrateNode),
+    edges,
+    configs,
+    snapshot: state.snapshot,
+  };
 };
+
+export const stateMigration = migrate.createMigration<v5.State, State>({
+  name: v1.STATE_MIGRATION_NAME,
+  migrate: (state) => ({
+    version: VERSION,
+    selected: [],
+    authority: state.authority,
+    controlStatus: state.control,
+    legend: {
+      visible: state.legend?.visible ?? true,
+      position: state.legend?.position ?? {
+        x: 50,
+        y: 50,
+        units: { x: "px", y: "px" },
+      },
+      colors: migrateLegendColors(state.legend?.colors),
+    },
+    toolbar: state.toolbar,
+    editable: state.editable,
+    fitViewOnResize: state.fitViewOnResize,
+    viewport: { ...state.viewport, mode: "select" },
+    pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
+  }),
+});
 
 export const sliceMigration = migrate.createMigration<v5.SliceState, SliceState>({
   name: v1.SLICE_MIGRATION_NAME,
-  migrate: ({ schematics, copy, ...rest }) => ({
-    ...rest,
+  migrate: ({ schematics }) => ({
     version: VERSION,
-    copy: migrateCopyBuffer(copy),
     schematics: Object.fromEntries(
       Object.entries(schematics).map(([key, schematic]) => [
         key,

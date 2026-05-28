@@ -45,6 +45,17 @@ interface GL {
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
+/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+const stringifyFloat32 = (value: number): string => {
+  const f32 = Math.fround(value);
+  if (!Number.isFinite(f32)) return f32.toString();
+  for (let p = 1; p <= 9; p++) {
+    const parsed = parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return parsed.toString();
+  }
+  return f32.toString();
+};
+
 /** A condensed set of information describing the layout of a series. */
 export interface SeriesDigest {
   key: string;
@@ -193,12 +204,14 @@ export class Series<T extends TelemValue = TelemValue>
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: z.coerce.bigint().optional(),
-    data: z.union([
-      stringArrayZ,
-      nullArrayZ,
-      z.instanceof(ArrayBuffer),
-      z.instanceof(Uint8Array),
-    ]),
+    data: z
+      .union([
+        stringArrayZ,
+        nullArrayZ,
+        z.instanceof(ArrayBuffer),
+        z.instanceof(Uint8Array),
+      ])
+      .default(() => new Uint8Array().buffer),
     glBufferUsage: glBufferUsageZ.default("static").optional(),
   });
 
@@ -294,7 +307,7 @@ export class Series<T extends TelemValue = TelemValue>
       data,
     } = props;
     if (isSeries(data)) {
-      const data_ = data as Series;
+      const data_ = data;
       this.key = data_.key;
       this.dataType = data_.dataType;
       this.sampleOffset = data_.sampleOffset;
@@ -319,7 +332,7 @@ export class Series<T extends TelemValue = TelemValue>
         "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
       );
     else if (isArray || isSingle) {
-      let first: TelemValue | unknown = data as TelemValue;
+      let first: TelemValue | unknown = data;
       if (!isSingle) {
         if (data.length === 0)
           throw new Error(
@@ -823,6 +836,7 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
     const v = this.at(index, required as true);
     if (v == null) return undefined;
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v as number);
     return String(v);
   }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoTypes(t *testing.T) {
@@ -504,6 +505,53 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Direction indicates a compass direction.`))
 				Expect(content).To(ContainSubstring(`type Direction string`))
+			})
+
+			It("Should generate an IsValid method for string enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Variant enum {
+						success = "success"
+						warning = "warning"
+						error = "error"
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// IsValid reports whether v is one of the defined Variant values.`))
+				Expect(content).To(ContainSubstring(`func (v Variant) IsValid() bool {`))
+				Expect(content).To(ContainSubstring(`case VariantSuccess, VariantWarning, VariantError:`))
+				Expect(content).To(ContainSubstring(`return true`))
+				Expect(content).To(ContainSubstring(`return false`))
+			})
+
+			It("Should not generate an IsValid method for int enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/priority"
+
+					Priority enum {
+						low = 0
+						medium = 1
+						high = 2
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Priority uint8`))
+				Expect(content).NotTo(ContainSubstring(`func (p Priority) IsValid()`))
 			})
 
 		})
@@ -1315,6 +1363,42 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`json:"target_key"`))
 			})
 
+			It("Should preserve digit-suffixed snake field names instead of splitting on letter-digit boundaries", func(ctx SpecContext) {
+				// A field already spelled in valid snake_case form (lowercase
+				// letters, digits, underscores) is the author's chosen wire
+				// name and must round-trip unchanged. Domain identifiers like
+				// axis keys (x1, y4) and channel slots (slot_2) read awkward
+				// when the converter inserts an underscore before the digit.
+				source := `
+					@go output "vis/lineplot"
+
+					Channels struct {
+						x1 uint32
+						x2 uint32
+						y1 uint32
+						y4 uint32
+						slot_2 string
+						axis_3_label string
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{Resolutions: table}
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`json:"x1"`))
+				Expect(content).To(ContainSubstring(`json:"x2"`))
+				Expect(content).To(ContainSubstring(`json:"y1"`))
+				Expect(content).To(ContainSubstring(`json:"y4"`))
+				Expect(content).To(ContainSubstring(`json:"slot_2"`))
+				Expect(content).To(ContainSubstring(`json:"axis_3_label"`))
+				Expect(content).ToNot(ContainSubstring(`json:"x_1"`))
+				Expect(content).ToNot(ContainSubstring(`json:"y_4"`))
+			})
+
 			It("Should use alias type name in struct fields instead of expanded target", func(ctx SpecContext) {
 				// Regression test: When a struct field references a type alias,
 				// the generated code should use the alias name, not expand to the target type.
@@ -1471,7 +1555,7 @@ var _ = Describe("Go Types Plugin", func() {
 						functions string[]
 						nodes     string[]
 
-						@go fields "Symbols *symbol.Scope ` + "`" + `json:\"-\"` + "`" + `" "TypeMap map[string]any ` + "`" + `json:\"-\"` + "`" + `"
+						@go fields "Symbols *symbol.Symbol ` + "`" + `json:\"-\"` + "`" + `" "TypeMap map[string]any ` + "`" + `json:\"-\"` + "`" + `"
 						@go imports "github.com/synnaxlabs/arc/symbol"
 					}
 				`
@@ -1484,7 +1568,7 @@ var _ = Describe("Go Types Plugin", func() {
 						"type IR struct {",
 						"Functions []string",
 						"Nodes []string",
-						`Symbols *symbol.Scope `+"`"+`json:"-"`+"`",
+						`Symbols *symbol.Symbol `+"`"+`json:"-"`+"`",
 						`TypeMap map[string]any `+"`"+`json:"-"`+"`",
 						`"github.com/synnaxlabs/arc/symbol"`,
 					)

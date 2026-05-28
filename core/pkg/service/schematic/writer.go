@@ -14,10 +14,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,14 +26,11 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, Schematic]
-	// actionObserver is notified after a successful Dispatch so the cluster
-	// signals subsystem can broadcast the action sequence on the schematic
-	// channels. Nil when the service is opened without a Signals provider.
-	actionObserver observe.Observer[ScopedAction]
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	table      *gorp.Table[Key, Schematic]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Create creates the given schematic within the workspace provided. If the
@@ -62,6 +59,9 @@ func (w Writer) Create(
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
+	if ws == uuid.Nil {
+		return nil
+	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
@@ -85,19 +85,6 @@ func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key
 	}
 	k, err := uuid.Parse(res[0].ID.Key)
 	return k, true, err
-}
-
-// Rename renames the schematic with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key Key,
-	name string,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		Change(func(_ gorp.Context, s Schematic) Schematic {
-			s.Name = name
-			return s
-		}).Exec(ctx, w.tx)
 }
 
 // Copy creates a copy of the schematic with the given key and name. If the
@@ -167,36 +154,38 @@ func (w Writer) SetData(
 // Dispatch applies a sequence of actions atomically to the schematic with the
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.
-// sessionKey identifies the originating client so subscribers can self-dedup.
-// Returns validate.ErrValidation if the target schematic is a snapshot, since
-// snapshots are immutable.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved. Snapshots are immutable except for Rename: returns
+// validate.ErrValidation if the target is a snapshot and any action other
+// than Rename is included.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
-	sessionKey string,
+	dispatchKey string,
 	actions []Action,
 ) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
-				return s, errors.Wrapf(
-					validate.ErrValidation,
-					"[Schematic] - cannot dispatch actions on snapshot %s:%s",
-					key,
-					s.Name,
-				)
+				for _, a := range actions {
+					if a.Type != ActionTypeRename {
+						return s, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							s.Name,
+						)
+					}
+				}
 			}
-			return ReduceAll(s, actions)
+			return Reduce(s, actions...)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if w.actionObserver != nil {
-		w.actionObserver.Notify(ctx, ScopedAction{
-			Key:        key,
-			SessionKey: sessionKey,
-			Actions:    actions,
-		})
-	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
 	return nil
 }
 

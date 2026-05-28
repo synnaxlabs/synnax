@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
@@ -33,11 +34,21 @@ const (
 	moduleName          = "status"
 )
 
-// Two separate resolvers are needed because the bare name ("set_status")
-// differs from the qualified member name ("set"). The bare form will be
-// deprecated and removed once users migrate to status.set{}.
 var (
-	symbolProps = types.Function(types.FunctionProperties{
+	memberDoc = doc.New(
+		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+		doc.Divider(),
+		doc.Paragraph("Accepted variants: success, error, warning, info."),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Publishes status notifications (alarms, warnings, operational state) to the cluster."),
+	)
+)
+
+func newSymbolProps() types.Type {
+	return types.Function(types.FunctionProperties{
 		Config: types.Params{
 			{Name: "status_key", Type: types.String()},
 			{Name: "variant", Type: types.String()},
@@ -48,28 +59,30 @@ var (
 			{Name: ir.DefaultOutputParam, Type: types.U8()},
 		},
 	})
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Type:       symbolProps,
-			Deprecated: "status.set",
-		},
+}
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the status module plus the deprecated `set_status` bare
+// global whose Deprecated field points at the canonical status.set member.
+func NewSymbols() []*symbol.Symbol {
+	member := &symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: newSymbolProps(),
+		Doc:  memberDoc,
 	}
-	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name: qualifiedMemberName,
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: symbolProps,
-			},
-		},
+	mod := &symbol.Symbol{Name: moduleName, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := &symbol.Symbol{
+		Name:       bareSymbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Type:       newSymbolProps(),
+		Deprecated: mod.FindChild(qualifiedMemberName),
 	}
-	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
-)
+	return []*symbol.Symbol{mod, bare}
+}
 
 type Module struct {
 	stat *status.Service
@@ -77,14 +90,6 @@ type Module struct {
 
 func NewModule(stat *status.Service) *Module {
 	return &Module{stat: stat}
-}
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
 }
 
 func (m *Module) ModuleName() string { return moduleName }

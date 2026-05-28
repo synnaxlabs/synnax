@@ -11,21 +11,18 @@ import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/schematic/Schematic";
-import { selectOptional } from "@/schematic/selectors";
-import { fromRemote } from "@/schematic/slice";
+import { LAYOUT_TYPE } from "@/schematic/layout";
+import { VERSION } from "@/schematic/types/v6";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
-  let state = selectOptional(storeState, key);
-  let name = Layout.select(storeState, key)?.name;
-  if (state == null || name == null) {
-    if (client == null) throw new DisconnectedError();
-    const schematic = await client.schematics.retrieve({ key });
-    state ??= fromRemote(schematic);
-    name ??= schematic.name;
-  }
-  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
+  const name = Layout.select(storeState, key)?.name;
+  if (client == null) throw new DisconnectedError();
+  const schematic = await client.schematics.retrieve({ key });
+  return {
+    data: JSON.stringify({ ...schematic, type: LAYOUT_TYPE, version: VERSION }),
+    name: name ?? schematic.name,
+  };
 };
 
 export const useExport = () => Export.use(extract, "schematic");

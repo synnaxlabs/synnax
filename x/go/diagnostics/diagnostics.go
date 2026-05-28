@@ -25,6 +25,20 @@ type Position struct {
 	Col  int
 }
 
+// Advance returns the position reached by walking off bytes of body from p,
+// resetting Col on each newline.
+func (p Position) Advance(body string, off int) Position {
+	for i := 0; i < off && i < len(body); i++ {
+		if body[i] == '\n' {
+			p.Line++
+			p.Col = 0
+		} else {
+			p.Col++
+		}
+	}
+	return p
+}
+
 //go:generate stringer -type=Severity
 const (
 	// SeverityError indicates a critical issue that prevents compilation.
@@ -136,6 +150,13 @@ func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
 // WithCode returns a copy of the diagnostic with the given error code.
 func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	d.Code = code
+	return d
+}
+
+// WithRange returns a copy of the diagnostic with explicit Start and End
+// positions, overriding any range set by SetRange.
+func (d Diagnostic) WithRange(start, end Position) Diagnostic {
+	d.Start, d.End = start, end
 	return d
 }
 

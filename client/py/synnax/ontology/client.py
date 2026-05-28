@@ -11,7 +11,7 @@ from typing import overload
 
 from pydantic import BaseModel, Field
 
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.ontology.payload import ID, CrudeID, Resource
 from x.normalize import normalize
 
@@ -99,7 +99,7 @@ class Client:
             include_schema=include_schema,
             exclude_field_data=exclude_field_data,
         )
-        resources = self.__exec_retrieve(req)
+        resources = self._exec_retrieve(req)
         if is_single:
             return resources[0]
         return resources
@@ -109,28 +109,25 @@ class Client:
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
         normalized: list[CrudeID] = normalize(id)
-        return self.__exec_retrieve(
+        return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], children=True)
         )
 
-    def __exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
-        return send_required(
-            self._client, "/ontology/retrieve", req, RetrieveRes
-        ).resources
+    def _exec_retrieve(self, req: RetrieveReq) -> list[Resource]:
+        return self._client.send("/ontology/retrieve", req, RetrieveRes).resources
 
     def retrieve_parents(
         self,
         id: CrudeID | list[CrudeID],
     ) -> list[Resource]:
         normalized: list[CrudeID] = normalize(id)
-        return self.__exec_retrieve(
+        return self._exec_retrieve(
             RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
 
-        send_required(
-            self._client,
+        self._client.send(
             "/ontology/move-children",
             MoveChildrenReq.model_validate(
                 {"from": ID(from_), "to": ID(to), "children": [ID(i) for i in children]}
@@ -139,16 +136,14 @@ class Client:
         )
 
     def remove_children(self, id: CrudeID, *children: CrudeID) -> None:
-        send_required(
-            self._client,
+        self._client.send(
             "/ontology/remove-children",
             RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,
         )
 
     def add_children(self, id: CrudeID, *children: CrudeID) -> None:
-        send_required(
-            self._client,
+        self._client.send(
             "/ontology/add-children",
             AddChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,

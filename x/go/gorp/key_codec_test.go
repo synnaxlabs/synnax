@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -264,11 +265,11 @@ var _ = Describe("KeyCodec", func() {
 		Describe("[]byte keys", func() {
 			It("Should roundtrip", func(ctx SpecContext) {
 				e := prefixEntry{ID: 42, Data: "data"}
-				Expect(gorp.NewCreate[[]byte, prefixEntry]().
+				Expect(gorp.NewCreate[string, prefixEntry]().
 					Entry(&e).Exec(ctx, tx)).To(Succeed())
 				var res prefixEntry
-				Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
-					Where(gorp.MatchKeys[[]byte, prefixEntry](e.GorpKey())).Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewRetrieve[string, prefixEntry]().
+					Where(gorp.MatchKeys[string, prefixEntry](e.GorpKey())).Entry(&res).Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(Equal(e))
 			})
 		})
@@ -376,16 +377,20 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Observe with non-int32 keys", func() {
+		var notifyDB *gorp.DB
+		BeforeEach(func() {
+			notifyDB = DeferClose(gorp.Wrap(memkv.New()))
+			tx = DeferClose(notifyDB.OpenTx())
+		})
+
 		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
-			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64Entry]{DB: db}))
+			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: notifyDB}))
 			defer func() { Expect(uint64Table.Close()).To(Succeed()) }()
 
 			Expect(gorp.NewCreate[uint64, uint64Entry]().
 				Entry(&uint64Entry{ID: math.MaxUint64, Data: "data"}).
-				Exec(ctx, db)).To(Succeed())
+				Exec(ctx, notifyDB)).To(Succeed())
 
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
 			Expect(gorp.NewDelete[uint64, uint64Entry]().
 				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).Exec(ctx, tx)).To(Succeed())
 
@@ -403,11 +408,9 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		It("Should decode int16 keys on set notifications", func(ctx SpecContext) {
-			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16Entry]{DB: db}))
+			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: notifyDB}))
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
 			Expect(gorp.NewCreate[int16, int16Entry]().
 				Entry(&int16Entry{ID: -500, Data: "data"}).
 				Exec(ctx, tx)).To(Succeed())

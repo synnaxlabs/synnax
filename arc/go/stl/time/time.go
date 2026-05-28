@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -30,6 +31,7 @@ const (
 	nowSymbolName       = "now"
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
+	name                = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -40,7 +42,31 @@ const MinTolerance = 5 * telem.Millisecond
 const unsetBaseInterval = telem.TimeSpanMax
 
 var (
-	intervalSymbol = symbol.Symbol{
+	intervalDoc = doc.New(
+		doc.Paragraph("Fires repeatedly at a specified period."),
+		doc.Divider(),
+		doc.Code("arc", "time.interval{period=1s} -> tick"),
+	)
+	waitDoc = doc.New(
+		doc.Paragraph("Fires once after a specified duration."),
+		doc.Divider(),
+		doc.Code("arc", "time.wait{duration=500ms} -> done"),
+	)
+	nowDoc = doc.New(
+		doc.Paragraph("Returns the current timestamp."),
+		doc.Divider(),
+		doc.Code("arc", "t := time.now()"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
+	)
+)
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the time module plus the deprecated bare aliases (interval,
+// wait, now) whose Deprecated fields point at the canonical members.
+func NewSymbols() []*symbol.Symbol {
+	interval := &symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -48,8 +74,9 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
+		Doc: intervalDoc,
 	}
-	waitSymbol = symbol.Symbol{
+	wait := &symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -57,35 +84,34 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
+		Doc: waitDoc,
 	}
-	nowSymbol = symbol.Symbol{
+	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
+		Doc: nowDoc,
 	}
-)
-
-func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
-	sym.Deprecated = replacement
-	return sym
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(interval, wait, now)
+	intervalBare := *interval
+	intervalBare.Deprecated = interval
+	waitBare := *wait
+	waitBare.Deprecated = wait
+	nowBare := *now
+	nowBare.Deprecated = now
+	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
 }
 
-var deprecatedBareResolver = symbol.MapResolver{
-	intervalSymbolName: deprecated(intervalSymbol, "time.interval"),
-	waitSymbolName:     deprecated(waitSymbol, "time.wait"),
-	nowSymbolName:      deprecated(nowSymbol, "time.now"),
-}
-
-var moduleMembers = symbol.MapResolver{
-	intervalSymbolName: intervalSymbol,
-	waitSymbolName:     waitSymbol,
-	nowSymbolName:      nowSymbol,
-}
-
-type Module struct {
+// Host is the runtime host-side support for the time module: it registers
+// the `now` WASM host function and acts as the node factory for interval
+// and wait. BaseInterval is the GCD of timer periods, used by the
+// scheduler; it lives on the Host because it is host-runtime state, not
+// program state.
+type Host struct {
 	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
 	BaseInterval telem.TimeSpan
 	// clock provides monotonically increasing timestamps, avoiding
@@ -93,31 +119,25 @@ type Module struct {
 	clock telem.MonoClock
 }
 
-func NewModule(
-	ctx context.Context,
-	rat wazero.Runtime,
-) (*Module, error) {
-	if rat == nil {
-		return &Module{BaseInterval: unsetBaseInterval}, nil
+// NewHost registers the time module's `now` WASM host binding with rt and
+// returns a Host handle that acts as the node factory for interval / wait.
+func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
+	h := &Host{BaseInterval: unsetBaseInterval}
+	if rt == nil {
+		return h, nil
 	}
-	mod := &Module{BaseInterval: unsetBaseInterval}
-	builder := rat.NewHostModuleBuilder("time")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(mod.clock.Now())
+			return uint64(h.clock.Now())
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return mod, nil
+	return h, nil
 }
 
-var SymbolResolver = symbol.CompoundResolver{
-	deprecatedBareResolver,
-	&symbol.ModuleResolver{Name: "time", Members: moduleMembers},
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
@@ -128,7 +148,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.updateBaseInterval(period)
+		h.updateBaseInterval(period)
 		return &Interval{
 			State:     cfg.State,
 			period:    period,
@@ -144,7 +164,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		m.updateBaseInterval(duration)
+		h.updateBaseInterval(duration)
 		return &Wait{
 			State:     cfg.State,
 			duration:  duration,
@@ -153,7 +173,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State, clock: &m.clock}, nil
+		return &Now{State: cfg.State, clock: &h.clock}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -172,11 +192,11 @@ func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
 	return halfInterval
 }
 
-func (m *Module) updateBaseInterval(span telem.TimeSpan) {
-	if m.BaseInterval == unsetBaseInterval {
-		m.BaseInterval = span
+func (h *Host) updateBaseInterval(span telem.TimeSpan) {
+	if h.BaseInterval == unsetBaseInterval {
+		h.BaseInterval = span
 	} else {
-		m.BaseInterval = telem.TimeSpan(gcd(int64(m.BaseInterval), int64(span)))
+		h.BaseInterval = telem.TimeSpan(gcd(int64(h.BaseInterval), int64(span)))
 	}
 }
 

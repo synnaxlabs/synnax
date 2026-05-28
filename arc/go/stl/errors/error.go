@@ -18,36 +18,48 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-var SymbolResolver = &symbol.ModuleResolver{
-	Name: "error",
-	Members: symbol.MapResolver{
-		"panic": {
-			Name: "panic",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecWASM,
-			Type: types.Function(types.FunctionProperties{
-				Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
-			}),
-		},
-	},
+const name = "error"
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the error module containing panic. Both module and member
+// are Internal — panic is emitted by lowering passes (e.g., out-of-bounds
+// checks), not called from user source.
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(&symbol.Symbol{
+		Name:     "panic",
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
+		}),
+	})
+	return []*symbol.Symbol{mod}
 }
 
-type Module struct {
+// Host is the runtime host-side support for the error module: it registers
+// the panic host function and holds a reference to the WASM guest's
+// memory so panic can read its message argument.
+type Host struct {
 	memory api.Memory
 }
 
-func NewModule(ctx context.Context, memory api.Memory, rat wazero.Runtime) (*Module, error) {
-	mod := &Module{memory: memory}
-	if rat == nil {
-		return mod, nil
+// NewHost registers the error module's WASM host binding (panic) with rt.
+// memory may be nil at construction time; call SetMemory once the WASM
+// guest has been instantiated.
+func NewHost(ctx context.Context, rt wazero.Runtime, memory api.Memory) (*Host, error) {
+	h := &Host{memory: memory}
+	if rt == nil {
+		return h, nil
 	}
-	builder := rat.NewHostModuleBuilder("error")
+	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, ptr uint32, length uint32) {
-			if mod.memory == nil {
+			if h.memory == nil {
 				panic("arc panic (memory not set)")
 			}
-			msg, ok := mod.memory.Read(ptr, length)
+			msg, ok := h.memory.Read(ptr, length)
 			if !ok {
 				panic("arc panic (message unreadable)")
 			}
@@ -56,7 +68,9 @@ func NewModule(ctx context.Context, memory api.Memory, rat wazero.Runtime) (*Mod
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return mod, nil
+	return h, nil
 }
 
-func (m *Module) SetMemory(mem api.Memory) { m.memory = mem }
+// SetMemory updates the WASM guest memory reference used by the panic
+// host function. Call this after the guest is instantiated.
+func (h *Host) SetMemory(mem api.Memory) { h.memory = mem }

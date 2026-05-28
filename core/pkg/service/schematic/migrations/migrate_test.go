@@ -129,7 +129,6 @@ var _ = Describe("MigrateSchematic", func() {
 			},
 			Entry("v2 condensed", "v2_gse_condensed.json"),
 			Entry("v2 value-only", "v2_value_test.json"),
-			Entry("v3 shop flow", "v3_shop_flow.json"),
 			Entry("v4 empty", "v4_empty.json"),
 			Entry("v5 hardware workspace", "v5_hardware_workspace.json"),
 		)
@@ -140,7 +139,7 @@ var _ = Describe("MigrateSchematic", func() {
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, schematic.Schematic] {
 			return MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
-				ctx, gorp.TableConfig[schematic.Schematic]{
+				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
 					DB: db,
 					Migrations: []migrate.Migration{
 						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, schematic.Schematic](
@@ -154,7 +153,7 @@ var _ = Describe("MigrateSchematic", func() {
 
 		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v55.Schematic {
 			t := MustOpen(gorp.OpenTable[uuid.UUID, v55.Schematic](
-				ctx, gorp.TableConfig[v55.Schematic]{DB: db},
+				ctx, gorp.TableConfig[uuid.UUID, v55.Schematic]{DB: db},
 			))
 			seed := v55.Schematic{Key: uuid.New(), Name: name, Data: jsonMap(body)}
 			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -180,7 +179,6 @@ var _ = Describe("MigrateSchematic", func() {
 				"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}}, "colors": {}}
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
-			Expect(got.Authority).To(BeEquivalentTo(7))
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
@@ -195,7 +193,6 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
-			Expect(got.Authority).To(BeEquivalentTo(1))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
 		})
 	})
@@ -284,11 +281,6 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
 
-		It("Should default authority to 1 when the blob carries zero", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"authority": 0`)
-			Expect(out.Authority).To(BeEquivalentTo(1))
-		})
-
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {
 			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
 				Key: uuid.New(),
@@ -315,13 +307,6 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(out.Nodes[0].ZIndex).To(BeEquivalentTo(0))
 		})
 
-		It("Should pass legend visible and position through unchanged", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"legend": {"visible": true, "position": {"x": 75, "y": 25, "units": {"x": "px", "y": "px"}}, "colors": {}}`)
-			Expect(out.Legend.Visible).To(BeTrue())
-			Expect(out.Legend.Position.X).To(Equal(75.0))
-			Expect(out.Legend.Position.Y).To(Equal(25.0))
-		})
-
 		It("Should pass through the gorp-entry fields (key, name, snapshot)", func(ctx SpecContext) {
 			key := uuid.New()
 			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
@@ -339,7 +324,6 @@ var _ = Describe("MigrateSchematic", func() {
 			}))
 			Expect(out.Nodes).To(BeEmpty())
 			Expect(out.Edges).To(BeEmpty())
-			Expect(out.Authority).To(BeEquivalentTo(1))
 		})
 	})
 })
@@ -390,8 +374,6 @@ var _ = Describe("legacy.MigrateData", func() {
 				"v2_gse_condensed.json", 52, 39, 0),
 			Entry("v2 value-only (3 nodes, 7 props, no edges)",
 				"v2_value_test.json", 3, 0, 0),
-			Entry("v3 shop flow (42 nodes, 29 edges incl. 1 orphan dropped)",
-				"v3_shop_flow.json", 42, 29, 1),
 			Entry("v4 empty (version dispatch only)",
 				"v4_empty.json", 0, 0, 0),
 			Entry("v5 hardware workspace (real mode/toolbar/authority)",

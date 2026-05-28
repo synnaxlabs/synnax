@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -74,24 +75,6 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	})
 }
 
-type RenameRequest struct {
-	Name string        `json:"name" msgpack:"name"`
-	Key  schematic.Key `json:"key" msgpack:"key"`
-}
-
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
-}
-
 type SetDataRequest struct {
 	Data schematic.Schematic `json:"data" msgpack:"data"`
 	Key  schematic.Key       `json:"key" msgpack:"key"`
@@ -111,13 +94,11 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 }
 
 // DispatchRequest carries an action sequence to apply to a single schematic.
-// SessionKey identifies the originating client so cluster broadcasts can be
-// deduplicated against the local optimistic update.
-type DispatchRequest struct {
-	Key        schematic.Key      `json:"key" msgpack:"key"`
-	SessionKey string             `json:"session_key" msgpack:"session_key"`
-	Actions    []schematic.Action `json:"actions" msgpack:"actions"`
-}
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding on the originator before the request is sent. The server echoes
+// it verbatim on the broadcast frame so the originator can recognize its own
+// echo race-safely.
+type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
 
 // Dispatch applies the action sequence to the target schematic atomically.
 // Subscribers to the schematic action signals receive the sequence after the
@@ -131,7 +112,7 @@ func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 

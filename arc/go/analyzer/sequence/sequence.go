@@ -37,7 +37,7 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 // AutoName so the scope is still addressable via GetChildByParserRule.
 func collectSequenceDecl(
 	ctx context.Context[parser.ISequenceDeclarationContext],
-	parentScope *symbol.Scope,
+	parentScope *symbol.Symbol,
 ) {
 	name := ""
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -70,7 +70,7 @@ func collectSequenceDecl(
 // Anonymous stages get a synthetic name so they remain addressable.
 func collectStageDecl(
 	ctx context.Context[parser.IStageDeclarationContext],
-	seqScope *symbol.Scope,
+	seqScope *symbol.Symbol,
 ) {
 	stageName := ""
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -106,7 +106,7 @@ func collectStageDecl(
 // than by name.
 func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	var (
-		seqScope *symbol.Scope
+		seqScope *symbol.Symbol
 		err      error
 	)
 	if id := ctx.AST.IDENTIFIER(); id != nil {
@@ -140,7 +140,7 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 // addressable via GetChildByParserRule.
 func collectTopLevelStage(
 	ctx context.Context[parser.IStageDeclarationContext],
-	parentScope *symbol.Scope,
+	parentScope *symbol.Symbol,
 ) {
 	name := ""
 	if id := ctx.AST.IDENTIFIER(); id != nil {

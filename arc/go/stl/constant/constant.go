@@ -20,28 +20,38 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var (
-	symName    = "constant"
-	constraint = types.NumericConstraint()
-	typeVar    = types.Variable("T", &constraint)
-	sym        = symbol.Symbol{
-		Name: symName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
-			Config:  types.Params{{Name: "value", Type: typeVar}},
-		}),
+var symbolName = "constant"
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the `constant` builtin installed at root scope. The symbol
+// is Internal — it is emitted by graph-mode lowering of literal flow nodes,
+// not called directly from user source.
+func NewSymbols() []*symbol.Symbol {
+	constraint := new(types.NumericConstraint())
+	typeVar := types.Variable("T", constraint)
+	return []*symbol.Symbol{
+		{
+			Name:     symbolName,
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecFlow,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
+				Config:  types.Params{{Name: "value", Type: typeVar}},
+			}),
+		},
 	}
-	SymbolResolver = symbol.MapResolver{symName: sym}
-)
+}
 
-type Module struct{}
+// Host is the runtime host-side support for the constant builtin: a node
+// factory only. No WASM bindings, no per-program state.
+type Host struct{}
 
-func NewModule() *Module { return &Module{} }
+// NewHost constructs a constant Host.
+func NewHost() *Host { return &Host{} }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symName {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
 	return &constant{State: cfg.State, value: cfg.Node.Config[0].Value}, nil

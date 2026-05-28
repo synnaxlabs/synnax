@@ -18,7 +18,6 @@ import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
@@ -57,15 +56,15 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: user.Key;
-}
+};
 
 export const retrieveSingle = async ({
   client,
   query,
   store,
-}: RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const { key } = query;
   const cached = store.users.get(key);
   if (cached != null) return cached;
@@ -96,7 +95,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export interface UseRetrieveGroupArgs {}
+export type UseRetrieveGroupArgs = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
@@ -127,9 +126,9 @@ export const formSchema = user.newZ.extend({
   role: access.role.keyZ,
 });
 
-export interface UseFormParams {
+export type UseFormParams = {
   key?: user.Key;
-}
+};
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   username: "",

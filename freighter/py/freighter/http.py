@@ -20,7 +20,6 @@ from freighter.codec import Codec
 from freighter.context import Context, Role
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
-from freighter.unary import UnaryClient
 from freighter.url import URL
 from x.exceptions import ExceptionPayload, decode_exception
 
@@ -59,12 +58,7 @@ class HTTPClient(MiddlewareCollector):
         self.__pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
-    def __(self) -> UnaryClient:
-        return self
-
-    def send(
-        self, target: str, req: RQ, res_t: type[RS]
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol."""
         return self.request(
             "POST",
@@ -82,19 +76,14 @@ class HTTPClient(MiddlewareCollector):
         }
 
     def request(
-        self,
-        method: str,
-        url: str,
-        role: Role,
-        request: RQ,
-        res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+        self, method: str, url: str, role: Role, request: RQ, res_t: type[RS]
+    ) -> RS:
         in_ctx = Context(url, self.__endpoint.protocol, role)
 
         res_container: list[RS | None] = [None]
 
-        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
-            out_meta_data = Context(url, self.__endpoint.protocol, role)
+        def finalizer(ctx: Context) -> Context:
+            out_ctx = Context(url, self.__endpoint.protocol, role)
             data = None
             if request is not None:
                 data = self.__codec.encode(request)
@@ -107,25 +96,24 @@ class HTTPClient(MiddlewareCollector):
                     method=method, url=url, headers=head, body=data
                 )
             except MaxRetryError as e:
-                return out_meta_data, Unreachable(url, e.url or "Unreachable")
-            except HTTPError as e:
-                return out_meta_data, e
+                raise Unreachable(url, e.url or "Unreachable") from e
 
-            out_meta_data.params = http_res.headers
+            out_ctx.params = http_res.headers
 
             if http_res.status < 200 or http_res.status >= 300:
-                err = self.__codec.decode(http_res.data, ExceptionPayload)
-                return out_meta_data, decode_exception(err)
+                payload = self.__codec.decode(http_res.data, ExceptionPayload)
+                exc = decode_exception(payload)
+                if exc is None:
+                    exc = HTTPError(
+                        f"unexpected error response with status {http_res.status}"
+                    )
+                raise exc
 
-            if http_res.data is None:
-                return out_meta_data, None
+            if http_res.data is not None:
+                res_container[0] = self.__codec.decode(http_res.data, res_t)
+            return out_ctx
 
-            res_container[0] = self.__codec.decode(http_res.data, res_t)
-            return out_meta_data, None
-
-        _, exc = self.exec(in_ctx, finalizer)
-        if exc is not None:
-            return None, exc
+        self.exec(in_ctx, finalizer)
         res = res_container[0]
         assert res is not None
-        return res, None
+        return res

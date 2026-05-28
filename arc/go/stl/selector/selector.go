@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -39,29 +40,44 @@ const (
 )
 
 var (
-	symbolName   = "select"
-	symbolSelect = symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-			Outputs: types.Params{
-				{Name: TrueOutputParam, Type: types.U8()},
-				{Name: FalseOutputParam, Type: types.U8()},
-			},
-		}),
-	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
+	symbolName = "select"
+	symbolDoc  = doc.New(
+		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Divider(),
+		doc.Code("arc", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	)
 )
 
-type Module struct{}
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the `select` builtin installed at root scope.
+func NewSymbols() []*symbol.Symbol {
+	return []*symbol.Symbol{
+		{
+			Name: symbolName,
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: types.Function(types.FunctionProperties{
+				Inputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+				Outputs: types.Params{
+					{Name: TrueOutputParam, Type: types.U8()},
+					{Name: FalseOutputParam, Type: types.U8()},
+				},
+			}),
+			Doc: symbolDoc,
+		},
+	}
+}
 
-func NewModule() *Module { return &Module{} }
+// Host is the runtime host-side support for `select`: a node factory only.
+// No WASM bindings, no per-program state.
+type Host struct{}
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+// NewHost constructs a selector Host.
+func NewHost() *Host { return &Host{} }
+
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}

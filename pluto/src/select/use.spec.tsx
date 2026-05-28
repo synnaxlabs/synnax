@@ -244,7 +244,7 @@ describe("useSelect", () => {
             const { clear, onSelect } = Select.useSingle<string>({
               autoSelectOnNone: true,
               allowNone: true,
-              value: value as string,
+              value,
               onChange,
             });
             return { value, clear, onSelect };

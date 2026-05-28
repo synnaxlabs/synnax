@@ -15,10 +15,8 @@ import { Palette } from "@/palette";
 import { Schematic } from "@/schematic";
 
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(
-    () => placeLayout(Schematic.create()),
-    [placeLayout],
-  );
+  const create = Schematic.useCreate({});
+  const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem
       {...listProps}

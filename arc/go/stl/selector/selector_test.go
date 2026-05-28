@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -27,7 +28,7 @@ import (
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
 		It("Should create module", func(ctx SpecContext) {
-			module := selector.NewModule()
+			module := selector.NewHost()
 			Expect(module).ToNot(BeNil())
 		})
 	})
@@ -35,7 +36,7 @@ var _ = Describe("Select", func() {
 		var factory node.Factory
 		var s *node.ProgramState
 		BeforeEach(func(ctx SpecContext) {
-			factory = selector.NewModule()
+			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -66,7 +67,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -91,7 +92,7 @@ var _ = Describe("Select", func() {
 		var s *node.ProgramState
 		var factory node.Factory
 		BeforeEach(func(ctx SpecContext) {
-			factory = selector.NewModule()
+			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -122,7 +123,7 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
@@ -356,14 +357,23 @@ var _ = Describe("Select", func() {
 			}))
 		})
 	})
-	Describe("SymbolResolver", func() {
-		It("Should resolve bare select symbol", func(ctx SpecContext) {
-			sym := MustSucceed(selector.SymbolResolver.Resolve(ctx, "select"))
+	Describe("Symbols", func() {
+		It("Should expose bare select symbol", func() {
+			var sym *symbol.Symbol
+			for _, s := range selector.NewSymbols() {
+				if s.Name == "select" {
+					sym = s
+					break
+				}
+			}
+			Expect(sym).ToNot(BeNil())
 			Expect(sym.Name).To(Equal("select"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should not resolve qualified selector.select symbol", func(ctx SpecContext) {
-			Expect(selector.SymbolResolver.Resolve(ctx, "selector.select")).Error().To(MatchError(query.ErrNotFound))
+		It("Should not expose qualified selector.select symbol", func() {
+			for _, s := range selector.NewSymbols() {
+				Expect(s.Kind).ToNot(Equal(symbol.KindModule))
+			}
 		})
 	})
 	Describe("Factory", func() {
@@ -398,10 +408,10 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
-			compound := node.CompoundFactory{selector.NewModule()}
+			compound := node.CompoundFactory{selector.NewHost()}
 			cfg := node.Config{
 				Node:  ir.Node{Key: "select", Type: "select"},
 				State: s.Node("select"),
@@ -442,10 +452,10 @@ var _ = Describe("Select", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, selector.SymbolResolver)
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
-			factory := selector.NewModule()
+			factory := selector.NewHost()
 			cfg := node.Config{
 				Node:  ir.Node{Type: "select"},
 				State: s.Node("select"),

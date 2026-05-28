@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ } from "@/schematic/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+} from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
-  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -25,24 +28,11 @@ import {
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+export const SET_CHANNEL_NAME = "sy_schematic_set";
 
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
-const dispatchReqZ = z.object({
-  key: keyZ,
-  session_key: z.string(),
-  actions: actionZ.array(),
-});
-
-export const scopedActionZ = z.object({
-  key: keyZ,
-  sessionKey: z.string(),
-  actions: actionZ.array(),
-});
-
-export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -89,8 +79,7 @@ export class Client {
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/create",
       { workspace, schematics: array.toArray(schematics) },
       createReqZ,
@@ -100,18 +89,11 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/set-data",
       { key, data },
       setDataReqZ,
@@ -119,11 +101,10 @@ export class Client {
     );
   }
 
-  async dispatch(key: Key, sessionKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
       "/schematic/dispatch",
-      { key, session_key: sessionKey, actions },
+      { key, dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );
@@ -135,8 +116,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/retrieve",
       args,
       retrieveArgsZ,
@@ -147,8 +127,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -157,26 +136,13 @@ export class Client {
   }
 
   async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await sendRequired(
-      this.client,
-      "/schematic/copy",
-      args,
-      copyReqZ,
-      copyResZ,
-    );
+    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
     return res.schematic;
   }
 }
 
-export const ZERO_LEGEND: Legend = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
 export const ZERO_NEW: New = {
   name: "",
-  legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
   configs: {},

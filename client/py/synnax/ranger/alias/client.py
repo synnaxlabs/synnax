@@ -35,13 +35,13 @@ class _EmptyResponse(BaseModel): ...
 
 
 class Client:
-    __client: UnaryClient
-    __cache: dict[str, channel.Key]
+    _client: UnaryClient
+    _cache: dict[str, channel.Key]
 
     def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
-        self.__client = client
-        self.__rng = rng
-        self.__cache = {}
+        self._client = client
+        self._rng = rng
+        self._cache = {}
 
     @overload
     def resolve(self, aliases: str) -> channel.Key: ...
@@ -56,7 +56,7 @@ class Client:
 
         results: dict[str, channel.Key] = {}
         for alias in normalized_aliases:
-            key = self.__cache.get(alias, None)
+            key = self._cache.get(alias, None)
             if key is not None:
                 results[alias] = key
             else:
@@ -67,24 +67,16 @@ class Client:
                 return results[normalized_aliases[0]]
             return results
 
-        req = _ResolveRequest(range=self.__rng, aliases=to_fetch)
-        res, exc = self.__client.send("/range/alias/resolve", req, _ResolveResponse)
-        if exc is not None:
-            raise exc
-        if res is None:
-            if is_single:
-                raise KeyError(f"Alias not found: {aliases}")
-            return results
+        req = _ResolveRequest(range=self._rng, aliases=to_fetch)
+        res = self._client.send("/range/alias/resolve", req, _ResolveResponse)
 
         for alias, key in res.aliases.items():
-            self.__cache[alias] = key
+            self._cache[alias] = key
 
         if is_single:
             return res.aliases[normalized_aliases[0]]
         return {**results, **res.aliases}
 
     def set(self, aliases: dict[channel.Key, str]) -> None:
-        req = _SetRequest(range=self.__rng, aliases=aliases)
-        res, exc = self.__client.send("/range/alias/set", req, _EmptyResponse)
-        if exc is not None:
-            raise exc
+        req = _SetRequest(range=self._rng, aliases=aliases)
+        self._client.send("/range/alias/set", req, _EmptyResponse)

@@ -14,7 +14,7 @@ import {
 import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
-import { type Stream } from "@synnaxlabs/freighter";
+import { EOF, type Stream } from "@synnaxlabs/freighter";
 import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
@@ -71,13 +71,12 @@ const TOKEN_CONFIG = {
   string: {
     dark: "#98C379",
     light: "#0A7D00",
-    scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
+    scopes: ["string.quoted.arc"],
   },
-  // Distinct from `string` to mark verbatim, no-escape semantics.
-  stringRaw: {
-    dark: "#CE9178",
-    light: "#A31515",
-    scopes: ["string.quoted.raw.arc"],
+  stringPlaceholder: {
+    dark: "#CC255F",
+    light: "#CC255F",
+    scopes: [],
   },
   number: {
     dark: "#98C379",
@@ -94,6 +93,11 @@ const TOKEN_CONFIG = {
     light: "#0070C1",
     scopes: ["support.type.channel.arc"],
   },
+  namespace: {
+    dark: "#E5C07B",
+    light: "#9C5404",
+    scopes: [],
+  },
   comment: {
     dark: "#5C6370",
     light: "#9DA5B4",
@@ -106,6 +110,7 @@ const TOKEN_CONFIG = {
       "entity.name.function.arc",
       "support.function.builtin.arc",
       "support.function.arc",
+      "storage.type.string.arc",
     ],
   },
   stage: {
@@ -149,11 +154,6 @@ const TOKEN_CONFIG = {
     scopes: [],
   },
   constant: {
-    dark: "#dadada",
-    light: "#292929",
-    scopes: [],
-  },
-  unit: {
     dark: "#dadada",
     light: "#292929",
     scopes: [],
@@ -227,12 +227,14 @@ const createFreighterTransport = ({
   const receiveLoop = async () => {
     try {
       while (!isClosed) {
-        const [msg, err] = await stream.receive();
-        if (err != null) {
-          onErrorCallback?.(err);
+        let msg: arc.LSPMessage;
+        try {
+          msg = await stream.receive();
+        } catch (err) {
+          if (!EOF.matches(err))
+            onErrorCallback?.(err instanceof Error ? err : new Error(String(err)));
           break;
         }
-        if (msg == null) break;
         try {
           const parsed = JSON.parse(msg.content);
           onMessageCallback?.(parsed);
@@ -251,7 +253,7 @@ const createFreighterTransport = ({
 
   const reader: MessageReader = {
     listen: (callback) => {
-      onMessageCallback = callback as (message: Message) => void;
+      onMessageCallback = callback;
       receiveLoop().catch((err) => onErrorCallback?.(err));
       return { dispose: () => (onMessageCallback = null) };
     },

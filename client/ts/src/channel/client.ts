@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   type CrudeDensity,
@@ -389,8 +389,7 @@ export class Client {
    */
   async delete(params: Params): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
-    if (variant === "keys")
-      return await this.writer.delete({ keys: normalized as Key[] });
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
     return await this.writer.delete({ names: normalized as string[] });
   }
 
@@ -418,8 +417,7 @@ export class Client {
   }
 
   async retrieveGroup(): Promise<group.Group> {
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/channel/retrieve-group",
       {},
       retrieveGroupReqZ,

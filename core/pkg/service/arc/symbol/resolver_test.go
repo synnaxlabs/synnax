@@ -24,13 +24,6 @@ import (
 )
 
 var _ = Describe("NewResolver", func() {
-	It("Should resolve an STL symbol", func(ctx SpecContext) {
-		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
-		Expect(sym.Name).To(Equal("set_status"))
-		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
-	})
-
 	It("Should resolve a channel by name", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_test_ch",
@@ -39,12 +32,27 @@ var _ = Describe("NewResolver", func() {
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-		resolver := symbol.NewResolver(dist.Channel, nil)
+		resolver := symbol.NewChannelResolver(dist.Channel, nil)
 		sym := MustSucceed(resolver.Resolve(ctx, "resolver_test_ch"))
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
 		Expect(sym.ID).To(Equal(int(ch.Key())))
+		Expect(sym.Renameable).To(BeTrue())
+	})
+
+	It("Should mark internal channels as not Renameable", func(ctx SpecContext) {
+		ch := &channel.Channel{
+			Name:     "resolver_internal_ch",
+			Virtual:  true,
+			Internal: true,
+			DataType: telem.Float32T,
+		}
+		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+		resolver := symbol.NewChannelResolver(dist.Channel, nil)
+		sym := MustSucceed(resolver.Resolve(ctx, "resolver_internal_ch"))
+		Expect(sym.Renameable).To(BeFalse())
 	})
 
 	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
@@ -55,7 +63,7 @@ var _ = Describe("NewResolver", func() {
 		}
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
-		resolver := symbol.NewResolver(dist.Channel, nil)
+		resolver := symbol.NewChannelResolver(dist.Channel, nil)
 		sym := MustSucceed(resolver.Resolve(ctx, strconv.Itoa(int(ch.Key()))))
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
@@ -63,7 +71,7 @@ var _ = Describe("NewResolver", func() {
 	})
 
 	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
-		resolver := symbol.NewResolver(dist.Channel, nil)
+		resolver := symbol.NewChannelResolver(dist.Channel, nil)
 		_, err := resolver.Resolve(ctx, "does_not_exist_anywhere")
 		Expect(err).To(MatchError(query.ErrNotFound))
 	})

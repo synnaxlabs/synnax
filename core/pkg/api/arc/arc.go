@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc/compiler"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -28,7 +27,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Arc = arc.Arc
+type (
+	Arc = arc.Arc
+	Key = arc.Key
+)
 
 type Service struct {
 	db       *gorp.DB
@@ -191,12 +193,12 @@ func (s *Service) compile(ctx context.Context, arc *Arc) error {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 2: Analyze the parsed text to produce IR
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewSymbolResolver(nil))
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 3: Compile IR to WebAssembly module
-	mod, err := arctext.Compile(ctx, ir, compiler.WithHostSymbols(s.internal.NewSymbolResolver(nil)))
+	mod, err := arctext.Compile(ctx, ir)
 	if err != nil {
 		return err
 	}

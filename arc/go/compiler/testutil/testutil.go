@@ -26,14 +26,18 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
-func FunctionScope(ctx context.Context) *symbol.Scope {
-	symbols := &symbol.Scope{}
-	s := testutil.MustSucceed(symbols.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: arctypes.I32()}))
+// FunctionScope returns a fresh block scope inside a function inside an
+// STL-populated root, suitable for compiler unit tests that exercise
+// expressions referencing host functions (channels.write, series.add, ...).
+func FunctionScope(ctx context.Context) *symbol.Symbol {
+	root := symbol.NewRoot(nil, stl.NewSymbols())
+	s := testutil.MustSucceed(root.Add(ctx, symbol.Symbol{Name: "func", Kind: symbol.KindFunction, Type: arctypes.I32()}))
 	return testutil.MustSucceed(s.Add(ctx, symbol.Symbol{Kind: symbol.KindBlock}))
 }
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
-	return ccontext.CreateRoot(ctx, FunctionScope(ctx), make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver(stl.SymbolResolver))
+	scope := FunctionScope(ctx)
+	return ccontext.NewRoot(ctx, scope, make(map[antlr.ParserRuleContext]arctypes.Type), resolve.NewResolver())
 }
 
 // FinalizeContext calls FinalizeAndPatch on the context's Resolver and returns

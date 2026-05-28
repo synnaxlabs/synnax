@@ -9,6 +9,7 @@
 
 import "@/hardware/opc/device/Browser.css";
 
+import { type rack } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -31,7 +32,7 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { CSS } from "@/css";
 import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
-import { type Device } from "@/hardware/opc/device/types";
+import { type ConnectionConfig, type Device } from "@/hardware/opc/device/types";
 import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/hardware/opc/task/types";
 
 const ICONS: Record<string, ReactElement> = {
@@ -98,10 +99,11 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   );
 });
 
-interface RetrieveNodesQuery {
+type RetrieveNodesQuery = {
   clicked: { id: string; key: string | undefined };
-  device: Device;
-}
+  rack: rack.Key;
+  connection: ConnectionConfig;
+};
 
 const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
   RetrieveNodesQuery,
@@ -113,10 +115,8 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
     client,
     store,
     query: {
-      device: {
-        rack,
-        properties: { connection },
-      },
+      rack,
+      connection,
       clicked: { id },
     },
   }) => {
@@ -168,7 +168,8 @@ export const Browser = ({ device }: BrowserProps) => {
       if (action === "contract") return;
       retrieveNodes({
         clicked: { key: clicked, id: clicked == null ? "" : parseNodeID(clicked) },
-        device,
+        rack: device.rack,
+        connection: device.properties.connection,
       });
     },
     [retrieveNodes, device],
