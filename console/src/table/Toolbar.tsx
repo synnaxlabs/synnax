@@ -61,7 +61,13 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   const editable = useSelectEditable(layoutKey);
   const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
   const rows = Base.useSelectRows({ key: layoutKey });
-  const singleSelectedKey = selectedCellKeys.length === 1 ? selectedCellKeys[0] : null;
+  const cellsByKey = Base.useSelectCells({
+    key: layoutKey,
+    cellKeys: selectedCellKeys,
+  });
+  const liveCellCount = cellsByKey.size;
+  const singleSelectedKey =
+    liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
   const selectedCellPos = useMemo(
     () =>
       singleSelectedKey != null ? cellPositionInRows(rows, singleSelectedKey) : null,
@@ -73,7 +79,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
       <Tb.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
-            <Breadcrumb.Segment weight={500} color={9} level="h5">
+            <Breadcrumb.Segment weight={500} color={10} level="h5">
               <Icon.Table />
               {name}
             </Breadcrumb.Segment>
@@ -83,10 +89,8 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
-            {selectedCellKeys.length > 1 && (
-              <Breadcrumb.Segment color={8}>
-                {selectedCellKeys.length} cells
-              </Breadcrumb.Segment>
+            {liveCellCount > 1 && (
+              <Breadcrumb.Segment color={8}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
@@ -101,7 +105,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
       <Flex.Box full>
         {!editable ? (
           <NotEditableContent layoutKey={layoutKey} name={name} />
-        ) : selectedCellKeys.length === 0 ? (
+        ) : liveCellCount === 0 ? (
           <EmptyContent />
         ) : singleSelectedKey != null ? (
           <CellForm

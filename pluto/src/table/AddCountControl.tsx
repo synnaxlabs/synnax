@@ -20,6 +20,9 @@ export interface AddCountControlProps {
   className?: string;
 }
 
+const INPUT_STYLE: React.CSSProperties = { width: "7rem" };
+const COUNT_BOUNDS = { lower: 1, upper: 100 };
+
 export const AddCountControl = ({
   resourceName,
   onAdd,
@@ -31,9 +34,10 @@ export const AddCountControl = ({
       <Input.Numeric
         value={count}
         onChange={setCount}
-        bounds={{ lower: 1, upper: 100 }}
+        bounds={COUNT_BOUNDS}
         size="tiny"
         showDragHandle={false}
+        style={INPUT_STYLE}
       />
       <Button.Button
         size="tiny"

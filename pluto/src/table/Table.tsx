@@ -465,74 +465,76 @@ export const Table = ({
   let rowYCursor = showIndicators ? 4.5 * 6 : 0;
   return (
     <div
-      className={CSS(CSS.B("table-frame"), CSS.editable(editable), className)}
+      className={CSS(CSS.B("table-surface"), className)}
       onContextMenu={menuProps.open}
       {...rest}
     >
-      <Menu.ContextMenu menu={renderMenu} {...menuProps}>
-        <div ref={canvasRef} className={CSS.BE("table-frame", "canvas")} />
-        <table
-          ref={tableElRef}
-          className={CSS(CSS.B("table"), menuProps.className)}
-          style={{ width: totalCol, height: totalRow }}
-          onCopy={onCopy}
-          onPaste={editable ? onPaste : undefined}
-          onKeyDown={handleKeyDown}
-          tabIndex={-1}
-        >
-          <tbody>
-            <Aether.Composite path={path}>
-              <Select.Provider value={selected}>
-                {showIndicators && (
-                  <ColumnIndicators
-                    columns={colSizes}
-                    rows={rows}
-                    selected={selected}
-                    editable={editable}
-                    onSelect={handleColSelect}
-                    onSelectAll={handleSelectAll}
-                    onResize={handleColResize}
-                  />
-                )}
-                {rows.map((row, rowIndex) => {
-                  const yPos = rowYCursor;
-                  rowYCursor += row.size;
-                  return (
-                    <Row
-                      key={rowIndex}
-                      index={rowIndex}
-                      resourceKey={key}
-                      cells={row.cells}
+      <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
+      <div className={CSS(CSS.B("table-frame"), CSS.editable(editable))}>
+        <Menu.ContextMenu menu={renderMenu} {...menuProps}>
+          <table
+            ref={tableElRef}
+            className={CSS(CSS.B("table"), menuProps.className)}
+            style={{ width: totalCol, height: totalRow }}
+            onCopy={onCopy}
+            onPaste={editable ? onPaste : undefined}
+            onKeyDown={handleKeyDown}
+            tabIndex={-1}
+          >
+            <tbody>
+              <Aether.Composite path={path}>
+                <Select.Provider value={selected}>
+                  {showIndicators && (
+                    <ColumnIndicators
                       columns={colSizes}
-                      position={yPos}
-                      size={row.size}
+                      rows={rows}
+                      selected={selected}
                       editable={editable}
-                      showIndicator={showIndicators}
-                      onSelect={handleRowSelect}
-                      onResize={handleRowResize}
-                      onCellSelect={handleCellSelect}
+                      onSelect={handleColSelect}
+                      onSelectAll={handleSelectAll}
+                      onResize={handleColResize}
                     />
-                  );
-                })}
-              </Select.Provider>
-            </Aether.Composite>
-          </tbody>
-        </table>
-      </Menu.ContextMenu>
-      {editable && (
-        <>
-          <AddCountControl
-            className={CSS.BE("table-frame", "add-col")}
-            resourceName="column"
-            onAdd={(n) => addCol(undefined, n)}
-          />
-          <AddCountControl
-            className={CSS.BE("table-frame", "add-row")}
-            resourceName="row"
-            onAdd={(n) => addRow(undefined, n)}
-          />
-        </>
-      )}
+                  )}
+                  {rows.map((row, rowIndex) => {
+                    const yPos = rowYCursor;
+                    rowYCursor += row.size;
+                    return (
+                      <Row
+                        key={rowIndex}
+                        index={rowIndex}
+                        resourceKey={key}
+                        cells={row.cells}
+                        columns={colSizes}
+                        position={yPos}
+                        size={row.size}
+                        editable={editable}
+                        showIndicator={showIndicators}
+                        onSelect={handleRowSelect}
+                        onResize={handleRowResize}
+                        onCellSelect={handleCellSelect}
+                      />
+                    );
+                  })}
+                </Select.Provider>
+              </Aether.Composite>
+            </tbody>
+          </table>
+        </Menu.ContextMenu>
+        {editable && (
+          <>
+            <AddCountControl
+              className={CSS.BE("table-frame", "add-col")}
+              resourceName="column"
+              onAdd={(n) => addCol(undefined, n)}
+            />
+            <AddCountControl
+              className={CSS.BE("table-frame", "add-row")}
+              resourceName="row"
+              onAdd={(n) => addRow(undefined, n)}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 };

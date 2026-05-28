@@ -9,6 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
+/*
+ * pluto-table-surface fills the parent so the context-menu trigger covers
+ * the whole tab area, not just the fit-content frame inside. The frame
+ * still sizes to its contents.
+ */
+.pluto-table-surface {
+    position: relative;
+    width: 100%;
+    height: 100%;
+
+    & .pluto-table-surface__canvas {
+        position: absolute;
+        inset: 0;
+    }
+}
+
 .pluto-table-frame {
     --pluto-table-indicator-size: 4.5rem;
     --pluto-table-add-control-size: 10rem;
@@ -28,14 +44,6 @@
     &.pluto--editable .pluto-table__resizer,
     &.pluto--editable .pluto-table__select-all {
         cursor: pointer;
-    }
-
-    & .pluto-table-frame__canvas {
-        position: absolute;
-        top: 6px;
-        left: 6px;
-        right: 0;
-        bottom: 0;
     }
 
     & .pluto-table-frame__add-col {
