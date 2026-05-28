@@ -294,9 +294,7 @@ describe("schematic queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: isolated.key,
-          actions: [
-            schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } }),
-          ],
+          actions: [schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } })],
         });
       });
       expect(result.current.configs).toBe(initial);
