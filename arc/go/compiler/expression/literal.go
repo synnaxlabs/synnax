@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -115,17 +114,12 @@ func compileNumericLiteral(
 	if err != nil {
 		return types.Type{}, err
 	}
-	return writeNumericConst(ctx.Writer, parsed)
-}
 
-// writeNumericConst emits the WASM constant for a parsed numeric literal and returns its
-// type. It errors if parsed.Value's concrete type does not match parsed.Type.Kind.
-func writeNumericConst(w *wasm.Writer, parsed literal.ParsedValue) (types.Type, error) {
 	switch parsed.Type.Kind {
 	case types.KindF32:
-		w.WriteF32Const(parsed.Value.(float32))
+		ctx.Writer.WriteF32Const(parsed.Value.(float32))
 	case types.KindF64:
-		w.WriteF64Const(parsed.Value.(float64))
+		ctx.Writer.WriteF64Const(parsed.Value.(float64))
 	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
 		var i32Val int32
 		switch v := parsed.Value.(type) {
@@ -146,7 +140,7 @@ func writeNumericConst(w *wasm.Writer, parsed literal.ParsedValue) (types.Type, 
 				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
 			)
 		}
-		w.WriteI32Const(i32Val)
+		ctx.Writer.WriteI32Const(i32Val)
 	case types.KindI64:
 		var i64Val int64
 		switch v := parsed.Value.(type) {
@@ -159,9 +153,9 @@ func writeNumericConst(w *wasm.Writer, parsed literal.ParsedValue) (types.Type, 
 				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
 			)
 		}
-		w.WriteI64Const(i64Val)
+		ctx.Writer.WriteI64Const(i64Val)
 	case types.KindU64:
-		w.WriteI64Const(int64(parsed.Value.(uint64)))
+		ctx.Writer.WriteI64Const(int64(parsed.Value.(uint64)))
 	default:
 		return types.Type{}, errors.Newf("unsupported numeric type: %s", parsed.Type)
 	}
