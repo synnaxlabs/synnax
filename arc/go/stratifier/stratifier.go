@@ -122,8 +122,8 @@ func stratifyParallel(
 			}
 			// Inline synths skip this dep so their bodies pre-walk for cross-scope
 			// marks, except when activated by another inline (must walk after it).
-			if strings.HasPrefix(m.Scope.Key, ir.SynthInlinePrefix) &&
-				!strings.HasPrefix(members[src].Key(), ir.SynthInlinePrefix) {
+			if strings.HasPrefix(m.Scope.Key, ir.InlinePrefix) &&
+				!strings.HasPrefix(members[src].Key(), ir.InlinePrefix) {
 				continue
 			}
 			if stratum[src] >= stratum[i] {

@@ -1119,7 +1119,7 @@ sequence main {
 			Expect(mainScope).ToNot(BeNil())
 			var inlines []*symbol.Symbol
 			for _, child := range mainScope.Children() {
-				if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
+				if strings.HasPrefix(child.Name, ir.InlinePrefix) {
 					inlines = append(inlines, child)
 				}
 			}
@@ -1161,7 +1161,7 @@ sequence main {
 			Expect(mainScope).ToNot(BeNil())
 			var inlines []*symbol.Symbol
 			for _, child := range mainScope.Children() {
-				if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
+				if strings.HasPrefix(child.Name, ir.InlinePrefix) {
 					inlines = append(inlines, child)
 				}
 			}

@@ -1138,13 +1138,18 @@ func extractConfigValues(
 	return config, true
 }
 
-// inlineRoutingAST returns the inline stage/sequence parse tree for an entry,
-// or nil if the entry is the regular flow-chain form.
+// inlineRoutingAST returns the inline stage/sequence decl from a routing entry's
+// single flow node, or nil when the entry is a regular flow-chain target.
 func inlineRoutingAST(entry parser.IRoutingEntryContext) antlr.ParserRuleContext {
-	if s := entry.StageDeclaration(); s != nil {
+	flowNodes := entry.AllFlowNode()
+	if len(flowNodes) != 1 {
+		return nil
+	}
+	fn := flowNodes[0]
+	if s := fn.StageDeclaration(); s != nil {
 		return s
 	}
-	if s := entry.SequenceDeclaration(); s != nil {
+	if s := fn.SequenceDeclaration(); s != nil {
 		return s
 	}
 	return nil

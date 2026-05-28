@@ -52,8 +52,9 @@ import (
 	"github.com/samber/lo"
 )
 
-// SynthInlinePrefix names scopes synthesized from inline routing case bodies.
-const SynthInlinePrefix = "__inline_"
+// InlinePrefix reserves a Scope.Key namespace for synthetic scopes lowered from inline
+// routing targets, so the stratifier recognizes them without importing the analyzer.
+const InlinePrefix = "__inline_"
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&

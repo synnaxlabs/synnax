@@ -46,10 +46,14 @@ func desugarInlineRoutingDecls(ctx context.Context[parser.IProgramContext]) {
 	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
 		if entry, ok := node.(parser.IRoutingEntryContext); ok {
 			var decl antlr.ParserRuleContext
-			if s := entry.StageDeclaration(); s != nil {
-				decl = s
-			} else if s := entry.SequenceDeclaration(); s != nil {
-				decl = s
+			// Inline bodies live in the flowNode rule (e.g. `case: stage { ... }`),
+			// so the declaration is reached through the entry's single flow node.
+			if flowNodes := entry.AllFlowNode(); len(flowNodes) == 1 {
+				if s := flowNodes[0].StageDeclaration(); s != nil {
+					decl = s
+				} else if s := flowNodes[0].SequenceDeclaration(); s != nil {
+					decl = s
+				}
 			}
 			if decl != nil {
 				if synth := registerInlineBody(ctx, enclosing, decl, &counter); synth != nil {
@@ -97,7 +101,7 @@ func registerInlineBody(
 		return nil
 	}
 	synth, err := parentScope.Add(ctx, symbol.Symbol{
-		Name: ir.SynthInlinePrefix + strconv.Itoa(*counter),
+		Name: ir.InlinePrefix + strconv.Itoa(*counter),
 		Kind: symbol.KindSequence,
 		Type: types.Sequence(),
 		AST:  decl,
@@ -135,7 +139,7 @@ func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
 	var walk func(parent *symbol.Symbol)
 	walk = func(parent *symbol.Symbol) {
 		for _, child := range parent.Children() {
-			if strings.HasPrefix(child.Name, ir.SynthInlinePrefix) {
+			if strings.HasPrefix(child.Name, ir.InlinePrefix) {
 				switch decl := child.AST.(type) {
 				case parser.IStageDeclarationContext:
 					AnalyzeTopLevelStage(context.Child(ctx, decl).WithScope(parent))
