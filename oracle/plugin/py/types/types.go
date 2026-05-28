@@ -802,9 +802,56 @@ func collectValidation(
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
 			}
+		case resolution.ValueKindStruct:
+			if def := structDefaultToPython(*rules.Default, typeRef, table, data); def != "" {
+				constraints = append(constraints, def)
+			}
 		}
 	}
 	return constraints
+}
+
+// structDefaultToPython renders a ValueKindStruct default as a Pydantic default_factory
+// that constructs the referenced model (e.g. default_factory=lambda:
+// TimestampConfig(format="preciseDate", tz="local")). It returns the empty string when
+// the struct type cannot be resolved or lives in another namespace (which would require
+// an import), leaving the field without a default rather than emitting an unqualified
+// reference.
+func structDefaultToPython(
+	ev resolution.ExpressionValue,
+	typeRef resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	typ, ok := typeRef.Resolve(table)
+	if !ok || typ.Namespace != data.Namespace {
+		return ""
+	}
+	className := getPyName(typ)
+	parts := make([]string, 0, len(ev.ObjectFields))
+	for _, f := range ev.ObjectFields {
+		parts = append(parts, fmt.Sprintf("%s=%s", f.Name, expressionValueToPython(f.Value)))
+	}
+	return fmt.Sprintf("default_factory=lambda: %s(%s)", className, strings.Join(parts, ", "))
+}
+
+// expressionValueToPython renders a scalar expression value as a Python literal.
+func expressionValueToPython(v resolution.ExpressionValue) string {
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", v.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", v.FloatValue)
+	case resolution.ValueKindBool:
+		if v.BoolValue {
+			return "True"
+		}
+		return "False"
+	default:
+		return fmt.Sprintf("%q", v.StringValue)
+	}
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {

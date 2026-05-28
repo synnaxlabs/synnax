@@ -209,6 +209,18 @@ func (s *BaseOracleParserListener) EnterExpressionValue(ctx *ExpressionValueCont
 // ExitExpressionValue is called when production expressionValue is exited.
 func (s *BaseOracleParserListener) ExitExpressionValue(ctx *ExpressionValueContext) {}
 
+// EnterObjectLiteral is called when production objectLiteral is entered.
+func (s *BaseOracleParserListener) EnterObjectLiteral(ctx *ObjectLiteralContext) {}
+
+// ExitObjectLiteral is called when production objectLiteral is exited.
+func (s *BaseOracleParserListener) ExitObjectLiteral(ctx *ObjectLiteralContext) {}
+
+// EnterObjectField is called when production objectField is entered.
+func (s *BaseOracleParserListener) EnterObjectField(ctx *ObjectFieldContext) {}
+
+// ExitObjectField is called when production objectField is exited.
+func (s *BaseOracleParserListener) ExitObjectField(ctx *ObjectFieldContext) {}
+
 // EnterEnumDef is called when production enumDef is entered.
 func (s *BaseOracleParserListener) EnterEnumDef(ctx *EnumDefContext) {}
 

@@ -568,6 +568,16 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 			BoolValue: b.GetText() == "true",
 		}
 	}
+	if ol := v.ObjectLiteral(); ol != nil {
+		ev := resolution.ExpressionValue{Kind: resolution.ValueKindStruct}
+		for _, f := range ol.AllObjectField() {
+			ev.ObjectFields = append(ev.ObjectFields, resolution.ObjectField{
+				Name:  f.IDENT().GetText(),
+				Value: collectValue(f.ExpressionValue()),
+			})
+		}
+		return ev
+	}
 	if q := v.QualifiedIdent(); q != nil {
 		ids := q.AllIDENT()
 		if len(ids) == 2 {

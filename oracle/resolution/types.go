@@ -20,6 +20,10 @@ const (
 	ValueKindFloat
 	ValueKindBool
 	ValueKindIdent
+	// ValueKindStruct is an object-literal value (a struct-typed default such as {
+	// format "preciseDate", tz "local" }). Its fields are held in
+	// ExpressionValue.ObjectFields.
+	ValueKindStruct
 )
 
 // Primitives is the set of built-in primitive type names recognized by Oracle.

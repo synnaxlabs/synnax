@@ -106,6 +106,12 @@ type OracleParserListener interface {
 	// EnterExpressionValue is called when entering the expressionValue production.
 	EnterExpressionValue(c *ExpressionValueContext)
 
+	// EnterObjectLiteral is called when entering the objectLiteral production.
+	EnterObjectLiteral(c *ObjectLiteralContext)
+
+	// EnterObjectField is called when entering the objectField production.
+	EnterObjectField(c *ObjectFieldContext)
+
 	// EnterEnumDef is called when entering the enumDef production.
 	EnterEnumDef(c *EnumDefContext)
 
@@ -213,6 +219,12 @@ type OracleParserListener interface {
 
 	// ExitExpressionValue is called when exiting the expressionValue production.
 	ExitExpressionValue(c *ExpressionValueContext)
+
+	// ExitObjectLiteral is called when exiting the objectLiteral production.
+	ExitObjectLiteral(c *ObjectLiteralContext)
+
+	// ExitObjectField is called when exiting the objectField production.
+	ExitObjectField(c *ObjectFieldContext)
 
 	// ExitEnumDef is called when exiting the enumDef production.
 	ExitEnumDef(c *EnumDefContext)

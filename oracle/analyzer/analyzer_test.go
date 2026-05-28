@@ -217,6 +217,36 @@ var _ = Describe("Analyzer", func() {
 			Expect(maxExpr.Values[0].IntValue).To(Equal(int64(17)))
 		})
 
+		It("Should collect an object-literal struct default", func(ctx SpecContext) {
+			source := `
+					TimestampConfig struct {
+						format string
+						tz     string
+					}
+					Entry struct {
+						timestamp TimestampConfig {
+							@validate default { format "preciseDate", tz "local" }
+						}
+					}
+				`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "log", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			entry := table.MustGet("log.Entry")
+			form := entry.Form.(resolution.StructForm)
+			field := MustBeOk(form.Field("timestamp"))
+			defaultExpr := MustBeOk(field.Domains["validate"].Expressions.Find("default"))
+			Expect(defaultExpr.Values).To(HaveLen(1))
+			val := defaultExpr.Values[0]
+			Expect(val.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(val.ObjectFields).To(HaveLen(2))
+			Expect(val.ObjectFields[0].Name).To(Equal("format"))
+			Expect(val.ObjectFields[0].Value.Kind).To(Equal(resolution.ValueKindString))
+			Expect(val.ObjectFields[0].Value.StringValue).To(Equal("preciseDate"))
+			Expect(val.ObjectFields[1].Name).To(Equal("tz"))
+			Expect(val.ObjectFields[1].Value.StringValue).To(Equal("local"))
+		})
+
 		It("Should collect struct-level domains", func(ctx SpecContext) {
 			source := `
 				Range struct {

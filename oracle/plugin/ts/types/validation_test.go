@@ -139,6 +139,26 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(true)`)
 	})
 
+	It("Should emit an object-literal struct default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			TimestampConfig struct {
+				format string
+				tz     string
+			}
+
+			Item struct {
+				timestamp TimestampConfig {
+					@validate default { format "preciseDate", tz "local" }
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`.default({ format: "preciseDate", tz: "local" })`)
+	})
+
 	It("Should emit id.create() default for string keys with create ident", func(ctx SpecContext) {
 		source := `
 			@ts output "out"

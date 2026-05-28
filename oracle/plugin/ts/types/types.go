@@ -1767,9 +1767,41 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
 			}
+		case resolution.ValueKindStruct:
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, objectDefaultToTS(*rules.Default))
 		}
 	}
 	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+}
+
+// objectDefaultToTS renders a ValueKindStruct expression value as a TypeScript object
+// literal (e.g. { format: "preciseDate", tz: "local" }) for use as a Zod .default(...)
+// argument. Keys are camelCased to match generated field names.
+func objectDefaultToTS(ev resolution.ExpressionValue) string {
+	parts := make([]string, 0, len(ev.ObjectFields))
+	for _, f := range ev.ObjectFields {
+		parts = append(parts, fmt.Sprintf("%s: %s", camelCase(f.Name), expressionValueToTS(f.Value)))
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+// expressionValueToTS renders a scalar or nested-struct expression value as a
+// TypeScript literal.
+func expressionValueToTS(v resolution.ExpressionValue) string {
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", v.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", v.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", v.BoolValue)
+	case resolution.ValueKindStruct:
+		return objectDefaultToTS(v)
+	default:
+		return v.IdentValue
+	}
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {

@@ -70,4 +70,14 @@ type ExpressionValue struct {
 	FloatValue  float64
 	Kind        ValueKind
 	BoolValue   bool
+	// ObjectFields holds the ordered key/value pairs when Kind is ValueKindStruct (an
+	// object-literal default such as { format "preciseDate", tz "local" }).
+	ObjectFields []ObjectField
+}
+
+// ObjectField is a single key/value pair within a struct-literal expression value.
+// Value may itself be a ValueKindStruct, allowing nested object literals.
+type ObjectField struct {
+	Name  string
+	Value ExpressionValue
 }

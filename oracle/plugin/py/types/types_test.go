@@ -483,6 +483,26 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
+		It("Should emit a default_factory for an object-literal struct default", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				TimestampConfig struct {
+					format string
+					tz     string
+				}
+
+				Log struct {
+					timestamp TimestampConfig {
+						@validate default { format "preciseDate", tz "local" }
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "log", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")`))
+		})
+
 		It("Should generate class inheritance for basic struct extension", func(ctx SpecContext) {
 			source := `
 				@py output "out"
