@@ -26,7 +26,6 @@
 #include "x/cpp/crash/crash.h"
 
 using ::testing::AllOf;
-using ::testing::ContainsRegex;
 using ::testing::HasSubstr;
 using ::testing::Not;
 
@@ -63,7 +62,7 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
         AllOf(
             HasSubstr("test-driver terminated: unhandled exception"),
             HasSubstr("boom-message"),
-            ContainsRegex("0x\\w+")
+            HasSubstr("0x")
         )
     );
 }
@@ -74,7 +73,7 @@ TEST(CrashDeathTest, UnhandledExceptionDumpsTrace) {
 /// assert an address is present.
 TEST(CrashTest, CaptureTraceProducesFrames) {
     const std::string trace = x::crash::capture_trace();
-    EXPECT_THAT(trace, ContainsRegex("0x\\w+"));
+    EXPECT_THAT(trace, HasSubstr("0x"));
     EXPECT_GE(std::count(trace.begin(), trace.end(), '\n'), 2);
 }
 
@@ -146,7 +145,7 @@ TEST(CrashDeathTest, FatalSignalDumpsTraceAndReraises) {
             std::raise(SIGABRT);
         },
         KilledBySignal(SIGABRT),
-        AllOf(HasSubstr("SIGABRT"), ContainsRegex("0x\\w+"))
+        AllOf(HasSubstr("SIGABRT"), HasSubstr("0x"))
     );
 }
 

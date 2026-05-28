@@ -22,9 +22,6 @@
 
 namespace x::crash {
 namespace {
-/// @brief maximum number of stack frames captured per trace.
-constexpr int MAX_FRAMES = 64;
-
 /// @brief size of the alternate signal stack. Must be large enough to run the
 /// trace-capturing handler when the normal stack is exhausted (the stack-overflow
 /// case). 64 KiB is comfortably above MINSIGSTKSZ on every supported platform.
@@ -35,8 +32,9 @@ constexpr size_t ALT_STACK_SIZE = 64 * 1024;
 alignas(16) char alt_stack[ALT_STACK_SIZE];
 
 /// @brief name printed in the crash banner. A fixed buffer rather than a std::string
-/// so that the signal handler can read it without touching the allocator.
-char program_name[256] = "synnax-driver";
+/// so that the signal handler can read it without touching the allocator. Empty until
+/// install sets it.
+char program_name[256] = {};
 
 /// @brief writes a null-terminated string to fd. Async-signal-safe: uses only strlen
 /// and write. The write result is intentionally unchecked, as there is no recovery

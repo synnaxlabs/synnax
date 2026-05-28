@@ -13,12 +13,6 @@ The handler does not touch SIGINT or SIGTERM, which remain graceful-shutdown sig
 Stack-overflow crashes are also covered: the handler runs on an alternate signal stack
 (POSIX) / with a reserved stack guarantee (Windows).
 
-To see real handler output for each crash kind, use the demo harness:
-
-```bash
-bazel run //x/cpp/crash:crash_demo -- segfault # or: abort | throw | overflow
-```
-
 ### Resolving addresses
 
 Optimized release builds are stripped, so a field trace shows raw addresses with few or

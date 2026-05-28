@@ -25,14 +25,11 @@
 
 namespace x::crash {
 namespace {
-/// @brief maximum number of stack frames captured per trace.
-constexpr int MAX_FRAMES = 64;
-
 /// @brief maximum symbol name length resolved per frame.
 constexpr DWORD MAX_SYMBOL_NAME = 255;
 
-/// @brief name printed in the crash banner.
-char program_name[256] = "synnax-driver";
+/// @brief name printed in the crash banner. Empty until install sets it.
+char program_name[256] = {};
 
 LONG WINAPI exception_filter(EXCEPTION_POINTERS *info) {
     std::fprintf(

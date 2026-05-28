@@ -15,6 +15,9 @@
 /// when the process is about to die abnormally, so that field failures leave a
 /// diagnosable trace in the driver logs instead of a silent exit.
 namespace x::crash {
+/// @brief maximum number of stack frames captured in a trace.
+constexpr int MAX_FRAMES = 64;
+
 /// @brief installs the process-wide crash handlers. Should be called once, as early
 /// in process startup as possible.
 ///
@@ -40,7 +43,7 @@ namespace x::crash {
 /// graceful shutdown.
 ///
 /// @param program_name name printed in the crash banner. Truncated to 255 bytes.
-void install(const std::string &program_name = "synnax-driver");
+void install(const std::string &program_name);
 
 /// @brief captures a formatted, symbolized stack trace of the calling thread and
 /// returns it, one frame per line. It uses the same capture and symbolization machinery
