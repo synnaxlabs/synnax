@@ -57,7 +57,9 @@ interface ContextValue<K extends record.Key = record.Key> extends Pick<
   getState: () => SelectionState<K>;
 }
 
-export interface ProviderProps<K extends record.Key = record.Key> extends PropsWithChildren {
+export interface ProviderProps<
+  K extends record.Key = record.Key,
+> extends PropsWithChildren {
   value: K | K[] | null | undefined;
   onSelect?: (key: K) => void;
   setSelected?: (keys: K[]) => void;
