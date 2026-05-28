@@ -27,9 +27,8 @@ const _Liveness_name = "LivenessUnspecifiedLivenessAlwaysLivenessGated"
 var _Liveness_index = [...]uint8{0, 19, 33, 46}
 
 func (i Liveness) String() string {
-	idx := int(i) - 0
-	if i < 0 || idx >= len(_Liveness_index)-1 {
+	if i >= Liveness(len(_Liveness_index)-1) {
 		return "Liveness(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Liveness_name[_Liveness_index[idx]:_Liveness_index[idx+1]]
+	return _Liveness_name[_Liveness_index[i]:_Liveness_index[i+1]]
 }
