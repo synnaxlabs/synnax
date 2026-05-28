@@ -310,10 +310,10 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
 
   const commonLevel = useMemo((): text.Level | undefined => {
     let result: text.Level | undefined;
-    for (const cell of cellsByKey.values()) 
+    for (const cell of cellsByKey.values())
       if (result == null) result = cell.props.level;
       else if (result !== cell.props.level) return undefined;
-    
+
     return result;
   }, [cellsByKey]);
 

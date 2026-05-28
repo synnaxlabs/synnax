@@ -291,10 +291,7 @@ describe("Table", () => {
         ],
         columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
         cells: Object.fromEntries(
-          keys.map((k) => [
-            k,
-            { key: k, variant: "value", props: { units: "psi" } },
-          ]),
+          keys.map((k) => [k, { key: k, variant: "value", props: { units: "psi" } }]),
         ),
       };
     };
