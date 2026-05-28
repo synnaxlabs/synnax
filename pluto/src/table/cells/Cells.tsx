@@ -68,7 +68,10 @@ export const Text = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ backgroundColor: color.cssString(backgroundColor) }}
+      style={{
+        backgroundColor: color.cssString(backgroundColor),
+        width: box.width(b),
+      }}
     >
       <BaseText.Editable
         level={level}
@@ -109,7 +112,7 @@ export const Value = ({
   stalenessTimeout,
   stalenessColor,
 }: CellProps<ValueProps>) => {
-  const { width } = BaseValue.use({
+  BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
@@ -132,6 +135,7 @@ export const Value = ({
       outlet: "gradient",
     }),
     location: { x: "center", y: "center" },
+    clip: true,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
 
@@ -142,7 +146,11 @@ export const Value = ({
       height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ width }}
+      // Use the column-driven box width, not BaseValue's natural text width:
+      // when row indicators are hidden, the first data row determines column
+      // widths via table-layout: fixed, so the cell must be locked to the
+      // stored column size or canvas/DOM alignment drifts.
+      style={{ width: box.width(b) }}
       className={CSS(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,

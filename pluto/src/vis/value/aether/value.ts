@@ -36,6 +36,10 @@ const valueState = z.object({
   useWidthForBackground: z.boolean().default(false),
   valueBackgroundShift: xy.xyZ.default(xy.ZERO),
   valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
+  // clip restricts canvas drawing to the configured box. Use when the
+  // host can't grow to fit the natural text width (e.g. a table cell);
+  // overflow gets truncated at the cell edge instead of bleeding past.
+  clip: z.boolean().default(false),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -176,37 +180,42 @@ export class Value
 
     const labelPosition = xy.translate(bTopLeft, labelOffset);
 
-    if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
-      const colorValue = backgroundTelem.value();
-      const isZero = color.isZero(colorValue);
-      if (!isZero) {
-        canvas.fillStyle = color.hex(colorValue);
-        const width = this.state.useWidthForBackground
-          ? (this.state.width ?? this.state.minWidth)
-          : box.width(b);
-        canvas.fillRect(
-          ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
-          width + this.state.valueBackgroundOverScan.x,
-          bHeight + this.state.valueBackgroundOverScan.y,
-        );
+    const undoClip = this.state.clip ? canvas.scissor(b) : null;
+    try {
+      if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
+        const colorValue = backgroundTelem.value();
+        const isZero = color.isZero(colorValue);
+        if (!isZero) {
+          canvas.fillStyle = color.hex(colorValue);
+          const width = this.state.useWidthForBackground
+            ? (this.state.width ?? this.state.minWidth)
+            : box.width(b);
+          canvas.fillRect(
+            ...xy.couple(xy.translate(bTopLeft, this.state.valueBackgroundShift)),
+            width + this.state.valueBackgroundOverScan.x,
+            bHeight + this.state.valueBackgroundOverScan.y,
+          );
+        }
       }
+
+      const textColor = this.getTextColor();
+      canvas.fillStyle = color.hex(textColor);
+
+      // If the value is negative, chop of the negative sign and draw it separately
+      // so that the first digit always stays in the same position, regardless of the sign.
+      if (isNegative)
+        canvas.fillText(
+          "-",
+          // 0.6 is a multiplier of the font height that seems to keep the sign in
+          // the right place.
+          ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
+          undefined,
+          FILL_TEXT_OPTIONS,
+        );
+      canvas.fillText(value, ...xy.couple(labelPosition), undefined, FILL_TEXT_OPTIONS);
+    } finally {
+      undoClip?.();
     }
-
-    const textColor = this.getTextColor();
-    canvas.fillStyle = color.hex(textColor);
-
-    // If the value is negative, chop of the negative sign and draw it separately
-    // so that the first digit always stays in the same position, regardless of the sign.
-    if (isNegative)
-      canvas.fillText(
-        "-",
-        // 0.6 is a multiplier of the font height that seems to keep the sign in
-        // the right place.
-        ...xy.couple(xy.translateX(labelPosition, -fontHeight * 0.6)),
-        undefined,
-        FILL_TEXT_OPTIONS,
-      );
-    canvas.fillText(value, ...xy.couple(labelPosition), undefined, FILL_TEXT_OPTIONS);
   }
 }
 

@@ -111,15 +111,15 @@ class Table(ConsolePage):
 
     def add_row(self) -> None:
         """Add a new row to the table by clicking the add-row button."""
-        add_row_btn = self.page.locator(".pluto-table-frame__add-row").first
-        add_row_btn.wait_for(state="visible", timeout=5000)
-        add_row_btn.click()
+        control = self.page.locator(".pluto-table-frame__add-row").first
+        control.wait_for(state="visible", timeout=5000)
+        control.locator("button").last.click()
 
     def add_column(self) -> None:
         """Add a new column to the table by clicking the add-column button."""
-        add_col_btn = self.page.locator(".pluto-table-frame__add-col").first
-        add_col_btn.wait_for(state="visible", timeout=5000)
-        add_col_btn.click()
+        control = self.page.locator(".pluto-table-frame__add-col").first
+        control.wait_for(state="visible", timeout=5000)
+        control.locator("button").last.click()
 
     def delete_row(self, row: int, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
@@ -129,7 +129,7 @@ class Table(ConsolePage):
             col: Column index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
-        self.ctx_menu.action(cell, "Delete row")
+        self.ctx_menu.action(cell, f"Delete row {row + 1}")
 
     def delete_column(self, col: int, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
@@ -139,7 +139,8 @@ class Table(ConsolePage):
             row: Row index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
-        self.ctx_menu.action(cell, "Delete column")
+        letter = chr(ord("A") + col)
+        self.ctx_menu.action(cell, f"Delete column {letter}")
 
     def set_redline(self, row: int, col: int, lower: float, upper: float) -> None:
         """Configure redline bounds on a value cell.

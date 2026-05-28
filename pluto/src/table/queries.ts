@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, ontology, table, type workspace } from "@synnaxlabs/client";
-import { array, id, uuid, type xy } from "@synnaxlabs/x";
+import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
@@ -155,6 +155,7 @@ export const useSelectCells = Flux.createSelector<
     }
     return result;
   },
+  equal: compare.mapsEqual,
 });
 
 export type DeleteParams = table.Key | table.Key[];
