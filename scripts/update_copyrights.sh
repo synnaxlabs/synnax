@@ -188,7 +188,7 @@ locate_existing_header() {
 
     local scan_end_idx=$((scan_start_idx + 14))
     if [ $scan_end_idx -ge ${#LINES[@]} ]; then
-        scan_end_idx=$(( ${#LINES[@]} - 1 ))
+        scan_end_idx=$((${#LINES[@]} - 1))
     fi
 
     # Find the first "Copyright ... Synnax Labs" line in the scan window.
@@ -235,7 +235,7 @@ locate_existing_header() {
 
     local max_scan_idx=$((OLD_HEADER_START + 30))
     if [ $max_scan_idx -ge ${#LINES[@]} ]; then
-        max_scan_idx=$(( ${#LINES[@]} - 1 ))
+        max_scan_idx=$((${#LINES[@]} - 1))
     fi
 
     local end_idx=$OLD_HEADER_START
@@ -282,16 +282,6 @@ locate_existing_header() {
     esac
 
     OLD_HEADER_END=$end_idx
-}
-
-# Write LINES[start..end] (inclusive) to stdout, one line per array slot.
-emit_lines() {
-    local start=$1
-    local end=$2
-    local i
-    for ((i = start; i <= end; i++)); do
-        printf '%s\n' "${LINES[i]}"
-    done
 }
 
 # Process a single file. Prints "UPDATED\t$file" or "SKIPPED\t$file".
@@ -555,12 +545,12 @@ while IFS=$'\t' read -r status path; do
             echo "Warning: unexpected worker output: $status $path" >&2
             ;;
     esac
-    if (( TOTAL_FILES % 100 == 0 )) || [ "$TOTAL_FILES" -eq "$TOTAL_TO_UPDATE" ]; then
+    if ((TOTAL_FILES % 100 == 0)) || [ "$TOTAL_FILES" -eq "$TOTAL_TO_UPDATE" ]; then
         printf '\r\033[KProcessed %d/%d files' "$TOTAL_FILES" "$TOTAL_TO_UPDATE"
     fi
 done < <(
-    printf '%s\n' "${FILES_TO_UPDATE[@]}" \
-        | xargs -P "$NUM_WORKERS" -n 100 bash "$0" __batch
+    printf '%s\0' "${FILES_TO_UPDATE[@]}" \
+        | xargs -0 -P "$NUM_WORKERS" -n 100 bash "$0" __batch
 )
 
 echo -e "\r\033[K"
