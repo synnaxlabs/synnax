@@ -59,16 +59,14 @@ var _ = Describe("v2.Migrate (v1 -> v2)", func() {
 	It("Should set x-axis Type to 'time'", func() {
 		out := v2.Migrate(nonZeroV1())
 		Expect(out.Version).To(Equal(v2.Version))
-		Expect(out.Axes.Axes.X1.Type).NotTo(BeNil())
-		Expect(*out.Axes.Axes.X1.Type).To(Equal("time"))
-		Expect(out.Axes.Axes.X2.Type).NotTo(BeNil())
-		Expect(*out.Axes.Axes.X2.Type).To(Equal("time"))
+		Expect(out.Axes.Axes.X1.Type).To(Equal("time"))
+		Expect(out.Axes.Axes.X2.Type).To(Equal("time"))
 	})
 
 	It("Should leave y-axis Type unset", func() {
 		out := v2.Migrate(nonZeroV1())
-		Expect(out.Axes.Axes.Y1.Type).To(BeNil())
-		Expect(out.Axes.Axes.Y4.Type).To(BeNil())
+		Expect(out.Axes.Axes.Y1.Type).To(BeEmpty())
+		Expect(out.Axes.Axes.Y4.Type).To(BeEmpty())
 	})
 
 	It("Should flip y-axis labelDirection from 'x' to 'y'", func() {

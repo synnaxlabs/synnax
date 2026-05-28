@@ -24,7 +24,6 @@ import (
 // regressions in v3.Migrate surface.
 func nonZeroV2() v2.Data {
 	label := "pressure"
-	timeStr := "time"
 	return v2.Data{
 		Version:       v2.Version,
 		Key:           "plot-1",
@@ -40,8 +39,8 @@ func nonZeroV2() v2.Data {
 			RenderTrigger:    7,
 			HasHadChannelSet: true,
 			Axes: v2.Axes{
-				X1: v2.Axis{Key: "x1", Label: "time", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 100}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75, Type: &timeStr},
-				X2: v2.Axis{Key: "x2", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75, Type: &timeStr},
+				X1: v2.Axis{Key: "x1", Label: "time", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 100}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75, Type: "time"},
+				X2: v2.Axis{Key: "x2", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75, Type: "time"},
 				Y1: v2.Axis{Key: "y1", Label: "p", LabelDirection: "y", LabelLevel: "small", Bounds: v0.Bounds{Lower: -1, Upper: 5}, AutoBounds: v0.AutoBounds{Lower: false, Upper: false}, TickSpacing: 60},
 				Y2: v2.Axis{Key: "y2", Label: "", LabelDirection: "y", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
 				Y3: v2.Axis{Key: "y3", Label: "", LabelDirection: "y", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},

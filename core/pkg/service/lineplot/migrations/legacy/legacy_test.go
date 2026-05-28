@@ -43,8 +43,7 @@ var _ = Describe("MigrateData", func() {
 			Expect(out.Version).To(Equal(v4.Version))
 			Expect(out.Legend.Visible).To(BeTrue())
 			Expect(out.Legend.Position.X).To(Equal(50.0))
-			Expect(out.Axes.Axes.X1.Type).NotTo(BeNil())
-			Expect(*out.Axes.Axes.X1.Type).To(Equal("time"))
+			Expect(out.Axes.Axes.X1.Type).To(Equal("time"))
 			Expect(out.Axes.Axes.Y1.LabelDirection).To(Equal("y"))
 		})
 
