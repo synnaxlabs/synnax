@@ -3015,6 +3015,82 @@ time.wait{duration=500ms} -> output`
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
+		It("Should omit inputs on an STL ExecBoth node whose upstream is a trigger", func(ctx SpecContext) {
+			bothType := types.Function(types.FunctionProperties{
+				Config: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+				Inputs: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "both",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
+				Type: bothType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.both")
+			Expect(n.Inputs).To(BeEmpty())
+			Expect(n.Config).To(HaveLen(3))
+		})
+
+		It("Should keep inputs on a user-defined function in a flow statement", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+			}
+			source := `
+			func handler{} (x u8) {
+			}
+			sensor -> handler{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "handler")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("x"))
+		})
+
+		It("Should keep inputs on an ExecFlow STL node in a flow statement", func(ctx SpecContext) {
+			sinkType := types.Function(types.FunctionProperties{
+				Inputs: types.Params{{Name: "value", Type: types.U8()}},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "sink",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: sinkType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.sink{}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.sink")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("value"))
+		})
+
 		It("Should allow time.now{} to write into a plain i64 channel", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{Name: "int_out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10044},

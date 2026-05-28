@@ -12,13 +12,13 @@ import { Form } from "@/arc/functions/status/Form";
 import { type Spec } from "@/arc/functions/types/spec";
 
 export const SPEC: Spec<Config> = {
-  key: "set_status",
-  name: "Change Status ",
+  key: "status.set",
+  name: "Change Status",
   zIndex: 100,
   Form,
   Symbol,
   defaultProps: () => ({
-    statusKey: "",
+    key_or_name: "",
     variant: "success",
     message: "Notification",
   }),

@@ -27,12 +27,14 @@ import (
 )
 
 type (
-	setRequestTranslator       struct{}
-	setResponseTranslator      struct{}
-	retrieveRequestTranslator  struct{}
-	retrieveResponseTranslator struct{}
-	deleteRequestTranslator    struct{}
-	setServer                  = grpc.UnaryServer[
+	setRequestTranslator             struct{}
+	setResponseTranslator            struct{}
+	retrieveRequestTranslator        struct{}
+	retrieveResponseTranslator       struct{}
+	deleteRequestTranslator          struct{}
+	setByKeyOrNameRequestTranslator  struct{}
+	setByKeyOrNameResponseTranslator struct{}
+	setServer                        = grpc.UnaryServer[
 		status.SetRequest,
 		*SetRequest,
 		status.SetResponse,
@@ -50,14 +52,22 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
+	setByKeyOrNameServer = grpc.UnaryServer[
+		status.SetByKeyOrNameRequest,
+		*SetByKeyOrNameRequest,
+		status.SetByKeyOrNameResponse,
+		*SetByKeyOrNameResponse,
+	]
 )
 
 var (
-	_ grpc.Translator[status.SetRequest, *SetRequest]             = (*setRequestTranslator)(nil)
-	_ grpc.Translator[status.SetResponse, *SetResponse]           = (*setResponseTranslator)(nil)
-	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[status.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[status.SetRequest, *SetRequest]                         = (*setRequestTranslator)(nil)
+	_ grpc.Translator[status.SetResponse, *SetResponse]                       = (*setResponseTranslator)(nil)
+	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest]               = (*retrieveRequestTranslator)(nil)
+	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse]             = (*retrieveResponseTranslator)(nil)
+	_ grpc.Translator[status.DeleteRequest, *DeleteRequest]                   = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[status.SetByKeyOrNameRequest, *SetByKeyOrNameRequest]   = (*setByKeyOrNameRequestTranslator)(nil)
+	_ grpc.Translator[status.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(nil)
 )
 
 func (setRequestTranslator) Forward(
@@ -193,6 +203,42 @@ func (deleteRequestTranslator) Backward(
 	return status.DeleteRequest{Keys: msg.Keys}, nil
 }
 
+func (setByKeyOrNameRequestTranslator) Forward(
+	_ context.Context,
+	msg status.SetByKeyOrNameRequest,
+) (*SetByKeyOrNameRequest, error) {
+	return &SetByKeyOrNameRequest{
+		KeyOrName: msg.KeyOrName,
+		Message:   msg.Message,
+		Variant:   string(msg.Variant),
+	}, nil
+}
+
+func (setByKeyOrNameRequestTranslator) Backward(
+	_ context.Context,
+	msg *SetByKeyOrNameRequest,
+) (status.SetByKeyOrNameRequest, error) {
+	return status.SetByKeyOrNameRequest{
+		KeyOrName: msg.KeyOrName,
+		Message:   msg.Message,
+		Variant:   xstatus.Variant(msg.Variant),
+	}, nil
+}
+
+func (setByKeyOrNameResponseTranslator) Forward(
+	_ context.Context,
+	msg status.SetByKeyOrNameResponse,
+) (*SetByKeyOrNameResponse, error) {
+	return &SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+}
+
+func (setByKeyOrNameResponseTranslator) Backward(
+	_ context.Context,
+	msg *SetByKeyOrNameResponse,
+) (status.SetByKeyOrNameResponse, error) {
+	return status.SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	s := &setServer{
 		RequestTranslator:  setRequestTranslator{},
@@ -209,8 +255,14 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &StatusDeleteService_ServiceDesc,
 	}
+	sbkn := &setByKeyOrNameServer{
+		RequestTranslator:  setByKeyOrNameRequestTranslator{},
+		ResponseTranslator: setByKeyOrNameResponseTranslator{},
+		ServiceDesc:        &StatusSetByKeyOrNameService_ServiceDesc,
+	}
 	t.StatusSet = s
 	t.StatusRetrieve = r
 	t.StatusDelete = d
-	return grpc.CompoundBindableTransport{s, r, d}
+	t.StatusSetByKeyOrName = sbkn
+	return grpc.CompoundBindableTransport{s, r, d, sbkn}
 }
