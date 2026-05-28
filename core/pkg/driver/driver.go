@@ -283,9 +283,9 @@ func (d *Driver) start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var runProcess func(context.Context) error
-	runProcess = func(ctx context.Context) error {
-		cfgFile, extractedBinary, err := d.setupCmd(ctx)
+	var runProcess func() error
+	runProcess = func() error {
+		cfgFile, extractedBinary, err := d.setupCmd()
 		if cfgFile != "" {
 			defer func() {
 				if rmErr := os.Remove(cfgFile); rmErr != nil {
@@ -351,7 +351,7 @@ func (d *Driver) start(ctx context.Context) error {
 			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
 			if !isSignal && bre.Wait() {
 				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
-				return runProcess(ctx)
+				return runProcess()
 			}
 		}
 		if isSignal {
@@ -360,7 +360,7 @@ func (d *Driver) start(ctx context.Context) error {
 		}
 		return err
 	}
-	sCtx.Go(runProcess)
+	sCtx.Go(func(context.Context) error { return runProcess() })
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -426,9 +426,7 @@ func (d *Driver) close() error {
 // setupCmd prepares the driver subprocess command under d.mu, writing the config file,
 // extracting the binary (if needed), and constructing the exec.Cmd. It returns the
 // paths of any temp files created so the caller can defer their cleanup.
-func (d *Driver) setupCmd(
-	ctx context.Context,
-) (cfgFile, extractedBinary string, _ error) {
+func (d *Driver) setupCmd() (cfgFile, extractedBinary string, _ error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	b, err := json.Marshal(d.cfg.format())
