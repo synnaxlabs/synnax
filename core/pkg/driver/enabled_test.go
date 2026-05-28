@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,11 +29,32 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func newTestLogger() (*alamos.Logger, *bytes.Buffer) {
-	buffer := &bytes.Buffer{}
+// syncBuffer is a concurrency-safe log sink for tests that read the captured output
+// while the driver's logging goroutines are still writing to it.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) Sync() error { return nil }
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func newTestLogger() (*alamos.Logger, *syncBuffer) {
+	buffer := &syncBuffer{}
 	core := zapcore.NewCore(
 		zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()),
-		zapcore.Lock(zapcore.AddSync(buffer)),
+		zapcore.AddSync(buffer),
 		zapcore.DebugLevel,
 	)
 	logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
@@ -175,6 +197,26 @@ var _ = Describe("restart", func() {
 		d := openMockDriver(ctx, logger)
 		Expect(d.Close()).To(Succeed())
 		Expect(buffer.String()).ToNot(ContainSubstring("exited unexpectedly"))
+	})
+
+	It("Should not panic when a restarted driver re-signals startup", func(ctx SpecContext) {
+		Expect(os.Setenv("MOCK_EXIT_AFTER_MS", "100")).To(Succeed())
+		defer func() { Expect(os.Unsetenv("MOCK_EXIT_AFTER_MS")).To(Succeed()) }()
+		logger, buffer := newTestLogger()
+		d := openMockDriver(ctx, logger, driver.Config{
+			StartTimeout:        5 * time.Second,
+			RestartBaseInterval: time.Millisecond,
+		})
+		Expect(d).ToNot(BeNil())
+		// Each run starts then crashes, so the supervisor restarts and the restarted run
+		// re-emits "started successfully". The shared startup channel must not be closed
+		// twice: on the bug this panics in the pipe goroutine before the second startup
+		// line is logged, so the count never reaches two.
+		Eventually(func() int {
+			return strings.Count(buffer.String(), "started successfully")
+		}, 5*time.Second).Should(BeNumerically(">=", 2))
+		Expect(d.Close()).To(Succeed())
+		Expect(buffer.String()).ToNot(ContainSubstring("close of closed channel"))
 	})
 })
 
