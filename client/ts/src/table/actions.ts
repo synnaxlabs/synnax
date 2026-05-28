@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { current, type Draft, isDraft } from "immer";
-
+import { NO_OP_RESULT as NO_OP, snapshotDraft as snapshot } from "@/actions/actions";
 import {
   type Action,
   addCol,
   addRow,
   createReduceAll,
-  type HandlerResult,
   type Handlers,
   removeCol,
   removeRow,
@@ -25,37 +23,24 @@ import {
 } from "@/table/actions.gen";
 import { type Cell } from "@/table/types.gen";
 
-const NO_OP: HandlerResult = { inverse: [], targets: [] };
-
 // MIN_CELL_DIM is the floor enforced on row and column sizes.
 const MIN_CELL_DIM = 32;
-// BASE_ROW_DIM / BASE_COL_DIM are the defaults used when AddRow / AddCol
-// fire against an empty table and need to bootstrap the missing axis.
+// BASE_ROW_DIM and BASE_COL_DIM are the defaults used when an action
+// bootstraps the opposing axis on an empty table.
 const BASE_ROW_DIM = 36;
 const BASE_COL_DIM = 72;
 
-// snapshot pulls a value out of an Immer draft so the result is safe to embed
-// in an action stored on the undo stack. When reduceAll applies multiple
-// actions inside one produce(), an earlier wholesale assignment can leave a
-// slot as a plain object; a later action that calls current() unconditionally
-// would crash.
-const snapshot = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
-
-// deriveCellKey derives a unique-per-index cell key from a template key by
-// replacing the last four hex digits with the index encoded in hex. The
-// template key is assumed to be a 36-character UUID; positions 14 (version)
-// and 19 (variant) sit in the prefix so the derived key keeps the UUID v4
-// layout. Both Go and TS reducers run the same scheme so the optimistic
-// flux store agrees with the server.
+// deriveCellKey returns the key for the index-th replica of template. Both
+// reducers run the same scheme so optimistic client state agrees with the
+// server.
 const deriveCellKey = (templateKey: string, index: number): string => {
   const suffix = index.toString(16).padStart(4, "0");
   if (templateKey.length < 36) return `${templateKey}-${suffix}`;
   return templateKey.slice(0, 32) + suffix;
 };
 
-// expandTemplate returns a slice of replica cells derived from a template,
-// one per axis position. The first replica gets key deriveCellKey(template,
-// 0), the second deriveCellKey(template, 1), and so on.
+// expandTemplate returns count replicas of template with keys derived via
+// deriveCellKey.
 const expandTemplate = (template: Cell, count: number): Cell[] =>
   Array.from({ length: count }, (_, i) => ({
     key: deriveCellKey(template.key, i),
@@ -142,11 +127,9 @@ const handlers: Handlers = {
     const oldSize = state.columns[payload.index].size;
     const removedCells: Cell[] = [];
     state.columns.splice(payload.index, 1);
-    // Rows are kept aligned with columns by construction. A row that doesn't
-    // have a cell at the removed index is a corrupted state; treat it as a
-    // gap and don't add a placeholder to the inverse's cells array. The
-    // generated Go AddCol handler short-circuits when len(cells) < len(rows),
-    // so the inverse will repopulate as many rows as we captured.
+    // Rows missing a cell at this column are skipped, not padded. Go AddCol
+    // short-circuits when len(cells) < len(rows), so the inverse repopulates
+    // only the rows we captured.
     for (let i = 0; i < state.rows.length; i++) {
       if (payload.index >= state.rows[i].cells.length) continue;
       const k = state.rows[i].cells[payload.index];
@@ -175,11 +158,9 @@ const handlers: Handlers = {
     if (payload.index >= state.columns.length) return NO_OP;
     const oldSize = state.columns[payload.index].size;
     state.columns[payload.index].size = Math.max(payload.size, MIN_CELL_DIM);
-    const targets: string[] = [];
-    for (const r of state.rows) {
-      const k = r.cells[payload.index];
-      if (k != null) targets.push(k);
-    }
+    const targets = state.rows
+      .map((r) => r.cells[payload.index])
+      .filter((k): k is string => k != null);
     return {
       inverse: [resizeCol({ index: payload.index, size: oldSize })],
       targets,
@@ -200,26 +181,32 @@ const handlers: Handlers = {
   eraseCells: (state, payload) => {
     if (payload.cells.length === 0) return NO_OP;
     const selected = new Set(payload.cells);
+    const rowPosOf = new Map<string, { row: number; col: number }>();
+    for (let r = 0; r < state.rows.length; r++) {
+      const cells = state.rows[r].cells;
+      for (let c = 0; c < cells.length; c++) rowPosOf.set(cells[c], { row: r, col: c });
+    }
+    const rowTally = new Map<number, number>();
+    const colTally = new Map<number, number>();
+    for (const k of selected) {
+      const pos = rowPosOf.get(k);
+      if (pos == null) continue;
+      rowTally.set(pos.row, (rowTally.get(pos.row) ?? 0) + 1);
+      colTally.set(pos.col, (colTally.get(pos.col) ?? 0) + 1);
+    }
     const fullRowIdx: number[] = [];
-    state.rows.forEach((row, i) => {
-      if (row.cells.length === 0) return;
-      if (row.cells.every((c) => selected.has(c))) fullRowIdx.push(i);
-    });
+    for (const [rowIdx, tally] of rowTally)
+      if (tally > 0 && tally === state.rows[rowIdx].cells.length)
+        fullRowIdx.push(rowIdx);
+    fullRowIdx.sort((a, b) => a - b);
     const fullColIdx: number[] = [];
-    if (state.rows.length > 0)
-      state.columns.forEach((_, colIdx) => {
-        const all = state.rows.every((row) => {
-          const k = row.cells[colIdx];
-          return k != null && selected.has(k);
-        });
-        if (all) fullColIdx.push(colIdx);
-      });
+    for (const [colIdx, tally] of colTally)
+      if (tally === state.rows.length) fullColIdx.push(colIdx);
+    fullColIdx.sort((a, b) => a - b);
     const inverse: Action[] = [];
     const targets: string[] = [];
-    // Iterate highest-first when mutating so earlier removals don't shift
-    // later ones; unshift the corresponding inverse so the inverse array
-    // ends up in ascending index order, which is what AddRow / AddCol need
-    // on undo.
+    // Iterate highest-first so earlier removals don't shift later indices;
+    // unshift the inverse so undo replays it in ascending order.
     for (let i = fullRowIdx.length - 1; i >= 0; i--) {
       const idx = fullRowIdx[i];
       const removed = snapshot(state.rows[idx]);
@@ -249,7 +236,7 @@ const handlers: Handlers = {
       inverse.unshift(addCol({ index: idx, size: oldSize, cells: removedCells }));
       targets.push(...removedCells.map((c) => c.key));
     }
-    for (const k of payload.cells) {
+    for (const k of selected) {
       const existing = state.cells[k];
       if (existing == null) continue;
       const oldCell = snapshot(existing);

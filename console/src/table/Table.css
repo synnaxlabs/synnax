@@ -14,3 +14,11 @@
     height: 100%;
     overflow: auto;
 }
+
+.console-table__toolbar-buttons {
+    width: 66px;
+}
+
+.console-table__multi-cell-form {
+    padding: 2rem;
+}

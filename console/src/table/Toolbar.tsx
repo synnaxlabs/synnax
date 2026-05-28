@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/Table.css";
+
 import { table } from "@synnaxlabs/client";
 import {
   Access,
@@ -18,18 +20,18 @@ import {
   Input,
   Select,
   Table as Base,
-  TableCells,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Tb } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { type RootState } from "@/store";
 import { useExport } from "@/table/export";
 import {
   useSelectEditable,
@@ -42,25 +44,11 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-const TOOLBAR_BUTTONS_STYLE = { width: 66 };
-
-const cellPositionInRows = (
-  rows: table.Row[],
-  cellKey: string,
-): { x: number; y: number } | null => {
-  for (let y = 0; y < rows.length; y++) {
-    const x = rows[y].cells.indexOf(cellKey);
-    if (x !== -1) return { x, y };
-  }
-  return null;
-};
-
-const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
+const Loaded = ({ layoutKey }: ToolbarProps): ReactElement => {
   Base.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const editable = useSelectEditable(layoutKey);
   const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
-  const rows = Base.useSelectRows({ key: layoutKey });
   const cellsByKey = Base.useSelectCells({
     key: layoutKey,
     cellKeys: selectedCellKeys,
@@ -68,11 +56,10 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   const liveCellCount = cellsByKey.size;
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
-  const selectedCellPos = useMemo(
-    () =>
-      singleSelectedKey != null ? cellPositionInRows(rows, singleSelectedKey) : null,
-    [singleSelectedKey, rows],
-  );
+  const selectedCellPos = Base.useCellPosition({
+    key: layoutKey,
+    cellKey: singleSelectedKey ?? "",
+  });
   const handleExport = useExport();
   return (
     <Tb.Content>
@@ -94,7 +81,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
-        <Flex.Box x style={TOOLBAR_BUTTONS_STYLE} empty>
+        <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
           <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
@@ -121,9 +108,31 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   );
 };
 
-export const Toolbar = (props: ToolbarProps): ReactElement | null => {
-  const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  return pendingUpload == null ? <Internal {...props} /> : null;
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  const pendingUpload = useSelectPendingUpload(layoutKey);
+  if (pendingUpload != null) return null;
+  return <Loaded layoutKey={layoutKey} />;
+};
+
+// buildVariantSwapActions returns one setCell action per cell whose variant
+// differs from the target. Compatible fields survive the swap.
+const buildVariantSwapActions = (
+  cells: Iterable<[string, Base.Cell.Config]>,
+  variant: Base.Cell.Variant,
+  theme: Theming.Theme,
+): table.Action[] => {
+  const spec = Base.Cell.REGISTRY[variant];
+  const actions: table.Action[] = [];
+  for (const [key, cell] of cells) {
+    if (cell.variant === variant) continue;
+    const props = deep.overrideValidItems(
+      cell.props,
+      spec.defaultProps(theme),
+      spec.schema,
+    );
+    actions.push(table.setCell({ cell: { key, variant, props } }));
+  }
+  return actions;
 };
 
 interface CellFormProps {
@@ -134,25 +143,15 @@ interface CellFormProps {
 const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => {
   const cell = Base.useSelectCell({ key: tableKey, cellKey });
   const { dispatch } = Base.useDispatch();
-  const store = useStore<RootState>();
+  const theme = Theming.use();
 
   const handleVariantChange = useCallback(
-    (variant: TableCells.Variant) => {
-      if (cell == null || variant === cell.variant) return;
-      const theme = Layout.selectTheme(store.getState());
-      if (theme == null) throw new Error("Theme is null");
-      const spec = TableCells.CELLS[variant];
-      const nextProps = deep.overrideValidItems(
-        cell.props,
-        spec.defaultProps(theme),
-        spec.schema,
-      );
-      dispatch({
-        key: tableKey,
-        actions: [table.setCell({ cell: { key: cellKey, variant, props: nextProps } })],
-      });
+    (variant: Base.Cell.Variant) => {
+      if (cell == null) return;
+      const actions = buildVariantSwapActions([[cellKey, cell]], variant, theme);
+      if (actions.length > 0) dispatch({ key: tableKey, actions });
     },
-    [cell, cellKey, dispatch, store, tableKey],
+    [cell, cellKey, dispatch, tableKey, theme],
   );
 
   const handleChange = useCallback(
@@ -178,11 +177,10 @@ const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => 
   });
 
   if (cell == null) return null;
-  const F = TableCells.CELLS[cell.variant as keyof typeof TableCells.CELLS]?.Form;
-  if (F == null) return null;
+  const C = Base.Cell.REGISTRY[cell.variant];
   return (
     <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
-      <F onVariantChange={handleVariantChange} />
+      <C.Form onVariantChange={handleVariantChange} />
     </Form.Form>
   );
 };
@@ -214,18 +212,27 @@ const NotEditableContent = ({
   );
 };
 
-// MULTI_CELL_LEVEL_DEFAULT is the level shown in the multi-cell form when
-// the selected cells disagree on level. Matches the value variant's default.
-const MULTI_CELL_LEVEL_DEFAULT: text.Level = "p";
+const readCellColor = (cell: Base.Cell.Config): color.Hex | null => {
+  switch (cell.variant) {
+    case "text":
+      return cell.props.backgroundColor == null
+        ? null
+        : color.hex(cell.props.backgroundColor);
+    case "value":
+      return color.hex(cell.props.color);
+  }
+};
 
-// colorPropOf returns the key in cell.props that stores the cell's
-// fill/background color for its variant, or null if the variant has no such
-// prop. Used by the multi-cell color groups so a single Color.Swatch can
-// bulk-set the right prop across mixed variants.
-const colorPropOf = (variant: string): "backgroundColor" | "color" | null => {
-  if (variant === "text") return "backgroundColor";
-  if (variant === "value") return "color";
-  return null;
+const cellColorPatch = (
+  cell: Base.Cell.Config,
+  next: color.Color,
+): Partial<record.Unknown> => {
+  switch (cell.variant) {
+    case "text":
+      return { backgroundColor: next };
+    case "value":
+      return { color: next };
+  }
 };
 
 interface MultiCellFormProps {
@@ -236,20 +243,17 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Base.useSelectCells({ key: tableKey, cellKeys });
   const { dispatch } = Base.useDispatch();
-  const store = useStore<RootState>();
+  const theme = Theming.use();
 
-  // Bulk-apply a partial props patch across the selected cells. Cells with
-  // no current entry in the store are skipped (the selection may include a
-  // key from a removed row). The whole batch ships as one dispatch so undo
-  // collapses to a single step.
+  // Cells absent from the store are skipped (selection may include keys from
+  // a removed row). One dispatch per call so undo collapses to one step.
   const applyPropPatch = useCallback(
     (
-      patch: (cell: table.Cell) => Partial<record.Unknown> | null,
-      onlyKeys?: string[],
+      keys: string[],
+      patch: (cell: Base.Cell.Config) => Partial<record.Unknown> | null,
     ) => {
-      const targets = onlyKeys ?? cellKeys;
       const actions: table.Action[] = [];
-      for (const key of targets) {
+      for (const key of keys) {
         const cell = cellsByKey.get(key);
         if (cell == null) continue;
         const next = patch(cell);
@@ -267,54 +271,30 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
       if (actions.length === 0) return;
       dispatch({ key: tableKey, actions });
     },
-    [cellKeys, cellsByKey, dispatch, tableKey],
+    [cellsByKey, dispatch, tableKey],
   );
 
-  // Distinct variants in the selection. When mixed, only the variant
-  // selector is shown - format props don't align across variants.
   const variants = useMemo(() => {
-    const s = new Set<string>();
+    const s = new Set<Base.Cell.Variant>();
     cellsByKey.forEach((c) => s.add(c.variant));
     return s;
   }, [cellsByKey]);
   const commonVariant =
-    variants.size === 1
-      ? ((variants.values().next().value ?? null) as TableCells.Variant | null)
-      : null;
+    variants.size === 1 ? (variants.values().next().value ?? null) : null;
 
   const handleVariantChange = useCallback(
-    (variant: TableCells.Variant) => {
-      const theme = Layout.selectTheme(store.getState());
-      if (theme == null) throw new Error("Theme is null");
-      const spec = TableCells.CELLS[variant];
-      const actions: table.Action[] = [];
-      cellsByKey.forEach((cell, key) => {
-        if (cell.variant === variant) return;
-        const nextProps = deep.overrideValidItems(
-          cell.props,
-          spec.defaultProps(theme),
-          spec.schema,
-        );
-        actions.push(table.setCell({ cell: { key, variant, props: nextProps } }));
-      });
-      if (actions.length === 0) return;
-      dispatch({ key: tableKey, actions });
+    (variant: Base.Cell.Variant) => {
+      const actions = buildVariantSwapActions(cellsByKey, variant, theme);
+      if (actions.length > 0) dispatch({ key: tableKey, actions });
     },
-    [cellsByKey, dispatch, store, tableKey],
+    [cellsByKey, dispatch, tableKey, theme],
   );
 
-  // Group cells by their current fill/background color so each Color.Swatch
-  // displays one of the colors actually in use; clicking a swatch updates
-  // every cell that shared that color. Mirrors the schematic color-group
-  // pattern.
   const colorGroups = useMemo(() => {
     const groups = new Map<color.Hex, string[]>();
     cellsByKey.forEach((cell, key) => {
-      const propKey = colorPropOf(cell.variant);
-      if (propKey == null) return;
-      const raw = cell.props[propKey];
-      if (raw == null) return;
-      const hex = color.hex(raw as color.Crude);
+      const hex = readCellColor(cell);
+      if (hex == null) return;
       const existing = groups.get(hex);
       if (existing != null) existing.push(key);
       else groups.set(hex, [key]);
@@ -324,34 +304,33 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
 
   const handleColorChange = useCallback(
     (groupKeys: string[], next: color.Color) =>
-      applyPropPatch((cell) => {
-        const propKey = colorPropOf(cell.variant);
-        if (propKey == null) return null;
-        return { [propKey]: next };
-      }, groupKeys),
+      applyPropPatch(groupKeys, (cell) => cellColorPatch(cell, next)),
     [applyPropPatch],
   );
 
-  // Level is shared across both variants. The displayed value is the first
-  // cell's level so the dropdown shows something concrete even when cells
-  // disagree; changing it bulk-applies to all selected cells.
-  const firstLevel = useMemo(() => {
-    for (const cell of cellsByKey.values()) {
-      const lvl = cell.props.level;
-      if (typeof lvl === "string") return lvl as text.Level;
-    }
-    return MULTI_CELL_LEVEL_DEFAULT;
+  const commonLevel = useMemo((): text.Level | undefined => {
+    let result: text.Level | undefined;
+    for (const cell of cellsByKey.values()) 
+      if (result == null) result = cell.props.level;
+      else if (result !== cell.props.level) return undefined;
+    
+    return result;
   }, [cellsByKey]);
 
   const handleLevelChange = useCallback(
-    (level: text.Level) => applyPropPatch(() => ({ level })),
-    [applyPropPatch],
+    (level: text.Level) => applyPropPatch(cellKeys, () => ({ level })),
+    [applyPropPatch, cellKeys],
   );
 
   return (
-    <Flex.Box x align="start" gap="large" style={MULTI_CELL_FORM_STYLE}>
+    <Flex.Box
+      x
+      align="start"
+      gap="large"
+      className={CSS.BE("table", "multi-cell-form")}
+    >
       <Input.Item label="Variant" padHelpText={false}>
-        <TableCells.SelectVariant
+        <Base.Cell.SelectVariant
           value={commonVariant ?? undefined}
           onChange={handleVariantChange}
         />
@@ -370,10 +349,8 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
         </Input.Item>
       )}
       <Input.Item label="Size" padHelpText={false}>
-        <Select.Text.Level value={firstLevel} onChange={handleLevelChange} />
+        <Select.Text.Level value={commonLevel} onChange={handleLevelChange} />
       </Input.Item>
     </Flex.Box>
   );
 };
-
-const MULTI_CELL_FORM_STYLE = { padding: "2rem" };

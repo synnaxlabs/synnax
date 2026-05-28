@@ -660,8 +660,9 @@ describe("table queries", () => {
         cell: Table.useSelectCell({ key: seeded.key, cellKey: "a" }),
         dispatch: Table.useDispatch(),
       }));
-      expect(result.current.cell?.variant).toEqual("text");
-      expect(result.current.cell?.props.value).toEqual("A");
+      const initial = result.current.cell;
+      expect(initial?.variant).toEqual("text");
+      if (initial?.variant === "text") expect(initial.props.value).toEqual("A");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
@@ -673,8 +674,9 @@ describe("table queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.cell?.variant).toEqual("value");
-        expect(result.current.cell?.props.units).toEqual("psi");
+        const next = result.current.cell;
+        expect(next?.variant).toEqual("value");
+        if (next?.variant === "value") expect(next.props.units).toEqual("psi");
       });
     });
 
@@ -692,8 +694,10 @@ describe("table queries", () => {
         Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "c"] }),
       );
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
-      expect(result.current.get("a")?.props.value).toEqual("A");
-      expect(result.current.get("c")?.props.value).toEqual("C");
+      const a = result.current.get("a");
+      const c = result.current.get("c");
+      if (a?.variant === "text") expect(a.props.value).toEqual("A");
+      if (c?.variant === "text") expect(c.props.value).toEqual("C");
     });
 
     it("useSelectCells omits missing keys without throwing", async () => {

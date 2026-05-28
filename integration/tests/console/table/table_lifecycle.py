@@ -107,6 +107,10 @@ class TableLifecycle(ConsoleCase):
             self.test_resize_col_via_drag(interaction)
             self.test_resize_row_via_drag(interaction)
             self.test_edit_toggle_gates_editing(interaction)
+            self.test_multi_cell_variant_swap(interaction)
+            self.test_multi_cell_color_grouping(interaction)
+            self.test_multi_cell_level_bulk_apply(interaction)
+            self.test_multi_cell_level_empty_when_disagreed(interaction)
         finally:
             interaction.close()
 
@@ -551,4 +555,128 @@ class TableLifecycle(ConsoleCase):
         table.redo()
         assert table.has_text("after-edit", row=0, col=0), (
             f"Redo should restore 'after-edit', got '{table.get_cell_text(0, 0)}'"
+        )
+
+    def test_multi_cell_variant_swap(self, table: Table) -> None:
+        """Test that the toolbar's Variant dropdown swaps every selected cell's
+        variant when 2+ cells are selected."""
+        self.log("Testing multi-cell variant swap via toolbar")
+        while table.get_row_count() < 1:
+            table.add_row()
+        while table.get_column_count() < 2:
+            table.add_column()
+        table.set_cell_text(0, 0, "swap-a")
+        table.set_cell_text(0, 1, "swap-b")
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 1)
+        assert table.get_toolbar_cell_count() == 2, (
+            "Toolbar breadcrumb should report 2-cell selection before variant swap"
+        )
+
+        table.set_toolbar_variant("Value")
+
+        table.select_cell(0, 0)
+        assert table.get_toolbar_variant() == "Value", (
+            "Cell (0,0) variant should be 'Value' after multi-cell swap"
+        )
+        table.select_cell(0, 1)
+        assert table.get_toolbar_variant() == "Value", (
+            "Cell (0,1) variant should be 'Value' after multi-cell swap"
+        )
+
+        # Restore so the next test starts from text cells.
+        for c in (0, 1):
+            table.select_cell(0, c)
+            table.delete_selected()
+
+    def test_multi_cell_color_grouping(self, table: Table) -> None:
+        """Test that selecting 2+ text cells with the same backgroundColor
+        renders a single Color.Swatch in the toolbar's Selection colors
+        group (not one swatch per cell)."""
+        self.log("Testing multi-cell color grouping")
+        while table.get_row_count() < 1:
+            table.add_row()
+        while table.get_column_count() < 2:
+            table.add_column()
+        # Fresh text cells inherit the same default backgroundColor, so
+        # selecting two of them should collapse to one swatch.
+        table.set_cell_text(0, 0, "group-a")
+        table.set_cell_text(0, 1, "group-b")
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 1)
+        assert table.get_toolbar_cell_count() == 2, (
+            "Toolbar breadcrumb should report 2-cell selection before color check"
+        )
+        assert table.get_color_swatch_count() == 1, (
+            f"Expected one color swatch for two same-colored cells, "
+            f"got {table.get_color_swatch_count()}"
+        )
+
+    def test_multi_cell_level_bulk_apply(self, table: Table) -> None:
+        """Test that the toolbar's Size selector bulk-applies a level to
+        every selected cell when 2+ cells are selected."""
+        self.log("Testing multi-cell level bulk-apply")
+        while table.get_row_count() < 1:
+            table.add_row()
+        while table.get_column_count() < 3:
+            table.add_column()
+        table.set_cell_text(0, 0, "level-a")
+        table.set_cell_text(0, 1, "level-b")
+        table.set_cell_text(0, 2, "level-c")
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 2)
+        assert table.get_toolbar_cell_count() == 3, (
+            "Toolbar breadcrumb should report 3-cell selection before level set"
+        )
+
+        table.set_toolbar_size("L")
+        assert table.get_toolbar_size() == "L", (
+            "Toolbar should report common size 'L' after bulk-apply while the "
+            "multi-selection is still active"
+        )
+
+        for c in (0, 1, 2):
+            table.select_cell(0, c)
+            assert table.get_toolbar_size() == "L", (
+                f"Cell (0,{c}) size should be 'L' after bulk-apply, "
+                f"got '{table.get_toolbar_size()}'"
+            )
+
+    def test_multi_cell_level_empty_when_disagreed(self, table: Table) -> None:
+        """Test that the toolbar's Size selector shows no active button when
+        the selected cells disagree on level.
+
+        Regression guard: the v0 toolbar fell back to a synthetic 'p'
+        default, which would have falsely highlighted the 'p' button when
+        cells disagreed.
+        """
+        self.log("Testing multi-cell size empty when cells disagree")
+        while table.get_row_count() < 1:
+            table.add_row()
+        while table.get_column_count() < 2:
+            table.add_column()
+        table.set_cell_text(0, 0, "disagree-a")
+        table.set_cell_text(0, 1, "disagree-b")
+
+        # Seed each cell to a different level via single-cell selection.
+        table.select_cell(0, 0)
+        table.set_toolbar_size("XL")
+        table.select_cell(0, 1)
+        table.set_toolbar_size("XS")
+
+        # Sanity check the per-cell levels.
+        table.select_cell(0, 0)
+        assert table.get_toolbar_size() == "XL"
+        table.select_cell(0, 1)
+        assert table.get_toolbar_size() == "XS"
+
+        table.select_cell(0, 0)
+        table.shift_select_cell(0, 1)
+        assert table.get_toolbar_cell_count() == 2
+        assert table.get_toolbar_size() is None, (
+            "Size selector must report no active button when selected cells "
+            f"disagree on level, got '{table.get_toolbar_size()}'"
         )

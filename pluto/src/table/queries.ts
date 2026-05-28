@@ -15,7 +15,7 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
-import { CELLS } from "@/table/cells/registry";
+import { Cell } from "@/table/cells";
 import { Theming } from "@/theming";
 
 const BASE_ROW_SIZE = 36;
@@ -123,10 +123,11 @@ export interface SelectCellArgs {
 export const useSelectCell = Flux.createSelector<
   FluxSubStore,
   SelectCellArgs,
-  table.Cell | undefined
+  Cell.Config | undefined
 >({
   subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKey }) => store.tables.get(key)?.cells?.[cellKey],
+  select: (store, { key, cellKey }) =>
+    store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
 });
 
 export interface SelectCellsArgs {
@@ -134,23 +135,23 @@ export interface SelectCellsArgs {
   cellKeys: string[];
 }
 
-// useSelectCells returns a Map<cellKey, Cell> for the given cellKeys, omitting
-// keys that don't resolve to a cell. The map preserves caller-provided key
-// order; consumers that need positional iteration should iterate cellKeys and
-// look up via the map.
+// useSelectCells returns a Map<cellKey, Cell.Config> for the given cellKeys,
+// omitting keys that don't resolve to a cell. The map preserves
+// caller-provided key order; consumers that need positional iteration should
+// iterate cellKeys and look up via the map.
 export const useSelectCells = Flux.createSelector<
   FluxSubStore,
   SelectCellsArgs,
-  Map<string, table.Cell>
+  Map<string, Cell.Config>
 >({
   subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
   select: (store, { key, cellKeys }) => {
-    const result = new Map<string, table.Cell>();
+    const result = new Map<string, Cell.Config>();
     if (cellKeys.length === 0) return result;
     const t = store.tables.get(key);
     if (t == null) return result;
     for (const cellKey of cellKeys) {
-      const cell = t.cells?.[cellKey];
+      const cell = t.cells?.[cellKey] as Cell.Config | undefined;
       if (cell != null) result.set(cellKey, cell);
     }
     return result;
@@ -188,7 +189,7 @@ const seedDefaultLayout = (
   theme: ReturnType<typeof Theming.use>,
 ): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
-  const props = CELLS.text.defaultProps(theme);
+  const props = Cell.REGISTRY.text.defaultProps(theme);
   return {
     rows: [
       { size: BASE_ROW_SIZE, cells: [cellKeys[0], cellKeys[1]] },

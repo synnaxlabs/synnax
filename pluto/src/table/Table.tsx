@@ -29,7 +29,7 @@ import { Menu } from "@/menu";
 import { Select } from "@/select";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
-import { CELLS } from "@/table/cells/registry";
+import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
 import { DefaultContextMenu } from "@/table/ContextMenu";
 import { ColumnIndicators } from "@/table/Indicator";
@@ -77,7 +77,7 @@ const BASE_COL_SIZE = 72;
 const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
   key: id.create(),
   variant: "text",
-  props: CELLS.text.defaultProps(theme),
+  props: Cell.REGISTRY.text.defaultProps(theme),
 });
 
 export interface TableProps
@@ -207,9 +207,8 @@ export const Table = ({
           table.eraseCells({
             cells: selected,
             template: {
-              key: "",
               variant: "text",
-              props: CELLS.text.defaultProps(theme),
+              props: Cell.REGISTRY.text.defaultProps(theme),
             },
           }),
         ],

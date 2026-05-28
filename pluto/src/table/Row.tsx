@@ -13,7 +13,7 @@ import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Select } from "@/select";
-import { CELLS } from "@/table/cells/registry";
+import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
 import { useDispatch, useSelectCell } from "@/table/queries";
 
@@ -131,8 +131,7 @@ const VariantCell = memo(
       [dispatch, resourceKey, cellKey, cell],
     );
     if (cell == null) return null;
-    const Spec = CELLS[cell.variant as keyof typeof CELLS];
-    if (Spec == null) return null;
+    const Spec = Cell.REGISTRY[cell.variant];
     return (
       <Spec.Cell
         cellKey={cellKey}

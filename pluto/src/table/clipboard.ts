@@ -13,7 +13,7 @@ import { type ClipboardEventHandler, useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks";
-import { CELLS } from "@/table/cells/registry";
+import { Cell } from "@/table/cells";
 import { findCellPosition, type FluxSubStore, useDispatch } from "@/table/queries";
 import { Theming } from "@/theming";
 
@@ -136,7 +136,7 @@ export const useClipboard = ({
       const targetCols = maxCol + 1;
 
       const actions: table.Action[] = [];
-      const defaultProps = CELLS.text.defaultProps(theme);
+      const defaultProps = Cell.REGISTRY.text.defaultProps(theme);
       // keyAt maps a final-state grid position to the cell key at that
       // position. Existing positions use the current store keys; newly-added
       // positions get fresh UUIDs that are baked into the addCol/addRow

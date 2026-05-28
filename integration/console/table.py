@@ -42,9 +42,7 @@ class Table(ConsolePage):
             col: Column index (0-based)
         """
         self._get_cell(row, col).click()
-        self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Variant")
-        self.layout.select_from_dropdown("Value")
+        self.set_toolbar_variant("Value")
         self.page.get_by_text("Telemetry").click()
         self.layout.click_btn("Input Channel")
         self.layout.select_from_dropdown(channel_name)
@@ -319,3 +317,62 @@ class Table(ConsolePage):
         """Read the rendered pixel height of a row's indicator."""
         indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
         return float(indicator.evaluate("el => el.offsetHeight"))
+
+    SIZE_LABELS = ("XL", "L", "M", "S", "XS")
+
+    def set_toolbar_variant(self, variant: str) -> None:
+        """Open the toolbar's Variant dropdown and pick the named option."""
+        self.layout.show_visualization_toolbar()
+        self.layout.click_btn("Variant")
+        self.layout.select_from_dropdown(variant)
+
+    def get_toolbar_variant(self) -> str:
+        """Read the toolbar's Variant dropdown value. Empty string when the
+        selected cells disagree on variant."""
+        self.layout.show_visualization_toolbar()
+        return self.layout.get_dropdown_value("Variant")
+
+    def set_toolbar_size(self, label: str) -> None:
+        """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_text(label, exact=True).first.click()
+
+    def get_toolbar_size(self) -> str | None:
+        """Return the selected Size button label, or None when no size is
+        active (multi-cell anchor has no level or selected cells disagree)."""
+        self.layout.show_visualization_toolbar()
+        try:
+            return self.layout.get_selected_button(list(self.SIZE_LABELS))
+        except RuntimeError:
+            return None
+
+    def get_toolbar_cell_count(self) -> int:
+        """Read the multi-cell selection count from the toolbar breadcrumb.
+
+        Returns the N from the "N cells" segment when 2+ cells are
+        selected, 1 when a single cell is selected (the segment shows a
+        position like "A1"), or 0 when no cell is selected.
+        """
+        self.layout.show_visualization_toolbar()
+        segments = self.page.locator(".pluto-breadcrumb__segment")
+        if segments.count() < 2:
+            return 0
+        text = segments.nth(1).inner_text().strip()
+        if text.endswith("cells"):
+            return int(text.split()[0])
+        return 1
+
+    def get_color_swatch_count(self) -> int:
+        """Count the swatches in the toolbar's "Selection colors" group.
+
+        Each distinct color across the selection contributes one swatch,
+        so this is the number of color groups the multi-cell form is
+        rendering. Returns 0 when the group is absent (single cell or
+        no cells with a color prop).
+        """
+        self.layout.show_visualization_toolbar()
+        label = self.page.get_by_text("Selection colors", exact=True).first
+        if label.count() == 0:
+            return 0
+        group = label.locator("..")
+        return group.locator(".pluto-color-swatch").count()

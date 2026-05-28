@@ -32,18 +32,22 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// AddRowPayload inserts a row at the given index. When cell_template is set, the
-// reducer ignores cells and creates one replica per existing column (or one if the
-// table has no columns yet), copying the template's variant and props and deriving each
-// replica's key from the template's by replacing the last four hex digits with the
-// column index. When cell_template is unset, cells carries one Cell per column in
-// left-to-right order; each cell is added to the table's cells map and its key is
-// appended to the new row's cells list. Out-of-range indices clamp to the end.
+// AddRowPayload inserts a row at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing column. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
+// replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveRow had stripped the table down to no columns, the explicit cells
+// trigger the same column-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the column index. Out-of-range indices clamp to the end.
 type AddRowPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate Cell    `json:"cell_template" msgpack:"cell_template"`
+	CellTemplate *Cell   `json:"cell_template,omitempty" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveRowPayload removes the row at the given index. All cells referenced by the
@@ -52,19 +56,24 @@ type RemoveRowPayload struct {
 	Index uint32 `json:"index" msgpack:"index"`
 }
 
-// AddColPayload inserts a column at the given index. When cell_template is set, the
-// reducer ignores cells and creates one replica per existing row (or one if the table
-// has no rows yet), copying the template's variant and props and deriving each
-// replica's key from the template's by replacing the last four hex digits with the row
-// index. When cell_template is unset, cells carries one Cell per row in top-to-bottom
-// order; each cell is added to the table's cells map and its key is inserted into the
-// corresponding row's cells list at the column index. Out-of-range indices clamp to the
-// end.
+// AddColPayload inserts a column at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing row. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
+// replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveCol had stripped the table down to no rows, the explicit cells
+// trigger the same row-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the row index. Cells whose row index exceeds the row count are added to
+// the cells map but not referenced by any row. Out-of-range indices clamp to the end of
+// every row's cells list.
 type AddColPayload struct {
 	Index        uint32  `json:"index" msgpack:"index"`
 	Size         float64 `json:"size" msgpack:"size"`
 	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate Cell    `json:"cell_template" msgpack:"cell_template"`
+	CellTemplate *Cell   `json:"cell_template,omitempty" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveColPayload removes the column at the given index. All cells in that column
@@ -97,11 +106,11 @@ type SetCellPayload struct {
 // EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
 // is in the selection is removed entirely; same for columns. Cells that survive that
 // row/column removal have their variant and props replaced with the template's, keeping
-// their original keys. The template's key field is ignored. Cells in the selection
-// whose keys are not in the table's cells map are silently skipped.
+// their original keys. Cells in the selection whose keys are not in the table's cells
+// map are silently skipped.
 type EraseCellsPayload struct {
-	Cells    []string `json:"cells" msgpack:"cells"`
-	Template Cell     `json:"template" msgpack:"template"`
+	Cells    []string     `json:"cells" msgpack:"cells"`
+	Template CellTemplate `json:"template" msgpack:"template"`
 }
 
 // Action is a discriminated union for all Table mutations. Type names
