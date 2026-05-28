@@ -24,6 +24,7 @@ const renderIndicator = (props: Partial<React.ComponentProps<typeof Indicator>>)
             editable
             onChange={() => {}}
             onSelect={() => {}}
+            onMove={() => {}}
             {...props}
           />
         </tr>

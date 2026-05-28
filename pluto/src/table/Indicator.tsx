@@ -9,7 +9,7 @@
 
 import { type table } from "@synnaxlabs/client";
 import { box, direction } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
@@ -17,6 +17,15 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Menu } from "@/menu";
 import { Text } from "@/text";
 import { stopPropagation } from "@/util/event";
+
+// MIME-typed dataTransfer payload for reorder drags. The dir field gates
+// drops so a column indicator can't accept a row drag (and vice versa).
+const MOVE_MIME = "application/x-pluto-table-move";
+
+interface MovePayload {
+  dir: direction.Direction;
+  index: number;
+}
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -34,6 +43,7 @@ export interface ColumnIndicatorsProps {
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onSelectAll: () => void;
   onResize: (size: number, index: number) => void;
+  onMove: (from: number, to: number) => void;
 }
 
 export const ColumnIndicators = memo(
@@ -45,6 +55,7 @@ export const ColumnIndicators = memo(
     onSelect,
     onSelectAll,
     onResize,
+    onMove,
   }: ColumnIndicatorsProps): ReactElement => {
     // cellToCol indexes the rows once per layout change so selectedCols can
     // resolve each selected cell to its column in O(1).
@@ -83,6 +94,7 @@ export const ColumnIndicators = memo(
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
+            onMove={onMove}
           />
         ))}
       </tr>
@@ -99,6 +111,7 @@ export interface IndicatorProps {
   selected?: boolean;
   onChange: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
+  onMove: (from: number, to: number) => void;
 }
 
 export const Indicator = ({
@@ -109,10 +122,11 @@ export const Indicator = ({
   selected = false,
   onChange,
   onSelect,
+  onMove,
 }: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
-  const onDragStart = useCursorDrag({
+  const onResizeDragStart = useCursorDrag({
     onStart: useCallback(() => {
       sizeRef.current = valueRef.current;
     }, []),
@@ -121,6 +135,49 @@ export const Indicator = ({
       [onChange, index, dir],
     ),
   });
+  const [isDropOver, setIsDropOver] = useState(false);
+  const handleReorderDragStart = useCallback(
+    (e: React.DragEvent<HTMLTableCellElement>) => {
+      const payload: MovePayload = { dir, index };
+      e.dataTransfer.setData(MOVE_MIME, JSON.stringify(payload));
+      e.dataTransfer.effectAllowed = "move";
+    },
+    [dir, index],
+  );
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLTableCellElement>) => {
+      if (!editable || !e.dataTransfer.types.includes(MOVE_MIME)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    },
+    [editable],
+  );
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent<HTMLTableCellElement>) => {
+      if (!editable || !e.dataTransfer.types.includes(MOVE_MIME)) return;
+      setIsDropOver(true);
+    },
+    [editable],
+  );
+  const handleDragLeave = useCallback(() => setIsDropOver(false), []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLTableCellElement>) => {
+      setIsDropOver(false);
+      if (!editable) return;
+      const data = e.dataTransfer.getData(MOVE_MIME);
+      if (data === "") return;
+      e.preventDefault();
+      let payload: MovePayload;
+      try {
+        payload = JSON.parse(data) as MovePayload;
+      } catch {
+        return;
+      }
+      if (payload.dir !== dir || payload.index === index) return;
+      onMove(payload.index, index);
+    },
+    [editable, dir, index, onMove],
+  );
   return (
     <td
       id={`resizer-${dir}-${index}`}
@@ -128,18 +185,25 @@ export const Indicator = ({
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
         CSS.selected(selected),
+        isDropOver && CSS.M("drop-target"),
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
       )}
       style={{ [direction.dimension(dir)]: value }}
+      draggable={editable}
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
+      onDragStart={handleReorderDragStart}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <Text.Text full="x" justify="center" align="center" square={false}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       {editable && (
-        <button onClick={stopPropagation} onDragStart={onDragStart} draggable />
+        <button onClick={stopPropagation} onDragStart={onResizeDragStart} draggable />
       )}
     </td>
   );

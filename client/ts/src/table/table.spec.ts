@@ -562,6 +562,76 @@ describe("Table", () => {
       expect(next.columns[1].size).toEqual(32);
     });
 
+    const moveSeed = (): table.Table => ({
+      key: "00000000-0000-0000-0000-000000000001",
+      name: "t",
+      rows: [
+        { size: 36, cells: ["a", "b", "c"] },
+        { size: 40, cells: ["d", "e", "f"] },
+        { size: 44, cells: ["g", "h", "i"] },
+      ],
+      columns: [{ size: 80 }, { size: 90 }, { size: 100 }],
+      cells: {
+        a: { key: "a", variant: "text", props: {} },
+        b: { key: "b", variant: "text", props: {} },
+        c: { key: "c", variant: "text", props: {} },
+        d: { key: "d", variant: "text", props: {} },
+        e: { key: "e", variant: "text", props: {} },
+        f: { key: "f", variant: "text", props: {} },
+        g: { key: "g", variant: "text", props: {} },
+        h: { key: "h", variant: "text", props: {} },
+        i: { key: "i", variant: "text", props: {} },
+      },
+    });
+
+    test("moveRow reorders rows and preserves cell keys", () => {
+      const { next } = table.reduceAll(moveSeed(), [table.moveRow({ from: 0, to: 2 })]);
+      expect(next.rows.map((r) => r.cells[0])).toEqual(["d", "g", "a"]);
+      expect(next.rows.map((r) => r.size)).toEqual([40, 44, 36]);
+    });
+
+    test("moveRow clamps an out-of-range target to the last row", () => {
+      const { next } = table.reduceAll(moveSeed(), [
+        table.moveRow({ from: 0, to: 99 }),
+      ]);
+      expect(next.rows.map((r) => r.cells[0])).toEqual(["d", "g", "a"]);
+    });
+
+    test("moveRow is a no-op when from equals to or from is out of range", () => {
+      const seed = moveSeed();
+      const same = table.reduceAll(seed, [table.moveRow({ from: 1, to: 1 })]);
+      expect(same.next.rows).toEqual(seed.rows);
+      const oob = table.reduceAll(seed, [table.moveRow({ from: 99, to: 0 })]);
+      expect(oob.next.rows).toEqual(seed.rows);
+    });
+
+    test("moveCol reorders columns and the per-row cell at the same offset", () => {
+      const { next } = table.reduceAll(moveSeed(), [table.moveCol({ from: 0, to: 2 })]);
+      expect(next.columns.map((c) => c.size)).toEqual([90, 100, 80]);
+      expect(next.rows[0].cells).toEqual(["b", "c", "a"]);
+      expect(next.rows[1].cells).toEqual(["e", "f", "d"]);
+      expect(next.rows[2].cells).toEqual(["h", "i", "g"]);
+    });
+
+    test("moveRow inverse round-trips", () => {
+      const seed = moveSeed();
+      const { next, inverse } = table.reduceAll(seed, [
+        table.moveRow({ from: 0, to: 2 }),
+      ]);
+      const back = table.reduceAll(next, inverse);
+      expect(back.next.rows).toEqual(seed.rows);
+    });
+
+    test("moveCol inverse round-trips", () => {
+      const seed = moveSeed();
+      const { next, inverse } = table.reduceAll(seed, [
+        table.moveCol({ from: 0, to: 2 }),
+      ]);
+      const back = table.reduceAll(next, inverse);
+      expect(back.next.rows).toEqual(seed.rows);
+      expect(back.next.columns).toEqual(seed.columns);
+    });
+
     test("resizeRow clamps below-minimum sizes to the floor", () => {
       const { next } = table.reduceAll(
         {

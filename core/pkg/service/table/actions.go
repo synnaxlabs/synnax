@@ -201,6 +201,66 @@ func (p RemoveColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
+// Handle moves the row at index From to index To, shifting intervening
+// rows. Out-of-range indices clamp to the rows slice; no-op when From
+// equals To or when the source index is out of range.
+func (p MoveRowPayload) Handle(state Table) (Table, error) {
+	from := int(p.From)
+	if from >= len(state.Rows) {
+		return state, nil
+	}
+	to := int(p.To)
+	if to >= len(state.Rows) {
+		to = len(state.Rows) - 1
+	}
+	if from == to {
+		return state, nil
+	}
+	row := state.Rows[from]
+	state.Rows = append(state.Rows[:from], state.Rows[from+1:]...)
+	state.Rows = append(state.Rows[:to], append([]Row{row}, state.Rows[to:]...)...)
+	return state, nil
+}
+
+// Handle moves the column at index From to index To, shifting intervening
+// columns and each row's cell at the same offsets. Out-of-range indices
+// clamp to the columns slice; no-op when From equals To or when the source
+// index is out of range.
+func (p MoveColPayload) Handle(state Table) (Table, error) {
+	from := int(p.From)
+	if from >= len(state.Columns) {
+		return state, nil
+	}
+	to := int(p.To)
+	if to >= len(state.Columns) {
+		to = len(state.Columns) - 1
+	}
+	if from == to {
+		return state, nil
+	}
+	col := state.Columns[from]
+	state.Columns = append(state.Columns[:from], state.Columns[from+1:]...)
+	state.Columns = append(
+		state.Columns[:to],
+		append([]Column{col}, state.Columns[to:]...)...,
+	)
+	for i := range state.Rows {
+		cells := state.Rows[i].Cells
+		if from >= len(cells) {
+			continue
+		}
+		rowFrom := from
+		c := cells[rowFrom]
+		cells = append(cells[:rowFrom], cells[rowFrom+1:]...)
+		rowTo := to
+		if rowTo > len(cells) {
+			rowTo = len(cells)
+		}
+		state.Rows[i].Cells = append(cells[:rowTo], append([]string{c}, cells[rowTo:]...)...)
+	}
+	return state, nil
+}
+
 // Handle resizes the row at the given index. Sizes below the minimum cell
 // dimension are clamped up to the floor. No-op if the index is out of range.
 func (p ResizeRowPayload) Handle(state Table) (Table, error) {

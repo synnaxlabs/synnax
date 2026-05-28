@@ -85,6 +85,30 @@ export const removeColPayloadZ = z.object({
 
 export type RemoveColPayload = z.infer<typeof removeColPayloadZ>;
 
+/**
+ * MoveRow moves the row at index from to index to. Out-of-range indices
+ * clamp to the rows slice; no-op when from equals to or when
+ * from is out of range.
+ */
+export const moveRowPayloadZ = z.object({
+  from: z.uint32(),
+  to: z.uint32(),
+});
+
+export type MoveRowPayload = z.infer<typeof moveRowPayloadZ>;
+
+/**
+ * MoveCol moves the column at index from to index to. Out-of-range
+ * indices clamp to the columns slice; no-op when from equals to
+ * or when from is out of range.
+ */
+export const moveColPayloadZ = z.object({
+  from: z.uint32(),
+  to: z.uint32(),
+});
+
+export type MoveColPayload = z.infer<typeof moveColPayloadZ>;
+
 /** ResizeRow resizes the row at the given index. No-op if the index is out of range. */
 export const resizeRowPayloadZ = z.object({
   index: z.uint32(),
@@ -133,6 +157,8 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_row"), removeRow: removeRowPayloadZ }),
   z.object({ type: z.literal("add_col"), addCol: addColPayloadZ }),
   z.object({ type: z.literal("remove_col"), removeCol: removeColPayloadZ }),
+  z.object({ type: z.literal("move_row"), moveRow: moveRowPayloadZ }),
+  z.object({ type: z.literal("move_col"), moveCol: moveColPayloadZ }),
   z.object({ type: z.literal("resize_row"), resizeRow: resizeRowPayloadZ }),
   z.object({ type: z.literal("resize_col"), resizeCol: resizeColPayloadZ }),
   z.object({ type: z.literal("set_cell"), setCell: setCellPayloadZ }),
@@ -166,6 +192,16 @@ export const removeCol = (payload: RemoveColPayload): Action => ({
   removeCol: payload,
 });
 
+export const moveRow = (payload: MoveRowPayload): Action => ({
+  type: "move_row",
+  moveRow: payload,
+});
+
+export const moveCol = (payload: MoveColPayload): Action => ({
+  type: "move_col",
+  moveCol: payload,
+});
+
 export const resizeRow = (payload: ResizeRowPayload): Action => ({
   type: "resize_row",
   resizeRow: payload,
@@ -196,6 +232,8 @@ export interface Handlers {
   removeRow: (state: Draft<Table>, payload: RemoveRowPayload) => HandlerResult;
   addCol: (state: Draft<Table>, payload: AddColPayload) => HandlerResult;
   removeCol: (state: Draft<Table>, payload: RemoveColPayload) => HandlerResult;
+  moveRow: (state: Draft<Table>, payload: MoveRowPayload) => HandlerResult;
+  moveCol: (state: Draft<Table>, payload: MoveColPayload) => HandlerResult;
   resizeRow: (state: Draft<Table>, payload: ResizeRowPayload) => HandlerResult;
   resizeCol: (state: Draft<Table>, payload: ResizeColPayload) => HandlerResult;
   setCell: (state: Draft<Table>, payload: SetCellPayload) => HandlerResult;
@@ -215,6 +253,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.addCol(state, action.addCol);
       case "remove_col":
         return handlers.removeCol(state, action.removeCol);
+      case "move_row":
+        return handlers.moveRow(state, action.moveRow);
+      case "move_col":
+        return handlers.moveCol(state, action.moveCol);
       case "resize_row":
         return handlers.resizeRow(state, action.resizeRow);
       case "resize_col":

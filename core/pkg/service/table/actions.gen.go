@@ -21,6 +21,8 @@ const (
 	ActionTypeRemoveRow  = "remove_row"
 	ActionTypeAddCol     = "add_col"
 	ActionTypeRemoveCol  = "remove_col"
+	ActionTypeMoveRow    = "move_row"
+	ActionTypeMoveCol    = "move_col"
 	ActionTypeResizeRow  = "resize_row"
 	ActionTypeResizeCol  = "resize_col"
 	ActionTypeSetCell    = "set_cell"
@@ -74,6 +76,20 @@ type RemoveColPayload struct {
 	Index uint32 `json:"index" msgpack:"index"`
 }
 
+// MoveRowPayload moves the row at index from to index to. Out-of-range indices clamp to
+// the rows slice; no-op when from equals to or when from is out of range.
+type MoveRowPayload struct {
+	From uint32 `json:"from" msgpack:"from"`
+	To   uint32 `json:"to" msgpack:"to"`
+}
+
+// MoveColPayload moves the column at index from to index to. Out-of-range indices clamp
+// to the columns slice; no-op when from equals to or when from is out of range.
+type MoveColPayload struct {
+	From uint32 `json:"from" msgpack:"from"`
+	To   uint32 `json:"to" msgpack:"to"`
+}
+
 // ResizeRowPayload resizes the row at the given index. No-op if the index is out of
 // range.
 type ResizeRowPayload struct {
@@ -113,6 +129,8 @@ type Action struct {
 	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
 	AddCol     *AddColPayload     `json:"add_col,omitempty" msgpack:"add_col,omitempty"`
 	RemoveCol  *RemoveColPayload  `json:"remove_col,omitempty" msgpack:"remove_col,omitempty"`
+	MoveRow    *MoveRowPayload    `json:"move_row,omitempty" msgpack:"move_row,omitempty"`
+	MoveCol    *MoveColPayload    `json:"move_col,omitempty" msgpack:"move_col,omitempty"`
 	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitempty" msgpack:"resize_row,omitempty"`
 	ResizeCol  *ResizeColPayload  `json:"resize_col,omitempty" msgpack:"resize_col,omitempty"`
 	SetCell    *SetCellPayload    `json:"set_cell,omitempty" msgpack:"set_cell,omitempty"`
@@ -153,6 +171,16 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveCol.Handle(state)
+		case ActionTypeMoveRow:
+			if a.MoveRow == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveRow.Handle(state)
+		case ActionTypeMoveCol:
+			if a.MoveCol == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.MoveCol.Handle(state)
 		case ActionTypeResizeRow:
 			if a.ResizeRow == nil {
 				return state, union.MissingPayload(a.Type)
@@ -206,6 +234,16 @@ func NewAddColAction(p AddColPayload) Action {
 // NewRemoveColAction wraps a RemoveColPayload in an Action envelope.
 func NewRemoveColAction(p RemoveColPayload) Action {
 	return Action{Type: ActionTypeRemoveCol, RemoveCol: &p}
+}
+
+// NewMoveRowAction wraps a MoveRowPayload in an Action envelope.
+func NewMoveRowAction(p MoveRowPayload) Action {
+	return Action{Type: ActionTypeMoveRow, MoveRow: &p}
+}
+
+// NewMoveColAction wraps a MoveColPayload in an Action envelope.
+func NewMoveColAction(p MoveColPayload) Action {
+	return Action{Type: ActionTypeMoveCol, MoveCol: &p}
 }
 
 // NewResizeRowAction wraps a ResizeRowPayload in an Action envelope.

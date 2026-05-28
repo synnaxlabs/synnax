@@ -198,6 +198,16 @@ export const Table = ({
     },
     [dispatch, key],
   );
+  const moveRow = useCallback(
+    (from: number, to: number) =>
+      dispatch({ key, actions: [table.moveRow({ from, to })] }),
+    [dispatch, key],
+  );
+  const moveCol = useCallback(
+    (from: number, to: number) =>
+      dispatch({ key, actions: [table.moveCol({ from, to })] }),
+    [dispatch, key],
+  );
   const eraseSelected = useCallback(
     (selected: string[]) => {
       if (selected.length === 0) return;
@@ -493,6 +503,7 @@ export const Table = ({
                       onSelect={handleColSelect}
                       onSelectAll={handleSelectAll}
                       onResize={handleColResize}
+                      onMove={moveCol}
                     />
                   )}
                   {rows.map((row, rowIndex) => {
@@ -511,6 +522,7 @@ export const Table = ({
                         showIndicator={showIndicators}
                         onSelect={handleRowSelect}
                         onResize={handleRowResize}
+                        onMove={moveRow}
                         onCellSelect={handleCellSelect}
                       />
                     );

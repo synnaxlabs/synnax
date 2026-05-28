@@ -16,6 +16,8 @@ import {
   createReduceAll,
   type HandlerResult,
   type Handlers,
+  moveCol,
+  moveRow,
   removeCol,
   removeRow,
   rename,
@@ -158,6 +160,40 @@ const handlers: Handlers = {
     return {
       inverse: [addCol({ index: payload.index, size: oldSize, cells: removedCells })],
       targets: removedCells.map((c) => c.key),
+    };
+  },
+
+  moveRow: (state, payload) => {
+    if (payload.from >= state.rows.length) return NO_OP;
+    let to = payload.to;
+    if (to >= state.rows.length) to = state.rows.length - 1;
+    if (payload.from === to) return NO_OP;
+    const [row] = state.rows.splice(payload.from, 1);
+    state.rows.splice(to, 0, row);
+    return {
+      inverse: [moveRow({ from: to, to: payload.from })],
+      targets: [...row.cells],
+    };
+  },
+
+  moveCol: (state, payload) => {
+    if (payload.from >= state.columns.length) return NO_OP;
+    let to = payload.to;
+    if (to >= state.columns.length) to = state.columns.length - 1;
+    if (payload.from === to) return NO_OP;
+    const [col] = state.columns.splice(payload.from, 1);
+    state.columns.splice(to, 0, col);
+    const targets: string[] = [];
+    for (const row of state.rows) {
+      if (payload.from >= row.cells.length) continue;
+      const [cell] = row.cells.splice(payload.from, 1);
+      const rowTo = Math.min(to, row.cells.length);
+      row.cells.splice(rowTo, 0, cell);
+      targets.push(cell);
+    }
+    return {
+      inverse: [moveCol({ from: to, to: payload.from })],
+      targets,
     };
   },
 

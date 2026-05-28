@@ -198,6 +198,73 @@ var _ = Describe("Writer", func() {
 			Expect(res.Cells).NotTo(HaveKey("a"))
 		})
 
+		It("Should move a row to a different index, preserving cell keys", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-add", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Size:  40,
+					Cells: []table.Cell{
+						{Key: "c", Variant: "text"},
+						{Key: "d", Variant: "text"},
+					},
+				}),
+			})).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-move", []table.Action{
+				table.NewMoveRowAction(table.MoveRowPayload{From: 0, To: 1}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(2))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"c", "d"}))
+			Expect(res.Rows[1].Cells).To(Equal([]string{"a", "b"}))
+		})
+
+		It("Should clamp an out-of-range MoveRow target to the last row", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-add", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Size:  40,
+					Cells: []table.Cell{
+						{Key: "c", Variant: "text"},
+						{Key: "d", Variant: "text"},
+					},
+				}),
+			})).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-move", []table.Action{
+				table.NewMoveRowAction(table.MoveRowPayload{From: 0, To: 99}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows[0].Cells).To(Equal([]string{"c", "d"}))
+			Expect(res.Rows[1].Cells).To(Equal([]string{"a", "b"}))
+		})
+
+		It("Should be a no-op for MoveRow with from out of range", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewMoveRowAction(table.MoveRowPayload{From: 99, To: 0}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(1))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"a", "b"}))
+		})
+
+		It("Should move a column and reorder the corresponding cell in every row", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewMoveColAction(table.MoveColPayload{From: 0, To: 1}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Columns).To(HaveLen(2))
+			Expect(res.Columns[0].Size).To(Equal(100.0))
+			Expect(res.Columns[1].Size).To(Equal(80.0))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"b", "a"}))
+		})
+
 		It("Should resize a row and a column independently", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{

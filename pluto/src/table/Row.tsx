@@ -28,6 +28,7 @@ export interface RowProps {
   showIndicator?: boolean;
   onResize: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
+  onMove: (from: number, to: number) => void;
   onCellSelect: (cellKey: string, ev: MouseEvent) => void;
 }
 
@@ -43,6 +44,7 @@ export const Row = memo(
     showIndicator = true,
     onResize,
     onSelect,
+    onMove,
     onCellSelect,
   }: RowProps): ReactElement => {
     let xCursor = showIndicator ? 4.5 * 6 : 0;
@@ -56,6 +58,7 @@ export const Row = memo(
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
+            onMove={onMove}
           />
         )}
         {cells.map((cellKey, i) => {

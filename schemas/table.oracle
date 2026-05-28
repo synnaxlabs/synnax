@@ -150,6 +150,28 @@ Table struct {
         """
     }
 
+    action MoveRow {
+        from uint32
+        to   uint32
+
+        @doc value """
+            moves the row at index from to index to. Out-of-range indices
+            clamp to the rows slice; no-op when from equals to or when
+            from is out of range.
+        """
+    }
+
+    action MoveCol {
+        from uint32
+        to   uint32
+
+        @doc value """
+            moves the column at index from to index to. Out-of-range
+            indices clamp to the columns slice; no-op when from equals to
+            or when from is out of range.
+        """
+    }
+
     action ResizeRow {
         index uint32
         size  float64

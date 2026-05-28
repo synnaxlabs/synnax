@@ -101,9 +101,31 @@
             background: var(--pluto-primary-z-15);
         }
 
+        /*
+         * Drop-target line for reorder drags. Painted via ::before so it
+         * sits in front of the indicator's content but doesn't fight the
+         * resize button's ::after pseudo. Placed on the leading edge of
+         * the indicator (top for rows, left for columns) so it marks the
+         * insertion point the dragged item will occupy.
+         */
+        &.pluto--drop-target::before {
+            content: "";
+            position: absolute;
+            background: var(--pluto-primary-z);
+            z-index: 11;
+            pointer-events: none;
+        }
+
         &.pluto--direction-y {
             border-right: var(--pluto-border-l5);
             border-bottom: var(--pluto-border-l5);
+
+            &.pluto--drop-target::before {
+                top: -1px;
+                left: 0;
+                right: 0;
+                height: 2px;
+            }
 
             & button {
                 bottom: 0;
@@ -127,6 +149,13 @@
             height: var(--pluto-table-indicator-size);
             border-bottom: var(--pluto-border-l5);
             border-right: var(--pluto-border-l5);
+
+            &.pluto--drop-target::before {
+                top: 0;
+                bottom: 0;
+                left: -1px;
+                width: 2px;
+            }
 
             & button {
                 top: 0;
