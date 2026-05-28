@@ -2,23 +2,24 @@
 layout: "@/layouts/Reference.astro"
 title: "Built-In Functions"
 description:
-  "Arc built-in function reference for length, channel I/O, and constant values"
+  "Arc reference for the len built-in and the status and time standard library functions"
 prev: "Sequences"
 prevURL: "/reference/control/arc/reference/sequences"
 next: "Errors"
 nextURL: "/reference/control/arc/reference/errors"
 ---
 
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
 <Note.Note variant="info">
-  Built-in functions are available in the global namespace without a module prefix.
-  Additional functionality (timing, statistics, signal processing, status, authority) is
-  provided by Arc's standard library modules and accessed with a qualified name such as
-  `math.avg` or `time.interval`.
+  Built-in functions like `len` are available in the global namespace without a module
+  prefix. Other functionality (timing, statistics, signal processing, status, authority)
+  lives in Arc's standard library modules and is accessed with a qualified name after
+  importing the module, such as `status.set` or `math.avg`.
 </Note.Note>
 
 ## Core Functions
@@ -42,63 +43,120 @@ chars := len(msg) // 5 (i64)
 
 <Divider.Divider x />
 
-## I/O Nodes
+## Standard Library
 
-### on
+Standard library functions live in modules and require an `import` before use.
 
-Reads from a Synnax channel (source node).
+### status.set
 
-```arc
-on{channel=ox_pt_1} -> processor{}
-```
+Sets a status notification (an alarm, warning, or operational state) on the Core,
+addressing it by name or by key, and outputs the resolved status key. It lives in the
+`status` module, so a program must `import status` before using it.
 
-| Config     | Type                 | Description          |
-| ---------- | -------------------- | -------------------- |
-| `channel`  | channel reference    | Channel to read from |
-| **Output** | channel element type | Latest channel value |
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
 
-### write
+| Parameter     | Type  | Required | Description                                                                                                                                                                                               |
+| ------------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key_or_name` | `str` | Yes      | An existing status key or name. A match is updated in place; if none matches, a new status is created with this name; if several statuses share the name, the first is updated and a warning is surfaced. |
+| `message`     | `str` | Yes      | The message body shown on the status.                                                                                                                                                                     |
+| `variant`     | `str` | Yes      | One of `success`, `info`, `warning`, `error`, `loading`, or `disabled`.                                                                                                                                   |
 
-Writes to a Synnax channel (sink node).
+**Output** `str`: the resolved status key that was set.
 
-```arc
-processor{} -> write{channel=ox_pt_cmd}
-```
-
-| Config    | Type                 | Description         |
-| --------- | -------------------- | ------------------- |
-| `channel` | channel reference    | Channel to write to |
-| **Input** | channel element type | Value to write      |
-
-<Note.Note variant="info">
-  In most cases, you can reference channels directly by name without using `on` or
-  `write` explicitly.
+<Note.Note variant="info" className="compact">
+  If a `status.set` fails (for example, an empty `key_or_name` or a database error), it
+  reports a `warning` and the automation keeps running.
 </Note.Note>
 
-<Divider.Divider x />
-
-## Utility Nodes
-
-### constant
-
-Outputs a static value.
+</Details>
 
 ```arc
-constant{value=100.0} -> setpoint
+trigger -> status.set{
+    key_or_name = "ox_alarm",
+    variant = "error",
+    message = "Overpressure detected"
+}
+
+func raise_alarm() {
+    alarm_key = status.set(
+      "ox_alarm",
+      "Overpressure detected",
+      "error"
+    )
+}
 ```
 
-| Config     | Type          | Description        |
-| ---------- | ------------- | ------------------ |
-| `value`    | any           | Value to output    |
-| **Output** | same as value | The constant value |
+### time.now
+
+Returns the current timestamp. `time.now` works both as a flow node and as a direct
+function call, so it can be wired into a chain or called inside a `func`. It lives in
+the `time` module, so a program must `import time` before using it.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+**Output** `i64 ns`: the current timestamp.
+
+</Details>
+
+```arc
+trigger -> time.now{} -> current_time
+
+func stamp() {
+    current_time = time.now()
+}
+```
+
+### time.interval
+
+Fires repeatedly at a fixed period, emitting `1` on each tick. Common for driving
+control loops, periodic sampling, and generating test data.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter | Type     | Required | Description                                                                |
+| --------- | -------- | -------- | -------------------------------------------------------------------------- |
+| `period`  | `i64 ns` | Yes      | Time between fires, written as a duration literal (such as `200ms`, `1s`). |
+
+**Output** `u8`: emits `1` on each fire.
+
+</Details>
+
+```arc
+// `flow` only
+time.interval{period=1s} -> tick
+```
+
+### time.wait
+
+Fires once after a fixed duration, then stops.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter  | Type     | Required | Description                                                                    |
+| ---------- | -------- | -------- | ------------------------------------------------------------------------------ |
+| `duration` | `i64 ns` | Yes      | How long to wait before firing, written as a duration literal (such as `30s`). |
+
+**Output** `u8`: emits `1` once the duration elapses.
+
+</Details>
+
+```arc
+// `flow` only
+time.wait{duration=500ms} -> done
+```
 
 <Divider.Divider x />
 
 ## Summary Table
 
-| Function   | Category | Description                |
-| ---------- | -------- | -------------------------- |
-| `len`      | Core     | Length of series or string |
-| `on`       | I/O      | Read from channel          |
-| `write`    | I/O      | Write to channel           |
-| `constant` | Utility  | Static value output        |
+| Function        | Category         | Description                  |
+| --------------- | ---------------- | ---------------------------- |
+| `len`           | Core             | Length of series or string   |
+| `status.set`    | Standard Library | Publish a status to the Core |
+| `time.now`      | Standard Library | Current timestamp            |
+| `time.interval` | Standard Library | Fire repeatedly at a period  |
+| `time.wait`     | Standard Library | Fire once after a duration   |

@@ -92,7 +92,7 @@ sequence main {
     stage escalate {
         set_authority{value=200}
         1 -> press_vlv_cmd
-        wait{duration=5s} => done
+        time.wait{duration=5s} => done
     }
 
     stage done {
