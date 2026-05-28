@@ -440,6 +440,61 @@ describe("Table", () => {
       expect(next.rows[1].cells).toEqual(["b", "11111111-2222-4333-8444-555555550001"]);
     });
 
+    test("addCol with cellTemplate adds a column with no cells when rows are empty but columns are not", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [],
+          columns: [{ size: 80 }, { size: 80 }],
+          cells: {},
+        },
+        [
+          table.addCol({
+            index: 2,
+            size: 72,
+            cells: [],
+            cellTemplate: {
+              key: "11111111-2222-4333-8444-555555555555",
+              variant: "text",
+              props: {},
+            },
+          }),
+        ],
+      );
+      expect(next.rows).toHaveLength(0);
+      expect(next.columns).toHaveLength(3);
+      expect(Object.keys(next.cells)).toHaveLength(0);
+    });
+
+    test("addRow with cellTemplate adds a row with no cells when columns are empty but rows are not", () => {
+      const { next } = table.reduceAll(
+        {
+          key: "00000000-0000-0000-0000-000000000001",
+          name: "t",
+          rows: [{ size: 36, cells: [] }],
+          columns: [],
+          cells: {},
+        },
+        [
+          table.addRow({
+            index: 1,
+            size: 36,
+            cells: [],
+            cellTemplate: {
+              key: "11111111-2222-4333-8444-555555555555",
+              variant: "text",
+              props: {},
+            },
+          }),
+        ],
+      );
+      expect(next.rows).toHaveLength(2);
+      expect(next.rows[1].cells).toEqual([]);
+      expect(next.columns).toHaveLength(0);
+      expect(Object.keys(next.cells)).toHaveLength(0);
+    });
+
     test("addRow with cellTemplate on an empty table creates one column + one replica", () => {
       const { next } = table.reduceAll(
         {
@@ -533,6 +588,89 @@ describe("Table", () => {
         [table.resizeCol({ index: 0, size: 0 })],
       );
       expect(next.columns[0].size).toEqual(32);
+    });
+
+    const eraseSeed = (): table.Table => ({
+      key: "00000000-0000-0000-0000-000000000001",
+      name: "t",
+      rows: [
+        { size: 36, cells: ["a", "b", "c"] },
+        { size: 36, cells: ["d", "e", "f"] },
+        { size: 36, cells: ["g", "h", "i"] },
+      ],
+      columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
+      cells: {
+        a: { key: "a", variant: "value", props: { units: "psi" } },
+        b: { key: "b", variant: "value", props: { units: "psi" } },
+        c: { key: "c", variant: "value", props: { units: "psi" } },
+        d: { key: "d", variant: "value", props: { units: "psi" } },
+        e: { key: "e", variant: "value", props: { units: "psi" } },
+        f: { key: "f", variant: "value", props: { units: "psi" } },
+        g: { key: "g", variant: "value", props: { units: "psi" } },
+        h: { key: "h", variant: "value", props: { units: "psi" } },
+        i: { key: "i", variant: "value", props: { units: "psi" } },
+      },
+    });
+    const textTemplate: table.Cell = { key: "", variant: "text", props: {} };
+
+    test("eraseCells resets variant and props on partial selections", () => {
+      const { next } = table.reduceAll(eraseSeed(), [
+        table.eraseCells({ cells: ["b", "e"], template: textTemplate }),
+      ]);
+      expect(next.cells.b.variant).toEqual("text");
+      expect(next.cells.e.variant).toEqual("text");
+      expect(next.cells.a.variant).toEqual("value");
+      expect(next.rows).toHaveLength(3);
+      expect(next.columns).toHaveLength(3);
+    });
+
+    test("eraseCells removes a fully-selected row", () => {
+      const { next } = table.reduceAll(eraseSeed(), [
+        table.eraseCells({ cells: ["d", "e", "f"], template: textTemplate }),
+      ]);
+      expect(next.rows).toHaveLength(2);
+      expect(next.rows[0].cells).toEqual(["a", "b", "c"]);
+      expect(next.rows[1].cells).toEqual(["g", "h", "i"]);
+      expect(next.cells.d).toBeUndefined();
+    });
+
+    test("eraseCells removes a fully-selected column", () => {
+      const { next } = table.reduceAll(eraseSeed(), [
+        table.eraseCells({ cells: ["b", "e", "h"], template: textTemplate }),
+      ]);
+      expect(next.columns).toHaveLength(2);
+      expect(next.rows[0].cells).toEqual(["a", "c"]);
+      expect(next.cells.b).toBeUndefined();
+    });
+
+    test("eraseCells removes a full row and a full column in the same call", () => {
+      const { next } = table.reduceAll(eraseSeed(), [
+        table.eraseCells({
+          cells: ["a", "b", "c", "f", "i"],
+          template: textTemplate,
+        }),
+      ]);
+      expect(next.rows).toHaveLength(2);
+      expect(next.columns).toHaveLength(2);
+      expect(next.rows[0].cells).toEqual(["d", "e"]);
+      expect(next.rows[1].cells).toEqual(["g", "h"]);
+    });
+
+    test("eraseCells inverse restores the prior state on undo", () => {
+      const seed = eraseSeed();
+      const { next, inverse } = table.reduceAll(seed, [
+        table.eraseCells({ cells: ["a", "b", "c", "e"], template: textTemplate }),
+      ]);
+      expect(next.rows).toHaveLength(2);
+      const { next: restored } = table.reduceAll(next, inverse);
+      expect(restored).toEqual(seed);
+    });
+
+    test("eraseCells with empty selection returns no inverse", () => {
+      const { inverse } = table.reduceAll(eraseSeed(), [
+        table.eraseCells({ cells: [], template: textTemplate }),
+      ]);
+      expect(inverse).toEqual([]);
     });
 
     test("setCell on an unknown key returns no inverse", () => {

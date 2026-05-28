@@ -10,6 +10,7 @@
 import { current, type Draft, isDraft } from "immer";
 
 import {
+  type Action,
   addCol,
   addRow,
   createReduceAll,
@@ -74,7 +75,12 @@ const handlers: Handlers = {
 
   addRow: (state, payload) => {
     const cells = payload.cellTemplate
-      ? expandTemplate(payload.cellTemplate, Math.max(state.columns.length, 1))
+      ? expandTemplate(
+          payload.cellTemplate,
+          state.columns.length === 0 && state.rows.length === 0
+            ? 1
+            : state.columns.length,
+        )
       : payload.cells;
     if (state.columns.length === 0 && cells.length > 0)
       for (let i = 0; i < cells.length; i++) state.columns.push({ size: BASE_COL_DIM });
@@ -109,7 +115,10 @@ const handlers: Handlers = {
 
   addCol: (state, payload) => {
     const cells = payload.cellTemplate
-      ? expandTemplate(payload.cellTemplate, Math.max(state.rows.length, 1))
+      ? expandTemplate(
+          payload.cellTemplate,
+          state.rows.length === 0 && state.columns.length === 0 ? 1 : state.rows.length,
+        )
       : payload.cells;
     if (state.rows.length === 0 && cells.length > 0)
       for (let i = 0; i < cells.length; i++)
@@ -186,6 +195,73 @@ const handlers: Handlers = {
       inverse: [setCell({ cell: oldCell })],
       targets: [payload.cell.key],
     };
+  },
+
+  eraseCells: (state, payload) => {
+    if (payload.cells.length === 0) return NO_OP;
+    const selected = new Set(payload.cells);
+    const fullRowIdx: number[] = [];
+    state.rows.forEach((row, i) => {
+      if (row.cells.length === 0) return;
+      if (row.cells.every((c) => selected.has(c))) fullRowIdx.push(i);
+    });
+    const fullColIdx: number[] = [];
+    if (state.rows.length > 0)
+      state.columns.forEach((_, colIdx) => {
+        const all = state.rows.every((row) => {
+          const k = row.cells[colIdx];
+          return k != null && selected.has(k);
+        });
+        if (all) fullColIdx.push(colIdx);
+      });
+    const inverse: Action[] = [];
+    const targets: string[] = [];
+    // Iterate highest-first when mutating so earlier removals don't shift
+    // later ones; unshift the corresponding inverse so the inverse array
+    // ends up in ascending index order, which is what AddRow / AddCol need
+    // on undo.
+    for (let i = fullRowIdx.length - 1; i >= 0; i--) {
+      const idx = fullRowIdx[i];
+      const removed = snapshot(state.rows[idx]);
+      const cells: Cell[] = [];
+      for (const k of removed.cells) {
+        const c = state.cells[k];
+        if (c != null) cells.push(snapshot(c));
+      }
+      state.rows.splice(idx, 1);
+      for (const k of removed.cells) delete state.cells[k];
+      inverse.unshift(addRow({ index: idx, size: removed.size, cells }));
+      targets.push(...removed.cells);
+    }
+    for (let i = fullColIdx.length - 1; i >= 0; i--) {
+      const idx = fullColIdx[i];
+      const oldSize = state.columns[idx].size;
+      const removedCells: Cell[] = [];
+      state.columns.splice(idx, 1);
+      for (let r = 0; r < state.rows.length; r++) {
+        if (idx >= state.rows[r].cells.length) continue;
+        const k = state.rows[r].cells[idx];
+        const c = state.cells[k];
+        if (c != null) removedCells.push(snapshot(c));
+        delete state.cells[k];
+        state.rows[r].cells.splice(idx, 1);
+      }
+      inverse.unshift(addCol({ index: idx, size: oldSize, cells: removedCells }));
+      targets.push(...removedCells.map((c) => c.key));
+    }
+    for (const k of payload.cells) {
+      const existing = state.cells[k];
+      if (existing == null) continue;
+      const oldCell = snapshot(existing);
+      state.cells[k] = {
+        key: k,
+        variant: payload.template.variant,
+        props: payload.template.props,
+      };
+      inverse.push(setCell({ cell: oldCell }));
+      targets.push(k);
+    }
+    return { inverse, targets };
   },
 };
 

@@ -253,6 +253,52 @@ var _ = Describe("Writer", func() {
 			}))
 		})
 
+		It("Should add a column with no cells when rows are empty but columns are not", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-rm", []table.Action{
+				table.NewRemoveRowAction(table.RemoveRowPayload{Index: 0}),
+			})).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-add", []table.Action{
+				table.NewAddColAction(table.AddColPayload{
+					Index: 2,
+					Size:  72,
+					CellTemplate: table.Cell{
+						Key:     "11111111-2222-4333-8444-555555555555",
+						Variant: "text",
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(BeEmpty())
+			Expect(res.Columns).To(HaveLen(3))
+			Expect(res.Cells).To(BeEmpty())
+		})
+
+		It("Should add a row with no cells when columns are empty but rows are not", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-rm", []table.Action{
+				table.NewRemoveColAction(table.RemoveColPayload{Index: 0}),
+				table.NewRemoveColAction(table.RemoveColPayload{Index: 0}),
+			})).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-add", []table.Action{
+				table.NewAddRowAction(table.AddRowPayload{
+					Index: 1,
+					Size:  36,
+					CellTemplate: table.Cell{
+						Key:     "11111111-2222-4333-8444-555555555555",
+						Variant: "text",
+					},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(2))
+			Expect(res.Rows[1].Cells).To(BeEmpty())
+			Expect(res.Columns).To(BeEmpty())
+			Expect(res.Cells).To(BeEmpty())
+		})
+
 		It("Should bootstrap columns when AddRow fires against an empty table", func(ctx SpecContext) {
 			t := table.Table{Name: "empty"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
@@ -401,6 +447,109 @@ var _ = Describe("Writer", func() {
 			Expect(res.Rows).To(HaveLen(2))
 			Expect(res.Cells["c"].Variant).To(Equal("value"))
 			Expect(res.Cells["c"].Props["telem"]).To(Equal("ch1"))
+		})
+
+		seedEraseTable := func(ctx SpecContext) table.Table {
+			s := table.Table{
+				Name: "erase",
+				Rows: []table.Row{
+					{Size: 36, Cells: []string{"a", "b", "c"}},
+					{Size: 36, Cells: []string{"d", "e", "f"}},
+					{Size: 36, Cells: []string{"g", "h", "i"}},
+				},
+				Columns: []table.Column{{Size: 80}, {Size: 80}, {Size: 80}},
+				Cells: map[string]table.Cell{
+					"a": {Key: "a", Variant: "value"},
+					"b": {Key: "b", Variant: "value"},
+					"c": {Key: "c", Variant: "value"},
+					"d": {Key: "d", Variant: "value"},
+					"e": {Key: "e", Variant: "value"},
+					"f": {Key: "f", Variant: "value"},
+					"g": {Key: "g", Variant: "value"},
+					"h": {Key: "h", Variant: "value"},
+					"i": {Key: "i", Variant: "value"},
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			return s
+		}
+
+		It("Should reset partial cells to the template on EraseCells", func(ctx SpecContext) {
+			s := seedEraseTable(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewEraseCellsAction(table.EraseCellsPayload{
+					Cells:    []string{"b", "e"},
+					Template: table.Cell{Variant: "text"},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(3))
+			Expect(res.Columns).To(HaveLen(3))
+			Expect(res.Cells["b"].Variant).To(Equal("text"))
+			Expect(res.Cells["e"].Variant).To(Equal("text"))
+			Expect(res.Cells["a"].Variant).To(Equal("value"))
+		})
+
+		It("Should remove a fully-selected row on EraseCells", func(ctx SpecContext) {
+			s := seedEraseTable(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewEraseCellsAction(table.EraseCellsPayload{
+					Cells:    []string{"d", "e", "f"},
+					Template: table.Cell{Variant: "text"},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(2))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"a", "b", "c"}))
+			Expect(res.Rows[1].Cells).To(Equal([]string{"g", "h", "i"}))
+			Expect(res.Cells).NotTo(HaveKey("d"))
+		})
+
+		It("Should remove a fully-selected column on EraseCells", func(ctx SpecContext) {
+			s := seedEraseTable(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewEraseCellsAction(table.EraseCellsPayload{
+					Cells:    []string{"b", "e", "h"},
+					Template: table.Cell{Variant: "text"},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Columns).To(HaveLen(2))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"a", "c"}))
+			Expect(res.Cells).NotTo(HaveKey("b"))
+		})
+
+		It("Should remove a full row and a full column in the same EraseCells call", func(ctx SpecContext) {
+			s := seedEraseTable(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewEraseCellsAction(table.EraseCellsPayload{
+					Cells:    []string{"a", "b", "c", "f", "i"},
+					Template: table.Cell{Variant: "text"},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(2))
+			Expect(res.Columns).To(HaveLen(2))
+			Expect(res.Rows[0].Cells).To(Equal([]string{"d", "e"}))
+			Expect(res.Rows[1].Cells).To(Equal([]string{"g", "h"}))
+		})
+
+		It("Should be a no-op for EraseCells with an empty selection", func(ctx SpecContext) {
+			s := seedEraseTable(ctx)
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewEraseCellsAction(table.EraseCellsPayload{
+					Cells:    []string{},
+					Template: table.Cell{Variant: "text"},
+				}),
+			})).To(Succeed())
+			var res table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Rows).To(HaveLen(3))
+			Expect(res.Cells).To(HaveLen(9))
 		})
 
 		It("Should notify the action observer once per Dispatch with monotonic seq", func(ctx SpecContext) {

@@ -37,7 +37,6 @@ import {
   findCellPosition,
   useDispatch,
   useEnsureRetrieved,
-  useEraseSelected,
   useRedo,
   useSelectColumns,
   useSelectRows,
@@ -159,7 +158,25 @@ export const Table = ({
     (index: number) => dispatch({ key, actions: [table.removeCol({ index })] }),
     [dispatch, key],
   );
-  const eraseSelected = useEraseSelected({ key });
+  const eraseSelected = useCallback(
+    (selected: string[]) => {
+      if (selected.length === 0) return;
+      dispatch({
+        key,
+        actions: [
+          table.eraseCells({
+            cells: selected,
+            template: {
+              key: "",
+              variant: "text",
+              props: CELLS.text.defaultProps(theme),
+            },
+          }),
+        ],
+      });
+    },
+    [dispatch, key, theme],
+  );
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
@@ -308,7 +325,10 @@ export const Table = ({
 
   let rowYCursor = 3.5 * 6;
   return (
-    <div className={CSS(CSS.B("table-frame"), className)} {...rest}>
+    <div
+      className={CSS(CSS.B("table-frame"), CSS.editable(editable), className)}
+      {...rest}
+    >
       <Menu.ContextMenu menu={renderMenu} {...menuProps}>
         <div ref={canvasRef} className={CSS.BE("table-frame", "canvas")} />
         <table
@@ -326,6 +346,7 @@ export const Table = ({
                 columns={colSizes}
                 rows={rows}
                 selected={selected}
+                editable={editable}
                 onSelect={handleColSelect}
                 onResize={handleColResize}
               />
@@ -342,6 +363,7 @@ export const Table = ({
                     position={yPos}
                     size={row.size}
                     selected={selected}
+                    editable={editable}
                     onSelect={handleRowSelect}
                     onResize={handleRowResize}
                     onCellSelect={handleCellSelect}

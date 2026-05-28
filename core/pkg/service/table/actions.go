@@ -56,18 +56,25 @@ func (p RenamePayload) Handle(state Table) (Table, error) {
 
 // Handle inserts a row at the given index. When CellTemplate is set
 // (Key != ""), the reducer ignores Cells and creates one replica per
-// existing column (or one if the table has no columns yet), copying the
-// template's variant and props and deriving each replica's key via
-// deriveCellKey. When CellTemplate is unset, Cells carries one Cell per
-// column in left-to-right order and the reducer uses them as-is (the
-// inverse path of RemoveRow goes through this branch). Sizes below the
-// minimum cell dimension are clamped up to the floor. Out-of-range indices
-// clamp to the end of the rows slice.
+// existing column, copying the template's variant and props and deriving
+// each replica's key via deriveCellKey. The only exception is the empty-
+// table bootstrap: if both axes are empty, one replica is created so the
+// new row lands on a visible 1x1 grid. When columns are empty but rows are
+// not, the new row is inserted with no cells - the table is intentionally
+// column-less and a subsequent AddCol will rebuild cells across all rows.
+// When CellTemplate is unset, Cells carries one Cell per column in left-
+// to-right order and the reducer uses them as-is (the inverse path of
+// RemoveRow goes through this branch). Sizes below the minimum cell
+// dimension are clamped up to the floor. Out-of-range indices clamp to the
+// end of the rows slice.
 func (p AddRowPayload) Handle(state Table) (Table, error) {
 	hasTemplate := p.CellTemplate.Key != ""
 	cells := p.Cells
 	if hasTemplate {
-		n := max(len(state.Columns), 1)
+		n := len(state.Columns)
+		if n == 0 && len(state.Rows) == 0 {
+			n = 1
+		}
 		cells = expandTemplate(p.CellTemplate, n)
 	}
 	// Bootstrap: a row arriving against an empty table implies the columns
@@ -113,18 +120,25 @@ func (p RemoveRowPayload) Handle(state Table) (Table, error) {
 
 // Handle inserts a column at the given index. When CellTemplate is set
 // (Key != ""), the reducer ignores Cells and creates one replica per
-// existing row (or one if the table has no rows yet), copying the
-// template's variant and props and deriving each replica's key via
-// deriveCellKey. When CellTemplate is unset, Cells carries one Cell per row
-// in top-to-bottom order; cells whose row index exceeds the row count are
-// added to the map but not referenced by any row. Sizes below the minimum
-// cell dimension are clamped up to the floor. Out-of-range indices clamp to
-// the end of every row's cells list.
+// existing row, copying the template's variant and props and deriving each
+// replica's key via deriveCellKey. The only exception is the empty-table
+// bootstrap: if both axes are empty, one replica is created so the new
+// column lands on a visible 1x1 grid. When rows are empty but columns are
+// not, the new column is inserted with no cells - the table is intentionally
+// row-less and a subsequent AddRow will rebuild cells across all columns.
+// When CellTemplate is unset, Cells carries one Cell per row in top-to-
+// bottom order; cells whose row index exceeds the row count are added to
+// the map but not referenced by any row. Sizes below the minimum cell
+// dimension are clamped up to the floor. Out-of-range indices clamp to the
+// end of every row's cells list.
 func (p AddColPayload) Handle(state Table) (Table, error) {
 	hasTemplate := p.CellTemplate.Key != ""
 	cells := p.Cells
 	if hasTemplate {
-		n := max(len(state.Rows), 1)
+		n := len(state.Rows)
+		if n == 0 && len(state.Columns) == 0 {
+			n = 1
+		}
 		cells = expandTemplate(p.CellTemplate, n)
 	}
 	// Bootstrap: a column arriving against an empty table implies the rows
@@ -217,5 +231,83 @@ func (p SetCellPayload) Handle(state Table) (Table, error) {
 		return state, nil
 	}
 	state.Cells[p.Cell.Key] = p.Cell
+	return state, nil
+}
+
+// Handle erases the selected cells. Fully-selected rows and columns are
+// removed entirely (highest-index first so earlier removals don't shift
+// later ones); surviving cells in the selection have their variant and
+// props replaced with the template's, keeping their original keys. Cells
+// in the selection whose keys are not in state.Cells are silently skipped.
+func (p EraseCellsPayload) Handle(state Table) (Table, error) {
+	if len(p.Cells) == 0 {
+		return state, nil
+	}
+	selected := make(map[string]struct{}, len(p.Cells))
+	for _, k := range p.Cells {
+		selected[k] = struct{}{}
+	}
+	fullRowIdx := []int{}
+	for i, row := range state.Rows {
+		if len(row.Cells) == 0 {
+			continue
+		}
+		all := true
+		for _, c := range row.Cells {
+			if _, ok := selected[c]; !ok {
+				all = false
+				break
+			}
+		}
+		if all {
+			fullRowIdx = append(fullRowIdx, i)
+		}
+	}
+	fullColIdx := []int{}
+	if len(state.Rows) > 0 {
+		for colIdx := range state.Columns {
+			all := true
+			for _, row := range state.Rows {
+				if colIdx >= len(row.Cells) {
+					all = false
+					break
+				}
+				if _, ok := selected[row.Cells[colIdx]]; !ok {
+					all = false
+					break
+				}
+			}
+			if all {
+				fullColIdx = append(fullColIdx, colIdx)
+			}
+		}
+	}
+	for i := len(fullRowIdx) - 1; i >= 0; i-- {
+		idx := fullRowIdx[i]
+		for _, k := range state.Rows[idx].Cells {
+			delete(state.Cells, k)
+		}
+		state.Rows = append(state.Rows[:idx], state.Rows[idx+1:]...)
+	}
+	for i := len(fullColIdx) - 1; i >= 0; i-- {
+		idx := fullColIdx[i]
+		state.Columns = append(state.Columns[:idx], state.Columns[idx+1:]...)
+		for r := range state.Rows {
+			if idx >= len(state.Rows[r].Cells) {
+				continue
+			}
+			delete(state.Cells, state.Rows[r].Cells[idx])
+			state.Rows[r].Cells = append(
+				state.Rows[r].Cells[:idx],
+				state.Rows[r].Cells[idx+1:]...,
+			)
+		}
+	}
+	for _, k := range p.Cells {
+		if _, ok := state.Cells[k]; !ok {
+			continue
+		}
+		state.Cells[k] = Cell{Key: k, Variant: p.Template.Variant, Props: p.Template.Props}
+	}
 	return state, nil
 }

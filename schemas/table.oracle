@@ -173,6 +173,21 @@ Table struct {
         """
     }
 
+    action EraseCells {
+        cells    string[]
+        template Cell
+
+        @doc value """
+            erases the cells whose keys are in cells. Any row whose every
+            cell is in the selection is removed entirely; same for columns.
+            Cells that survive that row/column removal have their variant
+            and props replaced with the template's, keeping their original
+            keys. The template's key field is ignored. Cells in the
+            selection whose keys are not in the table's cells map are
+            silently skipped.
+        """
+    }
+
     @doc value     """
         is a tabular data display component for viewing structured telemetry
         data. Tables support multiple columns, channel data sources, and

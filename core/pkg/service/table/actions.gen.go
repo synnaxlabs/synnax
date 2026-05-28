@@ -16,14 +16,15 @@ import (
 )
 
 const (
-	ActionTypeRename    = "rename"
-	ActionTypeAddRow    = "add_row"
-	ActionTypeRemoveRow = "remove_row"
-	ActionTypeAddCol    = "add_col"
-	ActionTypeRemoveCol = "remove_col"
-	ActionTypeResizeRow = "resize_row"
-	ActionTypeResizeCol = "resize_col"
-	ActionTypeSetCell   = "set_cell"
+	ActionTypeRename     = "rename"
+	ActionTypeAddRow     = "add_row"
+	ActionTypeRemoveRow  = "remove_row"
+	ActionTypeAddCol     = "add_col"
+	ActionTypeRemoveCol  = "remove_col"
+	ActionTypeResizeRow  = "resize_row"
+	ActionTypeResizeCol  = "resize_col"
+	ActionTypeSetCell    = "set_cell"
+	ActionTypeEraseCells = "erase_cells"
 )
 
 // RenamePayload renames the table.
@@ -93,18 +94,29 @@ type SetCellPayload struct {
 	Cell Cell `json:"cell" msgpack:"cell"`
 }
 
+// EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
+// is in the selection is removed entirely; same for columns. Cells that survive that
+// row/column removal have their variant and props replaced with the template's, keeping
+// their original keys. The template's key field is ignored. Cells in the selection
+// whose keys are not in the table's cells map are silently skipped.
+type EraseCellsPayload struct {
+	Cells    []string `json:"cells" msgpack:"cells"`
+	Template Cell     `json:"template" msgpack:"template"`
+}
+
 // Action is a discriminated union for all Table mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type      string            `json:"type" msgpack:"type"`
-	Rename    *RenamePayload    `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	AddRow    *AddRowPayload    `json:"add_row,omitempty" msgpack:"add_row,omitempty"`
-	RemoveRow *RemoveRowPayload `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
-	AddCol    *AddColPayload    `json:"add_col,omitempty" msgpack:"add_col,omitempty"`
-	RemoveCol *RemoveColPayload `json:"remove_col,omitempty" msgpack:"remove_col,omitempty"`
-	ResizeRow *ResizeRowPayload `json:"resize_row,omitempty" msgpack:"resize_row,omitempty"`
-	ResizeCol *ResizeColPayload `json:"resize_col,omitempty" msgpack:"resize_col,omitempty"`
-	SetCell   *SetCellPayload   `json:"set_cell,omitempty" msgpack:"set_cell,omitempty"`
+	Type       string             `json:"type" msgpack:"type"`
+	Rename     *RenamePayload     `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	AddRow     *AddRowPayload     `json:"add_row,omitempty" msgpack:"add_row,omitempty"`
+	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
+	AddCol     *AddColPayload     `json:"add_col,omitempty" msgpack:"add_col,omitempty"`
+	RemoveCol  *RemoveColPayload  `json:"remove_col,omitempty" msgpack:"remove_col,omitempty"`
+	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitempty" msgpack:"resize_row,omitempty"`
+	ResizeCol  *ResizeColPayload  `json:"resize_col,omitempty" msgpack:"resize_col,omitempty"`
+	SetCell    *SetCellPayload    `json:"set_cell,omitempty" msgpack:"set_cell,omitempty"`
+	EraseCells *EraseCellsPayload `json:"erase_cells,omitempty" msgpack:"erase_cells,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -156,6 +168,11 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetCell.Handle(state)
+		case ActionTypeEraseCells:
+			if a.EraseCells == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.EraseCells.Handle(state)
 		default:
 			continue
 		}
@@ -204,4 +221,9 @@ func NewResizeColAction(p ResizeColPayload) Action {
 // NewSetCellAction wraps a SetCellPayload in an Action envelope.
 func NewSetCellAction(p SetCellPayload) Action {
 	return Action{Type: ActionTypeSetCell, SetCell: &p}
+}
+
+// NewEraseCellsAction wraps a EraseCellsPayload in an Action envelope.
+func NewEraseCellsAction(p EraseCellsPayload) Action {
+	return Action{Type: ActionTypeEraseCells, EraseCells: &p}
 }

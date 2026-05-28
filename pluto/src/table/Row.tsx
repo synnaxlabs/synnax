@@ -24,6 +24,7 @@ export interface RowProps {
   cells: string[];
   columns: number[];
   selected: string[];
+  editable: boolean;
   onResize: (size: number, index: number) => void;
   onSelect: (index: number) => void;
   onCellSelect: (cellKey: string, ev: MouseEvent) => void;
@@ -37,6 +38,7 @@ export const Row = ({
   cells,
   columns,
   selected,
+  editable,
   onResize,
   onSelect,
   onCellSelect,
@@ -49,6 +51,7 @@ export const Row = ({
         index={index}
         value={size}
         position={position}
+        editable={editable}
         onChange={onResize}
         onSelect={onSelect}
       />

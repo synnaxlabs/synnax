@@ -30,6 +30,7 @@ export interface ColumnIndicatorsProps {
   columns: number[];
   rows: table.Row[];
   selected: string[];
+  editable: boolean;
   onSelect: (index: number) => void;
   onResize: (size: number, index: number) => void;
 }
@@ -38,6 +39,7 @@ export const ColumnIndicators = ({
   columns,
   rows,
   selected,
+  editable,
   onSelect,
   onResize,
 }: ColumnIndicatorsProps): ReactElement => {
@@ -62,6 +64,7 @@ export const ColumnIndicators = ({
             value={size}
             position={xPos}
             selected={selectedCols.has(i)}
+            editable={editable}
             onChange={onResize}
             onSelect={onSelect}
           />
@@ -76,6 +79,7 @@ export interface IndicatorProps {
   index: number;
   value: number;
   position: number;
+  editable: boolean;
   selected?: boolean;
   onChange: (size: number, index: number) => void;
   onSelect: (index: number) => void;
@@ -86,6 +90,7 @@ export const Indicator = ({
   index,
   value,
   position,
+  editable,
   selected = false,
   onChange,
   onSelect,
@@ -118,12 +123,14 @@ export const Indicator = ({
       <Text.Text full="x" justify="center" align="center" square={false}>
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
-      <button
-        onClick={stopPropagation}
-        style={{ [direction.location(dir)]: position + value }}
-        onDragStart={onDragStart}
-        draggable
-      />
+      {editable && (
+        <button
+          onClick={stopPropagation}
+          style={{ [direction.location(dir)]: position + value }}
+          onDragStart={onDragStart}
+          draggable
+        />
+      )}
     </td>
   );
 };
