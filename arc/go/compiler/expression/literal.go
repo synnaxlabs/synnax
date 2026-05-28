@@ -135,6 +135,10 @@ func compileNumericLiteral(
 			i32Val = int32(v)
 		case uint32:
 			i32Val = int32(v)
+		default:
+			return types.Type{}, errors.Newf(
+				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
+			)
 		}
 		ctx.Writer.WriteI32Const(i32Val)
 	case types.KindI64:
@@ -144,6 +148,10 @@ func compileNumericLiteral(
 			i64Val = v
 		case telem.TimeSpan:
 			i64Val = int64(v)
+		default:
+			return types.Type{}, errors.Newf(
+				"unexpected value type %T for %s literal", parsed.Value, parsed.Type.Kind,
+			)
 		}
 		ctx.Writer.WriteI64Const(i64Val)
 	case types.KindU64:
