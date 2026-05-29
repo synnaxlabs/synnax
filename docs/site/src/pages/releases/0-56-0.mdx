@@ -166,13 +166,12 @@ with client.open_writer(
   <Fragment slot="typescript">
 
 ```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["temperature"],
+  autoIndex: true,
+});
 try {
-  const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["temperature"],
-    autoIndex: true,
-  });
-
   for (let i = 0; i < 100; i++) await writer.write("temperature", i * 0.1);
 } finally {
   await writer.close();
@@ -190,8 +189,6 @@ try {
 #### Core
 
 - Channel metadata can now be imported and exported from the server.
-- Equal-length binary operations on series now take a faster path, reducing CPU usage
-  for calculated channels and client-side series math.
 - Fixed root user role assignment so the root user is granted the correct permissions on
   startup.
 
