@@ -31,8 +31,8 @@ type Clock interface {
 	// elapses.
 	After(time.Duration) <-chan time.Time
 	// AfterFunc schedules fn to be called after the duration elapses and returns a
-	// Timer that can be used to cancel the call. If Stop is called before fn would
-	// have run, fn is not called.
+	// Timer that can be used to cancel the call. If Stop is called before fn would have
+	// run, fn is not called.
 	AfterFunc(time.Duration, func()) Timer
 }
 
