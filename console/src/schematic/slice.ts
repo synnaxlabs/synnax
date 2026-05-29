@@ -16,6 +16,7 @@ import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type State = latest.State;
+export interface Viewport extends latest.Viewport {}
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
