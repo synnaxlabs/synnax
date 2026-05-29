@@ -151,6 +151,8 @@ func rate(value f64) f64 {
 Start programs at authority 200 (or lower) rather than the default 255:
 
 ```arc
+import control
+
 authority 200
 
 sequence main {
@@ -161,7 +163,7 @@ sequence main {
 
     stage emergency {
         // Escalate to override all other writers
-        set_authority{value=255}
+        control.set_authority{value=255}
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
