@@ -246,6 +246,7 @@ export const Table = ({
         onAddCol={addCol}
         onRemoveRow={removeRow}
         onRemoveCol={removeCol}
+        onEraseCells={eraseSelected}
         extra={extraMenuItems}
       />
     ),
@@ -260,6 +261,7 @@ export const Table = ({
       addCol,
       removeRow,
       removeCol,
+      eraseSelected,
       extraMenuItems,
     ],
   );

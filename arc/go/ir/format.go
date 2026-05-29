@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// TreePrefix returns the prefix for a tree item.
-// If last is true, returns "└── ", otherwise "├── ".
+// TreePrefix returns the prefix for a tree item. If last is true, returns "└── ",
+// otherwise "├── ".
 func TreePrefix(last bool) string {
 	if last {
 		return "└── "
@@ -26,23 +26,11 @@ func TreePrefix(last bool) string {
 	return "├── "
 }
 
-// treePrefix is an alias for TreePrefix for internal use.
-func treePrefix(last bool) string {
-	return TreePrefix(last)
-}
-
-// TreeIndent returns the indent for children of a tree item.
-// If last is true, returns "    ", otherwise "│   ".
-func TreeIndent(last bool) string {
+func treeIndent(last bool) string {
 	if last {
 		return "    "
 	}
 	return "│   "
-}
-
-// treeIndent is an alias for TreeIndent for internal use.
-func treeIndent(last bool) string {
-	return TreeIndent(last)
 }
 
 // formatParams formats a slice of Params as "name (type), name (type), ..."
