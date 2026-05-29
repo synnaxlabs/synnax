@@ -410,9 +410,9 @@ func example() {
 
 ## Imports
 
-Modules must be imported before their qualified members (`time.now`, `authority.set`,
-`status.set`, …) can be used. A single import uses the bare form; multiple imports go in
-an `import ( … )` block.
+Modules must be imported before their qualified members (`time.now`,
+`control.set_authority`, `status.set`, …) can be used. A single import uses the bare
+form; multiple imports go in an `import ( … )` block.
 
 ### Single Module
 
@@ -438,7 +438,7 @@ List several modules in one block, separated by whitespace:
 
 ```arc
 import (
-    authority
+    control
     status
     time as t
 )
@@ -497,8 +497,8 @@ Authority values are `u8` integers in the range 0-255.
 
 <Note.Note variant="info">
   To change authority at runtime, use the
-  [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) built-in
-  function inside stage bodies.
+  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
+  standard library function inside stage bodies.
 </Note.Note>
 
 <Divider.Divider x />
@@ -661,7 +661,7 @@ and nested sequences.
 ```arc
 sequence prime {
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     tank_pressure > 500
     0 -> press_vlv_cmd
 }

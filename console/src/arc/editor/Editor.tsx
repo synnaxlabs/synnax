@@ -29,7 +29,7 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
   useSelectVersion,
   actionCreator: (v) =>
     internalCreate({
-      version: "1.0.0",
+      version: ZERO_STATE.version,
       key: v.key,
       remoteCreated: true,
       graph: translateGraphToConsole(v.graph),

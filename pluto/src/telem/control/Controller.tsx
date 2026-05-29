@@ -29,6 +29,7 @@ export interface ContextValue {
   needsControlOf: channel.Key[];
   acquire: () => void;
   release: () => void;
+  status: control.Status;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -37,6 +38,7 @@ const [Context, useContext] = context.create<ContextValue>({
     needsControlOf: [],
     acquire: () => {},
     release: () => {},
+    status: "released",
   },
   displayName: "Control.Context",
 });
@@ -68,8 +70,9 @@ export const Controller = ({
       needsControlOf,
       acquire: methods.acquire,
       release: methods.release,
+      status: status ?? "released",
     }),
-    [key, needsControlOf, methods.acquire, methods.release],
+    [key, needsControlOf, methods.acquire, methods.release, status],
   );
   return (
     <Context value={value}>

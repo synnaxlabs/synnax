@@ -264,10 +264,10 @@ Each function instantiation has its own state:
 
 ```arc
 // Two separate counters with independent state
-interval {
+time.interval {
     100ms
 } -> counter{} -> count1
-interval{200ms} -> counter{} -> count2
+time.interval{200ms} -> counter{} -> count2
 ```
 
 <Divider.Divider x />
@@ -349,3 +349,23 @@ func factorial(n i64) i64 {
 <Note.Note variant="warning">
   Unbounded recursion causes a stack overflow at runtime.
 </Note.Note>
+
+<Divider.Divider x />
+
+### len
+
+Built-in function that does not require an `import` or module prefix. Returns the length
+of a series or string.
+
+```arc
+data := [1.0, 2.0, 3.0]
+length := len(data) // 3 (i64)
+
+msg := "hello"
+chars := len(msg) // 5 (i64)
+```
+
+| Parameter   | Type              | Description                 |
+| ----------- | ----------------- | --------------------------- |
+| input       | `series` or `str` | Value to measure            |
+| **Returns** | `i64`             | Number of elements or bytes |

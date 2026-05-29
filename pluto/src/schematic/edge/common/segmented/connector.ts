@@ -361,6 +361,30 @@ const internalNewConnector = ({
     targetStumpTip = travelSegments(targetPos, targetStump);
   }
 
+  // When the handles face each other and the nodes are close enough that their stubs
+  // have crossed, there is no room to route between them: splitting the gap folds the
+  // path back over itself, and the per-node go-around logic below compounds it into a
+  // self-crossing loop. Approach the target perpendicular-first and drop the opposing
+  // stub instead, which honors the source stub without doubling back.
+  if (location.swap(sourceOrientation) === targetOrientation) {
+    const dir = direction.construct(sourceOrientation);
+    const stubsCrossed =
+      (targetStumpTip[dir] - sourceStumpTip[dir]) *
+        orientationMagnitude(sourceOrientation) <=
+      0;
+    if (stubsCrossed) {
+      const swappedDir = direction.swap(dir);
+      return [
+        sourceStump,
+        {
+          direction: swappedDir,
+          length: targetPos[swappedDir] - sourceStumpTip[swappedDir],
+        },
+        { direction: dir, length: targetPos[dir] - sourceStumpTip[dir] },
+      ];
+    }
+  }
+
   const segments = [sourceStump];
   const extraSourceSeg = prepareNode({
     sourceStumpTip,

@@ -56,6 +56,9 @@ export interface Column extends z.infer<typeof columnZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const cellTemplateZ = cellZ.omit({ key: true });
+export interface CellTemplate extends z.infer<typeof cellTemplateZ> {}
+
 /**
  * Table is a tabular data display component for viewing structured telemetry
  * data. Tables support multiple columns, channel data sources, and

@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
@@ -152,6 +153,16 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
+	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+		Status:   t.factoryCfg.Status,
+		Strings:  drt.state.strings,
+		Runtime:  wasmRT,
+		Reporter: t.reporter(),
+	})
+	if err != nil {
+		t.setStatus(ctx, status.VariantError, false, err.Error())
+		return err
+	}
 
 	f := node.CompoundFactory{
 		channelMod,
@@ -161,7 +172,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		constant.NewHost(),
 		stlop.NewHost(),
 		stable.NewHost(),
-		arcstatus.NewModule(t.factoryCfg.Status),
+		statusMod,
 		stlcontrol.NewHost(drt.state.authority),
 		mathMod,
 	}
@@ -328,6 +339,12 @@ func (t *taskImpl) Stop() error {
 	}
 	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
 	return nil
+}
+
+func (t *taskImpl) reporter() taskreporter.Reporter {
+	return func(ctx context.Context, variant status.Variant, message string) {
+		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+	}
 }
 
 func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {

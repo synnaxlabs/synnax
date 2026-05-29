@@ -38,7 +38,7 @@ sequence main {
         tank_pressure > 500 => next     // target reached
     }
     0 -> press_vlv_cmd
-    wait{10s}
+    time.wait{10s}
     stage vent {
         1 -> vent_vlv_cmd
         tank_pressure < 50 => next
@@ -61,7 +61,7 @@ The `main` sequence has five items that run in order:
 1. `pressurize` is a stage that holds `press_vlv_cmd` open while watching two exits: an
    over-pressure abort at 700 psi and a success at 500 psi.
 2. `0 -> press_vlv_cmd` closes the valve once the stage exits.
-3. `wait{10s}` dwells for ten seconds.
+3. `time.wait{10s}` dwells for ten seconds.
 4. `vent` is a stage that opens the vent valve and waits for pressure to drop below 50.
 5. `0 -> vent_vlv_cmd` closes the vent valve.
 
@@ -169,7 +169,7 @@ authority 200
 sequence {
     0 -> vent_vlv_cmd
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     0 -> press_vlv_cmd
 }
 ```
@@ -184,7 +184,7 @@ When entering a stage:
 
 1. All stateful variables in the stage reset to initial values
 2. Reactive flows start fresh
-3. Timing nodes (`wait`, `interval`) reset their countdowns
+3. Timing nodes (`time.wait`, `time.interval`) reset their countdowns
 4. Inline sub-sequences restart from their first item
 5. Channel triggers only react to new writes. Values written before stage entry are
    ignored
@@ -203,7 +203,7 @@ sequence controller {
     }
     stage stop {
         0 -> valve_cmd
-        wait{duration=250ms} => yield
+        time.wait{duration=250ms} => yield
     }
     stage yield {
         // Only a new write to start_cmd will re-enter run.
@@ -225,7 +225,7 @@ be writes, waits, and condition gates:
 sequence prime {
     0 -> vent_vlv_cmd
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     tank_pressure > 500
     0 -> press_vlv_cmd
 }
@@ -238,12 +238,12 @@ reaches 500 psi before closing the valve. Each item completes before the next st
 
 ### Sequence Item Types
 
-| Item                 | Behavior                                         |
-| -------------------- | ------------------------------------------------ |
-| `expr -> chan`       | Write once, advance                              |
-| `wait{duration}`     | Pause for the duration, advance                  |
-| Condition expression | Pause until the expression is truthy, advance    |
-| `stage { ... }`      | Enter the stage; advance when a transition fires |
+| Item                  | Behavior                                         |
+| --------------------- | ------------------------------------------------ |
+| `expr -> chan`        | Write once, advance                              |
+| `time.wait{duration}` | Pause for the duration, advance                  |
+| Condition expression  | Pause until the expression is truthy, advance    |
+| `stage { ... }`       | Enter the stage; advance when a transition fires |
 
 A condition gate is any boolean expression on its own line. The sequence does not re-run
 earlier items while the gate holds. It just waits.
@@ -267,7 +267,7 @@ sequence press {
     stage {
         tank_pressure > 700 => abort    // over-pressure safety
         tank_pressure > 500 => next     // success condition
-        wait{30s} => abort              // timeout
+        time.wait{30s} => abort         // timeout
     }
     0 -> press_vlv_cmd
 }
@@ -296,10 +296,10 @@ sequence main {
         // Ordered ignition sub-procedure
         sequence {
             1 -> igniter_cmd
-            wait{200ms}
+            time.wait{200ms}
             1 -> ox_main_vlv_cmd
             1 -> fuel_main_vlv_cmd
-            wait{100ms}
+            time.wait{100ms}
             0 -> igniter_cmd
         }
     }
@@ -352,7 +352,7 @@ sequence main {
         1 -> press_valve
         tank_pressure > 600 => abort
         abort_btn => abort
-        wait{duration=30s} => next
+        time.wait{duration=30s} => next
     }
 
     stage depressurize {
