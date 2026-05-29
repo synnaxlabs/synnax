@@ -30,7 +30,7 @@ type Config struct {
 	// [REQUIRED]
 	Delay time.Duration
 	// MaxDelay caps the total time from the first unprocessed trigger to callback
-	// invocation. Zero means no cap.
+	// invocation.
 	//
 	// [OPTIONAL] - defaults to 0.
 	MaxDelay time.Duration

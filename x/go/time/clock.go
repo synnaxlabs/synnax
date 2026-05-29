@@ -30,10 +30,9 @@ type Clock interface {
 	// After returns a channel that will receive the current time after the duration
 	// elapses.
 	After(time.Duration) <-chan time.Time
-	// AfterFunc waits on a channel registered with After in a goroutine, calling fn
-	// unless the returned Timer's Stop method wins the race first. The goroutine always
-	// drains the channel, so Advance can still complete its send when a timer is
-	// stopped.
+	// AfterFunc schedules fn to be called after the duration elapses and returns a
+	// Timer that can be used to cancel the call. If Stop is called before fn would
+	// have run, fn is not called.
 	AfterFunc(time.Duration, func()) Timer
 }
 
@@ -114,21 +113,26 @@ func (t *fakeFuncTimer) claim() bool {
 func (t *fakeFuncTimer) Stop() bool { return t.claim() }
 
 // Advance advances the clock by the given duration. It fires any timers whose deadline
-// has been crossed and removes them from the list of pending timers.
+// has been crossed and removes them from the list of pending timers. Channel sends
+// happen after f.mu is released so that timer receivers (including AfterFunc callbacks)
+// can safely call back into the clock without deadlocking.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.now = f.now.Add(d)
 	now := f.now
-	timers := f.timers
-	remaining := timers[:0]
-	for _, t := range timers {
+	var fire []*fakeTimer
+	remaining := f.timers[:0]
+	for _, t := range f.timers {
 		if !t.at.After(now) {
-			t.ch <- now
-			close(t.ch)
+			fire = append(fire, t)
 		} else {
 			remaining = append(remaining, t)
 		}
 	}
 	f.timers = remaining
+	f.mu.Unlock()
+	for _, t := range fire {
+		t.ch <- now
+		close(t.ch)
+	}
 }
