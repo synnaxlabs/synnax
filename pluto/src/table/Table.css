@@ -178,7 +178,7 @@
          * DOM row height in lockstep with the canvas's rowYCursor (which
          * advances by row.size).
          */
-        & > .pluto-table__cell__content {
+        & > .pluto-table__cell--content {
             overflow: hidden;
             width: 100%;
             height: 100%;
