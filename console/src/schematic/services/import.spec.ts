@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { parseImport } from "@/schematic/services/import";
 
 const configsOf = (s: { configs?: unknown }): record.Unknown =>
-  (s.configs ?? {}) as record.Unknown;
+  typeof s.configs === "object" && s.configs != null ? { ...s.configs } : {};
 
 const LEGACY_V2 = {
   version: "2.0.0",
