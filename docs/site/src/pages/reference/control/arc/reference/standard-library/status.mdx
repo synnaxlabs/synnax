@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Status"
+title: "status"
 description: "Arc standard library reference for the status module and status.set"
-prev: "Math"
+prev: "math"
 prevURL: "/reference/control/arc/reference/standard-library/math"
-next: "Time"
+next: "time"
 nextURL: "/reference/control/arc/reference/standard-library/time"
 ---
 
@@ -15,9 +15,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The `status` module publishes status notifications (alarms, warnings, and operational
-states) to the Core. Import it with `import status` before use.
+states) to the Core.
 
-## set
+## `set`
 
 Sets a status notification (an alarm, warning, or operational state) on the Core,
 addressing it by name or by key, and outputs the resolved status key.

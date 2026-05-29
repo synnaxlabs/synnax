@@ -1,9 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Time"
+title: "time"
 description:
   "Arc standard library reference for the time module: now, interval, and wait"
-prev: "Status"
+prev: "status"
 prevURL: "/reference/control/arc/reference/standard-library/status"
 next: "Errors"
 nextURL: "/reference/control/arc/reference/errors"
@@ -16,9 +16,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The `time` module provides timing functions for timestamps, periodic firing, and delays.
-Import it with `import time` before use.
 
-## interval
+## `interval`
 
 Fires repeatedly at a fixed period, emitting `1` on each tick. Common for driving
 control loops, periodic sampling, and generating test data.
@@ -41,7 +40,7 @@ time.interval{period=1s} -> tick
 
 <Divider.Divider x />
 
-## now
+## `now`
 
 Returns the current timestamp. `time.now` works both as a flow node and as a direct
 function call, so it can be wired into a chain or called inside a `func`.
@@ -63,7 +62,7 @@ func stamp() {
 
 <Divider.Divider x />
 
-## wait
+## `wait`
 
 Fires once after a fixed duration, then stops.
 
