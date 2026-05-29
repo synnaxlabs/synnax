@@ -783,10 +783,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"true branch inline must fire when flag is truthy")
@@ -820,12 +817,10 @@ var _ = Describe("Sequence", func() {
 			Expect(out.Get(102).Series).To(BeEmpty(),
 				"inline must not fire before main is activated")
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ = h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline must fire once main is activated and flag is truthy")
@@ -853,10 +848,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 8; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"first sequential step of inline sequence must fire")
@@ -884,12 +876,10 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline must fire once when routed directly from a sequence body")
@@ -897,10 +887,10 @@ var _ = Describe("Sequence", func() {
 
 		It("Inline body transition to a sibling stage advances the enclosing sequence", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"start_cmd": {types.U8(), 100},
-				"flag":      {types.U8(), 101},
-				"first_out": {types.U8(), 102},
-				"true_out":  {types.U8(), 103},
+				"start_cmd":  {types.U8(), 100},
+				"flag":       {types.U8(), 101},
+				"first_out":  {types.U8(), 102},
+				"second_out": {types.U8(), 103},
 			})
 			h := newRuntimeHarness(ctx, `
 				start_cmd => main
@@ -910,12 +900,12 @@ var _ = Describe("Sequence", func() {
 				        flag -> select{} -> {
 				            true: stage {
 				                1 -> first_out,
-				                1 -> true_stage
+				                1 -> second_stage
 				            }
 				        }
 				    }
-				    stage true_stage {
-				        1 -> true_out
+				    stage second_stage {
+				        1 -> second_out
 				    }
 				}`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
@@ -925,12 +915,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline first_out write must fire")
@@ -963,12 +952,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"following_stage must activate after inline body fires its cross-stage write")
@@ -1001,12 +989,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 20; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline body must fire its write")
@@ -1039,11 +1026,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"doubly-nested inline body must activate when outer body fires its inner select")
@@ -1077,11 +1061,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"triply-nested inline body must activate via the chain of inline selects")
@@ -1119,11 +1100,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"quadruply-nested inline body must activate via the chain of inline selects")
@@ -1147,10 +1125,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"inline flow body must fire when its source channel fires")
@@ -1180,12 +1155,10 @@ var _ = Describe("Sequence", func() {
 			Expect(out.Get(102).Series).To(BeEmpty(),
 				"inline must not fire before main is activated")
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ = h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline must fire once main is activated and flag is truthy")
@@ -1211,10 +1184,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 8; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"first sequential step of inline sequence must fire")
@@ -1240,12 +1210,10 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline must fire once when routed directly from a sequence body")
@@ -1253,10 +1221,10 @@ var _ = Describe("Sequence", func() {
 
 		It("Inline flow body transition to a sibling stage advances the enclosing sequence", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"start_cmd": {types.U8(), 100},
-				"flag":      {types.U8(), 101},
-				"first_out": {types.U8(), 102},
-				"true_out":  {types.U8(), 103},
+				"start_cmd":  {types.U8(), 100},
+				"flag":       {types.U8(), 101},
+				"first_out":  {types.U8(), 102},
+				"second_out": {types.U8(), 103},
 			})
 			h := newRuntimeHarness(ctx, `
 				start_cmd => main
@@ -1265,11 +1233,11 @@ var _ = Describe("Sequence", func() {
 				    stage first_stage {
 				        flag -> stage {
 				            1 -> first_out,
-				            1 -> true_stage
+				            1 -> second_stage
 				        }
 				    }
-				    stage true_stage {
-				        1 -> true_out
+				    stage second_stage {
+				        1 -> second_out
 				    }
 				}`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
@@ -1279,12 +1247,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline first_out write must fire")
@@ -1315,12 +1282,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"following_stage must activate after inline body fires its cross-stage write")
@@ -1351,12 +1317,11 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(101, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 20; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
 				"inline body must fire its write")
@@ -1385,11 +1350,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"doubly-nested inline flow body must activate when the outer body fires")
@@ -1417,11 +1379,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"triply-nested inline flow body must activate via the chain of inline bodies")
@@ -1451,11 +1410,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"quadruply-nested inline flow body must activate via the chain of inline bodies")
@@ -1485,11 +1441,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"inline routing body nested in a flow body must fire in the same cycle")
@@ -1517,11 +1470,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"inline flow body nested in a routing body must fire in the same cycle")
@@ -1551,11 +1501,8 @@ var _ = Describe("Sequence", func() {
 			)
 			defer h.Close(ctx)
 
-			trigger(h, ctx, 100)
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
 				"innermost body must fire through alternating flow/routing/flow dispatch")
@@ -1576,13 +1523,36 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"module-scope inline flow body must fire when its source channel fires")
+		})
+
+		It("Module-scope inline stage flow body fires on a single trigger edge", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trigger":    {types.U8(), 100},
+				"direct_out": {types.U8(), 101},
+				"stage_out":  {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				trigger -> direct_out
+				trigger -> stage { 1 -> stage_out }`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"plain flow must fire on the triggering edge")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"inline stage flow body must fire on the same cycle as the "+
+					"triggering edge, not one cycle later")
 		})
 
 		It("Module-scope inline stage flow body fires every parallel write", func(ctx SpecContext) {
@@ -1606,10 +1576,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"first parallel write of module-scope inline stage must fire")
@@ -1640,10 +1607,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 12; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"first step of module-scope inline sequence must fire")
@@ -1668,13 +1632,146 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 10; i++ {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
 				"nested module-scope inline flow body must activate in the same cycle")
+		})
+	})
+
+	Describe("Sequence-scope inline flow bodies", func() {
+		It("Fires constant-gated inline bodies on stage entry and cascades", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 101},
+				"out_b":     {types.U8(), 102},
+				"out_c":     {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage s1 {
+				        1 -> stage {
+				            1 -> out_a
+				            1 => s2
+				        }
+				    }
+				    stage s2 {
+				        1 -> sequence {
+				            1 -> out_b
+				            1 => s3
+				        }
+				    }
+				    stage s3 {
+				        1 -> out_c
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"first stage's constant-gated inline stage body must fire on entry")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"second stage's constant-gated inline sequence body must fire on entry")
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"third stage must fire after the inline-body transitions cascade")
+		})
+
+		It("Cascades when the first stage's inline body is gated by an external edge", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 101},
+				"out_b":     {types.U8(), 102},
+				"out_c":     {types.U8(), 103},
+				"ext":       {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage s1 {
+				        ext -> stage {
+				            1 -> out_a
+				            1 => s2
+				        }
+				    }
+				    stage s2 {
+				        1 -> sequence {
+				            1 -> out_b
+				            1 => s3
+				        }
+				    }
+				    stage s3 {
+				        1 -> out_c
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 104)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"externally-gated inline stage body must fire on its edge")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"second stage's constant-gated inline body must fire on entry, "+
+					"not wait for another external edge")
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"third stage must fire after the cascade completes")
+		})
+
+		It("Cascades constant-gated inline bodies within a single tick", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 101},
+				"out_b":     {types.U8(), 102},
+				"out_c":     {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage s1 {
+				        1 -> stage {
+				            1 -> out_a
+				            1 => s2
+				        }
+				    }
+				    stage s2 {
+				        1 -> sequence {
+				            1 -> out_b
+				            1 => s3
+				        }
+				    }
+				    stage s3 {
+				        1 -> out_c
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"first inline body must fire in the triggering tick")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"second stage's inline body must fire in the same tick, not the next")
+			Expect(lastU8(out, 103)).To(Equal(uint8(1)),
+				"third stage must fire in the same tick")
 		})
 	})
 

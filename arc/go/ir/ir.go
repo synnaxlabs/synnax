@@ -52,8 +52,8 @@ import (
 	"github.com/samber/lo"
 )
 
-// InlinePrefix reserves a Scope.Key namespace for synthetic scopes lowered from inline
-// routing targets, so the stratifier recognizes them without importing the analyzer.
+// InlinePrefix names the synthetic scopes lowered from inline stage/sequence flow
+// targets, so the analyzer can detect and resolve them by key.
 const InlinePrefix = "__inline_"
 
 func (i *IR) IsZero() bool {

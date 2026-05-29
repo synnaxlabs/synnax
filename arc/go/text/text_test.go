@@ -1677,7 +1677,7 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
-			It("Should emit an inline stage case body as a gated synth root sibling with Activation bound", func(ctx SpecContext) {
+			It("Should emit an inline stage case body as a gated synth nested in its enclosing scope with Activation bound", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30001},
 					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30002},
@@ -1706,28 +1706,15 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				var synth *ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope == nil {
-							continue
-						}
-						if strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synth = m.Scope
-						}
-					}
-				}
-				Expect(synth).ToNot(BeNil(),
-					"inline body must surface as a root-level synth sibling")
-				Expect(synth.Liveness).To(Equal(ir.LivenessGated),
-					"synth inline must be gated by its activation handle")
-				Expect(synth.Activation).ToNot(BeNil(),
-					"synth inline must have an Activation handle bound")
-				Expect(synth.Activation.Param).To(Equal("yes"),
-					"activation must fire on the source's `yes` output")
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
+				Expect(synth.Liveness).To(Equal(ir.LivenessGated))
+				Expect(synth.Activation).ToNot(BeNil())
+				Expect(synth.Activation.Param).To(Equal("yes"))
 			})
 
-			It("Should emit an inline sequence case body as a sequential synth sibling", func(ctx SpecContext) {
+			It("Should emit an inline sequence case body as a sequential synth nested in its enclosing scope", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30011},
 					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30012},
@@ -1756,21 +1743,14 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				var synth *ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synth = m.Scope
-						}
-					}
-				}
-				Expect(synth).ToNot(BeNil())
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
 				Expect(synth.Mode).To(Equal(ir.ScopeModeSequential))
-				Expect(synth.Steps).To(HaveLen(2),
-					"inline sequence with 2 flow statements must expose 2 sequential steps")
+				Expect(synth.Steps).To(HaveLen(2))
 			})
 
-			It("Should emit two distinct synth siblings for two inline case bodies in the same table", func(ctx SpecContext) {
+			It("Should emit two distinct synths for two inline case bodies in the same table", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30021},
 					{Name: "yes_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30022},
@@ -1797,23 +1777,15 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				var synths []*ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synths = append(synths, m.Scope)
-						}
-					}
-				}
-				Expect(synths).To(HaveLen(2),
-					"each inline body must produce a distinct synth sibling")
-				Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
-				params := []string{synths[0].Activation.Param, synths[1].Activation.Param}
-				Expect(params).To(ConsistOf("yes", "no"),
-					"each synth must be activated by its own routed output")
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				yesBody := findMember(*hold, "__inline_0").Scope
+				noBody := findMember(*hold, "__inline_1").Scope
+				params := []string{yesBody.Activation.Param, noBody.Activation.Param}
+				Expect(params).To(ConsistOf("yes", "no"))
 			})
 
-			It("Should emit only one synth sibling when one entry is inline and another is a chain", func(ctx SpecContext) {
+			It("Should emit only one synth when one entry is inline and another is a chain", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30031},
 					{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 30032},
@@ -1839,17 +1811,19 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				var synths []*ir.Scope
-				for _, stratum := range inter.Root.Strata {
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
+				Expect(synth.Activation.Param).To(Equal("yes"))
+				inlineCount := 0
+				for _, stratum := range hold.Strata {
 					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synths = append(synths, m.Scope)
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, ir.InlinePrefix) {
+							inlineCount++
 						}
 					}
 				}
-				Expect(synths).To(HaveLen(1),
-					"only the inline branch must produce a synth sibling")
-				Expect(synths[0].Activation.Param).To(Equal("yes"))
+				Expect(inlineCount).To(Equal(1))
 			})
 
 			It("Should not wrap a top-level stage with inline routing in a synthetic Sequential scope", func(ctx SpecContext) {
@@ -1869,21 +1843,10 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				main := findTopLevelScope(inter, "main")
-				Expect(main.Mode).To(Equal(ir.ScopeModeParallel),
-					"main preserves its original parallel shape; no synthetic wrapper")
-				Expect(main.Steps).To(BeEmpty(),
-					"main holds no sequential steps; inlines are root siblings")
-
-				var synths []*ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synths = append(synths, m.Scope)
-						}
-					}
-				}
-				Expect(synths).To(HaveLen(2),
-					"each inline branch must surface as its own root sibling")
+				Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(main.Steps).To(BeEmpty())
+				Expect(findMember(main, "__inline_0").Scope.Activation).ToNot(BeNil())
+				Expect(findMember(main, "__inline_1").Scope.Activation).ToNot(BeNil())
 			})
 
 			It("Should not emit a duplicate transition when inline routing sits directly in a sequence body", func(ctx SpecContext) {
@@ -2110,21 +2073,10 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				main := findTopLevelScope(inter, "main")
-				Expect(main.Mode).To(Equal(ir.ScopeModeParallel),
-					"main preserves its original parallel shape; no synthetic wrapper")
-				Expect(main.Steps).To(BeEmpty(),
-					"main holds no sequential steps; inlines are root siblings")
-
-				var synths []*ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synths = append(synths, m.Scope)
-						}
-					}
-				}
-				Expect(synths).To(HaveLen(2),
-					"each inline flow target must surface as its own root sibling")
+				Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(main.Steps).To(BeEmpty())
+				Expect(findMember(main, "__inline_0").Scope.Activation).ToNot(BeNil())
+				Expect(findMember(main, "__inline_1").Scope.Activation).ToNot(BeNil())
 			})
 
 			It("Should not emit a duplicate transition when an inline flow target sits directly in a sequence body", func(ctx SpecContext) {
@@ -2198,7 +2150,7 @@ time.wait{duration=500ms} -> output`
 				Expect(main.Liveness).To(Equal(ir.LivenessGated))
 			})
 
-			It("Should emit a distinct gated synth sibling for each body when inline flow targets are nested", func(ctx SpecContext) {
+			It("Should emit a distinct gated synth for each body when inline flow targets are nested", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31081},
 					{Name: "inner_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31082},
@@ -2211,21 +2163,11 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				var synths []*ir.Scope
-				for _, stratum := range inter.Root.Strata {
-					for _, m := range stratum {
-						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
-							synths = append(synths, m.Scope)
-						}
-					}
-				}
-				Expect(synths).To(HaveLen(2),
-					"outer and nested inline bodies must each surface as a root synth sibling")
-				Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
-				for _, s := range synths {
+				outer := findMember(inter.Root, "__inline_0").Scope
+				inner := findMember(*outer, "__inline_1").Scope
+				for _, s := range []*ir.Scope{outer, inner} {
 					Expect(s.Liveness).To(Equal(ir.LivenessGated))
-					Expect(s.Activation).ToNot(BeNil(),
-						"each synth must be gated by its own activation handle")
+					Expect(s.Activation).ToNot(BeNil())
 				}
 			})
 

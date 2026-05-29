@@ -363,9 +363,7 @@ var _ = Describe("Stratify", func() {
 	})
 
 	Describe("Inline routing synth activation", func() {
-		It("Should keep an inline synth at stratum 0 when activated by a non-inline scope", func(ctx SpecContext) {
-			// Inline synth bodies must pre-walk so cross-scope transitions
-			// land on enclosing-frame transitions before they evaluate.
+		It("Should bump an inline synth past its non-inline activator", func(ctx SpecContext) {
 			outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
 			synth := ir.Scope{
 				Key:        "__inline_0",
@@ -376,16 +374,16 @@ var _ = Describe("Stratify", func() {
 			}
 			main := ir.Scope{
 				Key:      "main",
-				Mode:     ir.ScopeModeParallel,
+				Mode:     ir.ScopeModeSequential,
 				Liveness: ir.LivenessGated,
-				Strata:   []ir.Members{{ir.NodeMember("outer_select")}},
+				Steps:    ir.Members{ir.NodeMember("outer_select")},
 			}
 			root := run(ctx, programOf(
 				[]ir.Member{ir.ScopeMember(synth), ir.ScopeMember(main)},
 				nil,
 			))
-			Expect(stratumOf(root, "__inline_0")).To(Equal(0))
 			Expect(stratumOf(root, "main")).To(Equal(0))
+			Expect(stratumOf(root, "__inline_0")).To(Equal(1))
 		})
 
 		It("Should bump a nested inline synth past its outer-inline activator", func(ctx SpecContext) {

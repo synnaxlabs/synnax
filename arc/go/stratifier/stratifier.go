@@ -16,7 +16,6 @@ package stratifier
 
 import (
 	"context"
-	"strings"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -118,12 +117,6 @@ func stratifyParallel(
 			}
 			src, ok := ownership[m.Scope.Activation.Node]
 			if !ok || src == i {
-				continue
-			}
-			// Inline synths skip this dep so their bodies pre-walk for cross-scope
-			// marks, except when activated by another inline (must walk after it).
-			if strings.HasPrefix(m.Scope.Key, ir.InlinePrefix) &&
-				!strings.HasPrefix(members[src].Key(), ir.InlinePrefix) {
 				continue
 			}
 			if stratum[src] >= stratum[i] {
