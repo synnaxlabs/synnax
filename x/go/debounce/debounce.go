@@ -75,12 +75,13 @@ func (c Config) Validate() error {
 // MaxDelay caps the total delay from the first unprocessed trigger, ensuring sustained
 // rapid triggers still produce periodic invocations.
 type Debouncer struct {
-	cfg      Config
-	mu       sync.Mutex
-	timer    xtime.Timer
-	timerGen uint64
-	cancel   context.CancelFunc
-	firstAt  time.Time
+	cfg        Config
+	mu         sync.Mutex
+	timer      xtime.Timer
+	timerGen   uint64
+	cancel     context.CancelFunc
+	firstAt    time.Time
+	firstAtSet bool
 }
 
 // New creates a Debouncer from the merged set of configs. It returns an error if the
@@ -103,8 +104,9 @@ func (d *Debouncer) Trigger() {
 	d.timerGen++
 	gen := d.timerGen
 	now := d.cfg.Clock.Now()
-	if d.firstAt.IsZero() {
+	if !d.firstAtSet {
 		d.firstAt = now
+		d.firstAtSet = true
 	}
 	delay, maxDelay := d.cfg.Delay, d.cfg.MaxDelay
 	if maxDelay > 0 {
@@ -113,7 +115,7 @@ func (d *Debouncer) Trigger() {
 		}
 	}
 	if delay <= 0 {
-		d.firstAt = time.Time{}
+		d.firstAtSet = false
 		d.fireLocked()
 		return
 	}
@@ -127,7 +129,7 @@ func (d *Debouncer) Stop() {
 	d.stopTimerLocked()
 	d.timerGen++
 	d.cancelLocked()
-	d.firstAt = time.Time{}
+	d.firstAtSet = false
 }
 
 // onTimerFire is invoked by Clock.AfterFunc when the timer elapses. The gen check
@@ -139,7 +141,7 @@ func (d *Debouncer) onTimerFire(gen uint64) {
 	if d.timerGen != gen {
 		return
 	}
-	d.firstAt = time.Time{}
+	d.firstAtSet = false
 	d.fireLocked()
 }
 
