@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/table/cells/Forms.css";
+
 import { color, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
@@ -137,6 +140,11 @@ export interface SelectVariantProps extends Omit<
   "data" | "resourceName"
 > {}
 
-export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
+export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
+  <Select.Static
+    {...rest}
+    className={CSS(CSS.B("table-cell-select-variant"), className)}
+    data={VARIANT_DATA}
+    resourceName="variant"
+  />
 );

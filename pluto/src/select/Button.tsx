@@ -17,7 +17,8 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
-import { Frame, type FrameProps, useItemState } from "@/select/Frame";
+import { Frame, type FrameProps } from "@/select/Frame";
+import { useItemState } from "@/select/Provider";
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,

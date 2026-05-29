@@ -327,3 +327,103 @@ var StatusDeleteService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/status/status.proto",
 }
+
+const (
+	StatusSetByKeyOrNameService_Exec_FullMethodName = "/grpc.status.StatusSetByKeyOrNameService/Exec"
+)
+
+// StatusSetByKeyOrNameServiceClient is the client API for StatusSetByKeyOrNameService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type StatusSetByKeyOrNameServiceClient interface {
+	Exec(ctx context.Context, in *SetByKeyOrNameRequest, opts ...grpc.CallOption) (*SetByKeyOrNameResponse, error)
+}
+
+type statusSetByKeyOrNameServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewStatusSetByKeyOrNameServiceClient(cc grpc.ClientConnInterface) StatusSetByKeyOrNameServiceClient {
+	return &statusSetByKeyOrNameServiceClient{cc}
+}
+
+func (c *statusSetByKeyOrNameServiceClient) Exec(ctx context.Context, in *SetByKeyOrNameRequest, opts ...grpc.CallOption) (*SetByKeyOrNameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetByKeyOrNameResponse)
+	err := c.cc.Invoke(ctx, StatusSetByKeyOrNameService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// StatusSetByKeyOrNameServiceServer is the server API for StatusSetByKeyOrNameService service.
+// All implementations should embed UnimplementedStatusSetByKeyOrNameServiceServer
+// for forward compatibility.
+type StatusSetByKeyOrNameServiceServer interface {
+	Exec(context.Context, *SetByKeyOrNameRequest) (*SetByKeyOrNameResponse, error)
+}
+
+// UnimplementedStatusSetByKeyOrNameServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedStatusSetByKeyOrNameServiceServer struct{}
+
+func (UnimplementedStatusSetByKeyOrNameServiceServer) Exec(context.Context, *SetByKeyOrNameRequest) (*SetByKeyOrNameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedStatusSetByKeyOrNameServiceServer) testEmbeddedByValue() {}
+
+// UnsafeStatusSetByKeyOrNameServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to StatusSetByKeyOrNameServiceServer will
+// result in compilation errors.
+type UnsafeStatusSetByKeyOrNameServiceServer interface {
+	mustEmbedUnimplementedStatusSetByKeyOrNameServiceServer()
+}
+
+func RegisterStatusSetByKeyOrNameServiceServer(s grpc.ServiceRegistrar, srv StatusSetByKeyOrNameServiceServer) {
+	// If the following call panics, it indicates UnimplementedStatusSetByKeyOrNameServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&StatusSetByKeyOrNameService_ServiceDesc, srv)
+}
+
+func _StatusSetByKeyOrNameService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetByKeyOrNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StatusSetByKeyOrNameServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StatusSetByKeyOrNameService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StatusSetByKeyOrNameServiceServer).Exec(ctx, req.(*SetByKeyOrNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// StatusSetByKeyOrNameService_ServiceDesc is the grpc.ServiceDesc for StatusSetByKeyOrNameService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var StatusSetByKeyOrNameService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.status.StatusSetByKeyOrNameService",
+	HandlerType: (*StatusSetByKeyOrNameServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _StatusSetByKeyOrNameService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/status/status.proto",
+}

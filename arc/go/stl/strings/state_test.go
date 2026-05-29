@@ -46,9 +46,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(h3).To(Equal(h2 + 1))
 		})
 
-		It("Should handle empty strings", func() {
-			h := s.Create("")
-			Expect(MustBeOk(s.Get(h))).To(Equal(""))
+		It("Should return handle 0 for empty strings", func() {
+			Expect(s.Create("")).To(Equal(uint32(0)))
 		})
 
 		It("Should handle strings with special characters", func() {
@@ -94,9 +93,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(th).ToNot(Equal(ch))
 		})
 
-		It("Should handle empty config strings", func() {
-			h := s.CreateConfig("")
-			Expect(MustBeOk(s.Get(h))).To(Equal(""))
+		It("Should return handle 0 for empty config strings", func() {
+			Expect(s.CreateConfig("")).To(Equal(uint32(0)))
 		})
 
 		It("Should handle UTF-8 config strings", func() {
@@ -130,9 +128,8 @@ var _ = Describe("ProgramState", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should return false for handle zero", func() {
-			_, ok := s.Get(0)
-			Expect(ok).To(BeFalse())
+		It("Should return empty string with ok=true for handle zero", func() {
+			Expect(MustBeOk(s.Get(0))).To(Equal(""))
 		})
 
 		It("Should return false for max uint32 handle", func() {

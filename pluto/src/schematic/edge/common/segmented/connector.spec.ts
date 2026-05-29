@@ -12,6 +12,32 @@ import { describe, expect, it } from "vitest";
 
 import { Segmented } from "@/schematic/edge/common/segmented";
 
+const within = (v: number, a: number, b: number): boolean =>
+  v >= Math.min(a, b) - 0.001 && v <= Math.max(a, b) + 0.001;
+
+// selfCrosses reports whether the orthogonal polyline through pts has any
+// non-adjacent pair of segments that intersect or overlap, i.e. the path loops
+// back over itself ("pigtail").
+const selfCrosses = (pts: xy.XY[]): boolean => {
+  const segs = pts.slice(1).map((p, i) => ({ a: pts[i], b: p }));
+  for (let i = 0; i < segs.length; i++)
+    for (let j = i + 2; j < segs.length; j++) {
+      const { a: a1, b: b1 } = segs[i];
+      const { a: a2, b: b2 } = segs[j];
+      const h1 = a1.y === b1.y;
+      const h2 = a2.y === b2.y;
+      if (h1 && !h2) {
+        if (within(a2.x, a1.x, b1.x) && within(a1.y, a2.y, b2.y)) return true;
+      } else if (!h1 && h2) {
+        if (within(a1.x, a2.x, b2.x) && within(a2.y, a1.y, b1.y)) return true;
+      } else if (h1 && h2 && Math.abs(a1.y - a2.y) < 0.001) {
+        if (within(a2.x, a1.x, b1.x) || within(b2.x, a1.x, b1.x)) return true;
+      } else if (!h1 && !h2 && Math.abs(a1.x - a2.x) < 0.001)
+        if (within(a2.y, a1.y, b1.y) || within(b2.y, a1.y, b1.y)) return true;
+    }
+  return false;
+};
+
 describe("connector", () => {
   describe("needToGoAroundSource", () => {
     interface spec {
@@ -446,6 +472,98 @@ describe("connector", () => {
         const target = Segmented.travelSegments(spec.props.sourcePos, ...actual);
         expect(target).toEqual(spec.props.targetPos);
       });
+  });
+
+  describe("go-around routing is anchored to the node box", () => {
+    // The connection-line preview routes a "go around the node" segment via
+    // prepareNode, which reads the node's edge from the source/target boxes. When
+    // box.ZERO is supplied that edge resolves to the world origin instead of the node,
+    // so the segment's length scales with the node's absolute position and the preview
+    // shoots off-screen. With a real box the routing is translation-invariant.
+    const NODE_DIMS = { width: 40, height: 40 };
+    // Same-side handles with the target behind the source force a go-around through
+    // prepareNode (the box-dependent path), without the facing-stub short-circuit.
+    const buildProps = (offset: xy.XY): Segmented.BuildNew => ({
+      sourceOrientation: "right",
+      targetOrientation: "right",
+      sourcePos: xy.translate({ x: 540, y: 100 }, offset),
+      targetPos: xy.translate({ x: 400, y: 300 }, offset),
+      sourceBox: box.construct(xy.translate({ x: 500, y: 80 }, offset), NODE_DIMS),
+      targetBox: box.construct(xy.translate({ x: 360, y: 280 }, offset), NODE_DIMS),
+    });
+
+    it("produces the same shape regardless of the node's absolute position", () => {
+      const atOrigin = Segmented.createConnector(buildProps(xy.ZERO));
+      const farAway = Segmented.createConnector(buildProps({ x: 5000, y: 5000 }));
+      expect(farAway).toEqual(atOrigin);
+    });
+
+    it("anchors the go-around segment to the node and not the world origin", () => {
+      const withZeroBox = (offset: xy.XY): Segmented.Segment[] =>
+        Segmented.createConnector({
+          ...buildProps(offset),
+          sourceBox: box.ZERO,
+          targetBox: box.ZERO,
+        });
+      const near = withZeroBox(xy.ZERO);
+      const far = withZeroBox({ x: 5000, y: 5000 });
+      expect(far).not.toEqual(near);
+    });
+  });
+
+  describe("facing handles do not produce a self-crossing pigtail", () => {
+    // When two handles point at each other and the nodes are dragged close enough
+    // that their stubs cross, the connector must not fold back over itself. It must
+    // still terminate exactly on the target.
+    const SOURCE = { x: 0, y: 0 };
+    const buildProps = (target: xy.XY): Segmented.BuildNew => ({
+      sourcePos: SOURCE,
+      targetPos: target,
+      sourceOrientation: "right",
+      targetOrientation: "left",
+      sourceBox: box.construct({ x: -40, y: -15 }, { width: 40, height: 30 }),
+      targetBox: box.construct(
+        { x: target.x, y: target.y - 15 },
+        { width: 40, height: 30 },
+      ),
+    });
+
+    interface Spec {
+      name: string;
+      target: xy.XY;
+    }
+
+    const SPECS: Spec[] = [
+      { name: "directly above, stubs overlap", target: { x: 0, y: -20 } },
+      { name: "directly below, stubs overlap", target: { x: 0, y: 20 } },
+      { name: "slightly right and above", target: { x: 10, y: -20 } },
+      { name: "slightly right and below", target: { x: 10, y: 20 } },
+      { name: "nearly aligned right and above", target: { x: 15, y: -15 } },
+      { name: "closer than a single stub", target: { x: 5, y: -25 } },
+    ];
+
+    for (const { name, target } of SPECS)
+      it(name, () => {
+        const conn = Segmented.createConnector(buildProps(target));
+        const points = Segmented.segmentsToPoints(SOURCE, conn, 1, false);
+        expect(selfCrosses(points)).toBe(false);
+        expect(Segmented.travelSegments(SOURCE, ...conn)).toEqual(target);
+      });
+
+    it("sweeps the close range without ever self-crossing", () => {
+      for (let dx = 0; dx <= 15; dx += 5)
+        for (let dy = -40; dy <= 40; dy += 5) {
+          if (dx === 0 && dy === 0) continue;
+          const target = { x: dx, y: dy };
+          const conn = Segmented.createConnector(buildProps(target));
+          const points = Segmented.segmentsToPoints(SOURCE, conn, 1, false);
+          expect(selfCrosses(points), `dx=${dx} dy=${dy}`).toBe(false);
+          expect(
+            Segmented.travelSegments(SOURCE, ...conn),
+            `dx=${dx} dy=${dy}`,
+          ).toEqual(target);
+        }
+    });
   });
 
   describe("dragging segments", () => {

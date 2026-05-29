@@ -8,17 +8,21 @@
 #  included in the file licenses/APL.txt.
 
 import argparse
+import json
 import os
 import random
 import signal
 import string
 import sys
 import threading
+import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any
 
 import synnax as sy
+from framework import failure_report, run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
@@ -62,6 +66,13 @@ class TestConductor:
             self.name = self.__class__.__name__.lower() + "_" + random_id
         else:
             self.name = validate_and_sanitize_name(str(name).lower())
+
+        # Establish the run directory before anything else writes artifacts.
+        # Capture the server log's current size so that the run-scoped slice
+        # at exit doesn't include lines from prior server sessions.
+        self.run_dir = run_dir.init_run_dir(self.name)
+        self.started_at = time.time()
+        self._server_log_start_offset = server_log.current_offset()
 
         # Use provided connection or create default
         if synnax_connection is None:
@@ -228,6 +239,132 @@ class TestConductor:
         self.shutdown()
         sys.exit(1)
 
+    def finalize_bundle(self) -> None:
+        """Write the run-scoped server log slice, summary.json, and README.
+
+        Called at exit regardless of pass/fail; the bundle is the single
+        artifact local devs and CI both consume to debug failures.
+        """
+        try:
+            server_log.copy_range(
+                self.run_dir / "server.log",
+                self._server_log_start_offset,
+            )
+        except Exception as e:
+            self.log(f"Warning: failed to capture server log: {e}")
+        try:
+            self._write_summary()
+        except Exception as e:
+            self.log(f"Warning: failed to write summary.json: {e}")
+        try:
+            (self.run_dir / "README.md").write_text(_BUNDLE_README)
+        except Exception as e:
+            self.log(f"Warning: failed to write README.md: {e}")
+        report_path = failure_report.safe_render(self.run_dir, self.tests)
+        if report_path is not None:
+            self.log(f"→ failure report: {report_path}")
+
+    def _write_summary(self) -> None:
+        ended_at = time.time()
+        stats = self.report_client.get_statistics() if self.tests else {}
+        tests_json: list[dict[str, Any]] = []
+        for t in self.tests:
+            tests_json.append(
+                {
+                    "case": t.test_name,
+                    "name": t.name,
+                    "status": t.status.name,
+                    "started_at": _iso(t.started_at),
+                    "ended_at": _iso(t.ended_at),
+                    "duration_s": _duration(t.started_at, t.ended_at),
+                    "error_message": t.error_message,
+                    "bundle_dir": (
+                        os.path.relpath(t.bundle_dir, str(self.run_dir))
+                        if t.bundle_dir
+                        else None
+                    ),
+                }
+            )
+        summary = {
+            "run": {
+                "name": self.name,
+                "started_at": _iso(self.started_at),
+                "ended_at": _iso(ended_at),
+                "duration_s": _duration(self.started_at, ended_at),
+                **{
+                    k: v
+                    for k, v in stats.items()
+                    if k
+                    in (
+                        "total",
+                        "total_passed",
+                        "total_failed",
+                        "passed",
+                        "failed",
+                        "flaky",
+                        "timeout",
+                        "killed",
+                    )
+                },
+            },
+            "tests": tests_json,
+        }
+        (self.run_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+
+
+def _iso(ts: float | None) -> str | None:
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _duration(start: float | None, end: float | None) -> float | None:
+    if start is None or end is None:
+        return None
+    return round(end - start, 3)
+
+
+_BUNDLE_README = """\
+# Synnax Integration Test Debug Bundle
+
+This directory contains everything needed to debug a failed `uv run tc` run.
+The layout and inspection workflow are identical between local dev and CI.
+
+## Triage order
+
+1. **Read `all-failures.md`** (only present when there were failures). One
+   markdown file that consolidates every failure: error, Python traceback,
+   source snippet around the failing line, last actions from the trace,
+   browser console errors, network failures, and tail of the server log slice.
+   This is the LLM-friendly entry point. Read it first.
+2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
+   ```bash
+   jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' summary.json
+   ```
+3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
+   - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)
+   - `server.log` -> server log sliced to this test's wall-clock window
+   - `*.png`, `*.json`, `*.csv` -> screenshots and exports the test produced
+4. **Open the trace shell-first** when `all-failures.md` doesn't pinpoint it:
+   ```bash
+   npx -y -p @playwright/test playwright trace open tests/<name>/trace.zip
+   npx -y -p @playwright/test playwright trace actions --errors-only
+   npx -y -p @playwright/test playwright trace action <id>
+   npx -y -p @playwright/test playwright trace requests --failed
+   npx -y -p @playwright/test playwright trace close
+   ```
+
+## Detailed workflow
+
+See the `synnax-integration-debug` skill (`.claude/skills/synnax-integration-debug/SKILL.md`
+in the repo) for the full command cheatsheet, common gotchas, and triage heuristics.
+
+## Bundle was generated by
+
+`uv run tc` writing this directory at conductor exit. The breadcrumb line
+`→ bundle: <path>` in conductor stdout points here.
+"""
+
 
 def monitor_test_execution(conductor: TestConductor) -> None:
     """Monitor test execution and provide status updates."""
@@ -375,6 +512,8 @@ All matching is case-insensitive substring.
             except Exception as e:
                 conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
+        conductor.finalize_bundle()
+
         conductor.log("Fin.")
         if hasattr(conductor, "tests") and conductor.tests:
             stats = conductor._get_test_statistics()
@@ -383,14 +522,17 @@ All matching is case-insensitive substring.
                 conductor.log(
                     f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
                 )
+                conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(1)
             else:
                 conductor.log(
                     f"\nAll {stats['total']} tests passed successfully", False
                 )
+                conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(0)
         else:
             conductor.log("\nNo test results available")
+            conductor.log(f"→ bundle: {conductor.run_dir}")
             os._exit(1)
 
 

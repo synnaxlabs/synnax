@@ -7,21 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table } from "@synnaxlabs/client";
+import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
-import { stateZ } from "@/table/slice";
-import { create } from "@/table/Table";
+import { create, LAYOUT_TYPE } from "@/table/layout";
+import { anyStateZ } from "@/table/slice";
 
-export const ingest: Import.FileIngester = (
+const parseImport = (data: unknown, fallbackName: string | undefined): table.New => {
+  const direct = table.tableZ.safeParse(data);
+  if (direct.success) {
+    const { key: _key, ...rest } = direct.data;
+    return { ...rest, name: fallbackName ?? rest.name };
+  }
+  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
+  if (legacy.pendingUpload == null)
+    throw new Error("Imported table has no structural data");
+  const { key: _key, rows, columns, cells } = legacy.pendingUpload;
+  return { name: fallbackName ?? "Table", rows, columns, cells };
+};
+
+export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client },
+  { layout, placeLayout, store, client, workspaceKey },
 ) => {
-  const state = stateZ.parse(data);
   if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import tables");
-  // create with an undefined key so we do not have to worry about the key that was from
-  // the imported data overwriting existing tables in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout }));
+  if (client == null) throw new DisconnectedError();
+  const newPayload = parseImport(data, layout?.name);
+  const created = await client.tables.create(workspaceKey ?? uuid.ZERO, newPayload);
+  store.tables.set(created.key, created);
+  placeLayout(
+    create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
+  );
 };

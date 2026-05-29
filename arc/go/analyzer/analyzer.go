@@ -346,6 +346,7 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
 		}
 	}
+	sequence.AnalyzeSynthInlines(ctx)
 }
 
 func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) {

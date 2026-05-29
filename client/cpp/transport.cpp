@@ -139,6 +139,10 @@ Transport::Transport(
         grpc::status::DeleteRequest,
         google::protobuf::Empty,
         grpc::status::StatusDeleteService>>(pool, base_target);
+    this->status_set_by_key_or_name = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::status::SetByKeyOrNameRequest,
+        grpc::status::SetByKeyOrNameResponse,
+        grpc::status::StatusSetByKeyOrNameService>>(pool, base_target);
     this->arc_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::CreateRequest,
         grpc::arc::CreateResponse,
@@ -191,6 +195,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     status_retrieve->use(mw);
     status_set->use(mw);
     status_delete->use(mw);
+    status_set_by_key_or_name->use(mw);
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);

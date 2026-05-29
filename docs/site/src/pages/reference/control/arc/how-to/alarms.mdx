@@ -155,7 +155,7 @@ func combined_alarm{
     return 0
 }
 
-interval{period=50ms} -> combined_alarm{
+time.interval{period=50ms} -> combined_alarm{
     inlet = inlet_pressure,
     outlet = outlet_pressure,
     inlet_crit = 800.0,
@@ -309,7 +309,7 @@ sequence main {
         // Maintain pressure, watch for problems
         tank_pressure -> deadband_alarm{high=600.0, low=580.0} -> pressure_high
         pressure_high => abort
-        wait{duration=30s} => next
+        time.wait{duration=30s} => next
     }
 
     stage complete {
