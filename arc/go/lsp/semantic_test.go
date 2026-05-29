@@ -420,6 +420,28 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(filterByType(tokens, tokenTypeNamespace)).To(BeEmpty())
 		})
 
+		It("does not route an unimported qualifier's member to function", func(ctx SpecContext) {
+			// `now` at col 29 must not be function-colored: `time` is not
+			// imported, so the analyzer treats `time.now` as undefined and the
+			// highlight must match rather than imply a valid call.
+			OpenArcDocument(server, ctx, uri,
+				"func cat() i64 { return time.now() }\n")
+			fns := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			for _, t := range fns {
+				Expect(t.StartChar).ToNot(Equal(uint32(29)),
+					"unimported member `now` must not be colored as a function")
+			}
+		})
+
+		It("routes an imported qualifier's member to function", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri,
+				"import time\n\nfunc cat() i64 { return time.now() }\n")
+			fns := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeFunction)
+			Expect(fns).To(ContainElement(
+				decodedToken{Line: 2, StartChar: 29, Length: 3, TokenType: tokenTypeFunction},
+			))
+		})
+
 		It("routes sequence and stage names to the function token type", func(ctx SpecContext) {
 			// Sequence and stage names should share the same highlight
 			// color as function names — they are declarations of named,
