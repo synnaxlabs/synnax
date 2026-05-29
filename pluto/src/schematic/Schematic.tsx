@@ -36,6 +36,7 @@ import {
   useSelectAllNodes,
   useUndo,
 } from "@/schematic/queries";
+import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -60,6 +61,8 @@ export interface SchematicProps extends Omit<
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
+const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
 
 export const Schematic = ({
   className,
@@ -70,6 +73,8 @@ export const Schematic = ({
   selected,
   enableTriggers,
   extraMenuItems,
+  editable,
+  children,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -153,59 +158,61 @@ export const Schematic = ({
   const contextMenu = Menu.useContextMenu();
   const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
     (menuProps) => (
-      <Menu.Menu>
-        <Menu.Item
-          itemKey="undo"
-          onClick={undo}
-          disabled={!canUndo}
-          triggerIndicator={["Control", "Z"]}
-        >
-          <Icon.Undo />
-          Undo
-        </Menu.Item>
-        <Menu.Item
-          itemKey="redo"
-          onClick={redo}
-          disabled={!canRedo}
-          triggerIndicator={["Control", "Shift", "Z"]}
-        >
-          <Icon.Redo />
-          Redo
-        </Menu.Item>
-        {extraMenuItems != null && (
+      <Menu.Menu level="small" gap="small">
+        {editable && (
           <>
-            <Menu.Divider />
-            {extraMenuItems(menuProps)}
+            <Menu.Item
+              itemKey="undo"
+              onClick={undo}
+              disabled={!canUndo}
+              triggerIndicator={UNDO_TRIGGER}
+            >
+              <Icon.Undo />
+              Undo
+            </Menu.Item>
+            <Menu.Item
+              itemKey="redo"
+              onClick={redo}
+              disabled={!canRedo}
+              triggerIndicator={REDO_TRIGGER}
+            >
+              <Icon.Redo />
+              Redo
+            </Menu.Item>
+            {extraMenuItems != null && <Menu.Divider />}
           </>
         )}
+        {extraMenuItems?.(menuProps)}
       </Menu.Menu>
     ),
-    [undo, redo, canUndo, canRedo, extraMenuItems],
+    [undo, redo, canUndo, canRedo, editable, extraMenuItems],
   );
 
   return (
     <Key.Provider value={key}>
-      <Menu.ContextMenu {...contextMenu} menu={renderMenu}>
-        <Diagram
-          ref={ref}
-          className={CSS(CSS.B("schematic"), className)}
-          dragHandleSelector={DRAG_HANDLE_SELECTOR}
-          autoRenderInterval={AUTO_RENDER_INTERVAL}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          viewport={viewport}
-          onSelectionChange={onSelectionChange}
-          onDoubleClick={onDoubleClick}
-          onContextMenu={contextMenu.open}
-          onCopy={onCopy}
-          onPaste={onPaste}
-          nodes={nodes}
-          edges={edges}
-          selected={selected}
-          {...dropProps}
-          {...props}
-        />
-      </Menu.ContextMenu>
+      <Diagram
+        ref={ref}
+        className={CSS(CSS.B("schematic"), className)}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
+        autoRenderInterval={AUTO_RENDER_INTERVAL}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        viewport={viewport}
+        onSelectionChange={onSelectionChange}
+        editable={editable}
+        onDoubleClick={onDoubleClick}
+        onContextMenu={contextMenu.open}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        nodes={nodes}
+        edges={edges}
+        selected={selected}
+        {...dropProps}
+        {...props}
+      >
+        {children}
+        <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
+      </Diagram>
     </Key.Provider>
   );
 };

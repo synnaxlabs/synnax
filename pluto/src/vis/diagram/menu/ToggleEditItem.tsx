@@ -33,7 +33,7 @@ export const ToggleEditItem = ({
       {...rest}
     >
       {editable ? <Icon.EditOff /> : <Icon.Edit />}
-      {editable ? "Switch to View Mode" : "Switch to Edit Mode"}
+      {editable ? "Disable editing" : "Enable editing"}
     </Item>
   );
 };
