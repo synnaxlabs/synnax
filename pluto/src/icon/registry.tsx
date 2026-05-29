@@ -217,6 +217,7 @@ import {
   TbColumnInsertRight,
   TbColumnRemove,
   TbDecimal,
+  TbEraser,
   TbLetterE,
   TbLivePhoto,
   TbMathFunction,
@@ -270,6 +271,7 @@ export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
   Row: wrapSVGIcon(TbRowRemove, "delete-row"),
   Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
 });
+export const Eraser = wrapSVGIcon(TbEraser, "eraser");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const TimeOutline = wrapSVGIcon(MdAccessTime, "time-outline");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
@@ -538,6 +540,7 @@ const icons = {
   Check,
   Refresh,
   Delete,
+  Eraser,
   Time,
   TimeOutline,
   Acquire,
