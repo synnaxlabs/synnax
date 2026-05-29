@@ -285,6 +285,217 @@ var _ = Describe("Relay", func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
+
+	// These tests cover the SendOpenAck happens-before guarantee: once a caller
+	// sees the open ack, a subsequent write must be observable on the streamer.
+	// The relay implements this by waiting for the freeWriteTap to install the
+	// streamer's keys before sending the ack. The cases below also exercise the
+	// edge cases that could deadlock the synchronous wait — empty initial keys,
+	// non-free leases, context cancellation mid-wait, and concurrent streamers.
+	Describe("SendOpenAck", Ordered, func() {
+		var (
+			builder *mock.Cluster
+			svc     mock.Node
+		)
+		BeforeAll(func(ctx SpecContext) {
+			builder = mock.ProvisionCluster(ctx, 1)
+			svc = builder.Nodes[1]
+		})
+		AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
+
+		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+			chs := make([]channel.Channel, n)
+			ts := time.Now().UnixNano()
+			for i := range chs {
+				chs[i] = channel.Channel{
+					Name:        fmt.Sprintf("free_%d_%d", ts, i),
+					Virtual:     true,
+					DataType:    telem.Int64T,
+					Leaseholder: node.KeyFree,
+				}
+			}
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+			return chs
+		}
+
+		It("Should deliver a write issued immediately after the open ack on a free channel", func(ctx SpecContext) {
+			chs := newFreeChannels(ctx, 1)
+			keys := channel.KeysFromChannels(chs)
+
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: lo.ToPtr(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var ack relay.Response
+			Eventually(res.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV[int64](1, 2, 3),
+			}))).To(BeTrue())
+
+			var got relay.Response
+			Eventually(res.Outlet()).Should(Receive(&got))
+			Expect(got.Frame.Count()).To(Equal(1))
+			req.Close()
+			confluence.Drain(res)
+		})
+
+		It("Should deliver the open ack when the streamer is opened with no keys", func(ctx SpecContext) {
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				SendOpenAck: lo.ToPtr(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var ack relay.Response
+			Eventually(res.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			req.Close()
+			confluence.Drain(res)
+		})
+
+		It("Should deliver the open ack when the streamer subscribes only to gateway-leased channels", func(ctx SpecContext) {
+			// Channels with no explicit leaseholder are assigned to the host
+			// node, so they route through the gateway tap rather than the free
+			// write tap. This exercises the path where updateTaps does not
+			// create an applied channel and the demand returns immediately.
+			chs := newChannelSet()
+			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+			keys := channel.KeysFromChannels(chs)
+
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: lo.ToPtr(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var ack relay.Response
+			Eventually(res.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			req.Close()
+			confluence.Drain(res)
+		})
+
+		It("Should not leak when the streamer's context is canceled before the open ack is delivered", func(ctx SpecContext) {
+			chs := newFreeChannels(ctx, 1)
+			keys := channel.KeysFromChannels(chs)
+
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: lo.ToPtr(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			cancel()
+
+			req.Close()
+			Eventually(res.Outlet()).Should(BeClosed())
+		})
+
+		It("Should serve concurrent streamers on overlapping free channels without deadlocking", func(ctx SpecContext) {
+			chs := newFreeChannels(ctx, 2)
+			keys := channel.KeysFromChannels(chs)
+
+			const streamerCount = 4
+			readers := make([]relay.Streamer, streamerCount)
+			outlets := make([]confluence.Outlet[relay.Response], streamerCount)
+			inlets := make([]confluence.Inlet[relay.Request], streamerCount)
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			for i := range streamerCount {
+				readers[i] = MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+					Keys:        keys,
+					SendOpenAck: lo.ToPtr(true),
+				}))
+				inlets[i], outlets[i] = confluence.Attach(readers[i], 10)
+				readers[i].Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			}
+			for _, o := range outlets {
+				var ack relay.Response
+				Eventually(o.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
+			}
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV[int64](1, 2, 3),
+				telem.NewSeriesV[int64](4, 5, 6),
+			}))).To(BeTrue())
+
+			for _, o := range outlets {
+				var got relay.Response
+				Eventually(o.Outlet()).Should(Receive(&got))
+				Expect(got.Frame.Count()).To(Equal(2))
+			}
+			for _, i := range inlets {
+				i.Close()
+			}
+			for _, o := range outlets {
+				confluence.Drain(o)
+			}
+		})
+
+		It("Should apply a dynamic key update before subsequent writes are dropped", func(ctx SpecContext) {
+			chs := newFreeChannels(ctx, 1)
+			keys := channel.KeysFromChannels(chs)
+
+			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+				SendOpenAck: lo.ToPtr(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var ack relay.Response
+			Eventually(res.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			req.Inlet() <- relay.Request{Keys: keys}
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+
+			// The dynamic key update propagates asynchronously, so retry the write
+			// until the streamer has picked up the new keys and delivers a frame.
+			var got relay.Response
+			Eventually(func(g Gomega) {
+				g.Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+				g.Expect(res.Outlet()).To(Receive(&got))
+			}).Should(Succeed())
+			Expect(got.Frame.Count()).To(Equal(1))
+			req.Close()
+			confluence.Drain(res)
+		})
+	})
 })
 
 func newChannelSet() []channel.Channel {
