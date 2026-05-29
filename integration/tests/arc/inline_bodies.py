@@ -14,7 +14,9 @@ from tests.arc.arc_case import ArcConsoleCase
 # trigger_1 (fired by the harness) drives the module-scope bodies and the named
 # sibling sequence. trigger_2 activates the select sibling chain. trigger_3 and
 # trigger_4 activate the gated stage and sequence selects respectively, kept
-# separate so no single source fans out to two transitions.
+# separate so no single source fans out to two transitions. trigger_5 and
+# trigger_6 activate the lifecycle flows (blocking/wait race and
+# re-entry/deactivation) one at a time, separate from the trigger_1 bodies.
 ARC_INLINE_BODY_SOURCE = """
 // Flat stage: a multi-write body; all writes fire in parallel.
 trigger_1 -> stage {
@@ -273,6 +275,57 @@ sequence select_gated_seq_main {
         true: sequence { 1 -> select_gated_seq_out }
     }
 }
+
+// ============================================================================
+// LIFECYCLE FLOWS
+//
+// Temporal/lifecycle semantics the bodies above do not cover: stage blocking,
+// wait{} backstop exits, multi-exit races, sub-sequence reset on re-entry, and
+// stage deactivation. Each is gated behind its own trigger and verified one at
+// a time, separate from the trigger_1-driven bodies.
+// ============================================================================
+
+// Blocking inline stages with a multi-exit race. The sequence pauses at each
+// inline stage until an exit fires. The first stage's condition exit beats its
+// wait backstop; the second stage's condition is unreachable, so the wait
+// backstop fires instead.
+trigger_5 => race_main
+
+sequence race_main {
+    1 -> race_first_out
+    stage {
+        race_cond < 15 => next
+        wait{10s} => next
+    }
+    0 -> race_first_out
+    1 -> race_second_out
+    stage {
+        race_cond > 9000 => next
+        wait{2s} => next
+    }
+    0 -> race_second_out
+}
+
+// ============================================================================
+
+// Inline sub-sequence running alongside a stage's reactive exit. Re-entering
+// the fire stage resets the sub-sequence (reentry_fire_out returns to 1); the
+// exit stage stops writing once left (reentry_exit_out must not re-apply).
+trigger_6 => reentry_main
+
+sequence reentry_main {
+    stage fire {
+        sequence {
+            1 -> reentry_fire_out
+        }
+        reentry_cond < 15 => exit
+    }
+    stage exit {
+        0 -> reentry_fire_out
+        1 -> reentry_exit_out
+        reentry_cond > 100 => fire
+    }
+}
 """
 
 # Flat bodies: each write lands on the output whose suffix matches the value.
@@ -327,6 +380,8 @@ SELECT_SIBLING_OUTS = [
     "select_sibling_third_out",
 ]
 GATED_OUTS = ["select_gated_stage_out", "select_gated_seq_out"]
+RACE_OUTS = ["race_first_out", "race_second_out"]
+REENTRY_OUTS = ["reentry_fire_out", "reentry_exit_out"]
 
 OUTPUTS = (
     FLAT_STAGE_OUTS
@@ -346,6 +401,8 @@ OUTPUTS = (
     + SELECT_FALSE_OUTS
     + SELECT_SIBLING_OUTS
     + GATED_OUTS
+    + RACE_OUTS
+    + REENTRY_OUTS
 )
 
 # Inputs the test drives. trigger_1 is created by the base class as the start cmd.
@@ -353,9 +410,14 @@ INPUTS = [
     "trigger_2",
     "trigger_3",
     "trigger_4",
+    "trigger_5",
+    "trigger_6",
     "select_stage_flag",
     "select_seq_flag",
 ]
+
+# Float inputs driving the ported lifecycle flows' reactive conditions.
+FLOAT_INPUTS = ["race_cond", "reentry_cond"]
 
 CREATE_CHANNELS = OUTPUTS + INPUTS
 
@@ -403,6 +465,12 @@ class InlineBodies(ArcConsoleCase):
       activation edge.
     - Gated select: a ``select`` inside a named scope fires only once that scope
       is activated, routing its constant into the matching branch body.
+    - Blocking / wait race: inside a named ``sequence``, an inline ``stage``
+      blocks progression until an exit fires — a condition exit beats its
+      ``wait{}`` backstop, while an unreachable condition lets the backstop win.
+    - Re-entry / deactivation: an inline ``sequence`` inside a stage re-runs from
+      its first step when the parent stage is re-entered, and a stage stops
+      applying its writes once it is left.
 
     Every output holds its written value.
     """
@@ -415,6 +483,8 @@ class InlineBodies(ArcConsoleCase):
     def setup(self) -> None:
         for channel in CREATE_CHANNELS:
             create_virtual_channel(self.client, channel, sy.DataType.UINT8)
+        for channel in FLOAT_INPUTS:
+            create_virtual_channel(self.client, channel, sy.DataType.FLOAT32)
         super().setup()
 
     def verify_sequence_execution(self) -> None:
@@ -432,6 +502,8 @@ class InlineBodies(ArcConsoleCase):
         self._verify_false_only_selects()
         self._verify_select_sibling_chain()
         self._verify_gated_selects()
+        self._verify_blocking_wait_race()
+        self._verify_reentry_deactivation()
 
     def _verify_flat_bodies(self) -> None:
         self.log("Verifying module-scope flat bodies")
@@ -491,22 +563,14 @@ class InlineBodies(ArcConsoleCase):
 
     def _verify_select_branches(self) -> None:
         self.log("Verifying module-scope select branch selection")
-        self._route_flag(
-            "select_stage_flag",
-            "select_stage_true_out",
-            "select_stage_false_out",
-        )
-        self._route_flag(
-            "select_seq_flag",
-            "select_seq_true_out",
-            "select_seq_false_out",
-        )
-
-    def _route_flag(self, flag: str, true_out: str, false_out: str) -> None:
-        self.writer.write(flag, 1)
-        self.wait_for_eq(true_out, 1, is_virtual=True)
-        self.writer.write(flag, 0)
-        self.wait_for_eq(false_out, 1, is_virtual=True)
+        self.writer.write("select_stage_flag", 1)
+        self.writer.write("select_seq_flag", 1)
+        self.wait_for_eq("select_stage_true_out", 1, is_virtual=True)
+        self.wait_for_eq("select_seq_true_out", 1, is_virtual=True)
+        self.writer.write("select_stage_flag", 0)
+        self.writer.write("select_seq_flag", 0)
+        self.wait_for_eq("select_stage_false_out", 1, is_virtual=True)
+        self.wait_for_eq("select_seq_false_out", 1, is_virtual=True)
 
     def _verify_false_only_selects(self) -> None:
         self.log("Verifying false-only select branches")
@@ -526,3 +590,66 @@ class InlineBodies(ArcConsoleCase):
         self.log("Activating gated sequence select via trigger_4")
         self.writer.write("trigger_4", 1)
         self.wait_for_eq("select_gated_seq_out", 1, is_virtual=True)
+
+    def _verify_blocking_wait_race(self) -> None:
+        self.log("Activating blocking/wait race via trigger_5")
+        self.writer.write("trigger_5", 1)
+        self.wait_for_eq("race_first_out", 1, is_virtual=True)
+
+        self.log("Holding race_cond high; first stage must keep blocking")
+        self.writer.write("race_cond", 100.0)
+        sy.sleep(0.5)
+        blocked = self.read_tlm("race_first_out")
+        if blocked != 1:
+            self.fail(
+                f"race_first_out={blocked} while race_cond=100; the inline stage "
+                "should still be blocking the sequence"
+            )
+            return
+
+        self.log("Dropping race_cond low; condition exit should win the race")
+        self.writer.write("race_cond", 10.0)
+        self.wait_for_eq(
+            "race_first_out", 0, timeout=2 * sy.TimeSpan.SECOND, is_virtual=True
+        )
+
+        self.log("Second stage entered; only the wait{2s} backstop can exit it")
+        self.wait_for_eq("race_second_out", 1, is_virtual=True)
+        t_entry = sy.TimeStamp.now()
+        self.wait_for_eq(
+            "race_second_out", 0, timeout=4 * sy.TimeSpan.SECOND, is_virtual=True
+        )
+        elapsed = t_entry.span(sy.TimeStamp.now()).seconds
+        self.log(f"Wait backstop fired after {elapsed:.2f}s")
+        if elapsed < 1.5:
+            self.fail(
+                f"second stage exited in {elapsed:.2f}s but wait{{2s}} should not "
+                "fire before ~2s; the condition exit may have fired spuriously"
+            )
+            return
+
+    def _verify_reentry_deactivation(self) -> None:
+        self.log("Activating re-entry/deactivation cycle via trigger_6")
+        self.writer.write("trigger_6", 1)
+        self.wait_for_eq("reentry_fire_out", 1, is_virtual=True)
+
+        self.log("Dropping reentry_cond low; fire -> exit")
+        self.writer.write("reentry_cond", 10.0)
+        self.wait_for_eq("reentry_fire_out", 0, is_virtual=True)
+        self.wait_for_eq("reentry_exit_out", 1, is_virtual=True)
+
+        self.log("Driving reentry_cond high; exit -> fire re-runs the sub-sequence")
+        self.writer.write("reentry_cond", 150.0)
+        self.wait_for_eq("reentry_fire_out", 1, is_virtual=True)
+
+        self.log("Exit stage must be deactivated; its write must not re-apply")
+        self.writer.write("reentry_exit_out", 0)
+        sy.sleep(0.5)
+        exit_out = self.read_tlm("reentry_exit_out")
+        if exit_out != 0:
+            self.fail(
+                f"reentry_exit_out={exit_out} after manual reset while in the fire "
+                "stage; the exit stage's write is still applying, so the stage did "
+                "not fully deactivate on the backward transition"
+            )
+            return
