@@ -32,7 +32,7 @@ var _ = Describe("Recovery Interceptors", func() {
 				func(context.Context, any) (any, error) { panic("boom") },
 			)
 			Expect(status.Code(err)).To(Equal(codes.Internal))
-			Expect(err.Error()).To(ContainSubstring(recovery.ErrPanic.Error()))
+			Expect(err).To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 		})
 
 		It("should pass through a non-panicking handler", func() {
@@ -53,6 +53,7 @@ var _ = Describe("Recovery Interceptors", func() {
 				func(any, grpc.ServerStream) error { panic("boom") },
 			)
 			Expect(status.Code(err)).To(Equal(codes.Internal))
+			Expect(err).To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 		})
 	})
 })

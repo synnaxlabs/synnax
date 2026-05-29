@@ -67,7 +67,7 @@ var _ = Describe("Recovery", func() {
 					panic("super-secret internal detail")
 				},
 			))
-			Expect(err.Error()).ToNot(ContainSubstring("super-secret"))
+			Expect(err).ToNot(MatchError(ContainSubstring("super-secret")))
 		})
 
 		It("should pass through unmodified when no panic occurs", func() {
