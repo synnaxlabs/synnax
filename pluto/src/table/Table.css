@@ -163,6 +163,7 @@
 
     .pluto-table__cell {
         border: var(--pluto-border);
+        box-sizing: border-box;
         z-index: 5;
         position: relative;
         border-top: none;
@@ -171,15 +172,16 @@
         overflow: hidden;
 
         /*
-         * The inner content div is locked to the row's stored size so a cell
-         * whose content wants more vertical room (e.g. wrapped text) clips
-         * at the row's bottom instead of growing the row. Without this, the
-         * row's drag handle (positioned from rowYCursor + row.size) and the
-         * row's visible bottom border drift apart.
+         * Stored size goes on the <td> with box-sizing: border-box so the
+         * content div fills the rest and overflow clips at the row's bottom.
+         * border-box also absorbs the bottom border into the size, keeping the
+         * DOM row height in lockstep with the canvas's rowYCursor (which
+         * advances by row.size).
          */
         & > .pluto-table__cell__content {
             overflow: hidden;
             width: 100%;
+            height: 100%;
         }
         &::after {
             content: "";
