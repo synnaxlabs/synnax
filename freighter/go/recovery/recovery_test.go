@@ -74,11 +74,11 @@ var _ = Describe("Recovery", func() {
 			mc := newCollector()
 			oCtx := MustSucceed(mc.Exec(newContext(), freighter.FinalizerFunc(
 				func(c freighter.Context) (freighter.Context, error) {
-					c.Params.Set("handled", true)
+					c.Set("handled", true)
 					return c, nil
 				},
 			)))
-			Expect(oCtx.Params.GetDefault("handled", false)).To(BeTrue())
+			Expect(oCtx.GetDefault("handled", false)).To(BeTrue())
 		})
 	})
 
