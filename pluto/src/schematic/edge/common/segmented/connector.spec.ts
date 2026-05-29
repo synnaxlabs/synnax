@@ -448,6 +448,41 @@ describe("connector", () => {
       });
   });
 
+  describe("go-around routing is anchored to the node box", () => {
+    // The connection-line preview routes a "go around the node" segment via
+    // prepareNode, which reads the node's edge from the source/target boxes. When
+    // box.ZERO is supplied that edge resolves to the world origin instead of the node,
+    // so the segment's length scales with the node's absolute position and the preview
+    // shoots off-screen. With a real box the routing is translation-invariant.
+    const NODE_DIMS = { width: 40, height: 40 };
+    const buildProps = (offset: xy.XY): Segmented.BuildNew => ({
+      sourceOrientation: "right",
+      targetOrientation: "left",
+      sourcePos: xy.translate({ x: 540, y: 100 }, offset),
+      targetPos: xy.translate({ x: 400, y: 300 }, offset),
+      sourceBox: box.construct(xy.translate({ x: 500, y: 80 }, offset), NODE_DIMS),
+      targetBox: box.construct(xy.translate({ x: 360, y: 280 }, offset), NODE_DIMS),
+    });
+
+    it("produces the same shape regardless of the node's absolute position", () => {
+      const atOrigin = Segmented.createConnector(buildProps(xy.ZERO));
+      const farAway = Segmented.createConnector(buildProps({ x: 5000, y: 5000 }));
+      expect(farAway).toEqual(atOrigin);
+    });
+
+    it("anchors the go-around segment to the node and not the world origin", () => {
+      const withZeroBox = (offset: xy.XY): Segmented.Segment[] =>
+        Segmented.createConnector({
+          ...buildProps(offset),
+          sourceBox: box.ZERO,
+          targetBox: box.ZERO,
+        });
+      const near = withZeroBox(xy.ZERO);
+      const far = withZeroBox({ x: 5000, y: 5000 });
+      expect(far).not.toEqual(near);
+    });
+  });
+
   describe("dragging segments", () => {
     interface Spec {
       name: string;
