@@ -117,6 +117,8 @@ item at a time. Pressurization tests, startup routines, calibration procedures a
 follow this pattern.
 
 ```arc
+import time
+
 sequence main {
     // Pressurize
     1 -> press_vlv_cmd
@@ -129,7 +131,7 @@ sequence main {
 
     // Hold
     stage hold {
-        wait{30s} => next              // dwell complete
+        time.wait{30s} => next         // dwell complete
         tank_pressure > 700 => abort
         abort_btn => abort
     }
