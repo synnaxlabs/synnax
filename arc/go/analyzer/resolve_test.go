@@ -94,7 +94,7 @@ var _ = Describe("ResolveNodeTypes", func() {
 	It("Should skip edges with missing target input param", func() {
 		nodes := ir.Nodes{
 			{Key: "source", Type: "on", Outputs: types.Params{{Name: "output", Type: types.F64()}}},
-			{Key: "target", Type: "func", Inputs: types.Params{{Name: "value", Type: types.F64()}}},
+			{Key: "target", Type: "func", Inputs: types.Params{{Name: "value", Type: types.F64(), Value: float64(0)}}},
 		}
 		edges := ir.Edges{{
 			Source: ir.Handle{Node: "source", Param: "output"},

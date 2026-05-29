@@ -14,11 +14,15 @@ import (
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // ResolveNodeTypes checks type compatibility across edges, unifies the constraint
-// system, and applies substitutions to resolve concrete types in node inputs,
-// outputs, and config parameters.
+// system, applies substitutions to resolve concrete types in node inputs,
+// outputs, and config parameters, and verifies that every required input is
+// satisfied by an incoming edge. A required input is one whose parameter has no
+// default Value; leaving it unconnected would force the runtime to materialize a
+// series from a nil value, so it is rejected here as a diagnostic instead.
 func ResolveNodeTypes(
 	nodes ir.Nodes,
 	edges ir.Edges,
@@ -69,5 +73,28 @@ func ResolveNodeTypes(
 			nodes[idx].Config[j].Type = cs.ApplySubstitutions(p.Type)
 		}
 	}
-	return true
+	connected := set.New[ir.Handle]()
+	for _, edge := range edges {
+		connected.Add(edge.Target)
+	}
+	missingRequiredInput := false
+	for _, n := range nodes {
+		for _, p := range n.Inputs {
+			if p.Value != nil {
+				continue
+			}
+			if connected.Contains(ir.Handle{Node: n.Key, Param: p.Name}) {
+				continue
+			}
+			diag.Add(diagnostics.Errorf(
+				nil,
+				"node '%s' (%s) missing required input '%s'",
+				n.Key,
+				n.Type,
+				p.Name,
+			))
+			missingRequiredInput = true
+		}
+	}
+	return !missingRequiredInput
 }

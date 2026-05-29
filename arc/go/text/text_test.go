@@ -144,25 +144,28 @@ var _ = Describe("Text", func() {
 
 	Describe("Analyze", func() {
 		It("Should correctly analyze a text-based arc program", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "in", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 100},
+			}
 			source := `
 			func add(a i64, b i64) i64 {
 			    return a + b
 			}
 
-			func adder{} (a i64, b i64) i64 {
-			    return a + b
+			func adder{} (a i64) i64 {
+			    return a
 			}
 
 			func print{} () {}
 
-			adder{} -> print{}`
+			in -> adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
-			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(inter.Functions).To(HaveLen(3))
-			Expect(inter.Nodes).To(HaveLen(2))
-			Expect(inter.Edges).To(HaveLen(1))
+			Expect(inter.Nodes).To(HaveLen(3))
+			Expect(inter.Edges).To(HaveLen(2))
 
 			f := inter.Functions[0]
 			Expect(f.Key).To(Equal("add"))
@@ -172,9 +175,8 @@ var _ = Describe("Text", func() {
 
 			s := inter.Functions[1]
 			Expect(s.Key).To(Equal("adder"))
-			Expect(s.Inputs).To(HaveLen(2))
+			Expect(s.Inputs).To(HaveLen(1))
 			Expect(s.Inputs[0].Type).To(Equal(types.I64()))
-			Expect(s.Inputs[1].Type).To(Equal(types.I64()))
 
 			n1 := findNodeByKey(inter.Nodes, "adder_0")
 			Expect(n1.Type).To(Equal("adder"))
@@ -651,6 +653,22 @@ sensor -> math.avg{} -> output`
 				Expect(diags.Ok()).To(BeFalse())
 			})
 
+			It("Should reject a flow node whose required input is never connected", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					{Name: "log", Kind: symbol.KindChannel, Type: types.WriteChan(types.String()), ID: 200},
+				}
+				// The juxtaposition `(1 > 0) select{}` never wires the comparison
+				// into select's selector, leaving select's required u8 input with
+				// no source. Previously this compiled and panicked at runtime when
+				// the node state tried to materialize a series from a nil value.
+				source := `trigger -> (1 > 0) select{} -> { true: "hello" + "!" -> log,}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diags.Ok()).To(BeFalse())
+				Expect(diags.String()).To(ContainSubstring("missing required input"))
+			})
+
 			It("Should emit deprecation warning for bare stable_for", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
@@ -978,7 +996,7 @@ time.wait{duration=500ms} -> output`
 
 				func sink{} () {}
 
-				transform{scale=SCALE, offset=OFFSET} -> sink{}`
+				0.0 -> transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1005,7 +1023,7 @@ time.wait{duration=500ms} -> output`
 
 				func sink{} () {}
 
-				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
+				0 -> filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1033,7 +1051,7 @@ time.wait{duration=500ms} -> output`
 
 				func sink{} () {}
 
-				clamp{max=MAX_VALUE} -> sink{}`
+				i32(0) -> clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1053,7 +1071,7 @@ time.wait{duration=500ms} -> output`
 
 				func sink{} () {}
 
-				transform{2.5, 0.1} -> sink{}`
+				0.0 -> transform{2.5, 0.1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1074,7 +1092,7 @@ time.wait{duration=500ms} -> output`
 
 				func sink{} () {}
 
-				controller{100.0} -> sink{}`
+				0.0 -> controller{100.0} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1258,7 +1276,12 @@ time.wait{duration=500ms} -> output`
 				Expect(channelNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
 			})
 
-			It("Should handle binary operator parameter names", func(ctx SpecContext) {
+			It("Should reject a multi-input function used as a bare flow node", func(ctx SpecContext) {
+				// A flow node receives a single value from its upstream, so a
+				// function with more than one required input cannot have all of
+				// its inputs sourced in flow form. The unconnected inputs are
+				// reported as diagnostics rather than producing IR that panics
+				// at runtime when materializing a series from a nil value.
 				source := `
 				func add{} (a i64, b i64) i64 {
 				    return a + b
@@ -1268,27 +1291,20 @@ time.wait{duration=500ms} -> output`
 
 				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				edge := inter.Edges[0]
-				srcNode := findNodeByKey(inter.Nodes, edge.Source.Node)
-				tgtNode := findNodeByKey(inter.Nodes, edge.Target.Node)
-
-				Expect(edge.Source.Param).To(Equal("output"))
-				Expect(srcNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
-
-				Expect(edge.Target.Param).To(Equal("value"))
-				Expect(tgtNode.Inputs.Has(edge.Target.Param)).To(BeTrue())
-
-				Expect(srcNode.Inputs).To(HaveLen(2))
-				Expect(srcNode.Inputs.Has("a")).To(BeTrue())
-				Expect(srcNode.Inputs.Has("b")).To(BeTrue())
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(SatisfyAll(
+					ContainSubstring("missing required input 'a'"),
+					ContainSubstring("missing required input 'b'"),
+				))
 			})
 		})
 
 		Context("Output Routing Tables", func() {
 			It("Should analyze simple output routing with multiple targets", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10101},
+				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
 				    if (value > threshold) {
@@ -1302,16 +1318,16 @@ time.wait{duration=500ms} -> output`
 
 				func logger{} (value f64) {}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: alarm{},
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
-				Expect(inter.Edges).To(HaveLen(2))
+				Expect(inter.Nodes).To(HaveLen(4))
+				Expect(inter.Edges).To(HaveLen(3))
 
 				demuxNode := findNodeByKey(inter.Nodes, "demux_0")
 				alarmNode := findNodeByKey(inter.Nodes, "alarm_0")
@@ -1333,6 +1349,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should handle routing with chained processing", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10102},
+				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
 				    if (value > threshold) {
@@ -1348,29 +1367,33 @@ time.wait{duration=500ms} -> output`
 
 				func display{} (value f64) {}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: amplify{} -> display{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
-				Expect(inter.Edges).To(HaveLen(2))
+				Expect(inter.Nodes).To(HaveLen(4))
+				Expect(inter.Edges).To(HaveLen(3))
 
-				edge0 := inter.Edges[0]
-				Expect(edge0.Source.Node).To(Equal("demux_0"))
-				Expect(edge0.Source.Param).To(Equal("high"))
-				Expect(edge0.Target.Node).To(Equal("amplify_0"))
+				demuxToAmplify := findEdgeBySourceParam(inter.Edges, "high")
+				Expect(demuxToAmplify.Source.Node).To(Equal("demux_0"))
+				Expect(demuxToAmplify.Target.Node).To(Equal("amplify_0"))
 
-				edge1 := inter.Edges[1]
-				Expect(edge1.Source.Node).To(Equal("amplify_0"))
-				Expect(edge1.Target.Node).To(Equal("display_0"))
+				var amplifyToDisplay ir.Edge
+				for _, e := range inter.Edges {
+					if e.Source.Node == "amplify_0" {
+						amplifyToDisplay = e
+					}
+				}
+				Expect(amplifyToDisplay.Target.Node).To(Equal("display_0"))
 			})
 
 			It("Should not create phantom output edges for void functions in routing branches", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10302},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -1385,7 +1408,7 @@ time.wait{duration=500ms} -> output`
 				    ch = ch + 1
 				}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: increment{ch=counter}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -1448,6 +1471,9 @@ time.wait{duration=500ms} -> output`
 			})
 
 			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10103},
+				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
 				    if (value > threshold) {
@@ -1461,17 +1487,18 @@ time.wait{duration=500ms} -> output`
 
 				func logger{} (value f64) {}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: alarm{},
 				    low: logger{}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Root.Strata).To(HaveLen(2))
-				Expect(inter.Root.Strata[0][0].Key()).To(Equal("demux_0"))
-				keys := lo.Map(inter.Root.Strata[1], func(m ir.Member, _ int) string {
+				Expect(inter.Root.Strata).To(HaveLen(3))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("on_signal_0"))
+				Expect(inter.Root.Strata[1][0].Key()).To(Equal("demux_0"))
+				keys := lo.Map(inter.Root.Strata[2], func(m ir.Member, _ int) string {
 					return m.Key()
 				})
 				Expect(keys).To(ContainElements("alarm_0", "logger_0"))
@@ -1531,6 +1558,7 @@ time.wait{duration=500ms} -> output`
 				resolver := []symbol.Symbol{
 					{Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10041},
 					{Name: "low_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10045},
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10046},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -1541,7 +1569,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: high_chan,
 				    low: low_chan
 				}`
@@ -1549,7 +1577,7 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
+				Expect(inter.Nodes).To(HaveLen(4))
 
 				writeCount := countNodesByType(inter.Nodes, "write")
 				Expect(writeCount).To(Equal(2))
@@ -2276,6 +2304,7 @@ time.wait{duration=500ms} -> output`
 			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10071},
+					{Name: "signal", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10072},
 				}
 				source := `
 				sequence alarm {
@@ -2290,7 +2319,7 @@ time.wait{duration=500ms} -> output`
 				    }
 				}
 
-				demux{threshold=100.0} -> {
+				signal -> demux{threshold=100.0} -> {
 				    high: alarm,
 				    low: high_chan
 				}`
@@ -2298,17 +2327,18 @@ time.wait{duration=500ms} -> output`
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// demux node + write node for the `low` branch. The `high`
-				// branch is a scope reference that becomes an activation.
-				Expect(inter.Nodes).To(HaveLen(2))
+				// on node for signal + demux node + write node for the `low`
+				// branch. The `high` branch is a scope reference that becomes
+				// an activation.
+				Expect(inter.Nodes).To(HaveLen(3))
 
 				demuxNode := findNodeByType(inter.Nodes, "demux")
 				writeNode := findNodeByType(inter.Nodes, "write")
 				Expect(writeNode.Channels.Write).To(HaveKey(uint32(10071)))
 
-				// Only the write edge exists; the `high` branch lands on
-				// alarm's scope activation.
-				Expect(inter.Edges).To(HaveLen(1))
+				// The signal->demux edge and the write edge exist; the `high`
+				// branch lands on alarm's scope activation.
+				Expect(inter.Edges).To(HaveLen(2))
 				alarm := findTopLevelScope(inter, "alarm")
 				Expect(alarm.Activation).ToNot(BeNil())
 				Expect(alarm.Activation.Node).To(Equal(demuxNode.Key))
@@ -3465,16 +3495,19 @@ time.wait{duration=500ms} -> output`
 
 	Describe("Compile", func() {
 		It("Should compile a simple arc program to WebAssembly", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "in", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 100},
+			}
 			source := `
-			func adder{} (a i64, b i64) i64 {
-			    return a + b
+			func adder{} (a i64) i64 {
+			    return a
 			}
 
 			func print{} () {}
 
-			adder{} -> print{}`
+			in -> adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			module := MustSucceed(text.Compile(ctx, ir))

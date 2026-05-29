@@ -212,33 +212,6 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 5B: Check Missing Required Inputs
-	for _, n := range g.Nodes {
-		freshType := freshFuncTypes[n.Key]
-		if freshType.Inputs == nil {
-			continue
-		}
-		connected := connectedInputs[n.Key]
-		for _, inputParam := range freshType.Inputs {
-			if !connected.Contains(inputParam.Name) {
-				// Check if this parameter has a default value (is optional)
-				if inputParam.Value == nil {
-					// Required parameter is missing
-					aCtx.Diagnostics.Add(diagnostics.Errorf(
-						nil,
-						"node '%s' (%s) missing required input '%s'",
-						n.Key,
-						n.Type,
-						inputParam.Name,
-					))
-				}
-			}
-		}
-	}
-	if !aCtx.Diagnostics.Ok() {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
 	// Step 6: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
