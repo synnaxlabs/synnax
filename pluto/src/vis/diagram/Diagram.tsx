@@ -268,6 +268,7 @@ export const create = ({
     onCopy,
     onPaste,
     onMouseMove,
+    onContextMenu,
     ...rest
   }: DiagramProps): ReactElement => {
     const [{ path }, , setState] = Aether.use({
@@ -511,6 +512,7 @@ export const create = ({
         onCopy={handleCopy}
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
+        onContextMenu={onContextMenu}
         tabIndex={-1}
       >
         <Context value={ctxValue}>
