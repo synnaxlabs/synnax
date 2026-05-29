@@ -141,13 +141,10 @@ export class Value
       return this.state.stalenessColor;
     }
 
-    // gray.l0 is the background the text renders on; gauge legibility against it.
+    // gray.l0 is the background the text renders on; gray.l11 is the
+    // high-contrast end of the scale, legible against it in both themes.
     const background = theme.colors.gray.l0;
-    const legible = color.pickByContrast(
-      background,
-      theme.colors.gray.l11,
-      theme.colors.gray.l0,
-    );
+    const legible = theme.colors.gray.l11;
     // Honor an explicit color unless it's illegible against the background.
     if (color.isZero(this.state.color)) return legible;
     if (color.contrast(background, this.state.color) < MIN_LEGIBLE_CONTRAST)
