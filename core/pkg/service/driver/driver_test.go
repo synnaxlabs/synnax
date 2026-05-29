@@ -783,8 +783,8 @@ var _ = Describe("Driver", func() {
 					return &mockTask{
 						key: t.Key,
 						execFunc: func(_ context.Context, cmd task.Command) error {
-							execCalled.Store(true)
 							receivedCmd.Store(cmd)
+							execCalled.Store(true)
 							return nil
 						},
 					}, nil

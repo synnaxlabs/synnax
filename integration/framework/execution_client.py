@@ -10,11 +10,14 @@
 import ctypes
 import random
 import threading
+import time
 import traceback
 from collections.abc import Callable
 from concurrent.futures import Future
+from pathlib import Path
 
 import synnax as sy
+from framework import run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, SynnaxConnection, Test
 from framework.test_case import TestCase
@@ -307,6 +310,13 @@ class ExecutionClient:
         else:
             test.range = None
 
+        # Set up this test's bundle directory and bind it to the current thread
+        # so that helpers like `resolve_results_path` route artifacts (trace,
+        # screenshots, exports) into it transparently.
+        bundle_dir = self._setup_bundle_dir(test)
+        log_start_offset = server_log.current_offset()
+        test.started_at = time.time()
+
         test_instance: TestCase | None = None
         try:
             test_class = self._config_client.load_test_class(test_def)
@@ -327,6 +337,10 @@ class ExecutionClient:
 
             test_instance.execute()
             test.status = test_instance._status
+            if test_instance._error_message is not None:
+                test.error_message = test_instance._error_message
+            if test_instance._error_traceback is not None:
+                test.error_traceback = test_instance._error_traceback
 
         except Exception as e:
             test.status = STATUS.FAILED
@@ -335,6 +349,10 @@ class ExecutionClient:
             self._log(f"Traceback: {traceback.format_exc()}", True)
 
         finally:
+            test.ended_at = time.time()
+            self._slice_server_log_if_failed(test, bundle_dir, log_start_offset)
+            run_dir.set_test_dir(None)
+
             if test.range is not None:
                 try:
                     test.range = self._finalize_range(test.range)
@@ -364,6 +382,36 @@ class ExecutionClient:
             self._on_status_change(test)
 
         return test
+
+    def _setup_bundle_dir(self, test: Test) -> Path | None:
+        """Create this test's bundle subdir and bind it to the current thread."""
+        run = run_dir.get_run_dir()
+        if run is None:
+            return None
+        slug = test.name or test.test_name.replace("/", "_")
+        bundle = run / "tests" / slug
+        run_dir.set_test_dir(bundle)
+        test.bundle_dir = str(bundle)
+        return bundle
+
+    def _slice_server_log_if_failed(
+        self,
+        test: Test,
+        bundle: Path | None,
+        start_offset: int | None,
+    ) -> None:
+        """Capture the server-log window for this test when it fails.
+
+        Passing tests skip slicing to avoid bloating the bundle with noise.
+        Slicing failures are silent. The trace and full server.log are still
+        sufficient to debug.
+        """
+        if bundle is None or start_offset is None:
+            return
+        if test.status not in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
+            return
+        end_offset = server_log.current_offset()
+        server_log.slice_to(bundle / "server.log", start_offset, end_offset)
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
         try:

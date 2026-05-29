@@ -259,7 +259,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Literal constant generation",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -689,7 +689,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -725,7 +726,8 @@ sensor -> stable.for{duration=1s} -> output`
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
-				statusModule := symbol.NewModule("status", symbol.Symbol{
+				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
+				statusModule.AddChild(&symbol.Symbol{
 					Name: "set",
 					Kind: symbol.KindFunction,
 					Exec: symbol.ExecFlow,
@@ -2209,7 +2211,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-					root := symbol.NewRoot(nil, stl.Symbols...)
+					root := symbol.NewRoot(nil, stl.NewSymbols())
 					for i := range chans {
 						s := chans[i]
 						root.Parent.AddChild(&s)
@@ -2943,11 +2945,10 @@ time.wait{duration=500ms} -> output`
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 			}
 			source := `
-			import error
 			func print{} () {
 			}
 
-			sensor -> error.panic{} -> print{}
+			sensor -> len{} -> print{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
@@ -3012,6 +3013,82 @@ time.wait{duration=500ms} -> output`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should omit inputs on an STL ExecBoth node whose upstream is a trigger", func(ctx SpecContext) {
+			bothType := types.Function(types.FunctionProperties{
+				Config: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+				Inputs: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "both",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
+				Type: bothType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.both")
+			Expect(n.Inputs).To(BeEmpty())
+			Expect(n.Config).To(HaveLen(3))
+		})
+
+		It("Should keep inputs on a user-defined function in a flow statement", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+			}
+			source := `
+			func handler{} (x u8) {
+			}
+			sensor -> handler{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "handler")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("x"))
+		})
+
+		It("Should keep inputs on an ExecFlow STL node in a flow statement", func(ctx SpecContext) {
+			sinkType := types.Function(types.FunctionProperties{
+				Inputs: types.Params{{Name: "value", Type: types.U8()}},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "sink",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: sinkType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.sink{}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.sink")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("value"))
 		})
 
 		It("Should allow time.now{} to write into a plain i64 channel", func(ctx SpecContext) {

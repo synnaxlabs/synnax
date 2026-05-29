@@ -1,5 +1,38 @@
 # Debugging the Driver
 
+## Crash Stack Traces
+
+The driver installs a crash handler at startup (`x::crash::install`) that writes a stack
+trace to stderr before the process dies. It covers fatal signals (SIGSEGV, SIGABRT,
+SIGILL, SIGFPE, SIGBUS on POSIX; unhandled structured exceptions on Windows) and
+unhandled C++ exceptions, printing the exception's `what()` message when available.
+Because stderr is where glog writes, the trace lands in the same place as the rest of
+the driver logs (including the service log file).
+
+The handler does not touch SIGINT or SIGTERM, which remain graceful-shutdown signals.
+Stack-overflow crashes are also covered: the handler runs on an alternate signal stack
+(POSIX) / with a reserved stack guarantee (Windows).
+
+### Resolving addresses
+
+Optimized release builds are stripped, so a field trace shows raw addresses with few or
+no symbol names. To turn those into file and line numbers, resolve them offline against
+a build that retains symbols.
+
+On Linux/macOS, build an unstripped binary and use `addr2line`:
+
+```bash
+bazel build -c dbg //driver
+addr2line -fCe bazel-bin/driver/driver 0x<address>
+```
+
+On Windows, load the matching `driver.pdb` (see below) into the debugger, or use the
+`#: name [0x<address>]` lines the handler already symbolizes when a `.pdb` is present
+alongside the executable.
+
+The `driver` binary is linked with `-rdynamic` on POSIX, so non-stripped builds resolve
+exported function names directly in the trace.
+
 ## Building with Debug Symbols
 
 ### Via GitHub Actions

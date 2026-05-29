@@ -1,0 +1,199 @@
+---
+title: "Version 0.56 Release Notes"
+---
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.56.0"
+    date="May 25, 2026"
+    title="Schematic and Arc improvements"
+>
+
+{/* TODO: add image */}
+
+Synnax v0.56 introduces a number of improvements to the Arc programming language and
+schematics, along with a number of bug fixes and performance improvements.
+
+### Arc
+
+#### Arc modules
+
+Modules have now been introduced to Arc to better name-space and organize the Arc
+standard library. Modules are now self-contained, composable units that can be imported
+and used in other modules. This reduces the number of names in the global namespace.
+
+```arc
+// previously
+func main() f64 {
+  t := now()
+  return t
+}
+
+// now
+
+import "time"
+
+func main() f64 {
+  t := time.now()
+  return t
+}
+```
+
+#### Format strings
+
+Format strings have been added to Arc to allow for string interpolation. This is done by
+prefixing the string with `f` and using `{expr}` placeholders.
+
+```arc
+f"The time is {time.now()}"
+```
+
+#### Statuses
+
+The `status` module has been added to Arc (previously, the `set_status` function). This
+module now allows for setting a status by name instead of just by key:
+
+```arc
+status.set("Engine 1 Health", "Low inlet pressure", "warning")
+```
+
+### Schematics
+
+Schematics have been refactored to support a number of type-safety, performance
+improvements, and bug fixes. There is now a `Schematic` type available in the TypeScript
+client library, and editing has been greatly improved to both reduce network load and
+allow for concurrent editing.
+
+#### Multi-user write contention
+
+With the [addition of auto-indexing](#auto-index-option-for-writers), schematics in the
+Synnax Console now generate timestamps on the server-side. This reduces some bugs when
+users have multiple schematics open at the same time and try to write to the same
+channel.
+
+#### Improved undo/redo
+
+The schematic's undo/redo support was previously functional, but buggy and inconsistent.
+We have refactored our undo/redo system to be more robust and more consistent.
+
+#### Concurrent editing
+
+Concurrent editing of schematics has been greatly improved to both reduce network load
+and bugs. This first iteration should easily allow for one user to edit a schematic and
+have the updates appear in real-time in another user's Console. In the future, we will
+be looking to add better support for real-time collaboration with features such as
+Google Docs-style history and per-user cursors.
+
+#### Off-page navigation
+
+The "Off-Page Reference" symbol has added a new field "Page" that allows you to select a
+different schematic in the same workspace to navigate to when the symbol is clicked.
+
+### Auto-Index Option for Writers
+
+Synnax now supports an `autoIndex` / `auto_index` option for writers. When this option
+is enabled, the Synnax Core will automatically generate timestamps for index channels
+that are not included in a write call. This is useful if you do not care about the
+precise timestamp of each sample, or you want a single-source-of-truth when several
+clients are writing to the same channel (e.g., actuating valves on a schematic).
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["temperature"],
+    auto_index=True,
+) as writer:
+    for i in range(100):
+        writer.write({"temperature": i * 0.1})
+        sy.sleep(0.1)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["temperature"],
+  autoIndex: true,
+});
+for (let i = 0; i < 100; i++) {
+  await writer.write("temperature", i * 0.1);
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Minor Improvements and Bug Fixes
+
+#### Core
+
+- Add option for auto-generating timestamps for writers (#2316)
+- Fix root user role assignment and refactor auth service (#2317)
+- Add support for server-side metadata import/export (#2205)
+- Use high performance codecs for iterators (#2272)
+- Update Freighter (Go) to allow for heterogeneous codecs (#2271)
+- Add schematic action codec and dispatch endpoint (#2290)
+- Strongly type schematics on the Core (#2283)
+- Filter host-leaseholder transactions in Aspen observable (#2265)
+
+#### Arc
+
+- Require module imports (#2332)
+- Fix type checking for select case body chains (#2338)
+- Fix formatting for top-level anonymous config values (#2343)
+- Add string formatting (#2310)
+- Enable `timeSpan` conversion to `uint64` (#2315)
+- Rename channel via rename in Arc context menu (#2329)
+- Enable backtick raw string literals (#2302)
+- Add string conversion support (#2298)
+- Enable writing `time.now()` to `timestamp` and `int64` (#2295)
+- Fix dot module notation (#2286)
+- Add dot module syntax (#2223)
+
+#### Console
+
+- Make Pluto controller use auto-indexing (#2341)
+- Add action-based undo/redo with server-synchronized dispatch (#2306)
+- Fix missing custom schematic symbol handling (#2330)
+- Fix "Tab Not Found" error when re-opening orphaned mosaic layouts (#2327)
+- Fix horizontal scrollbar for Arc sequences (#2326)
+- Migrate schematic component to Pluto-owned state (#2291)
+- Fix `float32` channel value display precision (#2299)
+- Refactor Flux to support React Suspense (#2312)
+- Improve TypeScript throttling and debouncing (#2307)
+- Render line breaks in logs (#2300)
+- Improve Aether rendering stability and performance (#2311)
+- Make `windowKey` optional in `Nav.Drawer` actions (#2313)
+- Improve mosaic tab rename synchronization (#2266)
+- Fix keyboard triggering - check for blocking modals (#2305)
+- Remove Console "Get Started" page (#2297)
+- Add Console `BigInt` display support (#2294)
+- Refactor schematic type reorganization and diagram optimizations (#2281)
+- Fix schematic keyboard triggering (#2287)
+- Improve `Haul` type safety (#2293)
+- Add Pluto Flux selector primitive (#2292)
+- Refactor spatial types for strongly typing visualizations (#2280)
+- Refactor telemetry control legend to use proper colors (#2279)
+- Add schematic off-page navigation (#2092)
+
+#### Client Libraries
+
+- Rename Python internal methods and attributes to single underscore prefix (#2335)
+
+</Release>

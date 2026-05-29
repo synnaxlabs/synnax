@@ -7,7 +7,7 @@ cc_library(
     hdrs = ["auth.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/api/grpc:api_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp/grpc",
         "//x/cpp/telem",
         "//x/cpp/uuid",

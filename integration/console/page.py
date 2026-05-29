@@ -20,7 +20,7 @@ from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 PageType = Literal[
     "Control Sequence",
@@ -325,7 +325,7 @@ class ConsolePage:
                 export_button.dispatch_event("click")
 
         download = download_info.value
-        save_path = get_results_path(f"{self.page_name}.json")
+        save_path = resolve_results_path(f"{self.page_name}.json")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)

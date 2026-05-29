@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The package is transport agnostic, defining freighter-compatible interfaces (via the
+// Transport struct) and service implementations (via the Layer struct) for all of its
+// services.
 package api
 
 import (
@@ -166,9 +166,10 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, types.Nil]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, types.Nil]
 	// STATUS
-	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete   freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete         freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
@@ -366,6 +367,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
@@ -517,6 +519,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(l.Status.Set)
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(l.Status.Delete)
+	t.StatusSetByKeyOrName.BindHandler(l.Status.SetByKeyOrName)
 
 	// VIEW
 	t.ViewCreate.BindHandler(l.View.Create)

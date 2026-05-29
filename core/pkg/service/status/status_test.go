@@ -353,6 +353,30 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("MatchNames", func() {
+			It("Should retrieve a status with a single name", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Status A")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Key).To(Equal("retrieve-a"))
+			})
+
+			It("Should retrieve statuses with multiple names", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Status A", "Status B")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(2))
+				for _, s := range statuses {
+					Expect(s.Name).To(SatisfyAny(Equal("Status A"), Equal("Status B")))
+				}
+			})
+
+			It("Should return empty when no statuses match name", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Nonexistent")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(BeEmpty())
+			})
+		})
+
 		Describe("MatchLabels", func() {
 			It("Should retrieve statuses that have any of the provided labels", func(ctx SpecContext) {
 				l := &label.Label{Name: "status-label-a"}

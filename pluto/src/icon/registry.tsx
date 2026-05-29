@@ -213,6 +213,8 @@ import {
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
   TbCircuitResistor,
+  TbColumnInsertLeft,
+  TbColumnInsertRight,
   TbDecimal,
   TbLetterE,
   TbLivePhoto,
@@ -220,6 +222,8 @@ import {
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbRowInsertBottom,
+  TbRowInsertTop,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -361,6 +365,16 @@ export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
+export const Insert = {
+  Row: {
+    Above: wrapSVGIcon(TbRowInsertTop, "insert-row-above"),
+    Below: wrapSVGIcon(TbRowInsertBottom, "insert-row-below"),
+  },
+  Col: {
+    Left: wrapSVGIcon(TbColumnInsertLeft, "insert-col-left"),
+    Right: wrapSVGIcon(TbColumnInsertRight, "insert-col-right"),
+  },
+};
 export const Wave = {
   Sawtooth: wrapSVGIcon(PiWaveSawtoothBold, "wave-sawtooth"),
   Sine: wrapSVGIcon(PiWaveSineBold, "wave-sine"),

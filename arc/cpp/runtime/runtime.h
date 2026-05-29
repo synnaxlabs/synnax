@@ -281,6 +281,16 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::selector::Module>(),
     };
 
+    // External factories that are also stl::Modules get bind_to here;
+    // StateConsumer opt-ins receive str_state first.
+    for (const auto &f: cfg.factories) {
+        if (auto m = std::dynamic_pointer_cast<stl::Module>(f)) {
+            if (auto sc = std::dynamic_pointer_cast<stl::strings::StateConsumer>(m))
+                sc->set_str_state(str_st);
+            stl_modules.push_back(m);
+        }
+    }
+
     wasm::ModuleConfig module_cfg{
         .program = cfg.program,
         .modules = stl_modules,

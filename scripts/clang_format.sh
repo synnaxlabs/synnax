@@ -25,35 +25,21 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
+jobs=$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 4)
+
 # Mode: --files for explicit file list, otherwise directory mode
 if [ "$1" = "--files" ]; then
-    # File list mode: format the provided files directly
     shift
     if [ "$#" -eq 0 ]; then
         echo "No files provided."
         exit 0
     fi
-
-    formatted_count=0
-    for file in "$@"; do
-        if [ ! -f "$file" ]; then
-            echo "Warning: File '$file' does not exist, skipping..."
-            continue
-        fi
-        echo "Formatting $file..."
-        clang-format -i "$file"
-        if [ $? -eq 0 ]; then
-            formatted_count=$((formatted_count + 1))
-        else
-            echo "Warning: Failed to format $file"
-        fi
-    done
-
-    echo "Completed! Formatted $formatted_count files."
+    printf '%s\n' "$@" | xargs -P "$jobs" -n 32 clang-format -i
+    echo "Completed! Formatted $# files."
     exit 0
 fi
 
-# Directory mode: original behavior
+# Directory mode
 path="$1"
 
 # Check if the provided path exists and is a directory
@@ -62,7 +48,9 @@ if [ ! -d "$path" ]; then
     exit 1
 fi
 
-# Find all .cpp, .hpp, .h, and .cc files in the directory
+# Find all .cpp, .hpp, .h, and .cc files in the directory. Excluded files are handled
+# by clang-format itself via the root .clang-format-ignore file, so we don't filter
+# them here.
 files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" | grep -v "vendor/")
 
 # Exit successfully if no files were found
@@ -71,47 +59,10 @@ if [ -z "$files" ]; then
     exit 0
 fi
 
-# Use the root .clang-format-ignore file
-ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
+count=$(echo "$files" | wc -l | tr -d '[:space:]')
 
-# Create a temporary file to store filtered files
-declare -a files_to_format=()
+# Format in parallel batches. clang-format skips files matched by .clang-format-ignore.
+echo "$files" | sed "s|^|$path/|" | xargs -P "$jobs" -n 32 clang-format -i
 
-while IFS= read -r file; do
-    should_format=true
-
-    while IFS= read -r pattern || [ -n "$pattern" ]; do
-        # Skip empty lines and comments
-        [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
-
-        # Clean up pattern
-        pattern=$(echo "$pattern" | tr -d '[:space:]')
-        filename=$(basename "$file")
-
-        if [[ "$filename" == "$pattern" ]]; then
-            echo "Skipping $file (ignored by pattern $pattern)..."
-            should_format=false
-            break
-        fi
-    done < "$ignore_file"
-
-    if [ "$should_format" = true ]; then
-        files_to_format+=("$file")
-    fi
-done <<< "$files"
-
-# Format all files and report
-formatted_count=0
-for file in "${files_to_format[@]}"; do
-    fullpath="$path/$file"
-    echo "Formatting $file..."
-    clang-format -i "$fullpath"
-    if [ $? -eq 0 ]; then
-        formatted_count=$((formatted_count + 1))
-    else
-        echo "Warning: Failed to format $file"
-    fi
-done
-
-echo "Completed! Formatted $formatted_count files."
+echo "Completed! Formatted up to $count files."
 exit 0

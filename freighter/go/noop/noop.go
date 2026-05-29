@@ -15,26 +15,21 @@ import (
 	"github.com/synnaxlabs/freighter"
 )
 
-type UnaryServer[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
+type UnaryServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 
 var _ freighter.UnaryServer[any, any] = (*UnaryServer[any, any])(nil)
 
-func (s UnaryServer[RQ, RS]) Use(middleware ...freighter.Middleware) {
-}
+func (UnaryServer[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (s UnaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, req RQ) (res RS, err error)) {
-}
+func (UnaryServer[RQ, RS]) BindHandler(func(context.Context, RQ) (RS, error)) {}
 
-type StreamServer[RQ, RS freighter.Payload] struct {
-	freighter.Reporter
-}
+type StreamServer[RQ, RS freighter.Payload] struct{ freighter.Reporter }
 
 var _ freighter.StreamServer[any, any] = (*StreamServer[any, any])(nil)
 
-func (s StreamServer[RQ, RS]) Use(middleware ...freighter.Middleware) {
-}
+func (StreamServer[RQ, RS]) Use(...freighter.Middleware) {}
 
-func (s StreamServer[RQ, RS]) BindHandler(handle func(ctx context.Context, stream freighter.ServerStream[RQ, RS]) (err error)) {
+func (StreamServer[RQ, RS]) BindHandler(
+	func(context.Context, freighter.ServerStream[RQ, RS]) error,
+) {
 }
