@@ -25,16 +25,7 @@ import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import {
-  selectEditable,
-  useSelectAuthority,
-  useSelectControlStatus,
-  useSelectEditable,
-  useSelectFitViewOnResize,
-  useSelectLegend,
-  useSelectSelected,
-  useSelectViewport,
-} from "@/schematic/selectors";
+import { selectEditable, useSelect } from "@/schematic/selectors";
 import {
   setEditable,
   setFitViewOnResize,
@@ -50,13 +41,15 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const dispatch = useDispatch();
-  const editable = useSelectEditable(key);
-  const viewport = useSelectViewport(key);
-  const controlStatus = useSelectControlStatus(key);
-  const selected = useSelectSelected(key);
-  const legend = useSelectLegend(key);
-  const authority = useSelectAuthority(key);
-  const fitViewOnResize = useSelectFitViewOnResize(key);
+  const {
+    editable,
+    viewport,
+    controlStatus,
+    selected,
+    legend,
+    authority,
+    fitViewOnResize,
+  } = useSelect(key);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(key)) && !isSnapshot;
