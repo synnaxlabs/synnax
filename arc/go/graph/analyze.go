@@ -193,20 +193,17 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]set.Set[string])
+	// Step 5A: Check for Duplicate Edge Targets
+	targets := set.New[ir.Handle]()
 	for _, edge := range g.Edges {
-		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(set.Set[string])
-		}
-		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
+		if targets.Contains(edge.Target) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
+		targets.Add(edge.Target)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
