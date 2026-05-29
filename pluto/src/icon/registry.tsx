@@ -215,6 +215,7 @@ import {
   TbCircuitResistor,
   TbColumnInsertLeft,
   TbColumnInsertRight,
+  TbColumnRemove,
   TbDecimal,
   TbLetterE,
   TbLivePhoto,
@@ -224,6 +225,7 @@ import {
   TbRadarFilled,
   TbRowInsertBottom,
   TbRowInsertTop,
+  TbRowRemove,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -264,7 +266,10 @@ export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
 export const View = wrapSVGIcon(IoTvOutline, "view");
-export const Delete = wrapSVGIcon(AiFillDelete, "delete");
+export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
+  Row: wrapSVGIcon(TbRowRemove, "delete-row"),
+  Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
+});
 export const Time = wrapSVGIcon(IoTime, "time");
 export const TimeOutline = wrapSVGIcon(MdAccessTime, "time-outline");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");

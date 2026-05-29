@@ -157,7 +157,7 @@ export const DefaultContextMenu = ({
             itemKey="deleteRow"
             onClick={() => onRemoveRow(targetRowIndices)}
           >
-            <Icon.Delete />
+            <Icon.Delete.Row />
             {targetRowIndices.length > 1
               ? `Delete ${targetRowIndices.length} rows`
               : `Delete row ${rowIdx + 1}`}
@@ -170,7 +170,7 @@ export const DefaultContextMenu = ({
           itemKey="deleteCol"
           onClick={() => onRemoveCol(targetColIndices)}
         >
-          <Icon.Delete />
+          <Icon.Delete.Col />
           {targetColIndices.length > 1
             ? `Delete ${targetColIndices.length} columns`
             : `Delete column ${getCellColumn(colIdx)}`}
