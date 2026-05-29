@@ -75,6 +75,10 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
+          "case": "arc/inline_bodies",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/backward_jump",
           "parameters": { "rack_key": [65537, 65538] }
         },
