@@ -26,8 +26,6 @@ func TreePrefix(last bool) string {
 	return "├── "
 }
 
-// treeIndent returns the indent for children of a tree item. If last is true, returns "
-// ", otherwise "│   ".
 func treeIndent(last bool) string {
 	if last {
 		return "    "
