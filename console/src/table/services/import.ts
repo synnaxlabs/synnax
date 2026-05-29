@@ -9,7 +9,6 @@
 
 import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/table/layout";
@@ -47,7 +46,7 @@ export const ingest: Import.FileIngester = async (
     throw new Error("You do not have permission to import tables");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.tables.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const created = await client.tables.create(workspaceKey, newPayload);
   store.tables.set(created.key, created);
   placeLayout(
     create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),

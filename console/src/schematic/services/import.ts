@@ -9,7 +9,6 @@
 
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/layout";
@@ -46,7 +45,7 @@ export const ingest: Import.FileIngester = async (
     throw new Error("You do not have permission to import schematics");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.schematics.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const created = await client.schematics.create(workspaceKey, newPayload);
   const { key, name } = created;
   store.schematics.set(key, created);
   placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
