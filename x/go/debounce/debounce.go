@@ -37,7 +37,7 @@ type Config struct {
 	// Clock is the time source used both for MaxDelay tracking and for scheduling the
 	// trailing-edge timer.
 	//
-	// [OPTIONAL] - defaults to xtime.Real{}.
+	// [OPTIONAL] - defaults to xtime.Real.
 	Clock xtime.Clock
 	// Callback is invoked in a new goroutine each time the debouncer fires. Its context
 	// is cancelled if Trigger or Stop is called while it is still running.
