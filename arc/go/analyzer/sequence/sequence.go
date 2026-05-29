@@ -10,8 +10,13 @@
 package sequence
 
 import (
+	"strconv"
+	"strings"
+
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -30,6 +35,118 @@ func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 			collectTopLevelStage(context.Child(ctx, stageDecl), ctx.Scope)
 		}
 	}
+	desugarInlineDecls(ctx)
+}
+
+// desugarInlineDecls registers a synth scope under the lexically enclosing
+// scope for each anonymous inline stage/sequence body used as a flow target.
+func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
+	counter := 0
+	var walk func(enclosing *symbol.Symbol, node antlr.Tree)
+	walk = func(enclosing *symbol.Symbol, node antlr.Tree) {
+		if fn, ok := node.(parser.IFlowNodeContext); ok {
+			var decl antlr.ParserRuleContext
+			if s := fn.StageDeclaration(); s != nil {
+				decl = s
+			} else if s := fn.SequenceDeclaration(); s != nil {
+				decl = s
+			}
+			if decl != nil {
+				if synth := registerInlineBody(ctx, enclosing, decl, &counter); synth != nil {
+					walk(synth, decl)
+				}
+				return
+			}
+		}
+		next := enclosing
+		switch node.(type) {
+		case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
+			if c, err := enclosing.GetChildByParserRule(node.(antlr.ParserRuleContext)); err == nil {
+				next = c
+			}
+		}
+		for i := 0; i < node.GetChildCount(); i++ {
+			walk(next, node.GetChild(i))
+		}
+	}
+	walk(ctx.Scope, ctx.AST)
+}
+
+// registerInlineBody registers a synth scope under parentScope for an inline
+// routing case body; named bodies emit a diagnostic and return nil.
+func registerInlineBody(
+	ctx context.Context[parser.IProgramContext],
+	parentScope *symbol.Symbol,
+	decl antlr.ParserRuleContext,
+	counter *int,
+) *symbol.Symbol {
+	var (
+		id   antlr.TerminalNode
+		kind string
+	)
+	switch d := decl.(type) {
+	case parser.IStageDeclarationContext:
+		id, kind = d.IDENTIFIER(), "stages"
+	case parser.ISequenceDeclarationContext:
+		id, kind = d.IDENTIFIER(), "sequences"
+	}
+	if id != nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(decl,
+			"inline routing case body %s must be anonymous; remove name %q",
+			kind, id.GetText()))
+		return nil
+	}
+	synth, err := parentScope.Add(ctx, symbol.Symbol{
+		Name: ir.InlinePrefix + strconv.Itoa(*counter),
+		Kind: symbol.KindSequence,
+		Type: types.Sequence(),
+		AST:  decl,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, decl))
+		return nil
+	}
+	*counter++
+	switch d := decl.(type) {
+	case parser.IStageDeclarationContext:
+		if body := d.StageBody(); body != nil {
+			for _, item := range body.AllStageItem() {
+				if nested := item.SequenceDeclaration(); nested != nil {
+					collectSequenceDecl(context.Child(ctx, nested), synth)
+				}
+			}
+		}
+	case parser.ISequenceDeclarationContext:
+		for _, item := range d.AllSequenceItem() {
+			if stage := item.StageDeclaration(); stage != nil {
+				collectStageDecl(context.Child(ctx, stage), synth)
+			}
+			if nested := item.SequenceDeclaration(); nested != nil {
+				collectSequenceDecl(context.Child(ctx, nested), synth)
+			}
+		}
+	}
+	return synth
+}
+
+// AnalyzeSynthInlines analyzes every synth inline scope in the tree; must run
+// after the top-level analyze loop so bodies can resolve forward references.
+func AnalyzeSynthInlines(ctx context.Context[parser.IProgramContext]) {
+	var walk func(parent *symbol.Symbol)
+	walk = func(parent *symbol.Symbol) {
+		for _, child := range parent.Children() {
+			if strings.HasPrefix(child.Name, ir.InlinePrefix) {
+				switch decl := child.AST.(type) {
+				case parser.IStageDeclarationContext:
+					AnalyzeTopLevelStage(context.Child(ctx, decl).WithScope(parent))
+				case parser.ISequenceDeclarationContext:
+					Analyze(context.Child(ctx, decl).WithScope(parent))
+				}
+			}
+			walk(child)
+		}
+	}
+	walk(ctx.Scope)
 }
 
 // collectSequenceDecl recursively registers a sequence and its children.
@@ -158,6 +275,15 @@ func collectTopLevelStage(
 	}
 	if name == "" {
 		stageScope.AutoName("stage_")
+	}
+	stageBody := ctx.AST.StageBody()
+	if stageBody == nil {
+		return
+	}
+	for _, item := range stageBody.AllStageItem() {
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			collectSequenceDecl(context.Child(ctx, nestedSeq), stageScope)
+		}
 	}
 }
 
