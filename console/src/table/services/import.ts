@@ -9,23 +9,34 @@
 
 import { DisconnectedError, table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { type record, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/table/layout";
 import { anyStateZ } from "@/table/slice";
 
-const parseImport = (data: unknown, fallbackName: string | undefined): table.New => {
-  const direct = table.tableZ.safeParse(data);
-  if (direct.success) {
-    const { key: _key, ...rest } = direct.data;
-    return { ...rest, name: fallbackName ?? rest.name };
+export const parseImport = (
+  data: unknown,
+  fallbackName: string | undefined,
+): table.New => {
+  // Legacy console-state exports are tried first because their schemas are strict: they
+  // require a version literal plus the console-only lastSelected / editable / layout
+  // fields, so a current typed export never matches and falls through to the direct
+  // branch. The typed tableZ is the opposite — it strips unknown keys and defaults rows
+  // / columns / cells to empty, so trying it first silently accepts a legacy file,
+  // drops its structural model, and yields a table with no rows or columns (a blank
+  // import).
+  if (typeof data === "object" && data != null) {
+    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
+    if (legacy.success) {
+      if (legacy.data.pendingUpload == null)
+        throw new Error("Imported table has no structural data");
+      const { key: _key, rows, columns, cells } = legacy.data.pendingUpload;
+      return { name: fallbackName ?? "Table", rows, columns, cells };
+    }
   }
-  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
-  if (legacy.pendingUpload == null)
-    throw new Error("Imported table has no structural data");
-  const { key: _key, rows, columns, cells } = legacy.pendingUpload;
-  return { name: fallbackName ?? "Table", rows, columns, cells };
+  const { key: _key, ...rest } = table.tableZ.parse(data);
+  return { ...rest, name: fallbackName ?? rest.name };
 };
 
 export const ingest: Import.FileIngester = async (
