@@ -2,28 +2,40 @@
 title: "Version 0.56 Release Notes"
 ---
 
+import { Fragment } from "react";
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
 <Release
     version="0.56.0"
-    date="May 25, 2026"
+    date="May 29, 2026"
     title="Schematic and Arc improvements"
 >
 
-{/* TODO: add image */}
+<Video
+  client:only="react"
+  id="releases/0-56-0/schematic-collaborative-editing"
+  themed={false}
+/>
 
-Synnax v0.56 introduces a number of improvements to the Arc programming language and
-schematics, along with a number of bug fixes and performance improvements.
+Synnax v0.56 brings real-time collaborative editing to schematics and tables, a set of
+improvements to the Arc programming language, and a collection of bug fixes and
+performance improvements across the platform.
+
+<Divider.Divider x />
 
 ### Arc
 
-#### Arc modules
+#### Modules
 
-Modules have now been introduced to Arc to better name-space and organize the Arc
-standard library. Modules are now self-contained, composable units that can be imported
+[Modules](/reference/control/arc/reference/standard-library) have now been introduced to
+Arc to better organize the Arc standard library. Modules are now self-contained,
+composable units that can be [imported](/reference/control/arc/reference/syntax#imports)
 and used in other modules. This reduces the number of names in the global namespace.
 
 ```arc
@@ -34,8 +46,7 @@ func main() f64 {
 }
 
 // now
-
-import "time"
+import time
 
 func main() f64 {
   t := time.now()
@@ -45,8 +56,9 @@ func main() f64 {
 
 #### Format strings
 
-Format strings have been added to Arc to allow for string interpolation. This is done by
-prefixing the string with `f` and using `{expr}` placeholders.
+[Format strings](/reference/control/arc/reference/syntax#format-strings) have been added
+to Arc to allow for string interpolation. This is done by prefixing the string with `f`
+and using `{expr}` placeholders.
 
 ```arc
 f"The time is {time.now()}"
@@ -54,44 +66,73 @@ f"The time is {time.now()}"
 
 #### Statuses
 
-The `status` module has been added to Arc (previously, the `set_status` function). This
-module now allows for setting a status by name instead of just by key:
+The [`status` module](/reference/control/arc/reference/standard-library/status) has been
+added to Arc (previously, the `set_status` function). This module now allows for setting
+a status by name instead of just by key:
 
 ```arc
 status.set("Engine 1 Health", "Low inlet pressure", "warning")
 ```
 
+<Divider.Divider x />
+
 ### Schematics
 
-Schematics have been refactored to support a number of type-safety, performance
-improvements, and bug fixes. There is now a `Schematic` type available in the TypeScript
-client library, and editing has been greatly improved to both reduce network load and
-allow for concurrent editing.
+Schematics have had a major overhaul centered on multi-user workflows. Editing is faster
+and lighter on the network, undo and redo are far more reliable, and multiple people can
+now edit the same schematic at once.
 
-#### Multi-user write contention
+#### Real-time collaboration
 
-With the [addition of auto-indexing](#auto-index-option-for-writers), schematics in the
-Synnax Console now generate timestamps on the server-side. This reduces some bugs when
-users have multiple schematics open at the same time and try to write to the same
-channel.
-
-#### Improved undo/redo
-
-The schematic's undo/redo support was previously functional, but buggy and inconsistent.
-We have refactored our undo/redo system to be more robust and more consistent.
-
-#### Concurrent editing
-
-Concurrent editing of schematics has been greatly improved to both reduce network load
-and bugs. This first iteration should easily allow for one user to edit a schematic and
-have the updates appear in real-time in another user's Console. In the future, we will
-be looking to add better support for real-time collaboration with features such as
+Multiple people can now edit the same schematic at the same time. Changes made by one
+person appear live in everyone else's Console, with no need to refresh. This is a first
+step toward richer collaboration, and we will be building on it with features like
 Google Docs-style history and per-user cursors.
+
+#### Smoother shared control
+
+Schematics now let the server generate timestamps as values are written, using the new
+[auto-indexing](#auto-index-option-for-writers) option. This clears up a class of
+glitches that could happen when several people had the same schematic open and were
+controlling the same channel at once.
+
+#### More reliable undo/redo
+
+Undo and redo on schematics were previously functional but inconsistent. They have been
+rebuilt to behave predictably, so stepping backward and forward through your edits now
+does exactly what you would expect.
 
 #### Off-page navigation
 
 The "Off-Page Reference" symbol has added a new field "Page" that allows you to select a
 different schematic in the same workspace to navigate to when the symbol is clicked.
+
+<Divider.Divider x />
+
+### Tables
+
+Tables received the same real-time collaboration and undo/redo improvements as
+schematics. Multiple people can now edit the same table at once and see each other's
+changes live, undo and redo behave predictably across every edit, and existing tables
+are upgraded to the new format automatically. Alongside those, we made several
+table-specific improvements.
+
+#### Editing multiple cells at once
+
+You can now select a range of cells and edit them together from the toolbar. Changing
+the cell type, color, or text style applies to the whole selection in a single step, and
+switching a cell between plain text and a live channel value preserves any settings the
+two share. We also fixed a number of issues with how cells render and how their contents
+are edited.
+
+#### Showing and hiding indicators
+
+The row and column indicators, the spreadsheet-style labels along the edges of the
+table, can now be hidden from the toolbar or the right-click menu. Hiding them gives a
+cleaner look for tables used as read-only displays, and they reappear automatically
+while editing so you can still navigate by cell.
+
+<Divider.Divider x />
 
 ### Auto-Index Option for Writers
 
@@ -125,13 +166,16 @@ with client.open_writer(
   <Fragment slot="typescript">
 
 ```typescript
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["temperature"],
-  autoIndex: true,
-});
-for (let i = 0; i < 100; i++) {
-  await writer.write("temperature", i * 0.1);
+try {
+  const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: ["temperature"],
+    autoIndex: true,
+  });
+
+  for (let i = 0; i < 100; i++) await writer.write("temperature", i * 0.1);
+} finally {
+  await writer.close();
 }
 ```
 
@@ -139,61 +183,43 @@ for (let i = 0; i < 100; i++) {
 
 </Client.Tabs>
 
+<Divider.Divider x />
+
 ### Minor Improvements and Bug Fixes
 
 #### Core
 
-- Add option for auto-generating timestamps for writers (#2316)
-- Fix root user role assignment and refactor auth service (#2317)
-- Add support for server-side metadata import/export (#2205)
-- Use high performance codecs for iterators (#2272)
-- Update Freighter (Go) to allow for heterogeneous codecs (#2271)
-- Add schematic action codec and dispatch endpoint (#2290)
-- Strongly type schematics on the Core (#2283)
-- Filter host-leaseholder transactions in Aspen observable (#2265)
+- Channel metadata can now be imported and exported from the server.
+- Equal-length binary operations on series now take a faster path, reducing CPU usage
+  for calculated channels and client-side series math.
+- Fixed root user role assignment so the root user is granted the correct permissions on
+  startup.
 
 #### Arc
 
-- Require module imports (#2332)
-- Fix type checking for select case body chains (#2338)
-- Fix formatting for top-level anonymous config values (#2343)
-- Add string formatting (#2310)
-- Enable `timeSpan` conversion to `uint64` (#2315)
-- Rename channel via rename in Arc context menu (#2329)
-- Enable backtick raw string literals (#2302)
-- Add string conversion support (#2298)
-- Enable writing `time.now()` to `timestamp` and `int64` (#2295)
-- Fix dot module notation (#2286)
-- Add dot module syntax (#2223)
+- Fixed type checking for chained `select` case bodies.
+- `timeSpan` values can now be converted to `uint64`.
+- `time.now()` can now be written to `timestamp` and `int64` channels.
+- Added backtick raw string literals and string conversion support.
+- Channels can be renamed directly from the Arc editor context menu.
 
 #### Console
 
-- Make Pluto controller use auto-indexing (#2341)
-- Add action-based undo/redo with server-synchronized dispatch (#2306)
-- Fix missing custom schematic symbol handling (#2330)
-- Fix "Tab Not Found" error when re-opening orphaned mosaic layouts (#2327)
-- Fix horizontal scrollbar for Arc sequences (#2326)
-- Migrate schematic component to Pluto-owned state (#2291)
-- Fix `float32` channel value display precision (#2299)
-- Refactor Flux to support React Suspense (#2312)
-- Improve TypeScript throttling and debouncing (#2307)
-- Render line breaks in logs (#2300)
-- Improve Aether rendering stability and performance (#2311)
-- Make `windowKey` optional in `Nav.Drawer` actions (#2313)
-- Improve mosaic tab rename synchronization (#2266)
-- Fix keyboard triggering - check for blocking modals (#2305)
-- Remove Console "Get Started" page (#2297)
-- Add Console `BigInt` display support (#2294)
-- Refactor schematic type reorganization and diagram optimizations (#2281)
-- Fix schematic keyboard triggering (#2287)
-- Improve `Haul` type safety (#2293)
-- Add Pluto Flux selector primitive (#2292)
-- Refactor spatial types for strongly typing visualizations (#2280)
-- Refactor telemetry control legend to use proper colors (#2279)
-- Add schematic off-page navigation (#2092)
+- Logs now render line breaks.
+- `float32` channel values now display with the correct precision, and large integers
+  display correctly as `BigInt` values.
+- The control legend now uses the correct telemetry colors.
+- Keyboard shortcuts no longer fire while a blocking modal is open, including in
+  schematics.
+- Renaming a mosaic tab now stays in sync across views, and re-opening an orphaned
+  mosaic layout no longer throws a "Tab Not Found" error.
+- Fixed missing custom schematic symbol handling and the horizontal scrollbar on Arc
+  sequences.
+- Removed the "Get Started" page.
 
-#### Client Libraries
+#### Client
 
-- Rename Python internal methods and attributes to single underscore prefix (#2335)
+- The TypeScript client now exposes strongly-typed `Schematic` and `Table` resources for
+  building custom tooling.
 
 </Release>
