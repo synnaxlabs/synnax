@@ -212,7 +212,12 @@ public:
             std::move(this->t.device_retrieve),
             std::move(this->t.device_delete)
         ),
-        statuses(this->t.status_retrieve, this->t.status_set, this->t.status_delete),
+        statuses(
+            this->t.status_retrieve,
+            this->t.status_set,
+            this->t.status_delete,
+            this->t.status_set_by_key_or_name
+        ),
         arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
         views(
             std::move(this->t.view_create),

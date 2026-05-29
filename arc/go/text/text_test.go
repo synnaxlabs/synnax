@@ -1679,6 +1679,600 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
+			It("Should emit an inline stage case body as a gated synth nested in its enclosing scope with Activation bound", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30001},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30002},
+					{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 30003},
+				}
+				source := `
+				func gate{} (value u8) (yes u8, no u8) {
+				    if (value > 0) {
+				        yes = 1
+				    } else {
+				        no = 1
+				    }
+				}
+
+				sequence main {
+				    stage hold {
+				        trigger -> gate{} -> {
+				            yes: stage {
+				                1 -> ch_a
+				                "fired" -> log
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
+				Expect(synth.Liveness).To(Equal(ir.LivenessGated))
+				Expect(synth.Activation).ToNot(BeNil())
+				Expect(synth.Activation.Param).To(Equal("yes"))
+			})
+
+			It("Should emit an inline sequence case body as a sequential synth nested in its enclosing scope", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30011},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30012},
+					{Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30013},
+				}
+				source := `
+				func gate{} (value u8) (yes u8, no u8) {
+				    if (value > 0) {
+				        yes = 1
+				    } else {
+				        no = 1
+				    }
+				}
+
+				sequence main {
+				    stage hold {
+				        trigger -> gate{} -> {
+				            yes: sequence {
+				                1 -> ch_a
+				                2 -> ch_b
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
+				Expect(synth.Mode).To(Equal(ir.ScopeModeSequential))
+				Expect(synth.Steps).To(HaveLen(2))
+			})
+
+			It("Should emit two distinct synths for two inline case bodies in the same table", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30021},
+					{Name: "yes_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30022},
+					{Name: "no_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30023},
+				}
+				source := `
+				func gate{} (value u8) (yes u8, no u8) {
+				    if (value > 0) {
+				        yes = 1
+				    } else {
+				        no = 1
+				    }
+				}
+
+				sequence main {
+				    stage hold {
+				        trigger -> gate{} -> {
+				            yes: stage { 1 -> yes_ch },
+				            no: stage { 1 -> no_ch }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				yesBody := findMember(*hold, "__inline_0").Scope
+				noBody := findMember(*hold, "__inline_1").Scope
+				params := []string{yesBody.Activation.Param, noBody.Activation.Param}
+				Expect(params).To(ConsistOf("yes", "no"))
+			})
+
+			It("Should emit only one synth when one entry is inline and another is a chain", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30031},
+					{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 30032},
+				}
+				source := `
+				func gate{} (value u8) (yes u8, no u8) {
+				    if (value > 0) {
+				        yes = 1
+				    } else {
+				        no = 1
+				    }
+				}
+
+				sequence main {
+				    stage hold {
+				        trigger -> gate{} -> {
+				            yes: stage { "yes_inline" -> log },
+				            no: "no_chain" -> log
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				hold := findMember(main, "hold").Scope
+				synth := findMember(*hold, "__inline_0").Scope
+				Expect(synth.Activation.Param).To(Equal("yes"))
+				inlineCount := 0
+				for _, stratum := range hold.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, ir.InlinePrefix) {
+							inlineCount++
+						}
+					}
+				}
+				Expect(inlineCount).To(Equal(1))
+			})
+
+			It("Should not wrap a top-level stage with inline routing in a synthetic Sequential scope", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11020},
+					{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 11021},
+				}
+				source := `
+				stage main {
+				    flag -> select{} -> {
+				        true: stage { "true_branch" -> log_str },
+				        false: stage { "false_branch" -> log_str }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(main.Steps).To(BeEmpty())
+				Expect(findMember(main, "__inline_0").Scope.Activation).ToNot(BeNil())
+				Expect(findMember(main, "__inline_1").Scope.Activation).ToNot(BeNil())
+			})
+
+			It("Should not emit a duplicate transition when inline routing sits directly in a sequence body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30061},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30062},
+				}
+				source := `
+				func gate{} (value u8) (yes u8, no u8) {
+				    if (value > 0) {
+				        yes = 1
+				    } else {
+				        no = 1
+				    }
+				}
+
+				sequence main {
+				    trigger -> gate{} -> {
+				        yes: stage { 1 -> ch_a }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				perHandle := map[ir.Handle]int{}
+				for _, t := range main.Transitions {
+					perHandle[t.On]++
+				}
+				for h, n := range perHandle {
+					Expect(n).To(Equal(1),
+						"handle %+v must carry exactly one transition, found %d", h, n)
+				}
+			})
+
+			It("Should not auto-advance the enclosing sequence when inline routing fires", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30071},
+					{Name: "inline_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30072},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30073},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> select{} -> {
+				            true: stage { 1 -> inline_out }
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				for _, t := range main.Transitions {
+					if strings.HasPrefix(t.On.Node, "select") {
+						Fail("inline routing must not register a transition on main; " +
+							"completion of select must not auto-advance to 'second'")
+					}
+				}
+			})
+
+			It("Should preserve activation on a named top-level stage with an inline case body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11025},
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11026},
+					{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 11027},
+				}
+				source := `
+				trigger => main
+
+				stage main {
+				    flag -> select{} -> {
+				        true: stage { "true_branch" -> log_str },
+				        false: stage { "false_branch" -> log_str }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Activation).ToNot(BeNil(),
+					"named top-level stage must keep its trigger activation")
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+			})
+
+			It("Should emit an inline stage flow target as a gated synth root sibling with Activation bound", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31001},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31002},
+					{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 31003},
+				}
+				source := `
+				trigger -> stage {
+				    1 -> ch_a
+				    "fired" -> log
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var synth *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
+							synth = m.Scope
+						}
+					}
+				}
+				Expect(synth).ToNot(BeNil(),
+					"inline flow target must surface as a root-level synth sibling")
+				Expect(synth.Liveness).To(Equal(ir.LivenessGated),
+					"synth inline must be gated by its activation handle")
+				Expect(synth.Activation).ToNot(BeNil(),
+					"synth inline must have an Activation handle bound")
+				Expect(synth.Activation.Node).ToNot(BeEmpty(),
+					"activation must fire on the upstream source's output node")
+			})
+
+			It("Should emit an inline sequence flow target as a sequential synth sibling", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31011},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31012},
+					{Name: "ch_b", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31013},
+				}
+				source := `
+				trigger -> sequence {
+				    1 -> ch_a
+				    2 -> ch_b
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var synth *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
+							synth = m.Scope
+						}
+					}
+				}
+				Expect(synth).ToNot(BeNil())
+				Expect(synth.Mode).To(Equal(ir.ScopeModeSequential))
+				Expect(synth.Steps).To(HaveLen(2),
+					"inline sequence with 2 flow statements must expose 2 sequential steps")
+			})
+
+			It("Should emit two distinct synth siblings for two inline flow targets in the same scope", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31021},
+					{Name: "other", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31022},
+					{Name: "yes_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31023},
+					{Name: "no_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31024},
+				}
+				source := `
+				trigger -> stage { 1 -> yes_ch }
+				other -> stage { 1 -> no_ch }`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var synths []*ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
+							synths = append(synths, m.Scope)
+						}
+					}
+				}
+				Expect(synths).To(HaveLen(2),
+					"each inline flow target must produce a distinct synth sibling")
+				Expect(synths[0].Key).ToNot(Equal(synths[1].Key))
+				Expect(synths[0].Activation).ToNot(BeNil())
+				Expect(synths[1].Activation).ToNot(BeNil())
+				Expect(synths[0].Activation.Node).ToNot(Equal(synths[1].Activation.Node),
+					"each synth must be gated by its own source's output")
+			})
+
+			It("Should emit only one synth sibling when one flow statement is inline and another is a plain chain", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31031},
+					{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31032},
+					{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 31033},
+				}
+				source := `
+				trigger -> stage { "yes_inline" -> log }
+				trigger -> sink`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				var synths []*ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "__inline_") {
+							synths = append(synths, m.Scope)
+						}
+					}
+				}
+				Expect(synths).To(HaveLen(1),
+					"only the inline flow target must produce a synth sibling")
+				Expect(synths[0].Activation).ToNot(BeNil())
+			})
+
+			It("Should not wrap a top-level stage with inline flow targets in a synthetic Sequential scope", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31041},
+					{Name: "other", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31042},
+					{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 31043},
+				}
+				source := `
+				stage main {
+				    flag -> stage { "true_branch" -> log_str }
+				    other -> stage { "false_branch" -> log_str }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Mode).To(Equal(ir.ScopeModeParallel))
+				Expect(main.Steps).To(BeEmpty())
+				Expect(findMember(main, "__inline_0").Scope.Activation).ToNot(BeNil())
+				Expect(findMember(main, "__inline_1").Scope.Activation).ToNot(BeNil())
+			})
+
+			It("Should not emit a duplicate transition when an inline flow target sits directly in a sequence body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31051},
+					{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31052},
+				}
+				source := `
+				sequence main {
+				    trigger -> stage { 1 -> ch_a }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				perHandle := map[ir.Handle]int{}
+				for _, t := range main.Transitions {
+					perHandle[t.On]++
+				}
+				for h, n := range perHandle {
+					Expect(n).To(Equal(1),
+						"handle %+v must carry exactly one transition, found %d", h, n)
+				}
+			})
+
+			It("Should not auto-advance the enclosing sequence when an inline flow target fires", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31061},
+					{Name: "inline_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31062},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31063},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> stage { 1 -> inline_out }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Transitions).To(BeEmpty(),
+					"inline flow target completion must not register a transition on main; "+
+						"'second' must not auto-advance")
+			})
+
+			It("Should preserve activation on a named top-level stage with an inline flow target", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31071},
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31072},
+					{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 31073},
+				}
+				source := `
+				trigger => main
+
+				stage main {
+				    flag -> stage { "true_branch" -> log_str }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Activation).ToNot(BeNil(),
+					"named top-level stage must keep its trigger activation")
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+			})
+
+			It("Should emit a distinct gated synth for each body when inline flow targets are nested", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31081},
+					{Name: "inner_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31082},
+				}
+				source := `
+				trigger -> stage {
+				    1 -> stage { 1 -> inner_ch }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				outer := findMember(inter.Root, "__inline_0").Scope
+				inner := findMember(*outer, "__inline_1").Scope
+				for _, s := range []*ir.Scope{outer, inner} {
+					Expect(s.Liveness).To(Equal(ir.LivenessGated))
+					Expect(s.Activation).ToNot(BeNil())
+				}
+			})
+
+			It("Should reject `=> next` inside an inline routing case body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30081},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30082},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> select{} -> {
+				            true: stage {
+				                flag > 0 => next
+				            }
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeFalse(),
+					"`=> next` from an inline routing case body must be rejected")
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"'next' is not valid inside an inline routing case body"))
+			})
+
+			It("Should reject `=> next` that escapes an inline sequence routing case body", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30091},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 30092},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> select{} -> {
+				            true: sequence {
+				                flag > 0 => next
+				            }
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeFalse(),
+					"`=> next` escaping an inline sequence body must be rejected")
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"'next' is not valid inside an inline routing case body"))
+			})
+
+			It("Should reject `=> next` inside an inline stage flow target", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31081},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31082},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> stage {
+				            flag > 0 => next
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeFalse(),
+					"`=> next` from an inline stage flow target must be rejected")
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"'next' is not valid inside an inline routing case body"))
+			})
+
+			It("Should reject `=> next` that escapes an inline sequence flow target", func(ctx SpecContext) {
+				resolver := []symbol.Symbol{
+					{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31091},
+					{Name: "second_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 31092},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        flag -> sequence {
+				            flag > 0 => next
+				        }
+				    }
+				    stage second {
+				        1 -> second_out
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+				Expect(diagnostics.Ok()).To(BeFalse(),
+					"`=> next` escaping an inline sequence flow target must be rejected")
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"'next' is not valid inside an inline routing case body"))
+			})
+
 			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10071},
@@ -2239,6 +2833,108 @@ time.wait{duration=500ms} -> output`
 						{Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
 					},
 					"outside of a sequence",
+				),
+				Entry("next inside inline routing stage body",
+					`
+					sequence main {
+					    stage first {
+					        flag -> select{} -> {
+					            true: stage { 1 => next }
+					        }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
+				),
+				Entry("next on last step of inline routing sequence body",
+					`
+					sequence main {
+					    stage first {
+					        flag -> select{} -> {
+					            true: sequence {
+					                1 -> sink,
+					                2 => next
+					            }
+					        }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
+				),
+				Entry("next inside doubly-nested inline routing stage body",
+					`
+					sequence main {
+					    stage first {
+					        flag -> select{} -> {
+					            true: stage {
+					                flag -> select{} -> {
+					                    true: stage { 1 => next }
+					                }
+					            }
+					        }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
+				),
+				Entry("next inside inline stage flow target",
+					`
+					sequence main {
+					    stage first {
+					        flag -> stage { 1 => next }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
+				),
+				Entry("next on last step of inline sequence flow target",
+					`
+					sequence main {
+					    stage first {
+					        flag -> sequence {
+					            1 -> sink,
+					            2 => next
+					        }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
+				),
+				Entry("next inside doubly-nested inline stage flow target",
+					`
+					sequence main {
+					    stage first {
+					        flag -> stage {
+					            flag -> stage { 1 => next }
+					        }
+					    }
+					    stage second { 1 -> sink }
+					}`,
+					[]symbol.Symbol{
+						{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10082},
+						{Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10083},
+					},
+					"not valid inside an inline routing case body",
 				),
 			)
 		})
@@ -3013,6 +3709,82 @@ time.wait{duration=500ms} -> output`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should omit inputs on an STL ExecBoth node whose upstream is a trigger", func(ctx SpecContext) {
+			bothType := types.Function(types.FunctionProperties{
+				Config: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+				Inputs: types.Params{
+					{Name: "key_or_name", Type: types.String()},
+					{Name: "message", Type: types.String()},
+					{Name: "variant", Type: types.String()},
+				},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "both",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecBoth,
+				Type: bothType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.both")
+			Expect(n.Inputs).To(BeEmpty())
+			Expect(n.Config).To(HaveLen(3))
+		})
+
+		It("Should keep inputs on a user-defined function in a flow statement", func(ctx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+			}
+			source := `
+			func handler{} (x u8) {
+			}
+			sensor -> handler{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "handler")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("x"))
+		})
+
+		It("Should keep inputs on an ExecFlow STL node in a flow statement", func(ctx SpecContext) {
+			sinkType := types.Function(types.FunctionProperties{
+				Inputs: types.Params{{Name: "value", Type: types.U8()}},
+			})
+			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
+			mod.AddChild(&symbol.Symbol{
+				Name: "sink",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: sinkType,
+			})
+			root := NewRoot(nil, symbol.Symbol{
+				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,
+			})
+			root.Parent.AddChild(mod)
+			source := `import stub
+sensor -> stub.sink{}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diags := text.Analyze(ctx, parsedText, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			n := findNodeByType(inter.Nodes, "stub.sink")
+			Expect(n.Inputs).To(HaveLen(1))
+			Expect(n.Inputs[0].Name).To(Equal("value"))
 		})
 
 		It("Should allow time.now{} to write into a plain i64 channel", func(ctx SpecContext) {

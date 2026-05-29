@@ -82,7 +82,10 @@ Instead of a traditional, Python-based approach:
 
 ```python
 with synnax.open_streamer(["tank_pressure"]) as streamer:
-  with synnax.open_writer(["pressure_display"]) as writer:
+  with synnax.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["pressure_display"],
+  ) as writer:
     while True:
         frame = streamer.read()
         pressure = frame.channels["tank_pressure"]
@@ -114,6 +117,8 @@ item at a time. Pressurization tests, startup routines, calibration procedures a
 follow this pattern.
 
 ```arc
+import time
+
 sequence main {
     // Pressurize
     1 -> press_vlv_cmd
@@ -126,7 +131,7 @@ sequence main {
 
     // Hold
     stage hold {
-        wait{30s} => next              // dwell complete
+        time.wait{30s} => next         // dwell complete
         tank_pressure > 700 => abort
         abort_btn => abort
     }

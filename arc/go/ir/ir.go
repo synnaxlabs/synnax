@@ -52,6 +52,10 @@ import (
 	"github.com/samber/lo"
 )
 
+// InlinePrefix names the synthetic scopes lowered from inline stage/sequence flow
+// targets, so the analyzer can detect and resolve them by key.
+const InlinePrefix = "__inline_"
+
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
 		len(i.Nodes) == 0 &&

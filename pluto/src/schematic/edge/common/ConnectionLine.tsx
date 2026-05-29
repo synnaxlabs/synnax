@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import { type CSSProperties, type ReactElement } from "react";
 
@@ -21,6 +21,8 @@ const STYLE: CSSProperties = { strokeWidth: 2 };
 export const ConnectionLine = ({
   source,
   target,
+  sourceBox,
+  targetBox,
   status,
 }: Diagram.ConnectionLineProps): ReactElement => {
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
@@ -35,8 +37,8 @@ export const ConnectionLine = ({
     targetPos: target.position,
     sourceOrientation: source.orientation,
     targetOrientation: target.orientation,
-    sourceBox: box.ZERO,
-    targetBox: box.ZERO,
+    sourceBox,
+    targetBox,
   });
   const points = Segmented.segmentsToPoints(
     source.position,

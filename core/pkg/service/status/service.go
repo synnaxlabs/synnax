@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -20,14 +21,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	xstatus "github.com/synnaxlabs/x/status"
 	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -152,6 +156,69 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, t
 
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
+
+// ResolveKeyOrName returns all statuses matching keyOrName, preferring an exact key match
+// over name matches. Read-only; callers enforce access on and write the result.
+func (s *Service) ResolveKeyOrName(ctx context.Context, tx gorp.Tx, keyOrName string) ([]Status[any], error) {
+	if keyOrName == "" {
+		return nil, errors.Wrap(validate.ErrValidation, "key_or_name is required")
+	}
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	var st Status[any]
+	err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+	if err == nil {
+		return []Status[any]{st}, nil
+	}
+	if !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	var matches []Status[any]
+	if err = s.NewRetrieve().Where(MatchNames[any](keyOrName)).Entries(&matches).Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return matches, nil
+}
+
+// SetTarget builds the status a by-key-or-name set should write: the first match, or a
+// new UUID-keyed status named keyOrName when nothing matched, with the new fields applied.
+func SetTarget(matches []Status[any], keyOrName, message, variant string) Status[any] {
+	st := Status[any]{Key: uuid.NewString(), Name: keyOrName}
+	if len(matches) > 0 {
+		st = matches[0]
+	}
+	st.Message = message
+	st.Variant = xstatus.Variant(variant)
+	st.Time = telem.Now()
+	return st
+}
+
+// SetByKeyOrName updates the first status matching keyOrName by key or name, creating a new
+// status named keyOrName when none match. It returns the written key, reports multipleMatches
+// when more than one name matched, and returns a validate.ErrValidation for an unknown variant.
+func (s *Service) SetByKeyOrName(
+	ctx context.Context,
+	keyOrName, message, variant string,
+) (key string, multipleMatches bool, err error) {
+	// Check before opening a Tx
+	if !xstatus.Variant(variant).IsValid() {
+		return "", false, errors.Wrap(validate.ErrValidation, "invalid status variant")
+	}
+	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		matches, err := s.ResolveKeyOrName(ctx, tx, keyOrName)
+		if err != nil {
+			return err
+		}
+		st := SetTarget(matches, keyOrName, message, variant)
+		if err = s.NewWriter(tx).Set(ctx, &st); err != nil {
+			return err
+		}
+		key, multipleMatches = st.Key, len(matches) > 1
+		return nil
+	}); err != nil {
+		return "", false, err
+	}
+	return key, multipleMatches, nil
+}
 
 func NewWriter[D any](s *Service, tx gorp.Tx) Writer[D] {
 	return Writer[D]{

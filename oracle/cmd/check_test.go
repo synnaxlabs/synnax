@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,6 +108,9 @@ func buildOracleBinary() string {
 	}
 	dir := MustSucceed(os.MkdirTemp("", "oracle-bin"))
 	bin := filepath.Join(dir, "oracle")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	cmd.Dir = MustSucceed(findOracleModuleRoot())
 	out := MustSucceed(cmd.CombinedOutput())
