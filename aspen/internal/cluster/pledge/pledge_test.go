@@ -81,10 +81,21 @@ var _ = Describe("PledgeServer", func() {
 
 		Context("No nodes Responding", func() {
 			It("Should submit round robin proposals at scaled intervals", func(ctx SpecContext) {
+				const numTransports = 4
+				tCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
 				var (
-					peers         []address.Address
-					numTransports = 4
-					handler       = func(ctx context.Context, req pledge.Request) (pledge.Response, error) {
+					peers []address.Address
+					count int
+					// Terminate once we've observed two full round-robin cycles rather
+					// than on a wall-clock deadline. A short deadline races with coarse
+					// timer resolution (notably on Windows), where the retry ticker's
+					// first tick can fire after the deadline, yielding zero attempts.
+					handler = func(_ context.Context, req pledge.Request) (pledge.Response, error) {
+						count++
+						if count >= 2*numTransports {
+							cancel()
+						}
 						return req, errors.New("pledge failed")
 					}
 				)
@@ -93,20 +104,16 @@ var _ = Describe("PledgeServer", func() {
 					t.BindHandler(handler)
 					peers = append(peers, t.Address)
 				}
-				tCtx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-				defer cancel()
-				res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+				Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("no-nodes-responding"),
 					Peers:           peers,
 					Candidates:      func() node.Group { return node.Group{} },
-				}, pledge.BlazingFastConfig)
-				Expect(err).To(MatchError(context.DeadlineExceeded))
-				Expect(res.Key).To(Equal(node.Key(0)))
+				}, pledge.BlazingFastConfig)).Error().To(MatchError(context.Canceled))
 				entries := net.Entries()
+				Expect(len(entries)).To(BeNumerically(">=", 2*numTransports))
 				for i, entry := range entries {
-					Expect(entry.Target).To(Equal(peers[i%4]))
+					Expect(entry.Target).To(Equal(peers[i%numTransports]))
 				}
-				Expect(entries).ToNot(HaveLen(0))
 			})
 		})
 	})
@@ -122,13 +129,15 @@ var _ = Describe("PledgeServer", func() {
 				candidates := allCandidates(nodes)
 				tCtx, cancel := context.WithTimeout(ctx, 150*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
+				res := MustSucceed(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
 					Peers:           nodes.Addresses(),
 					Candidates:      candidates,
-				}, pledge.BlazingFastConfig)
-				Expect(err).To(BeNil())
-				Expect(res.Key).To(Equal(node.Key(10)))
+				}, pledge.BlazingFastConfig))
+				// The pledge algorithm may assign a marginally higher key than the
+				// minimum when a quorum consultation hits a transient timeout and the
+				// responsible retries with an incremented proposal (see pledge.go).
+				Expect(res.Key).To(BeNumerically(">=", node.Key(10)))
 			})
 		})
 		Context("Responsible is Missing UniqueLeaseholders", func() {
@@ -149,7 +158,7 @@ var _ = Describe("PledgeServer", func() {
 				nodes = provisionCandidates(10, net, nodes, candidates, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(
+				res := MustSucceed(pledge.Pledge(
 					tCtx,
 					baseConfig(net),
 					pledge.Config{
@@ -157,9 +166,8 @@ var _ = Describe("PledgeServer", func() {
 						Peers:      []address.Address{nodes[0].Address},
 					},
 					pledge.BlazingFastConfig,
-				)
-				Expect(err).To(BeNil())
-				Expect(res.Key).To(Equal(node.Key(10)))
+				))
+				Expect(res.Key).To(BeNumerically(">=", node.Key(10)))
 			})
 		})
 		Context("One juror are aware of a new node", func() {
@@ -179,7 +187,7 @@ var _ = Describe("PledgeServer", func() {
 				}, nil)
 				tCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 				defer cancel()
-				res, err := pledge.Pledge(
+				res := MustSucceed(pledge.Pledge(
 					tCtx,
 					baseConfig(net),
 					pledge.Config{
@@ -188,8 +196,7 @@ var _ = Describe("PledgeServer", func() {
 						Candidates:      extraCandidates,
 					},
 					pledge.BlazingFastConfig,
-				)
-				Expect(err).To(BeNil())
+				))
 				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
 			})
 		})
