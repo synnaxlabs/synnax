@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
-import { type ReactFlowInstance } from "@xyflow/react";
+import { type InternalNode, type ReactFlowInstance } from "@xyflow/react";
 
 import { type Diagram } from ".";
 
@@ -16,6 +16,16 @@ export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
   if (el == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
   return el as HTMLDivElement;
+};
+
+/// @returns the box, in flow coordinates, occupied by the given react-flow internal
+/// node. Returns box.ZERO when the node is null or has not been measured yet, which is
+/// the case for the connection target while the user is dragging over empty space.
+export const internalNodeBox = (node: InternalNode | null): box.Box => {
+  if (node == null) return box.ZERO;
+  const { width, height } = node.measured;
+  if (width == null || height == null) return box.ZERO;
+  return box.construct(node.internals.positionAbsolute, { width, height });
 };
 
 export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => {

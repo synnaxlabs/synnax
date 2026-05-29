@@ -67,7 +67,7 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
-import { calculateCursorPosition } from "@/vis/diagram/util";
+import { calculateCursorPosition, internalNodeBox } from "@/vis/diagram/util";
 
 export interface NodeProps {
   nodeKey: string;
@@ -229,6 +229,8 @@ export const create = ({
           connectionLineRenderer({
             source: diagram.createEndpoint(rf.fromX, rf.fromY, rf.fromPosition),
             target: diagram.createEndpoint(rf.toX, rf.toY, rf.toPosition),
+            sourceBox: internalNodeBox(rf.fromNode),
+            targetBox: internalNodeBox(rf.toNode),
             status: rf.connectionStatus,
             style: rf.connectionLineStyle ?? {},
           })
