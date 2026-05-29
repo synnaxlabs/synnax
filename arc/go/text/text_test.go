@@ -3514,6 +3514,22 @@ time.wait{duration=500ms} -> output`
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 
+		It("Should compile a function-only program with no flow statement", func(ctx SpecContext) {
+			// A function declaration compiles and exports to WASM on its own,
+			// without being referenced by a flow node. This includes multi-input
+			// functions, which cannot be expressed as a runnable flow node at all
+			// (a flow node receives a single upstream value). Callers that invoke
+			// the exported function directly (e.g. the C++ runtime test harness)
+			// rely on this instead of scaffolding an unconnected flow node.
+			source := `func pow_ff(base f64, exp f64) f64 { return base ^ exp }`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			module := MustSucceed(text.Compile(ctx, ir))
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+
 		It("Should compile function with channel config param assigned to intermediate variable", func(ctx SpecContext) {
 			// This is the exact user pattern that was failing:
 			// sp := set_point (where set_point is a chan f32 config param)
