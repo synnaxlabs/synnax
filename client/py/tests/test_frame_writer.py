@@ -104,6 +104,97 @@ class TestWriter:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
 
+    def test_auto_index_generates_timestamps_for_data_only_writer(
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+    ):
+        """Should generate timestamps for a writer opened with only a data channel
+        when auto_index is true."""
+        idx_ch, data_ch = indexed_pair
+        before = sy.TimeStamp.now()
+        with client.open_writer(
+            start=before, channels=[data_ch.key], auto_index=True
+        ) as w:
+            data = np.random.rand(4).astype(np.float64)
+            w.write({data_ch.key: data})
+            w.commit()
+        f = client.read(
+            sy.TimeRange(before, sy.TimeStamp.now() + sy.TimeSpan.SECOND), idx_ch.key
+        )
+        assert len(f) == 4
+
+    def test_auto_index_omitted_index_in_mixed_writer(
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+    ):
+        """Should auto-stamp the index when the caller opens with both index and data
+        channels but omits the index series from a write."""
+        idx_ch, data_ch = indexed_pair
+        before = sy.TimeStamp.now()
+        with client.open_writer(
+            start=before, channels=[idx_ch.key, data_ch.key], auto_index=True
+        ) as w:
+            data = np.random.rand(3).astype(np.float64)
+            w.write({data_ch.key: data})
+            w.commit()
+        f = client.read(
+            sy.TimeRange(before, sy.TimeStamp.now() + sy.TimeSpan.SECOND), idx_ch.key
+        )
+        assert len(f) == 3
+
+    def test_auto_index_mixes_user_provided_and_generated_in_one_writer(
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+    ):
+        """Should let a single writer alternate between user-provided and auto-stamped
+        index series across separate write calls."""
+        idx_ch, data_ch = indexed_pair
+        user_stamps = seconds_linspace(200, 2)
+        before_auto = sy.TimeStamp.now()
+        with client.open_writer(
+            start=200 * sy.TimeSpan.SECOND,
+            channels=[idx_ch.key, data_ch.key],
+            auto_index=True,
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: user_stamps,
+                    data_ch.key: np.random.rand(2).astype(np.float64),
+                }
+            )
+            w.write({data_ch.key: np.random.rand(3).astype(np.float64)})
+            w.commit()
+        user_f = client.read(
+            sy.TimeRange(200 * sy.TimeSpan.SECOND, 202 * sy.TimeSpan.SECOND), idx_ch.key
+        )
+        assert list(user_f) == user_stamps
+        auto_f = client.read(
+            sy.TimeRange(before_auto, sy.TimeStamp.now() + sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert len(auto_f) == 3
+
+    def test_auto_index_leaves_user_provided_index_untouched(
+        self, indexed_pair: list[sy.Channel], client: sy.Synnax
+    ):
+        """Should leave user-provided index timestamps exactly as written when
+        auto_index is enabled."""
+        idx_ch, data_ch = indexed_pair
+        expected = seconds_linspace(200, 3)
+        with client.open_writer(
+            start=200 * sy.TimeSpan.SECOND,
+            channels=[idx_ch.key, data_ch.key],
+            auto_index=True,
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: expected,
+                    data_ch.key: np.random.rand(3).astype(np.float64),
+                }
+            )
+            w.commit()
+        f = client.read(
+            sy.TimeRange(200 * sy.TimeSpan.SECOND, 203 * sy.TimeSpan.SECOND), idx_ch.key
+        )
+        assert list(f) == expected
+
     def test_write_auto_commit(self, indexed_pair: list[sy.Channel], client: sy.synnax):
         """Should open an auto-committing writer to write data that persists after 1s"""
         idx_ch, data_ch = indexed_pair
@@ -418,11 +509,7 @@ class TestWriter:
     ):
         """Should allow the caller to call close() as many times as they want"""
         idx_ch, data_ch = indexed_pair
-        w = client.open_writer(
-            start=1 * sy.TimeSpan.SECOND,
-            channels=indexed_pair,
-            use_experimental_codec=True,
-        )
+        w = client.open_writer(start=1 * sy.TimeSpan.SECOND, channels=indexed_pair)
         w.write(
             {
                 idx_ch.key: 2 * sy.TimeSpan.SECOND,

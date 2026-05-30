@@ -13,12 +13,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
@@ -33,7 +34,16 @@ import (
 // and use it throughout its lifecycle. To update the requested keys, the entity
 // should send a demand with variant Label, and to remove the demand, it should
 // send a demand with variant DeleteChannel.
-type demand = change.Change[address.Address, Request]
+type demand struct {
+	change.Change[address.Address, Request]
+	// ack, when non-nil, is closed by the tapper after it has fully applied this
+	// demand to all local taps. It lets a streamer block until the relay is
+	// actually filtering its channels in before acknowledging readiness, closing
+	// the window where a write could be dropped between open and the demand
+	// propagating. nil for demands that need no acknowledgment (deletes and
+	// mid-stream key reconfigurations).
+	ack chan struct{}
+}
 
 // tap is a tap into a relay, whether another node's distribution relay or the hosts
 // relay. It can receive updates for channels to stream, and sends frames it receives
@@ -61,7 +71,11 @@ type tapper struct {
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
 	// taps tracks the current taps we have open.
-	taps map[cluster.NodeKey]tapController
+	taps map[node.Key]tapController
+	// freeTap is the always-open tap for free (virtual) channel writes. It is held
+	// directly, rather than only through taps, so updateTaps can apply free-channel
+	// key updates synchronously and lock-free (see freeWriteTap.keys).
+	freeTap *freeWriteTap
 	Config
 }
 
@@ -69,7 +83,7 @@ func newTapper(config Config) confluence.Segment[demand, Response] {
 	t := &tapper{
 		Config:     config,
 		demands:    make(map[address.Address]channel.Keys),
-		taps:       make(map[cluster.NodeKey]tapController),
+		taps:       make(map[node.Key]tapController),
 		freeWrites: config.FreeWrites,
 	}
 	t.Sink = t.sink
@@ -81,18 +95,21 @@ func (t *tapper) sink(ctx context.Context, d demand) error {
 	nodeDemands := t.updateDemands(d)
 	// open/close any taps we need to in order to meet the new demands
 	t.updateTaps(ctx, nodeDemands)
+	if d.ack != nil {
+		close(d.ack)
+	}
 	return nil
 }
 
 // updateDemands modifies the current set of locations that the relay needs to stream
 // channel data from.
-func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
+func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	if d.Variant == change.VariantDelete {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys
 	}
-	nodeDemands := make(map[cluster.NodeKey]channel.Keys, len(t.taps))
+	nodeDemands := make(map[node.Key]channel.Keys, len(t.taps))
 	for _, d := range t.demands {
 		for _, k := range d {
 			nodeDemands[k.Lease()] = append(nodeDemands[k.Lease()], k)
@@ -104,7 +121,7 @@ func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
 // Flow starts the tapper goroutines, which listen for demands that update relevant
 // taps into remote nodes, the host time-series db, or the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	t.taps[cluster.NodeKeyFree], _ = t.tapInto(sCtx, cluster.NodeKeyFree, channel.Keys{})
+	t.taps[node.KeyFree], _ = t.tapInto(sCtx, node.KeyFree, channel.Keys{})
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
 		// runs before we close the inlet to the delta.
@@ -117,33 +134,45 @@ func (t *tapper) close() {
 	if len(t.taps) > 1 {
 		panic("[relay] - tapper closed with open taps")
 	}
-	if err := t.taps[cluster.NodeKeyFree].closer.Close(); err != nil {
+	if err := t.taps[node.KeyFree].closer.Close(); err != nil {
 		t.L.Error("failed to close free write tap", zap.Error(err))
 	}
 }
 
 func (t *tapper) updateTaps(
 	ctx context.Context,
-	nodeDemands map[cluster.NodeKey]channel.Keys,
+	nodeDemands map[node.Key]channel.Keys,
 ) {
+	// Apply free-channel keys synchronously and lock-free. This is what lets a
+	// streamer's readiness acknowledgment guarantee its demanded free channels are
+	// already being filtered in by the time the ack fires.
+	t.freeTap.setKeys(nodeDemands[node.KeyFree])
+
 	// Open any new taps we may need
-	for node, keys := range nodeDemands {
-		if _, ok := t.taps[node]; !ok && !node.IsFree() {
-			tc, err := t.tapInto(ctx, node, keys)
+	for nk, keys := range nodeDemands {
+		if nk.IsFree() {
+			continue
+		}
+		if _, ok := t.taps[nk]; !ok {
+			tc, err := t.tapInto(ctx, nk, keys)
 			if err != nil {
-				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(node)))
+				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(nk)))
 			} else {
-				t.taps[node] = tc
+				t.taps[nk] = tc
 			}
 		}
 	}
 
-	// Update or close any taps we don't need
+	// Update or close any non-free taps. The free tap is driven by setKeys above
+	// and is never opened or closed here.
 	for nk, tc := range t.taps {
+		if nk.IsFree() {
+			continue
+		}
 		if keys, ok := nodeDemands[nk]; ok {
 			// If we still need the tap, send the updated key set
 			tc.Inlet.Inlet() <- Request{Keys: keys}
-		} else if !nk.IsFree() {
+		} else {
 			// This does a hard shutdown on the tap, cancelling its context and causing
 			// it to immediately exit.
 			if err := tc.closer.Close(); err != nil {
@@ -157,7 +186,7 @@ func (t *tapper) updateTaps(
 
 func (t *tapper) tapInto(
 	ctx context.Context,
-	nodeKey cluster.NodeKey,
+	nodeKey node.Key,
 	keys channel.Keys,
 ) (tapController, error) {
 	var (
@@ -198,7 +227,7 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
 // over the given stream.
-func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap, error) {
+func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error) {
 	addr, err := t.HostResolver.Resolve(nodeKey)
 	if err != nil {
 		return nil, err
@@ -219,15 +248,26 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap,
 }
 
 func (t *tapper) tapIntoFreeWrites() (tap, error) {
-	return &freeWriteTap{freeWrites: t.freeWrites}, nil
+	f := &freeWriteTap{freeWrites: t.freeWrites}
+	t.freeTap = f
+	return f, nil
 }
 
 type freeWriteTap struct {
 	confluence.AbstractUnarySink[Request]
 	confluence.AbstractUnarySource[Response]
 	freeWrites confluence.Outlet[Response]
-	keys       channel.Keys
+	// keys is the set of free channels currently being filtered in. It is updated
+	// synchronously by the tapper (setKeys) and read on every free write, so it is
+	// an atomic pointer: the read path takes a single lock-free atomic load and the
+	// write path publishes a new slice without blocking the tapper. nil means no
+	// free channels are demanded yet, in which case all free writes are filtered out.
+	keys atomic.Pointer[channel.Keys]
 }
+
+// setKeys publishes the set of free channels the tap should filter in. It is safe
+// to call from the tapper goroutine concurrently with the tap's own read loop.
+func (f *freeWriteTap) setKeys(keys channel.Keys) { f.keys.Store(&keys) }
 
 func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
@@ -237,13 +277,18 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req, ok := <-f.In.Outlet():
+			case _, ok := <-f.In.Outlet():
+				// Free-channel keys are applied via setKeys, not through this inlet;
+				// we only watch it for closure.
 				if !ok {
 					return nil
 				}
-				f.keys = req.Keys
 			case req := <-f.freeWrites.Outlet():
-				req.Frame = req.Frame.KeepKeys(f.keys)
+				keys := f.keys.Load()
+				if keys == nil {
+					continue
+				}
+				req.Frame = req.Frame.KeepKeys(*keys)
 				if !req.Frame.Empty() {
 					f.Out.Inlet() <- req
 				}

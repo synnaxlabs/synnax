@@ -18,12 +18,12 @@ import (
 	"github.com/synnaxlabs/x/status"
 )
 
+// Key is a unique identifier for the device
+type Key = string
+
 // Status is device-specific status information including operational state and device
 // identification.
 type Status = status.Status[StatusDetails]
-
-// Key is the device's serial number, used as its unique identifier.
-type Key = string
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
@@ -31,7 +31,7 @@ type StatusDetails struct {
 	// Rack is the key of the rack this device belongs to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device is the device identifier.
-	Device string `json:"device" msgpack:"device"`
+	Device Key `json:"device" msgpack:"device"`
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.

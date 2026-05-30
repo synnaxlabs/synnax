@@ -41,6 +41,11 @@ export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 export interface CreateLayoutArgs extends Schematic.Symbol.FormQuery {
   parent?: ontology.ID;
   scale?: number;
+  /// createKey, when set on a create-mode open, forces the new symbol to be
+  /// persisted under this key. Used by the missing-symbol re-link flow so
+  /// that creating a replacement symbol heals every node that already
+  /// references the dangling key, without a manual re-link.
+  createKey?: string;
 }
 
 const CREATE_NAME = "Schematic.Create Symbol";
@@ -73,7 +78,7 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1001 };
 const DEFAULT_REGION_KEY = "default";
 
 export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const { key, parent } = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const { key, parent, createKey } = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
   const isCreate = key == null;
   const dispatch = useDispatch();
   const handleUnsavedChanges = useCallback(
@@ -89,6 +94,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
     onHasTouched: handleUnsavedChanges,
     initialValues: {
       version: 1,
+      key: createKey,
       name: "",
       parent: parent ?? ontology.ROOT_ID,
       data: {
@@ -272,7 +278,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
                     </Form.Field>
                     <Form.SwitchField
                       path="data.scaleStroke"
-                      label="Scale Stroke"
+                      label="Scale stroke"
                       align="start"
                     />
                   </Flex.Box>

@@ -43,7 +43,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_VIEW_LISTENER, DELETE_VIEW_LISTENER],
 };
 
-export interface ListQuery extends view.RetrieveMultipleParams {}
+export type ListQuery = view.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
@@ -121,10 +121,7 @@ const ZERO_VALUES = {
   type: "",
   query: {},
 };
-export interface FormQuery extends optional.Optional<
-  view.RetrieveSingleParams,
-  "key"
-> {}
+export type FormQuery = optional.Optional<view.RetrieveSingleParams, "key">;
 
 export const useForm = Flux.createForm<FormQuery, typeof view.newZ, FluxSubStore>({
   name: RESOURCE_NAME,

@@ -10,9 +10,9 @@
 package gorp
 
 import (
-	"bytes"
 	"encoding/binary"
 	"reflect"
+	"slices"
 	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
@@ -24,11 +24,13 @@ type keyKind int
 const (
 	keyKindFixed keyKind = iota
 	keyKindString
-	keyKindBytes
 )
 
 // Key is a unique key for an entry of a particular type.
-type Key types.Primitive
+type Key interface {
+	types.Primitive
+	comparable
+}
 
 // Entry is a go type that can be queried against a DB. All go types must implement the Entry
 // interface so that they can be stored. Entry must be serializable by the Encodings and decoder
@@ -52,13 +54,16 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
 type Entries[K Key, E Entry[K]] struct {
-	// entry is used when the client expects/passes a single entry.
+	// entry is set when the client binds a single entry. Mutually
+	// exclusive with entries.
 	entry *E
-	// entries are used when the client expects/passes a slice of entries.
+	// entries is set when the client binds a slice. Mutually exclusive
+	// with entry.
 	entries *[]E
+	// changes counts the number of writes applied to the bound
+	// entry/entries since the last bind.
 	changes int
-	// isMultiple is a boolean flag indicating whether the query expects one or isMultiple
-	// entities.
+	// isMultiple is true when the query was bound via bindMultiple.
 	isMultiple bool
 }
 
@@ -171,39 +176,69 @@ func (e *Entries[K, E]) Bound() bool {
 // IsMultiple returns true if multiple entries were bound to the query.
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
-func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
-	return &Entries[K, E]{entry: entry, isMultiple: false}
+func (e *Entries[K, E]) bindMultiple(entries *[]E) {
+	e.entries = entries
+	e.entry = nil
+	e.isMultiple = true
+	e.changes = 0
 }
 
-func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
-	return &Entries[K, E]{entries: entries, isMultiple: true}
+func (e *Entries[K, E]) bindSingle(entry *E) {
+	e.entry = entry
+	e.entries = nil
+	e.isMultiple = false
+	e.changes = 0
+}
+
+func (e *Entries[K, E]) ensureCap(n int) {
+	if !e.isMultiple || e.entries == nil {
+		return
+	}
+	if cap(*e.entries) < n {
+		*e.entries = make([]E, 0, n)
+		return
+	}
+	*e.entries = (*e.entries)[:0]
 }
 
 const magicPrefix = "gorp."
 const migrationVersionPrefix = "gorp.migration."
 
+// keyCodec encodes and decodes primary keys to and from prefixed
+// pebble keys for entry type E.
 type keyCodec[K Key, E Entry[K]] struct {
-	prefix  []byte
+	// prefix is the gorp key prefix for entry type E.
+	prefix []byte
+	// keySize is the byte width of an encoded fixed-size key. Zero for
+	// string or byte-slice keys.
 	keySize int
-	buf     []byte
-	kind    keyKind
+	// buf is the reusable encode buffer; reallocated when the encoded
+	// key would not fit.
+	buf []byte
+	// kind selects the encoding strategy (fixed, string, or bytes).
+	kind keyKind
 }
 
-func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
-	c := &keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
+func newKeyCodec[K Key, E Entry[K]](prefix []byte) keyCodec[K, E] {
+	if prefix == nil {
+		prefix = newKeyPrefix[E]()
+	}
+	c := keyCodec[K, E]{prefix: prefix}
 	var zero K
-	switch reflect.TypeOf(zero).Kind() {
-	case reflect.String:
+	if reflect.TypeOf(zero).Kind() == reflect.String {
 		c.kind = keyKindString
-	case reflect.Slice:
-		c.kind = keyKindBytes
-	default:
+	} else {
 		c.kind = keyKindFixed
 		c.keySize = int(unsafe.Sizeof(zero))
 		c.buf = make([]byte, len(c.prefix)+c.keySize)
 		copy(c.buf, c.prefix)
 	}
 	return c
+}
+
+// newKeyPrefix builds the gorp key prefix for entry type E.
+func newKeyPrefix[E any]() []byte {
+	return []byte(magicPrefix + types.Name[E]())
 }
 
 func (k *keyCodec[K, E]) encode(key K) []byte {
@@ -213,16 +248,10 @@ func (k *keyCodec[K, E]) encode(key K) []byte {
 		return k.buf
 	case keyKindString:
 		s := *(*string)(unsafe.Pointer(&key))
-		out := make([]byte, len(k.prefix)+len(s))
-		copy(out, k.prefix)
-		copy(out[len(k.prefix):], s)
-		return out
-	case keyKindBytes:
-		b := *(*[]byte)(unsafe.Pointer(&key))
-		out := make([]byte, len(k.prefix)+len(b))
-		copy(out, k.prefix)
-		copy(out[len(k.prefix):], b)
-		return out
+		k.buf = slices.Grow(k.buf[:0], len(k.prefix)+len(s))[:len(k.prefix)+len(s)]
+		copy(k.buf, k.prefix)
+		copy(k.buf[len(k.prefix):], s)
+		return k.buf
 	default:
 		panic("unreachable")
 	}
@@ -236,9 +265,6 @@ func (k *keyCodec[K, E]) decode(b []byte) K {
 	case keyKindString:
 		s := string(b)
 		return *(*K)(unsafe.Pointer(&s))
-	case keyKindBytes:
-		c := bytes.Clone(b)
-		return *(*K)(unsafe.Pointer(&c))
 	default:
 		panic("unreachable")
 	}
@@ -263,9 +289,6 @@ func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 	case keyKindString:
 		s := *(*string)(unsafe.Pointer(&key))
 		return len(s) >= len(prefix) && string(prefix) == s[:len(prefix)]
-	case keyKindBytes:
-		b := *(*[]byte)(unsafe.Pointer(&key))
-		return bytes.HasPrefix(b, prefix)
 	default:
 		panic("unreachable")
 	}

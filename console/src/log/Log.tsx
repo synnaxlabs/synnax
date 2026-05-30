@@ -8,15 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Access, Icon, Log as Base, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { select, useSelect, useSelectVersion } from "@/log/selectors";
+import {
+  select,
+  useSelect,
+  useSelectIsRemoteCreated,
+  useSelectVersion,
+} from "@/log/selectors";
 import {
   internalCreate,
   setActiveToolbarTab,
@@ -25,6 +30,7 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { Selector } from "@/selector";
+import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -54,16 +60,14 @@ const PRELOAD = TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
+  const store = useStore<RootState>();
 
-  const { name } = Layout.useSelectRequired(layoutKey);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey]);
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
+    [store, layoutKey],
+  );
 
   const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
@@ -75,14 +79,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     keepFor: DEFAULT_RETENTION,
   });
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey: winKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [winKey, dispatch]);
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "channels" }));
@@ -97,6 +95,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       showReceiptTimestamp={log.showReceiptTimestamp}
       timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
+      enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <EmptyAction
@@ -126,6 +125,12 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (log == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Log.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

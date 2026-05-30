@@ -25,7 +25,7 @@ type Writer struct {
 	otg           ontology.Writer
 	group         group.Group
 	allowInternal bool
-	table         *gorp.Table[uuid.UUID, Role]
+	table         *gorp.Table[Key, Role]
 }
 
 // Create creates a new role in the database.
@@ -50,8 +50,8 @@ func (w Writer) Create(
 
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
-func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return w.table.NewDelete().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
+func (w Writer) Delete(ctx context.Context, key Key) error {
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Role](key)).Guard(func(_ gorp.Context, r Role) error {
 		if r.Internal && !w.allowInternal {
 			return errors.Wrap(validate.ErrValidation, "cannot delete builtin role")
 		}
@@ -65,7 +65,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 func (w Writer) AssignRole(
 	ctx context.Context,
 	subject ontology.ID,
-	roleKey uuid.UUID,
+	roleKey Key,
 ) error {
 	return w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.RelationshipTypeParentOf, subject)
 }
@@ -75,7 +75,7 @@ func (w Writer) AssignRole(
 func (w Writer) UnassignRole(
 	ctx context.Context,
 	subject ontology.ID,
-	roleKey uuid.UUID,
+	roleKey Key,
 ) error {
 	return w.otg.DeleteRelationship(ctx, OntologyID(roleKey), ontology.RelationshipTypeParentOf, subject)
 }

@@ -18,5 +18,5 @@ import (
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Suite")
+	RunSpecs(t, "Freighter Integration HTTP Suite")
 }

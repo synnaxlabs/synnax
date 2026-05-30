@@ -10,11 +10,13 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 
 import { ingestComponent } from "@/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { type Layout } from "@/layout";
+import { Workspace } from "@/workspace";
 
 interface DirectoryContent {
   name: string;
@@ -94,11 +96,13 @@ export const dataTransferItem = async (
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
-    ingestComponent(parsedData, entry.name, fileIngesters, {
+    const workspaceKey = Workspace.selectActiveKey(store.getState());
+    await ingestComponent(parsedData, entry.name, fileIngesters, {
       layout: { ...layout, name },
       placeLayout,
       store: fluxStore,
       client,
+      workspaceKey: workspaceKey ?? uuid.ZERO,
     });
     return;
   }

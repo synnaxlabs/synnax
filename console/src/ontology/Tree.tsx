@@ -123,12 +123,12 @@ const itemRenderProp = Component.renderProp(
     const [draggingOver, setDraggingOver] = useState(false);
 
     const onDropDrops = Haul.useDrop({
-      type: "Tree.Item",
+      type: Base.HAUL_TYPE,
       key: itemKey,
       canDrop: useCallback(({ items: entities, source }) => {
         const keys = entities.map((item) => item.key);
         setDraggingOver(false);
-        return source.type === "Tree.Item" && !keys.includes(itemKey);
+        return source.type === Base.HAUL_TYPE && !keys.includes(itemKey);
       }, []),
       onDrop: useCallback((props) => onDrop(itemKey, props) ?? [], [onDrop, itemKey]),
       onDragOver: useCallback(() => setDraggingOver(true), []),
@@ -381,23 +381,21 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleDrop = useCallback(
     (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
       const nodesSnapshot = nodesRef.current;
-      const dropped = Haul.filterByType(Base.HAUL_TYPE, items);
-      const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
+      const dropped = Base.filterHaulItems(items);
+      const isValidDrop = dropped.length > 0 && source.type === Base.HAUL_TYPE;
       if (!isValidDrop) return [];
       const destination = ontology.idZ.parse(key);
       const svc = services[destination.type];
       if (!svc.canDrop({ source, items })) return [];
 
-      const minDepth = Math.min(
-        ...dropped.map(({ data }) => (data?.depth ?? 0) as number),
-      );
-      const firstNodeOfMinDepth = dropped.find(({ data }) => data?.depth === minDepth);
+      const minDepth = Math.min(...dropped.map(({ data }) => data.depth));
+      const firstNodeOfMinDepth = dropped.find(({ data }) => data.depth === minDepth);
       if (firstNodeOfMinDepth == null) return [];
-      const moved = dropped.filter(({ data }) => data?.depth === minDepth);
-      const keys = moved.map(({ key }) => key as string);
+      const moved = dropped.filter(({ data }) => data.depth === minDepth);
+      const keys = moved.map(({ key }) => key);
       const parent = Base.findNodeParent({
         tree: nodesSnapshot,
-        key: firstNodeOfMinDepth.key.toString(),
+        key: firstNodeOfMinDepth.key,
       });
       const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
       contract(...keys);
@@ -408,41 +406,28 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client, contract, root],
   );
 
-  const { startDrag, onDragEnd } = Haul.useDrag({ type: "Tree.Item" });
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: Base.HAUL_TYPE });
 
   const handleDragStart = useCallback(
     (itemKey: string) => {
       const selectedResources = getResource(selectedRef.current);
       if (selectedRef.current.includes(itemKey)) {
         const selectedHaulItems = selectedResources.flatMap((res) => {
-          const svcItems = services[res.id.type].haulItems(res);
           const depth = Base.getDepth(itemKey, shapeRef.current);
-          const baseItems: Haul.Item[] = [
-            {
-              type: Base.HAUL_TYPE,
-              key: ontology.idToString(res.id),
-              data: { depth },
-            },
+          const items: Haul.Item[] = [
+            Base.createHaulItem(ontology.idToString(res.id), depth),
           ];
-          if (svcItems != null)
-            baseItems.push(
-              ...svcItems.map((i) => ({
-                ...i,
-                data: { ...i.data, depth },
-              })),
-            );
-          return baseItems;
+          const svcItems = services[res.id.type].haulItems(res);
+          if (svcItems != null) items.push(...svcItems);
+          return items;
         });
         return startDrag(selectedHaulItems);
       }
+      const depth = Base.getDepth(itemKey, shapeRef.current);
       const haulItems = services[ontology.idZ.parse(itemKey).type].haulItems(
         getResource(itemKey),
       );
-      const depth = Base.getDepth(itemKey, shapeRef.current);
-      startDrag([
-        { type: Base.HAUL_TYPE, key: itemKey, data: { depth } },
-        ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
-      ]);
+      startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
     },
     [getResource, selectedRef],
   );

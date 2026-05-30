@@ -25,7 +25,7 @@ from x.deprecation import deprecated_getattr
 from x.telem import TimeStamp
 
 
-class InsecureCredentials(BaseModel):
+class Credentials(BaseModel):
     username: str
     password: str
 
@@ -72,7 +72,7 @@ class Client:
         res = send_required(
             self.client,
             "/auth/login",
-            InsecureCredentials(username=self.username, password=self.password),
+            Credentials(username=self.username, password=self.password),
             TokenResponse,
         )
         self.token = res.token
@@ -80,38 +80,36 @@ class Client:
         self.authenticated = True
 
     def middleware(self) -> Middleware:
-        def mw(ctx: Context, _next: Next) -> tuple[Context, Exception | None]:
+        def mw(ctx: Context, _next: Next) -> Context:
             if not self.authenticated:
                 self.authenticate()
 
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
-            out_ctx, exc = _next(ctx)
-
-            if isinstance(exc, RETRY_ON_ERRORS):
+            try:
+                out_ctx = _next(ctx)
+            except RETRY_ON_ERRORS:
                 self.authenticated = False
-                out_ctx, exc = mw(ctx, _next)
+                out_ctx = mw(ctx, _next)
 
             self.maybe_refresh_token(out_ctx)
-            return out_ctx, exc
+            return out_ctx
 
         return mw
 
     def async_middleware(self) -> AsyncMiddleware:
-        async def mw(
-            ctx: Context, _next: AsyncNext
-        ) -> tuple[Context, Exception | None]:
+        async def mw(ctx: Context, _next: AsyncNext) -> Context:
             if not self.authenticated:
                 self.authenticate()
 
             ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
-            out_ctx, exc = await _next(ctx)
-
-            if isinstance(exc, RETRY_ON_ERRORS):
+            try:
+                out_ctx = await _next(ctx)
+            except RETRY_ON_ERRORS:
                 self.authenticated = False
-                out_ctx, exc = await mw(ctx, _next)
+                out_ctx = await mw(ctx, _next)
 
             self.maybe_refresh_token(out_ctx)
-            return out_ctx, exc
+            return out_ctx
 
         return mw
 

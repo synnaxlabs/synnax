@@ -14,22 +14,50 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// AnalyzeSingleExpression converts an inline expression into a synthetic function that
-// can be used as a node in a flow graph. Pure literals are registered as KindConstant
-// symbols and don't require code compilation.
+// AnalyzeSingleExpression converts an inline expression into a synthetic function
+// node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
-	// Pure literals become constants - no code to compile
+	// Literals register as KindConstant; format strings with placeholders register
+	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
+		if lit := parser.GetLiteral(ctx.AST); lit != nil {
+			if strTerm := parser.StringTerminal(lit); strTerm != nil {
+				body, flags, ok := literal.StripQuotes(strTerm.GetText())
+				if !ok {
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						"invalid string literal: %s", strTerm.GetText()))
+					return
+				}
+				if flags.Format {
+					segs, err := literal.FmtStrParse(body)
+					if err != nil {
+						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+						return
+					}
+					if literal.FmtStrHasPlaceholder(segs) {
+						fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+						if err != nil {
+							ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+							return
+						}
+						fnScope.AutoName("fmt_str_")
+						expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), strTerm)
+						return
+					}
+				}
+			}
+		}
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Kind: symbol.KindConstant,

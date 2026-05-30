@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/stringer"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -44,7 +45,10 @@ var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrit
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterCommandSetAuthority.
+	// Config is used for updating the parameters in WriterCommandSetAuthority. Once
+	// the request has been sent, ownership of Config (including the underlying arrays
+	// of Config.Channels and Config.Authorities) transfers to the streamWriter, which
+	// may mutate them in place; callers must not retain or share those slices.
 	Config WriterConfig
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
@@ -107,6 +111,9 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
 	internal        []*idxWriter
+	// keyToIdx maps every channel key the writer is responsible for to its owning
+	// idxWriter.
+	keyToIdx map[ChannelKey]*idxWriter
 	WriterConfig
 }
 
@@ -166,6 +173,9 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEn
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
 	if len(cfg.Authorities) == 0 {
 		return nil
+	}
+	if *w.AutoIndex {
+		cfg = w.propagateAuthority(cfg)
 	}
 	var (
 		u       = ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
@@ -231,6 +241,9 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
+	if *w.AutoIndex {
+		req.Frame = w.autoStamp(req.Frame)
+	}
 	var (
 		accumulatedErr      error
 		err                 error
@@ -269,6 +282,108 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	return accumulatedErr
+}
+
+// autoStamp injects a TimeStamp series for each idxWriter whose index channel is
+// referenced by the writer but absent from fr. It runs in O(KeysInFrame + IndexGroups):
+// a single pass over fr's keys uses keyToIdx to resolve each key's idxWriter group in
+// O(1) and records whether that group's index is present and the length of any data
+// channel for the group. A subsequent pass over idxWriters counts how many stamps are
+// needed, grows fr by exactly that amount, and performs the appends.
+func (w *streamWriter) autoStamp(fr Frame) Frame {
+	for _, idx := range w.internal {
+		idx.resetAutoStampScan()
+	}
+	for i, k := range fr.RawKeys() {
+		if fr.ShouldExcludeRaw(i) {
+			continue
+		}
+		idx, ok := w.keyToIdx[k]
+		if !ok {
+			continue
+		}
+		if k == idx.idx.ch.Key {
+			idx.scanIdxPresent = true
+			continue
+		}
+		if idx.scanDataLen == 0 {
+			if l := fr.RawSeriesAt(i).Len(); l > 0 {
+				idx.scanDataLen = l
+			}
+		}
+	}
+	var toAdd int
+	for _, idx := range w.internal {
+		if idx.shouldAutoStamp() {
+			toAdd++
+		}
+	}
+	if toAdd == 0 {
+		return fr
+	}
+	fr = fr.Grow(toAdd)
+	now := telem.Now()
+	for _, idx := range w.internal {
+		if !idx.shouldAutoStamp() {
+			continue
+		}
+		fr = idx.appendAutoStamp(fr, now)
+	}
+	return fr
+}
+
+// propagateAuthority synchronizes each idxWriter's per-data-channel authority tracking
+// with the incoming SetAuthority config and augments cfg with an updated authority for
+// each implicit index whose referencing data channels' max may have changed. Broadcast
+// calls (cfg.Channels empty) are forwarded unchanged — the caller already applies the
+// broadcast across every channel in the writer, including indexes — but the tracked
+// state is refreshed so the next per-channel call computes correctly. Indexes the
+// caller explicitly included in cfg.Channels are left untouched.
+//
+// propagateAuthority may append to cfg.Channels and cfg.Authorities. The streamWriter
+// treats a dequeued WriterRequest as exclusively owned, so callers must not retain or
+// share the underlying arrays of req.Config.Channels / req.Config.Authorities once the
+// request has been sent.
+func (w *streamWriter) propagateAuthority(cfg WriterConfig) WriterConfig {
+	if len(cfg.Channels) == 0 {
+		for _, idx := range w.internal {
+			idx.broadcastDataAuth(cfg.Authorities[0])
+		}
+		return cfg
+	}
+	for _, idx := range w.internal {
+		idx.setAuthExplicit = false
+	}
+	nExplicit := len(cfg.Channels)
+	// If the caller broadcast a single authority across multiple channels, materialize
+	// a per-channel authorities slice so the loop below can index Authorities[i]
+	// directly and the implicit-index append loop has the right starting length.
+	if len(cfg.Authorities) < nExplicit {
+		auths := make([]xcontrol.Authority, nExplicit, nExplicit+len(w.internal))
+		for i := range auths {
+			auths[i] = cfg.Authorities[0]
+		}
+		cfg.Authorities = auths
+	}
+	for i, k := range cfg.Channels {
+		idx, ok := w.keyToIdx[k]
+		if !ok {
+			continue
+		}
+		if k == idx.idx.ch.Key {
+			idx.setAuthExplicit = true
+			continue
+		}
+		idx.setDataAuth(k, cfg.Authorities[i])
+	}
+	for _, idx := range w.internal {
+		if !idx.writingToIdx || idx.setAuthExplicit {
+			continue
+		}
+		cfg.Channels = append(cfg.Channels, idx.idx.ch.Key)
+		cfg.Authorities = append(cfg.Authorities, idx.maxDataAuth())
+	}
+	return cfg
 }
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
@@ -332,9 +447,15 @@ type idxWriter struct {
 		*index.Domain
 		// Key is the channel key of the index.
 		ch channel.Channel
-		// highWaterMark is the highest timestamp written to the index. This watermark
-		// is only relevant when writingToIdx is true.
+		// highWaterMark is the last timestamp written to the index — whether by
+		// auto-stamping or by a caller-provided series. Drives commit resolution
+		// (resolveCommitEnd). Only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
+		// autoStampClock is the last timestamp emitted by appendAutoStamp on this
+		// index. Advanced only by auto-stamping; caller-provided index timestamps do
+		// not move it. Used to keep auto-stamps strictly monotonic across Write calls
+		// without inheriting future timestamps the caller wrote explicitly.
+		autoStampClock telem.TimeStamp
 	}
 	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
@@ -354,6 +475,83 @@ type idxWriter struct {
 	// lastCommitEnd stores the end timestamp from the last successful commit,
 	// returned when Commit is called with no new data to commit.
 	lastCommitEnd telem.TimeStamp
+	// dataAuth tracks the most recent control authority for each data channel in this
+	// group (i.e. the keys of internal excluding the index itself). Populated only when
+	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
+	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
+	// authority as the max across its referencing data channels.
+	dataAuth map[ChannelKey]xcontrol.Authority
+	// scanIdxPresent is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. True when the caller's frame already contains this
+	// idxWriter's index key (in which case no stamping is needed). Reset to false at
+	// the start of every autoStamp call.
+	scanIdxPresent bool
+	// scanDataLen is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
+	// observed for this group (the size of the auto-stamped series). Reset to zero at
+	// the start of every autoStamp call.
+	scanDataLen int64
+	// setAuthExplicit is a transient scratch field used during the per-channel scan in
+	// streamWriter.propagateAuthority. True when the caller explicitly named this
+	// idxWriter's index key in the SetAuthority config, in which case the index
+	// authority is left untouched. Reset to false at the start of every
+	// propagateAuthority call.
+	setAuthExplicit bool
+}
+
+func (w *idxWriter) resetAutoStampScan() { w.scanIdxPresent = false; w.scanDataLen = 0 }
+
+func (w *idxWriter) shouldAutoStamp() bool {
+	return w.writingToIdx && !w.scanIdxPresent && w.scanDataLen > 0
+}
+
+func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
+	t0 := max(now, w.idx.autoStampClock+1)
+	// Allocate the Series's byte buffer once and reinterpret it as []TimeStamp via
+	// unsafe.CastSlice so timestamps are written directly into the backing array. Going
+	// through NewSeriesV(stamps...) would perform two allocations instead of one.
+	series := telem.MakeSeries(telem.TimeStampT, int(w.scanDataLen))
+	stamps := unsafe.CastSlice[byte, telem.TimeStamp](series.Data)
+	for j := range stamps {
+		stamps[j] = t0 + telem.TimeStamp(j)
+	}
+	w.idx.autoStampClock = stamps[len(stamps)-1]
+	return fr.Append(w.idx.ch.Key, series)
+}
+
+// setDataAuth records auth as the authority for k if k is one of this group's data
+// channels and returns true. Returns false if k is not in this group (the streamWriter
+// is expected to try the next idxWriter in that case).
+func (w *idxWriter) setDataAuth(k ChannelKey, auth xcontrol.Authority) bool {
+	if _, isData := w.dataAuth[k]; !isData {
+		return false
+	}
+	w.dataAuth[k] = auth
+	return true
+}
+
+// broadcastDataAuth sets every data channel's authority in this group to auth. Used
+// when the caller issues a writer-wide SetAuthority (cfg.Channels empty), which the
+// downstream layer applies to every channel; this keeps the per-data-channel record
+// consistent so a subsequent per-channel SetAuthority computes the implicit index's max
+// correctly.
+func (w *idxWriter) broadcastDataAuth(auth xcontrol.Authority) {
+	for k := range w.dataAuth {
+		w.dataAuth[k] = auth
+	}
+}
+
+// maxDataAuth returns the maximum recorded authority across this group's data channels.
+// Returns 0 when the group has no data channels (which cannot occur for a writingToIdx
+// idxWriter under AutoIndex).
+func (w *idxWriter) maxDataAuth() xcontrol.Authority {
+	var max xcontrol.Authority
+	for _, a := range w.dataAuth {
+		if a > max {
+			max = a
+		}
+	}
+	return max
 }
 
 func (w *idxWriter) write(

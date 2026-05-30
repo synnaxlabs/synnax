@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The package is transport agnostic, defining freighter-compatible interfaces (via the
+// Transport struct) and service implementations (via the Layer struct) for all of its
+// services.
 package api
 
 import (
@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
+	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -108,8 +110,8 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
-	SchematicRename   freighter.UnaryServer[schematic.RenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
+	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
 	SchematicCreateSymbol        freighter.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]
@@ -129,6 +131,7 @@ type Transport struct {
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[table.RenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[table.SetDataRequest, types.Nil]
+	TableDispatch freighter.UnaryServer[table.DispatchRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
@@ -164,9 +167,10 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, types.Nil]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, types.Nil]
 	// STATUS
-	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete   freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete         freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
@@ -176,6 +180,9 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, types.Nil]
+	// IMPORT/EXPORT
+	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
+	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -204,6 +211,7 @@ type Layer struct {
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
+	ImEx         *imex.Service
 	config       config.LayerConfig
 }
 
@@ -212,7 +220,8 @@ func (l *Layer) BindTo(t Transport) {
 	var (
 		tk                 = auth.TokenMiddleware(l.config.Service.Token)
 		instrumentation    = lo.Must(alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation}
+		rec                = recovery.Middleware(l.config.Instrumentation)
+		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
@@ -290,8 +299,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
-		t.SchematicRename,
 		t.SchematicSetData,
+		t.SchematicDispatch,
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
@@ -321,6 +330,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
+		t.TableDispatch,
 
 		// LABEL
 		t.LabelCreate,
@@ -359,6 +369,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
@@ -369,6 +380,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
+
+		// IMPORT/EXPORT
+		t.ImExImport,
+		t.ImExExport,
 	)
 
 	// AUTH
@@ -436,8 +451,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
-	t.SchematicRename.BindHandler(l.Schematic.Rename)
 	t.SchematicSetData.BindHandler(l.Schematic.SetData)
+	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL
@@ -467,6 +482,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TableDelete.BindHandler(l.Table.Delete)
 	t.TableRename.BindHandler(l.Table.Rename)
 	t.TableSetData.BindHandler(l.Table.SetData)
+	t.TableDispatch.BindHandler(l.Table.Dispatch)
 
 	// LABEL
 	t.LabelCreate.BindHandler(l.Label.Create)
@@ -505,6 +521,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(l.Status.Set)
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(l.Status.Delete)
+	t.StatusSetByKeyOrName.BindHandler(l.Status.SetByKeyOrName)
 
 	// VIEW
 	t.ViewCreate.BindHandler(l.View.Create)
@@ -516,6 +533,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcDelete.BindHandler(l.Arc.Delete)
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcLSP.BindHandler(l.Arc.LSP)
+
+	// IMPORT/EXPORT
+	t.ImExImport.BindHandler(l.ImEx.Import)
+	t.ImExExport.BindHandler(l.ImEx.Export)
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -593,6 +614,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.View, err = view.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.ImEx, err = imex.NewService(cfg); err != nil {
 		return nil, err
 	}
 	return l, nil

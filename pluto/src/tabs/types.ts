@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type ReactNode } from "react";
 import { z } from "zod";
 
@@ -36,3 +37,16 @@ export interface Tab extends Spec {
 }
 
 export type RenderProp = BaseRenderProp<Tab>;
+
+/**
+ * Props passed to a tab name renderer. The default renderer shows static text or
+ * a Text.Editable depending on whether {@link onRename} and {@link editable} are
+ * set; consumers may override this via the `Name` prop on Tabs / Mosaic.
+ */
+export interface NameProps {
+  tabKey: string;
+  name: string;
+  level: text.Level;
+  onRename?: (key: string, name: string) => void;
+  editable?: boolean;
+}

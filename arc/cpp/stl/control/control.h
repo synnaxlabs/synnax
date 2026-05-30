@@ -19,7 +19,7 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/types/types.h"
 
-namespace arc::stl::authority {
+namespace arc::stl::control {
 
 /// @brief Node that buffers an authority change request in the runtime state.
 /// When executed, it calls state.set_authority() to enqueue the change.
@@ -55,6 +55,8 @@ class Module : public stl::Module {
 public:
     explicit Module(std::shared_ptr<runtime::state::State> state):
         state(std::move(state)) {}
+
+    [[nodiscard]] std::string module_name() const override { return "control"; }
 
     bool handles(const std::string &node_type) const override {
         return node_type == "set_authority";

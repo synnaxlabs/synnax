@@ -16,8 +16,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -42,7 +42,7 @@ import (
 type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostProvider node.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -65,6 +65,10 @@ type ServiceConfig struct {
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
 	HealthCheckInterval telem.TimeSpan
+	// Now returns the current time. It is used by the rack health monitor to decide
+	// whether a rack has gone stale.
+	// [OPTIONAL - defaults to telem.Now]
+	Now func() telem.TimeStamp
 	// Search is the search index for fuzzy searching racks.
 	// [REQUIRED]
 	Search *search.Index
@@ -83,6 +87,7 @@ var (
 	DefaultServiceConfig = ServiceConfig{
 		HealthCheckInterval: 5 * telem.Second,
 		AlertEveryNChecks:   12,
+		Now:                 telem.Now,
 	}
 )
 
@@ -98,6 +103,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -137,7 +143,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		HostProvider: cfg.HostProvider,
 		Status:       cfg.Status,
 	})
-	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
+	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
@@ -192,9 +198,9 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	)
 	err := s.NewRetrieve().
-		WhereName(name, gorp.Required()).
-		WhereEmbedded(true, gorp.Required()).
-		WhereNode(s.HostProvider.HostKey(), gorp.Required()).
+		Where(MatchNames(name)).
+		Where(MatchEmbedded(true)).
+		Where(MatchNode(s.HostProvider.HostKey())).
 		Entry(&embeddedRack).Exec(ctx, s.DB)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
@@ -211,7 +217,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
 	var stat status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
-		WhereKeys(OntologyID(key).String()).
+		Where(status.MatchKeys[StatusDetails](OntologyID(key).String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
 		return status.Status[StatusDetails]{}, err
@@ -240,7 +246,7 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
-	return next, s.table.NewUpdate().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
+	return next, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Rack](rackKey)).Change(func(_ gorp.Context, r Rack) Rack {
 		r.TaskCounter += 1
 		next = r.TaskCounter
 		return r

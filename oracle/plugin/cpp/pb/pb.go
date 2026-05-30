@@ -16,11 +16,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -31,8 +31,7 @@ import (
 type Plugin struct{ Options Options }
 
 type Options struct {
-	FileNamePattern  string
-	DisableFormatter bool
+	FileNamePattern string
 }
 
 func DefaultOptions() Options {
@@ -50,18 +49,6 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var cppPostWriter = &exec.PostWriter{
-	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
-	Commands:   [][]string{{"clang-format", "-i"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter {
-		return nil
-	}
-	return cppPostWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -429,11 +416,11 @@ func (p *Plugin) processFieldForTranslation(
 	form resolution.StructForm,
 	data *templateData,
 ) fieldTranslatorData {
-	pbFieldName := toSnakeCase(field.Name)
+	pbFieldName := casing.FieldSnake(field.Name)
 
 	cppFieldName := domain.GetFieldName(field, "cpp")
 	if cppFieldName == field.Name {
-		cppFieldName = toSnakeCase(field.Name)
+		cppFieldName = casing.FieldSnake(field.Name)
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
 
@@ -473,7 +460,7 @@ func (p *Plugin) generateFieldConversion(
 	data *templateData,
 ) (forward, backward string) {
 	typeRef := field.Type
-	pbFieldName := toSnakeCase(field.Name)
+	pbFieldName := casing.FieldSnake(field.Name)
 	pbAccessorName := keywords.Escape(pbFieldName)
 	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
 
@@ -792,7 +779,7 @@ func (p *Plugin) generateEnumConversion(
 		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, cppFieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", cppFieldName, cppEnumType, pbAccessorName)
 	} else {
-		funcName := toSnakeCase(enumName)
+		funcName := casing.TypeSnake(enumName)
 		forward = fmt.Sprintf(`{
         auto [v, err] = %s_to_pb(this->%s);
         if (err) return {{}, err};
@@ -927,7 +914,7 @@ func (p *Plugin) generateArrayConversion(
 	cppFieldName string,
 	data *templateData,
 ) (forward, backward string) {
-	pbFieldName := toSnakeCase(field.Name)
+	pbFieldName := casing.FieldSnake(field.Name)
 	pbAccessorName := keywords.Escape(pbFieldName)
 	typeRef := field.Type
 
@@ -988,7 +975,7 @@ func (p *Plugin) generateMapConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
-	fieldName := toSnakeCase(field.Name)
+	fieldName := casing.FieldSnake(field.Name)
 	accessorName := keywords.Escape(fieldName)
 	typeRef := field.Type
 
@@ -1033,7 +1020,7 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
-	fieldName := toSnakeCase(field.Name)
+	fieldName := casing.FieldSnake(field.Name)
 	accessorName := keywords.Escape(fieldName)
 
 	forward = fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", accessorName, fieldName, fieldName)
@@ -1174,7 +1161,7 @@ func (p *Plugin) processEnumForTranslation(
 
 	return &enumTranslatorData{
 		Name:        e.Name,
-		FuncName:    toSnakeCase(e.Name),
+		FuncName:    casing.TypeSnake(e.Name),
 		PBNamespace: pbNamespace,
 		Values:      values,
 	}
@@ -1317,10 +1304,6 @@ func primitiveToProtoType(primitive string) string {
 
 func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
-}
-
-func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
 }
 
 type includeManager struct {

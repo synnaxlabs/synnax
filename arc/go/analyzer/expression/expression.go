@@ -376,19 +376,33 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
+	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if funcName != "" {
-		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		scope, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
 				return
+			}
+			if callerFn != nil && scope.Exec == symbol.ExecFlow {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName, funcName,
+				))
+				return
+			}
+			if funcName != "len" && funcName != "series.len" {
+				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
+			}
+			if scope.AnalyzeCall != nil {
+				scope.AnalyzeCall(ctx.Diagnostics, funcCalls[0])
 			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
@@ -478,14 +492,14 @@ func validateFunctionCall(
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		name := parser.QualifiedName(qid)
-		if _, err := ctx.Scope.Resolve(ctx, name); err != nil {
+		head, tail := parser.QualifiedNameParts(qid)
+		if _, err := ctx.ResolveQualified(head, tail); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
 		return
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		resolved, err := ctx.Resolve(id.GetText())
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -514,7 +528,10 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		return
 	}
-	if ctx.AST.Literal() != nil {
+	if lit := ctx.AST.Literal(); lit != nil {
+		if strTerm := parser.StringTerminal(lit); strTerm != nil {
+			AnalyzeFmtStrLiteral(ctx, strTerm)
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -543,7 +560,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 // propagation, when all scopes are guaranteed to exist.
 func buildArgChannels(
 	ctx context.Context[parser.IPostfixExpressionContext],
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	funcCall parser.IFunctionCallSuffixContext,
 ) map[int]context.ChannelMapping {
 	argList := funcCall.ArgumentList()
@@ -597,7 +614,7 @@ func resolveChannelArg(
 // If the callee hasn't been fully analyzed yet (forward reference), inputScopes will
 // be empty and no remapping occurs. The post-pass handles that case.
 func propagateChannelsWithArgMap(
-	caller, callee *symbol.Scope,
+	caller, callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) {
 	paramMap := ResolveArgChannels(callee, argChannels)
@@ -618,7 +635,7 @@ func propagateChannelsWithArgMap(
 }
 
 func ResolveArgChannels(
-	callee *symbol.Scope,
+	callee *symbol.Symbol,
 	argChannels map[int]context.ChannelMapping,
 ) map[int]context.ChannelMapping {
 	if len(argChannels) == 0 {
@@ -640,6 +657,9 @@ func isValidCast(source, target basetypes.Type) bool {
 		return true
 	}
 	if source.Kind == target.Kind {
+		return true
+	}
+	if target.Kind == basetypes.KindString && source.IsNumeric() {
 		return true
 	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {

@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestAuthority(t *testing.T) {
+func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Authority Suite")
+	RunSpecs(t, "Control Suite")
 }

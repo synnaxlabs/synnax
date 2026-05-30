@@ -16,56 +16,94 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-var (
-	symbolName = "stable_for"
-	symbolDef  = symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan()},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
-			},
-			Outputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
-			},
-		}),
-	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolDef}
+const (
+	bareSymbolName      = "stable_for"
+	qualifiedMemberName = "for"
+	name                = "stable"
 )
 
-type Module struct {
+var (
+	memberDoc = doc.New(
+		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> stable.for{duration=5s} -> output"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Debouncing helpers that emit only after values remain stable for a duration."),
+	)
+)
+
+func newSymbolType() types.Type {
+	return types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "duration", Type: types.TimeSpan()},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+		},
+		Outputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
+		},
+	})
+}
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the stable module plus the deprecated `stable_for` bare
+// alias whose Deprecated field points at the canonical stable.for member.
+func NewSymbols() []*symbol.Symbol {
+	member := &symbol.Symbol{
+		Name: qualifiedMemberName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: newSymbolType(),
+		Doc:  memberDoc,
+	}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := *member
+	bare.Parent = nil
+	bare.Name = bareSymbolName
+	bare.Deprecated = mod.FindChild(qualifiedMemberName)
+	return []*symbol.Symbol{mod, &bare}
+}
+
+// Host is the runtime host-side support for the stable module: a node
+// factory for stable.for. Stable has no WASM host bindings.
+type Host struct {
 	now func() telem.TimeStamp
 }
 
-func NewModule(opts ...func(*Module)) *Module {
-	m := &Module{now: telem.Now}
+// NewHost constructs a stable Host. By default uses telem.Now; pass
+// WithNow(fn) to override (used by tests for deterministic timestamps).
+func NewHost(opts ...func(*Host)) *Host {
+	h := &Host{now: telem.Now}
 	for _, opt := range opts {
-		opt(m)
+		opt(h)
 	}
-	return m
+	return h
 }
 
-func WithNow(fn func() telem.TimeStamp) func(*Module) {
-	return func(m *Module) { m.now = fn }
+// WithNow overrides the clock used by stable nodes. Tests pass a
+// deterministic clock here.
+func WithNow(fn func() telem.TimeStamp) func(*Host) {
+	return func(h *Host) { h.now = fn }
 }
 
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var cfgVals config
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: m.now}, nil
+	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: h.now}, nil
 }
 
 type config struct {

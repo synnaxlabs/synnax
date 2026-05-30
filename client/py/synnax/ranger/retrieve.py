@@ -28,7 +28,7 @@ class _Response(BaseModel):
 
 
 class Retriever:
-    __client: UnaryClient
+    _client: UnaryClient
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -36,7 +36,7 @@ class Retriever:
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
-        self.__client = client
+        self._client = client
         self.instrumentation = instrumentation
 
     @trace("debug")
@@ -51,16 +51,14 @@ class Retriever:
             keys = normalize(key)
         if name is not None:
             names = normalize(name)
-        return self.__execute(_Request(keys=keys, names=names))
+        return self._execute(_Request(keys=keys, names=names))
 
     @trace("debug")
     def search(self, term: str) -> list[Payload]:
-        return self.__execute(_Request(search_term=term))
+        return self._execute(_Request(search_term=term))
 
-    def __execute(self, req: _Request) -> list[Payload]:
-        res, exc = self.__client.send("/range/retrieve", req, _Response)
-        if exc is not None:
-            raise exc
-        if res is None or res.ranges is None:
+    def _execute(self, req: _Request) -> list[Payload]:
+        res = self._client.send("/range/retrieve", req, _Response)
+        if res.ranges is None:
             return list()
         return res.ranges

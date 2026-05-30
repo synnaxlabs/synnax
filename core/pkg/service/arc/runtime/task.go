@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/arc/stl/channel"
+	stlchannels "github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -38,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
@@ -99,10 +99,10 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}
 
 	drt.state.nodes = node.New(stateCfg.IR)
-	drt.state.channel = channel.NewProgramState(stateCfg.ChannelDigests)
+	drt.state.channel = stlchannels.NewProgramState(stateCfg.ChannelDigests)
 	drt.state.series = series.NewProgramState()
 	drt.state.strings = stlstrings.NewProgramState()
-	drt.state.control = &stlcontrol.ProgramState{}
+	drt.state.authority = &stlcontrol.ProgramState{}
 
 	var closers xio.MultiCloser
 	defer func() {
@@ -119,35 +119,46 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		}))
 	}
 
-	timeMod, err := time.NewModule(ctx, wasmRT)
+	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	channelMod, err := channel.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
+	channelMod, err := stlchannels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	statefulMod, err := stateful.NewModule(ctx, drt.state.series, drt.state.strings, wasmRT)
+	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err = series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
+	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	stringsMod, err := stlstrings.NewModule(ctx, drt.state.strings, wasmRT, nil)
+	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
+	mathMod, err := stlmath.NewHost(ctx, wasmRT)
+	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
+	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
+	if err != nil {
+		t.setStatus(ctx, status.VariantError, false, err.Error())
+		return err
+	}
+	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+		Status:   t.factoryCfg.Status,
+		Strings:  drt.state.strings,
+		Runtime:  wasmRT,
+		Reporter: t.reporter(),
+	})
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -157,13 +168,13 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		channelMod,
 		statefulMod,
 		timeMod,
-		selector.NewModule(),
-		constant.NewModule(),
-		stlop.NewModule(),
-		stable.NewModule(),
-		arcstatus.NewModule(t.factoryCfg.Status),
-		stlcontrol.NewModule(drt.state.control),
-		&stat.Module{},
+		selector.NewHost(),
+		constant.NewHost(),
+		stlop.NewHost(),
+		stable.NewHost(),
+		statusMod,
+		stlcontrol.NewHost(drt.state.authority),
+		mathMod,
 	}
 
 	if len(t.prog.Program.WASM) > 0 {
@@ -330,6 +341,12 @@ func (t *taskImpl) Stop() error {
 	return nil
 }
 
+func (t *taskImpl) reporter() taskreporter.Reporter {
+	return func(ctx context.Context, variant status.Variant, message string) {
+		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+	}
+}
+
 func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
@@ -367,11 +384,11 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 }
 
 type state struct {
-	nodes   *node.ProgramState
-	channel *channel.ProgramState
-	series  *series.ProgramState
-	strings *stlstrings.ProgramState
-	control *stlcontrol.ProgramState
+	nodes     *node.ProgramState
+	channel   *stlchannels.ProgramState
+	series    *series.ProgramState
+	strings   *stlstrings.ProgramState
+	authority *stlcontrol.ProgramState
 }
 
 type dataRuntime struct {
@@ -408,7 +425,7 @@ func (d *dataRuntime) next(
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
-	changes := d.state.control.Flush()
+	changes := d.state.authority.Flush()
 	if len(changes) == 0 {
 		return nil
 	}

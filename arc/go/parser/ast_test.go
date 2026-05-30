@@ -27,19 +27,47 @@ var _ = Describe("AST Utilities", func() {
 			Entry("integer", "42"),
 			Entry("float", "3.14"),
 			Entry("string", `"hello"`),
+			Entry("raw string", `r"hello"`),
+			Entry("format string", `f"hi {x}"`),
+			Entry("multi-line string", "`a\nb`"),
+			Entry("multi-line format string", "f`hi {x}\nbye`"),
+			Entry("raw format string", `rf"path: {p}"`),
 			Entry("unit literal", "5ms"),
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
 		)
 
 		DescribeTable("false cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("addition", "1 + 2"),
-			Entry("unary minus", "-1"),
+			Entry("logical not", "not 1"),
 			Entry("identifier", "x"),
 			Entry("function call", "foo()"),
 			Entry("index", "arr[0]"),
 			Entry("parenthesized", "(42)"),
 			Entry("comparison", "1 > 0"),
 			Entry("logical", "1 and 0"),
+		)
+	})
+
+	Describe("IsNegatedLiteral", func() {
+		DescribeTable("true cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeTrue()) },
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
+		)
+
+		DescribeTable("false cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeFalse()) },
+			Entry("positive integer", "42"),
+			Entry("positive float", "3.14"),
+			Entry("positive unit literal", "5ms"),
+			Entry("string", `"hello"`),
+			Entry("identifier", "x"),
+			Entry("addition", "1 + 2"),
+			Entry("logical not", "not 1"),
 		)
 	})
 
@@ -53,7 +81,13 @@ var _ = Describe("AST Utilities", func() {
 			Entry("integer", "42", "42"),
 			Entry("float", "3.14", "3.14"),
 			Entry("string", `"hello"`, `"hello"`),
+			Entry("raw string", `r"hello"`, `r"hello"`),
+			Entry("multi-line string preserves newline", "`a\nb`", "`a\nb`"),
+			Entry("format string", `f"hi {x}"`, `f"hi {x}"`),
 			Entry("unit literal", "5ms", "5ms"),
+			Entry("negated integer extracts inner literal", "-1", "1"),
+			Entry("negated float extracts inner literal", "-3.14", "3.14"),
+			Entry("negated unit extracts inner literal", "-5ms", "5ms"),
 		)
 
 		It("returns nil for non-literal", func() {
@@ -75,6 +109,9 @@ var _ = Describe("AST Utilities", func() {
 		DescribeTable("false cases",
 			func(code string) { Expect(parser.IsNumericLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("string", `"hello"`),
+			Entry("raw string", `r"hello"`),
+			Entry("multi-line string", "`a\nb`"),
+			Entry("format string", `f"hi {x}"`),
 			Entry("identifier", "x"),
 			Entry("addition", "1 + 2"),
 			Entry("negated identifier", "-x"),
@@ -96,6 +133,9 @@ var _ = Describe("AST Utilities", func() {
 			}),
 			Entry("string literal", `"hi"`, func(p parser.IPrimaryExpressionContext) {
 				Expect(p.Literal().GetText()).To(Equal(`"hi"`))
+			}),
+			Entry("format string literal", `f"hi {x}"`, func(p parser.IPrimaryExpressionContext) {
+				Expect(p.Literal().GetText()).To(Equal(`f"hi {x}"`))
 			}),
 		)
 
@@ -136,6 +176,74 @@ var _ = Describe("AST Utilities", func() {
 			lit := parser.GetLiteralNode(postfix)
 			Expect(lit).NotTo(BeNil())
 			Expect(lit.GetText()).To(Equal("42"))
+		})
+	})
+
+	Describe("Imports", func() {
+		It("Should return nil for a nil program", func() {
+			Expect(parser.Imports(nil)).To(BeNil())
+		})
+
+		It("Should return nil when no import statements are present", func() {
+			prog := MustSucceed(parser.Parse(`func f() {}`))
+			Expect(parser.Imports(prog)).To(BeNil())
+		})
+
+		It("Should collect a single bare import", func() {
+			prog := MustSucceed(parser.Parse(`import time`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[0].Alias).To(Equal("time"))
+			Expect(entries[0].AST).ToNot(BeNil())
+		})
+
+		It("Should collect multiple modules in one block", func() {
+			prog := MustSucceed(parser.Parse(`import ( time math status )`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(3))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[1].Path).To(Equal("math"))
+			Expect(entries[2].Path).To(Equal("status"))
+		})
+
+		It("Should record the alias when present", func() {
+			prog := MustSucceed(parser.Parse(`import time as t`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[0].Alias).To(Equal("t"))
+		})
+
+		It("Should join hierarchical path segments with dots", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Path).To(Equal("math.trig"))
+		})
+
+		It("Should default alias to the last path segment on hierarchical paths", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig`))
+			entries := parser.Imports(prog)
+			Expect(entries[0].Alias).To(Equal("trig"))
+		})
+
+		It("Should preserve a hierarchical alias when AS is present", func() {
+			prog := MustSucceed(parser.Parse(`import math.trig as t`))
+			entries := parser.Imports(prog)
+			Expect(entries[0].Path).To(Equal("math.trig"))
+			Expect(entries[0].Alias).To(Equal("t"))
+		})
+
+		It("Should collect items across multiple import statements", func() {
+			prog := MustSucceed(parser.Parse(`
+				import time
+				import math
+			`))
+			entries := parser.Imports(prog)
+			Expect(entries).To(HaveLen(2))
+			Expect(entries[0].Path).To(Equal("time"))
+			Expect(entries[1].Path).To(Equal("math"))
 		})
 	})
 })

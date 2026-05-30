@@ -10,14 +10,13 @@
 package log
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Log{}
+var _ gorp.Entry[Key] = Log{}
 
 // GorpKey implements gorp.Entry.
-func (l Log) GorpKey() uuid.UUID { return l.Key }
+func (l Log) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
 func (l Log) SetOptions() []any { return nil }

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -36,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -83,8 +85,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
+			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
@@ -94,8 +97,9 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewResolver(dist.Channel, nil)
-			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
+			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
+			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
 				return svcarc.Arc{}, err
 			}
@@ -279,7 +283,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("invalid UUID"))
@@ -303,7 +307,7 @@ var _ = Describe("Task", Ordered, func() {
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
 			Expect(stat.Message).To(ContainSubstring("not found"))
@@ -331,7 +335,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task configured successfully"))
@@ -361,7 +365,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task started successfully"))
@@ -448,11 +452,11 @@ var _ = Describe("Task", Ordered, func() {
 					{Key: "ge", Type: "ge"},
 					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
 					{Key: "select", Type: "select"},
-					{Key: "status_success", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "success", "name": "OX Alarm", "message": "OX Pressure Nominal",
+					{Key: "status_success", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Nominal", "variant": "success",
 					}},
-					{Key: "status_error", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "error", "name": "OX Alarm", "message": "OX Pressure Exceed",
+					{Key: "status_error", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Exceed", "variant": "error",
 					}},
 				},
 				Edges: []graph.Edge{
@@ -472,6 +476,7 @@ var _ = Describe("Task", Ordered, func() {
 						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
+					// status_success/error fire on select outputs (edges below).
 					{
 						Source: graph.Handle{Node: "select", Param: "false"},
 						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
@@ -500,10 +505,13 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+						return s.Name == "ox_alarm", nil
+					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
+
 	})
 
 	Describe("Interval Timing", func() {
@@ -1156,7 +1164,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					WhereKeys(task.OntologyID(svcTask.Key).String()).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
@@ -1278,7 +1286,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-					WhereKeys(task.OntologyID(svcTask.Key).String()).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 					Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
 				g.Expect(stat.Description).To(ContainSubstring("integer divide by zero"))

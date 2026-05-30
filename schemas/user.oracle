@@ -23,6 +23,8 @@ User struct {
     username   string {
         @doc value         "is the unique login name for the user."
         @validate required
+        @filter
+        @index lookup
     }
     first_name string {
         @doc value "is the user's first name."
@@ -36,6 +38,7 @@ User struct {
             users cannot be deleted.
         """
         @validate default false
+        @filter
     }
 
     @doc value     """
@@ -43,6 +46,7 @@ User struct {
         Users can have roles assigned for permission management.
     """
     @ontology type "user"
+    @retrieve
     @go marshal
     @go migrate
     @pb

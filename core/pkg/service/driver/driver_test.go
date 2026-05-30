@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,8 +34,7 @@ var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
-			WhereEmbedded(true).
-			WhereName("Node 1").
+			Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 			Entry(&r).
 			Exec(ctx, nil)).To(Succeed())
 		return r.Key
@@ -87,7 +85,7 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, &mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereKeys(embeddedRackKey(ctx)).
+				Where(rack.MatchKeys(embeddedRackKey(ctx))).
 				Entries(&racks).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
@@ -110,8 +108,7 @@ var _ = Describe("Driver", func() {
 			}))
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereEmbedded(true).
-				WhereName("Node 1").
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
@@ -147,8 +144,7 @@ var _ = Describe("Driver", func() {
 
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereEmbedded(true).
-				WhereName("Node 1").
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
@@ -412,6 +408,41 @@ var _ = Describe("Driver", func() {
 			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
 		})
 
+		It("should continue configuring new tasks after a configuration panic", func(ctx SpecContext) {
+			var (
+				knownKeys         sync.Map
+				configAttempts    atomic.Int32
+				healthyConfigured atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					if _, ok := knownKeys.Load(t.Key); !ok {
+						return nil, driver.ErrTaskNotHandled
+					}
+					if configAttempts.Add(1) == 1 {
+						panic("boom during configure")
+					}
+					healthyConfigured.Store(true)
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			openDriver(ctx, factory)
+
+			t1 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t1.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
+			Eventually(func() int32 { return configAttempts.Load() }).Should(Equal(int32(1)))
+
+			t2 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t2.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
+			Eventually(func() bool { return healthyConfigured.Load() }).Should(BeTrue())
+		})
+
 		It("should handle task stop error gracefully during reconfiguration", func(ctx SpecContext) {
 			var (
 				stopCalled  atomic.Bool
@@ -642,8 +673,8 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -668,8 +699,8 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -678,8 +709,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -703,8 +734,8 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -714,16 +745,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []status.Status[any]
-			Expect(gorp.NewRetrieve[string, status.Status[any]]().
-				WhereKeys(statusKey).
+			Expect(statusSvc.NewRetrieve().
+				Where(status.MatchKeys[any](statusKey)).
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
@@ -787,8 +818,8 @@ var _ = Describe("Driver", func() {
 					return &mockTask{
 						key: t.Key,
 						execFunc: func(_ context.Context, cmd task.Command) error {
-							execCalled.Store(true)
 							receivedCmd.Store(cmd)
+							execCalled.Store(true)
 							return nil
 						},
 					}, nil
@@ -917,6 +948,47 @@ var _ = Describe("Driver", func() {
 			writeCommand(ctx, cmd)
 
 			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+		})
+
+		It("should not crash the process when a task's Exec panics", func(ctx SpecContext) {
+			var (
+				panicExecCalled   atomic.Bool
+				healthyExecCalled atomic.Bool
+				configReady       = make(chan struct{})
+				readyOnce         sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(_ context.Context, cmd task.Command) error {
+							if cmd.Type == "panic" {
+								panicExecCalled.Store(true)
+								panic("boom during exec")
+							}
+							healthyExecCalled.Store(true)
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey(ctx))
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "panic", Key: "cmd-panic"})
+			Eventually(func() bool { return panicExecCalled.Load() }, "2s").Should(BeTrue())
+
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-healthy"})
+			Eventually(func() bool { return healthyExecCalled.Load() }, "2s").Should(BeTrue())
 		})
 
 		It("should log warning for unsupported command without crashing", func(ctx SpecContext) {

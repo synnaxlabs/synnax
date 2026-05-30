@@ -1,0 +1,135 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.pluto-symbol-primitive {
+    width: fit-content;
+    height: fit-content;
+
+    .react-flow__handle {
+        scale: calc(1 / var(--pluto-diagram-zoom, 1));
+        transform: translate(
+            calc(var(--pluto-diagram-zoom, 1) * -50%),
+            calc(var(--pluto-diagram-zoom, 1) * -50%)
+        );
+    }
+
+    &.pluto--location-bottom svg,
+    & svg.pluto--location-bottom {
+        & > g {
+            transform-origin: top left;
+            transform: translateX(100%) rotate(90deg);
+        }
+    }
+
+    &.pluto--location-top svg,
+    & svg.pluto--location-top {
+        & > g {
+            transform-origin: top left;
+            transform: translateY(100%) rotate(-90deg);
+        }
+    }
+
+    &.pluto--location-right svg,
+    & svg.pluto--location-right {
+        & > g {
+            transform-origin: top left;
+            transform: translate(100%, 100%) rotate(180deg);
+        }
+    }
+
+    & svg {
+        overflow: visible;
+    }
+
+    &:not(.pluto-symbol--custom) svg {
+        stroke-width: 2px;
+    }
+
+    &:not(.pluto-symbol-primitive-toggle) svg {
+        fill: none;
+    }
+}
+
+.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+    &:hover {
+        &:not(.pluto--enabled) svg {
+            fill: rgb(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.75) !important;
+        }
+
+        &.pluto--enabled svg {
+            stroke: rgb(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.85) !important;
+        }
+    }
+
+    &:active {
+        &:not(.pluto--enabled) svg {
+            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.9) !important;
+        }
+
+        &.pluto--enabled svg {
+            stroke: rgb(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.75) !important;
+        }
+    }
+}
+
+.pluto--enabled svg {
+    stroke: rgb(var(--pluto-symbol-color)) !important;
+    fill: rgb(var(--pluto-symbol-color)) !important;
+}
+
+.pluto--enabled svg .pluto--detail {
+    stroke: rgb(var(--pluto-symbol-color-contrast), 0.9) !important;
+}
+
+.pluto-symbol-primitive-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:active {
+        opacity: 0.95;
+    }
+
+    &:not(.pluto--enabled) svg {
+        fill: none;
+    }
+
+    &.pluto-symbol-primitive-toggle--delayed {
+        position: relative;
+        backdrop-filter: brightness(1);
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            z-index: 1;
+            background: rgba(var(--pluto-symbol-color), 0.2);
+            pointer-events: none;
+        }
+
+        &:active::after {
+            animation: delay var(--pluto-toggle-delay) linear;
+            width: 100%;
+        }
+    }
+}

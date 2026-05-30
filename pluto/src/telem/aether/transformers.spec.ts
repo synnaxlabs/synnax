@@ -10,7 +10,13 @@
 import { DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { SeriesDownsampler } from "@/telem/aether/transformers";
+import { TestSource } from "@/telem/aether/test/source";
+import {
+  RollingAverage,
+  ScaleNumber,
+  SeriesDownsampler,
+  StringifyNumber,
+} from "@/telem/aether/transformers";
 
 describe("SeriesDownsampler", () => {
   describe("decimate mode", () => {
@@ -441,5 +447,65 @@ describe("SeriesDownsampler", () => {
       expect(result2.series[0].at(0)).toBe(0.5);
       expect(result2.series[0].at(1)).toBe(2.5);
     });
+  });
+});
+
+describe("StringifyNumber", () => {
+  it("formats a number value with prefix and suffix", () => {
+    const t = new StringifyNumber({ precision: 2, prefix: "$", suffix: " USD" });
+    t.setSources({ in: new TestSource(42) });
+    expect(t.value()).toBe("$42.00 USD");
+  });
+
+  it("preserves full precision for a bigint value above 2^53 in standard notation", () => {
+    const t = new StringifyNumber({ precision: 0, notation: "standard" });
+    t.setSources({ in: new TestSource(1778020940471336960n) });
+    expect(t.value()).toBe("1778020940471336960");
+  });
+
+  it("does not crash and returns a finite string for a bigint value", () => {
+    const t = new StringifyNumber({ precision: 2, notation: "scientific" });
+    t.setSources({ in: new TestSource(1778020940471336960n) });
+    expect(t.value()).toBe("1.78ᴇ18");
+  });
+
+  it("returns an empty string for NaN", () => {
+    const t = new StringifyNumber({ precision: 2 });
+    t.setSources({ in: new TestSource(NaN) });
+    expect(t.value()).toBe("");
+  });
+});
+
+describe("RollingAverage", () => {
+  it("returns the value unchanged when windowSize is less than 2", () => {
+    const t = new RollingAverage({ windowSize: 1 });
+    t.setSources({ in: new TestSource(42) });
+    expect(t.value()).toBe(42);
+  });
+
+  it("coerces a bigint value to a number", () => {
+    const t = new RollingAverage({ windowSize: 1 });
+    t.setSources({ in: new TestSource(123n) });
+    expect(t.value()).toBe(123);
+  });
+});
+
+describe("ScaleNumber", () => {
+  it("applies the scale and offset to a number value", () => {
+    const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
+    t.setSources({ in: new TestSource(10) });
+    expect(t.value()).toBe(23);
+  });
+
+  it("coerces a bigint value to a number before scaling", () => {
+    const t = new ScaleNumber({ scale: { scale: 2, offset: 0 } });
+    t.setSources({ in: new TestSource(50n) });
+    expect(t.value()).toBe(100);
+  });
+
+  it("returns NaN when given NaN", () => {
+    const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
+    t.setSources({ in: new TestSource(NaN) });
+    expect(Number.isNaN(t.value())).toBe(true);
   });
 });

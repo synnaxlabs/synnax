@@ -110,7 +110,7 @@ type IR struct {
 	Sequences Sequences `json:"sequences" msgpack:"sequences"`
 	// Authorities contains the static authority declarations for this program.
 	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
-	Symbols     *symbol.Scope                          `json:"-"`
+	Symbols     *symbol.Symbol                         `json:"-"`
 	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
 }
 

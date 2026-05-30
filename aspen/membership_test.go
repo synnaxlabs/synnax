@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
 	"github.com/synnaxlabs/x/address"
-	xnet "github.com/synnaxlabs/x/net"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -50,7 +50,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		})
 
 		It("Should correctly bootstrap a cluster with peers provided", func(ctx SpecContext) {
-			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
+			addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
 			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
@@ -68,8 +68,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It("Should correctly join a node that is already looking for peers", func(ctx SpecContext) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
-			addr1 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
-			addr2 := address.Newf("localhost:%v", MustSucceed(xnet.FindOpenPort()))
+			addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
+			addr2 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()

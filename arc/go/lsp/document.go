@@ -50,16 +50,6 @@ func (d *Document) displayContent() string {
 	return d.Content
 }
 
-func (d *Document) toASTPosition(pos protocol.Position) protocol.Position {
-	if !d.isBlock() {
-		return pos
-	}
-	if pos.Line == 0 {
-		return protocol.Position{Line: pos.Line, Character: pos.Character + 1}
-	}
-	return pos
-}
-
 func (d *Document) toDocPosition(pos protocol.Position) protocol.Position {
 	if !d.isBlock() {
 		return pos
@@ -106,21 +96,30 @@ func (d *Document) getWordRangeAtPosition(pos protocol.Position) *protocol.Range
 	return lsp.GetWordRangeAtPosition(d.displayContent(), pos)
 }
 
-func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Scope {
-	if d.IR.Symbols == nil {
-		return nil
-	}
-	astPos := d.toASTPosition(pos)
-	internalPos := fromProtocol(astPos)
-	var deepest *symbol.Scope
-	findScopeRecursive(d.IR.Symbols, internalPos.Line, internalPos.Col, &deepest)
-	if deepest == nil {
-		return d.IR.Symbols
-	}
-	return deepest
+func (d *Document) findScopeAtPosition(pos protocol.Position) *symbol.Symbol {
+	return findScopeAt(d.IR.Symbols, d.isBlock(), pos)
 }
 
-func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Position) (*symbol.Scope, error) {
+// findScopeAt is the snapshot-friendly form of (*Document).findScopeAtPosition:
+// it operates on a symbol tree and isBlock flag passed in by the caller so
+// handlers can snapshot doc fields under the server lock and then resolve a
+// scope without touching the live Document.
+func findScopeAt(
+	symbols *symbol.Symbol,
+	isBlock bool,
+	pos protocol.Position,
+) *symbol.Symbol {
+	if symbols == nil {
+		return nil
+	}
+	astPos := pos
+	if isBlock && pos.Line == 0 {
+		astPos.Character++
+	}
+	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
+}
+
+func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Position) (*symbol.Symbol, error) {
 	word := d.getWordAtPosition(pos)
 	if word == "" {
 		return nil, nil

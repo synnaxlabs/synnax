@@ -55,7 +55,7 @@ var _ = Describe("Migrate", func() {
 		// This simulates the state of the DB before the range_groups migration
 		// was added.
 		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
-			ctx, gorp.TableConfig[ranger.Range]{DB: db},
+			ctx, gorp.TableConfig[uuid.UUID, ranger.Range]{DB: db},
 		))
 
 		tx := db.OpenTx()
@@ -117,15 +117,15 @@ var _ = Describe("Migrate", func() {
 
 		// The "Ranges" group and "Subgroup" should be deleted.
 		var g group.Group
-		Expect(gSvc.NewRetrieve().WhereNames("Ranges").Entry(&g).Exec(ctx, nil)).
+		Expect(gSvc.NewRetrieve().Where(group.MatchNames("Ranges")).Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.ErrNotFound))
-		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
+		Expect(gSvc.NewRetrieve().Where(group.MatchNames("Subgroup")).Entry(&g).Exec(ctx, nil)).
 			To(MatchError(query.ErrNotFound))
 
 		// There should be a new parent range named "Subgroup" whose time range
 		// is the union of r1 and r2.
 		var parentRange ranger.Range
-		Expect(svc.NewRetrieve().WhereNames("Subgroup").
+		Expect(svc.NewRetrieve().Where(ranger.MatchNames("Subgroup")).
 			Entry(&parentRange).Exec(ctx, nil)).To(Succeed())
 		Expect(parentRange.TimeRange).To(Equal(telem.TimeRange{
 			Start: telem.TimeStamp(10 * telem.Second),

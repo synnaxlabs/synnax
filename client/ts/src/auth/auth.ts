@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
-const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
-interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
+const credentialsZ = z.object({ username: z.string(), password: z.string() });
+interface Credentials extends z.infer<typeof credentialsZ> {}
 
 const clusterInfoZ = z.object({
   clusterKey: z.string(),
@@ -49,12 +49,12 @@ type AuthState =
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly credentials: InsecureCredentials;
+  private readonly credentials: Credentials;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
 
-  constructor(client: UnaryClient, credentials: InsecureCredentials) {
+  constructor(client: UnaryClient, credentials: Credentials) {
     this.client = client;
     this.credentials = credentials;
     this.retryCount = 0;
@@ -82,8 +82,7 @@ export class Client {
 
   async changePassword(newPassword: string): Promise<void> {
     if (!this.authenticated) throw new Error("Not authenticated");
-    await sendRequired<typeof changePasswordReqZ, typeof changePasswordResZ>(
-      this.client,
+    await this.client.send(
       "/auth/change-password",
       {
         username: this.credentials.username,
@@ -99,39 +98,42 @@ export class Client {
   middleware(): Middleware {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
-        this.authenticating ??= new Promise((resolve, reject) => {
-          this.client
-            .send(
+        this.authenticating ??= (async (): Promise<Error | null> => {
+          try {
+            const res = await this.client.send(
               LOGIN_ENDPOINT,
               this.credentials,
-              insecureCredentialsZ,
+              credentialsZ,
               tokenResponseZ,
-            )
-            .then(([res, err]) => {
-              if (err != null) return resolve(err);
-              if (res == null) return resolve(new Error("No response from login"));
-              this.authState = {
-                authenticated: true,
-                user: res.user,
-                token: res.token,
-              };
-              resolve(null);
-            })
-            .catch(reject);
-        });
+            );
+            this.authState = {
+              authenticated: true,
+              user: res.user,
+              token: res.token,
+            };
+            return null;
+          } catch (err) {
+            return err instanceof Error ? err : new Error(String(err));
+          }
+        })();
         const err = await this.authenticating;
-        if (err != null) return [reqCtx, err];
+        if (err != null) throw err;
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
-      const [resCtx, err] = await next(reqCtx);
-      if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
-        this.authState = { authenticated: false };
-        this.authenticating = undefined;
-        this.retryCount += 1;
-        return mw(reqCtx, next);
+      try {
+        const resCtx = await next(reqCtx);
+        this.retryCount = 0;
+        return resCtx;
+      } catch (err) {
+        if (RETRY_ON.some((e) => e.matches(err)) && this.retryCount < MAX_RETRIES) {
+          this.authState = { authenticated: false };
+          this.authenticating = undefined;
+          this.retryCount += 1;
+          return mw(reqCtx, next);
+        }
+        this.retryCount = 0;
+        throw err;
       }
-      this.retryCount = 0;
-      return [resCtx, err];
     };
     return mw;
   }

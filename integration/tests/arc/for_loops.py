@@ -10,7 +10,7 @@
 from dataclasses import dataclass
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_FOR_LOOP_SOURCE = """
@@ -427,18 +427,7 @@ class ForLoops(ArcConsoleCase):
             create_virtual_channel(self.client, name, dtype)
         for case in CASES:
             create_virtual_channel(self.client, case.in_ch, case.in_dtype)
-            idx = self.client.channels.create(
-                name=f"{case.out_ch}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=case.out_ch,
-                data_type=case.out_dtype,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, case.out_ch, case.out_dtype)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

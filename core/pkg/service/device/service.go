@@ -99,7 +99,7 @@ var DefaultServiceConfig = ServiceConfig{}
 type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
-	table  *gorp.Table[string, Device]
+	table  *gorp.Table[Key, Device]
 	group  group.Group
 }
 
@@ -115,13 +115,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
-	if s.table, err = gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
+	if s.table, err = gorp.OpenTable[Key, Device](ctx, gorp.TableConfig[Key, Device]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[string, v54.Device]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, v54.Device]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[string, string, v54.Device, Device](
+				gorp.NewEntryMigration[Key, Key, v54.Device, Device](
 					"v54_drop_status_parent",
 					MigrateDevice,
 				),
@@ -185,7 +185,7 @@ func (s *Service) NewRetrieve() Retrieve {
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	var devices []Device
-	if err := s.NewRetrieve().WhereRacks(rackStat.Details.Rack).
+	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))

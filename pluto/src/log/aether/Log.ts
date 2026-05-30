@@ -7,32 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  type destructor,
+  notation,
+  text,
+  TimeStamp,
+  timestampFormatZ,
+  timeZoneZ,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type LogEntry,
   type LogSource,
   logSourceSpecZ,
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-import { noopLogSourceSpec } from "./telem/noop";
-
-export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
-export type TimestampFormat = z.infer<typeof timestampFormatZ>;
-
-export const timestampTZZ = z.enum(["UTC", "local"]);
-export type TimestampTZ = z.infer<typeof timestampTZZ>;
-
 export const timestampConfigZ = z.object({
   format: timestampFormatZ.default("preciseDate"),
-  tz: timestampTZZ.default("local"),
+  tz: timeZoneZ.default("local"),
 });
 export type TimestampConfig = z.infer<typeof timestampConfigZ>;
 
@@ -453,6 +455,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     else if (showReceiptTimestamp) prefix = `${ts}  `;
     else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
+    // Continuation lines (\n) keep the prefix's alignment width as whitespace.
+    if (entry.continuation) prefix = " ".repeat(prefix.length);
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 

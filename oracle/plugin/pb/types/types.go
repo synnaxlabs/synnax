@@ -19,12 +19,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -61,28 +61,6 @@ func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
 
-var (
-	bufFormatCmd   = []string{"buf", "format", "-w"}
-	bufGenerateCmd = []string{"buf", "generate"}
-)
-
-func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	firstFile := files[0]
-	repoRoot := gomod.FindRepoRoot(firstFile)
-	if repoRoot == "" {
-		return errors.New("could not determine repo root from file paths")
-	}
-	// buf format -w and buf generate don't accept file arguments - they operate
-	// on the entire directory. Run both without file arguments from the repo root.
-	if err := exec.OnFiles(bufGenerateCmd, nil, repoRoot); err != nil {
-		return err
-	}
-	return exec.OnFiles(bufFormatCmd, nil, repoRoot)
-}
-
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
@@ -107,7 +85,47 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
-		// Use namespace-based filename: {namespace}.proto
+		filename := namespace + ".proto"
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
+			Content: content,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Emit pb output for schemas that opt into @pb but contain only enums
+	// (no structs). Cross-namespace fields that reference these enums rely
+	// on the foreign translator existing; without this pass the schema
+	// silently produces nothing and the dependent schema fails to compile.
+	enumCollector := framework.NewCollector("pb", req).
+		WithPathFunc(func(typ resolution.Type) string {
+			return enum.FindPBOutputPath(typ, req.Resolutions)
+		}).
+		WithSkipFunc(nil)
+	if err := enumCollector.AddAll(req.Resolutions.EnumTypes()); err != nil {
+		return nil, err
+	}
+	err = enumCollector.ForEach(func(outputPath string, enums []resolution.Type) error {
+		if structCollector.Has(outputPath) {
+			return nil
+		}
+		var kept []resolution.Type
+		for _, e := range enums {
+			if !omit.IsType(e, "pb") {
+				kept = append(kept, e)
+			}
+		}
+		if len(kept) == 0 {
+			return nil
+		}
+		namespace := kept[0].Namespace
+		content, err := p.generateFile(outputPath, nil, kept, req.Resolutions, req.RepoRoot)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
 		filename := namespace + ".proto"
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, filename),
@@ -132,6 +150,8 @@ func (p *Plugin) generateFile(
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
+	} else if len(enums) > 0 {
+		namespace = enums[0].Namespace
 	}
 
 	data := &templateData{
@@ -277,7 +297,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
 	if p.isFixedSizeUint8Array(field.Type, data.table) {
 		return fieldData{
-			Name:       toSnakeCase(field.Name),
+			Name:       casing.FieldSnake(field.Name),
 			Doc:        doc.Get(field.Domains),
 			Type:       "bytes",
 			Number:     number,
@@ -294,7 +314,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
 		}
 		return fieldData{
-			Name:       toSnakeCase(field.Name),
+			Name:       casing.FieldSnake(field.Name),
 			Doc:        doc.Get(field.Domains),
 			Type:       wrapperName,
 			Number:     number,
@@ -309,7 +329,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 	}
 
 	return fieldData{
-		Name:       toSnakeCase(field.Name),
+		Name:       casing.FieldSnake(field.Name),
 		Doc:        doc.Get(field.Domains),
 		Type:       protoType,
 		Number:     number,
@@ -593,10 +613,6 @@ func (p *Plugin) resolveMapType(typeRef resolution.TypeRef, data *templateData) 
 
 func getPBName(typ resolution.Type) string {
 	return domain.GetStringFromType(typ, "pb", "name")
-}
-
-func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
 }
 
 func toScreamingSnake(s string) string {

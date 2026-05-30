@@ -7,38 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export const debounce = <F extends (...args: any[]) => void>(
-  func: F,
-  waitFor: number,
-): F => {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  if (waitFor === 0) return func;
+import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
-  const debounced = (...args: Parameters<F>): void => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
+// DebouncedFn is the function returned by debounce. It carries cancel and
+// flush handles so callers (e.g., React cleanup paths) can drop pending
+// invocations or force them to run immediately on demand. Shape matches
+// lodash.debounce.
+export interface DebouncedFn<Args extends unknown[]> {
+  (...args: Args): void;
+  cancel: () => void;
+  flush: () => void;
+}
+
+const noop = (): void => {};
+
+export const debounce = <Args extends unknown[]>(
+  func: (...args: Args) => void,
+  waitFor: CrudeTimeSpan,
+): DebouncedFn<Args> => {
+  const debouncePeriod = new TimeSpan(waitFor);
+  if (debouncePeriod.valueOf() <= 0) {
+    const passthrough = ((...args: Args) => func(...args)) as DebouncedFn<Args>;
+    passthrough.cancel = noop;
+    passthrough.flush = noop;
+    return passthrough;
+  }
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let latestArgs: Args | null = null;
+  const invoke = (): void => {
+    if (latestArgs === null) return;
+    const args = latestArgs;
+    latestArgs = null;
+    func(...args);
   };
-
-  return debounced as F;
-};
-
-export const throttle = <F extends (...args: unknown[]) => void>(
-  func: F,
-  waitFor: number,
-): F => {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  if (waitFor === 0) return func;
-
-  const throttled = (...args: Parameters<F>): void => {
-    if (timeout === null)
-      timeout = setTimeout(() => {
-        func(...args);
-        timeout = null;
-      }, waitFor);
+  const debounced = ((...args: Args): void => {
+    latestArgs = args;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      timeout = undefined;
+      invoke();
+    }, debouncePeriod.milliseconds);
+  }) as DebouncedFn<Args>;
+  debounced.cancel = (): void => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    latestArgs = null;
   };
-
-  return throttled as F;
+  debounced.flush = (): void => {
+    if (timeout === undefined) return;
+    clearTimeout(timeout);
+    timeout = undefined;
+    invoke();
+  };
+  return debounced;
 };

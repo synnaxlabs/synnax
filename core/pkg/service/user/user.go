@@ -19,10 +19,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ gorp.Entry[uuid.UUID] = User{}
+var _ gorp.Entry[Key] = User{}
 
 // GorpKey implements gorp.Entry.
-func (u User) GorpKey() uuid.UUID { return u.Key }
+func (u User) GorpKey() Key { return u.Key }
 
 // SetOptions implements gorp.Entry.
 func (u User) SetOptions() []any { return nil }

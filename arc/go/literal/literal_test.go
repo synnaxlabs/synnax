@@ -198,6 +198,19 @@ var _ = Describe("Literal Parser", func() {
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
+			DescribeTable("Time-unit literal boxing per target kind",
+				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
+					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
+					Expect(parsed.Value).To(Equal(expectedValue))
+					Expect(parsed.Type.Kind).To(Equal(expectedKind))
+				},
+				Entry("i64 boxes telem.TimeSpan", "5400s", types.I64(), telem.Second*5400, types.KindI64),
+				Entry("u64 boxes plain uint64", "5400s", types.U64(), uint64(5_400_000_000_000), types.KindU64),
+				Entry("i32 boxes plain int32", "1s", types.I32(), int32(1_000_000_000), types.KindI32),
+				Entry("zero at i64 boxes telem.TimeSpan(0)", "0s", types.I64(), telem.TimeSpan(0), types.KindI64),
+				Entry("ns at i64 boxes telem.TimeSpan", "54ns", types.I64(), telem.Nanosecond*54, types.KindI64),
+			)
+
 			It("Should convert to f64", func() {
 				lit := getLiteral("5km")
 				parsed := MustSucceed(literal.Parse(lit, types.F64()))
@@ -325,11 +338,109 @@ var _ = Describe("Literal Parser", func() {
 		})
 	})
 
+	Describe("Raw and multi-line string literals", func() {
+		DescribeTable("ParseString happy path",
+			func(input string, target types.Type, expected string) {
+				parsed := MustSucceed(literal.ParseString(input, target))
+				Expect(parsed.Value).To(Equal(expected))
+				Expect(parsed.Type).To(Equal(types.String()))
+			},
+			Entry("empty raw", `r""`, types.String(), ""),
+			Entry("simple raw", `r"hello"`, types.String(), "hello"),
+			Entry("raw with spaces", `r"hello world"`, types.String(), "hello world"),
+			Entry("raw backslash-n verbatim", `r"a\nb"`, types.String(), `a\nb`),
+			Entry("raw backslash-t verbatim", `r"col1\tcol2"`, types.String(), `col1\tcol2`),
+			Entry("raw escaped quote preserves backslash", `r"\""`, types.String(), `\"`),
+			Entry("raw windows path", `r"C:\Users\path"`, types.String(), `C:\Users\path`),
+			Entry("empty multi", "``", types.String(), ""),
+			Entry("simple multi", "`hello`", types.String(), "hello"),
+			Entry("multi with real newline", "`line1\nline2`", types.String(), "line1\nline2"),
+			Entry("multi three-line literal", "`a\nb\nc`", types.String(), "a\nb\nc"),
+			Entry("multi indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
+			Entry("multi tab char preserved", "`a\tb`", types.String(), "a\tb"),
+			Entry("multi unicode", "`°C`", types.String(), "°C"),
+			Entry("multi processes escape sequences", "`a\\nb`", types.String(), "a\nb"),
+			Entry("raw multi verbatim escapes", "r`a\\nb`", types.String(), `a\nb`),
+			Entry("raw multi with real newline", "r`line1\nline2`", types.String(), "line1\nline2"),
+			Entry("no target type infers string from raw", `r"hi"`, types.Type{}, "hi"),
+			Entry("format single preserves placeholders in body", `f"hi {x}"`, types.String(), "hi {x}"),
+			Entry("format single processes standard escapes", `f"a\nb {x}"`, types.String(), "a\nb {x}"),
+			Entry("format multi preserves placeholders in body", "f`v={x}\nt={t}`", types.String(), "v={x}\nt={t}"),
+			Entry("format multi processes escapes outside placeholders", "f`a\\tb {x}`", types.String(), "a\tb {x}"),
+			Entry("rf preserves placeholder and backslash verbatim", `rf"C:\path\{x}"`, types.String(), `C:\path\{x}`),
+			Entry("fr (order-flipped) behaves identically to rf", `fr"hi {x}"`, types.String(), `hi {x}`),
+			Entry("rf multi preserves placeholder, real newline, and backslash", "rf`v={x}\nraw=\\n`", types.String(), "v={x}\nraw=\\n"),
+		)
+
+		DescribeTable("ParseString errors",
+			func(input string, target types.Type, errSubstring string) {
+				Expect(literal.ParseString(input, target)).
+					Error().To(MatchError(ContainSubstring(errSubstring)))
+			},
+			Entry("non-string target type", `r"hi"`, types.I32(), "cannot assign string to"),
+			Entry("missing leading quote", `hi"`, types.String(), "invalid string literal"),
+			Entry("missing trailing quote", `"hi`, types.String(), "invalid string literal"),
+			Entry("single quote too short", `"`, types.String(), "invalid string literal"),
+			Entry("empty text too short", "", types.String(), "invalid string literal"),
+		)
+
+		Describe("Parse AST routing", func() {
+			It("Should route raw string literal through ParseString", func() {
+				lit := getLiteral(`r"hello"`)
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("hello"))
+				Expect(parsed.Type).To(Equal(types.String()))
+			})
+
+			It("Should preserve real newlines in multi-line literal", func() {
+				lit := getLiteral("`a\nb`")
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("a\nb"))
+			})
+
+			It("Should infer string type when no target type specified", func() {
+				lit := getLiteral(`r"hi"`)
+				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
+				Expect(parsed.Value).To(Equal("hi"))
+				Expect(parsed.Type).To(Equal(types.String()))
+			})
+
+			It("Should still route regular string literals to ParseString", func() {
+				lit := getLiteral(`"hello\n"`)
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("hello\n"))
+			})
+		})
+	})
+
 	Describe("Series literals", func() {
 		It("Should return error for series literals (not supported for default values)", func() {
 			lit := getLiteral("[1, 2, 3]")
 			Expect(literal.Parse(lit, types.Series(types.I64()))).
 				Error().To(MatchError(ContainSubstring("series literals not supported for default values")))
+		})
+	})
+
+	Describe("Negate", func() {
+		DescribeTable("should negate numeric values",
+			func(input any, expected any) {
+				Expect(literal.Negate(input)).To(Equal(expected))
+			},
+			Entry("int8", int8(42), int8(-42)),
+			Entry("int16", int16(1000), int16(-1000)),
+			Entry("int32", int32(100000), int32(-100000)),
+			Entry("int64", int64(5000000000), int64(-5000000000)),
+			Entry("float32", float32(3.14), float32(-3.14)),
+			Entry("float64", float64(2.718), float64(-2.718)),
+			Entry("TimeSpan", telem.Second, -telem.Second),
+			Entry("negative int64 becomes positive", int64(-42), int64(42)),
+			Entry("negative float64 becomes positive", float64(-1.5), float64(1.5)),
+			Entry("zero int64", int64(0), int64(0)),
+			Entry("zero float64", float64(0), float64(0)),
+		)
+
+		It("Should return non-numeric types unchanged", func() {
+			Expect(literal.Negate("hello")).To(Equal("hello"))
 		})
 	})
 

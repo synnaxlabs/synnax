@@ -13,6 +13,7 @@ from typing import Any
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
+from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import Schematic
 from framework.utils import assert_link_format
 from x import random_name
@@ -40,7 +41,7 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
         f"got '{exported['version']}'"
     )
 
-    required_keys = ["nodes", "edges", "props", "viewport"]
+    required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"
 
@@ -56,6 +57,7 @@ class SchematicLifecycle(ConsoleCase):
     ctx_schematic_copy_name: str | None
     main_schematic_name: str | None
     main_schematic_link: str
+    off_page_schematic_names: list[str]
 
     def setup(self) -> None:
         super().setup()
@@ -64,6 +66,7 @@ class SchematicLifecycle(ConsoleCase):
         self.ctx_schematic_copy_name = None
         self.shared_range_name = None
         self.main_schematic_name = None
+        self.off_page_schematic_names = []
 
         self.shared_range_name = f"Shared Snapshot Range {self.suffix}"
         self.console.ranges.create(self.shared_range_name, persisted=True)
@@ -86,6 +89,7 @@ class SchematicLifecycle(ConsoleCase):
             self.ctx_schematic_name,
             self.ctx_schematic_copy_name,
             self.main_schematic_name,
+            *self.off_page_schematic_names,
         ]:
             if name:
                 self._cleanup_pages.append(name)
@@ -121,6 +125,7 @@ class SchematicLifecycle(ConsoleCase):
         self.test_view_writers_in_control(schematic)
         self.test_copy_link(schematic)
         self.test_export_json(schematic)
+        self.test_undo_redo(schematic)
 
         self.main_schematic_link = schematic.copy_link()
         self.main_schematic_name = schematic.page_name
@@ -133,6 +138,7 @@ class SchematicLifecycle(ConsoleCase):
 
         self.test_ctx_operations()
         self.test_multi_schematic_operations()
+        self.test_off_page_navigation()
         self.test_snapshot_operations()
         self.test_ctx_delete_operations()
 
@@ -178,6 +184,50 @@ class SchematicLifecycle(ConsoleCase):
 
         exported = schematic.export_json()
         assert_exported_json(exported)
+
+    def test_undo_redo(self, schematic: Schematic) -> None:
+        """Test undo/redo of a node deletion via keyboard shortcuts."""
+        self.log("Testing schematic undo/redo")
+
+        schematic.enable_edit()
+        schematic._click_canvas()
+        baseline = schematic.get_symbol_count()
+        assert baseline > 0, (
+            f"Expected at least one symbol on the schematic before undo/redo, "
+            f"got {baseline}"
+        )
+
+        button = schematic.find_symbol(
+            Button(label=self.cmd_name, channel_name=self.cmd_name)
+        )
+        button.delete()
+        after_delete = schematic.get_symbol_count()
+        assert after_delete == baseline - 1, (
+            f"Expected {baseline - 1} symbols after delete, got {after_delete}"
+        )
+
+        schematic._click_canvas()
+        self.console.layout.press_key("ControlOrMeta+Z")
+        sy.sleep(0.3)
+        after_undo = schematic.get_symbol_count()
+        assert after_undo == baseline, (
+            f"Expected {baseline} symbols after undo of delete, got {after_undo}"
+        )
+
+        self.console.layout.press_key("ControlOrMeta+Shift+Z")
+        sy.sleep(0.3)
+        after_redo = schematic.get_symbol_count()
+        assert after_redo == baseline - 1, (
+            f"Expected {baseline - 1} symbols after redo of delete, got {after_redo}"
+        )
+
+        schematic._click_canvas()
+        self.console.layout.press_key("ControlOrMeta+Z")
+        sy.sleep(0.3)
+        final = schematic.get_symbol_count()
+        assert final == baseline, (
+            f"Expected {baseline} symbols after restoring undo, got {final}"
+        )
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""
@@ -366,6 +416,83 @@ class SchematicLifecycle(ConsoleCase):
         )
         self.console.workspace.close_page(new_name)
         self.console.workspace.delete_page(original_name)
+
+    def _dblclick_node(self, page: Any, label: str) -> None:
+        """Double-click a react-flow node by label using mouse coordinates."""
+        pane = page.locator(".react-flow__pane").first
+        pane.click()
+        node = page.locator(".react-flow__node").filter(has_text=label).first
+        node.wait_for(state="visible", timeout=5000)
+        box = node.bounding_box()
+        if box is None:
+            raise RuntimeError(f"Could not get bounding box for node '{label}'")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        page.mouse.dblclick(cx, cy)
+
+    def test_off_page_navigation(self) -> None:
+        """Test off-page reference navigation cycling through 3 linked schematics."""
+        self.log("Testing off-page reference navigation cycle")
+        page = self.console.layout.page
+
+        names = [
+            f"snap {self.suffix}",
+            f"crackle {self.suffix}",
+            f"pop {self.suffix}",
+        ]
+
+        for name in names:
+            s = self.console.workspace.create_schematic(name)
+            s.close()
+        self.off_page_schematic_names = list(names)
+
+        # Open snap, create off-page ref pointing to crackle, navigate
+        schematic = self.console.workspace.open_schematic(names[0])
+        ref = OffPageReference(label=f"Go to {names[1]}", page_name=names[1])
+        schematic.create_symbol(ref)
+        schematic.disable_edit()
+        schematic.fit_view()
+        self._dblclick_node(page, f"Go to {names[1]}")
+
+        # Arrive at crackle, assert navigation succeeded
+        self.console.layout.wait_for_tab(names[1])
+        assert self.console.layout.get_tab(names[1]).is_visible(), (
+            f"Expected to navigate to '{names[1]}'"
+        )
+        self.console.layout.get_tab(names[1]).click()
+        schematic = Schematic.from_open_page(self.console.layout, self.client, names[1])
+        ref2 = OffPageReference(label=f"Go to {names[2]}", page_name=names[2])
+        schematic.create_symbol(ref2)
+        schematic.disable_edit()
+        schematic.fit_view()
+        self._dblclick_node(page, f"Go to {names[2]}")
+
+        # Arrive at pop, assert navigation succeeded
+        self.console.layout.wait_for_tab(names[2])
+        assert self.console.layout.get_tab(names[2]).is_visible(), (
+            f"Expected to navigate to '{names[2]}'"
+        )
+        self.console.layout.get_tab(names[2]).click()
+        schematic = Schematic.from_open_page(self.console.layout, self.client, names[2])
+        ref3 = OffPageReference(label=f"Go to {names[0]}", page_name=names[0])
+        schematic.create_symbol(ref3)
+        schematic.disable_edit()
+        schematic.fit_view()
+        self._dblclick_node(page, f"Go to {names[0]}")
+
+        # Verify we navigated back to snap
+        self.console.layout.wait_for_tab(names[0])
+        assert self.console.layout.get_tab(names[0]).is_visible(), (
+            f"Expected to navigate back to '{names[0]}'"
+        )
+        self.log("Off-page navigation cycle verified")
+
+        # Cleanup
+        for name in names:
+            self.console.layout.close_tab(name)
+
+        self.console.workspace.delete_pages(names)
+        self.off_page_schematic_names = []
 
     def test_ctx_delete_operations(self) -> None:
         """Test delete operations using remaining schematics from earlier tests."""

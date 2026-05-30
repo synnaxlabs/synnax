@@ -17,7 +17,8 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
-import { Frame, type FrameProps, useItemState } from "@/select/Frame";
+import { Frame, type FrameProps } from "@/select/Frame";
+import { useItemState } from "@/select/Provider";
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,
@@ -38,14 +39,19 @@ export const Buttons = <K extends record.Key = record.Key>({
   ...rest
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
+  // Type assertion here because there are weird unions from these being widened to
+  // their full types and then TS not being able to prove that they are compatible.
+  const selectionProps = {
+    allowNone,
+    multiple,
+    value,
+    onChange,
+  } as FrameProps<K, record.Keyed<K>>;
   return (
     <Frame<K, record.Keyed<K>>
       closeDialogOnSelect={false}
       {...listProps}
-      allowNone={allowNone}
-      multiple={multiple}
-      value={value as any}
-      onChange={onChange as any}
+      {...selectionProps}
     >
       <Flex.Box pack {...rest} />
     </Frame>

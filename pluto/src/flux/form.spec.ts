@@ -22,9 +22,9 @@ const formSchema = z.object({
   age: z.number().positive("Age must be positive"),
 });
 
-interface Params {
+type Params = {
   key?: string;
-}
+};
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });

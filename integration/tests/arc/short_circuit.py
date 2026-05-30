@@ -33,7 +33,7 @@ Phase 2: ss_temp_a=400
 import threading
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
@@ -145,19 +145,8 @@ class ShortCircuit(ArcConsoleCase):
         create_virtual_channel(client, "ss_sim_stage", sy.DataType.UINT8)
         create_virtual_channel(client, "ss_start_cmd", sy.DataType.UINT8)
 
-        for time_ch, data_ch in [
-            ("ss_count_on_time", "ss_count_on"),
-            ("ss_count_pause_time", "ss_count_pause"),
-        ]:
-            idx = client.channels.create(
-                name=time_ch, is_index=True, retrieve_if_name_exists=True
-            )
-            client.channels.create(
-                name=data_ch,
-                index=idx.key,
-                data_type=sy.DataType.UINT8,
-                retrieve_if_name_exists=True,
-            )
+        create_indexed_pair(client, "ss_count_on", sy.DataType.UINT8)
+        create_indexed_pair(client, "ss_count_pause", sy.DataType.UINT8)
 
         create_virtual_channel(client, "ss_heater_cmd", sy.DataType.UINT8)
 

@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -28,6 +27,8 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
+
+type Key = ranger.Key
 
 func translateRangesToService(ranges []Range) []ranger.Range {
 	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
@@ -114,7 +115,7 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
+		Keys          []ranger.Key    `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		HasLabels     []label.Key     `json:"has_labels" msgpack:"has_labels"`
@@ -143,16 +144,16 @@ func (s *Service) Retrieve(
 		hasLabels       = len(req.HasLabels) > 0
 	)
 	if hasOverlapsWith {
-		q = q.WhereOverlapsWith(req.OverlapsWith)
+		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(ranger.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
-		q = q.WhereHasLabels(req.HasLabels...)
+		q = q.Where(ranger.MatchLabels(req.HasLabels...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -186,7 +187,7 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
+			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}
@@ -204,8 +205,8 @@ func (s *Service) Retrieve(
 }
 
 type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string     `json:"name" msgpack:"name"`
+	Key  ranger.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(
@@ -225,7 +226,7 @@ func (s *Service) Rename(
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(

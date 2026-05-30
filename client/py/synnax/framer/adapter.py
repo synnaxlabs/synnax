@@ -22,40 +22,39 @@ from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:
-    __adapter: dict[channel.Key, str] | None
+    _adapter: dict[channel.Key, str] | None
     retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
-        self.__adapter = None
+        self._adapter = None
         self.keys = list()
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
-        self.codec.update(
-            [ch.key for ch in fetched],
-            [ch.data_type for ch in fetched],
-        )
+        new_keys = [ch.key for ch in fetched]
+        if set(new_keys) != set(self.keys):
+            self.codec.update(new_keys, [ch.data_type for ch in fetched])
 
         if isinstance(normal, channel.NormalizedKeyResult):
-            self.__adapter = None
+            self._adapter = None
             self.keys = list(normal.channels)
             return
 
-        self.__adapter = dict[int, str]()
+        self._adapter = dict[int, str]()
         for name in normal.channels:
             ch = next((c for c in fetched if c.name == name), None)
             if ch is None:
                 raise KeyError(f"Channel {name} not found.")
-            self.__adapter[ch.key] = ch.name
-        self.keys = list(self.__adapter.keys())
+            self._adapter[ch.key] = ch.name
+        self.keys = list(self._adapter.keys())
 
     def adapt(self, fr: Frame) -> Frame:
-        if self.__adapter is None:
+        if self._adapter is None:
             return fr
 
         # In certain cases there can be a slight desync between the channels being sent
@@ -65,7 +64,7 @@ class ReadFrameAdapter:
         for i, k in enumerate(fr.channels):
             try:
                 if isinstance(k, channel.Key):
-                    fr.channels[i] = self.__adapter[k]  # type: ignore[call-overload]
+                    fr.channels[i] = self._adapter[k]  # type: ignore[call-overload]
             except KeyError:
                 if to_purge is None:
                     to_purge = [i]
@@ -120,14 +119,14 @@ class WriteFrameAdapter:
     ) -> dict[channel.Key, Any]:
         out = dict()
         for k in data.keys():
-            out[self.__adapt_to_key(k)] = data[k]
+            out[self._adapt_to_key(k)] = data[k]
         return out
 
     @property
     def keys(self) -> list[channel.Key]:
         return self._keys
 
-    def __adapt_to_key(self, ch: channel.Payload | channel.Key | str) -> channel.Key:
+    def _adapt_to_key(self, ch: channel.Payload | channel.Key | str) -> channel.Key:
         if isinstance(ch, channel.Key):
             return ch
         if isinstance(ch, channel.Payload):
@@ -135,9 +134,9 @@ class WriteFrameAdapter:
         # If it's not a payload or key already, it has to be a name,
         # which means we need to resolve the key from a remote source
         # (either cache or server)
-        return self.__adapt_ch(ch).key
+        return self._adapt_ch(ch).key
 
-    def __adapt_ch(self, ch: channel.Key | str | channel.Payload) -> channel.Payload:
+    def _adapt_ch(self, ch: channel.Key | str | channel.Payload) -> channel.Payload:
         if isinstance(ch, (channel.Key, str)):
             return self.retriever.retrieve_one(ch)
         return ch
@@ -190,26 +189,32 @@ class WriteFrameAdapter:
     ) -> Frame:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
             if series is None:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                 but no data.
-                """)
+                """
+                )
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
                 if not isinstance(first, (float, int)):
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                     Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                     but multiple series.
-                    """)
+                    """
+                    )
 
-            pld = self.__adapt_ch(channels_or_data)
+            pld = self._adapt_ch(channels_or_data)
             return Frame([pld.key], [Series(cast(CrudeSeries, series))])
 
         if isinstance(channels_or_data, list):
             if series is None:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Received {len(channels_or_data)} channels but no series.
-                """)
+                """
+                )
             series_list: list[CrudeSeries] = (
                 [series]
                 if not isinstance(series, list)
@@ -218,11 +223,13 @@ class WriteFrameAdapter:
             channels: list[channel.Key] = list()
             o_series: list[Series] = list()
             for i, ch in enumerate(channels_or_data):
-                pld = self.__adapt_ch(ch)
+                pld = self._adapt_ch(ch)
                 if i >= len(series_list):
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                     Received {len(channels_or_data)} channels but only {len(series_list)} series.
-                    """)
+                    """
+                    )
                 channels.append(pld.key)
                 o_series.append(Series(series_list[i]))
 
@@ -259,7 +266,7 @@ class WriteFrameAdapter:
             dict_channels: list[channel.Key] = list()
             dict_series: list[Series] = list()
             for k, v in channels_or_data.items():
-                pld = self.__adapt_ch(k)
+                pld = self._adapt_ch(k)
                 dict_channels.append(pld.key)
                 dict_series.append(Series(v))
 

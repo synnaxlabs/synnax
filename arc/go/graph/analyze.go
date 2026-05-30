@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -27,16 +28,45 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+// resolveQualified looks up name against scope. A literal-name lookup
+// is tried first so a scope child whose Name contains a dot still
+// resolves — graph tests register function symbols whose Key is the
+// joined "module.member" string. When that misses, the name is split
+// at the first dot and walked as head + tail. Used at the IR/string
+// boundary where graph node Type is a joined "module.member" string.
+func resolveQualified(
+	ctx context.Context,
+	scope *symbol.Symbol,
+	name string,
+) (*symbol.Symbol, error) {
+	if sym, err := scope.Resolve(ctx, name, symbol.IncludeInternal); err == nil {
+		return sym, nil
+	}
+	head, tail, ok := strings.Cut(name, ".")
+	if !ok {
+		return scope.Resolve(ctx, name)
+	}
+	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
+	if err != nil {
+		return nil, err
+	}
+	return headSym.Resolve(ctx, tail)
+}
+
 // Analyze compiles a visual graph into executable IR with type inference,
 // edge validation, and stratified execution planning. Errors are collected
 // in the returned Diagnostics.
+//
+// The root parameter is the pre-built program root. Callers construct it
+// (typically via stl.NewRoot) so the graph package never needs to know
+// which built-ins are loaded or where external symbols come from.
 func Analyze(
 	ctx context.Context,
 	g Graph,
-	resolver symbol.Resolver,
+	root *symbol.Symbol,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	// Step 1: Build Root Context and Register All Functions
-	aCtx := acontext.CreateRoot[antlr.ParserRuleContext](ctx, nil, resolver)
+	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root)
 	for _, fn := range g.Functions {
 		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
 			Name: fn.Key,
@@ -89,7 +119,7 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := aCtx.Scope.Resolve(aCtx, n.Type)
+		fnSym, err := resolveQualified(aCtx, aCtx.Scope, n.Type)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
@@ -115,7 +145,7 @@ func Analyze(
 				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
 					return ir.IR{}, aCtx.Diagnostics
 				}
-				channelSym, err := resolver.Resolve(ctx, strconv.Itoa(int(k)))
+				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
 					if err := configParam.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
@@ -163,47 +193,17 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]set.Set[string])
+	// Step 5A: Check for Duplicate Edge Targets
+	targets := set.New[ir.Handle]()
 	for _, edge := range g.Edges {
-		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(set.Set[string])
-		}
-		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
+		if targets.Contains(edge.Target) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
-	}
-	if !aCtx.Diagnostics.Ok() {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 5B: Check Missing Required Inputs
-	for _, n := range g.Nodes {
-		freshType := freshFuncTypes[n.Key]
-		if freshType.Inputs == nil {
-			continue
-		}
-		connected := connectedInputs[n.Key]
-		for _, inputParam := range freshType.Inputs {
-			if !connected.Contains(inputParam.Name) {
-				// Check if this parameter has a default value (is optional)
-				if inputParam.Value == nil {
-					// Required parameter is missing
-					aCtx.Diagnostics.Add(diagnostics.Errorf(
-						nil,
-						"node '%s' (%s) missing required input '%s'",
-						n.Key,
-						n.Type,
-						inputParam.Name,
-					))
-				}
-			}
-		}
+		targets.Add(edge.Target)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
@@ -218,7 +218,7 @@ func Analyze(
 	// sequence constructs, so every node becomes a member of the root
 	// scope's catch-all phase; the stratifier rewrites the phase layout
 	// based on the edge set.
-	root := ir.Scope{
+	irRoot := ir.Scope{
 		Mode:     ir.ScopeModeParallel,
 		Liveness: ir.LivenessAlways,
 	}
@@ -227,14 +227,14 @@ func Analyze(
 		for _, n := range irNodes {
 			members = append(members, ir.Member{NodeKey: new(n.Key)})
 		}
-		root.Strata = []ir.Members{members}
+		irRoot.Strata = []ir.Members{members}
 	}
 	out := ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
-		Root:      root,
+		Root:      irRoot,
 		TypeMap:   aCtx.TypeMap,
 	}
 	if len(irNodes) > 0 {
@@ -250,7 +250,7 @@ func Analyze(
 // registration.
 func bindParams(
 	ctx context.Context,
-	scope *symbol.Scope,
+	scope *symbol.Symbol,
 	params types.Params,
 	kind symbol.Kind,
 ) error {

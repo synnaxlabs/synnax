@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { Button, Flex, Form, Icon, Schematic, Text, Theming } from "@synnaxlabs/pluto";
 import { box, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { FileDrop } from "@/schematic/symbols/edit/FileDrop";
@@ -24,22 +24,6 @@ interface PreviewProps {
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
 }
-
-const preprocessSVG = (svgString: string): string => {
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
-  const svgElement = svgDoc.documentElement;
-
-  const addRegionIds = (el: Element) => {
-    if (!(el instanceof SVGElement) || el.tagName === "svg") return;
-    if (!el.id && !el.getAttribute("data-region-id"))
-      el.setAttribute("data-region-id", `region-${id.create()}`);
-    Array.from(el.children).forEach(addRegionIds);
-  };
-  Array.from(svgElement.children).forEach(addRegionIds);
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svgElement);
-};
 
 export const Preview = ({
   selectedState,
@@ -178,18 +162,24 @@ export const Preview = ({
     Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  Schematic.Symbol.useCustom({
-    container: containerRef.current,
+  const setRenderContainer = Schematic.Node.Custom.useRender({
     orientation: "left",
     activeState: selectedState,
     externalScale: 1,
     spec,
     onMount,
   });
+  const setContainer = useCallback(
+    (el: HTMLDivElement | null) => {
+      containerRef.current = el;
+      setRenderContainer(el);
+    },
+    [setRenderContainer],
+  );
 
   const form = Form.useContext();
   const handleContentsChange = (contents: string, filename?: string) => {
-    const processedSVG = preprocessSVG(contents);
+    const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
 
@@ -198,7 +188,7 @@ export const Preview = ({
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
-    const extractedRegions = Schematic.Symbol.extractRegions(svgElement);
+    const extractedRegions = Schematic.Node.Region.extract(svgElement);
     const states = form.get<schematic.symbol.State[]>("data.states").value;
     states.forEach((state) =>
       form.set(`data.states.${state.key}.regions`, extractedRegions),
@@ -291,7 +281,7 @@ export const Preview = ({
                 onSelect={onHandleSelect}
                 onDrag={onHandlePlace}
               />
-              <div ref={containerRef} className={CSS.B("preview")} style={{}}></div>
+              <div ref={setContainer} className={CSS.B("preview")} style={{}}></div>
             </div>
           </Flex.Box>
         </Flex.Box>

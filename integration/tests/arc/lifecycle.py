@@ -15,6 +15,7 @@ from tests.arc.arc_case import ArcConsoleCase
 from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
+import ( stable status time )
 
 PRESS_HIGH_LIMIT f32 := 25
 PRESS_LOW_LIMIT f32 := 5
@@ -27,20 +28,14 @@ func check_high_pressure(p f32) u8 {
     return p > PRESS_HIGH_LIMIT
 }
 
-func event_log{msg str} () {
-    lifecycle_log = msg
-}
-
-press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
-    true: set_status{
-        status_key="lifecycle_press_alarm",
-        name="Lifecycle Press Alarm",
+press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
+    true: status.set{
+        key_or_name="lifecycle_press_alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
-    false: set_status{
-        status_key="lifecycle_press_normal",
-        name="Lifecycle Press Normal",
+    false: status.set{
+        key_or_name="lifecycle_press_normal",
         variant="warning",
         message="Pressure below 25 PSI"
     }
@@ -59,25 +54,25 @@ func nested_write_2(val f32) {
     nested_write_3(val)
 }
 
-interval{100ms} -> nested_write_1{}
+time.interval{100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
         SOME_CONST_1 => const_output
         1 -> press_vlv_cmd
-        event_log{"pressurizing"}
+        "pressurizing" -> lifecycle_log 
         press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
     stage maintain {
         0 -> press_vlv_cmd
-        wait{1s} => vent
+        time.wait{1s} => vent
     }
 
     stage vent {
         SOME_CONST_2 * 2 => const_output
         1 -> vent_vlv_cmd
-        event_log{"venting"}
+        "venting" -> lifecycle_log 
         press_pt < PRESS_LOW_LIMIT => complete
     }
 
@@ -97,7 +92,7 @@ sequence signal_ctrl {
     }
     stage stop {
         "stop" -> signal_stage_log
-        wait{250ms} => yield
+        time.wait{250ms} => yield
     }
     stage yield {
         "yield" -> signal_stage_log
@@ -205,7 +200,7 @@ class Lifecycle(ArcConsoleCase):
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
-        sy.sleep(0.501)  #  > 2 * wait{250ms}
+        sy.sleep(0.501)  #  > 2 * time.wait{250ms}
         self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
 
         # Confirm a fresh start signal correctly re-enters start.

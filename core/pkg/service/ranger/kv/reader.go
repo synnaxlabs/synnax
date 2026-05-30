@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -26,11 +26,11 @@ type Reader struct {
 }
 
 // Get retrieves a single key-value pair from the specified range.
-func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, error) {
+func (r Reader) Get(ctx context.Context, rng ranger.Key, key string) (string, error) {
 	var (
 		res = Pair{Range: rng, Key: key}
 		err = r.table.NewRetrieve().
-			WhereKeys(res.GorpKey()).
+			Where(gorp.MatchKeys[string, Pair](res.GorpKey())).
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
@@ -43,7 +43,7 @@ func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, err
 // GetMany retrieves multiple key-value pairs from the specified range.
 func (r Reader) GetMany(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	keys []string,
 ) ([]Pair, error) {
 	res := make([]Pair, 0, len(keys))
@@ -51,19 +51,19 @@ func (r Reader) GetMany(
 		return Pair{Range: rng, Key: k}.GorpKey()
 	})
 	err := r.table.NewRetrieve().
-		WhereKeys(tKeys...).
+		Where(gorp.MatchKeys[string, Pair](tKeys...)).
 		Entries(&res).
 		Exec(ctx, r.tx)
 	return res, err
 }
 
 // List retrieves all key-value pairs on the specified range.
-func (r Reader) List(ctx context.Context, rng uuid.UUID) ([]Pair, error) {
+func (r Reader) List(ctx context.Context, rng ranger.Key) ([]Pair, error) {
 	var res []Pair
 	err := r.table.NewRetrieve().
-		Where(func(_ gorp.Context, kv *Pair) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, kv *Pair) (bool, error) {
 			return kv.Range == rng, nil
-		}).
+		})).
 		Entries(&res).
 		Exec(ctx, r.tx)
 	return res, err

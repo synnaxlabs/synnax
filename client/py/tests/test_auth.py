@@ -60,9 +60,9 @@ class TestAuthRetry:
                 last_name="Labs",
             ),
         )
-        mock_login_client = MockUnaryClient[
-            sy.auth.InsecureCredentials, sy.auth.TokenResponse
-        ](responses=[res, res], response_errors=[None, None])
+        mock_login_client = MockUnaryClient[sy.auth.Credentials, sy.auth.TokenResponse](
+            responses=[res, res], response_errors=[None, None]
+        )
 
         # Create auth client
         auth = sy.auth.Client(mock_login_client, "synnax", "seldon")
@@ -78,14 +78,12 @@ class TestAuthRetry:
         mock_client = auth_setup
         mock_client.response_errors = [sy.InvalidToken("invalid token"), None]
 
-        response, error = mock_client.send("", 1, int)
-        assert error is None
+        response = mock_client.send("", 1, int)
         assert response == 1
 
     def test_retry_on_expired_token(self, auth_setup):
         """Test that authentication retries when receiving an expired token error."""
         mock_client = auth_setup
         mock_client.response_errors = [sy.ExpiredToken("token expired"), None]
-        response, error = mock_client.send("", 1, int)
-        assert error is None
+        response = mock_client.send("", 1, int)
         assert response == 1

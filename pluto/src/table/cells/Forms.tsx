@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import "@/table/cells/Forms.css";
+
+import { color, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
@@ -18,7 +21,6 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
 import { Value } from "@/vis/value";
 
 export interface FormProps {
@@ -75,7 +77,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => {
                   />
                 )}
               </Form.Field>
-              <Form.Field<Text.Level>
+              <Form.Field<text.Level>
                 path="level"
                 label="Size"
                 hideIfNull
@@ -102,12 +104,12 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>
     <Form.TextField path="value" label="Text" />
-    <Form.Field<Text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
+    <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
       {({ value, onChange, variant: _, ...rest }) => (
         <Select.Text.Level value={value} onChange={onChange} {...rest} />
       )}
     </Form.Field>
-    <Form.Field<Text.Weight> path="weight" label="Weight" padHelpText={false}>
+    <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
       {({ value, onChange, variant: _, ...rest }) => (
         <Select.Text.Weight value={value} onChange={onChange} {...rest} />
       )}
@@ -138,6 +140,11 @@ export interface SelectVariantProps extends Omit<
   "data" | "resourceName"
 > {}
 
-export const SelectVariant = (props: SelectVariantProps) => (
-  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
+export const SelectVariant = ({ className, ...rest }: SelectVariantProps) => (
+  <Select.Static
+    {...rest}
+    className={CSS(CSS.B("table-cell-select-variant"), className)}
+    data={VARIANT_DATA}
+    resourceName="variant"
+  />
 );

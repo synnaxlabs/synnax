@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/stable"
+	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -25,13 +27,13 @@ import (
 
 var _ = Describe("StableFor", func() {
 	var (
-		module      *stable.Module
+		module      *stable.Host
 		s           *node.ProgramState
 		irNode      ir.Node
 		currentTime telem.TimeStamp
 	)
 	BeforeEach(func(ctx SpecContext) {
-		module = stable.NewModule(stable.WithNow(func() telem.TimeStamp {
+		module = stable.NewHost(stable.WithNow(func() telem.TimeStamp {
 			return currentTime
 		}))
 		irNode = ir.Node{
@@ -76,7 +78,7 @@ var _ = Describe("StableFor", func() {
 				},
 			},
 		}
-		analyzed, diagnostics := graph.Analyze(ctx, g, stable.SymbolResolver)
+		analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 		Expect(diagnostics.Ok()).To(BeTrue())
 		s = node.New(analyzed)
 	})
@@ -94,8 +96,7 @@ var _ = Describe("StableFor", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
 			}
-			_, err := module.Create(ctx, cfg)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(module.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -375,11 +376,68 @@ var _ = Describe("StableFor", func() {
 		})
 	})
 
-	Describe("SymbolResolver", func() {
-		It("Should resolve stable_for symbol", func(ctx SpecContext) {
-			sym, ok := stable.SymbolResolver["stable_for"]
-			Expect(ok).To(BeTrue())
+	Describe("Symbols", func() {
+		var root *symbol.Symbol
+		BeforeEach(func() { root = symbol.NewRoot(nil, stable.NewSymbols()) })
+		It("Should expose bare stable_for symbol", func(ctx SpecContext) {
+			sym := MustSucceed(root.Resolve(ctx, "stable_for", symbol.IncludeInternal))
 			Expect(sym.Name).To(Equal("stable_for"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
+		It("Should expose qualified stable.for symbol", func(ctx SpecContext) {
+			mod := MustSucceed(root.Resolve(ctx, "stable", symbol.IncludeInternal))
+			sym := MustSucceed(mod.Resolve(ctx, "for", symbol.IncludeInternal))
+			Expect(sym.Name).To(Equal("for"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
+	})
+	Describe("Factory", func() {
+		It("Should create node for stable.for via CompoundFactory", func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "stable", Type: "stable_for", Config: map[string]any{
+						"duration": int(telem.Second),
+					}},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key: "source",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+					{
+						Key: "stable_for",
+						Config: types.Params{
+							{Name: "duration", Type: types.TimeSpan()},
+						},
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.U8()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(analyzed)
+			compound := node.CompoundFactory{stable.NewHost()}
+			irNode := analyzed.Nodes[1]
+			irNode.Type = "stable.for"
+			n := MustSucceed(compound.Create(ctx, node.Config{
+				Node:  irNode,
+				State: s.Node("stable"),
+			}))
+			Expect(n).ToNot(BeNil())
 		})
 	})
 })

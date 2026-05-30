@@ -21,17 +21,8 @@ import uuid
 
 import synnax as sy
 
-# Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
-
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
-
-
-def get_results_path(filename: str) -> str:
-    """Get the full path for a results file, ensuring the directory exists."""
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    return os.path.join(RESULTS_DIR, filename)
 
 
 def get_fixture_path(filename: str) -> str:
@@ -89,6 +80,19 @@ def create_indexed_channel(
         index=index_key,
         retrieve_if_name_exists=True,
     )
+
+
+def create_indexed_pair(
+    client: sy.Synnax,
+    name: str,
+    data_type: sy.DataType = sy.DataType.FLOAT64,
+) -> sy.Channel:
+    """Create a time index channel and a data channel indexed to it.
+
+    The index channel is named ``{name}_time``. Returns the data channel.
+    """
+    idx = create_time_index(client, f"{name}_time")
+    return create_indexed_channel(client, name, data_type, idx.key)
 
 
 LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")

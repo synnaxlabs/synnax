@@ -13,13 +13,15 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 )
 
-func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
+func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
 	constraint := types.NumericConstraint()
-	return symbol.Symbol{
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
@@ -27,50 +29,34 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 			},
 			Outputs: outputs,
 		}),
+		Doc: body,
 	}
 }
 
-func createComparisonSymbol(name string) symbol.Symbol {
-	return createBinaryOpSymbol(
-		name,
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-	)
+func comparison(name string, body doc.Doc) *symbol.Symbol {
+	return binaryOp(name, types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}, body)
 }
 
-func createArithmeticSymbol(name string) symbol.Symbol {
+func logical(name string, body doc.Doc) *symbol.Symbol {
 	constraint := types.NumericConstraint()
-	return createBinaryOpSymbol(
+	return binaryOp(
 		name,
 		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
+		body,
 	)
 }
 
-func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params) symbol.Symbol {
-	return symbol.Symbol{
+func not(name string, body doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: inputType}},
-			Outputs: outputs,
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 		}),
+		Doc: body,
 	}
-}
-
-func createNotSymbol(name string) symbol.Symbol {
-	return createUnaryOpSymbol(
-		name,
-		types.U8(),
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-	)
-}
-
-func createNegateSymbol(name string) symbol.Symbol {
-	constraint := types.NumericConstraint()
-	return createUnaryOpSymbol(
-		name,
-		types.Variable("T", &constraint),
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
-	)
 }
 
 const (
@@ -82,29 +68,34 @@ const (
 	neSymbolName  = "ne"
 	andSymbolName = "and"
 	orSymbolName  = "or"
-	addSymbolName = "add"
-	subSymbolName = "subtract"
-	mulSymbolName = "multiply"
-	divSymbolName = "divide"
-	modSymbolName = "mod"
 	notSymbolName = "not"
-	negSymbolName = "neg"
 )
 
-var SymbolResolver = symbol.MapResolver{
-	geSymbolName:  createComparisonSymbol(geSymbolName),
-	gtSymbolName:  createComparisonSymbol(gtSymbolName),
-	leSymbolName:  createComparisonSymbol(leSymbolName),
-	ltSymbolName:  createComparisonSymbol(ltSymbolName),
-	eqSymbolName:  createComparisonSymbol(eqSymbolName),
-	neSymbolName:  createComparisonSymbol(neSymbolName),
-	andSymbolName: createArithmeticSymbol(andSymbolName),
-	orSymbolName:  createArithmeticSymbol(orSymbolName),
-	addSymbolName: createArithmeticSymbol(addSymbolName),
-	subSymbolName: createArithmeticSymbol(subSymbolName),
-	mulSymbolName: createArithmeticSymbol(mulSymbolName),
-	divSymbolName: createArithmeticSymbol(divSymbolName),
-	modSymbolName: createArithmeticSymbol(modSymbolName),
-	notSymbolName: createNotSymbol(notSymbolName),
-	negSymbolName: createNegateSymbol(negSymbolName),
+var (
+	geDoc  = doc.New(doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"))
+	gtDoc  = doc.New(doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "gt(a, b)  // equivalent to: a > b"))
+	leDoc  = doc.New(doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "le(a, b)  // equivalent to: a <= b"))
+	ltDoc  = doc.New(doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "lt(a, b)  // equivalent to: a < b"))
+	eqDoc  = doc.New(doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "eq(a, b)  // equivalent to: a == b"))
+	neDoc  = doc.New(doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ne(a, b)  // equivalent to: a != b"))
+	andDoc = doc.New(doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "and(a, b)  // equivalent to: a && b"))
+	orDoc  = doc.New(doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "or(a, b)  // equivalent to: a || b"))
+	notDoc = doc.New(doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."), doc.Divider(), doc.Code("arc", "not(a)  // equivalent to: !a"))
+)
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes. Operators are root-level (no module) — they install directly
+// at the root scope so lowering passes can emit calls without imports.
+func NewSymbols() []*symbol.Symbol {
+	return []*symbol.Symbol{
+		comparison(geSymbolName, geDoc),
+		comparison(gtSymbolName, gtDoc),
+		comparison(leSymbolName, leDoc),
+		comparison(ltSymbolName, ltDoc),
+		comparison(eqSymbolName, eqDoc),
+		comparison(neSymbolName, neDoc),
+		logical(andSymbolName, andDoc),
+		logical(orSymbolName, orDoc),
+		not(notSymbolName, notDoc),
+	}
 }

@@ -17,56 +17,90 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-var (
+const (
 	symbolName = "set_authority"
-	symbolDef  = symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "value", Type: types.U8()},
-				{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
-			},
-		}),
-	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolDef}
+	name       = "control"
 )
 
-type Module struct {
+var (
+	memberDoc = doc.New(
+		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Divider(),
+		doc.Code("arc", "control.set_authority{value=255}"),
+		doc.Divider(),
+		doc.Paragraph("Set authority for a specific channel:"),
+		doc.Divider(),
+		doc.Code("arc", "control.set_authority{value=255, channel=valve_cmd}"),
+		doc.Divider(),
+		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+	)
+)
+
+func newSymbolProps() types.Type {
+	return types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "value", Type: types.U8()},
+			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+		},
+	})
+}
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the control module plus the deprecated bare alias
+// (set_authority) whose Deprecated field points at the canonical member.
+func NewSymbols() []*symbol.Symbol {
+	member := &symbol.Symbol{
+		Name: symbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: newSymbolProps(),
+		Doc:  memberDoc,
+	}
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(member)
+	bare := *member
+	bare.Parent = nil
+	bare.Deprecated = mod.FindChild(symbolName)
+	return []*symbol.Symbol{mod, &bare}
+}
+
+// Host is the runtime host-side support for the control module: it acts as
+// the node factory for set_authority. There are no WASM bindings for
+// control; authority changes flow through ProgramState directly.
+type Host struct {
 	auth *ProgramState
 }
 
-func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
+// NewHost constructs a control Host backed by the given authority
+// ProgramState. Control has no WASM host bindings; the Host is purely a
+// node factory.
+func NewHost(ab *ProgramState) *Host { return &Host{auth: ab} }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-		return nil, errors.Wrap(err, "set_authority config")
+		return nil, errors.Wrap(err, "control.set_authority config")
 	}
 	var channelKey *uint32
 	if nodeCfg.Channel != 0 {
 		channelKey = &nodeCfg.Channel
 	}
 	return &setAuthority{
-		auth:       m.auth,
+		auth:       h.auth,
 		authority:  nodeCfg.Value,
 		channelKey: channelKey,
 	}, nil

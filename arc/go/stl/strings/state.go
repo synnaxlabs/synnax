@@ -27,7 +27,11 @@ type ProgramState struct {
 	configStringCounter uint32
 }
 
-// NewProgramState creates a new ProgramState.
+// NewProgramState creates a new strings ProgramState.
+//
+// ProgramState is program-scoped (one instance per running Arc program). It
+// follows the codebase convention of using ProgramState for program-level
+// runtime data, distinct from node-level State in runtime/node.
 func NewProgramState() *ProgramState {
 	return &ProgramState{
 		strings:             make(map[uint32]string),
@@ -39,6 +43,9 @@ func NewProgramState() *ProgramState {
 
 // Create stores a string and returns a transient handle for later retrieval.
 func (s *ProgramState) Create(str string) uint32 {
+	if str == "" {
+		return 0
+	}
 	handle := s.counter
 	s.counter++
 	s.strings[handle] = str
@@ -50,6 +57,9 @@ func (s *ProgramState) Create(str string) uint32 {
 // Use this for config param strings whose handles are baked into node args
 // at configure time.
 func (s *ProgramState) CreateConfig(str string) uint32 {
+	if str == "" {
+		return 0
+	}
 	handle := s.configStringCounter
 	s.configStringCounter++
 	s.configStrings[handle] = str
@@ -59,6 +69,9 @@ func (s *ProgramState) CreateConfig(str string) uint32 {
 // Get retrieves a string by its handle.
 // Checks transient strings first, then persistent config strings.
 func (s *ProgramState) Get(handle uint32) (string, bool) {
+	if handle == 0 {
+		return "", true
+	}
 	if str, ok := s.strings[handle]; ok {
 		return str, true
 	}

@@ -9,6 +9,64 @@
  * included in the file licenses/APL.txt.
  */
 
+/*
+ * pluto-table-surface fills the parent so the context-menu trigger covers
+ * the whole tab area, not just the fit-content frame inside. The frame
+ * still sizes to its contents.
+ */
+.pluto-table-surface {
+    position: relative;
+    width: 100%;
+    height: 100%;
+
+    & .pluto-table-surface__canvas {
+        position: absolute;
+        inset: 0;
+    }
+}
+
+.pluto-table-frame {
+    --pluto-table-indicator-size: 4.5rem;
+    --pluto-table-add-control-size: 10rem;
+
+    display: grid;
+    width: fit-content;
+    grid-template-rows: auto var(--pluto-table-add-control-size);
+    grid-template-columns: auto var(--pluto-table-add-control-size);
+    gap: 1.5rem;
+
+    &,
+    & *:focus,
+    & *:focus-visible {
+        outline: none;
+    }
+
+    &.pluto--editable .pluto-table__resizer,
+    &.pluto--editable .pluto-table__select-all {
+        cursor: pointer;
+    }
+
+    & .pluto-table-frame__add-col {
+        grid-column-start: 2;
+        grid-column-end: 2;
+        grid-row-start: 1;
+        grid-row-end: 1;
+        justify-self: start;
+        align-self: start;
+        margin-top: 1.5rem;
+    }
+
+    & .pluto-table-frame__add-row {
+        grid-column-start: 1;
+        grid-column-end: 1;
+        grid-row-start: 2;
+        grid-row-end: 2;
+        justify-self: start;
+        align-self: start;
+        margin-left: 1.5rem;
+    }
+}
+
 .pluto-table {
     table-layout: fixed;
     border-spacing: 0;
@@ -30,14 +88,17 @@
         }
     }
 
+    .pluto-table__row:not(.pluto-table__col-resizer):has(.pluto--selected)
+        .pluto-table__resizer {
+        background: var(--pluto-primary-z-15);
+    }
+
     .pluto-table__resizer {
+        position: relative;
         background: var(--pluto-gray-l2);
         z-index: 6;
         &.pluto--selected {
-            background: var(--pluto-primary-z-30);
-            .pluto-text {
-                color: var(--pluto-gray-l11) !important;
-            }
+            background: var(--pluto-primary-z-15);
         }
 
         &.pluto--direction-y {
@@ -45,18 +106,16 @@
             border-bottom: var(--pluto-border-l5);
 
             & button {
-                transform: translateY(-3px);
+                bottom: 0;
                 left: 0;
                 cursor: row-resize;
                 height: 6px;
-                width: calc(100% + 3.5rem);
-                border-bottom: var(--pluto-border);
-                border-color: transparent;
+                width: 100%;
 
                 &::after {
                     content: "";
                     position: absolute;
-                    top: 50%;
+                    bottom: 0;
                     left: 0;
                     width: 100%;
                     height: 2px;
@@ -65,23 +124,21 @@
         }
 
         &.pluto--direction-x {
-            height: 3.5rem;
+            height: var(--pluto-table-indicator-size);
             border-bottom: var(--pluto-border-l5);
             border-right: var(--pluto-border-l5);
 
             & button {
                 top: 0;
-                transform: translateX(-1px);
+                right: 0;
                 cursor: col-resize;
                 height: 100%;
                 width: 6px;
-                border-right: var(--pluto-border);
-                border-color: transparent;
                 &::after {
                     content: "";
                     position: absolute;
                     top: 0;
-                    left: 50%;
+                    right: 0;
                     width: 2px;
                     height: 100%;
                 }
@@ -106,21 +163,33 @@
 
     .pluto-table__cell {
         border: var(--pluto-border);
+        box-sizing: border-box;
         z-index: 5;
         position: relative;
         border-top: none;
         border-left: none;
         padding: 0;
+        overflow: hidden;
+
+        /*
+         * Stored size goes on the <td> with box-sizing: border-box so the
+         * content div fills the rest and overflow clips at the row's bottom.
+         * border-box also absorbs the bottom border into the size, keeping the
+         * DOM row height in lockstep with the canvas's rowYCursor (which
+         * advances by row.size).
+         */
+        & > .pluto-table__cell--content {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
         &::after {
             content: "";
             box-sizing: content-box;
             position: absolute;
             pointer-events: none;
             opacity: 0;
-            top: -1px;
-            left: -1px;
-            right: -1px;
-            bottom: -1px;
+            inset: -1px;
             border: var(--pluto-border);
             border-width: 2px;
             border-radius: 1px;
@@ -130,23 +199,24 @@
             border: none;
             &::after {
                 opacity: 1;
-                border-color: var(
-                    --pluto-primary-p1
-                ); /* Border is now handled by the pseudo-element */
+                border-color: var(--pluto-primary-z);
             }
         }
     }
 
     .pluto-table__col-resizer {
         & > *:first-child {
-            width: 3.5rem;
-            height: 3.5rem;
-            max-width: 3.5rem;
-            min-width: 3.5rem;
+            width: var(--pluto-table-indicator-size);
+            height: var(--pluto-table-indicator-size);
+            max-width: var(--pluto-table-indicator-size);
+            min-width: var(--pluto-table-indicator-size);
             margin: 0;
             border-right: var(--pluto-border-l5);
             border-bottom: var(--pluto-border-l5);
             background: var(--pluto-gray-l2);
+        }
+        & > .pluto-table__select-all.pluto--selected {
+            background: var(--pluto-primary-z-15);
         }
     }
 }

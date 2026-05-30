@@ -31,15 +31,30 @@ import (
 	"github.com/synnaxlabs/x/lsp/protocol"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
+// OnRename is invoked by the LSP when a Rename request resolves to a known
+// symbol. It runs before the server computes source-text edits and lets the
+// caller propagate the rename to the resource the symbol refers to (e.g.,
+// the underlying Synnax channel). Returning an error aborts the rename and
+// surfaces the error to the client. Callbacks should return nil for symbols
+// they do not handle.
+type OnRename func(ctx context.Context, sym *symbol.Symbol, oldName, newName string) error
+
 // Config defines the configuration for opening an arc LSP Server.
 type Config struct {
-	// GlobalResolver allows the caller to define custom globals that will appear in
-	// LSP auto-complete and type checking. Typically used to provide standard library
-	// variables and functions as well as channels.
-	GlobalResolver symbol.Resolver
+	// NewRoot builds a fresh analyzer root scope. The LSP calls it once per
+	// document analysis (so per-document imports don't bleed across files)
+	// and again for completion fallback when the document has no analyzed
+	// scope yet. Callers compose STL, their custom globals, and any
+	// dynamic resolvers (cluster channels, etc.) into the returned root.
+	NewRoot func() *symbol.Symbol
+	// OnRename is invoked when a rename request targets a symbol the LSP itself
+	// cannot fully relocate by text edits alone (e.g., a channel). When nil,
+	// rename is restricted to source-defined symbols.
+	OnRename OnRename
 	// OnExternalChange is an observable that fires when external state (such as
 	// Synnax channels) changes. When this fires, the server will republish diagnostics
 	// for all open documents to ensure they reflect the current state.
@@ -69,7 +84,8 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
+	c.NewRoot = override.Nil(c.NewRoot, other.NewRoot)
+	c.OnRename = override.Nil(c.OnRename, other.OnRename)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	c.DebounceDelay = override.Numeric(c.DebounceDelay, other.DebounceDelay)
@@ -78,7 +94,11 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (c Config) Validate() error {
+	v := validate.New("arc.lsp")
+	validate.NotNil(v, "new_root", c.NewRoot)
+	return v.Error()
+}
 
 var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
 
@@ -130,7 +150,12 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentFormattingProvider:      true,
 			DocumentRangeFormattingProvider: true,
 			FoldingRangeProvider:            true,
-			RenameProvider:                  true,
+			CodeActionProvider: &protocol.CodeActionOptions{
+				CodeActionKinds: []protocol.CodeActionKind{protocol.QuickFix},
+			},
+			RenameProvider: protocol.RenameOptions{
+				PrepareProvider: true,
+			},
 			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: lsp.ConvertToSemanticTokenTypes(semanticTokenTypes),
@@ -229,9 +254,15 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
 	}
-	doc.debouncer = debounce.New(s.cfg.DebounceDelay, s.cfg.MaxDebounceDelay, func(ctx context.Context) {
-		s.runAnalysis(ctx, doc, uri)
+	deb, err := debounce.New(debounce.Config{
+		Delay:    s.cfg.DebounceDelay,
+		MaxDelay: s.cfg.MaxDebounceDelay,
+		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, uri) },
 	})
+	if err != nil {
+		return errors.Wrap(err, "create document debouncer")
+	}
+	doc.debouncer = deb
 	s.mu.Lock()
 	s.documents[uri] = doc
 	s.mu.Unlock()
@@ -380,8 +411,8 @@ func (s *Server) analyze(
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
-			aCtx := acontext.CreateRoot[parser.IBlockContext](
-				ctx, t, s.cfg.GlobalResolver,
+			aCtx := acontext.NewRoot[parser.IBlockContext](
+				ctx, t, s.cfg.NewRoot(),
 			)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
@@ -393,7 +424,7 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.GlobalResolver)
+			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot())
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag

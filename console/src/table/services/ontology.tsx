@@ -95,8 +95,8 @@ const loadTable = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const table = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
+  const t = await client.tables.retrieve({ key });
+  placeLayout(Table.create({ key: t.key, name: t.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -123,12 +123,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const table = await client.tables.retrieve({ key });
+    const t = await client.tables.retrieve({ key });
     placeLayout(
       Table.create({
-        name: table.name,
-        ...table.data,
-        key,
+        key: t.key,
+        name: t.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
@@ -141,9 +140,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Table />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [
-    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
-  ],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

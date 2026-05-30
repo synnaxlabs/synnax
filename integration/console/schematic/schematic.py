@@ -10,7 +10,6 @@
 from typing import Literal, TypedDict
 
 from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient
@@ -33,7 +32,7 @@ class SchematicProperties(TypedDict):
     show_control_legend: bool
 
 
-SCHEMATIC_VERSION = "5.0.0"
+SCHEMATIC_VERSION = "6.0.0"
 
 AlignmentType = Literal[
     "vertical",
@@ -350,7 +349,7 @@ class Schematic(ConsolePage):
 
         if show_control_legend is not None:
             legend_toggle = (
-                self.page.locator("text=Show Control State Legend")
+                self.page.locator("text=Show control state legend")
                 .locator("..")
                 .locator("input[type='checkbox']")
             )
@@ -456,7 +455,7 @@ class Schematic(ConsolePage):
         if self.get_edit_status():
             edit_button = (
                 self.page.locator(".console-controls button.pluto-btn--filled")
-                .filter(has=self.page.locator("svg.pluto-icon--edit"))
+                .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
                 .first
             )
             if edit_button.count() > 0:
@@ -478,10 +477,7 @@ class Schematic(ConsolePage):
 
         control_authority = int(self.layout.get_input_field("Control Authority"))
 
-        try:
-            show_control_legend = self.layout.get_toggle("Show Control State Legend")
-        except PlaywrightTimeoutError:
-            show_control_legend = True
+        show_control_legend = self.layout.get_toggle("Show control state legend")
 
         return {
             "control_authority": control_authority,

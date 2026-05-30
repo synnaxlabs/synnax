@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { text } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
-import { text } from "@/text/base";
 import { Value } from "@/vis/value/aether/value";
 
 export const basePropsZ = Value.z
@@ -43,6 +43,7 @@ export const use = ({
   useWidthForBackground,
   valueBackgroundOverScan,
   valueBackgroundShift,
+  clip,
 }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({
     box,
@@ -59,6 +60,7 @@ export const use = ({
     useWidthForBackground,
     valueBackgroundOverScan,
     valueBackgroundShift,
+    clip,
   });
   const [, state, setState] = Aether.use({
     aetherKey,

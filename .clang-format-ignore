@@ -1,12 +1,15 @@
-*.pb.cc
-*.pb.h
-*.pb.c
-*.pb.c++
-nisyscfg.h
-nisyscfg_wide.h
-nisyscfg_errors.h
-nidaqmx.h
-LabJackM.h
-LabJackMModbusMap.h
-LJM_Utilities.h
-LJM_StreamUtilities.h
+# Patterns use clang-format's matcher: '*' does not cross '/', and a slash-less
+# pattern is matched against the full path relative to this file. Prefix with '**/'
+# so a basename matches at any depth, mirroring .gitignore semantics.
+**/*.pb.cc
+**/*.pb.h
+**/*.pb.c
+**/*.pb.c++
+**/nisyscfg.h
+**/nisyscfg_wide.h
+**/nisyscfg_errors.h
+**/nidaqmx.h
+**/LabJackM.h
+**/LabJackMModbusMap.h
+**/LJM_Utilities.h
+**/LJM_StreamUtilities.h

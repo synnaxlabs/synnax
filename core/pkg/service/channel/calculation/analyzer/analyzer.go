@@ -52,15 +52,15 @@ func New(symbolResolver arc.SymbolResolver) *Analyzer {
 	return &Analyzer{resolver: r}
 }
 
-func (r *resolver) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
+func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	i, err := strconv.Atoi(name)
 	if err == nil {
 		if s, ok := r.temp.keys[i]; ok {
-			return *s, nil
+			return s, nil
 		}
 	} else {
 		if s, ok := r.temp.names[name]; ok {
-			return *s, nil
+			return s, nil
 		}
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
@@ -94,7 +94,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 	if err != nil {
 		return Result{}, err
 	}
-	aCtx := acontext.CreateRoot(ctx, t, a.resolver)
+	aCtx := acontext.NewRoot(ctx, t, arc.NewRoot(a.resolver))
 	dataType := statement.AnalyzeFunctionBody(aCtx)
 	if !aCtx.Diagnostics.Ok() {
 		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics

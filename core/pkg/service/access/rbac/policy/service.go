@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -63,7 +62,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
-	table  *gorp.Table[uuid.UUID, Policy]
+	table  *gorp.Table[Key, Policy]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
@@ -75,12 +74,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[uuid.UUID, Policy]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, Policy]("msgpack_to_orc", v0Mig.Key()),
 		},
 	}); err != nil {
 		return nil, err
@@ -112,9 +111,9 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	}
 }
 
-func (s *Service) NewRetrieve() Retriever {
-	return Retriever{
-		baseTx:   s.cfg.DB,
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		baseTX:   s.cfg.DB,
 		gorp:     s.table.NewRetrieve(),
 		ontology: s.cfg.Ontology,
 	}

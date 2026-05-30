@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package stl defines the standard library module interfaces for Arc. A Module is the
-// unit of STL organization: it provides symbols for the analyzer, node factories for
-// the scheduler, and host function implementations for the WASM runtime.
+// Package stl is the Arc standard library. It exposes a flat slice of
+// symbols that callers pass to symbol.NewRoot as ambient globals.
+// The package owns no root-building or scope-assembly logic; that lives
+// in the symbol package.
 package stl
 
 import (
-	"github.com/synnaxlabs/arc/stl/channel"
+	"slices"
+
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
@@ -22,25 +25,29 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 )
 
-var SymbolResolver = symbol.CompoundResolver{
-	channel.SymbolResolver,
-	constant.SymbolResolver,
-	control.SymbolResolver,
-	errors.SymbolResolver,
-	math.SymbolResolver,
-	op.SymbolResolver,
-	selector.SymbolResolver,
-	series.SymbolResolver,
-	stable.SymbolResolver,
-	stat.SymbolResolver,
-	stateful.SymbolResolver,
-	strings.SymbolResolver,
-	time.SymbolResolver,
+// NewSymbols returns a fresh slice of every STL package's ambient prelude
+// symbols. Each call allocates a new tree so concurrent analyses (e.g. the
+// LSP serving multiple documents) and successive analyses on the same
+// process never share mutable symbol state.
+func NewSymbols() []*symbol.Symbol {
+	return slices.Concat(
+		channels.NewSymbols(),
+		constant.NewSymbols(),
+		control.NewSymbols(),
+		errors.NewSymbols(),
+		math.NewSymbols(),
+		op.NewSymbols(),
+		selector.NewSymbols(),
+		series.NewSymbols(),
+		stable.NewSymbols(),
+		stateful.NewSymbols(),
+		strings.NewSymbols(),
+		time.NewSymbols(),
+	)
 }

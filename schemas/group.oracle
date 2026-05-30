@@ -23,6 +23,7 @@ Group struct {
     }
     name string {
         @doc value "is a human-readable name for the group."
+        @filter
     }
 
     @doc value     """
@@ -30,6 +31,7 @@ Group struct {
         provide hierarchical organization through the ontology system.
     """
     @ontology type "group"
+    @retrieve
     @go marshal
     @go migrate
 }

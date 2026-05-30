@@ -73,8 +73,8 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 
 	if err = cfg.Rack.NewRetrieve().
-		WhereEmbedded(true, gorp.Required()).
-		WhereName(fmt.Sprintf("Node %d", cfg.Host.HostKey()), gorp.Required()).
+		Where(rack.MatchEmbedded(true)).
+		Where(rack.MatchNames(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
 			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),
@@ -148,7 +148,11 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	p.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return nil
 }
 
@@ -183,7 +187,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.TaskTimeout,
 				signal.WithInstrumentation(d.cfg.Instrumentation),
 			)
-			sCtx.Go(func(ctx context.Context) error { return t.Exec(ctx, cmd) })
+			sCtx.Go(
+				func(ctx context.Context) error { return t.Exec(ctx, cmd) },
+				signal.RecoverWithErrOnPanic(),
+			)
 			err := sCtx.Wait()
 			cancel()
 			if err != nil {
@@ -222,8 +229,7 @@ func (d *Driver) handleTaskChange(
 func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
-		WhereRacks(d.rack.Key).
-		WhereSnapshot(false).
+		Where(task.And(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false))).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))
@@ -237,7 +243,10 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	)
 	defer cancel()
 	for _, t := range tasks {
-		sCtx.Go(func(ctx context.Context) error { d.configure(ctx, t); return nil })
+		sCtx.Go(
+			func(ctx context.Context) error { d.configure(ctx, t); return nil },
+			signal.RecoverWithErrOnPanic(),
+		)
 	}
 	if err := sCtx.Wait(); err != nil {
 		d.cfg.L.Error("timed out configuring existing tasks", zap.Error(err))
@@ -281,7 +290,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		}
 		d.cfg.L.Warn("no factory handled task", zap.Stringer("task", t))
 		return nil
-	})
+	}, signal.RecoverWithErrOnPanic())
 	if err := sCtx.Wait(); err != nil {
 		d.cfg.L.Error(
 			"failed to configure task", zap.Stringer("task", t), zap.Error(err),

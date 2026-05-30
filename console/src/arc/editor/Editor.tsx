@@ -20,7 +20,7 @@ import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
 import { TYPE } from "@/arc/types";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Selector } from "@/selector";
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
@@ -29,7 +29,7 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
   useSelectVersion,
   actionCreator: (v) =>
     internalCreate({
-      version: "0.0.0",
+      version: ZERO_STATE.version,
       key: v.key,
       remoteCreated: true,
       graph: translateGraphToConsole(v.graph),
@@ -50,6 +50,9 @@ export const Editor: Layout.Renderer = (props) => {
   if (arc == null) return null;
   return <Loaded {...props} />;
 };
+
+Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
+
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =

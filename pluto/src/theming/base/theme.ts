@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { color, text } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { text } from "@/text/base";
 
 const grayScaleZ = z.object({
   // Main background surface
@@ -69,7 +67,7 @@ const scaleZ = strictScaleZ.or(
       z: c,
       p1: color.fromHSLA(setLightness(hsla, 55)),
       p2: color.fromHSLA(setLightness(hsla, 65)),
-    } as const as z.infer<typeof strictScaleZ>;
+    } as const;
   }),
 );
 

@@ -9,13 +9,13 @@
 
 import "@/table/cells/Cells.css";
 
-import { type box, color, location, type record, scale } from "@synnaxlabs/x";
+import { box, color, location, type record, scale, text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
-import { Cell as Base } from "@/table/Table";
+import { Cell as Base } from "@/table/cells/Cell";
 import { telem } from "@/telem/aether";
 import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
@@ -24,9 +24,9 @@ export const TEXT_TYPE = "text";
 export type TextType = typeof TEXT_TYPE;
 export const textPropsZ = z.object({
   value: z.string(),
-  level: BaseText.levelZ,
-  weight: BaseText.weightZ,
-  align: location.x.or(location.center),
+  level: text.levelZ,
+  weight: text.weightZ,
+  align: location.xZ.or(location.centerZ),
   backgroundColor: color.crudeZ,
 });
 export type TextProps = z.infer<typeof textPropsZ>;
@@ -35,6 +35,7 @@ export type CellProps<P extends object = record.Unknown> = P & {
   cellKey: string;
   box: box.Box;
   selected: boolean;
+  editable: boolean;
   onSelect: (key: string, ev: React.MouseEvent) => void;
   onChange: (props: P) => void;
 };
@@ -44,7 +45,9 @@ export const Text = ({
   onChange,
   value,
   selected,
+  editable,
   onSelect,
+  box: b,
   align,
   level,
   weight,
@@ -62,9 +65,13 @@ export const Text = ({
         CSS.BEM("table", "cell", "text"),
       )}
       selected={selected}
+      height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ backgroundColor: color.cssString(backgroundColor) }}
+      style={{
+        backgroundColor: color.cssString(backgroundColor),
+        width: box.width(b),
+      }}
     >
       <BaseText.Editable
         level={level}
@@ -72,6 +79,7 @@ export const Text = ({
         weight={weight}
         onChange={handleValueChange}
         style={{ justifyContent: align }}
+        allowDoubleClick={editable}
         allowEmpty
         outline={false}
       />
@@ -84,7 +92,7 @@ export type ValueType = typeof VALUE_TYPE;
 export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
   redline: BaseValue.redlineZ,
-  level: BaseText.levelZ,
+  level: text.levelZ,
   color: z.string(),
   units: z.string(),
   stalenessTimeout: z.number().default(5),
@@ -104,7 +112,7 @@ export const Value = ({
   stalenessTimeout,
   stalenessColor,
 }: CellProps<ValueProps>) => {
-  const { width } = BaseValue.use({
+  BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
@@ -127,6 +135,7 @@ export const Value = ({
       outlet: "gradient",
     }),
     location: { x: "center", y: "center" },
+    clip: true,
   });
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
 
@@ -134,9 +143,14 @@ export const Value = ({
     <Base
       id={cellKey}
       selected={selected}
+      height={box.height(b)}
       onClick={handleSelect}
       onContextMenu={handleSelect}
-      style={{ height: "5rem", width }}
+      // Use the column-driven box width, not BaseValue's natural text width:
+      // when row indicators are hidden, the first data row determines column
+      // widths via table-layout: fixed, so the cell must be locked to the
+      // stored column size or canvas/DOM alignment drifts.
+      style={{ width: box.width(b) }}
       className={CSS(
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,

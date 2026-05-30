@@ -10,7 +10,8 @@ next: "Types"
 nextURL: "/reference/control/arc/reference/types"
 ---
 
-import { Divider, Note } from "@synnaxlabs/pluto";
+import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -105,22 +106,180 @@ parameter that expects a time span.
 
 ### String Literals
 
-Strings are enclosed in double quotes. Escape sequences are supported.
+Two forms, distinguished by delimiter:
+
+- `"..."` — single-line, double-quoted. Cannot contain unescaped newlines.
+- `` `...` `` — multi-line, backtick-delimited. Newlines and `"` characters are allowed
+  verbatim in the body; the string ends at the next `` ` ``.
 
 ```arc
 "hello"
-"line1\nline2" // newline
-"tab\there" // tab
-"quote: \"" // escaped quote
+"tab\there"
+`line1
+line2`
 ```
 
-| Escape | Meaning         |
-| ------ | --------------- |
-| `\n`   | newline         |
-| `\t`   | tab             |
-| `\r`   | carriage return |
-| `\\`   | backslash       |
-| `\"`   | double quote    |
+| Escape   | Meaning                         |
+| -------- | ------------------------------- |
+| `\b`     | backspace                       |
+| `\t`     | tab                             |
+| `\n`     | newline                         |
+| `\f`     | form feed                       |
+| `\r`     | carriage return                 |
+| `\"`     | double quote (single-line only) |
+| `` \` `` | backtick (multi-line only)      |
+| `\\`     | backslash                       |
+| `\uXXXX` | 4-digit Unicode escape          |
+
+The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and
+`` \` `` only inside `` `...` ``. The other character is a literal everywhere it is not
+the delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
+preserved as the two literal characters.
+
+### Raw Strings
+
+Prefix with `r` to disable escape processing. Every character in the body is verbatim —
+`\n` is the two characters `\` and `n`, not a newline:
+
+```arc
+r"C:\Users\path"
+r`line one
+line two`
+```
+
+In a raw string, the delimiter escape is still accepted by the lexer so the delimiter
+character can appear in the body, but the backslash is preserved in the value (`r"a\"b"`
+yields `a\"b`, four characters; `` r`a\`b` `` yields ``a\`b``).
+
+### Format Strings
+
+Prefix with `f` to enable `{expr}` placeholders, with an optional format spec after `:`.
+Combine with `r` (as `rf` or `fr`) for raw + format.
+
+```arc
+f"Data: {pressure:.1f} psi"      // "Data: 523.7 psi"
+f"Code: {pump_err_code:#x}"      // "Code: 0xff00"
+f"Math: {(2.0 + 4.0)/2.0}"       // "Math: 3"
+rf"C:\logs\{name}.txt"           // backslashes literal; {name} substituted
+```
+
+Each placeholder is a regular Arc expression. Numeric values are converted to their
+default string form unless a format spec is given. Format specs follow printf-style
+conventions and are validated against the placeholder type at compile time.
+
+| Form          | Meaning                                               |
+| ------------- | ----------------------------------------------------- |
+| `{expr}`      | Insert `expr` using its default string form           |
+| `{expr:spec}` | Format `expr` using a printf-style spec (e.g., `.2f`) |
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Reference /> Format spec reference</Text.Text>
+
+A format spec has the form:
+
+```
+[flags][width][.precision]verb
+```
+
+Only the verb is required. Each bracketed part is optional. If `precision` is given, the
+leading `.` must accompany it. Each part is described below.
+
+#### Verb
+
+The verb selects the conversion. Each verb accepts specific placeholder types.
+
+| Verb | Types | Use               | Example                 |
+| ---- | ----- | ----------------- | ----------------------- |
+| `d`  | int   | Decimal           | `42` → `42`             |
+| `b`  | int   | Binary            | `5` → `101`             |
+| `o`  | int   | Octal             | `8` → `10`              |
+| `x`  | int   | Hex               | `255` → `ff`            |
+| `c`  | int   | Unicode character | `65` → `A`              |
+| `f`  | float | Decimal           | `3.14` → `3.140000`     |
+| `e`  | float | Scientific        | `3.14` → `3.140000e+00` |
+| `g`  | float | Compact           | `3.14` → `3.14`         |
+| `s`  | str   | String            | `hello` → `hello`       |
+| `q`  | str   | Quoted string     | `hello` → `"hello"`     |
+
+Verbs `x`, `e`, and `g` have uppercase variants `X`, `E`, and `G` that uppercase their
+output (e.g., `X` of `255` → `FF`). `O` is `o` with a leading `0o` prefix (e.g., `O` of
+`8` → `0o10`).
+
+`s` outputs the string as-is, identical to the default `{name}` form. Its practical use
+is as the anchor verb when applying width or padding modifiers to a string: `{name:5s}`
+pads to width 5, `{name:-10s}` left-aligns within width 10. See the Examples section
+below.
+
+`q` wraps the string in double quotes and escapes special characters so the result is a
+valid string literal: an embedded `"` becomes `\"`, a newline becomes `\n`, and so on.
+For example, `q` of `say "hi"` produces `"say \"hi\""`.
+
+#### Flags
+
+Flags are zero or more of the following characters, in any order, placed at the start of
+the spec.
+
+| Flag | Use                                                               |
+| ---- | ----------------------------------------------------------------- |
+| `#`  | Alternate form: adds `0b` / `0` / `0x` prefix for `b` / `o` / `x` |
+| `+`  | Force sign on positive numbers                                    |
+| ` `  | Leading space for positive numbers                                |
+| `-`  | Left-align within width                                           |
+| `0`  | Zero-pad to width                                                 |
+
+#### Width
+
+A digit count specifying the minimum output width. The value is padded with spaces (or
+zeros, with the `0` flag) up to this width. For example, `5d` of `42` → `␣␣␣42`.
+
+#### Precision
+
+A `.` followed by a digit count specifying digits after the decimal point. For example,
+`.2f` of `3.14159` → `3.14`.
+
+#### Examples
+
+Flags, width, and precision compose in spec order:
+
+| Spec     | Value     | Output         |
+| -------- | --------- | -------------- |
+| `#b`     | `5`       | `0b101`        |
+| `#o`     | `8`       | `010`          |
+| `#x`     | `255`     | `0xff`         |
+| `X`      | `255`     | `FF`           |
+| `E`      | `3.14`    | `3.140000E+00` |
+| `G`      | `3.14`    | `3.14`         |
+| `+d`     | `42`      | `+42`          |
+| ` d`     | `42`      | `␣42`          |
+| `5d`     | `42`      | `␣␣␣42`        |
+| `-5d`    | `42`      | `42␣␣␣`        |
+| `05d`    | `42`      | `00042`        |
+| `5s`     | `"ok"`    | `␣␣␣ok`        |
+| `-5s`    | `"ok"`    | `ok␣␣␣`        |
+| `.2f`    | `3.14159` | `3.14`         |
+| `+f`     | `3.14`    | `+3.140000`    |
+| `6.2f`   | `3.14`    | `␣␣3.14`       |
+| `+08.2f` | `3.14`    | `+0003.14`     |
+| `#06x`   | `255`     | `0x0000ff`     |
+
+</Details>
+
+Inside a format string, `{` opens a placeholder. To write a literal `{`, double it as
+`{{`; to write a literal `}`, double it as `}}`. A single `}` outside a placeholder is
+treated as plain text.
+
+| Escape | Meaning     |
+| ------ | ----------- |
+| `{{`   | Literal `{` |
+| `}}`   | Literal `}` |
+
+```arc
+msg := f"progress: {{{50}}}" // "progress: {50}"
+```
+
+The `{{` / `}}` escape mechanism is independent of the `r` prefix, so backslashes never
+interfere with placeholder parsing. `rf"C:\logs\{name}.txt"` interpolates `{name}` and
+keeps every backslash literal.
 
 ### Series Literals
 
@@ -249,6 +408,44 @@ func example() {
 
 <Divider.Divider x />
 
+## Imports
+
+Modules must be imported before their qualified members (`time.now`,
+`control.set_authority`, `status.set`, …) can be used. A single import uses the bare
+form; multiple imports go in an `import ( … )` block.
+
+### Single Module
+
+```arc
+import time
+
+trig -> time.now{} -> ts_out
+```
+
+### Aliased
+
+Rename the qualifier with `as`:
+
+```arc
+import time as t
+
+trig -> t.now{} -> ts_out
+```
+
+### Multiple Modules
+
+List several modules in one block, separated by whitespace:
+
+```arc
+import (
+    control
+    status
+    time as t
+)
+```
+
+<Divider.Divider x />
+
 ## Authority Declarations
 
 Authority declarations set the [control authority](/reference/control/control-authority)
@@ -300,8 +497,8 @@ Authority values are `u8` integers in the range 0-255.
 
 <Note.Note variant="info">
   To change authority at runtime, use the
-  [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) built-in
-  function inside stage bodies.
+  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
+  standard library function inside stage bodies.
 </Note.Note>
 
 <Divider.Divider x />
@@ -464,7 +661,7 @@ and nested sequences.
 ```arc
 sequence prime {
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     tank_pressure > 500
     0 -> press_vlv_cmd
 }

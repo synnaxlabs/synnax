@@ -33,6 +33,16 @@ const (
 	ModeGraph Mode = "graph"
 )
 
+// IsValid reports whether m is one of the defined Mode values.
+func (m Mode) IsValid() bool {
+	switch m {
+	case ModeText, ModeGraph:
+		return true
+	default:
+		return false
+	}
+}
+
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails struct {
 	// Running indicates whether the Arc module is currently executing.

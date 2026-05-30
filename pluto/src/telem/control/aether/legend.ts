@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { control, type destructor } from "@synnaxlabs/x";
+import { color, control, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,7 +17,7 @@ import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";
 export const legendStateZ = z.object({
   needsControlOf: channel.keyZ.array(),
   states: sugaredStateZ.array(),
-  colors: z.record(z.string(), z.string()).default({}),
+  colors: z.record(z.string(), color.colorZ).default({}),
 });
 
 interface InternalState {

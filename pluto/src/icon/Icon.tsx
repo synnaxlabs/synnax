@@ -18,11 +18,11 @@ import {
 import { type IconBaseProps } from "react-icons";
 
 import { CSS } from "@/css";
-import { type Text } from "@/text";
+import { type Theming } from "@/theming";
 
 export interface IconProps extends Omit<IconBaseProps, "color" | "children"> {
   ref?: Ref<SVGSVGElement>;
-  color?: color.Crude | Text.Shade;
+  color?: color.Crude | Theming.Shade;
 }
 
 /**
@@ -34,7 +34,7 @@ export interface ReactElement extends BaseReactElement<IconProps> {}
 
 const BASE_SIZE = 24;
 const SUB_SIZE = 12;
-const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> = {
+const SUB_POSITIONS: Record<location.CornerString, { x: number; y: number }> = {
   topRight: { x: BASE_SIZE - SUB_SIZE, y: 0 },
   topLeft: { x: 0, y: 0 },
   bottomLeft: { x: 0, y: BASE_SIZE - SUB_SIZE },
@@ -42,7 +42,7 @@ const SUB_POSITIONS: Record<location.CornerXYString, { x: number; y: number }> =
 };
 
 const createSubIcon = (
-  key: location.CornerXYString,
+  key: location.CornerString,
   Icon: FC | undefined,
 ): ReactElement | null => {
   if (Icon == null) return null;
@@ -67,7 +67,7 @@ interface WrapIconOpts {
 
 export interface SVGFC extends ReactFC<IconBaseProps> {}
 
-const parseColor = (c?: color.Crude | Text.Shade): string | undefined => {
+const parseColor = (c?: color.Crude | Theming.Shade): string | undefined => {
   if (typeof c === "number") return `var(--pluto-gray-l${c})`;
   return color.cssString(c);
 };

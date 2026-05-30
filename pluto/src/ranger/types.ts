@@ -7,4 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ranger } from "@synnaxlabs/client";
+import { type NumericTimeRange } from "@synnaxlabs/x";
+
+import { Haul } from "@/haul";
+
 export const HAUL_TYPE = "range";
+
+export interface HaulData {
+  key: ranger.Key;
+  name: string;
+  timeRange: NumericTimeRange;
+}
+
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, ranger.Key, HaulData>;
+
+export const createHaulItem = ({ key, name, timeRange }: ranger.Payload): HaulItem => ({
+  type: HAUL_TYPE,
+  key,
+  data: { key, name, timeRange: timeRange.numeric },
+});
+
+export const isHaulItem = (item: Haul.Item): item is HaulItem =>
+  item.type === HAUL_TYPE;
+
+export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter(isHaulItem);
+
+export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);

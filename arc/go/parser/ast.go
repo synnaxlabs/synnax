@@ -9,11 +9,52 @@
 
 package parser
 
-import "github.com/antlr4-go/antlr/v4"
+import (
+	"strings"
 
-// IsLiteral checks if an expression is a single literal value with no operators.
+	"github.com/antlr4-go/antlr/v4"
+)
+
+// IsLiteral checks if an expression is a single literal value (optionally negated)
+// with no other operators.
 func IsLiteral(expr IExpressionContext) bool {
 	return isLiteral(expr.LogicalOrExpression())
+}
+
+// IsNegatedLiteral returns true if the expression is a negated literal (e.g. -3h).
+func IsNegatedLiteral(expr IExpressionContext) bool {
+	return isNegatedLiteral(expr.LogicalOrExpression())
+}
+
+func isNegatedLiteral(node antlr.ParserRuleContext) bool {
+	if node == nil {
+		return false
+	}
+	switch ctx := node.(type) {
+	case ILogicalOrExpressionContext:
+		ands := ctx.AllLogicalAndExpression()
+		return len(ands) == 1 && isNegatedLiteral(ands[0])
+	case ILogicalAndExpressionContext:
+		eqs := ctx.AllEqualityExpression()
+		return len(eqs) == 1 && isNegatedLiteral(eqs[0])
+	case IEqualityExpressionContext:
+		rels := ctx.AllRelationalExpression()
+		return len(rels) == 1 && isNegatedLiteral(rels[0])
+	case IRelationalExpressionContext:
+		adds := ctx.AllAdditiveExpression()
+		return len(adds) == 1 && isNegatedLiteral(adds[0])
+	case IAdditiveExpressionContext:
+		muls := ctx.AllMultiplicativeExpression()
+		return len(muls) == 1 && isNegatedLiteral(muls[0])
+	case IMultiplicativeExpressionContext:
+		pows := ctx.AllPowerExpression()
+		return len(pows) == 1 && isNegatedLiteral(pows[0])
+	case IPowerExpressionContext:
+		return ctx.CARET() == nil && isNegatedLiteral(ctx.UnaryExpression())
+	case IUnaryExpressionContext:
+		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil && isLiteral(ctx.UnaryExpression())
+	}
+	return false
 }
 
 func isLiteral(node antlr.ParserRuleContext) bool {
@@ -42,6 +83,9 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 	case IPowerExpressionContext:
 		return ctx.CARET() == nil && isLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
+		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
+			return isLiteral(ctx.UnaryExpression())
+		}
 		return ctx.UnaryExpression() == nil && isLiteral(ctx.PostfixExpression())
 	case IPostfixExpressionContext:
 		return len(ctx.AllIndexOrSlice()) == 0 &&
@@ -100,6 +144,9 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(ctx.UnaryExpression())
 		}
 	case IUnaryExpressionContext:
+		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
+			return GetLiteralNode(ctx.UnaryExpression())
+		}
 		if ctx.UnaryExpression() == nil {
 			return GetLiteralNode(ctx.PostfixExpression())
 		}
@@ -109,6 +156,19 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 		}
 	case IPrimaryExpressionContext:
 		return ctx.Literal()
+	}
+	return nil
+}
+
+// StringTerminal returns the string literal terminal node for either
+// STR_LITERAL or STR_LITERAL_MULTI form, or
+// nil if the literal is not a string.
+func StringTerminal(lit ILiteralContext) antlr.TerminalNode {
+	if t := lit.STR_LITERAL(); t != nil {
+		return t
+	}
+	if t := lit.STR_LITERAL_MULTI(); t != nil {
+		return t
 	}
 	return nil
 }
@@ -208,33 +268,133 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 	return postfix.PrimaryExpression()
 }
 
+// QualifiedNameParts returns the head and tail of a qualified identifier
+// (e.g., "math" and "avg" for `math.avg`). Reads the terminal children
+// directly so it works when either side is a lexer keyword (AUTHORITY on
+// the left, FOR on the right) and not just an IDENTIFIER.
+func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
+	head = qid.GetChild(0).(antlr.TerminalNode).GetText()
+	tail = qid.GetChild(2).(antlr.TerminalNode).GetText()
+	return head, tail
+}
+
 // QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.pow").
+// (e.g., "math.avg"). For symbol resolution, prefer QualifiedNameParts so
+// the head and tail are resolved as separate symbols. This helper is for
+// display purposes (diagnostics, completion items, debug strings).
 func QualifiedName(qid IQualifiedIdentifierContext) string {
-	ids := qid.AllIDENTIFIER()
-	return ids[0].GetText() + "." + ids[1].GetText()
+	head, tail := QualifiedNameParts(qid)
+	return head + "." + tail
 }
 
-// FunctionName extracts the name from a function context, handling both
-// qualified (math.pow{}) and bare (set_authority{}) forms.
-func FunctionName(fn IFunctionContext) string {
+// FunctionNameParts returns the head and tail of a function context's
+// name. A bare function (set_authority{}) returns (name, ""); a qualified
+// one (math.avg{}) returns (head, tail).
+func FunctionNameParts(fn IFunctionContext) (head, tail string) {
 	if qid := fn.QualifiedIdentifier(); qid != nil {
-		return QualifiedName(qid)
+		return QualifiedNameParts(qid)
 	}
-	return fn.IDENTIFIER().GetText()
+	return fn.IDENTIFIER().GetText(), ""
 }
 
-// PrimaryName extracts the name from a primary expression context, handling
-// both qualified (math.pow) and bare (x) identifier forms. Returns empty
-// string if the primary expression is not an identifier.
-func PrimaryName(primary IPrimaryExpressionContext) string {
+// FunctionName extracts the joined name from a function context. For
+// resolution use FunctionNameParts.
+func FunctionName(fn IFunctionContext) string {
+	head, tail := FunctionNameParts(fn)
+	if tail == "" {
+		return head
+	}
+	return head + "." + tail
+}
+
+// PrimaryNameParts returns the head and tail of a primary expression's
+// identifier. Bare (x) returns (name, ""); qualified (math.avg) returns
+// (head, tail). Returns ("", "") when the primary is not an identifier.
+func PrimaryNameParts(primary IPrimaryExpressionContext) (head, tail string) {
 	if qid := primary.QualifiedIdentifier(); qid != nil {
-		return QualifiedName(qid)
+		return QualifiedNameParts(qid)
 	}
 	if id := primary.IDENTIFIER(); id != nil {
-		return id.GetText()
+		return id.GetText(), ""
 	}
-	return ""
+	return "", ""
+}
+
+// PrimaryName extracts the joined name from a primary expression. For
+// resolution use PrimaryNameParts. Returns "" if the primary is not an
+// identifier.
+func PrimaryName(primary IPrimaryExpressionContext) string {
+	head, tail := PrimaryNameParts(primary)
+	if head == "" {
+		return ""
+	}
+	if tail == "" {
+		return head
+	}
+	return head + "." + tail
+}
+
+// ImportEntry is one collected import. Path is the dotted source path
+// ("math", "math.trig"); Alias is the user-visible qualifier.
+type ImportEntry struct {
+	Path  string
+	Alias string
+	AST   IImportItemContext
+}
+
+// importPathText returns the dotted source text of an importPath.
+// AUTHORITY is a lexer keyword, so the head is read separately.
+func importPathText(p IImportPathContext) string {
+	var b strings.Builder
+	if head := p.ImportPathHead(); head != nil {
+		if id := head.IDENTIFIER(); id != nil {
+			b.WriteString(id.GetText())
+		} else if auth := head.AUTHORITY(); auth != nil {
+			b.WriteString(auth.GetText())
+		}
+	}
+	for _, id := range p.AllIDENTIFIER() {
+		b.WriteByte('.')
+		b.WriteString(id.GetText())
+	}
+	return b.String()
+}
+
+// importAlias returns the user-visible alias: the AS clause identifier
+// when present, otherwise the last path segment.
+func importAlias(item IImportItemContext) string {
+	if item.AS() != nil {
+		if id := item.IDENTIFIER(); id != nil {
+			return id.GetText()
+		}
+	}
+	path := importPathText(item.ImportPath())
+	if idx := strings.LastIndexByte(path, '.'); idx >= 0 {
+		return path[idx+1:]
+	}
+	return path
+}
+
+// Imports collects every importStatement entry from a program in source order.
+func Imports(prog IProgramContext) []ImportEntry {
+	if prog == nil {
+		return nil
+	}
+	var entries []ImportEntry
+	for _, item := range prog.AllTopLevelItem() {
+		stmt := item.ImportStatement()
+		if stmt == nil {
+			continue
+		}
+		for _, imp := range stmt.AllImportItem() {
+			entries = append(entries, ImportEntry{
+				Path:  importPathText(imp.ImportPath()),
+				Alias: importAlias(imp),
+				AST:   imp,
+			})
+		}
+	}
+	return entries
 }
 
 // GetExpressionText extracts the source text of an expression from the token stream.

@@ -44,6 +44,7 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -62,8 +63,8 @@ type ChannelMapping struct {
 // channel accesses through function calls, handling forward references where the
 // callee is declared after the caller in source order.
 type CallEdge struct {
-	Caller   *symbol.Scope
-	Callee   *symbol.Scope
+	Caller   *symbol.Symbol
+	Callee   *symbol.Symbol
 	CallSite antlr.ParserRuleContext
 	// ArgChannels maps input parameter index (position in the callee's input list)
 	// to the actual channel ID/name passed at this call site. Only populated for
@@ -87,7 +88,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 	// Context is the standard Go context for cancellation and deadlines.
 	context.Context
 	// Scope is the current symbol scope for name resolution.
-	Scope *symbol.Scope
+	Scope *symbol.Symbol
 	// Diagnostics accumulates errors and warnings during analysis.
 	Diagnostics *diagnostics.Diagnostics
 	// Constraints accumulates type constraints for unification.
@@ -109,7 +110,7 @@ type Context[AST antlr.ParserRuleContext] struct {
 //
 // WithScope is typically used when entering a new lexical scope, such as a function
 // body or block statement.
-func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
+func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	c.Scope = scope
 	return c
 }
@@ -125,29 +126,84 @@ func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	return c
 }
 
-// CreateRoot creates a new root context for program analysis. CreateRoot initializes
-// all shared state (Diagnostics, Constraints, TypeMap) and creates the root symbol
-// scope.
+// Resolve resolves a single (unqualified) name in the current scope. If the
+// resolved symbol is deprecated, a warning is added to diagnostics. Use this
+// for bare identifier resolution. For qualified names (e.g., `math.abs`) use
+// ResolveQualified so the head and tail are resolved as separate symbols.
+func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
+	result, err := c.Scope.Resolve(c, name)
+	if err != nil {
+		return result, err
+	}
+	c.warnIfDeprecated(name, result)
+	return result, nil
+}
+
+// ResolveQualified resolves a possibly-qualified name. head is the first
+// segment (always present); tail is the second segment, empty when the
+// reference is bare. When tail is non-empty, ResolveQualified follows
+// the head and then resolves tail through it; an alias head transparently
+// dispatches to its Target inside Resolve. Deprecation warnings fire on
+// whichever segment resolved to the deprecated symbol.
+func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error) {
+	headSym, err := c.Scope.Resolve(c, head)
+	if err != nil {
+		return nil, err
+	}
+	if tail == "" {
+		c.warnIfDeprecated(head, headSym)
+		return headSym, nil
+	}
+	tailSym, err := headSym.Resolve(c, tail)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(head+"."+tail, tailSym)
+	return tailSym, nil
+}
+
+func (c Context[AST]) warnIfDeprecated(name string, sym *symbol.Symbol) {
+	if sym == nil || sym.Deprecated == nil {
+		return
+	}
+	c.Diagnostics.Add(diagnostics.Warningf(
+		c.AST,
+		"'%s' is deprecated, use '%s' instead",
+		name,
+		sym.Deprecated.QualifiedName(),
+	).WithCode(codes.DeprecatedSymbol))
+}
+
+// NewRoot creates a new root context for program analysis. NewRoot
+// initializes the shared state (Diagnostics, Constraints, TypeMap) and uses
+// the supplied root symbol as the lexical scope.
 //
-// The ctx parameter is the standard Go context for cancellation and deadlines. The
-// ast parameter is the root AST node (typically a program or top-level node). The
-// resolver parameter is a symbol resolver for resolving built-in symbols and can
-// be nil.
-func CreateRoot[ASTNode antlr.ParserRuleContext](
+// The root parameter is the pre-built program root. Callers in the consumer
+// layer (LSP, compiler, graph mode, services) build it via symbol.NewRoot
+// with any external (DynamicResolver / channel) resolution before passing
+// it in. The analyzer does not know about STL or external services; it
+// only walks the scope tree it is given.
+//
+// When root is nil, an empty root is created. This is suitable for tests
+// that need to construct a hand-rolled scope without STL or external
+// resolvers.
+func NewRoot[ASTNode antlr.ParserRuleContext](
 	ctx context.Context,
 	ast ASTNode,
-	resolver symbol.Resolver,
+	root *symbol.Symbol,
 ) Context[ASTNode] {
+	if root == nil {
+		root = symbol.NewRoot(nil, nil)
+	}
 	return Context[ASTNode]{
 		Context:     ctx,
-		Scope:       symbol.CreateRootScope(resolver),
+		Scope:       root,
 		Diagnostics: &diagnostics.Diagnostics{},
 		Constraints: constraints.New(),
 		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
 		CallEdges:   &[]CallEdge{},
 		AST:         ast,
 	}
-
 }
 
 // Child creates a new child context for a different AST node. Child is the primary

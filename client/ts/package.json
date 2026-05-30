@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.55.0",
+  "version": "0.56.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -37,6 +37,7 @@
     "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "async-mutex": "catalog:",
+    "immer": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
