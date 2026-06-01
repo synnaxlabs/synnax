@@ -371,7 +371,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const props = Menu.useContextMenu();
-  const linePlotRef = useRef<PLinePlot.LinePlotRef | null>(null);
+  const linePlotRef = useRef<PLinePlot.CoreRef | null>(null);
 
   const builtAxes = useMemo<Channel.AxisProps[]>(
     () =>

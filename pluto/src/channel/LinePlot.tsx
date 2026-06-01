@@ -82,7 +82,7 @@ export interface RuleProps {
   units?: string;
 }
 
-export interface LinePlotProps extends Omit<Base.LinePlotProps, "ref"> {
+export interface LinePlotProps extends Omit<Base.CoreProps, "ref"> {
   axes: AxisProps[];
   onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   onAxisChange?: (axis: Partial<AxisProps> & { key: string }) => void;
@@ -107,7 +107,7 @@ export interface LinePlotProps extends Omit<Base.LinePlotProps, "ref"> {
   rangeProviderProps?: Range.ProviderProps;
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
-  ref?: Ref<Base.LinePlotRef>;
+  ref?: Ref<Base.CoreRef>;
 }
 
 /**
@@ -154,7 +154,7 @@ export const LinePlot = ({
     if (shouldResetViewport) viewportRef.current?.reset();
   }, [shouldResetViewport]);
   return (
-    <Base.LinePlot ref={ref} {...rest}>
+    <Base.Core ref={ref} {...rest}>
       {xAxes.map((a, i) => {
         const axisLines = lines.filter((l) => l.axes.x === a.key);
         const yAxes = axes.filter(({ location: l }) => loc.isX(l));
@@ -200,7 +200,7 @@ export const LinePlot = ({
         )}
         {children}
       </Base.Viewport>
-    </Base.LinePlot>
+    </Base.Core>
   );
 };
 

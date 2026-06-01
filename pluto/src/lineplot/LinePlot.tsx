@@ -61,7 +61,7 @@ export interface ContextValue {
 
 const [Context, useContext] = context.create<ContextValue>({
   displayName: "LinePlot.Context",
-  providerName: "LinePlot.LinePlot",
+  providerName: "LinePlot.Core",
 });
 export { useContext };
 
@@ -98,15 +98,15 @@ export interface LineSpec {
   visible: boolean;
 }
 
-/** Ref handle exposed by LinePlot for imperative access */
-export interface LinePlotRef {
+/** Ref handle exposed by Core for imperative access */
+export interface CoreRef {
   /** Returns the current bounds for all axes */
   getBounds: () => Promise<lineplot.AxesBounds>;
 }
 
 type LineState = LineSpec[];
 
-export interface LinePlotProps
+export interface CoreProps
   extends
     PropsWithChildren,
     Partial<
@@ -119,10 +119,10 @@ export interface LinePlotProps
     Aether.ComponentProps {
   resizeDebounce?: CrudeTimeSpan;
   onHold?: (hold: boolean) => void;
-  ref?: Ref<LinePlotRef>;
+  ref?: Ref<CoreRef>;
 }
 
-export const LinePlot = ({
+export const Core = ({
   aetherKey,
   style,
   resizeDebounce: debounce = 0,
@@ -133,7 +133,7 @@ export const LinePlot = ({
   visible,
   ref,
   ...rest
-}: LinePlotProps): ReactElement => {
+}: CoreProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
