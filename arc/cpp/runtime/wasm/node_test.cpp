@@ -91,28 +91,16 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
     };
 }
 
-/// @brief compiles a single Arc function definition, calls it, and returns the first
-/// output value. Parses the function name and return type from the definition to create
-/// the necessary flow and channel automatically.
+/// @brief compiles a single Arc function definition, calls its exported WASM
+/// function directly with the given params, and returns the first output value.
+/// A function declaration compiles and exports to WASM on its own, so the
+/// definition is compiled as-is with no flow or channel scaffolding.
 template<typename T>
 T call_func(
     const synnax::Synnax &client,
     const std::string &func_def,
     const std::vector<x::telem::SampleValue> &params = {}
 ) {
-    static const std::unordered_map<std::string, x::telem::DataType> arc_types = {
-        {"i8", x::telem::INT8_T},
-        {"i16", x::telem::INT16_T},
-        {"i32", x::telem::INT32_T},
-        {"i64", x::telem::INT64_T},
-        {"u8", x::telem::UINT8_T},
-        {"u16", x::telem::UINT16_T},
-        {"u32", x::telem::UINT32_T},
-        {"u64", x::telem::UINT64_T},
-        {"f32", x::telem::FLOAT32_T},
-        {"f64", x::telem::FLOAT64_T},
-    };
-
     // Parse function name: first word after "func "
     auto func_pos = func_def.find("func ");
     if (func_pos == std::string::npos)
@@ -121,34 +109,13 @@ T call_func(
     auto name_end = func_def.find_first_of("( ", name_start);
     auto func_name = func_def.substr(name_start, name_end - name_start);
 
-    // Parse return type: last type token before '{'
-    auto brace = func_def.find('{');
-    if (brace == std::string::npos)
-        throw std::runtime_error("call_func: no '{' in definition");
-    auto pre = func_def.substr(0, brace);
-    auto pos = pre.find_last_not_of(" \t\n");
-    auto start = pre.find_last_of(" \t\n()", pos);
-    auto ret_type = pre.substr(start + 1, pos - start);
-    auto it = arc_types.find(ret_type);
-    auto dt = it != arc_types.end() ? it->second : x::telem::INT64_T;
-
-    // Create virtual output channel and build source
-    auto ch = synnax::channel::Channel{
-        .name = random_name("out"),
-        .data_type = dt,
-        .is_virtual = true,
-    };
-    if (const auto err = client.channels.create(ch))
-        throw std::runtime_error("Failed to create channel: " + err.message());
-    auto source = func_def + "\n" + func_name + "{} -> " + ch.name;
-
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto channel_st = std::make_shared<stl::channels::State>();
     auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
 
-    auto mod = compile_arc(client, source);
+    auto mod = compile_arc(client, func_def);
     auto wasm_mod = ASSERT_NIL_P(
         wasm::Module::open({
             .program = mod,

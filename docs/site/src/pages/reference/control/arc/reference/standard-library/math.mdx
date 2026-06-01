@@ -1,11 +1,11 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Math"
+title: "`math`"
 description:
   "Arc standard library reference for the math module: avg, derivative, max, and min"
-prev: "Control"
+prev: "control"
 prevURL: "/reference/control/arc/reference/standard-library/control"
-next: "Status"
+next: "status"
 nextURL: "/reference/control/arc/reference/standard-library/status"
 ---
 
@@ -16,9 +16,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The `math` module provides numerical primitives: running averages, running min/max, and
-derivatives. Import it with `import math` before use.
+derivatives.
 
-## avg
+## `avg`
 
 Computes a running average of input values, emitting the updated average on each input.
 By default the average accumulates over every sample; set `duration` or `count` to reset
@@ -47,7 +47,7 @@ sensor -> math.avg{duration=5s} -> output
 
 <Divider.Divider x />
 
-## derivative
+## `derivative`
 
 Computes the rate of change of input values with respect to time. The output is always
 `f64`, regardless of the input type.
@@ -66,7 +66,7 @@ sensor -> math.derivative{} -> rate_output
 
 <Divider.Divider x />
 
-## max
+## `max`
 
 Tracks the running maximum of input values, emitting the updated maximum on each input.
 By default the maximum accumulates over every sample; set `duration` or `count` to reset
@@ -95,7 +95,7 @@ sensor -> math.max{duration=5s} -> output
 
 <Divider.Divider x />
 
-## min
+## `min`
 
 Tracks the running minimum of input values, emitting the updated minimum on each input.
 By default the minimum accumulates over every sample; set `duration` or `count` to reset
