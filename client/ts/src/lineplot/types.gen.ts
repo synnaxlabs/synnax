@@ -130,7 +130,7 @@ export const ruleZ = z.object({
   key: z.string(),
   /** label is the human-readable label rendered alongside the rule. */
   label: z.string(),
-  /** color is the display color of the rule. */
+  /** color is the display color of the rule. When null, the Console assigns a default at render time. */
   color: color.colorZ.optional(),
   /** axis is the axis the rule is anchored to. */
   axis: axisKeyZ,

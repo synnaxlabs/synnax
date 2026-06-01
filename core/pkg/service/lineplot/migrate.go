@@ -17,6 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v2"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -121,13 +122,23 @@ func migrateTickType(t string) *TickType {
 	return &tt
 }
 
+// colorPtr lifts a legacy value-typed color into the optional pointer the
+// current schema uses. A zero color is the legacy "unset" sentinel, which
+// maps to nil so the Console assigns a default at render time.
+func colorPtr(c color.Color) *color.Color {
+	if c.IsZero() {
+		return nil
+	}
+	return &c
+}
+
 func migrateLines(in []v0.Line) []Line {
 	out := make([]Line, len(in))
 	for i, l := range in {
 		out[i] = Line{
 			Key:            l.Key,
 			Label:          l.Label,
-			Color:          l.Color,
+			Color:          colorPtr(l.Color),
 			StrokeWidth:    l.StrokeWidth,
 			Downsample:     l.Downsample,
 			DownsampleMode: DownsampleMode(l.DownsampleMode),
@@ -142,7 +153,7 @@ func migrateRules(in []v0.Rule) []Rule {
 		out[i] = Rule{
 			Key:       r.Key,
 			Label:     r.Label,
-			Color:     r.Color,
+			Color:     colorPtr(r.Color),
 			Axis:      AxisKey(r.Axis),
 			LineWidth: r.LineWidth,
 			LineDash:  r.LineDash,
