@@ -12,6 +12,7 @@ import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/reference/st
 
 export const REFERENCE_NAV: PageNavNode = {
   key: "reference",
+  href: "/reference/control/arc/reference",
   name: "Language Reference",
   children: [
     {
