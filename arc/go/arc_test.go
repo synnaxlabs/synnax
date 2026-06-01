@@ -28,7 +28,7 @@ var _ = Describe("Arc", func() {
 	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
-		root := symbol.NewRoot(nil, stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.NewSymbols())
 		for i := range channels {
 			s := channels[i]
 			root.Parent.AddChild(&s)
@@ -441,7 +441,7 @@ trigger -> counter{} -> output_b
 		Expect(imports).ToNot(BeEmpty())
 
 		for _, imp := range imports {
-			if imp.module == "state" {
+			if imp.module == "stateful" {
 				// Every state import must have a type suffix (e.g., load_i64, store_i64)
 				Expect(imp.name).ToNot(Equal("load"),
 					"state::load should be state::load_i64 (missing type suffix)")
@@ -455,7 +455,7 @@ trigger -> counter{} -> output_b
 	})
 
 	It("Should return a compile error when () is used instead of {} in a flow", func(ctx SpecContext) {
-		root := symbol.NewRoot(nil, stl.Symbols...)
+		root := symbol.NewRoot(nil, stl.NewSymbols())
 		some := symbol.Symbol{
 			Name: "some_ch",
 			Kind: symbol.KindChannel,

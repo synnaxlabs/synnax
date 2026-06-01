@@ -29,7 +29,7 @@ func TestExpression(t *testing.T) {
 }
 
 func buildExpressionRoot(extras []symbol.Symbol) *symbol.Symbol {
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range extras {
 		s := extras[i]
 		root.Parent.AddChild(&s)

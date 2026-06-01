@@ -14,7 +14,10 @@
 // forward into the typed lineplot.LinePlot.
 package v0
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
+)
 
 // Version is the semantic version string written by the console at this state
 // version.
@@ -103,27 +106,31 @@ type Ranges struct {
 
 // Line is the per-line styling configuration at v0. Label is optional in the
 // wire format; absent means derive from the channel name at render time.
+// Color was persisted as a hex string at v0; color.Color's UnmarshalJSON
+// parses that on decode so the in-memory shape matches v5.
 type Line struct {
-	Key            string  `json:"key"`
-	Label          *string `json:"label,omitempty"`
-	Color          string  `json:"color"`
-	StrokeWidth    float64 `json:"strokeWidth"`
-	Downsample     uint32  `json:"downsample"`
-	DownsampleMode string  `json:"downsampleMode"`
+	Key            string      `json:"key"`
+	Label          *string     `json:"label,omitempty"`
+	Color          color.Color `json:"color"`
+	StrokeWidth    float64     `json:"strokeWidth"`
+	Downsample     uint32      `json:"downsample"`
+	DownsampleMode string      `json:"downsampleMode"`
 }
 
 // Rule is the annotation-line configuration at v0. Selected is UI-only and
-// dropped at the final lift.
+// dropped at the final lift. Color was persisted as a hex string at v0;
+// color.Color's UnmarshalJSON parses that on decode so the in-memory shape
+// matches v5.
 type Rule struct {
-	Selected  *bool   `json:"selected,omitempty"`
-	Key       string  `json:"key"`
-	Label     string  `json:"label"`
-	Color     string  `json:"color"`
-	Axis      string  `json:"axis"`
-	LineWidth float64 `json:"lineWidth"`
-	LineDash  float64 `json:"lineDash"`
-	Units     string  `json:"units"`
-	Position  float64 `json:"position"`
+	Selected  *bool       `json:"selected,omitempty"`
+	Key       string      `json:"key"`
+	Label     string      `json:"label"`
+	Color     color.Color `json:"color"`
+	Axis      string      `json:"axis"`
+	LineWidth float64     `json:"lineWidth"`
+	LineDash  float64     `json:"lineDash"`
+	Units     string      `json:"units"`
+	Position  float64     `json:"position"`
 }
 
 // Data is the wire shape of a per-plot line plot state at v0.0.0. UI-only

@@ -122,7 +122,7 @@ const Line = ({
   const handleColorChange: Input.Control<color.Color>["onChange"] = (
     value: color.Color,
   ) => {
-    onChange({ ...line, color: color.hex(value) });
+    onChange({ ...line, color: value });
   };
 
   const {
@@ -164,7 +164,11 @@ const Line = ({
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
       />
-      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
+      <Color.Swatch
+        value={line.color ?? color.ZERO}
+        onChange={handleColorChange}
+        size="small"
+      />
     </List.Item>
   );
 };

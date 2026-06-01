@@ -52,6 +52,7 @@ export const ZERO_LINES_STATE = v5.ZERO_LINES_STATE;
 export const ruleStateZ = v5.ruleStateZ;
 export type RuleState = v5.RuleState;
 export const ZERO_RULE_STATE = v5.ZERO_RULE_STATE;
+export const DEFAULT_RULE_COLOR = v5.DEFAULT_RULE_COLOR;
 
 export const rulesStateZ = v5.rulesStateZ;
 export type RulesState = v5.RulesState;

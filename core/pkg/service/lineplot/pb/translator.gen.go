@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	textpb "github.com/synnaxlabs/x/text/pb"
@@ -480,15 +481,19 @@ func AxesListFromPB(pbs []*Axes) ([]lineplot.Axes, error) {
 
 // LineToPB converts Line to Line.
 func LineToPB(r lineplot.Line) (*Line, error) {
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
 	downsampleModeVal, err := DownsampleModeToPB(r.DownsampleMode)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Line{
 		Key:            r.Key,
-		Color:          r.Color,
 		StrokeWidth:    r.StrokeWidth,
 		Downsample:     r.Downsample,
+		Color:          colorVal,
 		DownsampleMode: downsampleModeVal,
 	}
 	if r.Label != nil {
@@ -504,12 +509,15 @@ func LineFromPB(pb *Line) (lineplot.Line, error) {
 		return r, nil
 	}
 	var err error
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return lineplot.Line{}, err
+	}
 	r.DownsampleMode, err = DownsampleModeFromPB(pb.DownsampleMode)
 	if err != nil {
 		return lineplot.Line{}, err
 	}
 	r.Key = pb.Key
-	r.Color = pb.Color
 	r.StrokeWidth = pb.StrokeWidth
 	r.Downsample = pb.Downsample
 	if pb.Label != nil {
@@ -546,6 +554,10 @@ func LinesFromPB(pbs []*Line) ([]lineplot.Line, error) {
 
 // RuleToPB converts Rule to Rule.
 func RuleToPB(r lineplot.Rule) (*Rule, error) {
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
 	axisVal, err := AxisKeyToPB(r.Axis)
 	if err != nil {
 		return nil, err
@@ -553,11 +565,11 @@ func RuleToPB(r lineplot.Rule) (*Rule, error) {
 	pb := &Rule{
 		Key:       r.Key,
 		Label:     r.Label,
-		Color:     r.Color,
 		LineWidth: r.LineWidth,
 		LineDash:  r.LineDash,
 		Units:     r.Units,
 		Position:  r.Position,
+		Color:     colorVal,
 		Axis:      axisVal,
 	}
 	return pb, nil
@@ -570,13 +582,16 @@ func RuleFromPB(pb *Rule) (lineplot.Rule, error) {
 		return r, nil
 	}
 	var err error
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return lineplot.Rule{}, err
+	}
 	r.Axis, err = AxisKeyFromPB(pb.Axis)
 	if err != nil {
 		return lineplot.Rule{}, err
 	}
 	r.Key = pb.Key
 	r.Label = pb.Label
-	r.Color = pb.Color
 	r.LineWidth = pb.LineWidth
 	r.LineDash = pb.LineDash
 	r.Units = pb.Units

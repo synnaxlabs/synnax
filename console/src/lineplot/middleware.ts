@@ -37,7 +37,7 @@ export const assignColorsEffect: MiddlewareEffect<
   const s = store.getState();
   const p = select(s, action.payload.key);
   p.lines.forEach((l) => {
-    if (l.color === "") {
+    if (l.color == null) {
       const theme = Layout.selectTheme(s);
       const colors = theme?.colors.visualization.palettes.default ?? [];
       store.dispatch(
@@ -45,7 +45,7 @@ export const assignColorsEffect: MiddlewareEffect<
           key: p.key,
           line: {
             key: l.key,
-            color: color.hex(colors[p.lines.indexOf(l) % colors.length]),
+            color: color.construct(colors[p.lines.indexOf(l) % colors.length]),
           },
         }),
       );

@@ -100,6 +100,66 @@ func (x *Cell) GetProps() *structpb.Struct {
 	return nil
 }
 
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `protobuf:"bytes,1,opt,name=variant,proto3" json:"variant,omitempty"`
+	// props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props         *structpb.Struct `protobuf:"bytes,2,opt,name=props,proto3" json:"props,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CellTemplate) Reset() {
+	*x = CellTemplate{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CellTemplate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CellTemplate) ProtoMessage() {}
+
+func (x *CellTemplate) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CellTemplate.ProtoReflect.Descriptor instead.
+func (*CellTemplate) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CellTemplate) GetVariant() string {
+	if x != nil {
+		return x.Variant
+	}
+	return ""
+}
+
+func (x *CellTemplate) GetProps() *structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
 // Row is a single row in a table, with height and ordered cell keys.
 type Row struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -114,7 +174,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -126,7 +186,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -139,7 +199,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Row) GetSize() float64 {
@@ -167,7 +227,7 @@ type Column struct {
 
 func (x *Column) Reset() {
 	*x = Column{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -179,7 +239,7 @@ func (x *Column) String() string {
 func (*Column) ProtoMessage() {}
 
 func (x *Column) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -192,7 +252,7 @@ func (x *Column) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Column.ProtoReflect.Descriptor instead.
 func (*Column) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Column) GetSize() float64 {
@@ -225,7 +285,7 @@ type Table struct {
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +297,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +310,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Table) GetKey() string {
@@ -296,7 +356,10 @@ const file_core_pkg_service_table_pb_table_proto_rawDesc = "" +
 	"\x04Cell\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
 	"\avariant\x18\x02 \x01(\tR\avariant\x12-\n" +
-	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"/\n" +
+	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"W\n" +
+	"\fCellTemplate\x12\x18\n" +
+	"\avariant\x18\x01 \x01(\tR\avariant\x12-\n" +
+	"\x05props\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05props\"/\n" +
 	"\x03Row\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x01R\x04size\x12\x14\n" +
 	"\x05cells\x18\x02 \x03(\tR\x05cells\"\x1c\n" +
@@ -327,26 +390,28 @@ func file_core_pkg_service_table_pb_table_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_table_pb_table_proto_rawDescData
 }
 
-var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_service_table_pb_table_proto_goTypes = []any{
 	(*Cell)(nil),            // 0: service.table.pb.Cell
-	(*Row)(nil),             // 1: service.table.pb.Row
-	(*Column)(nil),          // 2: service.table.pb.Column
-	(*Table)(nil),           // 3: service.table.pb.Table
-	nil,                     // 4: service.table.pb.Table.CellsEntry
-	(*structpb.Struct)(nil), // 5: google.protobuf.Struct
+	(*CellTemplate)(nil),    // 1: service.table.pb.CellTemplate
+	(*Row)(nil),             // 2: service.table.pb.Row
+	(*Column)(nil),          // 3: service.table.pb.Column
+	(*Table)(nil),           // 4: service.table.pb.Table
+	nil,                     // 5: service.table.pb.Table.CellsEntry
+	(*structpb.Struct)(nil), // 6: google.protobuf.Struct
 }
 var file_core_pkg_service_table_pb_table_proto_depIdxs = []int32{
-	5, // 0: service.table.pb.Cell.props:type_name -> google.protobuf.Struct
-	1, // 1: service.table.pb.Table.rows:type_name -> service.table.pb.Row
-	2, // 2: service.table.pb.Table.columns:type_name -> service.table.pb.Column
-	4, // 3: service.table.pb.Table.cells:type_name -> service.table.pb.Table.CellsEntry
-	0, // 4: service.table.pb.Table.CellsEntry.value:type_name -> service.table.pb.Cell
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	6, // 0: service.table.pb.Cell.props:type_name -> google.protobuf.Struct
+	6, // 1: service.table.pb.CellTemplate.props:type_name -> google.protobuf.Struct
+	2, // 2: service.table.pb.Table.rows:type_name -> service.table.pb.Row
+	3, // 3: service.table.pb.Table.columns:type_name -> service.table.pb.Column
+	5, // 4: service.table.pb.Table.cells:type_name -> service.table.pb.Table.CellsEntry
+	0, // 5: service.table.pb.Table.CellsEntry.value:type_name -> service.table.pb.Cell
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_table_pb_table_proto_init() }
@@ -360,7 +425,7 @@ func file_core_pkg_service_table_pb_table_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_table_pb_table_proto_rawDesc), len(file_core_pkg_service_table_pb_table_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

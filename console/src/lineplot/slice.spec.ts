@@ -46,15 +46,12 @@ describe("Lineplot Slice", () => {
     });
     it("should not throw on a payload with a version newer than the latest", () => {
       const key = "plot-from-newer-build";
-      expect(() =>
-        store.dispatch(
-          actions.create({
-            ...ZERO_STATE,
-            version: "99.0.0" as unknown as "0.0.0",
-            key,
-          }),
-        ),
-      ).not.toThrow();
+      const payload = {
+        ...ZERO_STATE,
+        version: "99.0.0",
+        key,
+      } as unknown as Parameters<typeof actions.create>[0];
+      expect(() => store.dispatch(actions.create(payload))).not.toThrow();
       expect(store.getState()[SLICE_NAME].plots[key]).toBeDefined();
     });
   });

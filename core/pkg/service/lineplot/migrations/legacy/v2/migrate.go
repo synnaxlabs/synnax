@@ -14,9 +14,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v1"
 )
 
-// timeType is a pointer to "time" reused for every x-axis upgrade.
-var timeType = func() *string { s := "time"; return &s }()
-
 // Migrate transforms v1 line plot data into v2 by setting the x-axes' Type to
 // "time" and flipping the y-axes' labelDirection to "y". Mirrors the console's
 // v1 to v2 stateMigration.
@@ -55,7 +52,7 @@ func upgradeXAxis(a v0.Axis) Axis {
 		Bounds:         a.Bounds,
 		AutoBounds:     a.AutoBounds,
 		TickSpacing:    a.TickSpacing,
-		Type:           timeType,
+		Type:           "time",
 	}
 }
 

@@ -1433,6 +1433,8 @@ func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templat
 		alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
 		data.imports.AddInternal(alias, importPath)
 		prefix = alias + "."
+	} else {
+		prefix = data.parentAlias + "."
 	}
 	return prefix + naming.GetGoName(resolved), true
 }

@@ -113,11 +113,11 @@ func migrateAxis(a v2.Axis) Axis {
 	}
 }
 
-func migrateTickType(t *string) *TickType {
-	if t == nil {
+func migrateTickType(t string) *TickType {
+	if t == "" {
 		return nil
 	}
-	tt := TickType(*t)
+	tt := TickType(t)
 	return &tt
 }
 

@@ -10,9 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { sep } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -77,17 +75,12 @@ const importComponent = ({
   fileIngesters,
 }: ImportComponentArgs): void => {
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import components from a dialog when running Synnax in the browser.",
-      );
-    const paths = await open({
+    const files = await Runtime.pickFiles({
       title: "Import",
       filters: FILTERS,
       multiple: true,
-      directory: false,
     });
-    if (paths == null) return;
+    if (files == null) return;
     const storeState = store.getState();
     const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
     if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
@@ -102,20 +95,18 @@ const importComponent = ({
       );
     }
     const activeWorkspaceKeyAfter = Workspace.selectActiveKey(store.getState());
-    paths.forEach((path) =>
+    files.forEach((file) =>
       handleError(async () => {
-        const data = await readTextFile(path);
-        const fileName = path.split(sep()).pop();
-        if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
-        const name = trimFileName(fileName);
+        const data = await file.read();
+        const name = trimFileName(file.name);
         await ingestComponent(JSON.parse(data), name, fileIngesters, {
           layout: { name },
           placeLayout,
           store: fluxStore,
           client,
-          workspaceKey: activeWorkspaceKeyAfter ?? undefined,
+          workspaceKey: activeWorkspaceKeyAfter ?? uuid.ZERO,
         });
-      }, `Failed to import ${path}`),
+      }, `Failed to import ${file.name}`),
     );
   });
 };

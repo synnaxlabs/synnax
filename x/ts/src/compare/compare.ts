@@ -104,6 +104,35 @@ export const uniqueUnorderedPrimitiveArrays = <T extends primitive.Value>(
   return unorderedPrimitiveArrays(uniqueA, uniqueB);
 };
 
+/**
+ * Returns true if the two maps have the same set of keys and each value is
+ * identity-equal (===). Intended for use as a reference-stability comparator
+ * (e.g. React's `useSyncExternalStoreWithSelector`) where the values are
+ * already reference-stable in storage (e.g. Immer state). For deeper value
+ * comparison, compose with `deep.equal` at the call site.
+ */
+export const mapsEqual = <K, V>(a: Map<K, V>, b: Map<K, V>): boolean => {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) if (!b.has(k) || b.get(k) !== v) return false;
+  return true;
+};
+
+/**
+ * Returns true if the two arrays have the same length and each element is
+ * identity-equal (===). Same use case as `mapsEqual` for selectors that
+ * derive arrays from reference-stable storage.
+ */
+export const arraysEqual = <T>(
+  a: readonly T[] | T[],
+  b: readonly T[] | T[],
+): boolean => {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+};
+
 export const order = (a: spatial.Order, b: spatial.Order): number => {
   if (a === b) return 0;
   if (a === "first" && b === "last") return 1;

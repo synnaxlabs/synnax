@@ -9,9 +9,8 @@
 
 import { type Link } from "@/link";
 import { Table } from "@/table";
-import { fromWire } from "@/table/slice";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
-  const table = await client.tables.retrieve({ key });
-  placeLayout(Table.create({ ...fromWire(table), name: table.name }));
+  const t = await client.tables.retrieve({ key });
+  placeLayout(Table.create({ key: t.key, name: t.name }));
 };

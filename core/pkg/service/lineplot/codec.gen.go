@@ -325,7 +325,9 @@ func (lv Line) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.String(lv.Color)
+	if err := lv.Color.EncodeOrc(w); err != nil {
+		return err
+	}
 	w.Float64(float64(lv.StrokeWidth))
 	w.Uint32(uint32(lv.Downsample))
 	w.String(string(lv.DownsampleMode))
@@ -350,7 +352,7 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 			lv.Label = &hv
 		}
 	}
-	if lv.Color, err = r.String(); err != nil {
+	if err = lv.Color.DecodeOrc(r); err != nil {
 		return err
 	}
 	if lv.StrokeWidth, err = r.Float64(); err != nil {
@@ -531,7 +533,9 @@ func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
 func (rv Rule) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Key)
 	w.String(rv.Label)
-	w.String(rv.Color)
+	if err := rv.Color.EncodeOrc(w); err != nil {
+		return err
+	}
 	w.String(string(rv.Axis))
 	w.Float64(float64(rv.LineWidth))
 	w.Float64(float64(rv.LineDash))
@@ -548,7 +552,7 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 	if rv.Label, err = r.String(); err != nil {
 		return err
 	}
-	if rv.Color, err = r.String(); err != nil {
+	if err = rv.Color.DecodeOrc(r); err != nil {
 		return err
 	}
 	{

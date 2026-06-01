@@ -22,6 +22,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -301,17 +302,27 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", lineplot.Line{
-				Key:            "test_1",
-				Label:          func() *string { v := string("test_2"); return &v }(),
-				Color:          "test_3",
-				StrokeWidth:    4.5,
-				Downsample:     6,
+				Key:   "test_1",
+				Label: func() *string { v := string("test_2"); return &v }(),
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				},
+				StrokeWidth:    8.5,
+				Downsample:     10,
 				DownsampleMode: lineplot.DownsampleMode("average"),
 			}),
 			Entry("zero values", lineplot.Line{
-				Key:            "",
-				Label:          nil,
-				Color:          "",
+				Key:   "",
+				Label: nil,
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
 				StrokeWidth:    0,
 				Downsample:     0,
 				DownsampleMode: lineplot.DownsampleMode(""),
@@ -424,24 +435,34 @@ var _ = Describe("Codec", func() {
 				},
 				Lines: []lineplot.Line{
 					{
-						Key:            "test_95",
-						Label:          func() *string { v := string("test_96"); return &v }(),
-						Color:          "test_97",
-						StrokeWidth:    98.5,
-						Downsample:     100,
+						Key:   "test_95",
+						Label: func() *string { v := string("test_96"); return &v }(),
+						Color: color.Color{
+							R: 99,
+							G: 100,
+							B: 101,
+							A: 101.5,
+						},
+						StrokeWidth:    102.5,
+						Downsample:     104,
 						DownsampleMode: lineplot.DownsampleMode("average"),
 					},
 				},
 				Rules: []lineplot.Rule{
 					{
-						Key:       "test_102",
-						Label:     "test_103",
-						Color:     "test_104",
+						Key:   "test_106",
+						Label: "test_107",
+						Color: color.Color{
+							R: 110,
+							G: 111,
+							B: 112,
+							A: 112.5,
+						},
 						Axis:      lineplot.AxisKey("x1"),
-						LineWidth: 106.5,
-						LineDash:  107.5,
-						Units:     "test_108",
-						Position:  109.5,
+						LineWidth: 114.5,
+						LineDash:  115.5,
+						Units:     "test_116",
+						Position:  117.5,
 					},
 				},
 			}),
@@ -658,19 +679,29 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", lineplot.Rule{
-				Key:       "test_1",
-				Label:     "test_2",
-				Color:     "test_3",
+				Key:   "test_1",
+				Label: "test_2",
+				Color: color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				},
 				Axis:      lineplot.AxisKey("x1"),
-				LineWidth: 5.5,
-				LineDash:  6.5,
-				Units:     "test_7",
-				Position:  8.5,
+				LineWidth: 9.5,
+				LineDash:  10.5,
+				Units:     "test_11",
+				Position:  12.5,
 			}),
 			Entry("zero values", lineplot.Rule{
-				Key:       "",
-				Label:     "",
-				Color:     "",
+				Key:   "",
+				Label: "",
+				Color: color.Color{
+					R: 0,
+					G: 0,
+					B: 0,
+					A: 0,
+				},
 				Axis:      lineplot.AxisKey(""),
 				LineWidth: 0,
 				LineDash:  0,
@@ -877,11 +908,16 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 
 func BenchmarkEncodeDecodeLine(b *testing.B) {
 	lv := lineplot.Line{
-		Key:            "test_1",
-		Label:          func() *string { v := string("test_2"); return &v }(),
-		Color:          "test_3",
-		StrokeWidth:    4.5,
-		Downsample:     6,
+		Key:   "test_1",
+		Label: func() *string { v := string("test_2"); return &v }(),
+		Color: color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		},
+		StrokeWidth:    8.5,
+		Downsample:     10,
 		DownsampleMode: lineplot.DownsampleMode("average"),
 	}
 	w := orc.NewWriter(0)
@@ -995,24 +1031,34 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		},
 		Lines: []lineplot.Line{
 			{
-				Key:            "test_95",
-				Label:          func() *string { v := string("test_96"); return &v }(),
-				Color:          "test_97",
-				StrokeWidth:    98.5,
-				Downsample:     100,
+				Key:   "test_95",
+				Label: func() *string { v := string("test_96"); return &v }(),
+				Color: color.Color{
+					R: 99,
+					G: 100,
+					B: 101,
+					A: 101.5,
+				},
+				StrokeWidth:    102.5,
+				Downsample:     104,
 				DownsampleMode: lineplot.DownsampleMode("average"),
 			},
 		},
 		Rules: []lineplot.Rule{
 			{
-				Key:       "test_102",
-				Label:     "test_103",
-				Color:     "test_104",
+				Key:   "test_106",
+				Label: "test_107",
+				Color: color.Color{
+					R: 110,
+					G: 111,
+					B: 112,
+					A: 112.5,
+				},
 				Axis:      lineplot.AxisKey("x1"),
-				LineWidth: 106.5,
-				LineDash:  107.5,
-				Units:     "test_108",
-				Position:  109.5,
+				LineWidth: 114.5,
+				LineDash:  115.5,
+				Units:     "test_116",
+				Position:  117.5,
 			},
 		},
 	}
@@ -1050,14 +1096,19 @@ func BenchmarkEncodeDecodeRanges(b *testing.B) {
 
 func BenchmarkEncodeDecodeRule(b *testing.B) {
 	rv := lineplot.Rule{
-		Key:       "test_1",
-		Label:     "test_2",
-		Color:     "test_3",
+		Key:   "test_1",
+		Label: "test_2",
+		Color: color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		},
 		Axis:      lineplot.AxisKey("x1"),
-		LineWidth: 5.5,
-		LineDash:  6.5,
-		Units:     "test_7",
-		Position:  8.5,
+		LineWidth: 9.5,
+		LineDash:  10.5,
+		Units:     "test_11",
+		Position:  12.5,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1518,11 +1569,16 @@ func FuzzDecodeLegend(f *testing.F) {
 func FuzzDecodeLine(f *testing.F) {
 	{
 		seed := lineplot.Line{
-			Key:            "test_1",
-			Label:          func() *string { v := string("test_2"); return &v }(),
-			Color:          "test_3",
-			StrokeWidth:    4.5,
-			Downsample:     6,
+			Key:   "test_1",
+			Label: func() *string { v := string("test_2"); return &v }(),
+			Color: color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			},
+			StrokeWidth:    8.5,
+			Downsample:     10,
 			DownsampleMode: lineplot.DownsampleMode("average"),
 		}
 		w := orc.NewWriter(0)
@@ -1533,9 +1589,14 @@ func FuzzDecodeLine(f *testing.F) {
 	}
 	{
 		seed := lineplot.Line{
-			Key:            "",
-			Label:          nil,
-			Color:          "",
+			Key:   "",
+			Label: nil,
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
 			StrokeWidth:    0,
 			Downsample:     0,
 			DownsampleMode: lineplot.DownsampleMode(""),
@@ -1672,24 +1733,34 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			},
 			Lines: []lineplot.Line{
 				{
-					Key:            "test_95",
-					Label:          func() *string { v := string("test_96"); return &v }(),
-					Color:          "test_97",
-					StrokeWidth:    98.5,
-					Downsample:     100,
+					Key:   "test_95",
+					Label: func() *string { v := string("test_96"); return &v }(),
+					Color: color.Color{
+						R: 99,
+						G: 100,
+						B: 101,
+						A: 101.5,
+					},
+					StrokeWidth:    102.5,
+					Downsample:     104,
 					DownsampleMode: lineplot.DownsampleMode("average"),
 				},
 			},
 			Rules: []lineplot.Rule{
 				{
-					Key:       "test_102",
-					Label:     "test_103",
-					Color:     "test_104",
+					Key:   "test_106",
+					Label: "test_107",
+					Color: color.Color{
+						R: 110,
+						G: 111,
+						B: 112,
+						A: 112.5,
+					},
 					Axis:      lineplot.AxisKey("x1"),
-					LineWidth: 106.5,
-					LineDash:  107.5,
-					Units:     "test_108",
-					Position:  109.5,
+					LineWidth: 114.5,
+					LineDash:  115.5,
+					Units:     "test_116",
+					Position:  117.5,
 				},
 			},
 		}
@@ -1982,14 +2053,19 @@ func FuzzDecodeRanges(f *testing.F) {
 func FuzzDecodeRule(f *testing.F) {
 	{
 		seed := lineplot.Rule{
-			Key:       "test_1",
-			Label:     "test_2",
-			Color:     "test_3",
+			Key:   "test_1",
+			Label: "test_2",
+			Color: color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			},
 			Axis:      lineplot.AxisKey("x1"),
-			LineWidth: 5.5,
-			LineDash:  6.5,
-			Units:     "test_7",
-			Position:  8.5,
+			LineWidth: 9.5,
+			LineDash:  10.5,
+			Units:     "test_11",
+			Position:  12.5,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1999,9 +2075,14 @@ func FuzzDecodeRule(f *testing.F) {
 	}
 	{
 		seed := lineplot.Rule{
-			Key:       "",
-			Label:     "",
-			Color:     "",
+			Key:   "",
+			Label: "",
+			Color: color.Color{
+				R: 0,
+				G: 0,
+				B: 0,
+				A: 0,
+			},
 			Axis:      lineplot.AxisKey(""),
 			LineWidth: 0,
 			LineDash:  0,
