@@ -200,7 +200,9 @@ func compute(x f64)result f64 {
 ### Multiple Named Outputs
 
 A function may declare more than one named output. Each output is set in the body and
-routed to its own destination at the call site. Use [routing tables]((/reference/control/arc/reference/flow#output-routing-tables)) to connect multiple outputs:
+routed to its own destination at the call site. Use
+[routing tables](<(/reference/control/arc/reference/flow#output-routing-tables)>) to
+connect multiple outputs:
 
 ```arc
 func split(value f64) (high f64, low f64) {
@@ -303,7 +305,9 @@ func monitor() {
 
 ## Multi-Input Functions
 
-Use [routing tables](/reference/control/arc/reference/flow#output-routing-tables) to map multiple sources to input parameters:
+Use [routing tables](/reference/control/arc/reference/flow#output-routing-tables) to map
+multiple sources to input parameters:
+
 ```arc
 func average(a f64, b f64) f64 {
     return (a + b) / 2.0

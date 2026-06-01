@@ -21,9 +21,9 @@ Flow runs entirely in the reactive scope and is distinct from
 [statement-level control flow](/reference/control/arc/reference/statements) inside
 function bodies.
 
-| Operator | Name             | Behavior                         |
-| -------- | ---------------- | -------------------------------- |
-| `->`     | Continuous flow  | Fires on every data arrival      |
+| Operator | Name             | Behavior                                                                                  |
+| -------- | ---------------- | ----------------------------------------------------------------------------------------- |
+| `->`     | Continuous flow  | Fires on every data arrival                                                               |
 | `=>`     | Conditional flow | Fires while the source is [truthy](/reference/control/arc/reference/operators#truthiness) |
 
 <Divider.Divider x />
@@ -36,8 +36,8 @@ Runs every execution cycle when the source produces data:
 sensor -> filter{} -> output
 ```
 
-Continuous flows chain: each `->` connects the previous node's output to the next
-node's input. The chain executes whenever the leftmost source fires.
+Continuous flows chain: each `->` connects the previous node's output to the next node's
+input. The chain executes whenever the leftmost source fires.
 
 ```arc
 stage active {
@@ -70,8 +70,7 @@ propagates to its target. On ticks where it is falsy, it does not.
 
 A flow whose target is a stage or sequence name is a **transition**. Transitions
 deactivate the current item and activate the target. They use `=>` because they fire
-while the channel value is truthy. Transitioning to an already-active target is a
-no-op.
+while the channel value is truthy. Transitioning to an already-active target is a no-op.
 
 | Target          | Description                                             |
 | --------------- | ------------------------------------------------------- |
@@ -264,8 +263,8 @@ flag -> select{} -> {
 ## Multi-Output Functions
 
 `select` is just a function with two named outputs. Any function with multiple named
-outputs can drive a routing table: declare the branches your logic needs as outputs,
-set the matching one in the function body, and route each output by name.
+outputs can drive a routing table: declare the branches your logic needs as outputs, set
+the matching one in the function body, and route each output by name.
 
 ```arc
 func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
@@ -293,8 +292,8 @@ the routing table keys must match them exactly.
 
 ## Case Body Forms
 
-The right side of an output routing entry, the **case body**, is not limited to a
-single channel. It accepts any of the following.
+The right side of an output routing entry, the **case body**, is not limited to a single
+channel. It accepts any of the following.
 
 ### Single Target
 
@@ -310,8 +309,7 @@ flag -> select{} -> {
 ### Flow-Node Chains
 
 A case body can be a chain of flow nodes joined with `->`, exactly like a top-level
-flow. The routed output feeds the first node, and types are threaded through the
-chain:
+flow. The routed output feeds the first node, and types are threaded through the chain:
 
 ```arc
 flag -> select{} -> {
@@ -339,8 +337,7 @@ flag -> select{} -> {
 
 ### Inline Sequence Body
 
-An anonymous `sequence { ... }` written directly as a case body. Its items run in
-order:
+An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
 ```arc
 sensor -> decide_stage{low=30.0, high=80.0} -> {
@@ -406,18 +403,18 @@ any depth.
 
 ## Summary
 
-| Form                                       | Category   | Meaning                                  |
-| ------------------------------------------ | ---------- | ---------------------------------------- |
-| `src -> dst`                               | Operator   | Continuous flow                          |
-| `expr => dst`                              | Operator   | Conditional flow                         |
-| `expr => stage_name`                       | Transition | Jump to a stage in the same sequence     |
-| `expr => sequence_name`                    | Transition | Jump to another sequence                 |
-| `expr => next`                             | Transition | Advance to next sequence item            |
-| `{ src: param, … } -> func{}`              | Routing    | Map sources to input parameters          |
-| `func{} -> { out: dest, … }`               | Routing    | Map named outputs to destinations        |
-| `select{}`                                 | Router     | Built-in boolean router (`true`/`false`) |
-| `func{}(v) (a T, b T)`                     | Router     | Any multi-output function                |
-| `out: chan`                                | Case       | Route to a channel                       |
-| `out: stage_name`                          | Case       | Activate a stage or sequence             |
-| `out: expr -> node -> …`                   | Case       | Run a flow-node chain                    |
-| `out: stage { … }` / `sequence { … }`      | Case       | Run an anonymous inline body             |
+| Form                                  | Category   | Meaning                                  |
+| ------------------------------------- | ---------- | ---------------------------------------- |
+| `src -> dst`                          | Operator   | Continuous flow                          |
+| `expr => dst`                         | Operator   | Conditional flow                         |
+| `expr => stage_name`                  | Transition | Jump to a stage in the same sequence     |
+| `expr => sequence_name`               | Transition | Jump to another sequence                 |
+| `expr => next`                        | Transition | Advance to next sequence item            |
+| `{ src: param, … } -> func{}`         | Routing    | Map sources to input parameters          |
+| `func{} -> { out: dest, … }`          | Routing    | Map named outputs to destinations        |
+| `select{}`                            | Router     | Built-in boolean router (`true`/`false`) |
+| `func{}(v) (a T, b T)`                | Router     | Any multi-output function                |
+| `out: chan`                           | Case       | Route to a channel                       |
+| `out: stage_name`                     | Case       | Activate a stage or sequence             |
+| `out: expr -> node -> …`              | Case       | Run a flow-node chain                    |
+| `out: stage { … }` / `sequence { … }` | Case       | Run an anonymous inline body             |
