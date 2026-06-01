@@ -31,6 +31,7 @@ export interface DefaultContextMenuProps {
   onAddCol: (index?: number) => void;
   onRemoveRow: (indices: number[]) => void;
   onRemoveCol: (indices: number[]) => void;
+  onEraseCells: (cells: string[]) => void;
   extra?: ReactNode;
 }
 
@@ -55,6 +56,7 @@ export const DefaultContextMenu = ({
   onAddCol,
   onRemoveRow,
   onRemoveCol,
+  onEraseCells,
   extra,
 }: DefaultContextMenuProps): ReactElement => {
   const resizer = targetID != null ? parseResizer(targetID) : null;
@@ -157,7 +159,7 @@ export const DefaultContextMenu = ({
             itemKey="deleteRow"
             onClick={() => onRemoveRow(targetRowIndices)}
           >
-            <Icon.Delete />
+            <Icon.Delete.Row />
             {targetRowIndices.length > 1
               ? `Delete ${targetRowIndices.length} rows`
               : `Delete row ${rowIdx + 1}`}
@@ -170,13 +172,25 @@ export const DefaultContextMenu = ({
           itemKey="deleteCol"
           onClick={() => onRemoveCol(targetColIndices)}
         >
-          <Icon.Delete />
+          <Icon.Delete.Col />
           {targetColIndices.length > 1
             ? `Delete ${targetColIndices.length} columns`
             : `Delete column ${getCellColumn(colIdx)}`}
         </Menu.Item>
       )}
-      {editable && (rowIdx != null || colIdx != null) && <Menu.Divider />}
+      {editable && selected.length > 0 && (
+        <Menu.Item
+          size="small"
+          itemKey="eraseCells"
+          onClick={() => onEraseCells(selected)}
+        >
+          <Icon.Eraser />
+          {selected.length > 1 ? "Erase cells" : "Erase cell"}
+        </Menu.Item>
+      )}
+      {editable && (rowIdx != null || colIdx != null || selected.length > 0) && (
+        <Menu.Divider />
+      )}
       {onEditableChange != null && (
         <Menu.Item size="small" itemKey="toggleEdit" onClick={handleToggleEditable}>
           {editable ? <Icon.EditOff /> : <Icon.Edit />}

@@ -341,7 +341,10 @@ func (t *Transport) Configure(addr address.Address, ins alamos.Instrumentation, 
 	if external {
 		return nil
 	}
-	t.server = grpc.NewServer()
+	t.server = grpc.NewServer(
+		grpc.ChainUnaryInterceptor(fgrpc.RecoveryUnaryServerInterceptor(ins)),
+		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
+	)
 	t.BindTo(t.server)
 	t.addr = addr
 	mw, err := falamos.Middleware(falamos.Config{Instrumentation: ins})

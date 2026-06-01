@@ -16,6 +16,10 @@ const {
     authorImage,
     authorLink,
 } = Astro.props;
+
+const titleStr = String(title ?? "");
+const titleParts = titleStr.split(/(`[^`]+`)/g).filter((s) => s.length > 0);
+const visibleTitleLength = titleStr.replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
@@ -27,9 +31,19 @@ const {
             </div>
         )
     }
-    <Text.Text className="article-title" level={title.length > 30 ? "h2" : "h1"}
-        >{title}</Text.Text
-    >
+    <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
+        <span>
+            {
+                titleParts.map((part) =>
+                    part.startsWith("`") && part.endsWith("`") ? (
+                        <code>{part.slice(1, -1)}</code>
+                    ) : (
+                        part
+                    ),
+                )
+            }
+        </span>
+    </Text.Text>
     <h4 class="article-description">{description}</h4>
     {
         author && (
@@ -64,6 +78,12 @@ const {
         .article-title {
             display: inline-block;
             width: fit-content;
+
+            & code {
+                background: none;
+                border: none;
+                padding: 0;
+            }
         }
 
         & .pluto-breadcrumb {

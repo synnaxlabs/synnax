@@ -25,22 +25,6 @@ interface PreviewProps {
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
 }
 
-const preprocessSVG = (svgString: string): string => {
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
-  const svgElement = svgDoc.documentElement;
-
-  const addRegionIds = (el: Element) => {
-    if (!(el instanceof SVGElement) || el.tagName === "svg") return;
-    if (!el.id && !el.getAttribute("data-region-id"))
-      el.setAttribute("data-region-id", `region-${id.create()}`);
-    Array.from(el.children).forEach(addRegionIds);
-  };
-  Array.from(svgElement.children).forEach(addRegionIds);
-  const serializer = new XMLSerializer();
-  return serializer.serializeToString(svgElement);
-};
-
 export const Preview = ({
   selectedState,
   selectedHandle,
@@ -195,7 +179,7 @@ export const Preview = ({
 
   const form = Form.useContext();
   const handleContentsChange = (contents: string, filename?: string) => {
-    const processedSVG = preprocessSVG(contents);
+    const processedSVG = Schematic.Node.Region.normalizeSVG(contents);
     if (containerRef.current == null) return;
     onContentsChange(processedSVG);
 

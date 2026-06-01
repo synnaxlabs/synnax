@@ -89,6 +89,11 @@ for d in "${PYTHON_DIRS[@]}"; do
 done
 
 echo ""
+echo "Syncing uv lockfile..."
+(cd "$ROOT_DIR" && uv sync)
+echo "✅ Synced uv lockfile"
+
+echo ""
 echo "Updating Node packages..."
 NODE_DIRS=(
     "$ROOT_DIR/alamos/ts"

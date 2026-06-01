@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, Haul, Icon, Status, Text } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, type status } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
@@ -16,6 +16,14 @@ import { Runtime } from "@/runtime";
 
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.some((item) => item.type === Haul.FILE_TYPE) && items.length === 1;
+
+const isSVGFile = (name: string): boolean => name.toLowerCase().endsWith(".svg");
+
+const INVALID_FILE_TYPE_STATUS: status.Crude = {
+  variant: "error",
+  message: "Invalid file type. Expected an SVG file.",
+};
+
 export interface FileDropProps extends Flex.BoxProps {
   onContentsChange: (contents: string, filename?: string) => void;
   enabled?: boolean;
@@ -37,8 +45,8 @@ export const FileDrop = ({
     if (event.dataTransfer.files.length === 0) return items;
 
     const file = event.dataTransfer.files[0];
-    if (!file.name.toLowerCase().endsWith(".svg")) {
-      addStatus({ message: "Invalid file type", variant: "error" });
+    if (!isSVGFile(file.name)) {
+      addStatus(INVALID_FILE_TYPE_STATUS);
       return items;
     }
 
@@ -58,6 +66,10 @@ export const FileDrop = ({
       });
       if (files == null) return;
       const [file] = files;
+      if (!isSVGFile(file.name)) {
+        addStatus(INVALID_FILE_TYPE_STATUS);
+        return;
+      }
       const contents = await file.read();
       const nameWithoutExt = file.name.replace(/\.svg$/i, "");
       const properName =
