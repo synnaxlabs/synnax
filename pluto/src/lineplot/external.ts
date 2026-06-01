@@ -9,6 +9,7 @@
 
 export * from "@/lineplot/Axis";
 export * from "@/lineplot/axisKeys";
+export * from "@/lineplot/Connected";
 export * from "@/lineplot/derive";
 export * from "@/lineplot/Icons";
 export * from "@/lineplot/Legend";
