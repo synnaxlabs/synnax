@@ -39,14 +39,14 @@ func resolveQualified(
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
-	if sym, err := scope.Resolve(ctx, name); err == nil {
+	if sym, err := scope.Resolve(ctx, name, symbol.IncludeInternal); err == nil {
 		return sym, nil
 	}
 	head, tail, ok := strings.Cut(name, ".")
 	if !ok {
 		return scope.Resolve(ctx, name)
 	}
-	headSym, err := scope.Resolve(ctx, head)
+	headSym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
 	if err != nil {
 		return nil, err
 	}
@@ -193,47 +193,17 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]set.Set[string])
+	// Step 5A: Check for Duplicate Edge Targets
+	targets := set.New[ir.Handle]()
 	for _, edge := range g.Edges {
-		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(set.Set[string])
-		}
-		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
+		if targets.Contains(edge.Target) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
-	}
-	if !aCtx.Diagnostics.Ok() {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 5B: Check Missing Required Inputs
-	for _, n := range g.Nodes {
-		freshType := freshFuncTypes[n.Key]
-		if freshType.Inputs == nil {
-			continue
-		}
-		connected := connectedInputs[n.Key]
-		for _, inputParam := range freshType.Inputs {
-			if !connected.Contains(inputParam.Name) {
-				// Check if this parameter has a default value (is optional)
-				if inputParam.Value == nil {
-					// Required parameter is missing
-					aCtx.Diagnostics.Add(diagnostics.Errorf(
-						nil,
-						"node '%s' (%s) missing required input '%s'",
-						n.Key,
-						n.Type,
-						inputParam.Name,
-					))
-				}
-			}
-		}
+		targets.Add(edge.Target)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics

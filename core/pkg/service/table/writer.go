@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -23,10 +24,11 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	tbl       *gorp.Table[Key, Table]
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	tbl        *gorp.Table[Key, Table]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Create creates the given table within the workspace provided. If the table does not
@@ -54,6 +56,9 @@ func (w Writer) Create(
 	otgID := OntologyID(s.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return
+	}
+	if ws == uuid.Nil {
+		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
@@ -93,6 +98,29 @@ func (w Writer) SetData(
 			data.Name = t.Name
 			return data
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the table with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.tbl.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+		ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+			return Reduce(t, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
+	return nil
 }
 
 // Delete deletes the tables with the given keys.

@@ -12,6 +12,7 @@
 //   - Category 2xxx: Type system errors
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
+//   - Category 5xxx: Import errors
 package codes
 
 import "github.com/synnaxlabs/x/diagnostics"
@@ -31,4 +32,10 @@ const (
 	SymbolUndefined diagnostics.ErrorCode = "ARC4001"
 	// SymbolRedefined indicates a symbol was declared more than once in the same scope.
 	SymbolRedefined diagnostics.ErrorCode = "ARC4002"
+	// DeprecatedSymbol indicates a reference to a symbol whose canonical
+	// replacement is recorded on Symbol.Deprecated.
+	DeprecatedSymbol diagnostics.ErrorCode = "ARC4003"
+
+	// UnusedImport indicates an imported module that is never referenced.
+	UnusedImport diagnostics.ErrorCode = "ARC5001"
 )

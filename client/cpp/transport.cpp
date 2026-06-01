@@ -12,30 +12,30 @@
 #include "client/cpp/transport.h"
 #include "freighter/cpp/grpc/grpc.h"
 
-#include "core/pkg/api/grpc/arc/arc.grpc.pb.h"
-#include "core/pkg/api/grpc/arc/arc.pb.h"
-#include "core/pkg/api/grpc/auth/auth.grpc.pb.h"
-#include "core/pkg/api/grpc/auth/auth.pb.h"
-#include "core/pkg/api/grpc/channel/channel.grpc.pb.h"
-#include "core/pkg/api/grpc/channel/channel.pb.h"
-#include "core/pkg/api/grpc/connectivity/connectivity.grpc.pb.h"
-#include "core/pkg/api/grpc/connectivity/connectivity.pb.h"
-#include "core/pkg/api/grpc/device/device.grpc.pb.h"
-#include "core/pkg/api/grpc/device/device.pb.h"
-#include "core/pkg/api/grpc/framer/framer.grpc.pb.h"
-#include "core/pkg/api/grpc/framer/framer.pb.h"
-#include "core/pkg/api/grpc/rack/rack.grpc.pb.h"
-#include "core/pkg/api/grpc/rack/rack.pb.h"
-#include "core/pkg/api/grpc/ranger/kv/kv.grpc.pb.h"
-#include "core/pkg/api/grpc/ranger/kv/kv.pb.h"
-#include "core/pkg/api/grpc/ranger/ranger.grpc.pb.h"
-#include "core/pkg/api/grpc/ranger/ranger.pb.h"
-#include "core/pkg/api/grpc/status/status.grpc.pb.h"
-#include "core/pkg/api/grpc/status/status.pb.h"
-#include "core/pkg/api/grpc/task/task.grpc.pb.h"
-#include "core/pkg/api/grpc/task/task.pb.h"
-#include "core/pkg/api/grpc/view/view.grpc.pb.h"
-#include "core/pkg/api/grpc/view/view.pb.h"
+#include "core/pkg/transport/grpc/arc/arc.grpc.pb.h"
+#include "core/pkg/transport/grpc/arc/arc.pb.h"
+#include "core/pkg/transport/grpc/auth/auth.grpc.pb.h"
+#include "core/pkg/transport/grpc/auth/auth.pb.h"
+#include "core/pkg/transport/grpc/channel/channel.grpc.pb.h"
+#include "core/pkg/transport/grpc/channel/channel.pb.h"
+#include "core/pkg/transport/grpc/connectivity/connectivity.grpc.pb.h"
+#include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
+#include "core/pkg/transport/grpc/device/device.grpc.pb.h"
+#include "core/pkg/transport/grpc/device/device.pb.h"
+#include "core/pkg/transport/grpc/framer/framer.grpc.pb.h"
+#include "core/pkg/transport/grpc/framer/framer.pb.h"
+#include "core/pkg/transport/grpc/rack/rack.grpc.pb.h"
+#include "core/pkg/transport/grpc/rack/rack.pb.h"
+#include "core/pkg/transport/grpc/ranger/kv/kv.grpc.pb.h"
+#include "core/pkg/transport/grpc/ranger/kv/kv.pb.h"
+#include "core/pkg/transport/grpc/ranger/ranger.grpc.pb.h"
+#include "core/pkg/transport/grpc/ranger/ranger.pb.h"
+#include "core/pkg/transport/grpc/status/status.grpc.pb.h"
+#include "core/pkg/transport/grpc/status/status.pb.h"
+#include "core/pkg/transport/grpc/task/task.grpc.pb.h"
+#include "core/pkg/transport/grpc/task/task.pb.h"
+#include "core/pkg/transport/grpc/view/view.grpc.pb.h"
+#include "core/pkg/transport/grpc/view/view.pb.h"
 
 namespace synnax::details {
 Transport::Transport(
@@ -139,6 +139,10 @@ Transport::Transport(
         grpc::status::DeleteRequest,
         google::protobuf::Empty,
         grpc::status::StatusDeleteService>>(pool, base_target);
+    this->status_set_by_key_or_name = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::status::SetByKeyOrNameRequest,
+        grpc::status::SetByKeyOrNameResponse,
+        grpc::status::StatusSetByKeyOrNameService>>(pool, base_target);
     this->arc_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::CreateRequest,
         grpc::arc::CreateResponse,
@@ -191,6 +195,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     status_retrieve->use(mw);
     status_set->use(mw);
     status_delete->use(mw);
+    status_set_by_key_or_name->use(mw);
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);

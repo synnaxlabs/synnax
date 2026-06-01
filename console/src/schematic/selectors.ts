@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type Diagram } from "@synnaxlabs/pluto";
+import { type Control } from "@synnaxlabs/pluto";
 import { type control } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
@@ -19,6 +19,7 @@ import {
   type State,
   type StoreState,
   type ToolbarTab,
+  type Viewport,
 } from "@/schematic/slice";
 import { type ToolbarState, ZERO_STATE } from "@/schematic/types";
 
@@ -90,10 +91,10 @@ export const selectFitViewOnResize = (state: StoreState, key: string): boolean =
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
-export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
+export const selectViewport = (state: StoreState, key: string): Viewport =>
   select(state, key).viewport;
 
-export const useSelectViewport = (key: string): Diagram.Viewport =>
+export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
 export const selectPendingUpload = (

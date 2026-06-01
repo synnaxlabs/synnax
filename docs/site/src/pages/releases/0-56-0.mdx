@@ -1,0 +1,222 @@
+---
+title: "Version 0.56 Release Notes"
+---
+
+import { Fragment } from "react";
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.56.0"
+    date="May 29, 2026"
+    title="Schematic, Table, and Arc Improvements"
+>
+
+<Video
+  client:only="react"
+  id="releases/0-56-0/schematic-collaborative-editing"
+  themed={false}
+/>
+
+Synnax v0.56 brings real-time collaborative editing to schematics and tables, a set of
+improvements to the Arc programming language, and a collection of bug fixes and
+performance improvements across the platform.
+
+<Divider.Divider x />
+
+### Arc
+
+#### Modules
+
+[Modules](/reference/control/arc/reference/standard-library) have now been introduced to
+Arc to better organize the Arc standard library. Modules are now self-contained,
+composable units that can be [imported](/reference/control/arc/reference/syntax#imports)
+and used in other modules. This reduces the number of names in the global namespace.
+
+```arc
+// previously
+func main() f64 {
+  t := now()
+  return t
+}
+
+// now
+import time
+
+func main() f64 {
+  t := time.now()
+  return t
+}
+```
+
+#### Format strings
+
+[Format strings](/reference/control/arc/reference/syntax#format-strings) have been added
+to Arc to allow for string interpolation. This is done by prefixing the string with `f`
+and using `{expr}` placeholders.
+
+```arc
+f"The time is {time.now()}"
+```
+
+#### Statuses
+
+The [`status` module](/reference/control/arc/reference/standard-library/status) has been
+added to Arc (previously, the `set_status` function). This module now allows for setting
+a status by name instead of just by key:
+
+```arc
+status.set("Engine 1 Health", "Low inlet pressure", "warning")
+```
+
+<Divider.Divider x />
+
+### Schematics
+
+Schematics have had a major overhaul centered on multi-user workflows. Editing is faster
+and lighter on the network, undo and redo are far more reliable, and multiple people can
+now edit the same schematic at once.
+
+#### Real-time collaboration
+
+Multiple people can now edit the same schematic at the same time. Changes made by one
+person appear live in everyone else's Console, with no need to refresh. This is a first
+step toward richer collaboration, and we will be building on it with features like
+Google Docs-style history and per-user cursors.
+
+#### Smoother shared control
+
+Schematics now let the server generate timestamps as values are written, using the new
+[auto-indexing](#auto-index-option-for-writers) option. This clears up a class of
+glitches that could happen when several people had the same schematic open and were
+controlling the same channel at once.
+
+#### More reliable undo/redo
+
+Undo and redo on schematics were previously functional but inconsistent. They have been
+rebuilt to behave predictably, so stepping backward and forward through your edits now
+does exactly what you would expect.
+
+#### Off-page navigation
+
+The "Off-Page Reference" symbol has added a new field "Page" that allows you to select a
+different schematic in the same workspace to navigate to when the symbol is clicked.
+
+<Divider.Divider x />
+
+### Tables
+
+Tables received the same real-time collaboration and undo/redo improvements as
+schematics. Multiple people can now edit the same table at once and see each other's
+changes live, undo and redo behave predictably across every edit, and existing tables
+are upgraded to the new format automatically. Alongside those, we made several
+table-specific improvements.
+
+#### Editing multiple cells at once
+
+You can now select a range of cells and edit them together from the toolbar. Changing
+the cell type, color, or text style applies to the whole selection in a single step, and
+switching a cell between plain text and a live channel value preserves any settings the
+two share. We also fixed a number of issues with how cells render and how their contents
+are edited.
+
+#### Showing and hiding indicators
+
+The row and column indicators, the spreadsheet-style labels along the edges of the
+table, can now be hidden from the toolbar or the right-click menu. Hiding them gives a
+cleaner look for tables used as read-only displays, and they reappear automatically
+while editing so you can still navigate by cell.
+
+<Divider.Divider x />
+
+### Auto-Index Option for Writers
+
+Synnax now supports an `autoIndex` / `auto_index` option for writers. When this option
+is enabled, the Synnax Core will automatically generate timestamps for index channels
+that are not included in a write call. This is useful if you do not care about the
+precise timestamp of each sample, or you want a single-source-of-truth when several
+clients are writing to the same channel (e.g., actuating valves on a schematic).
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["temperature"],
+    auto_index=True,
+) as writer:
+    for i in range(100):
+        writer.write({"temperature": i * 0.1})
+        sy.sleep(0.1)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["temperature"],
+  autoIndex: true,
+});
+try {
+  for (let i = 0; i < 100; i++) await writer.write("temperature", i * 0.1);
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Core
+
+- Channel metadata can now be imported and exported from the server.
+- Fixed root user role assignment so the root user is granted the correct permissions on
+  startup.
+
+#### Arc
+
+- Fixed type checking for chained `select` case bodies.
+- `timeSpan` values can now be converted to `uint64`.
+- `time.now()` can now be written to `timestamp` and `int64` channels.
+- Added backtick raw string literals and string conversion support.
+- Channels can be renamed directly from the Arc editor context menu.
+
+#### Console
+
+- Logs now render line breaks.
+- `float32` channel values now display with the correct precision, and large integers
+  display correctly as `BigInt` values.
+- The control legend now uses the correct telemetry colors.
+- Keyboard shortcuts no longer fire while a blocking modal is open, including in
+  schematics.
+- Renaming a mosaic tab now stays in sync across views, and re-opening an orphaned
+  mosaic layout no longer throws a "Tab Not Found" error.
+- Fixed missing custom schematic symbol handling and the horizontal scrollbar on Arc
+  sequences.
+- Removed the "Get Started" page.
+
+#### Client
+
+- The TypeScript client now exposes strongly-typed `Schematic` and `Table` resources for
+  building custom tooling.
+
+</Release>

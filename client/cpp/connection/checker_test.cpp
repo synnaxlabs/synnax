@@ -14,7 +14,7 @@
 #include "client/cpp/connection/checker.h"
 #include "freighter/cpp/mock/mock.h"
 
-#include "core/pkg/api/grpc/connectivity/connectivity.pb.h"
+#include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
 
 namespace synnax::connection {
 grpc::connectivity::CheckResponse make_response(

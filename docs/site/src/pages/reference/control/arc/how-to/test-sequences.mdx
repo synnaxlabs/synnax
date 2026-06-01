@@ -57,7 +57,7 @@ channel in Synnax, then wire it to a button in your Console schematic.
 
 ## Timed Stages
 
-Use `wait` to add delays between stages:
+Use `time.wait` to add delays between stages:
 
 ```arc
 sequence main {
@@ -69,7 +69,7 @@ sequence main {
     stage hold {
         // Keep valve open, wait 30 seconds
         1 -> press_vlv_cmd
-        wait{duration=30s} => next
+        time.wait{duration=30s} => next
     }
 
     stage depressurize {
@@ -109,7 +109,7 @@ sequence main {
         ox_pt_1 > 700 => abort
         abort_btn => abort
         1 -> press_vlv_cmd
-        wait{duration=30s} => next
+        time.wait{duration=30s} => next
     }
 
     stage depressurize {
@@ -156,7 +156,7 @@ sequence main {
         // Check all systems ready
         ox_pt_1 > 100 and ox_pt_1 < 200 and fuel_pt_1 > 100 => next
         // Timeout if conditions not met
-        wait{duration=10s} => timeout
+        time.wait{duration=10s} => timeout
     }
 
     stage pressurize {
@@ -199,7 +199,7 @@ sequence prime {
         tank_pressure > 700 => abort
         abort_btn => abort
         tank_pressure > 500 => next
-        wait{30s} => timeout
+        time.wait{30s} => timeout
     }
 
     // Procedure resumes
@@ -269,7 +269,7 @@ sequence main {
         ox_rate_high => abort
         abort_btn => abort
         // Pressurize slowly by pulsing the valve
-        interval{period=100ms} -> press_valve_pulse{}
+        time.interval{period=100ms} -> press_valve_pulse{}
         ox_pt_1 > 500 => next
     }
     // ... rest of sequence
@@ -304,7 +304,7 @@ sequence main {
         fuel_pt_1 > 50 => abort
         abort_btn => abort
         // All systems nominal, proceed
-        wait{duration=2s} => next
+        time.wait{duration=2s} => next
     }
     // Stage 2: Pressurize oxidizer
     stage press_ox {
@@ -333,7 +333,7 @@ sequence main {
         abort_btn => abort
         1 -> ox_press_vlv_cmd
         1 -> fuel_press_vlv_cmd
-        wait{duration=5s} => next
+        time.wait{duration=5s} => next
     }
     // Stage 5: Ignition
     stage ignite {
@@ -346,7 +346,7 @@ sequence main {
         // Wait for combustion confirmation
         chamber_tc_1 > 500 => next
         // Ignition timeout
-        wait{duration=3s} => ignition_fail
+        time.wait{duration=3s} => ignition_fail
     }
     // Stage 6: Main run
     stage main_run {
@@ -359,14 +359,14 @@ sequence main {
         1 -> ox_main_vlv_cmd
         1 -> fuel_main_vlv_cmd
         0 -> igniter_cmd
-        wait{duration=10s} => next
+        time.wait{duration=10s} => next
     }
     // Stage 7: Shutdown
     stage shutdown {
         // Controlled shutdown sequence
         0 -> ox_main_vlv_cmd
         0 -> fuel_main_vlv_cmd
-        wait{duration=1s} => next
+        time.wait{duration=1s} => next
     }
     // Stage 8: Depressurize
     stage depress {
@@ -416,8 +416,8 @@ should always win over normal operations.
 **Use multiple abort thresholds.** A pressure of 600 psi might be a warning, but 700 psi
 triggers an immediate abort.
 
-**Add timeouts.** Sequences that wait indefinitely for conditions can hang. Use `wait`
-to set maximum durations and transition to error stages.
+**Add timeouts.** Sequences that wait indefinitely for conditions can hang. Use
+`time.wait` to set maximum durations and transition to error stages.
 
 **Keep stages focused.** Each stage should have one primary purpose. Split complex
 operations into multiple stages for clarity and easier debugging.

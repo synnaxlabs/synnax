@@ -1,0 +1,123 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`math`"
+description:
+  "Arc standard library reference for the math module: avg, derivative, max, and min"
+prev: "control"
+prevURL: "/reference/control/arc/reference/standard-library/control"
+next: "status"
+nextURL: "/reference/control/arc/reference/standard-library/status"
+---
+
+import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+The `math` module provides numerical primitives: running averages, running min/max, and
+derivatives.
+
+## `avg`
+
+Computes a running average of input values, emitting the updated average on each input.
+By default the average accumulates over every sample; set `duration` or `count` to reset
+the window periodically.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter  | Type     | Required | Description                                                    |
+| ---------- | -------- | -------- | -------------------------------------------------------------- |
+| `duration` | `i64 ns` | No       | Reset the average after this much time elapses (such as `5s`). |
+| `count`    | `i64`    | No       | Reset the average after this many samples.                     |
+
+**Output** `numeric`: the running average, matching the input type.
+
+</Details>
+
+```arc
+// `flow` only
+sensor -> math.avg{} -> output
+
+// Reset by sample count or time window
+sensor -> math.avg{count=100} -> output
+sensor -> math.avg{duration=5s} -> output
+```
+
+<Divider.Divider x />
+
+## `derivative`
+
+Computes the rate of change of input values with respect to time. The output is always
+`f64`, regardless of the input type.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+**Output** `f64`: the rate of change between consecutive samples.
+
+</Details>
+
+```arc
+// `flow` only
+sensor -> math.derivative{} -> rate_output
+```
+
+<Divider.Divider x />
+
+## `max`
+
+Tracks the running maximum of input values, emitting the updated maximum on each input.
+By default the maximum accumulates over every sample; set `duration` or `count` to reset
+the window periodically.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter  | Type     | Required | Description                                                    |
+| ---------- | -------- | -------- | -------------------------------------------------------------- |
+| `duration` | `i64 ns` | No       | Reset the maximum after this much time elapses (such as `5s`). |
+| `count`    | `i64`    | No       | Reset the maximum after this many samples.                     |
+
+**Output** `numeric`: the running maximum, matching the input type.
+
+</Details>
+
+```arc
+// `flow` only
+sensor -> math.max{} -> output
+
+// Reset by sample count or time window
+sensor -> math.max{count=100} -> output
+sensor -> math.max{duration=5s} -> output
+```
+
+<Divider.Divider x />
+
+## `min`
+
+Tracks the running minimum of input values, emitting the updated minimum on each input.
+By default the minimum accumulates over every sample; set `duration` or `count` to reset
+the window periodically.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter  | Type     | Required | Description                                                    |
+| ---------- | -------- | -------- | -------------------------------------------------------------- |
+| `duration` | `i64 ns` | No       | Reset the minimum after this much time elapses (such as `5s`). |
+| `count`    | `i64`    | No       | Reset the minimum after this many samples.                     |
+
+**Output** `numeric`: the running minimum, matching the input type.
+
+</Details>
+
+```arc
+// `flow` only
+sensor -> math.min{} -> output
+
+// Reset by sample count or time window
+sensor -> math.min{count=100} -> output
+sensor -> math.min{duration=5s} -> output
+```

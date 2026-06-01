@@ -327,7 +327,7 @@ var _ = Describe("Constant", func() {
 	Describe("Symbols", func() {
 		It("Should expose constant symbol", func() {
 			var sym *symbol.Symbol
-			for _, s := range constant.Symbols {
+			for _, s := range constant.NewSymbols() {
 				if s.Name == "constant" {
 					sym = s
 					break

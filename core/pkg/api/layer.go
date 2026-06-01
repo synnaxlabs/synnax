@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package api implements the client interfaces for interacting with the Synnax cluster.
-// The top level package is transport agnostic, and provides freighter
-// compatible interfaces for all of its services. sub-packages in this directory wrap
-// the core API services to provide transport-specific implementations.
+// The package is transport agnostic, defining freighter-compatible interfaces (via the
+// Transport struct) and service implementations (via the Layer struct) for all of its
+// services.
 package api
 
 import (
@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
+	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -130,6 +131,7 @@ type Transport struct {
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, types.Nil]
 	TableRename   freighter.UnaryServer[table.RenameRequest, types.Nil]
 	TableSetData  freighter.UnaryServer[table.SetDataRequest, types.Nil]
+	TableDispatch freighter.UnaryServer[table.DispatchRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
@@ -165,9 +167,10 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, types.Nil]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, types.Nil]
 	// STATUS
-	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete   freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete         freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
@@ -217,7 +220,8 @@ func (l *Layer) BindTo(t Transport) {
 	var (
 		tk                 = auth.TokenMiddleware(l.config.Service.Token)
 		instrumentation    = lo.Must(alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation}
+		rec                = recovery.Middleware(l.config.Instrumentation)
+		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
@@ -326,6 +330,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableDelete,
 		t.TableRename,
 		t.TableSetData,
+		t.TableDispatch,
 
 		// LABEL
 		t.LabelCreate,
@@ -364,6 +369,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
@@ -476,6 +482,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.TableDelete.BindHandler(l.Table.Delete)
 	t.TableRename.BindHandler(l.Table.Rename)
 	t.TableSetData.BindHandler(l.Table.SetData)
+	t.TableDispatch.BindHandler(l.Table.Dispatch)
 
 	// LABEL
 	t.LabelCreate.BindHandler(l.Label.Create)
@@ -514,6 +521,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(l.Status.Set)
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(l.Status.Delete)
+	t.StatusSetByKeyOrName.BindHandler(l.Status.SetByKeyOrName)
 
 	// VIEW
 	t.ViewCreate.BindHandler(l.View.Create)

@@ -10,5 +10,6 @@
 export * from "@/export/ContextMenuItem";
 export * from "@/export/extractor";
 export * from "@/export/ExtractorsProvider";
+export * from "@/export/sanitize";
 export * from "@/export/ToolbarButton";
 export * from "@/export/use";

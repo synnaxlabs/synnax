@@ -25,7 +25,7 @@ export const SLICE_MIGRATION_NAME = "arc.slice";
 export type NodeProps = v0.NodeProps;
 export const nodePropsZ = v0.nodePropsZ;
 
-const graphStateZ = z.object({
+export const graphStateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   viewport: Diagram.viewportZ,

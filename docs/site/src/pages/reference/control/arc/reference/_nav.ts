@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/nav/Page";
+import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/reference/standard-library/_nav";
 
 export const REFERENCE_NAV: PageNavNode = {
   key: "reference",
@@ -43,11 +44,7 @@ export const REFERENCE_NAV: PageNavNode = {
       href: "/reference/control/arc/reference/sequences",
       name: "Sequences",
     },
-    {
-      key: "/reference/control/arc/reference/built-ins",
-      href: "/reference/control/arc/reference/built-ins",
-      name: "Built-In Functions",
-    },
+    STANDARD_LIBRARY_NAV,
     {
       key: "/reference/control/arc/reference/errors",
       href: "/reference/control/arc/reference/errors",
