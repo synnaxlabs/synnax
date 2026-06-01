@@ -13,16 +13,15 @@ import { useDispatch } from "react-redux";
 
 export interface CreateEnsureStateParams {
   useExists: (key: string) => boolean;
-  create: (key: string) => PayloadAction<any>;
+  create: (key: string) => PayloadAction<{ key: string }>;
 }
 
 /**
- * Creates a hook that guarantees a per-layout entry exists in a visualization's
- * Redux slice before its renderer reads from it. The layout creator seeds this
- * entry when a visualization is placed directly, but layouts restored from a
- * workspace bypass the creator, so the renderer must seed it on mount. The hook
- * returns whether the entry currently exists; callers should withhold rendering
- * the visualization until it does.
+ * Creates a hook that guarantees a per-layout entry exists in a visualization's Redux
+ * slice before its renderer reads from it. The layout creator seeds this entry when a
+ * visualization is placed directly, but layouts restored from a workspace bypass the
+ * creator, so the renderer must seed it on mount. The hook returns whether the entry
+ * currently exists; callers should withhold rendering the visualization until it does.
  */
 export const createEnsureState =
   ({ useExists, create }: CreateEnsureStateParams) =>
@@ -31,6 +30,6 @@ export const createEnsureState =
     const exists = useExists(key);
     useEffect(() => {
       if (!exists) dispatch(create(key));
-    }, [dispatch, exists, key]);
+    }, [dispatch, exists, key, create]);
     return exists;
   };
