@@ -11,7 +11,6 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
 
-import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
 import {
   SelectAxisInputItem,
   SelectMultipleAxesInputItem,
@@ -30,7 +29,7 @@ const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };
 const diffChannels = (
   current: readonly channel.Key[],
   next: readonly channel.Key[],
-  axisKey: YAxisKey,
+  axisKey: PLinePlot.YAxisKey,
 ): lineplot.Action[] => {
   const currentSet = new Set(current);
   const nextSet = new Set(next);
@@ -45,7 +44,7 @@ const diffChannels = (
 const diffRanges = (
   current: readonly string[],
   next: readonly string[],
-  axisKey: XAxisKey,
+  axisKey: PLinePlot.XAxisKey,
 ): lineplot.Action[] => {
   const currentSet = new Set(current);
   const nextSet = new Set(next);
@@ -63,22 +62,22 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const dispatch = useAssignedDispatch(layoutKey);
 
   const handleYChannelSelect = useCallback(
-    (key: AxisKey, value: readonly channel.Key[]): void => {
-      const axis = key as YAxisKey;
+    (key: PLinePlot.AxisKey, value: readonly channel.Key[]): void => {
+      const axis = key as PLinePlot.YAxisKey;
       dispatch(diffChannels(channels[axis], value, axis));
     },
     [dispatch, channels],
   );
 
   const handleXChannelSelect = useCallback(
-    (key: AxisKey, value: channel.Key): void => {
+    (key: PLinePlot.AxisKey, value: channel.Key): void => {
       dispatch([lineplot.setXChannel({ axisKey: key, channel: value })]);
     },
     [dispatch],
   );
 
   const handleRangeSelect = useCallback(
-    (key: XAxisKey, value: string[]): void => {
+    (key: PLinePlot.XAxisKey, value: string[]): void => {
       dispatch(diffRanges(ranges[key], value, key));
     },
     [dispatch, ranges],

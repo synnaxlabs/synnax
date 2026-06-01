@@ -23,13 +23,14 @@ import {
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { AXIS_KEYS, type AxisKey } from "@/lineplot/axis";
-
 export interface AxesProps {
   layoutKey: string;
 }
 
-const shouldDisplay = (key: AxisKey, channels: lineplot.Channels): boolean => {
+const shouldDisplay = (
+  key: PLinePlot.AxisKey,
+  channels: lineplot.Channels,
+): boolean => {
   if (key === "x1" || key === "y1") return true;
   if (key === "x2") return channels.x2 !== 0;
   return channels[key].length > 0;
@@ -37,7 +38,7 @@ const shouldDisplay = (key: AxisKey, channels: lineplot.Channels): boolean => {
 
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
   const channels = PLinePlot.useSelectChannels({ key: layoutKey });
-  const shouldShow = AXIS_KEYS.filter((k) => shouldDisplay(k, channels));
+  const shouldShow = PLinePlot.AXIS_KEYS.filter((k) => shouldDisplay(k, channels));
 
   const tabs = useMemoCompare(
     () => shouldShow.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
@@ -52,7 +53,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
       {(p) => (
         <LinePlotAxisControls
           key={p.tabKey}
-          axisKey={p.tabKey as AxisKey}
+          axisKey={p.tabKey as PLinePlot.AxisKey}
           layoutKey={layoutKey}
         />
       )}
@@ -61,7 +62,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 };
 
 export interface LinePlotAxisControlsProps {
-  axisKey: AxisKey;
+  axisKey: PLinePlot.AxisKey;
   layoutKey: string;
 }
 

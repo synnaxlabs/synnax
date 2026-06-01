@@ -14,7 +14,6 @@ import { useCallback } from "react";
 
 import { CSV } from "@/csv";
 import { Layout } from "@/layout";
-import { useDerivedLines } from "@/lineplot/useDerivedLines";
 import { Range } from "@/range";
 
 export interface DownloadAsCSVArgs {
@@ -62,7 +61,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
-  const derived = useDerivedLines(key);
+  const derived = PLinePlot.useDerivedLines(key);
   const ranges = PLinePlot.useSelectRanges({ key });
   const { name } = Layout.useSelectRequired(key);
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);

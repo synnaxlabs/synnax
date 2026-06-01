@@ -19,21 +19,19 @@ import {
   Tabs,
   type telem,
 } from "@synnaxlabs/pluto";
-import { type bounds, color, type xy } from "@synnaxlabs/x";
+import { type bounds, type color, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { typedLineKeyFromString } from "@/lineplot/slice";
-import { lookupDerivedLine, useDerivedLineKeys } from "@/lineplot/useDerivedLines";
 
 export interface LinesProps {
   layoutKey: string;
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = useDerivedLineKeys(layoutKey);
+  const lineKeys = PLinePlot.useDerivedLineKeys(layoutKey);
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -95,12 +93,9 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
   const lines = PLinePlot.useSelectLines({ key: layoutKey });
   const { dispatch } = PLinePlot.useDispatch();
   const theme = Layout.useSelectTheme();
-  const stored = lookupDerivedLine(lines, itemKey);
+  const stored = PLinePlot.lookupDerivedLine(lines, itemKey);
   const palette = theme?.colors.visualization.palettes.default ?? [];
-  const resolvedColor =
-    stored.color != null
-      ? stored.color
-      : color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
+  const resolvedColor = PLinePlot.resolveLineColor(stored.color, index, palette);
   const line: lineplot.Line = { ...stored, color: resolvedColor };
 
   const update = useCallback(
@@ -127,7 +122,7 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
 
   const {
     channels: { y: yChannel },
-  } = typedLineKeyFromString(line.key);
+  } = PLinePlot.typedLineKeyFromString(line.key);
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">

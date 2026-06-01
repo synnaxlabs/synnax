@@ -27,7 +27,6 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
-import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectSelectedRules } from "@/lineplot/selectors";
 import { DEFAULT_RULE_COLOR, setSelectedRule } from "@/lineplot/slice";
 
@@ -147,14 +146,14 @@ const List = ({
   );
 };
 
-const AXIS_DATA: AxisKey[] = [Y1, Y2];
+const AXIS_DATA: PLinePlot.AxisKey[] = [PLinePlot.Y1, PLinePlot.Y2];
 
 const SelectAxis = (
-  props: Omit<Select.ButtonsProps<AxisKey>, "keys">,
+  props: Omit<Select.ButtonsProps<PLinePlot.AxisKey>, "keys">,
 ): ReactElement => (
   <Select.Buttons {...props} keys={AXIS_DATA}>
-    <Select.Button itemKey={Y1}>Y1</Select.Button>
-    <Select.Button itemKey={Y2}>Y2</Select.Button>
+    <Select.Button itemKey={PLinePlot.Y1}>Y1</Select.Button>
+    <Select.Button itemKey={PLinePlot.Y2}>Y2</Select.Button>
   </Select.Buttons>
 );
 
@@ -164,7 +163,7 @@ interface RuleContentProps {
   onChangeUnits: (units: string) => void;
   onChangePosition: (position: number) => void;
   onChangeColor: (color: color.Color) => void;
-  onChangeAxis: (axis: AxisKey) => void;
+  onChangeAxis: (axis: PLinePlot.AxisKey) => void;
   onChangeLineWidth: (lineWidth: number) => void;
   onChangeLineDash: (lineDash: number) => void;
 }
@@ -255,7 +254,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
       visColors[rules.length % visColors.length] ?? color.ZERO,
     );
     const key = id.create();
-    const axis = Y1;
+    const axis = PLinePlot.Y1;
     const position = bounds.mean(axes[axis].bounds);
     const rule: lineplot.Rule = {
       ...ZERO_RULE,
@@ -286,7 +285,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     if (shownRule == null) return;
     updateRule({ ...shownRule, color: v });
   };
-  const handleChangeAxis = (axis: AxisKey): void => {
+  const handleChangeAxis = (axis: PLinePlot.AxisKey): void => {
     if (shownRule == null) return;
     const position = bounds.mean(axes[axis].bounds);
     updateRule({ ...shownRule, axis, position });

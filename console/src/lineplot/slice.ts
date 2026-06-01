@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
 import { type measure } from "@synnaxlabs/pluto/ether";
 import { array, deep } from "@synnaxlabs/x";
 
-import { type XAxisKey, type YAxisKey } from "@/lineplot/axis";
 import * as latest from "@/lineplot/types";
 
 export type ViewportState = latest.ViewportState;
@@ -80,16 +78,6 @@ export interface SelectRulePayload {
   ruleKey: string;
 }
 
-interface TypedLineKey {
-  range: string;
-  xAxis: XAxisKey;
-  yAxis: YAxisKey;
-  channels: {
-    x: channel.Key;
-    y: channel.Key;
-  };
-}
-
 export interface SetRemoteCreatedPayload {
   key: string;
 }
@@ -107,19 +95,6 @@ export interface SetRangeAnnotationsVisiblePayload {
 export interface ClearPendingUploadPayload {
   key: string;
 }
-
-export const typedLineKeyToString = (key: TypedLineKey): string =>
-  `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
-
-export const typedLineKeyFromString = (key: string): TypedLineKey => {
-  const [yAxis, xAxis, range, x, y] = key.split("---");
-  return {
-    range,
-    xAxis: xAxis as XAxisKey,
-    yAxis: yAxis as YAxisKey,
-    channels: { x: Number(x), y: Number(y) },
-  };
-};
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,

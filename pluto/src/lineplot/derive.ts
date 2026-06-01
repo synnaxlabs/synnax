@@ -8,11 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type lineplot } from "@synnaxlabs/client";
-import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
-import { X_AXIS_KEYS, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
-import { typedLineKeyToString } from "@/lineplot/slice";
+import { X_AXIS_KEYS, type XAxisKey, type YAxisKey } from "@/lineplot/axisKeys";
+import { useSelectChannels, useSelectLines, useSelectRanges } from "@/lineplot/queries";
+
+export interface TypedLineKey {
+  range: string;
+  xAxis: XAxisKey;
+  yAxis: YAxisKey;
+  channels: {
+    x: channel.Key;
+    y: channel.Key;
+  };
+}
+
+// typedLineKeyToString encodes the axis/range/channel identity of a derived
+// line into the stable string key that SetLine actions target, so styling
+// overrides persist across re-derivations.
+export const typedLineKeyToString = (key: TypedLineKey): string =>
+  `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
+
+export const typedLineKeyFromString = (key: string): TypedLineKey => {
+  const [yAxis, xAxis, range, x, y] = key.split("---");
+  return {
+    range,
+    xAxis: xAxis as XAxisKey,
+    yAxis: yAxis as YAxisKey,
+    channels: { x: Number(x), y: Number(y) },
+  };
+};
 
 // DEFAULT_LINE is the placeholder returned for a (channel x range) combo that
 // has no stored styling override yet. A null color signals to the renderer
@@ -24,6 +50,17 @@ const DEFAULT_LINE: Omit<lineplot.Line, "key"> = {
   downsample: 1,
   downsampleMode: "decimate",
 };
+
+// resolveLineColor returns the concrete color a line should render with: its
+// stored color when set, otherwise a palette color chosen by its position.
+// The chart, the toolbar, and the color-persist effect all route through this
+// so the displayed, persisted, and exported colors never disagree.
+export const resolveLineColor = (
+  stored: color.Color | undefined,
+  index: number,
+  palette: color.Crude[],
+): color.Color =>
+  stored ?? color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
 
 export interface DerivedLine extends lineplot.Line {
   xAxis: XAxisKey;
@@ -38,9 +75,9 @@ export interface DerivedLine extends lineplot.Line {
 // stored styling overrides. Each entry has a stable `key` that the SetLine
 // action targets so overrides persist across re-derivations.
 export const useDerivedLines = (key: lineplot.Key): DerivedLine[] => {
-  const channels = PLinePlot.useSelectChannels({ key });
-  const ranges = PLinePlot.useSelectRanges({ key });
-  const lines = PLinePlot.useSelectLines({ key });
+  const channels = useSelectChannels({ key });
+  const ranges = useSelectRanges({ key });
+  const lines = useSelectLines({ key });
   return useMemo(() => {
     const out: DerivedLine[] = [];
     const overrides = new Map(lines.map((l) => [l.key, l]));
@@ -73,8 +110,8 @@ export const useDerivedLines = (key: lineplot.Key): DerivedLine[] => {
 };
 
 export const useDerivedLineKeys = (key: lineplot.Key): string[] => {
-  const channels = PLinePlot.useSelectChannels({ key });
-  const ranges = PLinePlot.useSelectRanges({ key });
+  const channels = useSelectChannels({ key });
+  const ranges = useSelectRanges({ key });
   return useMemo(() => {
     const out: string[] = [];
     for (const xAxis of X_AXIS_KEYS) {

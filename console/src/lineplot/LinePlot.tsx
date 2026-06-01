@@ -40,14 +40,6 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
 import { Layout } from "@/layout";
-import {
-  AXIS_KEYS,
-  type AxisKey,
-  axisLocation,
-  isAxisKey,
-  isXAxisKey,
-  isYAxisKey,
-} from "@/lineplot/axis";
 import { Controls } from "@/lineplot/Controls";
 import {
   useSelect,
@@ -66,7 +58,6 @@ import {
   storeViewport,
 } from "@/lineplot/slice";
 import { useAssignedDispatch } from "@/lineplot/useAssignedDispatch";
-import { useDerivedLines } from "@/lineplot/useDerivedLines";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { useUndoRedoTriggers } from "@/lineplot/useUndoRedoTriggers";
 import { useAutoUpload } from "@/lineplot/useUpload";
@@ -108,7 +99,10 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
-const shouldDisplayAxis = (key: AxisKey, channels: lineplot.Channels): boolean => {
+const shouldDisplayAxis = (
+  key: PLinePlot.AxisKey,
+  channels: lineplot.Channels,
+): boolean => {
   if (key === "x1" || key === "y1") return true;
   if (key === "x2") return channels.x2 !== 0;
   return channels[key].length > 0;
@@ -128,7 +122,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const rules = PLinePlot.useSelectRules({ key: layoutKey });
   const axes = PLinePlot.useSelectAxes({ key: layoutKey });
   const storedLines = PLinePlot.useSelectLines({ key: layoutKey });
-  const derived = useDerivedLines(layoutKey);
+  const derived = PLinePlot.useDerivedLines(layoutKey);
   const allRangeKeys = useMemo(
     () => Array.from(new Set(derived.map((d) => d.range).filter((k) => k !== ""))),
     [derived],
@@ -148,10 +142,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     derived.forEach((d, i) => {
       const range = rangeByKey.get(d.range);
       if (range == null) return;
-      const colorVal =
-        d.color != null
-          ? d.color
-          : color.hex(palette[i % Math.max(palette.length, 1)] ?? color.ZERO);
+      const colorVal = PLinePlot.resolveLineColor(d.color, i, palette);
       const base = {
         key: d.key,
         axes: { x: d.xAxis, y: d.yAxis },
@@ -182,25 +173,29 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     async (signal) => {
       if (client == null) return;
       const overrides = new Set(storedLines.map((l) => l.key));
-      const toFetch = derived.filter((l) => l.label == null && !overrides.has(l.key));
-      if (toFetch.length === 0) return;
+      const toMaterialize = derived.filter(
+        (l) => l.label == null && !overrides.has(l.key),
+      );
+      if (toMaterialize.length === 0) return;
       const fetched = await client.channels.retrieve(
-        unique.unique(toFetch.map((l) => l.yChannel)),
+        unique.unique(toMaterialize.map((l) => l.yChannel)),
       );
       if (signal.aborted) return;
+      const palette = theme?.colors.visualization.palettes.default ?? [];
       pdispatch({
         key: layoutKey,
-        actions: toFetch.map((l) =>
+        actions: toMaterialize.map((l) =>
           lineplot.setLine({
             line: {
               ...l,
               label: fetched.find((f) => f.key === l.yChannel)?.name ?? undefined,
+              color: PLinePlot.resolveLineColor(l.color, derived.indexOf(l), palette),
             },
           }),
         ),
       });
     },
-    [layoutKey, client, derived, storedLines],
+    [layoutKey, client, derived, storedLines, theme],
   );
 
   const handleLineChange = useCallback<
@@ -228,7 +223,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const existing = rules.find((r) => r.key === rule.key);
       if (existing == null) return;
       const nextAxis =
-        rule.axis != null && isAxisKey(rule.axis) ? rule.axis : existing.axis;
+        rule.axis != null && PLinePlot.isAxisKey(rule.axis) ? rule.axis : existing.axis;
       const next: lineplot.Rule = {
         ...existing,
         ...rule,
@@ -242,7 +237,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const handleAxisChange = useCallback(
     (a: Partial<Channel.AxisProps> & { key: string }) => {
-      if (!isAxisKey(a.key)) return;
+      if (!PLinePlot.isAxisKey(a.key)) return;
       const existing = axes[a.key];
       if (existing == null) return;
       const { bounds: aBounds, label: aLabel } = a;
@@ -283,9 +278,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const handleChannelAxisDrop = useCallback(
     (axisKey: string, dropped: channel.Key[]): void => {
       const actions: lineplot.Action[] = [];
-      if (isXAxisKey(axisKey))
+      if (PLinePlot.isXAxisKey(axisKey))
         actions.push(lineplot.setXChannel({ axisKey, channel: dropped[0] }));
-      else if (isYAxisKey(axisKey)) {
+      else if (PLinePlot.isYAxisKey(axisKey)) {
         const existing = new Set(channels[axisKey]);
         for (const c of dropped)
           if (!existing.has(c))
@@ -380,8 +375,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const builtAxes = useMemo<Channel.AxisProps[]>(
     () =>
-      AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
-        (k): Channel.AxisProps => ({ location: axisLocation(k), ...axes[k] }),
+      PLinePlot.AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
+        (k): Channel.AxisProps => ({ location: PLinePlot.axisLocation(k), ...axes[k] }),
       ),
     [axes, channels],
   );

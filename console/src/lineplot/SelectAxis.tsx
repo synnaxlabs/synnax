@@ -8,18 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel, Input } from "@synnaxlabs/pluto";
+import { Channel, Input, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { type AxisKey, axisLabel } from "@/lineplot/axis";
 import { Range } from "@/range";
 
 export interface SelectMultipleAxesInputItemProps extends Omit<
   Input.ItemProps,
   "onChange" | "children"
 > {
-  axis: AxisKey;
-  onChange: (key: AxisKey, v: channel.Key[]) => void;
+  axis: PLinePlot.AxisKey;
+  onChange: (key: PLinePlot.AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
   selectProps?: Partial<Channel.SelectMultipleProps>;
 }
@@ -39,7 +38,7 @@ export const SelectMultipleAxesInputItem = ({
 }: SelectMultipleAxesInputItemProps): ReactElement => {
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
   return (
-    <Input.Item x label={axisLabel(axis)} {...rest}>
+    <Input.Item x label={PLinePlot.axisLabel(axis)} {...rest}>
       <Channel.SelectMultiple
         value={value}
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
@@ -56,8 +55,8 @@ export const SelectMultipleAxesInputItem = ({
 };
 
 export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
-  axis: AxisKey;
-  onChange: (key: AxisKey, v: channel.Key) => void;
+  axis: PLinePlot.AxisKey;
+  onChange: (key: PLinePlot.AxisKey, v: channel.Key) => void;
   value: channel.Key;
   selectProps?: Partial<Channel.SelectSingleProps>;
 }
@@ -71,7 +70,7 @@ export const SelectAxisInputItem = ({
 }: SelectAxisInputItemProps): ReactElement => {
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
   return (
-    <Input.Item x label={axisLabel(axis)} {...rest} grow>
+    <Input.Item x label={PLinePlot.axisLabel(axis)} {...rest} grow>
       <Channel.SelectSingle
         onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
         value={value}
