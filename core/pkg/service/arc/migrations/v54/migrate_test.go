@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
@@ -34,7 +35,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
 		))
 		seed := v54.Arc{
@@ -65,14 +66,11 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
-						"v54_drop_program_status",
-						arc.MigrateArc,
-					),
+					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
 				},
 			},
 		))
@@ -99,10 +97,122 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Status).To(BeNil())
 	})
 
+	It("rewrites deprecated set_status graph nodes to status.set", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+
+		v54Table := MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
+		))
+		seed := v54.Arc{
+			Key:  uuid.New(),
+			Name: "Legacy Status Graph",
+			Mode: v54.ModeGraph,
+			Graph: graphv54.Graph{
+				Nodes: graphv54.Nodes{
+					{
+						Key:  "alarm",
+						Type: "set_status",
+						Config: msgpack.EncodedJSON{
+							"statusKey":   "ox_alarm",
+							"variant":     "error",
+							"message":     "Overpressure",
+							"description": "dropped on migrate",
+						},
+						Position: spatialv54.XY{X: 0, Y: 0},
+					},
+					{
+						Key:      "scale",
+						Type:     "scale",
+						Config:   msgpack.EncodedJSON{"factor": "2"},
+						Position: spatialv54.XY{X: 100, Y: 0},
+					},
+				},
+			},
+		}
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+
+		currentTable := MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
+					migrate.WithAddedDeps(
+						gorp.NewEntryMigration(
+							"v55_rename_set_status",
+							arc.RenameSetStatus,
+						),
+						"v54_drop_program_status",
+					),
+				},
+			},
+		))
+
+		var got arc.Arc
+		Expect(currentTable.NewRetrieve().
+			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Graph.Nodes).To(HaveLen(2))
+
+		alarm := MustBeOk(got.Graph.Nodes.Find("alarm"))
+		Expect(alarm.Type).To(Equal("status.set"))
+		Expect(alarm.Config["key_or_name"]).To(Equal("ox_alarm"))
+		Expect(alarm.Config["variant"]).To(Equal("error"))
+		Expect(alarm.Config["message"]).To(Equal("Overpressure"))
+		Expect(alarm.Config).ToNot(HaveKey("statusKey"))
+		Expect(alarm.Config).ToNot(HaveKey("description"))
+
+		scale := MustBeOk(got.Graph.Nodes.Find("scale"))
+		Expect(scale.Type).To(Equal("scale"))
+		Expect(scale.Config["factor"]).To(Equal("2"))
+	})
+
+	It("defaults missing set_status config parameters", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+
+		v54Table := MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
+		))
+		seed := v54.Arc{
+			Key:  uuid.New(),
+			Name: "Bare Status Node",
+			Mode: v54.ModeGraph,
+			Graph: graphv54.Graph{
+				Nodes: graphv54.Nodes{{Key: "alarm", Type: "set_status"}},
+			},
+		}
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+
+		currentTable := MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
+					migrate.WithAddedDeps(
+						gorp.NewEntryMigration(
+							"v55_rename_set_status",
+							arc.RenameSetStatus,
+						),
+						"v54_drop_program_status",
+					),
+				},
+			},
+		))
+
+		var got arc.Arc
+		Expect(currentTable.NewRetrieve().
+			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		alarm := MustBeOk(got.Graph.Nodes.Find("alarm"))
+		Expect(alarm.Type).To(Equal("status.set"))
+		Expect(alarm.Config["key_or_name"]).To(Equal(""))
+		Expect(alarm.Config["variant"]).To(Equal("success"))
+		Expect(alarm.Config["message"]).To(Equal(""))
+	})
+
 	It("drops Status and Program and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v54.Key, v54.Arc]{DB: db},
 		))
 		statusKey := uuid.New().String()
@@ -127,14 +237,11 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
-						"v54_drop_program_status",
-						arc.MigrateArc,
-					),
+					gorp.NewEntryMigration("v54_drop_program_status", arc.MigrateArc),
 				},
 			},
 		))

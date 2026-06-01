@@ -1,10 +1,10 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Control"
-description: "Arc standard library reference for the control module and set_authority"
+title: "`control`"
+description: "Arc standard library reference for the control module"
 prev: "Standard Library"
 prevURL: "/reference/control/arc/reference/standard-library"
-next: "Math"
+next: "math"
 nextURL: "/reference/control/arc/reference/standard-library/math"
 ---
 
@@ -15,10 +15,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The `control` module provides runtime control over write authority, letting a program
-promote or release writes that target shared channels. Import it with `import control`
-before use.
+promote or release writes that target shared channels.
 
-## set_authority
+## `set_authority`
 
 Dynamically changes the control authority of write channels at runtime. Higher authority
 values take priority, and setting the authority to `0` releases control.

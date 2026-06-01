@@ -13,9 +13,10 @@ import { CSS } from "@/css";
 
 export interface CellProps extends React.ComponentPropsWithRef<"td"> {
   selected?: boolean;
-  // height is the row's stored size in px. The inner content div is locked
-  // to this so a cell whose content wants more vertical room (e.g. wrapped
-  // text) clips at the row's bottom instead of growing the row.
+  // height is the row's stored size in px, applied to the <td> with
+  // box-sizing: border-box so the bottom border is absorbed rather than
+  // added. Otherwise rows render 1px taller than rowYCursor advances and the
+  // canvas value drifts upward down the table.
   height: number;
 }
 
@@ -27,15 +28,15 @@ export const Cell = ({
   className,
   selected = false,
   height,
+  style,
   ...rest
 }: CellProps): ReactElement => (
   <td
     ref={ref}
     {...rest}
+    style={{ ...style, height }}
     className={CSS(CSS.BE("table", "cell"), CSS.selected(selected), className)}
   >
-    <div className={CSS.BEM("table", "cell", "content")} style={{ height }}>
-      {children}
-    </div>
+    <div className={CSS.BEM("table", "cell", "content")}>{children}</div>
   </td>
 );

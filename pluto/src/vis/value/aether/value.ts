@@ -20,6 +20,10 @@ import { render } from "@/vis/render";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
+// Below this contrast against the background a color is illegible and gets
+// swapped for a legible gray. Rough guard, tune later.
+const MIN_LEGIBLE_CONTRAST = 1.1;
+
 const valueState = z.object({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
@@ -137,18 +141,15 @@ export class Value
       return this.state.stalenessColor;
     }
 
-    if (color.isZero(this.state.color))
-      return color.pickByContrast(
-        theme.colors.border,
-        theme.colors.gray.l11,
-        theme.colors.gray.l0,
-      );
-
-    return color.pickByContrast(
-      theme.colors.border,
-      theme.colors.gray.l11,
-      this.state.color,
-    );
+    // gray.l0 is the background the text renders on; gray.l11 is the
+    // high-contrast end of the scale, legible against it in both themes.
+    const background = theme.colors.gray.l0;
+    const legible = theme.colors.gray.l11;
+    // Honor an explicit color unless it's illegible against the background.
+    if (color.isZero(this.state.color)) return legible;
+    if (color.contrast(background, this.state.color) < MIN_LEGIBLE_CONTRAST)
+      return legible;
+    return this.state.color;
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {

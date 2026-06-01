@@ -428,15 +428,18 @@ func cleanDocComment(comments []string) string {
 // resolveDotted resolves a possibly-qualified name like "time.now" by
 // splitting on dots and walking: the head is resolved in scope, each
 // subsequent segment is resolved against the previous result's children.
-// IncludeInternal is passed so bare module names (filtered out of normal
-// user-code resolution) are reachable for hover and similar tooling.
+// Resolution mirrors user-code resolution (no IncludeInternal), so a
+// module that is reachable only through the ambient prelude — i.e. one the
+// document has not imported — does not resolve. Hovering a member of an
+// unimported module therefore returns nothing, matching the analyzer's
+// "undefined" diagnostic instead of rendering docs as if it were valid.
 func resolveDotted(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	name string,
 ) (*symbol.Symbol, error) {
 	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head, symbol.IncludeInternal)
+	sym, err := scope.Resolve(ctx, head)
 	if err != nil {
 		return nil, err
 	}
