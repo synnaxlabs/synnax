@@ -15,9 +15,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Flow statements connect nodes in the reactive scope. They are how data moves through an
-Arc program: from channels into functions, between functions, and out to destinations.
-Flow runs entirely in the reactive scope and is distinct from
+Flow statements connect nodes in the reactive context. They are how data moves through
+an Arc program: from channels into functions, between functions, and out to
+destinations. Flow runs entirely in the reactive context and is distinct from
 [statement-level control flow](/reference/control/arc/reference/statements) inside
 function bodies.
 
@@ -368,7 +368,7 @@ Items inside an inline body are separated by newlines or commas; both are accept
 ## Inline Body Rules
 
 Inline stage and sequence bodies are a shorthand for a branch that needs more than a
-chain. They behave like one-shot scopes activated by the routed output, and a few rules
+chain. They behave like one-shot bodies activated by the routed output, and a few rules
 apply.
 
 **Anonymous only.** An inline body cannot be named. `true: stage foo { ... }` is a
@@ -376,23 +376,17 @@ compile error; inline bodies cannot be referenced by other flows. Use a named to
 stage or sequence if you need to reference the branch elsewhere.
 
 **No auto-advance.** Firing and completing an inline body does **not** advance the
-enclosing sequence to its next item. This matches the behavior of routing to a named
-scope.
+enclosing sequence to its next item.
 
-**`=> next` cannot cross the boundary.** Because an inline body is a sibling scope
-rather than a child of the enclosing sequence, `=> next` cannot escape it:
+**`=> next` is not valid inside an inline routing case body.** Use a named top-level
+stage or sequence if a branch needs to advance the enclosing sequence.
 
-- Inside an inline **stage** body, `=> next` is always rejected.
-- Inside an inline **sequence** body, `=> next` advances to that sequence's next item,
-  but is rejected on the last item (there is nothing to advance to).
-
-**Cross-stage navigation works.** An inline body can transition to a peer top-level
-stage as its terminal step, resolving through the same path as a hand-written
-transition:
+**Cross-stage navigation works.** An inline body can transition to a named stage, just
+like a normal transition:
 
 ```arc
 flag -> select{} -> {
-    true: stage { time.wait{1s} => following_stage }
+    true: stage { time.wait{1s} => named_body }
 }
 ```
 
