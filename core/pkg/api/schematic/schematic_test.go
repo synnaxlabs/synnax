@@ -16,12 +16,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// scopedAction is a short local alias for the schematic's action envelope so
+// the test files don't have to spell out the generic parameters at every use.
+type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 
 // createSchematic persists a fresh schematic owned by the suite project and
 // returns it with its key populated. Writes commit immediately (nil tx) so
@@ -137,8 +142,8 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should pass the DispatchKey verbatim into the action observer", func(ctx SpecContext) {
 			s := createSchematic(ctx, "session-propagation")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
-			seen := make(chan schematic.ScopedAction, 1)
-			disconnect := schematicSvc.OnAction(func(_ context.Context, sa schematic.ScopedAction) {
+			seen := make(chan scopedAction, 1)
+			disconnect := schematicSvc.OnAction(func(_ context.Context, sa scopedAction) {
 				seen <- sa
 			})
 			DeferCleanup(disconnect)
@@ -149,7 +154,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 					Node: schematic.Node{Key: "n1"},
 				})},
 			})).Error().To(Succeed())
-			var got schematic.ScopedAction
+			var got scopedAction
 			Eventually(seen).Should(Receive(&got))
 			Expect(got.Key).To(Equal(s.Key))
 			Expect(got.DispatchKey).To(Equal("session-marker-xyz"))

@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
-import { color, control as xControl, migrate, record, sticky, xy } from "@synnaxlabs/x";
+import { color, control as xcontrol, migrate, record, sticky, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -26,7 +26,7 @@ export const viewportZ = z.object({
   zoom: z.number(),
   mode: Viewport.modeZ.default("select"),
 });
-export interface ViewportState extends z.infer<typeof viewportZ> {}
+export interface Viewport extends z.infer<typeof viewportZ> {}
 
 export const nodeZ = schematic.nodeZ;
 export type Node = schematic.Node;
@@ -49,16 +49,14 @@ export interface LegendState extends z.infer<typeof legendStateZ> {}
 
 export const pendingUploadZ = schematic.schematicZ
   .omit({ configs: true, name: true })
-  .extend({
-    configs: z.record(z.string(), elementConfigZ),
-  });
+  .extend({ configs: z.record(z.string(), elementConfigZ) });
 export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),
   selected: z.array(z.string()).default([]),
   controlStatus: control.statusZ,
-  authority: xControl.authorityZ,
+  authority: xcontrol.authorityZ,
   legend: legendStateZ,
   toolbar: v0.toolbarStateZ,
   editable: z.boolean(),
@@ -78,10 +76,7 @@ export const ZERO_STATE: State = {
     position: { x: 50, y: 50, units: { x: "px", y: "px" } },
     colors: {},
   },
-  toolbar: {
-    activeTab: "symbols",
-    selectedSymbolGroup: "general",
-  },
+  toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
   editable: false,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1, mode: "select" },
@@ -94,10 +89,7 @@ export const sliceStateZ = z.object({
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
-export const ZERO_SLICE_STATE: SliceState = {
-  version: VERSION,
-  schematics: {},
-};
+export const ZERO_SLICE_STATE: SliceState = { version: VERSION, schematics: {} };
 
 const migrateNode = (node: v0.Node): Node => {
   const next: Node = { key: node.key, position: node.position };

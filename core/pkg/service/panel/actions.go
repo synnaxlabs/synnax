@@ -9,19 +9,6 @@
 
 package panel
 
-// ScopedAction wraps an action vector with the targeted panel key, the originating
-// client's session key, and a monotonic sequence number assigned by the node that
-// handled the Dispatch. Subscribers compare Seq against the last value they applied
-// for the same Key to decide whether the frame is fresh or a stale echo.
-// SessionKey is preserved so subscribers can avoid re-recording an echoed frame
-// onto their own undo stacks.
-type ScopedAction struct {
-	Key        Key      `json:"key" msgpack:"key"`
-	SessionKey string   `json:"session_key" msgpack:"session_key"`
-	Seq        uint64   `json:"seq" msgpack:"seq"`
-	Actions    []Action `json:"actions" msgpack:"actions"`
-}
-
 // Handle replaces the panel's name. When the panel is owned by a user (draft),
 // the writer is responsible for promoting it to project ownership in the same
 // transaction; the reducer itself only updates the name.

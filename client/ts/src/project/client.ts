@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -49,8 +49,7 @@ export class Client {
   async create(projects: New[]): Promise<Project[]>;
   async create(projects: New | New[]): Promise<Project | Project[]> {
     const isMany = Array.isArray(projects);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/project/create",
       { projects: array.toArray(projects) },
       createReqZ,
@@ -60,13 +59,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/project/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/project/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
   async retrieve(key: Key): Promise<Project>;
@@ -78,8 +71,7 @@ export class Client {
     if (typeof keys === "string" || Array.isArray(keys))
       req = { keys: array.toArray(keys) };
     else req = keys;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/project/retrieve",
       req,
       retrieveReqZ,
@@ -91,8 +83,7 @@ export class Client {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/project/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

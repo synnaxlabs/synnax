@@ -10,9 +10,6 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { sep } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -75,27 +72,20 @@ const importComponent = ({
   fileIngesters,
 }: ImportComponentArgs): void => {
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import components from a dialog when running Synnax in the browser.",
-      );
-    const paths = await open({
+    const files = await Runtime.pickFiles({
       title: "Import",
       filters: FILTERS,
       multiple: true,
-      directory: false,
     });
-    if (paths == null) return;
+    if (files == null) return;
     // Importer no longer auto-switches projects on its own; under the new
     // ownership model the active project is a session-state pointer set by
     // explicit user action. Importers ingest into whatever project is active.
     const activeProjectKeyAfter = Project.selectActiveKey(store.getState());
-    paths.forEach((path) =>
+    files.forEach((file) =>
       handleError(async () => {
-        const data = await readTextFile(path);
-        const fileName = path.split(sep()).pop();
-        if (fileName == null) throw new Error(`Cannot read file located at ${path}`);
-        const name = trimFileName(fileName);
+        const data = await file.read();
+        const name = trimFileName(file.name);
         await ingestComponent(JSON.parse(data), name, fileIngesters, {
           layout: { name },
           placeLayout,
@@ -103,7 +93,7 @@ const importComponent = ({
           client,
           projectKey: activeProjectKeyAfter ?? undefined,
         });
-      }, `Failed to import ${path}`),
+      }, `Failed to import ${file.name}`),
     );
   });
 };

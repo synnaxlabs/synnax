@@ -11,17 +11,14 @@ package panel
 
 import (
 	"context"
-	"encoding/json"
 	stdio "io"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -29,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -70,12 +66,11 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	cfg            ServiceConfig
-	closer         xio.MultiCloser
-	table          *gorp.Table[Key, Panel]
-	group          group.Group
-	actionObserver observe.Observer[ScopedAction]
-	seq            atomic.Uint64
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[Key, Panel]
+	group  group.Group
+	state  *actions.State[Key, Action]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
@@ -83,7 +78,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, actionObserver: observe.New[ScopedAction]()}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, Panel](ctx, gorp.TableConfig[Key, Panel]{
@@ -101,27 +96,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	// Broadcast action vectors on sy_panel_set as JSON ScopedActions, mirroring
-	// the schematic pattern. The gorp publisher's Set is disabled because action
-	// frames carry the mutation payload; the publisher still emits deletes so
-	// clients prune cached panels.
-	actions := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
-		Observable: s.actionObserver,
-		Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
-			b, err := json.Marshal(sa)
-			if err != nil {
-				return nil, false
-			}
-			return []xchange.Change[[]byte, struct{}]{
-				{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
-			}, true
-		},
-	}
+	// Broadcast action vectors on sy_panel_set; the gorp delete publisher's Set
+	// is disabled because action frames carry the mutation payload, but it still
+	// emits deletes so clients prune cached panels.
 	var sig stdio.Closer
-	if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-		Name:       "panel_actions",
-		Observable: actions,
-		SetChannel: channel.Channel{Name: "sy_panel_set", DataType: telem.JSONT, Internal: true},
+	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
+		Provider: cfg.Signals,
+		State:    s.state,
+		Name:     "panel",
 	}); !ok(err, sig) {
 		return nil, err
 	}
@@ -138,18 +120,19 @@ func (s *Service) Close() error { return s.closer.Close() }
 // OnAction subscribes the given handler to the action stream emitted by Writer.Dispatch.
 // The handler runs synchronously inside Dispatch after the underlying transaction commits.
 // The returned Disconnect removes the handler.
-func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.Disconnect {
-	return s.actionObserver.OnChange(handler)
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:             gorp.OverrideTx(s.cfg.DB, tx),
-		otg:            s.cfg.Ontology.NewWriter(tx),
-		group:          s.group,
-		table:          s.table,
-		actionObserver: s.actionObserver,
-		seq:            &s.seq,
+		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		otg:        s.cfg.Ontology.NewWriter(tx),
+		group:      s.group,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

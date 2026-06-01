@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ, rename as renameAction } from "@/panel/actions.gen";
+import { type Action, dispatchReqZ, rename as renameAction } from "@/panel/actions.gen";
 import { type Key, keyZ, type New, newZ, type Panel, panelZ } from "@/panel/types.gen";
 import { type Key as ProjectKey, keyZ as projectKeyZ } from "@/project/types.gen";
 
@@ -33,25 +33,6 @@ const retrieveResZ = z.object({ panels: array.nullishToEmpty(panelZ) });
 const createResZ = z.object({ panels: panelZ.array() });
 const emptyResZ = z.object({});
 
-const dispatchReqZ = z.object({
-  key: keyZ,
-  session_key: z.string(),
-  actions: actionZ.array(),
-});
-
-// The server emits the action frame as snake_case JSON, but the framer's JSON
-// codec runs snakeToCamel before handing the value to the schema, so this stays
-// camelCase. seq is the server's monotonic high-water mark used by the store to
-// drop stale echoes; it defaults to 0 to keep frames from servers that predate
-// the field parseable.
-export const scopedActionZ = z.object({
-  key: keyZ,
-  sessionKey: z.string(),
-  seq: z.number().int().nonnegative().default(0),
-  actions: actionZ.array(),
-});
-export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
-
 export const SET_CHANNEL_NAME = "sy_panel_set";
 export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
@@ -66,8 +47,7 @@ export class Client {
   async create(panels: New[], project?: ProjectKey): Promise<Panel[]>;
   async create(panels: New | New[], project?: ProjectKey): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/panel/create",
       { project, panels: array.toArray(panels) },
       createReqZ,
@@ -85,11 +65,10 @@ export class Client {
     await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async dispatch(key: Key, sessionKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
       "/panel/dispatch",
-      { key, session_key: sessionKey, actions },
+      { key, dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );
@@ -104,8 +83,7 @@ export class Client {
     if (typeof keys === "string" || Array.isArray(keys))
       req = { keys: array.toArray(keys) };
     else req = keys;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/panel/retrieve",
       req,
       retrieveReqZ,
@@ -117,8 +95,7 @@ export class Client {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/panel/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

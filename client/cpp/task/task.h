@@ -24,8 +24,8 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/status.h"
 
-#include "core/pkg/api/grpc/task/task.pb.h"
 #include "core/pkg/service/task/pb/task.pb.h"
+#include "core/pkg/transport/grpc/task/task.pb.h"
 
 namespace synnax {
 namespace rack {

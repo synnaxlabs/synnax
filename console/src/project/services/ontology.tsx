@@ -117,9 +117,9 @@ const useCreateTable = ({
   const projectID = ids[0];
   const { update } = PTable.useCreate({
     afterSuccess: async ({ data }) => {
-      const { project, ...table } = data;
-      await maybeChangeProject(project);
-      placeLayout(Table.create({ ...table.data, key: table.key, name: table.name }));
+      const { project, key, name } = data;
+      if (project != null) await maybeChangeProject(project);
+      placeLayout(Table.create({ key, name }));
     },
   });
   return useCallback(
@@ -127,7 +127,6 @@ const useCreateTable = ({
       update({
         project: projectID.key,
         name: "New Table",
-        data: deep.copy(Table.ZERO_STATE),
       }),
     [projectID.key],
   );

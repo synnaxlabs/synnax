@@ -8,12 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { project,type Synnax } from "@synnaxlabs/client";
+import { project, type Synnax } from "@synnaxlabs/client";
 import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
-import { join, sep } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
@@ -25,9 +22,7 @@ export const ingest: Import.DirectoryIngester = async (
   files,
   { client, fileIngesters, placeLayout, store, fluxStore },
 ) => {
-  if (
-    !Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client })
-  )
+  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
     throw new Error("You do not have permission to import projects");
   const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
@@ -84,24 +79,14 @@ export const import_ = ({
 }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
-    if (Runtime.ENGINE !== "tauri")
-      throw new Error(
-        "Cannot import items from a dialog when running Synnax in the browser.",
-      );
-    const path = await open({
-      title: "Import a Project",
-      multiple: false,
-      directory: true,
-    });
-    if (path == null) return;
-    name = path.split(sep()).at(-1);
-    if (name == null) throw new Error("Cannot read project");
-    const files = await readDir(path);
+    const directory = await Runtime.pickDirectory({ title: "Import a Project" });
+    if (directory == null) return;
+    name = directory.name;
     const fileData = await Promise.all(
-      files.map(
+      directory.files.map(
         async (file): Promise<Import.File> => ({
           name: file.name,
-          data: JSON.parse(await readTextFile(await join(path, file.name))),
+          data: JSON.parse(await file.read()),
         }),
       ),
     );

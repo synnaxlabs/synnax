@@ -190,8 +190,8 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   FluxSubStore
 >({
   storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, sessionKey }) =>
-    client.panels.dispatch(key, sessionKey, actions),
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.panels.dispatch(key, dispatchKey, actions),
 });
 
 export const formSchema = panel.panelZ.partial({ key: true, root: true });

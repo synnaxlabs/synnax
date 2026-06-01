@@ -19,6 +19,47 @@ import (
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = uuid.UUID
 
+// Cell is a single cell in a table, identified by key and variant.
+type Cell struct {
+	// Key is the unique identifier for this cell within the table.
+	Key string `json:"key" msgpack:"key"`
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `json:"variant" msgpack:"variant"`
+	// Props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+}
+
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `json:"variant" msgpack:"variant"`
+	// Props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+}
+
+// Row is a single row in a table, with height and ordered cell keys.
+type Row struct {
+	// Size is the height of the row in pixels.
+	Size float64 `json:"size" msgpack:"size"`
+	// Cells is the ordered list of cell keys in this row from left to right. Each key
+	// points at an entry in the table's cells map.
+	Cells []string `json:"cells" msgpack:"cells"`
+}
+
+// Column is a single column in a table, with width.
+type Column struct {
+	// Size is the width of the column in pixels.
+	Size float64 `json:"size" msgpack:"size"`
+}
+
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
@@ -27,7 +68,12 @@ type Table struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the table configuration including column definitions, channel references, and
-	// formatting options.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
+	// Rows are the table rows in display order, top to bottom.
+	Rows []Row `json:"rows" msgpack:"rows"`
+	// Columns are the table columns in display order, left to right.
+	Columns []Column `json:"columns" msgpack:"columns"`
+	// Cells contains all cells in the table, keyed by cell key. Cell positions are derived
+	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
+	// will be pruned on the next structural edit.
+	Cells map[string]Cell `json:"cells" msgpack:"cells"`
 }

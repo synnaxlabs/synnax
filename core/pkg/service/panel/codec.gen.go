@@ -78,11 +78,11 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Leaf
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Leaf
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			nv.Leaf = &v
+			nv.Leaf = &hv
 		}
 	}
 	{
@@ -91,11 +91,11 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Split
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Split
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			nv.Split = &v
+			nv.Split = &hv
 		}
 	}
 	return nil
@@ -164,11 +164,11 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Node
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Node
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.First = &v
+			s.First = &hv
 		}
 	}
 	{
@@ -177,11 +177,11 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Node
-			if err = v.DecodeOrc(r); err != nil {
+			var hv Node
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			s.Last = &v
+			s.Last = &hv
 		}
 	}
 	return nil

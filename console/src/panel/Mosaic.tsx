@@ -130,7 +130,7 @@ export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement | nul
   );
 
   const handleCreate = useCallback(
-    (key: number, _loc: location.Location, _tabKeys?: string[]) => {
+    (key: number, loc: location.Location, _tabKeys?: string[]) => {
       // Splits the target leaf into a new empty sibling. Content insertion
       // comes from a separate gesture (drag from sidebar, palette command).
       dispatchAction({
@@ -140,8 +140,7 @@ export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement | nul
             type: "split_leaf",
             splitLeaf: {
               leaf: key,
-              direction: "x",
-              side: "last",
+              location: loc,
               size: 0.5,
             },
           },

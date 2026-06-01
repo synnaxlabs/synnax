@@ -41,6 +41,16 @@ const (
 	ResourceTypeView            ResourceType = "view"
 )
 
+// IsValid reports whether r is one of the defined ResourceType values.
+func (r ResourceType) IsValid() bool {
+	switch r {
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+		return true
+	default:
+		return false
+	}
+}
+
 // ID ID is a unique identifier for a Resource. An example:
 //
 // userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }

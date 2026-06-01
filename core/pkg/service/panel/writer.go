@@ -11,28 +11,20 @@ package panel
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/observe"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	group group.Group
-	table *gorp.Table[Key, Panel]
-	// actionObserver is notified after a successful Dispatch so the cluster
-	// signals subsystem can broadcast the action vector on the panel channel.
-	// Nil when the service is opened without a Signals provider.
-	actionObserver observe.Observer[ScopedAction]
-	// seq points at the service-level monotonic sequence counter. Each Dispatch
-	// increments it once and stamps the value onto the emitted ScopedAction so
-	// clients can dedupe echoes by ordering rather than session identity.
-	seq *atomic.Uint64
+	tx         gorp.Tx
+	otg        ontology.Writer
+	group      group.Group
+	table      *gorp.Table[Key, Panel]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
@@ -96,29 +88,22 @@ func (w Writer) Rename(
 }
 
 // Dispatch applies a sequence of actions atomically to the panel with the given key.
-// After a successful update the actions are notified to the service-level observer
-// so subscribers (cluster signals) can broadcast them. sessionKey identifies the
-// originating client so subscribers can self-dedup.
+// After a successful update the actions are notified to the service-level dispatcher
+// so subscribers (cluster signals) can broadcast them. dispatchKey identifies the
+// originating batch so the originating client can recognize and skip its own echo.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
-	sessionKey string,
-	actions []Action,
+	dispatchKey string,
+	acts []Action,
 ) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
 		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			return Reduce(p, actions...)
+			return Reduce(p, acts...)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if w.actionObserver != nil {
-		w.actionObserver.Notify(ctx, ScopedAction{
-			Key:        key,
-			SessionKey: sessionKey,
-			Seq:        w.seq.Add(1),
-			Actions:    actions,
-		})
-	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, acts)
 	return nil
 }
 

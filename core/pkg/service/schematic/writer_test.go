@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -25,23 +26,27 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// actionRecorder collects ScopedAction notifications emitted by the service's
+// scopedAction is a short local alias for the schematic's action envelope so
+// the test files don't have to spell out the generic parameters at every use.
+type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
+
+// actionRecorder collects Scoped notifications emitted by the service's
 // action observer for assertions in tests.
 type actionRecorder struct {
 	mu      sync.Mutex
-	scopeds []schematic.ScopedAction
+	scopeds []scopedAction
 }
 
-func (r *actionRecorder) record(_ context.Context, sa schematic.ScopedAction) {
+func (r *actionRecorder) record(_ context.Context, sa scopedAction) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.scopeds = append(r.scopeds, sa)
 }
 
-func (r *actionRecorder) snapshot() []schematic.ScopedAction {
+func (r *actionRecorder) snapshot() []scopedAction {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	out := make([]schematic.ScopedAction, len(r.scopeds))
+	out := make([]scopedAction, len(r.scopeds))
 	copy(out, r.scopeds)
 	return out
 }

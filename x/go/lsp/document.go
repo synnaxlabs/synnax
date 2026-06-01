@@ -126,6 +126,32 @@ func GetQualifiedWordAtPosition(
 	return line[start:end]
 }
 
+// GetQualifiedPrefixWordAtPosition extracts the qualifier chain ending at
+// the cursor word. The left walk crosses dots so a qualifier prefix is
+// included; the right walk does not, so the result stops at the end of the
+// cursor word. For "time.now" with the cursor on "time", the result is
+// "time"; with the cursor on "now", the result is "time.now". This is the
+// shape hover and goto-definition want: identify which symbol the cursor
+// is *on*, not the whole dotted span the cursor happens to sit inside.
+func GetQualifiedPrefixWordAtPosition(
+	content string,
+	pos protocol.Position,
+) string {
+	line, ok := GetLine(content, pos.Line)
+	if !ok || int(pos.Character) >= len(line) {
+		return ""
+	}
+	start := int(pos.Character)
+	end := int(pos.Character)
+	for start > 0 && isQualifiedWordChar(line[start-1]) {
+		start--
+	}
+	for end < len(line) && IsWordChar(line[end]) {
+		end++
+	}
+	return line[start:end]
+}
+
 // GetWordRangeAtPosition returns the range of the word at the given position,
 // or nil if there is no word at that position.
 func GetWordRangeAtPosition(

@@ -9,7 +9,7 @@
 
 import { ontology, panel } from "@synnaxlabs/client";
 import { type location, uuid } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Mosaic as Base } from "@/mosaic";
 import { useDispatch, useRetrieve } from "@/panel/queries";
@@ -55,7 +55,7 @@ export interface MosaicProps extends Pick<
   // means renaming the underlying resource — a per-type operation the panel
   // layer cannot perform on its own.
   onRenameTab?: (tabKey: string, name: string, resource: ontology.ID) => void;
-  children: (props: MosaicTabRenderProps) => ReactNode;
+  children: (props: MosaicTabRenderProps) => ReactElement | null;
 }
 
 // adaptToMosaic walks the typed panel tree and produces the Base.Node shape
@@ -183,9 +183,9 @@ export const Panel = ({
   //      parseable ID into the new sibling leaf in a single dispatch.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
-      const { direction, side } = directionAndSideFromLocation(loc);
+      const { side } = directionAndSideFromLocation(loc);
       const actions: panel.Action[] = [
-        panel.splitLeaf({ leaf: key, direction, side, size: 0.5 }),
+        panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }),
       ];
       if (tabKeys != null && tabKeys.length > 0) {
         // After splitLeaf the original leaf moves to the side opposite the

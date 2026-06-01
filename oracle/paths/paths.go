@@ -102,7 +102,7 @@ func Normalize(path, repoRoot string) (string, error) {
 		return "", errors.Newf("path %q escapes repository root", path)
 	}
 
-	return relPath, nil
+	return filepath.ToSlash(relPath), nil
 }
 
 // Resolve converts a repo-relative path to an absolute path.

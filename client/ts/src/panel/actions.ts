@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { spatial } from "@synnaxlabs/x";
+import { type spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import {
@@ -33,10 +33,7 @@ const pathDirections = (pathKey: number): boolean[] => {
   return bits;
 };
 
-const walk = (
-  root: Draft<Node> | undefined,
-  pathKey: number,
-): Draft<Node> | null => {
+const walk = (root: Draft<Node> | undefined, pathKey: number): Draft<Node> | null => {
   if (root == null) return null;
   let n: Draft<Node> = root;
   for (const isLast of pathDirections(pathKey)) {
@@ -152,11 +149,9 @@ const handlers: Handlers = {
     const removed = removeTabFromNode(state.root, payload.key);
     if (removed == null) return NO_OP;
     const idx = payload.index ?? target.tabs.length;
-    if (idx < 0 || idx > target.tabs.length) 
-      target.tabs.push(removed);
-     else 
-      target.tabs.splice(idx, 0, removed);
-    
+    if (idx < 0 || idx > target.tabs.length) target.tabs.push(removed);
+    else target.tabs.splice(idx, 0, removed);
+
     return { inverse: [], targets: [payload.key] };
   },
 

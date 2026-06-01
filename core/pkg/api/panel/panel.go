@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -135,14 +136,13 @@ func (s *Service) Retrieve(
 }
 
 // DispatchRequest carries an action sequence to apply to a single panel.
-type DispatchRequest struct {
-	Key        panel.Key      `json:"key" msgpack:"key"`
-	SessionKey string         `json:"session_key" msgpack:"session_key"`
-	Actions    []panel.Action `json:"actions" msgpack:"actions"`
-}
+// DispatchKey is a client-generated identifier for the batch, registered as
+// outstanding by the client before the request so it can recognize and skip
+// its own broadcast echo.
+type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 
 // Dispatch applies the action sequence to the target panel atomically. The actions
-// are reduced server-side via panel.Reduce; on success the resulting ScopedAction
+// are reduced server-side via panel.Reduce; on success the resulting Scoped action
 // is broadcast on the panel set channel so connected clients can mirror the change.
 func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
@@ -153,7 +153,7 @@ func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 
