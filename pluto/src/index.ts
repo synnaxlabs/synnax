@@ -62,7 +62,6 @@ export { Status } from "@/status";
 export { Steps } from "@/steps";
 export { Synnax } from "@/synnax";
 export { Table } from "@/table";
-export { TableCells } from "@/table/cells";
 export { Tabs } from "@/tabs";
 export { Tag } from "@/tag";
 export { Task } from "@/task";
@@ -106,7 +105,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type TimeStampStringFormat,
+  type TimestampFormat,
   type TimeZone,
   type TypedArray,
 } from "@synnaxlabs/x";

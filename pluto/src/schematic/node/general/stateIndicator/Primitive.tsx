@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -24,7 +24,7 @@ interface RenderProps extends Omit<Config, "variant"> {
   matchedOptionKey?: string | null;
 }
 
-export const Primitive = ({
+export const StateIndicator = ({
   className,
   orientation = "left",
   matchedOptionKey,
@@ -45,27 +45,22 @@ export const Primitive = ({
       : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   return (
-    <Base.Div
+    <Primitive.Div
       className={CSS(CSS.B("state-indicator"), className)}
       style={{ borderColor, backgroundColor, minWidth: inlineSize }}
     >
-      <Handle.Boundary orientation={orientation}>
-        <Handle.Handle location="left" orientation="left" left={0} top={50} id="1" />
-        <Handle.Handle location="right" orientation="left" left={100} top={50} id="2" />
-        <Handle.Handle location="top" orientation="left" left={50} top={-2} id="3" />
-        <Handle.Handle
-          location="bottom"
-          orientation="left"
-          left={50}
-          top={102}
-          id="4"
-        />
-      </Handle.Boundary>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={-2}
+        right={100}
+        bottom={102}
+      />
       <div className={CSS.BE("state-indicator", "content")}>
         <Text.Text level="p" color={textColor} variant="code">
           {label}
         </Text.Text>
       </div>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

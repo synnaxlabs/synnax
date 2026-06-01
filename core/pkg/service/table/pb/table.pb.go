@@ -33,6 +33,235 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Cell is a single cell in a table, identified by key and variant.
+type Cell struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this cell within the table.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `protobuf:"bytes,2,opt,name=variant,proto3" json:"variant,omitempty"`
+	// props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props         *structpb.Struct `protobuf:"bytes,3,opt,name=props,proto3" json:"props,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Cell) Reset() {
+	*x = Cell{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Cell) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Cell) ProtoMessage() {}
+
+func (x *Cell) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Cell.ProtoReflect.Descriptor instead.
+func (*Cell) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Cell) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Cell) GetVariant() string {
+	if x != nil {
+		return x.Variant
+	}
+	return ""
+}
+
+func (x *Cell) GetProps() *structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `protobuf:"bytes,1,opt,name=variant,proto3" json:"variant,omitempty"`
+	// props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props         *structpb.Struct `protobuf:"bytes,2,opt,name=props,proto3" json:"props,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CellTemplate) Reset() {
+	*x = CellTemplate{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CellTemplate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CellTemplate) ProtoMessage() {}
+
+func (x *CellTemplate) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CellTemplate.ProtoReflect.Descriptor instead.
+func (*CellTemplate) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CellTemplate) GetVariant() string {
+	if x != nil {
+		return x.Variant
+	}
+	return ""
+}
+
+func (x *CellTemplate) GetProps() *structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
+// Row is a single row in a table, with height and ordered cell keys.
+type Row struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// size is the height of the row in pixels.
+	Size float64 `protobuf:"fixed64,1,opt,name=size,proto3" json:"size,omitempty"`
+	// cells is the ordered list of cell keys in this row from left to right. Each key
+	// points at an entry in the table's cells map.
+	Cells         []string `protobuf:"bytes,2,rep,name=cells,proto3" json:"cells,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Row) Reset() {
+	*x = Row{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Row) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Row) ProtoMessage() {}
+
+func (x *Row) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Row.ProtoReflect.Descriptor instead.
+func (*Row) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Row) GetSize() float64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+func (x *Row) GetCells() []string {
+	if x != nil {
+		return x.Cells
+	}
+	return nil
+}
+
+// Column is a single column in a table, with width.
+type Column struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// size is the width of the column in pixels.
+	Size          float64 `protobuf:"fixed64,1,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Column) Reset() {
+	*x = Column{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Column) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Column) ProtoMessage() {}
+
+func (x *Column) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Column.ProtoReflect.Descriptor instead.
+func (*Column) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Column) GetSize() float64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
@@ -42,16 +271,21 @@ type Table struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the table.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// data is the table configuration including column definitions, channel references, and
-	// formatting options.
-	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	// rows are the table rows in display order, top to bottom.
+	Rows []*Row `protobuf:"bytes,3,rep,name=rows,proto3" json:"rows,omitempty"`
+	// columns are the table columns in display order, left to right.
+	Columns []*Column `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
+	// cells contains all cells in the table, keyed by cell key. Cell positions are derived
+	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
+	// will be pruned on the next structural edit.
+	Cells         map[string]*Cell `protobuf:"bytes,5,rep,name=cells,proto3" json:"cells,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -63,7 +297,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -76,7 +310,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Table) GetKey() string {
@@ -93,9 +327,23 @@ func (x *Table) GetName() string {
 	return ""
 }
 
-func (x *Table) GetData() *structpb.Struct {
+func (x *Table) GetRows() []*Row {
 	if x != nil {
-		return x.Data
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *Table) GetColumns() []*Column {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *Table) GetCells() map[string]*Cell {
+	if x != nil {
+		return x.Cells
 	}
 	return nil
 }
@@ -104,11 +352,29 @@ var File_core_pkg_service_table_pb_table_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_table_pb_table_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
+	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"a\n" +
+	"\x04Cell\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
+	"\avariant\x18\x02 \x01(\tR\avariant\x12-\n" +
+	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"W\n" +
+	"\fCellTemplate\x12\x18\n" +
+	"\avariant\x18\x01 \x01(\tR\avariant\x12-\n" +
+	"\x05props\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05props\"/\n" +
+	"\x03Row\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x01R\x04size\x12\x14\n" +
+	"\x05cells\x18\x02 \x03(\tR\x05cells\"\x1c\n" +
+	"\x06Column\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x01R\x04size\"\x98\x02\n" +
 	"\x05Table\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xb7\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12)\n" +
+	"\x04rows\x18\x03 \x03(\v2\x15.service.table.pb.RowR\x04rows\x122\n" +
+	"\acolumns\x18\x04 \x03(\v2\x18.service.table.pb.ColumnR\acolumns\x128\n" +
+	"\x05cells\x18\x05 \x03(\v2\".service.table.pb.Table.CellsEntryR\x05cells\x1aP\n" +
+	"\n" +
+	"CellsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.service.table.pb.CellR\x05value:\x028\x01B\xb7\x01\n" +
 	"\x14com.service.table.pbB\n" +
 	"TableProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/table/pb\xa2\x02\x03STP\xaa\x02\x10Service.Table.Pb\xca\x02\x10Service\\Table\\Pb\xe2\x02\x1cService\\Table\\Pb\\GPBMetadata\xea\x02\x12Service::Table::Pbb\x06proto3"
 
@@ -124,18 +390,28 @@ func file_core_pkg_service_table_pb_table_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_table_pb_table_proto_rawDescData
 }
 
-var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_service_table_pb_table_proto_goTypes = []any{
-	(*Table)(nil),           // 0: service.table.pb.Table
-	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
+	(*Cell)(nil),            // 0: service.table.pb.Cell
+	(*CellTemplate)(nil),    // 1: service.table.pb.CellTemplate
+	(*Row)(nil),             // 2: service.table.pb.Row
+	(*Column)(nil),          // 3: service.table.pb.Column
+	(*Table)(nil),           // 4: service.table.pb.Table
+	nil,                     // 5: service.table.pb.Table.CellsEntry
+	(*structpb.Struct)(nil), // 6: google.protobuf.Struct
 }
 var file_core_pkg_service_table_pb_table_proto_depIdxs = []int32{
-	1, // 0: service.table.pb.Table.data:type_name -> google.protobuf.Struct
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	6, // 0: service.table.pb.Cell.props:type_name -> google.protobuf.Struct
+	6, // 1: service.table.pb.CellTemplate.props:type_name -> google.protobuf.Struct
+	2, // 2: service.table.pb.Table.rows:type_name -> service.table.pb.Row
+	3, // 3: service.table.pb.Table.columns:type_name -> service.table.pb.Column
+	5, // 4: service.table.pb.Table.cells:type_name -> service.table.pb.Table.CellsEntry
+	0, // 5: service.table.pb.Table.CellsEntry.value:type_name -> service.table.pb.Cell
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_table_pb_table_proto_init() }
@@ -149,7 +425,7 @@ func file_core_pkg_service_table_pb_table_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_table_pb_table_proto_rawDesc), len(file_core_pkg_service_table_pb_table_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

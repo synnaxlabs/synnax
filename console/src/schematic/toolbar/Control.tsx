@@ -22,14 +22,14 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
 
   return (
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
-      <Input.Item label="Control Authority">
+      <Input.Item label="Control authority">
         <Input.Numeric
           value={authority}
           onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
           bounds={control.AUTHORITY_BOUNDS}
         />
       </Input.Item>
-      <Input.Item label="Show Control State Legend">
+      <Input.Item label="Show control state legend">
         <Input.Switch
           value={legendVisible ?? true}
           onChange={(v) => dispatch(setLegendVisible({ key: layoutKey, visible: v }))}

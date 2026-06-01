@@ -747,6 +747,9 @@ var _ = Describe("Plugin", func() {
 					Form: resolution.EnumForm{
 						Values: []resolution.EnumValue{{Name: "low"}, {Name: "high"}},
 					},
+					// Enums opt into pb output via their own @pb (typically
+					// file-level, propagated to every type in the schema).
+					Domains: pbDomains("core/pkg/shared"),
 				})).To(Succeed())
 				Expect(table.Add(resolution.Type{
 					Name:          "Task",
@@ -882,6 +885,29 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring("// User is a representation of a user in the system."))
 				Expect(content).To(ContainSubstring("// key is the unique identifier for the user."))
 				Expect(content).To(ContainSubstring("// name is the user's display name."))
+			})
+		})
+
+		Context("enum-only @pb schema", func() {
+			It("Should emit a proto file with the enum and no messages", func(ctx SpecContext) {
+				loader.Add("schemas/text", `
+					@go output "x/go/text"
+					@pb
+
+					Level enum {
+						h1    = "h1"
+						h2    = "h2"
+						small = "small"
+					}
+				`)
+				resp := MustGenerateMulti(ctx, loader, p)
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(Equal("x/go/text/pb/text.proto"))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("enum Level"))
+				Expect(content).To(ContainSubstring("LEVEL_H_1"))
+				Expect(content).To(ContainSubstring("LEVEL_SMALL"))
+				Expect(content).ToNot(ContainSubstring("message "))
 			})
 		})
 	})

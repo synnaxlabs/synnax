@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { context } from "@/context";
-import { type Text } from "@/text";
 import { type Theming } from "@/theming";
 
 export interface ContextValue {
   onClick: (key: string) => void;
   selected: string;
-  level?: Text.Level;
+  level?: text.Level;
   gap?: Component.Size;
   background?: Theming.Shade;
 }

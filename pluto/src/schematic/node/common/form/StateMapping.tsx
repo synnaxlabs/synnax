@@ -14,7 +14,7 @@ import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Form as Base } from "@/form";
+import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
@@ -52,13 +52,13 @@ const StateMappingListItem = ({
       align="center"
       gap="small"
     >
-      <Base.TextField
+      <Form.TextField
         showLabel={false}
         showHelpText={false}
         path={`${basePath}.name`}
         grow
       />
-      <Base.NumericField
+      <Form.NumericField
         path={`${basePath}.value`}
         showHelpText={false}
         showLabel={false}
@@ -70,7 +70,7 @@ const StateMappingListItem = ({
         }}
       />
       {showColor && (
-        <Base.Field<color.Crude>
+        <Form.Field<color.Crude>
           path={`${basePath}.color`}
           showLabel={false}
           showHelpText={false}
@@ -78,7 +78,7 @@ const StateMappingListItem = ({
           {({ value, onChange }) => (
             <Color.Swatch value={value ?? color.ZERO} onChange={onChange} bordered />
           )}
-        </Base.Field>
+        </Form.Field>
       )}
       <Button.Button
         onClick={() => onRemove(itemKey)}
@@ -96,8 +96,8 @@ export const StateMappingForm = ({
   path,
   showColor = false,
 }: StateMappingFormProps): ReactElement => {
-  const { data, push, remove } = Base.useFieldList<string, StateMapping>(path);
-  const options = Base.useFieldValue<StateMapping[]>(path);
+  const { data, push, remove } = Form.useFieldList<string, StateMapping>(path);
+  const options = Form.useFieldValue<StateMapping[]>(path);
 
   const handleAddOption = (): void => {
     const nextValue =

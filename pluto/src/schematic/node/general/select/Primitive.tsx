@@ -15,7 +15,7 @@ import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
 import { Select as BaseSelect } from "@/select";
 
@@ -28,10 +28,10 @@ interface RenderProps extends Omit<Config, "sink" | "variant"> {
 
 const RIGHT_HANDLE_STYLE: CSSProperties = { zIndex: 5 };
 
-export const Primitive = ({
+export const Select = ({
   className,
   orientation = "left",
-  color: colorVal,
+  color,
   value,
   onChange,
   onSend,
@@ -46,7 +46,7 @@ export const Primitive = ({
   );
   const matched = options.find((o) => o.key === value);
   return (
-    <Base.Div
+    <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("select-symbol"), className)}
     >
@@ -88,7 +88,7 @@ export const Primitive = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ color: colorVal, size }}
+          triggerProps={{ color, size }}
           style={{ minWidth: inlineSize }}
         />
         {onSend != null && (
@@ -98,13 +98,13 @@ export const Primitive = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
-            color={colorVal}
+            color={color}
             disabled={disabled}
           >
             Send
           </BaseButton.Button>
         )}
       </Flex.Box>
-    </Base.Div>
+    </Primitive.Div>
   );
 };

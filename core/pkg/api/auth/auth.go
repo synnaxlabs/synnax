@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Credentials = auth.Credentials
+
 // ClusterInfo is general information about the cluster and node that the request was
 // sent to.
 type ClusterInfo struct {
@@ -69,7 +71,7 @@ type LoginResponse struct {
 	ClusterInfo ClusterInfo `json:"cluster_info" msgpack:"cluster_info"`
 }
 
-type LoginRequest struct{ auth.Credentials }
+type LoginRequest struct{ Credentials }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
@@ -101,7 +103,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest) (LoginResponse, e
 }
 
 type ChangePasswordRequest struct {
-	auth.Credentials
+	Credentials
 	NewPassword string `json:"new_password" msgpack:"new_password" validate:"required"`
 }
 
@@ -111,7 +113,7 @@ func (s *Service) ChangePassword(ctx context.Context, req ChangePasswordRequest)
 		if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
 			return err
 		}
-		return s.auth.NewWriter(tx).ChangePassword(ctx, auth.Credentials{
+		return s.auth.NewWriter(tx).ChangePassword(ctx, Credentials{
 			Username: req.Username,
 			Password: req.NewPassword,
 		})

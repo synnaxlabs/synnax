@@ -148,6 +148,7 @@ import {
   MdPlayArrow,
   MdPolicy,
   MdQuestionMark,
+  MdRedo,
   MdRotate90DegreesCcw,
   MdRotate90DegreesCw,
   MdRotateLeft,
@@ -159,6 +160,7 @@ import {
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
+  MdUndo,
   MdVerticalDistribute,
   MdWorkspacesFilled,
 } from "react-icons/md";
@@ -211,13 +213,20 @@ import {
   TbCircleLetterAFilled,
   TbCircleLetterVFilled,
   TbCircuitResistor,
+  TbColumnInsertLeft,
+  TbColumnInsertRight,
+  TbColumnRemove,
   TbDecimal,
+  TbEraser,
   TbLetterE,
   TbLivePhoto,
   TbMathFunction,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbRowInsertBottom,
+  TbRowInsertTop,
+  TbRowRemove,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -250,13 +259,19 @@ export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
+export const Undo = wrapSVGIcon(MdUndo, "undo");
+export const Redo = wrapSVGIcon(MdRedo, "redo");
 export const Close = wrapSVGIcon(AiOutlineClose, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
 export const View = wrapSVGIcon(IoTvOutline, "view");
-export const Delete = wrapSVGIcon(AiFillDelete, "delete");
+export const Delete = Object.assign(wrapSVGIcon(AiFillDelete, "delete"), {
+  Row: wrapSVGIcon(TbRowRemove, "delete-row"),
+  Col: wrapSVGIcon(TbColumnRemove, "delete-col"),
+});
+export const Eraser = wrapSVGIcon(TbEraser, "eraser");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const TimeOutline = wrapSVGIcon(MdAccessTime, "time-outline");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
@@ -357,6 +372,16 @@ export const Sync = wrapSVGIcon(AiOutlineSync, "sync");
 export const Search = wrapSVGIcon(PiMagnifyingGlassBold, "search");
 export const Auto = wrapSVGIcon(MdAutoAwesome, "auto");
 export const Table = wrapSVGIcon(FiTable, "table");
+export const Insert = {
+  Row: {
+    Above: wrapSVGIcon(TbRowInsertTop, "insert-row-above"),
+    Below: wrapSVGIcon(TbRowInsertBottom, "insert-row-below"),
+  },
+  Col: {
+    Left: wrapSVGIcon(TbColumnInsertLeft, "insert-col-left"),
+    Right: wrapSVGIcon(TbColumnInsertRight, "insert-col-right"),
+  },
+};
 export const Wave = {
   Sawtooth: wrapSVGIcon(PiWaveSawtoothBold, "wave-sawtooth"),
   Sine: wrapSVGIcon(PiWaveSineBold, "wave-sine"),
@@ -507,12 +532,15 @@ const icons = {
   Copy,
   Cut,
   Paste,
+  Undo,
+  Redo,
   Close,
   Info,
   Warning,
   Check,
   Refresh,
   Delete,
+  Eraser,
   Time,
   TimeOutline,
   Acquire,

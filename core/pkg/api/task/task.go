@@ -46,6 +46,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
+	Key  = task.Key
 	Task = task.Task
 )
 
@@ -155,6 +156,7 @@ func (s *Service) Retrieve(
 			Exec(ctx, nil); err != nil {
 			return res, err
 		}
+		// TODO(SY-4247)
 		for i, stat := range statuses {
 			res.Tasks[i].Status = &stat
 		}

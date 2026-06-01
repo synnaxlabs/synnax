@@ -44,12 +44,12 @@ var _ = Describe("Paths", func() {
 		It("Should normalize absolute paths to repo-relative", func() {
 			absPath := filepath.Join(repoRoot, "oracle", "paths")
 			rel := MustSucceed(paths.Normalize(absPath, repoRoot))
-			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
+			Expect(rel).To(Equal("oracle/paths"))
 		})
 
 		It("Should handle already repo-relative paths", func() {
 			rel := MustSucceed(paths.Normalize("oracle/paths", repoRoot))
-			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
+			Expect(rel).To(Equal("oracle/paths"))
 		})
 
 		It("Should reject paths that escape the repository", func() {

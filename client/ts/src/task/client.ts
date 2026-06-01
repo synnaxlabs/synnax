@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   caseconv,
@@ -279,8 +279,7 @@ export class Client {
     const isSingle = !Array.isArray(task);
     const createReq = createReqZ(schemas);
     const createRes = createResZ(schemas);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/task/create",
       { tasks: array.toArray(task) },
       createReq,
@@ -291,8 +290,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
+    await this.client.send(
       "/task/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -313,8 +311,7 @@ export class Client {
     ...args
   }: RetrieveArgs & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/task/retrieve",
       args,
       retrieveArgsZ,
@@ -328,8 +325,7 @@ export class Client {
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
-    const response = await sendRequired(
-      this.client,
+    const response = await this.client.send(
       "/task/copy",
       { key, name, snapshot },
       copyReqZ,

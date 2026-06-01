@@ -15,7 +15,7 @@ import { type Config, VARIANT } from "@/schematic/node/general/polygon/config";
 import { CommonPolygonForm } from "@/schematic/node/general/polygon/Form";
 import {
   DEFAULT_POLYGON_SIDE_LENGTH,
-  Primitive,
+  Polygon,
 } from "@/schematic/node/general/polygon/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
@@ -38,8 +38,8 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Polygon",
   Form: CommonPolygonForm,
-  Node: Label.createLabeled<Config>(Primitive),
-  Preview: removeProps(Primitive, ["clickable"]),
+  Node: Label.createLabeled<Config>(Polygon),
+  Preview: removeProps(Polygon, ["clickable"]),
   defaultConfig,
   zIndex: 2,
 };

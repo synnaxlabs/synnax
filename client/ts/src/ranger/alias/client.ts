@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -64,8 +64,7 @@ export class Client {
         else toFetch.push(alias);
       });
     if (toFetch.length === 0) return cached;
-    const res = await sendRequired<typeof resolveReqZ, typeof resolveResZ>(
-      this.client,
+    const res = await this.client.send(
       "/range/alias/resolve",
       { range: this.rangeKey, aliases: toFetch },
       resolveReqZ,
@@ -76,8 +75,7 @@ export class Client {
   }
 
   async set(aliases: Record<channel.Key, string>): Promise<void> {
-    await sendRequired<typeof setReqZ, typeof setResZ>(
-      this.client,
+    await this.client.send(
       "/range/alias/set",
       { range: this.rangeKey, aliases },
       setReqZ,
@@ -87,8 +85,7 @@ export class Client {
 
   async list(): Promise<Record<channel.Key, string>> {
     return (
-      await sendRequired<typeof listReqZ, typeof listResZ>(
-        this.client,
+      await this.client.send(
         "/range/alias/list",
         { range: this.rangeKey },
         listReqZ,
@@ -104,8 +101,7 @@ export class Client {
     alias: channel.Key | channel.Key[],
   ): Promise<string | Record<channel.Key, string>> {
     const isSingle = typeof alias === "number";
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
+    const res = await this.client.send(
       "/range/alias/retrieve",
       { range: this.rangeKey, channels: array.toArray(alias) },
       retrieveReqZ,
@@ -115,8 +111,7 @@ export class Client {
   }
 
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
+    await this.client.send(
       "/range/alias/delete",
       { range: this.rangeKey, channels: array.toArray(aliases) },
       deleteReqZ,

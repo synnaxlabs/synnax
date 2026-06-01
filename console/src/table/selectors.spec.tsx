@@ -13,7 +13,13 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { selectIsRemoteCreated, useSelectIsRemoteCreated } from "@/table/selectors";
+import {
+  selectEditable,
+  selectLastSelected,
+  selectSelectedCellKeys,
+  useSelectEditable,
+  useSelectSelectedCellKeys,
+} from "@/table/selectors";
 import {
   reducer,
   SLICE_NAME,
@@ -48,38 +54,59 @@ const wrapperFor = (state: StoreState) => {
 };
 
 describe("table selectors", () => {
-  describe("selectIsRemoteCreated", () => {
-    it("should return true when the table has been remotely created", () => {
-      const state = buildState({ key: "table-1", remoteCreated: true });
-      expect(selectIsRemoteCreated(state, "table-1")).toBe(true);
+  describe("selectEditable", () => {
+    it("returns the editable flag from the slice", () => {
+      expect(selectEditable(buildState({ editable: true }), "table-1")).toBe(true);
+      expect(selectEditable(buildState({ editable: false }), "table-1")).toBe(false);
     });
 
-    it("should return false when the table has not been remotely created", () => {
-      const state = buildState({ key: "table-1", remoteCreated: false });
-      expect(selectIsRemoteCreated(state, "table-1")).toBe(false);
-    });
-
-    it("should return undefined when the table is not in the slice", () => {
+    it("returns false when the table is not in the slice", () => {
       const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
-      expect(selectIsRemoteCreated(state, "missing")).toBeUndefined();
+      expect(selectEditable(state, "missing")).toBe(false);
     });
   });
 
-  describe("useSelectIsRemoteCreated", () => {
-    it("should expose the remoteCreated flag from the slice", () => {
-      const state = buildState({ key: "table-1", remoteCreated: true });
-      const { result } = renderHook(() => useSelectIsRemoteCreated("table-1"), {
+  describe("selectSelectedCellKeys", () => {
+    it("returns the selectedCells array", () => {
+      const state = buildState({ selectedCells: ["a", "b"] });
+      expect(selectSelectedCellKeys(state, "table-1")).toEqual(["a", "b"]);
+    });
+
+    it("returns [] when the table is missing", () => {
+      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+      expect(selectSelectedCellKeys(state, "missing")).toEqual([]);
+    });
+  });
+
+  describe("selectLastSelected", () => {
+    it("returns the last-selected cell key", () => {
+      expect(selectLastSelected(buildState({ lastSelected: "a" }), "table-1")).toBe(
+        "a",
+      );
+    });
+
+    it("returns null when none is selected", () => {
+      expect(selectLastSelected(buildState({}), "table-1")).toBeNull();
+    });
+  });
+
+  describe("useSelectEditable", () => {
+    it("reads through the Redux provider", () => {
+      const state = buildState({ editable: true });
+      const { result } = renderHook(() => useSelectEditable("table-1"), {
         wrapper: wrapperFor(state),
       });
       expect(result.current).toBe(true);
     });
+  });
 
-    it("should return undefined for a missing table key", () => {
-      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
-      const { result } = renderHook(() => useSelectIsRemoteCreated("missing"), {
+  describe("useSelectSelectedCellKeys", () => {
+    it("exposes the selectedCells array", () => {
+      const state = buildState({ selectedCells: ["a", "b"] });
+      const { result } = renderHook(() => useSelectSelectedCellKeys("table-1"), {
         wrapper: wrapperFor(state),
       });
-      expect(result.current).toBeUndefined();
+      expect(result.current).toEqual(["a", "b"]);
     });
   });
 });

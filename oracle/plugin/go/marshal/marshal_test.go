@@ -107,6 +107,82 @@ var _ = Describe("Go Marshal Plugin", func() {
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("if t.Description != nil {")
 			})
+
+			It("Should decode hard-optional string into a non-shadowing temp var", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Test struct {
+						name        string
+						description string??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("var hv string")
+				content.ToContain("t.Description = &hv")
+			})
+
+			It("Should compile a hard-optional string-based enum without shadowing the outer pointer target", func() {
+				// Regression: the decode template for a string-based enum
+				// emitted "{ v, err := r.String(); v = TickType(v) }" which
+				// shadows the outer "var v TickType" declared by the hard-
+				// optional wrapper, breaks compilation, and leaves the outer v
+				// at its zero value. The fix renames the wrapper's outer var so
+				// the inner short-declaration cannot collide.
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					TickType enum {
+						linear = "linear"
+						time   = "time"
+					}
+
+					Axis struct {
+						label string
+						type  TickType??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("var hv TickType")
+				content.ToContain("hv = TickType(v)")
+				content.ToContain("a.Type = &hv")
+				content.ToNotContain("var v TickType")
+			})
+
+			It("Should compile a hard-optional integer-based enum without shadowing the outer pointer target", func() {
+				// Same regression class as the string case but exercising the
+				// integer leaf decoder, which uses the same shared inner var
+				// name and would have collided the same way under a hard-
+				// optional wrapper.
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Level enum {
+						low    = 0
+						medium = 1
+						high   = 2
+					}
+
+					Item struct {
+						name  string
+						level Level??
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("var hv Level")
+				content.ToContain("iv.Level = &hv")
+				content.ToContain("hv = Level(v)")
+				content.ToNotContain("var v Level")
+			})
 		})
 
 		Context("generic struct with nil type arg via alias", func() {
@@ -555,6 +631,30 @@ var _ = Describe("Go Marshal Plugin", func() {
 						"Zebra) EncodeOrc",
 						"Zebra) DecodeOrc",
 					)
+			})
+
+			It("Should emit the google/uuid import exactly once when uuid-typed fields are present", func() {
+				// Regression: the test fixture generator both set
+				// NeedsUUID (which the template renders as a hardcoded
+				// `"github.com/google/uuid"` line) and registered the same
+				// import under ExtraImports with an explicit "uuid" alias,
+				// producing two import lines for the same path and breaking
+				// the generated test file with a "uuid redeclared" compile
+				// error.
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					Entry struct {
+						key  uuid
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec_gen_test.go")
+				content.ToContain(`"github.com/google/uuid"`)
+				content.ToNotContain(`uuid "github.com/google/uuid"`)
 			})
 
 			It("Should order test Describe blocks alphabetically by qualified name", func() {

@@ -12,14 +12,14 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
-import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/circle/config";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }
 
-export const Primitive = ({
+export const Circle = ({
   radius,
   color: colorVal,
   backgroundColor,
@@ -31,7 +31,7 @@ export const Primitive = ({
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
   return (
-    <Base.Div className={CSS(className, CSS.B("circle-shape"))}>
+    <Primitive.Div className={CSS(className, CSS.B("circle-shape"))}>
       <Handle.Boundary orientation="left" refreshDeps={radius}>
         <Handle.Handle
           location="top"
@@ -62,8 +62,8 @@ export const Primitive = ({
           id="4"
         />
       </Handle.Boundary>
-      <Base.SVG dimensions={{ width, height }}>
-        <Base.Circle
+      <Primitive.SVG dimensions={{ width, height }}>
+        <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
@@ -71,7 +71,7 @@ export const Primitive = ({
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />
-      </Base.SVG>
-    </Base.Div>
+      </Primitive.SVG>
+    </Primitive.Div>
   );
 };

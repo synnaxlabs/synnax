@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, scale, xy } from "@synnaxlabs/x";
+import { box, scale, text, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/value/config";
-import { Primitive } from "@/schematic/node/general/value/Primitive";
+import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -84,12 +83,12 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
-      <Primitive
+      <Value
         color={color}
         dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}
-        unitsLevel={Text.downLevel(level)}
+        unitsLevel={text.downLevel(level)}
       />
     </Grid.Grid>
   );
