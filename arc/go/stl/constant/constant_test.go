@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/constant"
 	"github.com/synnaxlabs/arc/symbol"
@@ -286,7 +287,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(-42)))
 		})
 
-		It("Should only emit once across multiple Next calls", func(ctx SpecContext) {
+		It("Should only emit once across multiple Next calls when entry node", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -304,7 +305,7 @@ var _ = Describe("Constant", func() {
 			Expect(marked).To(HaveLen(1))
 		})
 
-		It("Should emit again after Reset is called", func(ctx SpecContext) {
+		It("Should emit again after Reset is called when entry node", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -317,6 +318,55 @@ var _ = Describe("Constant", func() {
 			}})
 			Expect(marked).To(HaveLen(1))
 			n.Reset()
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
+			}})
+			Expect(marked).To(HaveLen(2))
+		})
+
+		It("Should emit on every Next call when node has incoming edges", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Key:    "const",
+					Type:   "constant",
+					Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
+				},
+				State: s.Node("const"),
+				Program: program.Program{IR: ir.IR{Edges: ir.Edges{{
+					Source: ir.Handle{Node: "upstream", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "const", Param: ir.DefaultInputParam},
+				}}}},
+			}
+			constNode := s.Node("const")
+			*constNode.Output(0) = telem.NewSeriesV[int64](0)
+			n, _ := factory.Create(ctx, cfg)
+			for range 3 {
+				n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+					marked = append(marked, i)
+				}})
+			}
+			Expect(marked).To(HaveLen(3))
+		})
+
+		It("Should not require Reset to re-fire when node has incoming edges", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Key:    "const",
+					Type:   "constant",
+					Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
+				},
+				State: s.Node("const"),
+				Program: program.Program{IR: ir.IR{Edges: ir.Edges{{
+					Source: ir.Handle{Node: "upstream", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "const", Param: ir.DefaultInputParam},
+				}}}},
+			}
+			constNode := s.Node("const")
+			*constNode.Output(0) = telem.NewSeriesV[int64](0)
+			n, _ := factory.Create(ctx, cfg)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
+			}})
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
 				marked = append(marked, i)
 			}})
