@@ -291,7 +291,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				line := lineplot.Line{
 					Key:            "l1",
-					Color:          color.MustFromHex("#ff0000"),
+					Color:          new(color.MustFromHex("#ff0000")),
 					StrokeWidth:    1,
 					Downsample:     1,
 					DownsampleMode: lineplot.DownsampleModeDecimate,
@@ -304,14 +304,14 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
 
-				line.Color = color.MustFromHex("#00ff00")
+				line.Color = new(color.MustFromHex("#00ff00"))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
 					lineplot.NewSetLineAction(lineplot.SetLinePayload{Line: line}),
 				})).To(Succeed())
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
-				Expect(res.Lines[0].Color).To(Equal(color.MustFromHex("#00ff00")))
+				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#00ff00"))))
 			})
 
 			It("Should insert, update, and remove rules", func(ctx SpecContext) {
@@ -320,7 +320,7 @@ var _ = Describe("Writer", func() {
 				rule := lineplot.Rule{
 					Key:       "r1",
 					Label:     "ceiling",
-					Color:     color.MustFromHex("#888888"),
+					Color:     new(color.MustFromHex("#888888")),
 					Axis:      lineplot.AxisKeyY1,
 					LineWidth: 1,
 					LineDash:  4,
