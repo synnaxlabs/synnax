@@ -52,6 +52,7 @@ import { Core, type CoreProps, type CoreRef, type LineSpec } from "@/lineplot/Li
 import {
   useDispatch,
   useEnsureRetrieved,
+  useRedo,
   useSelectAxes,
   useSelectChannels,
   useSelectLegend,
@@ -59,6 +60,7 @@ import {
   useSelectRanges,
   useSelectRules,
   useSelectTitle,
+  useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
 import { Title } from "@/lineplot/Title";
@@ -67,6 +69,7 @@ import { Viewport as CoreViewport } from "@/lineplot/Viewport";
 import { Synnax } from "@/synnax";
 import { telem } from "@/telem/aether";
 import { Theming } from "@/theming";
+import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 import { Measure } from "@/vis/measure";
 import { type measure } from "@/vis/measure/aether";
@@ -289,10 +292,21 @@ const shouldDisplayAxis = (
   return channels[key].length > 0;
 };
 
+const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
+  default: [],
+  defaultMode: "default",
+};
+const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
+
 export interface LinePlotProps extends Omit<CoreProps, "ref" | "onContextMenu"> {
   resourceKey: lineplot.Key;
-  /** Gates every document mutation and the keyboard triggers. */
+  /** Gates every document mutation. */
   editable?: boolean;
+  /** Gates the in-component undo/redo keyboard shortcuts; the consumer scopes
+   * this to the focused tab and the user's update permission. */
+  enableTriggers?: boolean | (() => boolean);
   /** Range key -> resolved static/dynamic window, supplied by the consumer. */
   resolvedRanges?: Map<string, ResolvedRange>;
   /** Active range key prepended when dropping a channel onto an empty plot. */
@@ -316,6 +330,7 @@ export interface LinePlotProps extends Omit<CoreProps, "ref" | "onContextMenu"> 
 export const LinePlot = ({
   resourceKey: key,
   editable = false,
+  enableTriggers = true,
   resolvedRanges,
   activeRangeKey,
   title,
@@ -338,6 +353,23 @@ export const LinePlot = ({
   const theme = Theming.use();
   const client = Synnax.use();
   const { dispatch } = useDispatch();
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
+  Triggers.use({
+    triggers: UNDO_REDO_TRIGGERS,
+    loose: true,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        if (enableTriggers === false) return;
+        if (typeof enableTriggers === "function" && !enableTriggers()) return;
+        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
+      },
+      [enableTriggers, undo, redo],
+    ),
+  });
   const titleState = useSelectTitle({ key });
   const legend = useSelectLegend({ key });
   const channels = useSelectChannels({ key });
