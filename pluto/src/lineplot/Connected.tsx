@@ -31,6 +31,7 @@ import {
 } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useAsyncEffect, useDebouncedCallback, usePrevious } from "@/hooks";
 import {
@@ -214,12 +215,14 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "y", onChannelDrop);
+  const dragging = Haul.useDraggingState();
   return (
     <CoreYAxis
       {...axis}
       {...dropProps}
       location={location}
       axisKey={axisKey}
+      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange({ key: axisKey, bounds })}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
@@ -255,12 +258,14 @@ const XAxis = ({
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "x", onChannelDrop);
+  const dragging = Haul.useDraggingState();
   return (
     <CoreXAxis
       {...axis}
       {...dropProps}
       location={location}
       axisKey={axisKey}
+      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={showGrid ?? index === 0}
       onAutoBoundsChange={(bounds) => onAxisChange({ key: axisKey, bounds })}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
@@ -300,7 +305,7 @@ const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
 };
 const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
 
-export interface LinePlotProps extends Omit<CoreProps, "ref" | "onContextMenu"> {
+export interface LinePlotProps extends Omit<CoreProps, "ref"> {
   resourceKey: lineplot.Key;
   /** Gates every document mutation. */
   editable?: boolean;

@@ -8,17 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type Channel, LinePlot as PLinePlot, Status } from "@synnaxlabs/pluto";
-import { color, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { LinePlot as PLinePlot, Status } from "@synnaxlabs/pluto";
+import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSV } from "@/csv";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
 
+// DownloadLine carries only the fields the CSV export reads: the channels to
+// pull and an optional label to name them. It is intentionally narrower than
+// the renderer's line props.
+export interface DownloadLine {
+  channels: { x?: channel.Key; y: channel.Key };
+  label?: string;
+}
+
 export interface DownloadAsCSVArgs {
   timeRanges: TimeRange[];
-  lines: Channel.LineProps[];
+  lines: DownloadLine[];
   name: string;
 }
 
@@ -30,26 +38,19 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
       const channels = unique.unique(
         lines
           .flatMap((l) => [l.channels.y, l.channels.x])
-          .filter(
-            (v): v is channel.Key => v != null && v != 0 && typeof v === "number",
-          ),
+          .filter((v): v is channel.Key => v != null && v !== 0),
       );
       const channelNames = lines.reduce<Record<channel.Key, string>>((acc, l) => {
         if (l.label == null) return acc;
-        if (typeof l.channels.y === "number") acc[l.channels.y] = l.label;
-        if (typeof l.channels.x === "number") acc[l.channels.x] = l.label;
+        acc[l.channels.y] = l.label;
+        if (l.channels.x != null) acc[l.channels.x] = l.label;
         return acc;
       }, {});
       const timeRange = TimeRange.merge(...timeRanges);
       handleError(
         async () =>
           openDownloadCSVModal(
-            {
-              timeRange: timeRange.numeric,
-              name,
-              channels,
-              channelNames,
-            },
+            { timeRange: timeRange.numeric, name, channels, channelNames },
             { icon: "LinePlot" },
           ),
         `Failed to download CSV data for ${name}`,
@@ -68,17 +69,9 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const resolved = Range.useSelectMultiple(rangeKeys);
   return useCallback(() => {
     const now = TimeStamp.now();
-    const lines: Channel.LineProps[] = derived.map((d) => ({
-      key: d.key,
-      axes: { x: d.xAxis, y: d.yAxis },
+    const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
-      color: d.color ?? color.ZERO,
-      strokeWidth: d.strokeWidth,
-      downsample: d.downsample,
-      downsampleMode: d.downsampleMode,
       label: d.label,
-      variant: "static",
-      timeRange: TimeRange.ZERO,
     }));
     const timeRanges = resolved.map((r) => {
       if (r.variant === "static") return new TimeRange(r.timeRange);
