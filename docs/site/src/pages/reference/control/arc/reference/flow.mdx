@@ -197,9 +197,9 @@ identifier on the right is the parameter it binds to. The function runs when any
 source produces data.
 
 A function with more than one input **requires** an input routing table. Wiring a single
-source directly into a multi-input function is an error. See
-[Functions](/reference/control/arc/reference/functions#multi-input-functions) for the
-declaration side.
+source directly into a
+[multi-input function](/reference/control/arc/reference/functions#multi-input-functions)
+is an error.
 
 <Divider.Divider x />
 
@@ -227,9 +227,6 @@ Each entry is `output: destination`. The key on the left is one of the function'
 outputs; the right side is where that output is routed. Only the outputs the function
 actually writes on a given cycle propagate. In the example above, a reading of `75.0`
 writes `high_out` and leaves `low_out` untouched.
-
-The right side of an entry can be more than a single channel. See
-[Case Body Forms](#case-body-forms) below.
 
 <Divider.Divider x />
 
@@ -288,10 +285,9 @@ tank_pressure -> decide_stage{low=10.0, high=80.0} -> {
 }
 ```
 
-Output names are arbitrary identifiers and the routing table keys must match them
-exactly. See
-[Functions](/reference/control/arc/reference/functions#multiple-named-outputs) for the
-declaration rules.
+Output names are arbitrary identifiers declared with the function's
+[named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
+the routing table keys must match them exactly.
 
 <Divider.Divider x />
 
