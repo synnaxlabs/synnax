@@ -51,7 +51,7 @@ sensor -> filter{} -> output
 pressure > 500 => next
 ```
 
-For stage and sequence transitions, `=>` is what you want. `->` into a stage name also
+For sequence and stage transitions, `=>` is what you want. `->` into a stage name also
 transitions but fires on the first data arrival regardless of truthiness, which rarely
 matches operator intent.
 

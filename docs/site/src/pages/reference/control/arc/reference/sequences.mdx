@@ -4,10 +4,10 @@ title: "Sequences"
 description:
   "Arc sequence and stage reference for state machine declarations, transitions, and
   entry points"
-prev: "Stages"
-prevURL: "/reference/control/arc/reference/stages"
-next: "Functions"
-nextURL: "/reference/control/arc/reference/functions"
+prev: "Flow"
+prevURL: "/reference/control/arc/reference/flow"
+next: "Stages"
+nextURL: "/reference/control/arc/reference/stages"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -67,6 +67,11 @@ sequence prime {
     0 -> press_vlv_cmd             // write
 }
 ```
+
+<Note.Note variant="info">
+  A bare sequence can't respond to safety conditions while a condition gate is holding.
+  If you need to watch for abort conditions during a step, put the step inside a stage.
+</Note.Note>
 
 <Divider.Divider x />
 

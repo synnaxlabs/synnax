@@ -41,14 +41,14 @@ export const REFERENCE_NAV: PageNavNode = {
       name: "Flow",
     },
     {
-      key: "/reference/control/arc/reference/stages",
-      href: "/reference/control/arc/reference/stages",
-      name: "Stages",
-    },
-    {
       key: "/reference/control/arc/reference/sequences",
       href: "/reference/control/arc/reference/sequences",
       name: "Sequences",
+    },
+    {
+      key: "/reference/control/arc/reference/stages",
+      href: "/reference/control/arc/reference/stages",
+      name: "Stages",
     },
     {
       key: "/reference/control/arc/reference/functions",

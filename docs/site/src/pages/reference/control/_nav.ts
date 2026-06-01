@@ -21,12 +21,12 @@ export const CONTROL_NAV: PageNavNode = {
       href: "/reference/control/get-started",
       name: "Get Started",
     },
+    ARC_NAV,
+    PYTHON_SEQUENCES_NAV,
     {
       key: "/reference/control/control-authority",
       href: "/reference/control/control-authority",
       name: "Control Authority",
     },
-    ARC_NAV,
-    PYTHON_SEQUENCES_NAV,
   ],
 };

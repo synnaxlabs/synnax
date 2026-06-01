@@ -4,8 +4,8 @@ title: "Functions"
 description:
   "Arc function reference for declaration syntax, config parameters, inputs, outputs,
   and calling conventions"
-prev: "Sequences"
-prevURL: "/reference/control/arc/reference/sequences"
+prev: "Stages"
+prevURL: "/reference/control/arc/reference/stages"
 next: "Statements"
 nextURL: "/reference/control/arc/reference/statements"
 ---
@@ -201,8 +201,8 @@ func compute(x f64)result f64 {
 
 A function may declare more than one named output. Each output is set in the body and
 routed to its own destination at the call site. Use
-[routing tables](<(/reference/control/arc/reference/flow#output-routing-tables)>) to
-connect multiple outputs:
+[routing tables](/reference/control/arc/reference/flow#output-routing-tables) to connect
+multiple outputs:
 
 ```arc
 func split(value f64) (high f64, low f64) {
@@ -305,7 +305,7 @@ func monitor() {
 
 ## Multi-Input Functions
 
-Use [routing tables](/reference/control/arc/reference/flow#output-routing-tables) to map
+Use [routing tables](/reference/control/arc/reference/flow#input-routing-tables) to map
 multiple sources to input parameters:
 
 ```arc

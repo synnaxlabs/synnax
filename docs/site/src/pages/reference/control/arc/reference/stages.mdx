@@ -4,10 +4,10 @@ title: "Stages"
 description:
   "Arc stage reference for stage declaration, entry semantics, parallel monitoring, and
   inline sequences"
-prev: "Flow"
-prevURL: "/reference/control/arc/reference/flow"
-next: "Sequences"
-nextURL: "/reference/control/arc/reference/sequences"
+prev: "Sequences"
+prevURL: "/reference/control/arc/reference/sequences"
+next: "Functions"
+nextURL: "/reference/control/arc/reference/functions"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -59,6 +59,33 @@ When entering a stage:
    ignored
 
 Stages are stateless between entries.
+
+### Resumable Controllers
+
+Stage entry semantics enable a common pattern: a controller that parks in a `yield`
+stage and waits for a fresh command to re-enter:
+
+```arc
+sequence controller {
+    stage run {
+        // ... control logic ...
+        stop_cmd => stop
+    }
+    stage stop {
+        0 -> valve_cmd
+        time.wait{duration=250ms} => yield
+    }
+    stage yield {
+        // Only a new write to start_cmd will re-enter run.
+        start_cmd => run
+    }
+}
+
+start_cmd => controller
+```
+
+Because channel triggers only react to new writes after stage entry, a held-truthy
+`start_cmd` won't immediately re-enter `run`. The operator has to issue a fresh start.
 
 <Divider.Divider x />
 
