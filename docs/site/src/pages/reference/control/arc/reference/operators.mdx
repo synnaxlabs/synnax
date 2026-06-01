@@ -148,37 +148,6 @@ y := -x // -5
 
 <Divider.Divider x />
 
-## Flow Operators
-
-Flow operators connect nodes in the reactive scope.
-
-| Operator | Name             | Behavior                         |
-| -------- | ---------------- | -------------------------------- |
-| `->`     | Continuous flow  | Fires on every data arrival      |
-| `=>`     | Conditional flow | Fires while the source is truthy |
-
-### Continuous Flow (`->`)
-
-Reactive flow that runs every time the source produces data:
-
-```arc
-sensor -> filter{} -> output
-```
-
-### Conditional Flow (`=>`)
-
-Fires on ticks where the source expression is truthy:
-
-```arc
-pressure > 500 => next
-abort_btn => abort
-```
-
-A flow whose target is a stage or sequence name is a
-[transition](/reference/control/arc/concepts/sequences-and-stages#transitions).
-
-<Divider.Divider x />
-
 ## Precedence Table
 
 Operators listed from highest to lowest precedence.

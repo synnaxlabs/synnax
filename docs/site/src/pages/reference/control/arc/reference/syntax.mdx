@@ -394,57 +394,6 @@ Authority values are `u8` integers in the range 0-255.
 
 <Divider.Divider x />
 
-## Flow Statements
-
-Flow statements connect channels and functions in the reactive scope.
-
-### Continuous Flow (`->`)
-
-Executes every cycle while active:
-
-```arc
-sensor -> filter{} -> output
-```
-
-### Conditional Flow (`=>`)
-
-Fires while the source expression is truthy:
-
-```arc
-pressure > 500 => next
-```
-
-### Routing Tables
-
-Map multiple inputs to function parameters:
-
-```arc
- {
-    sensor1: a,
-    sensor2: b
-} -> averager{}
-```
-
-Route multiple outputs to different targets:
-
-```arc
-sensor -> split{} -> {
-    high: alarm{},
-    low: logger{}
-}
-```
-
-### Expressions in Flows
-
-Inline expressions act as implicit functions:
-
-```arc
-temperature > 100 -> alarm{}
- (sensor1 + sensor2) / 2.0 -> display
-```
-
-<Divider.Divider x />
-
 ## Blocks
 
 Braces `{}` delimit blocks. Blocks contain statements (function bodies), flow statements
