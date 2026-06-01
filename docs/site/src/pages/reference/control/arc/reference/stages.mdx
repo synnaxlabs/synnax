@@ -1,0 +1,152 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Stages"
+description:
+  "Arc stage reference for stage declaration, entry semantics, parallel monitoring, and
+  inline sequences"
+prev: "Sequences"
+prevURL: "/reference/control/arc/reference/sequences"
+next: "Functions"
+nextURL: "/reference/control/arc/reference/functions"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Stage Declaration
+
+```arc
+stage name {
+    flow_statement
+    flow_statement
+    flow_statement
+}
+```
+
+Stage bodies contain flow statements. All flow statements in a stage run concurrently
+while the stage is active.
+
+### Stage Body Syntax
+
+```arc
+stage pressurize {
+    // Continuous flows (run every cycle)
+    1 -> press_vlv_cmd
+    sensor -> controller{}
+    // Conditional transitions (propagate while truthy)
+    pressure > 500 => next
+    abort_btn => abort
+}
+```
+
+Conditional flows whose target is a stage or sequence name are
+[transitions](/reference/control/arc/reference/flow#transition-targets): `next`,
+named-stage jumps, or cross-sequence jumps.
+
+<Divider.Divider x />
+
+## Stage Entry Semantics
+
+When entering a stage:
+
+1. All stateful variables in stage nodes reset
+2. Continuous flows (`->`) start fresh
+3. Timing nodes (`time.wait`, `time.interval`) reset their countdowns
+4. Inline sub-sequences restart from their first item
+5. Channel triggers only react to new writes. Values written before stage activation are
+   ignored
+
+Stages are stateless between entries.
+
+### Resumable Controllers
+
+Stage entry semantics enable a common pattern: a controller that parks in a `yield`
+stage and waits for a fresh command to re-enter:
+
+```arc
+sequence controller {
+    stage run {
+        // ... control logic ...
+        stop_cmd => stop
+    }
+    stage stop {
+        0 -> valve_cmd
+        time.wait{duration=250ms} => yield
+    }
+    stage yield {
+        // Only a new write to start_cmd will re-enter run.
+        start_cmd => run
+    }
+}
+
+start_cmd => controller
+```
+
+Because channel triggers only react to new writes after stage entry, a held-truthy
+`start_cmd` won't immediately re-enter `run`. The operator has to issue a fresh start.
+
+<Divider.Divider x />
+
+## Parallel Monitoring
+
+All flow statements in a stage run concurrently:
+
+```arc
+stage pressurize {
+    // ALL of these run simultaneously
+    sensor -> controller{target=500} // control loop
+    ox_pt_1 > 600 => abort // monitoring
+    fuel_pt_1 > 400 => abort // monitoring
+    abort_btn => abort // listening
+    pressure > 500 => next // success check
+}
+```
+
+### Line Order and Priority
+
+When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
+listed wins:
+
+```arc
+stage pressurize {
+    // Safety conditions first (higher priority)
+    ox_pt_1 > 600 => abort // 1st priority
+    fuel_pt_1 > 400 => abort // 2nd priority
+    abort_btn => abort // 3rd priority
+    // Success condition after safety
+    pressure > 500 => next // only if no abort
+}
+```
+
+For continuous flows (`->`), if multiple flows write to the same channel, last write
+wins based on line order.
+
+<Divider.Divider x />
+
+## Inline Sequences in a Stage
+
+An anonymous `sequence { ... }` inside a stage runs its items in order while the stage's
+parallel flows continue. The inline sequence restarts from its first item every time the
+parent stage is entered.
+
+```arc
+stage fire {
+    chamber_temp > 2000 => abort
+    sequence {
+        1 -> igniter_cmd
+        time.wait{200ms}
+        1 -> ox_main_vlv_cmd
+    }
+}
+```
+
+<Divider.Divider x />
+
+## Restrictions
+
+| Restriction                 | Description                                            |
+| --------------------------- | ------------------------------------------------------ |
+| Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
+| Stage transitions can cycle | Conditional transitions (`=>`) can form cycles         |
