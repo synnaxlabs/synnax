@@ -173,63 +173,7 @@ sent to one of several named destinations instead of running through an `if`/`el
 sensor -> demux{} -> { high: alarm{}, low: logger{} }
 ```
 
-<Divider.Divider x />
-
-## Input Routing Tables
-
-An input routing table precedes a function invocation and maps each source to a named
-input parameter:
-
-```arc
-func average(a f64, b f64) f64 {
-    return (a + b) / 2.0
-}
-
-{
-    sensor_1: a,
-    sensor_2: b
-} -> average{} -> avg_out
-```
-
-Each entry is `source: parameter`. The key on the left is a channel or expression; the
-identifier on the right is the parameter it binds to. The function runs when any mapped
-source produces data.
-
-A function with more than one input **requires** an input routing table. Wiring a single
-source directly into a
-[multi-input function](/reference/control/arc/reference/functions#multi-input-functions)
-is an error.
-
-<Divider.Divider x />
-
-## Output Routing Tables
-
-An output routing table follows a function invocation and maps each named output to a
-destination:
-
-```arc
-func demux{threshold f64} (value f64) (high f64, low f64) {
-    if value > threshold {
-        high = value
-    } else {
-        low = value
-    }
-}
-
-sensor -> demux{threshold=50.0} -> {
-    high: high_out,
-    low: low_out
-}
-```
-
-Each entry is `output: destination`. The key on the left is one of the function's named
-outputs; the right side is where that output is routed. Only the outputs the function
-actually writes on a given cycle propagate. In the example above, a reading of `75.0`
-writes `high_out` and leaves `low_out` untouched.
-
-<Divider.Divider x />
-
-## select
+### Select
 
 `select` is the built-in boolean router. It takes a `u8` input and exposes two outputs,
 `true` and `false`. Values equal to `1` are routed to `true`; all other values are
@@ -258,9 +202,7 @@ flag -> select{} -> {
 }
 ```
 
-<Divider.Divider x />
-
-## Multi-Output Functions
+### Custom Routing
 
 `select` is just a function with two named outputs. Any function with multiple named
 outputs can drive a routing table: declare the branches your logic needs as outputs, set
@@ -288,14 +230,12 @@ Output names are arbitrary identifiers declared with the function's
 [named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
 the routing table keys must match them exactly.
 
-<Divider.Divider x />
-
-## Case Body Forms
+### Case Body Forms
 
 The right side of an output routing entry, the **case body**, is not limited to a single
 channel. It accepts any of the following.
 
-### Single Target
+#### Single Target
 
 A channel, stage, or sequence name:
 
@@ -306,7 +246,7 @@ flag -> select{} -> {
 }
 ```
 
-### Flow-Node Chains
+#### Flow-Node Chains
 
 A case body can be a chain of flow nodes joined with `->`, exactly like a top-level
 flow. The routed output feeds the first node, and types are threaded through the chain:
@@ -323,7 +263,7 @@ sensor -> demux{} -> {
 }
 ```
 
-### Inline Stage Body
+#### Inline Stage Body
 
 An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
 while the branch is active:
@@ -335,7 +275,7 @@ flag -> select{} -> {
 }
 ```
 
-### Inline Sequence Body
+#### Inline Sequence Body
 
 An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
 
@@ -349,7 +289,7 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 }
 ```
 
-### Mixed Entries
+#### Mixed Entries
 
 A single routing table may freely mix all of the above:
 
@@ -363,9 +303,59 @@ sensor -> decide_stage{low=30.0, high=80.0} -> {
 
 Items inside an inline body are separated by newlines or commas; both are accepted.
 
+### Input Routing
+
+An input routing table precedes a function invocation and maps each source to a named
+input parameter:
+
+```arc
+func average(a f64, b f64) f64 {
+    return (a + b) / 2.0
+}
+
+{
+    sensor_1: a,
+    sensor_2: b
+} -> average{} -> avg_out
+```
+
+Each entry is `source: parameter`. The key on the left is a channel or expression; the
+identifier on the right is the parameter it binds to. The function runs when any mapped
+source produces data.
+
+A function with more than one input **requires** an input routing table. Wiring a single
+source directly into a
+[multi-input function](/reference/control/arc/reference/functions#multi-input-functions)
+is an error.
+
+### Output Routing
+
+An output routing table follows a function invocation and maps each named output to a
+destination:
+
+```arc
+func demux{threshold f64} (value f64) (high f64, low f64) {
+    if value > threshold {
+        high = value
+    } else {
+        low = value
+    }
+}
+
+sensor -> demux{threshold=50.0} -> {
+    high: high_out,
+    low: low_out
+}
+```
+
+Each entry is `output: destination`. The key on the left is one of the function's named
+outputs; the right side is where that output is routed. Only the outputs the function
+actually writes on a given cycle propagate. In the example above, a reading of `75.0`
+writes `high_out` and leaves `low_out` untouched.
+
 <Divider.Divider x />
 
-## Inline Body Rules
+## Inline Bodies
 
 Inline sequence and stage bodies are a shorthand for a branch that needs more than a
 chain. They behave like one-shot bodies activated by the routed output, and a few rules
@@ -392,23 +382,3 @@ flag -> select{} -> {
 
 **Arbitrary nesting.** Inline routing tables may appear inside other inline bodies, to
 any depth.
-
-<Divider.Divider x />
-
-## Summary
-
-| Form                                  | Category   | Meaning                                  |
-| ------------------------------------- | ---------- | ---------------------------------------- |
-| `src -> dst`                          | Operator   | Continuous flow                          |
-| `expr => dst`                         | Operator   | Conditional flow                         |
-| `expr => stage_name`                  | Transition | Jump to a stage in the same sequence     |
-| `expr => sequence_name`               | Transition | Jump to another sequence                 |
-| `expr => next`                        | Transition | Advance to next sequence item            |
-| `{ src: param, … } -> func{}`         | Routing    | Map sources to input parameters          |
-| `func{} -> { out: dest, … }`          | Routing    | Map named outputs to destinations        |
-| `select{}`                            | Router     | Built-in boolean router (`true`/`false`) |
-| `func{}(v) (a T, b T)`                | Router     | Any multi-output function                |
-| `out: chan`                           | Case       | Route to a channel                       |
-| `out: stage_name`                     | Case       | Activate a stage or sequence             |
-| `out: expr -> node -> …`              | Case       | Run a flow-node chain                    |
-| `out: stage { … }` / `sequence { … }` | Case       | Run an anonymous inline body             |
