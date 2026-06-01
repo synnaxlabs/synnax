@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Variables"
+description:
+  "Arc variable reference for constants, local and stateful variables, assignment,
+  scope, and shadowing"
+prev: "Types"
+prevURL: "/reference/control/arc/reference/types"
+next: "Operators"
+nextURL: "/reference/control/arc/reference/operators"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Constants
+
+Top-level declarations are compile-time constants. Use them for configuration values and
+to avoid magic numbers.
+
+```arc
+MAX_PRESSURE := 500.0 // f64 constant
+SAMPLE_COUNT := 100 // i64 constant
+TIMEOUT := 30s // with unit suffix
+SCALE f32 := 2.5 // explicit type
+```
+
+Constants can be used in expressions and function config parameters:
+
+```arc
+pressure > MAX_PRESSURE -> alarm{}
+
+sensor -> scale{gain=SCALE, offset=0.1} -> output
+```
+
+<Divider.Divider x />
+
+## Local Variables
+
+Local variables are declared with `:=` inside functions and reset each invocation.
+
+```arc
+x := 42 // type inferred as i64
+y f64 := 3.14 // explicit type
+```
+
+<Divider.Divider x />
+
+## Stateful Variables
+
+Stateful variables are declared with `$=` and persist across invocations.
+
+```arc
+count $= 0 // persists between calls
+total f64 $= 0.0 // explicit type
+```
+
+<Divider.Divider x />
+
+## Assignment
+
+Assign to existing variables with `=`:
+
+```arc
+x = x + 1
+```
+
+<Divider.Divider x />
+
+## Compound Assignment
+
+```arc
+count += 1 // count = count + 1
+value -= 10 // value = value - 10
+total *= 2 // total = total * 2
+ratio /= 4 // ratio = ratio / 4
+remainder %= 3 // remainder = remainder % 3
+```
+
+<Divider.Divider x />
+
+## Variable Scope
+
+Variables are visible from their declaration point to the end of their enclosing block.
+Nested blocks can access variables from enclosing scopes.
+
+```arc
+func example() {
+    x := 10 // visible for rest of function
+    if x > 5 {
+        y := x + 1 // visible only inside if block
+    }
+    // y is not visible here
+}
+```
+
+<Divider.Divider x />
+
+## No Shadowing
+
+Arc does not allow shadowing. A variable cannot have the same name as one in an
+enclosing scope:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        x i32 := 20 // Error: conflicts with outer x
+    }
+}
+```
+
+Use a different name or reassign the existing variable:
+
+```arc
+func example() {
+    x i32 := 10
+    if x > 0 {
+        inner_x i32 := 20 // different name
+        x = 20 // reassign existing
+    }
+}
+```
+
+Local variables can shadow built-in functions and constants:
+
+```arc
+func example() {
+    min := 10 // shadows built-in min function
+}
+```
