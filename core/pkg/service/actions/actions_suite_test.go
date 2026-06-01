@@ -20,7 +20,7 @@ import (
 
 func TestActions(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Actions Suite")
+	RunSpecs(t, "Service Actions Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -18,5 +18,5 @@ import (
 
 func TestCasing(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Casing Suite")
+	RunSpecs(t, "Plugin Casing Suite")
 }

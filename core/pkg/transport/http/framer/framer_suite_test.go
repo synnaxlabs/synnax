@@ -25,7 +25,7 @@ var (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API HTTP Framer Suite")
+	RunSpecs(t, "Transport HTTP Framer Suite")
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

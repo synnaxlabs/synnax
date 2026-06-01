@@ -18,5 +18,5 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Table Legacy Migrations Suite")
+	RunSpecs(t, "Service Table Migrations Legacy Suite")
 }
