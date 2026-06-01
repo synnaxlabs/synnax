@@ -29,7 +29,7 @@ import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
 import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import { useSelectSelectedRules } from "@/lineplot/selectors";
-import { setSelectedRule } from "@/lineplot/slice";
+import { DEFAULT_RULE_COLOR, setSelectedRule } from "@/lineplot/slice";
 
 const ZERO_RULE: Omit<lineplot.Rule, "key" | "label" | "color" | "axis" | "position"> =
   {
@@ -200,7 +200,7 @@ const RuleContent = ({
     </Flex.Box>
     <Flex.Box x wrap>
       <Input.Item label="Color">
-        <Color.Swatch value={color} onChange={onChangeColor} />
+        <Color.Swatch value={color ?? DEFAULT_RULE_COLOR} onChange={onChangeColor} />
       </Input.Item>
       <Input.Item label="Line Width">
         <Input.Numeric
@@ -251,7 +251,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
 
   const handleCreateRule = useCallback((): void => {
     const visColors = theme?.colors.visualization.palettes.default ?? [];
-    const colorVal = color.hex(
+    const colorVal = color.construct(
       visColors[rules.length % visColors.length] ?? color.ZERO,
     );
     const key = id.create();
@@ -284,7 +284,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   };
   const handleChangeColor = (v: color.Color): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, color: color.hex(v) });
+    updateRule({ ...shownRule, color: v });
   };
   const handleChangeAxis = (axis: AxisKey): void => {
     if (shownRule == null) return;

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
@@ -79,7 +80,7 @@ var _ = Describe("Writer", func() {
 				Legend: lineplot.Legend{Visible: true},
 				Lines: []lineplot.Line{{
 					Key:            "l1",
-					Color:          "#abcdef",
+					Color:          new(color.MustFromHex("#abcdef")),
 					StrokeWidth:    2,
 					Downsample:     1,
 					DownsampleMode: lineplot.DownsampleModeDecimate,
@@ -93,7 +94,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("test"))
 			Expect(res.Title.Level).To(Equal(text.LevelH4))
 			Expect(res.Lines).To(HaveLen(1))
-			Expect(res.Lines[0].Color).To(Equal("#abcdef"))
+			Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#abcdef"))))
 		})
 	})
 
@@ -290,7 +291,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				line := lineplot.Line{
 					Key:            "l1",
-					Color:          "#ff0000",
+					Color:          new(color.MustFromHex("#ff0000")),
 					StrokeWidth:    1,
 					Downsample:     1,
 					DownsampleMode: lineplot.DownsampleModeDecimate,
@@ -303,14 +304,14 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
 
-				line.Color = "#00ff00"
+				line.Color = new(color.MustFromHex("#00ff00"))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
 					lineplot.NewSetLineAction(lineplot.SetLinePayload{Line: line}),
 				})).To(Succeed())
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
-				Expect(res.Lines[0].Color).To(Equal("#00ff00"))
+				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#00ff00"))))
 			})
 
 			It("Should insert, update, and remove rules", func(ctx SpecContext) {
@@ -319,7 +320,7 @@ var _ = Describe("Writer", func() {
 				rule := lineplot.Rule{
 					Key:       "r1",
 					Label:     "ceiling",
-					Color:     "#888888",
+					Color:     new(color.MustFromHex("#888888")),
 					Axis:      lineplot.AxisKeyY1,
 					LineWidth: 1,
 					LineDash:  4,

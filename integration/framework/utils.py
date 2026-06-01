@@ -21,17 +21,8 @@ import uuid
 
 import synnax as sy
 
-# Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
-RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
-
 # Fixtures directory for test data (SVGs, JSONs, etc.)
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
-
-
-def get_results_path(filename: str) -> str:
-    """Get the full path for a results file, ensuring the directory exists."""
-    os.makedirs(RESULTS_DIR, exist_ok=True)
-    return os.path.join(RESULTS_DIR, filename)
 
 
 def get_fixture_path(filename: str) -> str:

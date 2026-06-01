@@ -98,9 +98,9 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
   const stored = lookupDerivedLine(lines, itemKey);
   const palette = theme?.colors.visualization.palettes.default ?? [];
   const resolvedColor =
-    stored.color !== ""
+    stored.color != null
       ? stored.color
-      : color.hex(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
+      : color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
   const line: lineplot.Line = { ...stored, color: resolvedColor };
 
   const update = useCallback(
@@ -123,7 +123,7 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
     (value: telem.DownsampleMode) => update({ ...line, downsampleMode: value });
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (value) =>
-    update({ ...line, color: color.hex(value) });
+    update({ ...line, color: value });
 
   const {
     channels: { y: yChannel },
@@ -164,7 +164,7 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
       />
-      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
+      <Color.Swatch value={resolvedColor} onChange={handleColorChange} size="small" />
     </List.Item>
   );
 };

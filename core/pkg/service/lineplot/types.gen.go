@@ -14,6 +14,7 @@ package lineplot
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -180,8 +181,9 @@ type Line struct {
 	// Label is the user-specified line label. Null means derive from the channel name at
 	// render time; non-null is an override.
 	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Color is the line color as a hex string.
-	Color string `json:"color" msgpack:"color"`
+	// Color is the line color. When null, the Console assigns one from the visualization
+	// palette at render time.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Downsample is the downsample factor applied before rendering. 1 means render every
@@ -197,8 +199,9 @@ type Rule struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered alongside the rule.
 	Label string `json:"label" msgpack:"label"`
-	// Color is the rule color as a hex string.
-	Color string `json:"color" msgpack:"color"`
+	// Color is the display color of the rule. When null, the Console assigns a default at
+	// render time.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.

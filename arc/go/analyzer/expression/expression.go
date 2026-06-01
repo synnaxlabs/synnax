@@ -401,6 +401,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			if funcName != "len" && funcName != "series.len" {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
+			if scope.AnalyzeCall != nil {
+				scope.AnalyzeCall(ctx.Diagnostics, funcCalls[0])
+			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
 				propagateChannelsWithArgMap(callerFn, scope, argChannels)

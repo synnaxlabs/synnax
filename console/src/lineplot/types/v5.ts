@@ -8,13 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { color, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v1 from "@/lineplot/types/v1";
 import * as v4 from "@/lineplot/types/v4";
 
 export const VERSION = "5.0.0";
+
+// DEFAULT_RULE_COLOR is the fallback applied at render time when a rule has no
+// explicit color. Rules are nullable on the wire; the Console resolves a
+// concrete color before handing off to the renderer.
+export const DEFAULT_RULE_COLOR: color.Color = color.construct("#3774D0");
+
+// toColor lifts a legacy hex-string color into the optional Color the oracle
+// types use. The empty string was the legacy "unset" sentinel and maps to
+// undefined so the Console assigns a palette/default at render time.
+const toColor = (hex: string): color.Color | undefined =>
+  hex === "" ? undefined : color.construct(hex);
 
 // pendingUploadZ stages a plot's body on the client until it has landed on
 // the server. Body fields are partial so flows that open a new plot from a
@@ -80,8 +91,11 @@ const buildPendingUpload = (state: v4.State): PendingUpload => ({
   channels: state.channels,
   ranges: state.ranges,
   axes: state.axes.axes,
-  lines: state.lines,
-  rules: state.rules.map(({ selected: _selected, ...rest }) => rest),
+  lines: state.lines.map((l) => ({ ...l, color: toColor(l.color) })),
+  rules: state.rules.map(({ selected: _selected, ...rest }) => ({
+    ...rest,
+    color: toColor(rest.color),
+  })),
 });
 
 // stateMigration drops the v4 body fields. remoteCreated plots are

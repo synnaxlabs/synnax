@@ -15,11 +15,11 @@ import { X_AXIS_KEYS, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
 import { typedLineKeyToString } from "@/lineplot/slice";
 
 // DEFAULT_LINE is the placeholder returned for a (channel x range) combo that
-// has no stored styling override yet. Color "" signals to the renderer that
-// it should pick a palette color from the active theme.
+// has no stored styling override yet. A null color signals to the renderer
+// that it should pick a palette color from the active theme.
 const DEFAULT_LINE: Omit<lineplot.Line, "key"> = {
   label: undefined,
-  color: "",
+  color: undefined,
   strokeWidth: 2,
   downsample: 1,
   downsampleMode: "decimate",

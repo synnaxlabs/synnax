@@ -81,6 +81,8 @@ class TestCase(ABC):
 
         self.name = validate_and_sanitize_name(name)
         self._status: STATUS = STATUS.INITIALIZING
+        self._error_message: str | None = None
+        self._error_traceback: str | None = None
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -550,6 +552,7 @@ class TestCase(ABC):
     def fail(self, message: str | None = None) -> None:
         if message is not None:
             self.log(f"FAILED: {message}")
+        self._error_message = message
         self.STATUS = STATUS.FAILED
         raise RuntimeError(message or "Test failed")
 
@@ -577,8 +580,12 @@ class TestCase(ABC):
 
         except Exception as e:
             if not is_websocket_error(e):
+                tb = traceback.format_exc()
                 self.STATUS = STATUS.FAILED
-                self.log(f"EXCEPTION: {e}\n{traceback.format_exc()}")
+                self.log(f"EXCEPTION: {e}\n{tb}")
+                if self._error_message is None:
+                    self._error_message = str(e)
+                self._error_traceback = tb
         finally:
             try:
                 self.teardown()

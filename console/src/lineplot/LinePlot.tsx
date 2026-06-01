@@ -57,6 +57,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  DEFAULT_RULE_COLOR,
   setActiveToolbarTab,
   setControlState,
   setMeasureMode,
@@ -148,7 +149,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const range = rangeByKey.get(d.range);
       if (range == null) return;
       const colorVal =
-        d.color !== "" && d.color != null
+        d.color != null
           ? d.color
           : color.hex(palette[i % Math.max(palette.length, 1)] ?? color.ZERO);
       const base = {
@@ -213,7 +214,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const next: lineplot.Line = {
         ...existing,
         ...d,
-        color: d.color != null ? color.hex(d.color) : existing.color,
+        color: d.color != null ? color.construct(d.color) : existing.color,
       };
       pdispatch({ key: layoutKey, actions: [lineplot.setLine({ line: next })] });
     },
@@ -231,7 +232,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       const next: lineplot.Rule = {
         ...existing,
         ...rule,
-        color: rule.color != null ? color.hex(rule.color) : existing.color,
+        color: rule.color != null ? color.construct(rule.color) : existing.color,
         axis: nextAxis,
       };
       pdispatch({ key: layoutKey, actions: [lineplot.setRule({ rule: next })] });
@@ -495,7 +496,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           title={name}
           axes={builtAxes}
           lines={propsLines}
-          rules={rules.map((r) => ({ ...r, axis: r.axis }))}
+          rules={rules.map((r) => ({ ...r, color: r.color ?? DEFAULT_RULE_COLOR }))}
           clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={hasUpdatePermission ? handleTitleChange : undefined}
           visible={visible}

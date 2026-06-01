@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	textpb "github.com/synnaxlabs/x/text/pb"
@@ -486,13 +487,19 @@ func LineToPB(r lineplot.Line) (*Line, error) {
 	}
 	pb := &Line{
 		Key:            r.Key,
-		Color:          r.Color,
 		StrokeWidth:    r.StrokeWidth,
 		Downsample:     r.Downsample,
 		DownsampleMode: downsampleModeVal,
 	}
 	if r.Label != nil {
 		pb.Label = r.Label
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -509,11 +516,17 @@ func LineFromPB(pb *Line) (lineplot.Line, error) {
 		return lineplot.Line{}, err
 	}
 	r.Key = pb.Key
-	r.Color = pb.Color
 	r.StrokeWidth = pb.StrokeWidth
 	r.Downsample = pb.Downsample
 	if pb.Label != nil {
 		r.Label = pb.Label
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return lineplot.Line{}, err
+		}
+		r.Color = &val
 	}
 	return r, nil
 }
@@ -553,12 +566,18 @@ func RuleToPB(r lineplot.Rule) (*Rule, error) {
 	pb := &Rule{
 		Key:       r.Key,
 		Label:     r.Label,
-		Color:     r.Color,
 		LineWidth: r.LineWidth,
 		LineDash:  r.LineDash,
 		Units:     r.Units,
 		Position:  r.Position,
 		Axis:      axisVal,
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -576,11 +595,17 @@ func RuleFromPB(pb *Rule) (lineplot.Rule, error) {
 	}
 	r.Key = pb.Key
 	r.Label = pb.Label
-	r.Color = pb.Color
 	r.LineWidth = pb.LineWidth
 	r.LineDash = pb.LineDash
 	r.Units = pb.Units
 	r.Position = pb.Position
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return lineplot.Rule{}, err
+		}
+		r.Color = &val
+	}
 	return r, nil
 }
 

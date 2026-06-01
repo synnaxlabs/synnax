@@ -12,7 +12,7 @@ import {
   lineplot as lineplotClient,
   NotFoundError,
 } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -433,7 +433,7 @@ describe("lineplot queries", () => {
       const newLine: lineplotClient.Line = {
         key: "line-new",
         label: "ghost",
-        color: "#ff0000",
+        color: color.construct("#ff0000"),
         strokeWidth: 2,
         downsample: 1,
         downsampleMode: "decimate",
@@ -604,7 +604,7 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-1",
-                color: "#00aaff",
+                color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 downsample: 1,
                 downsampleMode: "decimate",
@@ -616,7 +616,7 @@ describe("lineplot queries", () => {
       await waitFor(() => {
         expect(result.current.lines).toHaveLength(1);
         expect(result.current.keys).toEqual(["ln-1"]);
-        expect(result.current.line?.color).toEqual("#00aaff");
+        expect(result.current.line?.color).toEqual(color.construct("#00aaff"));
       });
     });
 
@@ -637,7 +637,7 @@ describe("lineplot queries", () => {
               rule: {
                 key: "rl-1",
                 label: "max",
-                color: "#ff0000",
+                color: color.construct("#ff0000"),
                 axis: "y1",
                 lineWidth: 1,
                 lineDash: 0,

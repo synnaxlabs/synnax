@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { reduceAll } from "@/lineplot/actions";
@@ -78,9 +79,9 @@ const roundTrip = (state: LinePlot, ...actions: Action[]): LinePlot => {
   return reduceAll(next, inverse).next;
 };
 
-const line = (key: string, color: string): Line => ({
+const line = (key: string, hex: string): Line => ({
   key,
-  color,
+  color: color.construct(hex),
   strokeWidth: 1,
   downsample: 1,
   downsampleMode: "decimate",
@@ -89,7 +90,7 @@ const line = (key: string, color: string): Line => ({
 const rule = (key: string, label: string): Rule => ({
   key,
   label,
-  color: "#888",
+  color: color.construct("#888888"),
   axis: "y1",
   lineWidth: 1,
   lineDash: 0,
@@ -250,17 +251,17 @@ describe("lineplot reducer", () => {
 
   describe("setLine", () => {
     it("should append the line when its key is new", () => {
-      const out = apply(empty(), setLine({ line: line("l1", "#f00") }));
-      expect(out.lines).toEqual([line("l1", "#f00")]);
+      const out = apply(empty(), setLine({ line: line("l1", "#ff0000") }));
+      expect(out.lines).toEqual([line("l1", "#ff0000")]);
     });
     it("should replace the line in place when its key already exists", () => {
-      const state = empty({ lines: [line("l1", "#f00"), line("l2", "#0f0")] });
-      const out = apply(state, setLine({ line: line("l1", "#00f") }));
-      expect(out.lines).toEqual([line("l1", "#00f"), line("l2", "#0f0")]);
+      const state = empty({ lines: [line("l1", "#ff0000"), line("l2", "#00ff00")] });
+      const out = apply(state, setLine({ line: line("l1", "#0000ff") }));
+      expect(out.lines).toEqual([line("l1", "#0000ff"), line("l2", "#00ff00")]);
     });
     it("should round-trip the previous line through its inverse on update", () => {
-      const state = empty({ lines: [line("l1", "#f00")] });
-      expect(roundTrip(state, setLine({ line: line("l1", "#00f") })).lines).toEqual(
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      expect(roundTrip(state, setLine({ line: line("l1", "#0000ff") })).lines).toEqual(
         state.lines,
       );
     });

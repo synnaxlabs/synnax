@@ -20,9 +20,19 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const StartedMessage = "started successfully"
+
+// isCrashBanner reports whether line is the first line of a crash dump emitted by the
+// driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
+// a banner, an optional what() line, "stack trace:", and one line per frame.
+func isCrashBanner(line string) bool {
+	return strings.Contains(line, "*** ") &&
+		(strings.Contains(line, " crashed: ") ||
+			strings.Contains(line, " terminated: unhandled exception"))
+}
 
 // ParsedLine holds the parsed components of a single driver log line.
 type ParsedLine struct {
@@ -83,16 +93,39 @@ func PipeToLogger(
 	var (
 		caller    string
 		callerBuf []byte
+		// crashLines buffers a crash dump once its banner is seen. A crash is terminal
+		// and its trace is raw text rather than glog-formatted, so the whole dump is
+		// accumulated and emitted as a single Error entry when the stream closes (see
+		// flushCrash below) instead of one entry per frame. Nil until the banner appears.
+		crashLines []string
 	)
+	// driverLogger carries every line forwarded from the driver. The production logger
+	// attaches a Go stacktrace to all Error entries, but the driver is a subprocess: that
+	// trace only ever points at this reader goroutine, never at the driver code that
+	// produced the line, so it is pure noise on forwarded content. Raising the threshold
+	// to Fatal suppresses it. Reader-side errors below keep using logger, where a Go
+	// stacktrace is genuinely useful.
+	driverLogger := logger.WithOptions(zap.AddStacktrace(zapcore.FatalLevel))
 	loggers := make(map[string]*alamos.Logger)
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		if len(b) == 0 {
-			logger.Warn("received empty log line from driver")
+			if crashLines == nil {
+				logger.Warn("received empty log line from driver")
+			}
 			continue
 		}
 		line := unsafe.String(unsafe.SliceData(b), len(b))
+		if crashLines == nil && isCrashBanner(line) {
+			crashLines = make([]string, 0, 32)
+		}
+		if crashLines != nil {
+			// strings.Clone is required: the scanner reuses its buffer across
+			// iterations, so line must be copied to survive until the flush.
+			crashLines = append(crashLines, strings.Clone(line))
+			continue
+		}
 		p := ParseLine(line, caller)
 
 		if p.Caller != caller {
@@ -100,13 +133,13 @@ func PipeToLogger(
 			caller = unsafe.String(unsafe.SliceData(callerBuf), len(callerBuf))
 		}
 
-		namedLogger := logger
+		namedLogger := driverLogger
 		if p.Name != "" {
 			if cached, ok := loggers[p.Name]; ok {
 				namedLogger = cached
 			} else {
 				name := strings.Clone(p.Name)
-				namedLogger = logger.Named(name)
+				namedLogger = driverLogger.Named(name)
 				loggers[name] = namedLogger
 			}
 		}
@@ -125,6 +158,9 @@ func PipeToLogger(
 		default:
 			namedLogger.Info(p.Message, callerField)
 		}
+	}
+	if len(crashLines) > 0 {
+		driverLogger.Error(strings.Join(crashLines, "\n"))
 	}
 	if err := scanner.Err(); err != nil && !errors.Is(err, os.ErrClosed) {
 		logger.Error("Error reading from std pipe", zap.Error(err))

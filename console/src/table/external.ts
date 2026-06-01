@@ -11,12 +11,19 @@ import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import { extract } from "@/table/export";
-import { LAYOUT_TYPE, Selectable, Table } from "@/table/Table";
+import { LAYOUT_TYPE } from "@/table/layout";
+import { Selectable } from "@/table/Selectable";
+import { Table } from "@/table/Table";
 
 export * from "@/table/export";
+export * from "@/table/layout";
+export * from "@/table/Selectable";
+export * from "@/table/selectors";
 export * from "@/table/slice";
 export * from "@/table/Table";
 export * from "@/table/Toolbar";
+export * from "@/table/useCreate";
+export * from "@/table/useUpload";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { type Channel, LinePlot as PLinePlot, Status } from "@synnaxlabs/pluto";
-import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
+import { color, TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSV } from "@/csv";
@@ -73,7 +73,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
       key: d.key,
       axes: { x: d.xAxis, y: d.yAxis },
       channels: { x: d.xChannel, y: d.yChannel },
-      color: d.color,
+      color: d.color ?? color.ZERO,
       strokeWidth: d.strokeWidth,
       downsample: d.downsample,
       downsampleMode: d.downsampleMode,

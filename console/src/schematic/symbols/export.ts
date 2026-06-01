@@ -9,9 +9,6 @@
 
 import { DisconnectedError, group, type Synnax as Client } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { join } from "@tauri-apps/api/path";
-import { open } from "@tauri-apps/plugin-dialog";
-import { exists, mkdir, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 
 import { Export } from "@/export";
@@ -63,23 +60,14 @@ const exportGroup = async ({
       message: "No symbols found in this group to export",
     });
 
-  if (Runtime.ENGINE !== "tauri")
-    throw new Error("Group export is only available in the desktop application");
-
-  const parentDir = await open({
-    directory: true,
+  const directory = await Runtime.pickWritableDirectory({
     title: `Select a location to export ${name}`,
-    recursive: true,
+    subdirectory: Export.sanitizeFileName(name),
   });
-
-  if (parentDir == null) return;
-
-  const directoryName = name.replace(/[^a-z0-9]/gi, "_");
-  const savePath = await join(parentDir, directoryName);
-
-  if (await exists(savePath)) {
+  if (directory == null) return;
+  if (directory.preExisted) {
     const shouldReplace = await confirm({
-      message: `A directory already exists at ${savePath}`,
+      message: `A directory already exists at ${directory.displayPath}`,
       description: "Replacing will cause the old data to be deleted.",
       cancel: { label: "Cancel" },
       confirm: { label: "Replace", variant: "error" },
@@ -87,31 +75,24 @@ const exportGroup = async ({
     if (shouldReplace !== true) return;
   }
 
-  await mkdir(savePath, { recursive: true });
-
   const manifest: GroupManifest = {
     version: 1,
     type: "symbol_group",
     name,
     symbols: await Promise.all(
       symbols.map(async (symbol) => {
-        const fileName = `${symbol.name.replace(/[^a-z0-9]/gi, "_")}_${symbol.key.slice(0, 8)}.json`;
-        await writeTextFile(await join(savePath, fileName), JSON.stringify(symbol));
-
-        return {
-          file: fileName,
-          key: symbol.key,
-          name: symbol.name,
-        };
+        const fileName = `${Export.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
+        await directory.writeText(fileName, JSON.stringify(symbol));
+        return { file: fileName, key: symbol.key, name: symbol.name };
       }),
     ),
   };
 
-  await writeTextFile(await join(savePath, "manifest.json"), JSON.stringify(manifest));
+  await directory.writeText("manifest.json", JSON.stringify(manifest));
 
   addStatus({
     variant: "success",
-    message: `Exported ${symbols.length} symbols to ${savePath}`,
+    message: `Exported ${symbols.length} symbols to ${directory.displayPath}`,
   });
 };
 

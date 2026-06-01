@@ -158,11 +158,6 @@ const TOKEN_CONFIG = {
     light: "#292929",
     scopes: [],
   },
-  unit: {
-    dark: "#dadada",
-    light: "#292929",
-    scopes: [],
-  },
 } as const;
 
 export type SemanticTokenType = keyof typeof TOKEN_CONFIG;

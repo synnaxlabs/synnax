@@ -40,7 +40,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}, nil
 }
 
-type View = view.View
+type (
+	Key  = view.Key
+	View = view.View
+)
 
 type CreateRequest struct {
 	Views []View `json:"views" msgpack:"views"`
