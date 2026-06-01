@@ -45,7 +45,7 @@ var _ = Describe("Writer", func() {
 				Legend: lineplot.Legend{Visible: true},
 				Lines: []lineplot.Line{{
 					Key:            "l1",
-					Color:          color.MustFromHex("#abcdef"),
+					Color:          new(color.MustFromHex("#abcdef")),
 					StrokeWidth:    2,
 					Downsample:     1,
 					DownsampleMode: lineplot.DownsampleModeDecimate,
@@ -58,7 +58,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("test"))
 			Expect(res.Title.Level).To(Equal(text.LevelH4))
 			Expect(res.Lines).To(HaveLen(1))
-			Expect(res.Lines[0].Color).To(Equal(color.MustFromHex("#abcdef")))
+			Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#abcdef"))))
 		})
 	})
 })

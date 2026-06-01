@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -325,8 +326,13 @@ func (lv Line) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	if err := lv.Color.EncodeOrc(w); err != nil {
-		return err
+	if lv.Color != nil {
+		w.Bool(true)
+		if err := (*lv.Color).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	w.Float64(float64(lv.StrokeWidth))
 	w.Uint32(uint32(lv.Downsample))
@@ -352,8 +358,18 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 			lv.Label = &hv
 		}
 	}
-	if err = lv.Color.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			lv.Color = &hv
+		}
 	}
 	if lv.StrokeWidth, err = r.Float64(); err != nil {
 		return err
@@ -533,8 +549,13 @@ func (rv *Ranges) DecodeOrc(r *orc.Reader) error {
 func (rv Rule) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Key)
 	w.String(rv.Label)
-	if err := rv.Color.EncodeOrc(w); err != nil {
-		return err
+	if rv.Color != nil {
+		w.Bool(true)
+		if err := (*rv.Color).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	w.String(string(rv.Axis))
 	w.Float64(float64(rv.LineWidth))
@@ -552,8 +573,18 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 	if rv.Label, err = r.String(); err != nil {
 		return err
 	}
-	if err = rv.Color.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			rv.Color = &hv
+		}
 	}
 	{
 		v, err := r.String()
