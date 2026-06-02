@@ -63,12 +63,12 @@ const zeroAxis = (key: AxisKey): Axis => ({
   labelDirection: "x",
   labelLevel: "small",
   bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: false, upper: false },
-  tickSpacing: 0,
+  autoBounds: { lower: true, upper: true },
+  tickSpacing: 75,
 });
 const ZERO_NEW: Omit<New, "name" | "key"> = {
   title: { level: "p", visible: false },
-  legend: { visible: false, position: { x: 0, y: 0 } },
+  legend: { visible: true, position: { x: 0, y: 0 } },
   channels: { x1: 0, x2: 0, y1: [], y2: [], y3: [], y4: [] },
   ranges: { x1: [], x2: [] },
   axes: {

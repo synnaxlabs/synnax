@@ -83,6 +83,7 @@ const RangeAnnotationContextMenu = ({
 };
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
+  PLinePlot.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
