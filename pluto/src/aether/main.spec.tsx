@@ -1613,9 +1613,8 @@ describe("Aether Main", () => {
       expect(leaf.state.x).toBe(2);
     });
     it("should keep leaves that share a key under different parents independent", async () => {
-      // Two line plots charting the same channel produce lines whose channel-derived
-      // keys are identical. Identity is the full path, not the leaf key, so a line in
-      // one plot neither evicts nor mangles the same-keyed line in another.
+      // Two plots charting the same channel produce lines with identical keys. Identity
+      // is the full path, not the leaf key, so neither plot evicts the other's line.
       const [Provider, root] = await newProvider();
       const Plot = ({ aetherKey, x }: { aetherKey: string; x: number }) => {
         const [{ path }] = Aether.use({

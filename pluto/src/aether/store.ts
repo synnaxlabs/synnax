@@ -16,15 +16,13 @@ import { state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
 
-/** Separator joining a path into its store identity. A control character that cannot
- * appear in a generated nanoid or any hand-authored aether key, so distinct paths never
- * collapse to the same identity. */
+/** Path separator for store identities. Non-printable on purpose: keys carry domain
+ * strings (channel names, `type:key` IDs) full of `.`/`:`/`/`, so a readable separator
+ * could collide. `register` asserts keys never contain it; don't make it printable. */
 const PATH_SEP = String.fromCharCode(0x1f);
 
-/** The store identity for a component: its path flattened to a string. Two components
- * collide here only if they occupy the same position in the tree: exactly a
- * re-registration of the same component (e.g. a StrictMode remount), never two distinct
- * components. */
+/** A component's store identity: its path flattened. Collides only on same-path
+ * re-registration (e.g. a StrictMode remount), never across distinct components. */
 const pathID = (path: readonly string[]): string => path.join(PATH_SEP);
 
 interface PendingRequest {
@@ -117,8 +115,7 @@ export interface RegisterParams<
 > {
   /** Component type, matched against the worker-side registry. */
   type: string;
-  /** Component path in the aether tree. Its flattened form is the component's identity
-   * for the lifetime of the registration. */
+  /** Component path in the aether tree; its flattened form is the component's identity. */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
   schema: StateSchema;
@@ -168,12 +165,12 @@ export class Store {
   /** Subscribers keyed by component identity. Listeners persist across an entry's
    * register-unregister-register cycle so subscriptions wired during a StrictMode
    * pseudo-remount stay live once the real register fires. */
-  private listenersByID: Map<string, Set<Listener>> = new Map();
+  private listeners: Map<string, Set<Listener>> = new Map();
   /** Last known state per component identity. Survives entry unregistration so that
    * `useSyncExternalStore`'s tearing-detection getSnapshot calls return a stable value
    * across the unregister-then-register window. Cleaned up when both the entry and all
    * subscribers for the identity are gone. */
-  private snapshotsByID: Map<string, state.State> = new Map();
+  private snapshots: Map<string, state.State> = new Map();
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
    * {@link dispose} and the next send (lazy re-attach). */
   private worker: aether.MainComms = aether.NOOP_MAIN_COMMS;
@@ -270,19 +267,19 @@ export class Store {
    * register-unregister cycles. Returns an unsubscribe function. */
   subscribe(path: readonly string[], listener: Listener): () => void {
     const id = pathID(path);
-    let set = this.listenersByID.get(id);
+    let set = this.listeners.get(id);
     if (set == null) {
       set = new Set();
-      this.listenersByID.set(id, set);
+      this.listeners.set(id, set);
     }
     set.add(listener);
     return () => {
-      const s = this.listenersByID.get(id);
+      const s = this.listeners.get(id);
       if (s == null) return;
       s.delete(listener);
       if (s.size > 0) return;
-      this.listenersByID.delete(id);
-      if (!this.entries.has(id)) this.snapshotsByID.delete(id);
+      this.listeners.delete(id);
+      if (!this.entries.has(id)) this.snapshots.delete(id);
     };
   }
 
@@ -296,7 +293,7 @@ export class Store {
     const id = pathID(path);
     const entry = this.getEntry<StateSchema>(id);
     if (entry != null) return entry.state;
-    const cached = this.snapshotsByID.get(id);
+    const cached = this.snapshots.get(id);
     if (cached != null) return cached as z.infer<StateSchema>;
     throw new UnexpectedError(
       `[aether.store] missing entry for path ${path.join(".")}`,
@@ -336,9 +333,13 @@ export class Store {
       initialTransfer = [],
       methodsSchema,
     } = params;
-    if (path.length === 0)
+    if (path.length === 0 || path[path.length - 1].length === 0)
       throw new ValidationError(
-        `[aether.store] received empty path when registering component of type ${type}`,
+        `[aether.store] received empty path or leaf key when registering component of type ${type}`,
+      );
+    if (path.some((segment) => segment.includes(PATH_SEP)))
+      throw new ValidationError(
+        `[aether.store] aether key may not contain the reserved path separator (U+001F) when registering component of type ${type} at ${path.join(" / ")}`,
       );
     if (type.length === 0)
       console.warn(
@@ -360,11 +361,11 @@ export class Store {
       onReceiveRef: params.onReceiveRef ?? null,
       controller: new AbortController(),
     });
-    this.snapshotsByID.set(id, parsed);
+    this.snapshots.set(id, parsed);
     // Deferred: register runs during a React render and uses listeners are setStates
     // React refuses to accept mid-render. StrictMode's pseudo- remount path can hit
     // this with a persisted listener still attached.
-    const listeners = this.listenersByID.get(id);
+    const listeners = this.listeners.get(id);
     if (listeners != null && listeners.size > 0)
       queueMicrotask(() => listeners.forEach((l) => l()));
     this.send({ variant: "update", path, state: parsed, type }, initialTransfer);
@@ -383,7 +384,7 @@ export class Store {
     entry.controller.abort(new Error("Component deleted"));
     this.invokeTracker.clearCounter(id);
     this.entries.delete(id);
-    if (!this.listenersByID.has(id)) this.snapshotsByID.delete(id);
+    if (!this.listeners.has(id)) this.snapshots.delete(id);
   }
 
   private send(msg: aether.MainMessage, transfer: Transferable[] = []): void {
@@ -414,8 +415,8 @@ export class Store {
     if (entry == null) return;
     const parsed = zod.parse(entry.schema, state, { label: entry.type });
     entry.state = parsed;
-    this.snapshotsByID.set(id, parsed);
-    this.listenersByID.get(id)?.forEach((l) => l());
+    this.snapshots.set(id, parsed);
+    this.listeners.get(id)?.forEach((l) => l());
     entry.onReceiveRef?.current?.(parsed);
   }
 
@@ -439,12 +440,12 @@ export class Store {
       );
       const parsed = zod.parse(e.schema, raw, { label: e.type });
       e.state = parsed;
-      this.snapshotsByID.set(id, parsed);
+      this.snapshots.set(id, parsed);
       this.send(
         { variant: "update", path: e.path, state: parsed, type: e.type },
         transfer,
       );
-      this.listenersByID.get(id)?.forEach((l) => l());
+      this.listeners.get(id)?.forEach((l) => l());
     };
 
     const handleDelete = () => this.unregister(entry.path);

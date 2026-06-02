@@ -65,8 +65,7 @@ export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {
 export interface Component {
   type: string;
   key: string;
-  /** Absolute path from the root to this component. Its last element is `key`. Serves
-   * as the component's cross-thread identity. */
+  /** Path from the root; its cross-thread identity. Last element is `key`. */
   path: readonly string[];
   toString(): string;
   _updateState: (params: UpdateStateParams) => void;
@@ -77,8 +76,7 @@ export interface Component {
 
 /** Required constructor arguments for every aether {@link Component}. */
 export interface ComponentConstructorProps {
-  /** Absolute path from the root to this component. The component's `key` is its last
-   * element. */
+  /** Path from the root; its last element becomes the component's `key`. */
   path: readonly string[];
   type: string;
   /** Channel for posting messages back to the main thread. */
@@ -191,10 +189,9 @@ export abstract class Leaf<
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component {
   readonly type: string;
-  /** Absolute path from the root to this component; its cross-thread identity. */
+  /** Path from the root; its cross-thread identity. */
   readonly path: readonly string[];
-  /** This component's local name: the last element of {@link path}. Unique only among
-   * its siblings. */
+  /** Local name: last element of {@link path}, unique only among siblings. */
   readonly key: string;
   /** Channel for posting messages back to the main thread. */
   protected readonly sender: Sender;
