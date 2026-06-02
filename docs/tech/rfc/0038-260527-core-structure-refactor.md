@@ -472,9 +472,13 @@ core/pkg/<layer>/<resource>/
         ├── decode.go                # version dispatch — the only entry imex calls
         │   └── func Decode(imex.Codec, imex.Version, []byte) (Resource, error)
         │
-        ├── legacy/                  # OPTIONAL — pre-versioned blobs that still need to decode
-        │   ├── legacy.go
-        │   └── vN/                  # if the legacy chain itself had revisions
+        ├── legacy/                  # REQUIRED for resources with a versioned data payload
+        │   │                        #   (schematic, table, line plot, log) — see §4.3.2.
+        │   │                        #   Holds the pre-integer-versioned chain of the data type
+        │   │                        #   (NOT the whole resource), terminating in a Migrate that
+        │   │                        #   lifts the last legacy data into v0.Data of the resource.
+        │   ├── legacy.go            # version-string dispatch + forward chain
+        │   └── vN/                  # frozen historical data-type shapes (v0..vK)
         │
         └── vN/                      # one per version; current additionally hosts helpers.go
             ├── types.gen.go         # frozen struct + gorp.Entry methods
@@ -555,11 +559,20 @@ Oracle's freeze pass (§4.6.0). If Oracle finds a hand-written file in a histori
 `vN/` on regeneration, that is an error. This makes "historical versions carry no
 behavior" a structural invariant: there is no slot for it.
 
-**`legacy/` is a snapshot, not a versioned series.** Resources that accumulated history
-before the numbered scheme (e.g. `schematic`, `ranger`) keep that history frozen as a
-single `legacy/` snapshot with its own bespoke codec. `legacy.Decode` produces a value
-that feeds the regular `vN` chain via `Migrate(legacy.Resource) → v0.Resource`. New
-resources never get a `legacy/`; they start at `v0`.
+**`legacy/` is required for resources with a versioned data payload.** Some resources
+— `schematic`, `table`, and (soon) `line plot` and `log` — are defined as a stable
+**envelope** (`Key`, `Name`, `WorkspaceKey`, …, plus a `Data` field) wrapped around
+a separately-versioned **data type**. The integer version on the wire and in
+`internal/types/vN/` refers to the *data type*, not the envelope. These resources
+have a pre-integer-versioned history of just the data payload — a chain of
+hand-rolled `Data` shapes (`v0.Data` … `vK.Data`) with their own bespoke codecs and
+a semver-string dispatch — which `internal/types/legacy/` captures verbatim. The
+last legacy data shape feeds the regular `vN` chain via
+`Migrate(legacy.Data) → v0.Data`, and from there the normal integer-versioned chain
+takes over. `legacy/` is therefore not optional for these resources; removing it
+would orphan every record persisted before the integer scheme existed. Resources
+without a separately-versioned data payload (range, channel, device, rack, user,
+workspace, …) never get a `legacy/`; they start at `v0` of the whole resource type.
 
 Tests are co-located but unlisted above — `<resource>_test.go`,
 `<resource>_suite_test.go`, `codec_gen_test.go`, `retrieve_test.go`, `writer_test.go`,
@@ -603,14 +616,38 @@ version's directory, including the one that lands on current. Because each versi
 owns its key extractor and per-record validator, a migration step can read and
 validate without reaching outside its own package (RFC 0033 §3.6).
 
-### 4.3.2 - Versions and Legacy
+### 4.3.2 - Versions, Data Payloads, and Legacy
 
-Versions are per-type dense integers from `0` (RFC 0034 §4.3.0), unchanged. The
-schematic/table `legacy/` blobs fold into the numbered chain as early `vN` packages;
-legacy semver (`"5.0.0"`) remains accepted only as an import-boundary input, converted
-to its integer major (RFC 0034 §4.3.1). Services with a single version simply have
-`types/v0/`. `view` gains a codec (its schema gets `@go marshal`); `workspace`'s
-duplicate `OntologyID` collapses to the generated one.
+Versions are per-type dense integers from `0` (RFC 0034 §4.3.0), unchanged. But what
+"the type" refers to depends on the resource's shape:
+
+- **Whole-resource versioning** (`range`, `channel`, `device`, `rack`, `user`,
+  `workspace`, …). The integer version refers to the full resource struct.
+  `internal/types/vN/types.gen.go` declares the resource at version N in its
+  entirety. There is no separate "data payload"; the resource *is* the payload.
+  These resources start at `v0` of the whole type and have no `legacy/`.
+
+- **Payload versioning** (`schematic`, `table`, and — soon — `line plot`, `log`).
+  The resource has a stable envelope (`Key`, `Name`, `WorkspaceKey`, snapshot/etc.
+  metadata, plus a `Data` field) wrapped around a separately-versioned data type.
+  The integer version on the wire and in `internal/types/vN/` refers to that
+  *data type*, not the envelope. The envelope itself does not version — fields can
+  be added to it through ordinary schema additions, no migration needed —
+  but every change to the data shape (a new node kind in schematic, a new cell
+  type in table) bumps the data version. These resources require a `legacy/` for
+  their pre-integer-versioned data history (§4.3.0 prose).
+
+Legacy semver (`"5.0.0"`) remains accepted only as an import-boundary input,
+converted to its integer major by the legacy dispatch (RFC 0034 §4.3.1) before
+entering the integer chain. The legacy chain is the historical tail of the data
+type — `v0.Data → v1.Data → … → vK.Data` with a final `Migrate(vK.Data) →
+v0.Data` lifting it into the modern numbered chain — and it stays at
+`internal/types/legacy/` indefinitely for as long as records persisted under the
+old wire format may exist on disk.
+
+Services with a single integer version simply have `internal/types/v0/`. `view`
+gains a codec (its schema gets `@go marshal`); `workspace`'s duplicate `OntologyID`
+collapses to the generated one.
 
 ## 4.4 - Peek-Based Import
 
