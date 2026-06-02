@@ -481,10 +481,6 @@ func AxesListFromPB(pbs []*Axes) ([]lineplot.Axes, error) {
 
 // LineToPB converts Line to Line.
 func LineToPB(r lineplot.Line) (*Line, error) {
-	colorVal, err := colorpb.ColorToPB(r.Color)
-	if err != nil {
-		return nil, err
-	}
 	downsampleModeVal, err := DownsampleModeToPB(r.DownsampleMode)
 	if err != nil {
 		return nil, err
@@ -493,11 +489,17 @@ func LineToPB(r lineplot.Line) (*Line, error) {
 		Key:            r.Key,
 		StrokeWidth:    r.StrokeWidth,
 		Downsample:     r.Downsample,
-		Color:          colorVal,
 		DownsampleMode: downsampleModeVal,
 	}
 	if r.Label != nil {
 		pb.Label = r.Label
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -509,10 +511,6 @@ func LineFromPB(pb *Line) (lineplot.Line, error) {
 		return r, nil
 	}
 	var err error
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return lineplot.Line{}, err
-	}
 	r.DownsampleMode, err = DownsampleModeFromPB(pb.DownsampleMode)
 	if err != nil {
 		return lineplot.Line{}, err
@@ -522,6 +520,13 @@ func LineFromPB(pb *Line) (lineplot.Line, error) {
 	r.Downsample = pb.Downsample
 	if pb.Label != nil {
 		r.Label = pb.Label
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return lineplot.Line{}, err
+		}
+		r.Color = &val
 	}
 	return r, nil
 }
@@ -554,10 +559,6 @@ func LinesFromPB(pbs []*Line) ([]lineplot.Line, error) {
 
 // RuleToPB converts Rule to Rule.
 func RuleToPB(r lineplot.Rule) (*Rule, error) {
-	colorVal, err := colorpb.ColorToPB(r.Color)
-	if err != nil {
-		return nil, err
-	}
 	axisVal, err := AxisKeyToPB(r.Axis)
 	if err != nil {
 		return nil, err
@@ -569,8 +570,14 @@ func RuleToPB(r lineplot.Rule) (*Rule, error) {
 		LineDash:  r.LineDash,
 		Units:     r.Units,
 		Position:  r.Position,
-		Color:     colorVal,
 		Axis:      axisVal,
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -582,10 +589,6 @@ func RuleFromPB(pb *Rule) (lineplot.Rule, error) {
 		return r, nil
 	}
 	var err error
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return lineplot.Rule{}, err
-	}
 	r.Axis, err = AxisKeyFromPB(pb.Axis)
 	if err != nil {
 		return lineplot.Rule{}, err
@@ -596,6 +599,13 @@ func RuleFromPB(pb *Rule) (lineplot.Rule, error) {
 	r.LineDash = pb.LineDash
 	r.Units = pb.Units
 	r.Position = pb.Position
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return lineplot.Rule{}, err
+		}
+		r.Color = &val
+	}
 	return r, nil
 }
 

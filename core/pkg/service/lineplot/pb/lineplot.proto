@@ -144,7 +144,7 @@ message Line {
   optional string label = 2;
   // color is the line color. When null, the Console assigns one from the visualization
   // palette at render time.
-  .x.color.pb.Color color = 3;
+  optional .x.color.pb.Color color = 3;
   // stroke_width is the line stroke width in pixels.
   double stroke_width = 4;
   // downsample is the downsample factor applied before rendering. 1 means render every
@@ -160,8 +160,9 @@ message Rule {
   string key = 1;
   // label is the human-readable label rendered alongside the rule.
   string label = 2;
-  // color is the display color of the rule.
-  .x.color.pb.Color color = 3;
+  // color is the display color of the rule. When null, the Console assigns a default at
+  // render time.
+  optional .x.color.pb.Color color = 3;
   // axis is the axis the rule is anchored to.
   AxisKey axis = 4;
   // line_width is the rule line width in pixels.

@@ -719,7 +719,7 @@ type Line struct {
 	Label *string `protobuf:"bytes,2,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// color is the line color. When null, the Console assigns one from the visualization
 	// palette at render time.
-	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// stroke_width is the line stroke width in pixels.
 	StrokeWidth float64 `protobuf:"fixed64,4,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
 	// downsample is the downsample factor applied before rendering. 1 means render every
@@ -810,8 +810,9 @@ type Rule struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// label is the human-readable label rendered alongside the rule.
 	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	// color is the display color of the rule.
-	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// color is the display color of the rule. When null, the Console assigns a default at
+	// render time.
+	Color *pb2.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// axis is the axis the rule is anchored to.
 	Axis AxisKey `protobuf:"varint,4,opt,name=axis,proto3,enum=service.lineplot.pb.AxisKey" json:"axis,omitempty"`
 	// line_width is the rule line width in pixels.
@@ -1076,27 +1077,29 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\x02y1\x18\x03 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y1\x12)\n" +
 	"\x02y2\x18\x04 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y2\x12)\n" +
 	"\x02y3\x18\x05 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y3\x12)\n" +
-	"\x02y4\x18\x06 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y4\"\xf7\x01\n" +
+	"\x02y4\x18\x06 \x01(\v2\x19.service.lineplot.pb.AxisR\x02y4\"\x86\x02\n" +
 	"\x04Line\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x19\n" +
-	"\x05label\x18\x02 \x01(\tH\x00R\x05label\x88\x01\x01\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12!\n" +
+	"\x05label\x18\x02 \x01(\tH\x00R\x05label\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x01R\x05color\x88\x01\x01\x12!\n" +
 	"\fstroke_width\x18\x04 \x01(\x01R\vstrokeWidth\x12\x1e\n" +
 	"\n" +
 	"downsample\x18\x05 \x01(\rR\n" +
 	"downsample\x12L\n" +
 	"\x0fdownsample_mode\x18\x06 \x01(\x0e2#.service.lineplot.pb.DownsampleModeR\x0edownsampleModeB\b\n" +
-	"\x06_label\"\xf7\x01\n" +
+	"\x06_labelB\b\n" +
+	"\x06_color\"\x86\x02\n" +
 	"\x04Rule\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05label\x18\x02 \x01(\tR\x05label\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x120\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x120\n" +
 	"\x04axis\x18\x04 \x01(\x0e2\x1c.service.lineplot.pb.AxisKeyR\x04axis\x12\x1d\n" +
 	"\n" +
 	"line_width\x18\x05 \x01(\x01R\tlineWidth\x12\x1b\n" +
 	"\tline_dash\x18\x06 \x01(\x01R\blineDash\x12\x14\n" +
 	"\x05units\x18\a \x01(\tR\x05units\x12\x1a\n" +
-	"\bposition\x18\b \x01(\x01R\bposition\"\x98\x03\n" +
+	"\bposition\x18\b \x01(\x01R\bpositionB\b\n" +
+	"\x06_color\"\x98\x03\n" +
 	"\bLinePlot\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x120\n" +
@@ -1196,6 +1199,7 @@ func file_core_pkg_service_lineplot_pb_lineplot_proto_init() {
 	}
 	file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[5].OneofWrappers = []any{}
 	file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
