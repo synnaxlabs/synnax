@@ -24,25 +24,6 @@ import {
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
-import { type AxisKey } from "@/lineplot/types.gen";
-
-type YAxisKey = "y1" | "y2" | "y3" | "y4";
-type XAxisKey = "x1" | "x2";
-
-// requireYAxis narrows AxisKey to the y-axis subset so the channel-array
-// handlers can index state.channels[narrowed] type-safely. Throws when a
-// client constructs an action targeting the wrong axis; the server rejects
-// the same payload with validate.ErrValidation.
-const requireYAxis = (key: AxisKey): YAxisKey => {
-  if (key === "x1" || key === "x2")
-    throw new Error(`expected a y-axis key, got ${key}`);
-  return key;
-};
-
-const requireXAxis = (key: AxisKey): XAxisKey => {
-  if (key === "x1" || key === "x2") return key;
-  throw new Error(`expected an x-axis key, got ${key}`);
-};
 
 // Handlers report the narrowest resource each action touches as its target,
 // type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
@@ -70,7 +51,7 @@ const handlers: Handlers = {
   },
 
   addChannel: (state, payload) => {
-    const axis = requireYAxis(payload.axisKey);
+    const axis = payload.axisKey;
     const slice = state.channels[axis];
     if (slice.includes(payload.channel)) return actions.NO_OP_RESULT;
     slice.push(payload.channel);
@@ -81,7 +62,7 @@ const handlers: Handlers = {
   },
 
   removeChannel: (state, payload) => {
-    const axis = requireYAxis(payload.axisKey);
+    const axis = payload.axisKey;
     const slice = state.channels[axis];
     const idx = slice.indexOf(payload.channel);
     if (idx === -1) return actions.NO_OP_RESULT;
@@ -93,7 +74,7 @@ const handlers: Handlers = {
   },
 
   setXChannel: (state, payload) => {
-    const axis = requireXAxis(payload.axisKey);
+    const axis = payload.axisKey;
     const oldChannel = state.channels[axis];
     state.channels[axis] = payload.channel;
     return {
@@ -103,7 +84,7 @@ const handlers: Handlers = {
   },
 
   addRange: (state, payload) => {
-    const axis = requireXAxis(payload.axisKey);
+    const axis = payload.axisKey;
     const slice = state.ranges[axis];
     if (slice.includes(payload.range)) return actions.NO_OP_RESULT;
     slice.push(payload.range);
@@ -114,7 +95,7 @@ const handlers: Handlers = {
   },
 
   removeRange: (state, payload) => {
-    const axis = requireXAxis(payload.axisKey);
+    const axis = payload.axisKey;
     const slice = state.ranges[axis];
     const idx = slice.indexOf(payload.range);
     if (idx === -1) return actions.NO_OP_RESULT;
