@@ -259,6 +259,65 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Error()).To(ContainSubstring("conflicting values"))
 		})
 
+		It("Should reject an enum that extends itself", func(ctx SpecContext) {
+			source := `
+				A enum extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+		})
+
+		It("Should reject a cyclic extends chain", func(ctx SpecContext) {
+			source := `
+				A enum extends B {}
+				B enum extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+		})
+
+		It("Should expand a multi-level extends chain", func(ctx SpecContext) {
+			source := `
+				C enum { c = "c" }
+				B enum extends C { b = "b" }
+				A enum extends B { a = "a" }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("x.A").Form.(resolution.EnumForm)
+			var names []string
+			for _, v := range form.Values {
+				names = append(names, v.Name)
+			}
+			Expect(names).To(Equal([]string{"c", "b", "a"}))
+		})
+
+		It("Should extend enums imported from another namespace", func(ctx SpecContext) {
+			source := `
+				import "schemas/spatial"
+
+				AxisKey enum extends spatial.XAxisKey, spatial.YAxisKey {}
+			`
+			loader.Add("schemas/spatial", `
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+			`)
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
+			Expect(form.Values).To(HaveLen(4))
+			Expect(form.Values[0].Name).To(Equal("x1"))
+			Expect(form.Values[3].StringValue()).To(Equal("y2"))
+		})
+
 		It("Should collect field domains", func(ctx SpecContext) {
 			source := `
 				User struct {
