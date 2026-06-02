@@ -4,10 +4,10 @@ title: "Operators"
 description:
   "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
   operators"
-prev: "Types"
-prevURL: "/reference/control/arc/reference/types"
-next: "Functions"
-nextURL: "/reference/control/arc/reference/functions"
+prev: "Variables"
+prevURL: "/reference/control/arc/reference/variables"
+next: "Flow"
+nextURL: "/reference/control/arc/reference/flow"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -145,37 +145,6 @@ y := -x // -5
 | -------- | ----------------------------- | ------------ |
 | `:=`     | Local variable declaration    | `x := 5`     |
 | `$=`     | Stateful variable declaration | `count $= 0` |
-
-<Divider.Divider x />
-
-## Flow Operators
-
-Flow operators connect nodes in the reactive scope.
-
-| Operator | Name             | Behavior                         |
-| -------- | ---------------- | -------------------------------- |
-| `->`     | Continuous flow  | Fires on every data arrival      |
-| `=>`     | Conditional flow | Fires while the source is truthy |
-
-### Continuous Flow (`->`)
-
-Reactive flow that runs every time the source produces data:
-
-```arc
-sensor -> filter{} -> output
-```
-
-### Conditional Flow (`=>`)
-
-Fires on ticks where the source expression is truthy:
-
-```arc
-pressure > 500 => next
-abort_btn => abort
-```
-
-A flow whose target is a stage or sequence name is a
-[transition](/reference/control/arc/concepts/sequences-and-stages#transitions).
 
 <Divider.Divider x />
 
