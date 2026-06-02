@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { workspace } from "@synnaxlabs/client";
-import { Access, Flux, type Pluto, Synnax, Workspace } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Flux,
+  type Pluto,
+  Synnax,
+  useSyncedRef,
+  Workspace,
+} from "@synnaxlabs/pluto";
 import { deep, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 import { useStore } from "react-redux";
@@ -45,5 +52,13 @@ export const useSyncLayout = (): void => {
     }, [store, fluxStore, client]),
   });
 
-  useEffect(() => store.subscribe(() => sync.update({ key: "", layout: {} })), []);
+  // sync.update closes over the Synnax client and is rebuilt when the client
+  // connects. The store subscription is created once, so route through a ref to
+  // always invoke the latest update; otherwise it stays bound to the null client
+  // captured before connection and the layout never saves.
+  const updateRef = useSyncedRef(sync.update);
+  useEffect(
+    () => store.subscribe(() => updateRef.current({ key: "", layout: {} })),
+    [store],
+  );
 };
