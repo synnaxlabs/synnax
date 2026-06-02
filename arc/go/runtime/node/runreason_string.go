@@ -26,8 +26,9 @@ const _RunReason_name = "ReasonTimerTickReasonChannelInput"
 var _RunReason_index = [...]uint8{0, 15, 33}
 
 func (i RunReason) String() string {
-	if i < 0 || i >= RunReason(len(_RunReason_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_RunReason_index)-1 {
 		return "RunReason(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _RunReason_name[_RunReason_index[i]:_RunReason_index[i+1]]
+	return _RunReason_name[_RunReason_index[idx]:_RunReason_index[idx+1]]
 }

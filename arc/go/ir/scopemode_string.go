@@ -27,8 +27,9 @@ const _ScopeMode_name = "ScopeModeUnspecifiedScopeModeParallelScopeModeSequentia
 var _ScopeMode_index = [...]uint8{0, 20, 37, 56}
 
 func (i ScopeMode) String() string {
-	if i >= ScopeMode(len(_ScopeMode_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ScopeMode_index)-1 {
 		return "ScopeMode(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ScopeMode_name[_ScopeMode_index[i]:_ScopeMode_index[i+1]]
+	return _ScopeMode_name[_ScopeMode_index[idx]:_ScopeMode_index[idx+1]]
 }

@@ -43,11 +43,12 @@ func _() {
 
 const _Kind_name = "KindInvalidKindU8KindU16KindU32KindU64KindI8KindI16KindI32KindI64KindF32KindF64KindStringKindChanKindSeriesKindVariableKindNumericConstantKindIntegerConstantKindFloatConstantKindExactIntegerFloatConstantKindFunctionKindSequenceKindStage"
 
-var _Kind_index = [...]uint8{0, 11, 17, 24, 31, 38, 44, 51, 58, 65, 72, 79, 89, 97, 107, 119, 138, 157, 174, 203, 215, 227, 236}
+var _Kind_index = [...]uint16{0, 11, 17, 24, 31, 38, 44, 51, 58, 65, 72, 79, 89, 97, 107, 119, 138, 157, 174, 203, 215, 227, 236}
 
 func (i Kind) String() string {
-	if i >= Kind(len(_Kind_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Kind_index)-1 {
 		return "Kind(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Kind_name[_Kind_index[i]:_Kind_index[i+1]]
+	return _Kind_name[_Kind_index[idx]:_Kind_index[idx+1]]
 }

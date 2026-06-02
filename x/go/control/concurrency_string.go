@@ -26,8 +26,9 @@ const _Concurrency_name = "ConcurrencyExclusiveConcurrencyShared"
 var _Concurrency_index = [...]uint8{0, 20, 37}
 
 func (i Concurrency) String() string {
-	if i >= Concurrency(len(_Concurrency_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Concurrency_index)-1 {
 		return "Concurrency(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Concurrency_name[_Concurrency_index[i]:_Concurrency_index[i+1]]
+	return _Concurrency_name[_Concurrency_index[idx]:_Concurrency_index[idx+1]]
 }

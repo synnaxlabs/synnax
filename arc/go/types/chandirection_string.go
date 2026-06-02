@@ -27,8 +27,9 @@ const _ChanDirection_name = "ChanDirectionNoneChanDirectionReadChanDirectionWrit
 var _ChanDirection_index = [...]uint8{0, 17, 34, 52}
 
 func (i ChanDirection) String() string {
-	if i >= ChanDirection(len(_ChanDirection_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ChanDirection_index)-1 {
 		return "ChanDirection(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ChanDirection_name[_ChanDirection_index[i]:_ChanDirection_index[i+1]]
+	return _ChanDirection_name[_ChanDirection_index[idx]:_ChanDirection_index[idx+1]]
 }

@@ -41,8 +41,9 @@ const _Kind_name = "KindVariableKindStatefulVariableKindChannelKindFunctionKindB
 var _Kind_index = [...]uint8{0, 12, 32, 43, 55, 64, 74, 83, 93, 105, 114, 126, 144, 152, 168, 178, 193, 204}
 
 func (i Kind) String() string {
-	if i < 0 || i >= Kind(len(_Kind_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Kind_index)-1 {
 		return "Kind(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Kind_name[_Kind_index[i]:_Kind_index[i+1]]
+	return _Kind_name[_Kind_index[idx]:_Kind_index[idx+1]]
 }

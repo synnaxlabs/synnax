@@ -39,6 +39,7 @@ func (p Position) Advance(body string, off int) Position {
 	return p
 }
 
+//go:generate stringer -type=Severity
 const (
 	// SeverityError indicates a critical issue that prevents compilation.
 	SeverityError Severity = iota

@@ -27,8 +27,9 @@ const _EdgeKind_name = "EdgeKindUnspecifiedEdgeKindContinuousEdgeKindConditional
 var _EdgeKind_index = [...]uint8{0, 19, 37, 56}
 
 func (i EdgeKind) String() string {
-	if i >= EdgeKind(len(_EdgeKind_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_EdgeKind_index)-1 {
 		return "EdgeKind(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _EdgeKind_name[_EdgeKind_index[i]:_EdgeKind_index[i+1]]
+	return _EdgeKind_name[_EdgeKind_index[idx]:_EdgeKind_index[idx+1]]
 }
