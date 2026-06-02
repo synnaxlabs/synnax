@@ -50,6 +50,8 @@ import { type DerivedLine, resolveLineColor, useDerivedLines } from "@/lineplot/
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
 import { Core, type CoreProps, type CoreRef, type LineSpec } from "@/lineplot/LinePlot";
+import { Measure } from "@/lineplot/measure";
+import { type measure } from "@/lineplot/measure/aether";
 import {
   useDispatch,
   useEnsureRetrieved,
@@ -64,6 +66,7 @@ import {
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
+import { Rule } from "@/lineplot/rule";
 import { Title } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as CoreViewport } from "@/lineplot/Viewport";
@@ -72,9 +75,6 @@ import { telem } from "@/telem/aether";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
-import { Measure } from "@/vis/measure";
-import { type measure } from "@/vis/measure/aether";
-import { Rule } from "@/vis/rule";
 
 // A resolved range descriptor supplied by the consumer. Range resolution lives
 // in the consumer (Console's range slice), so the connected component receives

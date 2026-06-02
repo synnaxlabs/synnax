@@ -39,6 +39,8 @@ export { JSON } from "@/json";
 export { Key } from "@/key";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
+export { Measure } from "@/lineplot/measure";
+export { Rule } from "@/lineplot/rule";
 export { List } from "@/list";
 export { Log } from "@/log";
 export * from "@/memo";
@@ -85,8 +87,6 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
-export { Measure } from "@/vis/measure";
-export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";
 export { Workspace } from "@/workspace";
 export {

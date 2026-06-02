@@ -10,6 +10,8 @@
 export { aether } from "@/aether/aether";
 export { flux } from "@/flux/aether";
 export { lineplot } from "@/lineplot/aether";
+export { measure } from "@/lineplot/measure/aether";
+export { rule } from "@/lineplot/rule/aether";
 export { tooltip } from "@/lineplot/tooltip/aether";
 export { pluto } from "@/pluto/aether";
 export { status } from "@/status/aether";
@@ -18,7 +20,5 @@ export { telem } from "@/telem/aether";
 export { theming } from "@/theming/aether";
 export { canvas } from "@/vis/canvas/aether";
 export { diagram } from "@/vis/diagram/aether";
-export { measure } from "@/vis/measure/aether";
 export { render } from "@/vis/render";
-export { rule } from "@/vis/rule/aether";
 export { value } from "@/vis/value/aether";
