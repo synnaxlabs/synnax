@@ -17,13 +17,20 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
+import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import {
   useSelectEditable,
   useSelectHideIndicators,
+  useSelectOptional,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
-import { setEditable, setHideIndicators, setSelectedCells } from "@/table/slice";
+import {
+  internalCreate,
+  setEditable,
+  setHideIndicators,
+  setSelectedCells,
+} from "@/table/slice";
 import { useAutoUpload } from "@/table/useUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
@@ -133,9 +140,15 @@ const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null =>
   );
 };
 
+const useEnsureState = createEnsureState({
+  useExists: (key) => useSelectOptional(key) != null,
+  create: (key) => internalCreate({ key }),
+});
+
 export const Table: Layout.Renderer = (props) => {
+  const exists = useEnsureState(props.layoutKey);
   const uploaded = useAutoUpload(props.layoutKey);
-  if (!uploaded) return null;
+  if (!exists || !uploaded) return null;
   return <Loaded {...props} />;
 };
 

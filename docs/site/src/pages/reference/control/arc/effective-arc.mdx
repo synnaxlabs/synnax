@@ -4,8 +4,8 @@ title: "Effective Arc"
 description: "Best practices and common pitfalls when writing Arc automations"
 prev: "Test Sequences"
 prevURL: "/reference/control/arc/how-to/test-sequences"
-next: "Syntax"
-nextURL: "/reference/control/arc/reference/syntax"
+next: "Language Reference"
+nextURL: "/reference/control/arc/reference"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -51,7 +51,7 @@ sensor -> filter{} -> output
 pressure > 500 => next
 ```
 
-For stage and sequence transitions, `=>` is what you want. `->` into a stage name also
+For sequence and stage transitions, `=>` is what you want. `->` into a stage name also
 transitions but fires on the first data arrival regardless of truthiness, which rarely
 matches operator intent.
 
