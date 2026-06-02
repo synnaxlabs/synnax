@@ -836,3 +836,59 @@ func TickTypeFromPB(v TickType) (lineplot.TickType, error) {
 		return lineplot.TickType(""), errors.Newf("unrecognized TickType value: %v", v)
 	}
 }
+
+// XAxisKeyToPB converts lineplot.XAxisKey to XAxisKey.
+func XAxisKeyToPB(v lineplot.XAxisKey) (XAxisKey, error) {
+	switch v {
+	case lineplot.XAxisKeyX1:
+		return XAxisKey_X_AXIS_KEY_X_1, nil
+	case lineplot.XAxisKeyX2:
+		return XAxisKey_X_AXIS_KEY_X_2, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.XAxisKey value: %v", v)
+	}
+}
+
+// XAxisKeyFromPB converts XAxisKey to lineplot.XAxisKey.
+func XAxisKeyFromPB(v XAxisKey) (lineplot.XAxisKey, error) {
+	switch v {
+	case XAxisKey_X_AXIS_KEY_X_1:
+		return lineplot.XAxisKeyX1, nil
+	case XAxisKey_X_AXIS_KEY_X_2:
+		return lineplot.XAxisKeyX2, nil
+	default:
+		return lineplot.XAxisKey(""), errors.Newf("unrecognized XAxisKey value: %v", v)
+	}
+}
+
+// YAxisKeyToPB converts lineplot.YAxisKey to YAxisKey.
+func YAxisKeyToPB(v lineplot.YAxisKey) (YAxisKey, error) {
+	switch v {
+	case lineplot.YAxisKeyY1:
+		return YAxisKey_Y_AXIS_KEY_Y_1, nil
+	case lineplot.YAxisKeyY2:
+		return YAxisKey_Y_AXIS_KEY_Y_2, nil
+	case lineplot.YAxisKeyY3:
+		return YAxisKey_Y_AXIS_KEY_Y_3, nil
+	case lineplot.YAxisKeyY4:
+		return YAxisKey_Y_AXIS_KEY_Y_4, nil
+	default:
+		return 0, errors.Newf("unrecognized lineplot.YAxisKey value: %v", v)
+	}
+}
+
+// YAxisKeyFromPB converts YAxisKey to lineplot.YAxisKey.
+func YAxisKeyFromPB(v YAxisKey) (lineplot.YAxisKey, error) {
+	switch v {
+	case YAxisKey_Y_AXIS_KEY_Y_1:
+		return lineplot.YAxisKeyY1, nil
+	case YAxisKey_Y_AXIS_KEY_Y_2:
+		return lineplot.YAxisKeyY2, nil
+	case YAxisKey_Y_AXIS_KEY_Y_3:
+		return lineplot.YAxisKeyY3, nil
+	case YAxisKey_Y_AXIS_KEY_Y_4:
+		return lineplot.YAxisKeyY4, nil
+	default:
+		return lineplot.YAxisKey(""), errors.Newf("unrecognized YAxisKey value: %v", v)
+	}
+}

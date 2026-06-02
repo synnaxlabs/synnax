@@ -39,13 +39,7 @@ import {
   XAxis as CoreXAxis,
   YAxis as CoreYAxis,
 } from "@/lineplot/Axis";
-import {
-  AXIS_KEYS,
-  axisLocation,
-  isAxisKey,
-  isXAxisKey,
-  isYAxisKey,
-} from "@/lineplot/axisKeys";
+import { axisLocation, isAxisKey, isXAxisKey, isYAxisKey } from "@/lineplot/axisKeys";
 import { type DerivedLine, resolveLineColor, useDerivedLines } from "@/lineplot/derive";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
@@ -523,7 +517,7 @@ export const LinePlot = ({
 
   const builtAxes = useMemo<AxisRenderProps[]>(
     () =>
-      AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
+      lineplot.AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
         (k): AxisRenderProps => ({ ...axes[k], location: axisLocation(k), key: k }),
       ),
     [axes, channels],

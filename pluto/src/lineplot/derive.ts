@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type lineplot } from "@synnaxlabs/client";
+import { type channel, lineplot } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
-import { X_AXIS_KEYS, type XAxisKey, type YAxisKey } from "@/lineplot/axisKeys";
 import { useSelectChannels, useSelectLines, useSelectRanges } from "@/lineplot/queries";
 
 export interface TypedLineKey {
   range: string;
-  xAxis: XAxisKey;
-  yAxis: YAxisKey;
+  xAxis: lineplot.XAxisKey;
+  yAxis: lineplot.YAxisKey;
   channels: {
     x: channel.Key;
     y: channel.Key;
@@ -34,8 +33,8 @@ export const typedLineKeyFromString = (key: string): TypedLineKey => {
   const [yAxis, xAxis, range, x, y] = key.split("---");
   return {
     range,
-    xAxis: xAxis as XAxisKey,
-    yAxis: yAxis as YAxisKey,
+    xAxis: xAxis as lineplot.XAxisKey,
+    yAxis: yAxis as lineplot.YAxisKey,
     channels: { x: Number(x), y: Number(y) },
   };
 };
@@ -63,8 +62,8 @@ export const resolveLineColor = (
   stored ?? color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
 
 export interface DerivedLine extends lineplot.Line {
-  xAxis: XAxisKey;
-  yAxis: YAxisKey;
+  xAxis: lineplot.XAxisKey;
+  yAxis: lineplot.YAxisKey;
   range: string;
   xChannel: channel.Key;
   yChannel: channel.Key;
@@ -81,7 +80,7 @@ export const useDerivedLines = (key: lineplot.Key): DerivedLine[] => {
   return useMemo(() => {
     const out: DerivedLine[] = [];
     const overrides = new Map(lines.map((l) => [l.key, l]));
-    for (const xAxis of X_AXIS_KEYS) {
+    for (const xAxis of lineplot.X_AXIS_KEYS) {
       const xChannel = channels[xAxis];
       for (const range of ranges[xAxis])
         for (const yAxis of ["y1", "y2", "y3", "y4"] as const)
@@ -114,7 +113,7 @@ export const useDerivedLineKeys = (key: lineplot.Key): string[] => {
   const ranges = useSelectRanges({ key });
   return useMemo(() => {
     const out: string[] = [];
-    for (const xAxis of X_AXIS_KEYS) {
+    for (const xAxis of lineplot.X_AXIS_KEYS) {
       const xChannel = channels[xAxis];
       for (const range of ranges[xAxis])
         for (const yAxis of ["y1", "y2", "y3", "y4"] as const)

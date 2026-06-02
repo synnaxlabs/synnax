@@ -41,6 +41,20 @@ enum DownsampleMode {
   DOWNSAMPLE_MODE_DECIMATE = 1;
 }
 
+// XAxisKey names one of the two x-axes. X-axes carry a single channel each.
+enum XAxisKey {
+  X_AXIS_KEY_X_1 = 0;
+  X_AXIS_KEY_X_2 = 1;
+}
+
+// YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
+enum YAxisKey {
+  Y_AXIS_KEY_Y_1 = 0;
+  Y_AXIS_KEY_Y_2 = 1;
+  Y_AXIS_KEY_Y_3 = 2;
+  Y_AXIS_KEY_Y_4 = 3;
+}
+
 // Title is the plot title configuration.
 message Title {
   // level is the typography level of the title text.

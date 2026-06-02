@@ -27,6 +27,14 @@ export const DOWNSAMPLE_MODES = ["average", "decimate"] as const;
 export const downsampleModeZ = z.enum(DOWNSAMPLE_MODES);
 export type DownsampleMode = z.infer<typeof downsampleModeZ>;
 
+export const X_AXIS_KEYS = ["x1", "x2"] as const;
+export const xAxisKeyZ = z.enum(X_AXIS_KEYS);
+export type XAxisKey = z.infer<typeof xAxisKeyZ>;
+
+export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
+export const yAxisKeyZ = z.enum(Y_AXIS_KEYS);
+export type YAxisKey = z.infer<typeof yAxisKeyZ>;
+
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
   /** level is the typography level of the title text. */

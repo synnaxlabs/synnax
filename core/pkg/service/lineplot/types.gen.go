@@ -80,6 +80,44 @@ func (d DownsampleMode) IsValid() bool {
 	}
 }
 
+// XAxisKey names one of the two x-axes. X-axes carry a single channel each.
+type XAxisKey string
+
+const (
+	XAxisKeyX1 XAxisKey = "x1"
+	XAxisKeyX2 XAxisKey = "x2"
+)
+
+// IsValid reports whether x is one of the defined XAxisKey values.
+func (x XAxisKey) IsValid() bool {
+	switch x {
+	case XAxisKeyX1, XAxisKeyX2:
+		return true
+	default:
+		return false
+	}
+}
+
+// YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
+type YAxisKey string
+
+const (
+	YAxisKeyY1 YAxisKey = "y1"
+	YAxisKeyY2 YAxisKey = "y2"
+	YAxisKeyY3 YAxisKey = "y3"
+	YAxisKeyY4 YAxisKey = "y4"
+)
+
+// IsValid reports whether y is one of the defined YAxisKey values.
+func (y YAxisKey) IsValid() bool {
+	switch y {
+	case YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
 // Title is the plot title configuration.
 type Title struct {
 	// Level is the typography level of the title text.

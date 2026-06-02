@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type lineplot } from "@synnaxlabs/client";
 import { Channel, Input, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
@@ -17,8 +17,8 @@ export interface SelectMultipleAxesInputItemProps extends Omit<
   Input.ItemProps,
   "onChange" | "children"
 > {
-  axis: PLinePlot.AxisKey;
-  onChange: (key: PLinePlot.AxisKey, v: channel.Key[]) => void;
+  axis: lineplot.AxisKey;
+  onChange: (key: lineplot.AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
   selectProps?: Partial<Channel.SelectMultipleProps>;
 }
@@ -55,8 +55,8 @@ export const SelectMultipleAxesInputItem = ({
 };
 
 export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
-  axis: PLinePlot.AxisKey;
-  onChange: (key: PLinePlot.AxisKey, v: channel.Key) => void;
+  axis: lineplot.AxisKey;
+  onChange: (key: lineplot.AxisKey, v: channel.Key) => void;
   value: channel.Key;
   selectProps?: Partial<Channel.SelectSingleProps>;
 }

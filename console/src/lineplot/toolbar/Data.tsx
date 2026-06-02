@@ -29,7 +29,7 @@ const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };
 const diffChannels = (
   current: readonly channel.Key[],
   next: readonly channel.Key[],
-  axisKey: PLinePlot.YAxisKey,
+  axisKey: lineplot.YAxisKey,
 ): lineplot.Action[] => {
   const currentSet = new Set(current);
   const nextSet = new Set(next);
@@ -44,7 +44,7 @@ const diffChannels = (
 const diffRanges = (
   current: readonly string[],
   next: readonly string[],
-  axisKey: PLinePlot.XAxisKey,
+  axisKey: lineplot.XAxisKey,
 ): lineplot.Action[] => {
   const currentSet = new Set(current);
   const nextSet = new Set(next);
@@ -62,22 +62,22 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const dispatch = useAssignedDispatch(layoutKey);
 
   const handleYChannelSelect = useCallback(
-    (key: PLinePlot.AxisKey, value: readonly channel.Key[]): void => {
-      const axis = key as PLinePlot.YAxisKey;
+    (key: lineplot.AxisKey, value: readonly channel.Key[]): void => {
+      const axis = key as lineplot.YAxisKey;
       dispatch(diffChannels(channels[axis], value, axis));
     },
     [dispatch, channels],
   );
 
   const handleXChannelSelect = useCallback(
-    (key: PLinePlot.AxisKey, value: channel.Key): void => {
+    (key: lineplot.AxisKey, value: channel.Key): void => {
       dispatch([lineplot.setXChannel({ axisKey: key, channel: value })]);
     },
     [dispatch],
   );
 
   const handleRangeSelect = useCallback(
-    (key: PLinePlot.XAxisKey, value: string[]): void => {
+    (key: lineplot.XAxisKey, value: string[]): void => {
       dispatch(diffRanges(ranges[key], value, key));
     },
     [dispatch, ranges],

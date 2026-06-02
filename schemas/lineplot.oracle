@@ -34,14 +34,23 @@ DownsampleMode enum {
     @doc value "selects how a line condenses samples that map to the same pixel."
 }
 
-AxisKey enum {
+XAxisKey enum {
     x1 = "x1"
     x2 = "x2"
+
+    @doc value "names one of the two x-axes. X-axes carry a single channel each."
+}
+
+YAxisKey enum {
     y1 = "y1"
     y2 = "y2"
     y3 = "y3"
     y4 = "y4"
 
+    @doc value "names one of the four y-axes. Y-axes carry zero or more channels each."
+}
+
+AxisKey enum extends XAxisKey, YAxisKey {
     @doc value "names one of the six fixed plot axes."
 }
 
