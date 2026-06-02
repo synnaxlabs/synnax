@@ -149,10 +149,10 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY1, Channel: 42,
+						AxisKey: lineplot.YAxisKeyY1, Channel: 42,
 					}),
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY1, Channel: 43,
+						AxisKey: lineplot.YAxisKeyY1, Channel: 43,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -166,10 +166,10 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY2, Channel: 7,
+						AxisKey: lineplot.YAxisKeyY2, Channel: 7,
 					}),
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY2, Channel: 7,
+						AxisKey: lineplot.YAxisKeyY2, Channel: 7,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -183,7 +183,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyX1, Channel: 1,
+						AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
@@ -193,13 +193,13 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY3, Channel: 1,
+						AxisKey: lineplot.YAxisKeyY3, Channel: 1,
 					}),
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY3, Channel: 2,
+						AxisKey: lineplot.YAxisKeyY3, Channel: 2,
 					}),
 					lineplot.NewRemoveChannelAction(lineplot.RemoveChannelPayload{
-						AxisKey: lineplot.AxisKeyY3, Channel: 1,
+						AxisKey: lineplot.YAxisKeyY3, Channel: 1,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -213,7 +213,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-						AxisKey: lineplot.AxisKeyX1, Channel: 99,
+						AxisKey: lineplot.XAxisKeyX1, Channel: 99,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -227,7 +227,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-						AxisKey: lineplot.AxisKeyY1, Channel: 1,
+						AxisKey: lineplot.XAxisKey("y1"), Channel: 1,
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
@@ -239,13 +239,13 @@ var _ = Describe("Writer", func() {
 				r2 := uuid.NewString()
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-						AxisKey: lineplot.AxisKeyX1, Range: r1,
+						AxisKey: lineplot.XAxisKeyX1, Range: r1,
 					}),
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-						AxisKey: lineplot.AxisKeyX1, Range: r2,
+						AxisKey: lineplot.XAxisKeyX1, Range: r2,
 					}),
 					lineplot.NewRemoveRangeAction(lineplot.RemoveRangePayload{
-						AxisKey: lineplot.AxisKeyX1, Range: r1,
+						AxisKey: lineplot.XAxisKeyX1, Range: r1,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -259,7 +259,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-						AxisKey: lineplot.AxisKeyY1, Range: uuid.NewString(),
+						AxisKey: lineplot.XAxisKey("y1"), Range: uuid.NewString(),
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
@@ -356,13 +356,13 @@ var _ = Describe("Writer", func() {
 				r := uuid.NewString()
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-						AxisKey: lineplot.AxisKeyX1, Channel: 1,
+						AxisKey: lineplot.XAxisKeyX1, Channel: 1,
 					}),
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-						AxisKey: lineplot.AxisKeyX1, Range: r,
+						AxisKey: lineplot.XAxisKeyX1, Range: r,
 					}),
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyY1, Channel: 10,
+						AxisKey: lineplot.YAxisKeyY1, Channel: 10,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -381,7 +381,7 @@ var _ = Describe("Writer", func() {
 				actions := []lineplot.Action{
 					lineplot.NewRenameAction(lineplot.RenamePayload{Name: "broadcast"}),
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
-						AxisKey: lineplot.AxisKeyX1, Channel: 5,
+						AxisKey: lineplot.XAxisKeyX1, Channel: 5,
 					}),
 				}
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "client-xyz", actions)).
@@ -418,7 +418,7 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(svc.OnAction(rec.record))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
-						AxisKey: lineplot.AxisKeyX1, Channel: 1,
+						AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 				Expect(rec.snapshot()).To(BeEmpty())
