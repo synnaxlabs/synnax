@@ -65,6 +65,9 @@ export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {
 export interface Component {
   type: string;
   key: string;
+  /** Absolute path from the root to this component. Its last element is `key`. Serves
+   * as the component's cross-thread identity. */
+  path: readonly string[];
   toString(): string;
   _updateState: (params: UpdateStateParams) => void;
   _updateContext: (values: ContextMap) => void;
@@ -74,7 +77,9 @@ export interface Component {
 
 /** Required constructor arguments for every aether {@link Component}. */
 export interface ComponentConstructorProps {
-  key: string;
+  /** Absolute path from the root to this component. The component's `key` is its last
+   * element. */
+  path: readonly string[];
   type: string;
   /** Channel for posting messages back to the main thread. */
   sender: Sender;
@@ -186,6 +191,10 @@ export abstract class Leaf<
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component {
   readonly type: string;
+  /** Absolute path from the root to this component; its cross-thread identity. */
+  readonly path: readonly string[];
+  /** This component's local name: the last element of {@link path}. Unique only among
+   * its siblings. */
   readonly key: string;
   /** Channel for posting messages back to the main thread. */
   protected readonly sender: Sender;
@@ -214,14 +223,15 @@ export abstract class Leaf<
   > | null = null;
 
   constructor({
-    key,
+    path,
     type,
     sender,
     instrumentation,
     parentCtxValues,
   }: ComponentConstructorProps) {
     this.type = type;
-    this.key = key;
+    this.path = path;
+    this.key = path[path.length - 1];
     this.sender = sender;
     this._internalState = {} as InternalState;
     this.instrumentation = instrumentation.child(this.toString());
@@ -260,7 +270,7 @@ export abstract class Leaf<
     const nextState = state.executeSetter(next, this.state);
     this._prevState = shallow.copy(this._state);
     this._state = zod.parse(this._schema, nextState, { label: this.toString() });
-    this.sender.send({ variant: "update", key: this.key, state: this._state });
+    this.sender.send({ variant: "update", path: this.path, state: this._state });
   }
 
   /** The component's current parsed state. Throws if read before the first update has
@@ -624,7 +634,7 @@ export class Root extends Composite<typeof aetherRootState> {
     registry,
   }: RootProps) {
     super({
-      key: Root.KEY,
+      path: [Root.KEY],
       type: Root.TYPE,
       sender: worker,
       instrumentation,
@@ -675,10 +685,7 @@ export class Root extends Composite<typeof aetherRootState> {
       path,
       type,
       state,
-      create: (parentCtxValues) => {
-        const key = path[path.length - 1];
-        return this.create({ key, type, parentCtxValues });
-      },
+      create: (parentCtxValues) => this.create({ path, type, parentCtxValues }),
     });
   }
 
@@ -711,7 +718,7 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 
   private create({
-    key,
+    path,
     type,
     parentCtxValues,
   }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
@@ -719,7 +726,7 @@ export class Root extends Composite<typeof aetherRootState> {
     if (Constructor == null)
       throw new UnexpectedError(`[Root.create] - ${type} not found in registry`);
     return new Constructor({
-      key,
+      path,
       type,
       sender: this.comms,
       instrumentation: this.instrumentation,

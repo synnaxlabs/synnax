@@ -16,6 +16,17 @@ import { state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
 
+/** Separator joining a path into its store identity. A control character that cannot
+ * appear in a generated nanoid or any hand-authored aether key, so distinct paths never
+ * collapse to the same identity. */
+const PATH_SEP = String.fromCharCode(0x1f);
+
+/** The store identity for a component: its path flattened to a string. Two components
+ * collide here only if they occupy the same position in the tree: exactly a
+ * re-registration of the same component (e.g. a StrictMode remount), never two distinct
+ * components. */
+const pathID = (path: readonly string[]): string => path.join(PATH_SEP);
+
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
@@ -26,10 +37,10 @@ class InvokeTracker {
   private pending = new Map<string, PendingRequest>();
   private counters = new Map<string, number>();
 
-  nextKey(componentKey: string): string {
-    const counter = this.counters.get(componentKey) ?? 0;
-    this.counters.set(componentKey, counter + 1);
-    return `${componentKey}-${counter}`;
+  nextKey(componentID: string): string {
+    const counter = this.counters.get(componentID) ?? 0;
+    this.counters.set(componentID, counter + 1);
+    return `${componentID}-${counter}`;
   }
 
   track(
@@ -69,8 +80,8 @@ class InvokeTracker {
     this.pending.clear();
   }
 
-  clearCounter(key: string): void {
-    this.counters.delete(key);
+  clearCounter(id: string): void {
+    this.counters.delete(id);
   }
 }
 
@@ -104,12 +115,10 @@ export interface RegisterParams<
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
-  /** Stable, unique key identifying the component for the lifetime of the registration.
-   * */
-  key: string;
   /** Component type, matched against the worker-side registry. */
   type: string;
-  /** Component path in the aether tree. */
+  /** Component path in the aether tree. Its flattened form is the component's identity
+   * for the lifetime of the registration. */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
   schema: StateSchema;
@@ -128,7 +137,6 @@ export interface Handle<
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
-  key: string;
   path: readonly string[];
   methods: aether.CallersFromSchema<Methods>;
   setState: (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void;
@@ -155,16 +163,17 @@ export interface StoreConfig {
  * render.
  */
 export class Store {
+  /** Live entries keyed by component identity ({@link pathID}). */
   private entries: Map<string, Entry> = new Map();
-  /** Subscribers keyed by component key. Listeners persist across an entry's
+  /** Subscribers keyed by component identity. Listeners persist across an entry's
    * register-unregister-register cycle so subscriptions wired during a StrictMode
    * pseudo-remount stay live once the real register fires. */
-  private listenersByKey: Map<string, Set<Listener>> = new Map();
-  /** Last known state per key. Survives entry unregistration so that
+  private listenersByID: Map<string, Set<Listener>> = new Map();
+  /** Last known state per component identity. Survives entry unregistration so that
    * `useSyncExternalStore`'s tearing-detection getSnapshot calls return a stable value
    * across the unregister-then-register window. Cleaned up when both the entry and all
-   * subscribers for the key are gone. */
-  private snapshotsByKey: Map<string, state.State> = new Map();
+   * subscribers for the identity are gone. */
+  private snapshotsByID: Map<string, state.State> = new Map();
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
    * {@link dispose} and the next send (lazy re-attach). */
   private worker: aether.MainComms = aether.NOOP_MAIN_COMMS;
@@ -256,66 +265,70 @@ export class Store {
     };
   }
 
-  /** Subscribes to state changes for the component at `key`. Fires on both worker
+  /** Subscribes to state changes for the component at `path`. Fires on both worker
    * pushes and local {@link Handle.setState} calls. Subscriptions persist across
    * register-unregister cycles. Returns an unsubscribe function. */
-  subscribe(key: string, listener: Listener): () => void {
-    let set = this.listenersByKey.get(key);
+  subscribe(path: readonly string[], listener: Listener): () => void {
+    const id = pathID(path);
+    let set = this.listenersByID.get(id);
     if (set == null) {
       set = new Set();
-      this.listenersByKey.set(key, set);
+      this.listenersByID.set(id, set);
     }
     set.add(listener);
     return () => {
-      const s = this.listenersByKey.get(key);
+      const s = this.listenersByID.get(id);
       if (s == null) return;
       s.delete(listener);
       if (s.size > 0) return;
-      this.listenersByKey.delete(key);
-      if (!this.entries.has(key)) this.snapshotsByKey.delete(key);
+      this.listenersByID.delete(id);
+      if (!this.entries.has(id)) this.snapshotsByID.delete(id);
     };
   }
 
-  /** Returns the latest known state for the component at `key`. Falls back to the
+  /** Returns the latest known state for the component at `path`. Falls back to the
    * cached last-known snapshot when the entry has been unregistered but subscribers
    * remain (e.g. StrictMode's unregister-then-register window). Throws
    * {@link UnexpectedError} only when neither is available. */
   getSnapshot<StateSchema extends z.ZodType<state.State, state.State>>(
-    key: string,
+    path: readonly string[],
   ): z.infer<StateSchema> {
-    const entry = this.getEntry<StateSchema>(key);
+    const id = pathID(path);
+    const entry = this.getEntry<StateSchema>(id);
     if (entry != null) return entry.state;
-    const cached = this.snapshotsByKey.get(key);
+    const cached = this.snapshotsByID.get(id);
     if (cached != null) return cached as z.infer<StateSchema>;
-    throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
+    throw new UnexpectedError(
+      `[aether.store] missing entry for path ${path.join(".")}`,
+    );
   }
 
   /** Single seam where the schema-specific types of `state` and `onReceiveRef` are
    * recovered from the erased storage map. */
   private getEntry<StateSchema extends z.ZodType<state.State, state.State>>(
-    key: string,
+    id: string,
   ): Entry<StateSchema> | undefined {
-    return this.entries.get(key) as Entry<StateSchema> | undefined;
+    return this.entries.get(id) as Entry<StateSchema> | undefined;
   }
 
   /** Single seam where an Entry's schema-specific types are erased on insert into the
    * uniform storage map. */
   private setEntry<StateSchema extends z.ZodType<state.State, state.State>>(
-    key: string,
+    id: string,
     entry: Entry<StateSchema>,
   ): void {
-    this.entries.set(key, entry);
+    this.entries.set(id, entry);
   }
 
   /** Registers the component described by `params` and sends its initial state to the
-   * worker. If a component with the same key already exists, the prior worker component
-   * is deleted and the entry is replaced; subscribers keep their subscriptions. */
+   * worker. If a component is already registered at the same path (e.g. a StrictMode
+   * remount), the prior worker component is deleted and the entry is replaced;
+   * subscribers keep their subscriptions. */
   register<
     StateSchema extends z.ZodType<state.State, state.State>,
     Methods extends aether.MethodsSchema,
   >(params: RegisterParams<StateSchema, Methods>): Handle<StateSchema, Methods> {
     const {
-      key,
       type,
       path,
       schema,
@@ -323,22 +336,23 @@ export class Store {
       initialTransfer = [],
       methodsSchema,
     } = params;
-    if (key.length === 0)
+    if (path.length === 0)
       throw new ValidationError(
-        `[aether.store] received zero length key when registering component of type ${type}`,
+        `[aether.store] received empty path when registering component of type ${type}`,
       );
     if (type.length === 0)
       console.warn(
         `[aether.store] received zero length type when registering component at ${path.join(".")}. This is probably a bad idea.`,
       );
 
+    const id = pathID(path);
     const parsed = zod.parse(schema, initialState, { label: type });
-    const existing = this.entries.get(key);
+    const existing = this.entries.get(id);
     if (existing != null) {
       this.send({ variant: "delete", path: existing.path });
       existing.controller.abort(new Error("Component re-registered"));
     }
-    this.setEntry<StateSchema>(key, {
+    this.setEntry<StateSchema>(id, {
       type,
       path,
       schema,
@@ -346,28 +360,30 @@ export class Store {
       onReceiveRef: params.onReceiveRef ?? null,
       controller: new AbortController(),
     });
-    this.snapshotsByKey.set(key, parsed);
+    this.snapshotsByID.set(id, parsed);
     // Deferred: register runs during a React render and uses listeners are setStates
     // React refuses to accept mid-render. StrictMode's pseudo- remount path can hit
     // this with a persisted listener still attached.
-    const listeners = this.listenersByKey.get(key);
+    const listeners = this.listenersByID.get(id);
     if (listeners != null && listeners.size > 0)
       queueMicrotask(() => listeners.forEach((l) => l()));
     this.send({ variant: "update", path, state: parsed, type }, initialTransfer);
 
-    return this.buildHandle(key, methodsSchema);
+    return this.buildHandle(id, methodsSchema);
   }
 
-  /** Deletes the component at `key`: sends a delete message to the worker and aborts
-   * any pending invokes scoped to the component. No-op if the key isn't registered. */
-  unregister(key: string): void {
-    const entry = this.entries.get(key);
+  /** Deletes the component at `path`: sends a delete message to the worker and aborts
+   * any pending invokes scoped to the component. No-op if nothing is registered at
+   * `path`. */
+  unregister(path: readonly string[]): void {
+    const id = pathID(path);
+    const entry = this.entries.get(id);
     if (entry == null) return;
     this.send({ variant: "delete", path: entry.path });
     entry.controller.abort(new Error("Component deleted"));
-    this.invokeTracker.clearCounter(key);
-    this.entries.delete(key);
-    if (!this.listenersByKey.has(key)) this.snapshotsByKey.delete(key);
+    this.invokeTracker.clearCounter(id);
+    this.entries.delete(id);
+    if (!this.listenersByID.has(id)) this.snapshotsByID.delete(id);
   }
 
   private send(msg: aether.MainMessage, transfer: Transferable[] = []): void {
@@ -390,31 +406,32 @@ export class Store {
       this.invokeTracker.resolve(msg.key, msg.result, msg.error);
       return;
     }
-    const { key, state } = msg;
-    const entry = this.entries.get(key);
-    // Drop pushes for an unregistered key — possible when delete/update messages cross
+    const { path, state } = msg;
+    const id = pathID(path);
+    const entry = this.entries.get(id);
+    // Drop pushes for an unregistered path — possible when delete/update messages cross
     // in flight, or after a StrictMode pseudo-unmount.
     if (entry == null) return;
     const parsed = zod.parse(entry.schema, state, { label: entry.type });
     entry.state = parsed;
-    this.snapshotsByKey.set(key, parsed);
-    this.listenersByKey.get(key)?.forEach((l) => l());
+    this.snapshotsByID.set(id, parsed);
+    this.listenersByID.get(id)?.forEach((l) => l());
     entry.onReceiveRef?.current?.(parsed);
   }
 
   private buildHandle<
     StateSchema extends z.ZodType<state.State, state.State>,
     Methods extends aether.MethodsSchema,
-  >(key: string, methodsSchema?: Methods): Handle<StateSchema, Methods> {
-    const entry = this.getEntry<StateSchema>(key);
+  >(id: string, methodsSchema?: Methods): Handle<StateSchema, Methods> {
+    const entry = this.getEntry<StateSchema>(id);
     if (entry == null)
-      throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
+      throw new UnexpectedError(`[aether.store] missing entry for id ${id}`);
 
     const setState = (
       next: RawSetArg<StateSchema>,
       transfer: Transferable[] = [],
     ): void => {
-      const e = this.getEntry<StateSchema>(key);
+      const e = this.getEntry<StateSchema>(id);
       if (e == null) return;
       const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
         next,
@@ -422,18 +439,18 @@ export class Store {
       );
       const parsed = zod.parse(e.schema, raw, { label: e.type });
       e.state = parsed;
-      this.snapshotsByKey.set(key, parsed);
+      this.snapshotsByID.set(id, parsed);
       this.send(
         { variant: "update", path: e.path, state: parsed, type: e.type },
         transfer,
       );
-      this.listenersByKey.get(key)?.forEach((l) => l());
+      this.listenersByID.get(id)?.forEach((l) => l());
     };
 
-    const handleDelete = () => this.unregister(key);
+    const handleDelete = () => this.unregister(entry.path);
 
     const invokeMethod = (method: string, args: unknown[]): void => {
-      const e = this.entries.get(key);
+      const e = this.getEntry<StateSchema>(id);
       if (e == null) return;
       this.send({ variant: "invoke_request", path: e.path, method, args });
     };
@@ -446,10 +463,10 @@ export class Store {
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {
-        const e = this.entries.get(key);
+        const e = this.getEntry<StateSchema>(id);
         if (e == null || e.controller.signal.aborted)
           return reject(new Error("Component deleted"));
-        const invokeKey = this.invokeTracker.nextKey(key);
+        const invokeKey = this.invokeTracker.nextKey(id);
         this.invokeTracker.track(
           invokeKey,
           resolve,
@@ -471,7 +488,7 @@ export class Store {
       methodsSchema,
     );
 
-    return { key, path: entry.path, methods, setState, delete: handleDelete };
+    return { path: entry.path, methods, setState, delete: handleDelete };
   }
 }
 
