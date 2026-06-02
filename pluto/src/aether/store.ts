@@ -16,10 +16,10 @@ import { state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
 
-/** Path separator for store identities. Non-printable on purpose: keys carry domain
- * strings (channel names, `type:key` IDs) full of `.`/`:`/`/`, so a readable separator
- * could collide. `register` asserts keys never contain it; don't make it printable. */
-const PATH_SEP = String.fromCharCode(0x1f);
+/** Path separator for store identities. Aether keys are dotless identifiers (nanoids,
+ * UUIDs, numeric keys), so `.` joins unambiguously; `register` asserts keys never
+ * contain it. */
+const PATH_SEP = ".";
 
 /** A component's store identity: its path flattened. Collides only on same-path
  * re-registration (e.g. a StrictMode remount), never across distinct components. */
@@ -339,7 +339,7 @@ export class Store {
       );
     if (path.some((segment) => segment.includes(PATH_SEP)))
       throw new ValidationError(
-        `[aether.store] aether key may not contain the reserved path separator (U+001F) when registering component of type ${type} at ${path.join(" / ")}`,
+        `[aether.store] aether key may not contain the reserved path separator "${PATH_SEP}" when registering component of type ${type} at ${path.join(" / ")}`,
       );
     if (type.length === 0)
       console.warn(
