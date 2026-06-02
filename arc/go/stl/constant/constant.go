@@ -57,7 +57,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &constant{
 		State:       cfg.State,
 		value:       cfg.Node.Config[0].Value,
-		isEntryNode: len(cfg.Program.Edges.GetInputs(cfg.Node.Key)) == 0,
+		isEntryNode: cfg.Node.IsEntryNode(cfg.Program.Edges),
 	}, nil
 }
 

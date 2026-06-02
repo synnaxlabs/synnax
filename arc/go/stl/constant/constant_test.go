@@ -287,7 +287,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(-42)))
 		})
 
-		It("Should only emit once across multiple Next calls when entry node", func(ctx SpecContext) {
+		It("Should only emit once across multiple Next calls when node has no incoming edges", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -305,7 +305,7 @@ var _ = Describe("Constant", func() {
 			Expect(marked).To(HaveLen(1))
 		})
 
-		It("Should emit again after Reset is called when entry node", func(ctx SpecContext) {
+		It("Should emit again after Reset is called when node has no incoming edges", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
