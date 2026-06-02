@@ -928,6 +928,16 @@ func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(ctx.IDENT().GetText())
 	f.write(" enum")
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		refs := ctx.TypeRefList().AllTypeRef()
+		for i, ref := range refs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.write(ref.GetText())
+		}
+	}
 
 	body := ctx.EnumBody()
 	values := body.AllEnumValue()

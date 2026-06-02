@@ -101,6 +101,11 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("LONG_NAME = 2"))
 		})
 
+		It("should format an enum that extends others", func() {
+			result := format("AxisKey enum extends XAxisKey, YAxisKey {}\n")
+			Expect(result).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
+		})
+
 		It("should format an enum with domains", func() {
 			source := "Status enum {\n  ACTIVE = 1\n  INACTIVE = 2\n\n  @go output \"core/pkg/status\"\n}\n"
 			result := format(source)
