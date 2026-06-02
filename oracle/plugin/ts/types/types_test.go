@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -250,6 +251,31 @@ var _ = Describe("TS Types Plugin", func() {
 			// String enums generate a const array and z.enum(ARRAY)
 			Expect(content).To(ContainSubstring(`export const DATA_TYPES = ["float32", "float64", "int32"] as const`))
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
+		})
+
+		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const AXIS_KEYS = ["x1", "x2", "y1", "y2"] as const`))
+			Expect(content).To(ContainSubstring(`export const axisKeyZ = z.enum(AXIS_KEYS)`))
 		})
 
 		Context("primitive type mappings", func() {

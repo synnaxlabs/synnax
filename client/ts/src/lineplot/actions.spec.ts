@@ -108,6 +108,11 @@ describe("lineplot reducer", () => {
       const state = empty({ name: "before" });
       expect(roundTrip(state, rename({ name: "after" })).name).toEqual("before");
     });
+    it("should target the plot key so plot-level edits invalidate each other", () => {
+      const state = empty({ key: "11111111-1111-1111-1111-111111111111" });
+      const { targets } = reduceAll(state, [rename({ name: "x" })]);
+      expect(targets).toEqual([state.key]);
+    });
   });
 
   describe("setTitle", () => {
@@ -170,6 +175,12 @@ describe("lineplot reducer", () => {
         roundTrip(state, addChannel({ axisKey: "y2", channel: 7 })).channels.y2,
       ).toEqual([]);
     });
+    it("should target the channel so distinct channels do not invalidate each other", () => {
+      const { targets } = reduceAll(empty(), [
+        addChannel({ axisKey: "y1", channel: 42 }),
+      ]);
+      expect(targets).toEqual(["channel:42"]);
+    });
   });
 
   describe("removeChannel", () => {
@@ -210,6 +221,12 @@ describe("lineplot reducer", () => {
         roundTrip(state, setXChannel({ axisKey: "x1", channel: 99 })).channels.x1,
       ).toEqual(42);
     });
+    it("should target the x-axis so x1 and x2 edits are independent", () => {
+      const { targets } = reduceAll(empty(), [
+        setXChannel({ axisKey: "x2", channel: 99 }),
+      ]);
+      expect(targets).toEqual(["axis:x2"]);
+    });
   });
 
   describe("addRange and removeRange", () => {
@@ -231,6 +248,10 @@ describe("lineplot reducer", () => {
         roundTrip(state, addRange({ axisKey: "x2", range: r1 })).ranges.x2,
       ).toEqual([]);
     });
+    it("should target the range so distinct ranges do not invalidate each other", () => {
+      const { targets } = reduceAll(empty(), [addRange({ axisKey: "x1", range: r1 })]);
+      expect(targets).toEqual([`range:${r1}`]);
+    });
   });
 
   describe("setAxis", () => {
@@ -246,6 +267,10 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, setAxis({ axis: swapped })).axes.x1).toEqual(
         state.axes.x1,
       );
+    });
+    it("should target the edited axis so distinct axes are independent", () => {
+      const { targets } = reduceAll(empty(), [setAxis({ axis: zeroAxis("y3") })]);
+      expect(targets).toEqual(["axis:y3"]);
     });
   });
 
@@ -264,6 +289,17 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, setLine({ line: line("l1", "#0000ff") })).lines).toEqual(
         state.lines,
       );
+    });
+    it("should report no target for a fresh line insert so it is not recorded as undoable", () => {
+      const { targets } = reduceAll(empty(), [
+        setLine({ line: line("l1", "#ff0000") }),
+      ]);
+      expect(targets).toEqual([]);
+    });
+    it("should target the line on update so distinct lines are independent", () => {
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      const { targets } = reduceAll(state, [setLine({ line: line("l1", "#0000ff") })]);
+      expect(targets).toEqual(["line:l1"]);
     });
   });
 
@@ -289,6 +325,15 @@ describe("lineplot reducer", () => {
     it("should round-trip remove via the captured inverse setRule", () => {
       const state = empty({ rules: [rule("r1", "max")] });
       expect(roundTrip(state, removeRule({ key: "r1" })).rules).toEqual(state.rules);
+    });
+    it("should target the rule on both setRule and removeRule", () => {
+      const state = empty({ rules: [rule("r1", "max")] });
+      expect(
+        reduceAll(empty(), [setRule({ rule: rule("r1", "max") })]).targets,
+      ).toEqual(["rule:r1"]);
+      expect(reduceAll(state, [removeRule({ key: "r1" })]).targets).toEqual([
+        "rule:r1",
+      ]);
     });
   });
 
@@ -318,6 +363,14 @@ describe("lineplot reducer", () => {
         rename({ name: "b" }),
       ]);
       expect(targets).toEqual(["00000000-0000-0000-0000-000000000000"]);
+    });
+    it("should union the distinct per-resource targets it touched", () => {
+      const { targets } = reduceAll(empty(), [
+        addChannel({ axisKey: "y1", channel: 1 }),
+        addChannel({ axisKey: "y2", channel: 2 }),
+        setRule({ rule: rule("r1", "max") }),
+      ]);
+      expect(new Set(targets)).toEqual(new Set(["channel:1", "channel:2", "rule:r1"]));
     });
   });
 });
