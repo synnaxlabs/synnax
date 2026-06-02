@@ -65,8 +65,6 @@ export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {
 export interface Component {
   type: string;
   key: string;
-  /** Path from the root; its cross-thread identity. Last element is `key`. */
-  path: readonly string[];
   toString(): string;
   _updateState: (params: UpdateStateParams) => void;
   _updateContext: (values: ContextMap) => void;
@@ -189,9 +187,9 @@ export abstract class Leaf<
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component {
   readonly type: string;
-  /** Path from the root; its cross-thread identity. */
-  readonly path: readonly string[];
-  /** Local name: last element of {@link path}, unique only among siblings. */
+  /** Path from the root; addresses this component's worker-to-main state pushes. */
+  private readonly path: readonly string[];
+  /** Local name: last element of the path, unique only among siblings. */
   readonly key: string;
   /** Channel for posting messages back to the main thread. */
   protected readonly sender: Sender;
