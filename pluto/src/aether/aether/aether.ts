@@ -187,10 +187,8 @@ export abstract class Leaf<
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > implements Component {
   readonly type: string;
-  /** Path from the root; addresses this component's worker-to-main state pushes. */
+  /** Path from the root; this component's identity. Its last element is {@link key}. */
   private readonly path: readonly string[];
-  /** Local name: last element of the path, unique only among siblings. */
-  readonly key: string;
   /** Channel for posting messages back to the main thread. */
   protected readonly sender: Sender;
   private readonly _internalState: InternalState;
@@ -226,7 +224,6 @@ export abstract class Leaf<
   }: ComponentConstructorProps) {
     this.type = type;
     this.path = path;
-    this.key = path[path.length - 1];
     this.sender = sender;
     this._internalState = {} as InternalState;
     this.instrumentation = instrumentation.child(this.toString());
@@ -234,6 +231,11 @@ export abstract class Leaf<
     parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
     this.childCtxValues = new Map();
     this.childCtxChangedKeys = new Set();
+  }
+
+  /** Local name: the last element of the path, unique only among siblings. */
+  get key(): string {
+    return this.path[this.path.length - 1];
   }
 
   private initializeMethods() {
