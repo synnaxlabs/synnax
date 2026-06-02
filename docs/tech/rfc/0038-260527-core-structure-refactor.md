@@ -350,14 +350,24 @@ it is never persisted and never read back from storage. The same field _is_ seri
 in the API/transport (JSON/proto) output, because clients need it. This solves the
 persisted-vs-derived split named in RFC 0026 §1.1.12 at the schema level.
 
-### 4.2.2 - Always Resolve on Retrieve
+### 4.2.2 - Resolution Stays in the API Layer
 
-Resolution moves from the API layer into the service `Retrieve`, and runs on every
-retrieve (no `IncludeX` flags). The owning service takes the dependencies the API
-currently holds (`label.Service`, `status.Service`, `ontology`). Resolution is **batched
-across the result set** — one labels query, one status query, one parent traversal for
-the whole page — not one round trip per entity, since it is now unconditional. Oracle
-generates the batched resolver from the `resolved` domain (Section 4.6.1).
+Resolution remains where it is today: in the API layer, after the service `Retrieve`
+returns the stored record. The service `Retrieve` reads only the Gorp-backed fields and
+leaves resolved fields at their zero values; the API handler fills them in from
+`label.Service`, `status.Service`, and the ontology before responding. The existing
+per-field opt-in flags (`IncludeLabels`, `IncludeParent`, `IncludeStatus`, …) are
+preserved — clients that don't need a resolved field don't pay for it, and
+resolution-cost decisions stay close to the caller. Resolution is **batched across the
+result set** wherever the API touches more than one record — one labels query, one
+status query, one parent traversal for the page — not one round trip per entity. Oracle
+generates the batched resolver from the `resolved` domain (Section 4.6.1) and emits it
+as a helper the API handler calls.
+
+The change from today is structural, not behavioral: there is now one service-layer type
+(4.2.0) carrying the resolved fields as zero values out of `Retrieve`, instead of a
+duplicate API type that embeds the service type and adds them. The API still owns when
+and whether to fill them.
 
 Because resolved fields are excluded from storage, the write path is unaffected: the
 writer cannot persist them, and the validation seam (4.5) ignores them — they are
@@ -876,8 +886,9 @@ exist on day one; it's created the first time a developer needs method-receiver 
 A new field domain marks a field as resolved. Oracle:
 1. excludes it from `EncodeOrc`/`DecodeOrc` (storage exclusion, 4.2.1);
 2. keeps it in API/proto serialization;
-3. generates a batched resolver invoked by the service `Retrieve` (4.2.2). The domain
-   names the source (`label`, `status`, ontology `parent`).
+3. generates a batched resolver the API layer calls, gated by the corresponding
+   `Include<Field>` request flag (4.2.2). The domain names the source (`label`,
+   `status`, ontology `parent`).
 
 ### 4.6.2 - `validate` Extensions
 
@@ -905,12 +916,19 @@ the ontology/group/search wiring, but that strands service-level fields (`Expres
 `Operations`) on a distribution struct; moving the whole metadata table up is the
 cleaner cut.
 
-## 5.2 - Resolution Is Always-On
+## 5.2 - Resolution Stays in the API Layer, Opt-In Preserved
 
-`Retrieve` always resolves `Labels`/`Parent`/`Status`; the `IncludeX` flags are removed.
-Simplicity of the single type and call site outweighs the cost, which is mitigated by
-batched resolution. If a future hot path needs to skip resolution, a narrow opt-out can
-be added then (Section 7).
+Resolution is not moved into the service `Retrieve`. The service reads only what Gorp
+stores; the API handler fills `Labels`/`Parent`/`Status` from `label.Service`,
+`status.Service`, and the ontology, gated by the existing `Include<Field>` request
+flags. We considered moving resolution down so every retrieval call site got it
+unconditionally, but kept it in the API for two reasons: callers — including internal
+ones — already make per-field decisions about resolution cost, and removing the opt-in
+would force resolution on hot paths (CDC fan-out, calc-channel watchers) that have no
+use for the resolved fields. What this RFC does change is the type the API layer
+receives back from `Retrieve` — one service-layer type with the resolved fields present
+as zero values, instead of a duplicate API type that embeds the service type to bolt
+them on (4.2.0).
 
 ## 5.3 - Current at `internal/types/`, Historical at `internal/types/vN/`
 
@@ -983,7 +1001,8 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 - **Phase 3 — Peek import (§4.4).** Peek front door; decode straight into the frozen
   `types/vN/` struct; remove the `map[string]any` import representation.
 - **Phase 4 — Resolved fields (§4.2, §4.6.1).** `resolved` domain; collapse the
-  duplicate API types; always-resolve batched `Retrieve`.
+  duplicate API types; generate the batched API-layer resolver (still gated by
+  `Include<Field>` flags).
 - **Phase 5 — Validation chokepoint (§4.5, §4.6.2).** Add a `Validate` method to every
   entity type, call it at the Gorp write seam, and extend the Oracle `validate` domain
   (numeric bounds, enum variants). Migration write-back then validates stored data and
