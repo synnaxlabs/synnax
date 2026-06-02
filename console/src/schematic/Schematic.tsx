@@ -38,11 +38,13 @@ import {
 } from "@/schematic/slice";
 import { useAutoUpload } from "@/schematic/useUpload";
 import { type RootState } from "@/store";
+import { Workspace } from "@/workspace";
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const dispatch = useDispatch();
+  Workspace.useAdoptIntoActiveWorkspace(schematic.ontologyID(key));
   const {
     editable,
     viewport,
