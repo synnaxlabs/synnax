@@ -1013,11 +1013,6 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 - **`resolved` domain syntax.** The exact `.oracle` syntax for naming a resolution
   source (label service vs. status service vs. ontology parent) and how a
   self-referential `parent *Range` is expressed.
-- **Channel metadata write authority.** With the metadata table service-owned and
-  replicated, does its Gorp entry stay Aspen-leased to the channel's leaseholder (writes
-  route there, preserving today's per-leaseholder serialization) or become an unleased
-  replicated entry (writes from any node)? The latter is simpler but reopens
-  name-conflict races that leaseholder routing currently serializes.
 - **Cross-layer create atomicity.** Channel create now spans layers: distribution
   creates the Cesium storage, then service writes the metadata record. If the metadata
   write fails, the Cesium channel is orphaned. Define the ordering and cleanup contract
