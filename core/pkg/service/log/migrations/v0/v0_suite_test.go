@@ -18,5 +18,5 @@ import (
 
 func TestV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Log Migrations V0 Suite")
+	RunSpecs(t, "Service Log Migrations V0 Suite")
 }

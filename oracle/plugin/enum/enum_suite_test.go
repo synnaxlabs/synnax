@@ -18,5 +18,5 @@ import (
 
 func TestEnum(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Enum Suite")
+	RunSpecs(t, "Plugin Enum Suite")
 }

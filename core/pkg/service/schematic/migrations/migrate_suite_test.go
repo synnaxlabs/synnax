@@ -18,5 +18,5 @@ import (
 
 func TestSchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Schematic Migrations Suite")
+	RunSpecs(t, "Service Schematic Migrations Suite")
 }

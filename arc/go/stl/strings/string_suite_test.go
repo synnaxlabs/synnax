@@ -18,5 +18,5 @@ import (
 
 func TestString(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Strings Suite")
+	RunSpecs(t, "STL Strings Suite")
 }

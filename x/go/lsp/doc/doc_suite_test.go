@@ -18,5 +18,5 @@ import (
 
 func TestDoc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Doc Suite")
+	RunSpecs(t, "LSP Doc Suite")
 }

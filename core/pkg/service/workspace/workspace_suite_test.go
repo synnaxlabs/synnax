@@ -26,7 +26,7 @@ import (
 
 func TestWorkspace(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Workspace Suite")
+	RunSpecs(t, "Service Workspace Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

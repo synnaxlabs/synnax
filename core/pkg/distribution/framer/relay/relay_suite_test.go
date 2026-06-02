@@ -19,7 +19,7 @@ import (
 
 func TestRelay(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Relay Suite")
+	RunSpecs(t, "Distribution Framer Relay Suite")
 }
 
 var _ = BeforeSuite(func() {

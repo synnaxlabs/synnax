@@ -18,5 +18,5 @@ import (
 
 func TestGob(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gob Suite")
+	RunSpecs(t, "Encoding GOB Suite")
 }
