@@ -18,5 +18,5 @@ import (
 
 func TestSelect(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Select Suite")
+	RunSpecs(t, "STL Selector Suite")
 }

@@ -27,7 +27,7 @@ import (
 
 func TestSymbol(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Symbol Suite")
+	RunSpecs(t, "Service Schematic Symbol Suite")
 }
 
 var (

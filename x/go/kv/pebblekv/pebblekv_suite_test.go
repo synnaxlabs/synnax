@@ -18,5 +18,5 @@ import (
 
 func TestPebbleKV(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PebbleKV Suite")
+	RunSpecs(t, "KV PebbleKV Suite")
 }

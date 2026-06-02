@@ -18,5 +18,5 @@ import (
 
 func TestConstraints(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Constraints Suite")
+	RunSpecs(t, "Analyzer Constraints Suite")
 }

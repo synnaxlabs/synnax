@@ -18,5 +18,5 @@ import (
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Domain Suite")
+	RunSpecs(t, "Plugin Domain Suite")
 }

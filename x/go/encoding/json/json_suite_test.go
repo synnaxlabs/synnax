@@ -18,5 +18,5 @@ import (
 
 func TestJSON(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "JSON Suite")
+	RunSpecs(t, "Encoding JSON Suite")
 }

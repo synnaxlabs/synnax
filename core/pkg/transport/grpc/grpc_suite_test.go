@@ -30,7 +30,7 @@ var (
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "gRPC Transport Suite")
+	RunSpecs(t, "Transport gRPC Suite")
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
