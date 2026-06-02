@@ -8,20 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel } from "@synnaxlabs/client";
+import { type channel, lineplot } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
 import { type measure } from "@synnaxlabs/pluto/ether";
 import { array, deep, record, unique } from "@synnaxlabs/x";
 
-import {
-  type AxisKey,
-  X_AXIS_KEYS,
-  type XAxisKey,
-  type YAxisKey,
-} from "@/lineplot/axis";
 import * as latest from "@/lineplot/types";
 
-export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
+export const shouldDisplayAxis = (key: lineplot.AxisKey, state: State): boolean => {
   if (["x1", "y1"].includes(key)) return true;
   const channels = state.channels[key];
   if (Array.isArray(channels)) return channels.length > 0;
@@ -87,20 +81,20 @@ export interface SetSelectionPayload extends SelectionState {
 
 export interface SetYChannelsPayload {
   key: string;
-  axisKey: YAxisKey;
+  axisKey: lineplot.YAxisKey;
   channels: channel.Key[];
   mode?: "set" | "add";
 }
 
 export interface SetXChannelPayload {
   key: string;
-  axisKey: XAxisKey;
+  axisKey: lineplot.XAxisKey;
   channel: channel.Key;
 }
 
 export interface SetRangesPayload {
   key: string;
-  axisKey: XAxisKey;
+  axisKey: lineplot.XAxisKey;
   ranges: string[];
   mode?: "set" | "add";
 }
@@ -124,7 +118,7 @@ export interface SetLegendPayload {
 
 export interface SetAxisPayload {
   key: string;
-  axisKey: AxisKey;
+  axisKey: lineplot.AxisKey;
   axis: Partial<AxisState>;
   triggerRender?: boolean;
 }
@@ -161,8 +155,8 @@ export interface SelectRulePayload {
 
 interface TypedLineKey {
   range: string;
-  xAxis: XAxisKey;
-  yAxis: YAxisKey;
+  xAxis: lineplot.XAxisKey;
+  yAxis: lineplot.YAxisKey;
   channels: {
     x: channel.Key;
     y: channel.Key;
@@ -190,8 +184,8 @@ export const typedLineKeyFromString = (key: string): TypedLineKey => {
   const [yAxis, xAxis, range, x, y] = key.split("---");
   return {
     range,
-    xAxis: xAxis as XAxisKey,
-    yAxis: yAxis as YAxisKey,
+    xAxis: xAxis as lineplot.XAxisKey,
+    yAxis: yAxis as lineplot.YAxisKey,
     channels: {
       x: Number(x),
       y: Number(y),
@@ -204,13 +198,13 @@ const createTypedLineKeys = (state: State): TypedLineKey[] =>
     .map(([xAxis, ranges]) =>
       ranges.flatMap((range) =>
         Object.entries(state.channels)
-          .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
+          .filter(([axis]) => !lineplot.X_AXIS_KEYS.includes(axis as lineplot.XAxisKey))
           .flatMap(([yAxis, yChannels]) => {
-            const xChannel = state.channels[xAxis as XAxisKey];
+            const xChannel = state.channels[xAxis as lineplot.XAxisKey];
             return (yChannels as channel.Key[]).map((yChannel) => ({
               range,
-              xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as YAxisKey,
+              xAxis: xAxis as lineplot.XAxisKey,
+              yAxis: yAxis as lineplot.YAxisKey,
               channels: {
                 x: xChannel,
                 y: yChannel,

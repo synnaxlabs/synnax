@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import {
   Button,
   Color,
@@ -25,7 +26,6 @@ import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
-import { type AxisKey, Y1, Y2 } from "@/lineplot/axis";
 import {
   useSelectAxes,
   useSelectRule,
@@ -149,14 +149,14 @@ const List = ({
   );
 };
 
-const AXIS_DATA: AxisKey[] = [Y1, Y2];
+const AXIS_DATA: lineplot.AxisKey[] = ["y1", "y2"];
 
 const SelectAxis = (
-  props: Omit<Select.ButtonsProps<AxisKey>, "keys">,
+  props: Omit<Select.ButtonsProps<lineplot.AxisKey>, "keys">,
 ): ReactElement => (
   <Select.Buttons {...props} keys={AXIS_DATA}>
-    <Select.Button itemKey={Y1}>Y1</Select.Button>
-    <Select.Button itemKey={Y2}>Y2</Select.Button>
+    <Select.Button itemKey="y1">Y1</Select.Button>
+    <Select.Button itemKey="y2">Y2</Select.Button>
   </Select.Buttons>
 );
 
@@ -166,7 +166,7 @@ interface RuleContentProps {
   onChangeUnits: (units: string) => void;
   onChangePosition: (position: number) => void;
   onChangeColor: (color: color.Color) => void;
-  onChangeAxis: (axis: AxisKey) => void;
+  onChangeAxis: (axis: lineplot.AxisKey) => void;
   onChangeLineWidth: (lineWidth: number) => void;
   onChangeLineDash: (lineDash: number) => void;
 }
@@ -246,7 +246,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
       visColors[rules.length % visColors.length] ?? color.ZERO,
     );
     const key = id.create();
-    const axis = Y1;
+    const axis: lineplot.AxisKey = "y1";
     const position = bounds.mean(axes[axis].bounds);
     dispatch(
       setRule({ key: linePlotKey, rule: { key, color: colorVal, axis, position } }),
@@ -265,7 +265,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const handleChangeColor = (v: color.Color): void => {
     dispatch(setRule({ key: linePlotKey, rule: { key: shownRuleKey, color: v } }));
   };
-  const handleChangeAxis = (axis: AxisKey): void => {
+  const handleChangeAxis = (axis: lineplot.AxisKey): void => {
     const position = bounds.mean(axes[axis].bounds);
     dispatch(
       setRule({ key: linePlotKey, rule: { key: shownRuleKey, axis, position } }),

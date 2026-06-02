@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import {
   Button,
   compareArrayDeps,
@@ -22,7 +23,6 @@ import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { type AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
 
@@ -56,7 +56,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
       {(p) => (
         <LinePlotAxisControls
           key={p.tabKey}
-          axisKey={p.tabKey as AxisKey}
+          axisKey={p.tabKey as lineplot.AxisKey}
           layoutKey={layoutKey}
         />
       )}
@@ -65,7 +65,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 };
 
 export interface LinePlotAxisControlsProps {
-  axisKey: AxisKey;
+  axisKey: lineplot.AxisKey;
   layoutKey: string;
 }
 
