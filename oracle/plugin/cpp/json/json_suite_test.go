@@ -18,5 +18,5 @@ import (
 
 func TestCppJson(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp JSON Suite")
+	RunSpecs(t, "Plugin C++ JSON Suite")
 }
