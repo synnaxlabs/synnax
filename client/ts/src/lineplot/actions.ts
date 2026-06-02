@@ -44,6 +44,12 @@ const requireXAxis = (key: AxisKey): XAxisKey => {
   throw new Error(`expected an x-axis key, got ${key}`);
 };
 
+// Handlers report the narrowest resource each action touches as its target,
+// type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
+// lines/rules) from colliding within a plot's undo state. Plot-level config
+// (name, title, legend) targets the plot key itself; everything else targets
+// the specific channel/range/axis/line/rule so concurrent edits to distinct
+// resources neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
   rename: (state, payload) => {
     const oldName = state.name;
@@ -70,7 +76,7 @@ const handlers: Handlers = {
     slice.push(payload.channel);
     return {
       inverse: [removeChannel({ axisKey: axis, channel: payload.channel })],
-      targets: [state.key],
+      targets: [`channel:${payload.channel}`],
     };
   },
 
@@ -82,7 +88,7 @@ const handlers: Handlers = {
     slice.splice(idx, 1);
     return {
       inverse: [addChannel({ axisKey: axis, channel: payload.channel })],
-      targets: [state.key],
+      targets: [`channel:${payload.channel}`],
     };
   },
 
@@ -92,7 +98,7 @@ const handlers: Handlers = {
     state.channels[axis] = payload.channel;
     return {
       inverse: [setXChannel({ axisKey: axis, channel: oldChannel })],
-      targets: [state.key],
+      targets: [`axis:${axis}`],
     };
   },
 
@@ -103,7 +109,7 @@ const handlers: Handlers = {
     slice.push(payload.range);
     return {
       inverse: [removeRange({ axisKey: axis, range: payload.range })],
-      targets: [state.key],
+      targets: [`range:${payload.range}`],
     };
   },
 
@@ -115,14 +121,17 @@ const handlers: Handlers = {
     slice.splice(idx, 1);
     return {
       inverse: [addRange({ axisKey: axis, range: payload.range })],
-      targets: [state.key],
+      targets: [`range:${payload.range}`],
     };
   },
 
   setAxis: (state, payload) => {
     const oldAxis = actions.snapshotDraft(state.axes[payload.axis.key]);
     state.axes[payload.axis.key] = payload.axis;
-    return { inverse: [setAxis({ axis: oldAxis })], targets: [state.key] };
+    return {
+      inverse: [setAxis({ axis: oldAxis })],
+      targets: [`axis:${payload.axis.key}`],
+    };
   },
 
   // setLine has upsert semantics. When the line is new there is no
@@ -134,11 +143,14 @@ const handlers: Handlers = {
     const idx = state.lines.findIndex((l) => l.key === payload.line.key);
     if (idx === -1) {
       state.lines.push(payload.line);
-      return { inverse: [], targets: [state.key] };
+      return { inverse: [], targets: [`line:${payload.line.key}`] };
     }
     const oldLine = actions.snapshotDraft(state.lines[idx]);
     state.lines[idx] = payload.line;
-    return { inverse: [setLine({ line: oldLine })], targets: [state.key] };
+    return {
+      inverse: [setLine({ line: oldLine })],
+      targets: [`line:${payload.line.key}`],
+    };
   },
 
   setRule: (state, payload) => {
@@ -147,12 +159,15 @@ const handlers: Handlers = {
       state.rules.push(payload.rule);
       return {
         inverse: [removeRule({ key: payload.rule.key })],
-        targets: [state.key],
+        targets: [`rule:${payload.rule.key}`],
       };
     }
     const oldRule = actions.snapshotDraft(state.rules[idx]);
     state.rules[idx] = payload.rule;
-    return { inverse: [setRule({ rule: oldRule })], targets: [state.key] };
+    return {
+      inverse: [setRule({ rule: oldRule })],
+      targets: [`rule:${payload.rule.key}`],
+    };
   },
 
   removeRule: (state, payload) => {
@@ -160,7 +175,7 @@ const handlers: Handlers = {
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldRule = actions.snapshotDraft(state.rules[idx]);
     state.rules.splice(idx, 1);
-    return { inverse: [setRule({ rule: oldRule })], targets: [state.key] };
+    return { inverse: [setRule({ rule: oldRule })], targets: [`rule:${payload.key}`] };
   },
 };
 
