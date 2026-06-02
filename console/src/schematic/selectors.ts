@@ -31,8 +31,16 @@ export const selectSelected = (state: StoreState, key: string): string[] =>
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const useSelectOptional = (key: string): State | undefined =>
+  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
 
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);

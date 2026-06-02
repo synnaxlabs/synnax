@@ -18,5 +18,5 @@ import (
 
 func TestAnalyzer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Analyzer Suite")
+	RunSpecs(t, "Service Channel Calculation Analyzer Suite")
 }

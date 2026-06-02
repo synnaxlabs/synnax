@@ -18,5 +18,5 @@ import (
 
 func TestEncoder(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoder Suite")
+	RunSpecs(t, "Distribution Framer Codec Suite")
 }

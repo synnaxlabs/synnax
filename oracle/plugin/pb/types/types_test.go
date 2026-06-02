@@ -24,7 +24,7 @@ import (
 
 func TestPBTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PB Types Plugin Suite")
+	RunSpecs(t, "Plugin PB Types Suite")
 }
 
 // pbDomains creates domains that enable pb generation with the given go output path.

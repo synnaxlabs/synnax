@@ -18,5 +18,5 @@ import (
 
 func TestHumanize(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Humanize Suite")
+	RunSpecs(t, "Analyzer Humanize Suite")
 }
