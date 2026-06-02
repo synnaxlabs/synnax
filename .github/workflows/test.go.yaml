@@ -73,7 +73,9 @@ jobs:
 
       - name: Install antlr4
         if: matrix.fmt && inputs.install_antlr4
-        run: pipx install antlr4-tools
+        run: |
+          scripts/install_antlr4.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify `go generate` is up to date
         if: matrix.fmt
