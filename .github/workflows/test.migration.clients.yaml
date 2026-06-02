@@ -169,12 +169,6 @@ jobs:
         with:
           package: client
           lint: false
-          # The "on main" run above installs pnpm 10 into the default ~/setup-pnpm.
-          # Install the current branch's pnpm (11+) into a separate dest so it doesn't
-          # refresh that PNPM_HOME and delete the v10 store, which the main run's
-          # setup-node cache-save still points at (otherwise its post step fails the
-          # job). Remove once main and rc are on the same pnpm major.
-          pnpm_dest: ~/setup-pnpm-current
 
       - name: Stop Core on current branch
         if: always() && steps.start_current.outcome == 'success'
