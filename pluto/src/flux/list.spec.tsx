@@ -1266,15 +1266,17 @@ describe("list", () => {
     const setDoc = (fluxClient: base.Client<ReconnectStore>, doc: Doc): void => {
       fluxClient.scopedStore<ReconnectStore>("test-writer").docs.set(doc.key, doc);
     };
-    const newFluxClient = (
-      storeConfig: base.StoreConfig<ReconnectStore> = RECONNECT_STORE_CONFIG,
-    ): base.Client<ReconnectStore> =>
+    const newFluxClient = (): base.Client<ReconnectStore> =>
       new base.Client<ReconnectStore>({
         client: null,
-        storeConfig,
+        storeConfig: RECONNECT_STORE_CONFIG,
         handleError: status.createErrorHandler(console.error),
         handleAsyncError: status.createAsyncErrorHandler(console.error),
       });
+
+    // Flux.Provider rebuilds its base client when the Synnax client key changes;
+    // only key is read here, so a minimal stub stands in for a full client.
+    const clientWithKey = (key: string): Client => ({ key }) as unknown as Client;
 
     interface ReconnectSetup {
       fluxA: base.Client<ReconnectStore>;
@@ -1283,14 +1285,12 @@ describe("list", () => {
       reconnect: () => void;
     }
 
-    const createReconnectSetup = (
-      storeConfig?: base.StoreConfig<ReconnectStore>,
-    ): ReconnectSetup => {
-      const fluxA = newFluxClient(storeConfig);
-      const fluxB = newFluxClient(storeConfig);
+    const createReconnectSetup = (): ReconnectSetup => {
+      const fluxA = newFluxClient();
+      const fluxB = newFluxClient();
       // Distinct keys model the client swap.
       let activeFlux = fluxA;
-      let activeSynnax = { key: "a" } as unknown as Client;
+      let activeSynnax = clientWithKey("a");
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <ReconnectAetherProvider>
           <Status.Aggregator>
@@ -1302,7 +1302,7 @@ describe("list", () => {
       );
       const reconnect = (): void => {
         activeFlux = fluxB;
-        activeSynnax = { key: "b" } as unknown as Client;
+        activeSynnax = clientWithKey("b");
       };
       return { fluxA, fluxB, wrapper, reconnect };
     };
