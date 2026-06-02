@@ -23,12 +23,12 @@ the Core has grown:
    `Parent`, `Status`). Today these are resolved in the API layer, sometimes against a
    second, duplicate type definition. This RFC collapses each entity to a single
    service-layer type. Resolved fields are declared in the schema, excluded from storage
-   by Oracle, and **always resolved on `Retrieve`**.
+   by Oracle, and resolved by the API layer..
 
 3. **Uniform versioned type layout.** Metadata services lay out versioned types
    inconsistently (`migrations/legacy/`, `migrations/v55/`, typed `migrations/v0,v1/`,
-   or nothing). This RFC standardizes on `<service>/types/vN/` — one Go package per
-   version, for **every** version including current — holding that version's frozen
+   or nothing). This RFC standardizes on `<service>/internal/types/vN/` — one Go package
+   per version, for **every** version including current — holding that version's frozen
    struct, codec, and `GorpKey`/`OntologyID` methods, with migration functions in
    `types/migrate.go`. This supersedes the `migrations/vN/` layout decided in RFC
    0033/0034.
@@ -60,17 +60,16 @@ Oracle code-generation changes are in scope. The work is sequenced into phases (
 - **Metadata substrate** - `ontology`, `group`, and `search`: the relationship graph,
   hierarchical grouping, and full-text index that other services register with. Not
   topology-aware; relocated to the service layer by this RFC.
-- **Resolved field** - A field present on an entity's type but not persisted in its Gorp
-  record. Its value is computed from another service or the ontology at read time
-  (`range.Labels`, `range.Parent`, `task.Status`, `device.Parent`, `rack.Status`).
-- **Transient field** - The storage-side name for a resolved field: a field Oracle
-  excludes from the Gorp/ORC codec. Resolved fields are transient.
+- **Resolved field** - A field present on an entity's type but excluded from its Gorp
+  record by Oracle (omitted from the generated `EncodeOrc`/`DecodeOrc` codec). Its value
+  is computed from another service or the ontology at read time (`range.Labels`,
+  `range.Parent`, `task.Status`, `device.Parent`, `rack.Status`).
 - **Frozen type** - A Go struct representing an entity at a specific historical version,
   paired with a frozen positional codec. Self-contained; never imports the parent
   service package (RFC 0033 §3.6).
 - **Peek** - Decoding only the `{version, type}` fields of a payload to route and
-  version-dispatch it without parsing the full body. Already used in
   `schematic/migrations/legacy/legacy.go` and `table/migrations/legacy/legacy.go`.
+  version-dispatch it without parsing the full body. Already used in
 - **Write seam** - `gorp.Writer.set`, the single point through which every entry is
   encoded and written to the KV store. The proposed validation chokepoint.
 
@@ -85,8 +84,8 @@ all of them. Each subsection states a problem; Section 4 states the design.
 
 The distribution layer exists to handle operations that must understand cluster
 topology: a channel key embeds its leaseholder node ID, and the lease proxy routes
-reads/writes to the correct node; the framer relays frames to and from the nodes that
 own them. `ontology`, `group`, `search`, and `signals` sit in `distribution/` but none
+reads/writes to the correct node; the framer relays frames to and from the nodes that
 of them is topology-aware:
 
 - `ontology` is a generic relationship graph keyed by string resource IDs. It has no
@@ -206,7 +205,7 @@ from storage and populated on read by generated code.
 Every version of an entity — including the current one — is a frozen, self-contained Go
 package: its struct, its positional codec, and its key/ontology methods, importing
 nothing from the parent service. The current version is simply the highest-numbered one;
-the service package aliases it.
+the service re-exports it as the canonical type.
 
 ## 3.4 - Know the Version Before Decoding the Body
 
@@ -225,8 +224,9 @@ import, or CDC path produced it. A service cannot opt out, and cannot forget.
 ## 4.0 - Scope
 
 In scope: the package moves and dependency inversions of Section 4.1; the resolved-field
-mechanism of 4.2; the `types/vN/` layout of 4.3; the import peek of 4.4; the validation
-chokepoint of 4.5; and the Oracle generator changes those require, consolidated in 4.6.
+mechanism of 4.2; the `internal/types/vN/` layout of 4.3; the import peek of 4.4; the
+validation chokepoint of 4.5; and the Oracle generator changes those require,
+consolidated in 4.6.
 
 Out of scope: the query-engine, pagination, indexing, and undo/redo explorations in RFC
 0026 §2; YAML/TOML portable codecs (RFC 0034 §7.0); multi-resource bundle import (RFC
@@ -257,8 +257,8 @@ entity services.
 
 The substrate stays beneath distribution only because `distribution/channel` and
 `distribution/node` import it. Resolving that means deciding what part of "channel" is
-actually topology-bound. Two things are: **key allocation** (the local key comes from a
 per-node counter — `counter.go` — and the leaseholder is encoded in the key) and the
+actually topology-bound. Two things are: **key allocation** (the local key comes from a
 **Cesium channel lifecycle** (the time-series storage must be created, renamed, and
 deleted on the leaseholder, routed there via the lease proxy and transport). Everything
 else about a channel is metadata.
@@ -295,8 +295,8 @@ relocate freely to the service layer.
 
 ### 4.1.2 - Wiring Order
 
-`distribution/layer.go` sheds the four packages from its aggregate. `service`'s layer
 opens them in dependency order:
+`distribution/layer.go` sheds the four packages from its aggregate. `service`'s layer
 
 ```
 ontology  →  search  →  group  →  service/node  →  service/channel  →  signals  →  (entities)
@@ -341,15 +341,14 @@ struct Range {
 
 The API layer drops its duplicate `Range` and serializes the service type directly. The
 `task`/`device`/`rack` `omitempty` resolved fields are expressed the same way, so all
+
 four entities share one pattern.
+### 4.2.1 - Storage Exclusion
 
-### 4.2.1 - Transient Storage
-
-A `resolved` field is **transient**: Oracle excludes it from the generated
-`EncodeOrc`/`DecodeOrc` codec, so it is never persisted and never read back from
-storage. The same field _is_ serialized in the API/transport (JSON/proto) output,
-because clients need it. This solves the persisted-vs-derived split named in RFC 0026
-§1.1.12 at the schema level.
+Oracle excludes a `resolved` field from the generated `EncodeOrc`/`DecodeOrc` codec, so
+it is never persisted and never read back from storage. The same field _is_ serialized
+in the API/transport (JSON/proto) output, because clients need it. This solves the
+persisted-vs-derived split named in RFC 0026 §1.1.12 at the schema level.
 
 ### 4.2.2 - Always Resolve on Retrieve
 
@@ -360,53 +359,245 @@ across the result set** — one labels query, one status query, one parent trave
 the whole page — not one round trip per entity, since it is now unconditional. Oracle
 generates the batched resolver from the `resolved` domain (Section 4.6.1).
 
-Because resolved fields are transient, the write path is unaffected: the writer cannot
-persist them, and the validation seam (4.5) ignores them — they are validated by their
-owning services.
+Because resolved fields are excluded from storage, the write path is unaffected: the
+writer cannot persist them, and the validation seam (4.5) ignores them — they are
+validated by their owning services.
 
 ## 4.3 - The `types/vN/` Layout
 
 ### 4.3.0 - Structure
 
-Every entity uses a uniform layout. `migrations/` is renamed to `types/`, and **every**
-version, including current, is its own package:
+Every entity uses the same layout. `migrations/` becomes `internal/types/`, and
+**every** version — including current — is its own package beneath it. Only the exported
+surface is listed below; unexported helpers (the private `importer`/`exporter` structs
+in `imex.go`, the `validate` helper on `Writer`, the change translators in
+`ontology.go`, etc.) live in the same files but are implementation detail and not part
+of the canonical contract.
 
 ```
-core/pkg/service/schematic/
-├── service.go            # aliases the current version: type Schematic = latest.Schematic
-├── writer.go
-├── retrieve.go
-└── types/
-    ├── latest.go        # aliases the current version: type Schematic = typesv6.Schematic
-    ├── migrate.go        # v0.T → v1.T → ... → v6.T dispatch + per-step transforms
-    ├── v0/
-    │   ├── types.gen.go  # frozen struct
-    │   ├── codec.gen.go  # frozen EncodeOrc/DecodeOrc
-    │   └── ontology.gen.go  # GorpKey, OntologyID for this version
-    ├── v1/ ...
-    └── v6/               # current
-        ├── types.gen.go
-        ├── migrate.go # handles v5 -> v6 migration
-        ├── codec.gen.go
-        └── ontology.gen.go
+core/pkg/<layer>/<resource>/
+├── resource.go              # public surface — re-exports the current version
+│   ├── type Key = types.Key
+│   ├── type Resource = types.Resource
+│   └─── const LatestVersion = types.LatestVersion
+│
+├── service.go               # lifecycle + composition root
+│   ├── type ServiceConfig struct { ... }
+│   ├── func (ServiceConfig) Validate() error
+│   ├── func (ServiceConfig) Override(ServiceConfig) ServiceConfig
+│   ├── type Service struct { ... }
+│   ├── func OpenService(context.Context, ...ServiceConfig) (*Service, error)
+│   ├── func (s *Service) NewWriter(tx gorp.Tx) Writer
+│   ├── func (s *Service) NewRetrieve() Retrieve
+│   ├── func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Resource]]
+│   └── func (s *Service) Close() error
+│
+├── ontology.go              # ontology integration — implements ontology.Service
+│   ├── func OntologyID(Key) ontology.ID
+│   ├── func OntologyIDs([]Key) []ontology.ID
+│   ├── func OntologyIDsFromResources([]Resource) []ontology.ID
+│   ├── func KeyFromOntologyID(ontology.ID) (Key, error)
+│   ├── func KeysFromOntologyIDs([]ontology.ID) ([]Key, error)
+│   ├── func (Resource) OntologyID() ontology.ID ##TODO: this is a Resource method and belongs in the types folder
+│   ├── func (s *Service) Type() ontology.ResourceType
+│   ├── func (s *Service) Schema() zyn.Schema
+│   ├── func (s *Service) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error)
+│   ├── func (s *Service) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error)
+│   └── func (s *Service) OnChange(func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect
+│
+├── retrieve.gen.go              # query builder
+│   ├── type Retrieve struct { ... }
+│   ├── type Filter func(gorp.Context, Retrieve, *Resource) (bool, error)
+│   ├── func Match(Filter) Filter
+│   ├── func And(...Filter) Filter
+│   ├── func Or(...Filter) Filter
+│   ├── func Not(Filter) Filter
+│   ├── func MatchKeys(...Key) Filter
+│   ├── func (Retrieve) Where(Filter) Retrieve
+│   ├── func (Retrieve) WhereKeys(...Key) Retrieve
+│   ├── func (Retrieve) Search(string) Retrieve
+│   ├── func (Retrieve) Entry(*Resource) Retrieve
+│   ├── func (Retrieve) Entries(*[]Resource) Retrieve
+│   ├── func (Retrieve) Limit(int) Retrieve
+│   ├── func (Retrieve) Offset(int) Retrieve
+│   ├── func (Retrieve) Exec(context.Context, gorp.Tx) error
+│   ├── func (Retrieve) Count(context.Context, gorp.Tx) (int, error)
+│   └── func (Retrieve) Exists(context.Context, gorp.Tx) (bool, error)
+├── retrieve.go          # manual retrieves that have to be generated
+│
+├── writer.go                # mutation API — the validation chokepoint
+│   ├── type Writer struct { ... }
+│   ├── func (Writer) Create(context.Context, *Resource) error
+│   ├── func (Writer) CreateMany(context.Context, *[]Resource) error
+│   ├── func (Writer) Rename(context.Context, Key, string) error
+│   └── func (Writer) Delete(context.Context, ...Key) error
+│
+├── imex.go                  # imex.Importer + imex.Exporter — registered in OpenService
+│
+├── actions.go               # OPTIONAL — reducer-style resources (schematic, lineplot)
+│   ├── func (p ActionNPayload) Handle(Resource) (Resource, error) # repeated for N actions
+├── actions.gen.go           # Oracle-generated payload structs + Action codec
+│   ├── const (ActionTypeN = "n")
+│   ├── type ActionNPayload struct { ... }
+│   ├── type Action struct { Type: string, N *ActionNPayload }
+│   ├── func NewNAction(p ActionNPayload) Action
+│   └── func Reduce(Resource, ...Action) (Resource, error)
+│
+├── pb/                      # wire schema — sibling subpackage (Go name collision forces this)
+│   ├── <resource>.proto
+│   ├── <resource>.pb.go     # buf-generated
+│   └── translator.gen.go    # Oracle-generated
+│       ├── func ResourceToPB(Resource) (*Resource, error)
+│       ├── func ResourceFromPB(*Resource) (Resource, error)
+│       ├── func ResourcesToPB([]Resource) ([]*Resource, error)
+│       └── func ResourcesFromPB([]*Resource) ([]Resource, error)
+│
+│
+└── internal/
+    └── types/                       # CURRENT lives at this package level
+        ├── types.gen.go             # current — Resource definition + gorp.Entry methods
+        │   ├── const Version imex.Version = N
+        │   ├── type Key
+        │   ├── type Resource struct { Key Key; … }
+        │   ├── func (Resource) GorpKey() Key
+        │   ├── func (Resource) SetOptions() []any
+        │   └── func (Resource) Validate() error
+        ├── codec.gen.go             # current ORC codec
+        │   ├── func (Resource) EncodeOrc(*orc.Writer) error
+        │   └── func (*Resource) DecodeOrc(*orc.Reader) error
+        ├── migrate.go               # current's step migration: v(N-1) → current
+        │   └── func Migrate(v(N-1).Resource) (Resource, error)
+        ├── decode.go                # version dispatch — the only entry imex calls
+        │   ├── const LatestVersion imex.Version = N
+        │   └── func Decode(imex.Codec, imex.Version, []byte) (Resource, error)
+        ├── helpers.go               # hand-written method receivers on current Resource
+        │
+        ├── legacy/                  # OPTIONAL — pre-versioned blobs that still need to decode
+        │   ├── legacy.go
+        │   └── vN/                  # if the legacy chain itself had revisions
+        │
+        └── vN/                      # HISTORICAL — frozen, pure-generated
+            ├── types.gen.go
+            │   ├── const Version imex.Version = N
+            │   ├── type Key
+            │   ├── type Resource struct { ... }
+            │   ├── func (Resource) GorpKey() Key
+            │   ├── func (Resource) SetOptions() []any
+            │   └── func (Resource) Validate() error
+            ├── codec.gen.go
+            │   ├── func (Resource) EncodeOrc(*orc.Writer) error
+            │   └── func (*Resource) DecodeOrc(*orc.Reader) error
+            └── migrate.go           # ONLY on non-zero versions
+                └── func Migrate(v(N-1).Resource) (Resource, error)
 ```
 
-This supersedes RFC 0033 §4.3.0's rule that the current type lives in the service
-package. Instead the current type lives in the highest `types/vN/`, and the service
-package re-exports it via alias so callers still write `schematic.Schematic`. Per RFC
-0033 §3.6, each `vN/` imports nothing from the parent.
+A few file-level rules fall out of this layout:
 
-### 4.3.1 - Each Version Is Self-Contained
+**`resource.go` is intentionally tiny.** Its only job is to be the import surface —
+external packages reach the current version through `resource.Resource`, never through
+`internal/types`. Go's `internal/` rule then makes "import a specific historical
+version" a compile error from outside the resource package, which is the encapsulation
+guarantee the migration system needs.
 
-Every `types/vN/` carries everything that version needs to stand on its own: its frozen
-struct (`types.gen.go`), its frozen codec (`codec.gen.go`), its `GorpKey` and
-`OntologyID` methods (`ontology.gen.go`), and — for every version after `v0` — the
-`migrate.go` that lifts the previous version to this one (`v(N-1).T → vN.T`). This
-replaces the scattered homes those methods have today (`helpers.go` / `ontology.go` /
-`codec.gen.go`) and the single bottom-of-package migration file. `types/migrate.go`
-holds only the dispatch: peek a version, then walk the per-version `migrate.go` chain up
-to current. Because each version owns its key and ontology methods, a migration step can
-compute keys and ontology IDs without reaching outside its own package (RFC 0033 §3.6).
+**`service.go` is the only place that enumerates collaborators.** `ServiceConfig` lists
+every cross-service dependency (`ontology`, `signals`, `group`, `search`, …).
+`OpenService` is where the resource registers itself with each of them — including
+registering its `imex.Importer` and `imex.Exporter` with the imex service. Everything
+else in the package receives those collaborators by value from `service.go`, not by
+reading from config.
+
+**`writer.go` is the validation chokepoint.** Every mutation lands here. The exported
+methods (`Create`, `Update`, `Rename`, `Delete`, …) run the per-record `Validate()` from
+`Resource` (RFC §5.8), plus cross-record checks that single-record validation can't see
+— uniqueness, parent existence, leaseholder routing. No path bypasses `writer.go`; a
+direct `gorp.NewCreate` against the resource table is a layering violation.
+
+**`imex.go` is small by design.** All version dispatch and decoding lives in
+`internal/types/decode.go`. The importer just calls `types.Decode(codec, version, raw)`
+and feeds the result through `writer.Create`, so import gets the same validation,
+ontology wiring, and signal publishing as any other create path. The exporter is the
+mirror — fetch via `Retrieve`, hand back as `imex.Exported`.
+
+**`internal/types/decode.go` is the only decoder.** Outside callers cannot reach `vN`
+packages directly (Go `internal/`). The `Decode` switch is the canonical version
+dispatch; the imex peek (§4.4) passes the parsed `imex.Version` straight into it.
+Migrations compose — `v3 → v4 → v5 → current` is a chain of one-step `Migrate` calls
+walked by `Decode`, never a free-floating "any-to-any" function. The current's step
+(`v(N-1) → current`) lives in `internal/types/migrate.go` alongside the type itself;
+each historical step lives in its own `vN/migrate.go`.
+
+**Current is asymmetric with historical, and that is intentional.** The current
+version's struct, codec, step migration, and hand-written behavior all live at the
+`internal/types/` package level — not in a `v<current>/` subdirectory. Historical
+versions sit in `vN/` and contain only generated files. This asymmetry pays for itself:
+`helpers.go` (the hand-written method receivers on `Resource`) has a stable location
+across the entire lifetime of the resource, so version bumps never require moving or
+relocating hand-written code. Historical versions can never accumulate behavior because
+they have no `helpers.go` slot at all — pure-generated is a structural invariant Oracle
+enforces (§4.6.0).
+
+**`helpers.go` is the escape hatch for things Oracle can't express.** Anything you can
+write as a free function at the service-package level (`func channel.Storage(c Channel)
+ts.Channel`) should live there — never moves, never versions. Anything that genuinely
+requires method-receiver syntax — typically `String()` for `fmt`, `UnmarshalJSON` for
+backward-compat wire formats, or methods used through an interface — goes in
+`internal/types/helpers.go`. The presence of a helper is a soft signal that the schema
+could absorb the behavior over time; the file is not forbidden, but it should stay
+small.
+
+**`legacy/` is a snapshot, not a versioned series.** Resources that accumulated history
+before the numbered scheme (e.g. `schematic`, `ranger`) keep that history frozen as a
+single `legacy/` snapshot with its own bespoke codec. `legacy.Decode` produces a value
+that feeds the regular `vN` chain via `Migrate(legacy.Resource) → v0.Resource`. New
+resources never get a `legacy/`; they start at `v0`.
+
+Tests are co-located but unlisted above — `<resource>_test.go`,
+`<resource>_suite_test.go`, `codec_gen_test.go`, `retrieve_test.go`, `writer_test.go`,
+`migration_test.go`. These don't change the structural rule; they sit next to the file
+they test.
+
+A version bump is a freeze operation owned by Oracle (§4.6.0): the top-level
+`types.gen.go`, `codec.gen.go`, and `migrate.go` are moved into a new
+`internal/types/v<old-current>/` directory, fresh versions of those three files are
+emitted at the top level for the new current, `decode.go` is updated to chain through
+the newly-frozen version, and `helpers.go` is left in place (with field-rename rewrites
+applied where the schema's migration map allows). `resource.go` and every external
+caller of `resource.Resource` are unchanged. This supersedes RFC 0033 §4.3.0's rule that
+the current type lives in the service package; per RFC 0033 §3.6, each historical `vN/`
+still imports nothing from the parent.
+
+### 4.3.1 - Each Historical Version Is Self-Contained
+
+Every `internal/types/vN/` (for `N < current`) carries exactly what that version needs
+to stand on its own: the frozen struct and its required `gorp.Entry` methods
+(`types.gen.go`: `GorpKey`, `SetOptions`, `Validate` — see §5.8), the frozen codec
+(`codec.gen.go`), and — for every version after `v0` — the `migrate.go` that lifts the
+previous version to this one (`v(N-1).Resource → vN.Resource`). Nothing else. No
+behavior, no helpers, no hand-written code; if a file shows up in a historical `vN/`
+that Oracle didn't generate, that is a structural violation. This replaces the scattered
+homes those methods have today (`helpers.go`, `ontology.go`, `codec.gen.go` under
+`migrations/`) and the single bottom-of-package migration file.
+
+The current version is different: it lives at the `internal/types/` package level rather
+than in a `v<current>/` subdirectory, and it owns the hand-written `helpers.go` that
+historical versions are forbidden from carrying (§4.3.0). The same generated files exist
+for current and for historical (`types.gen.go`, `codec.gen.go`, and — except for `v0` —
+`migrate.go`), just emitted into different directories. At freeze time, Oracle moves
+them into a new `vN/`.
+
+Ontology integration is **not** per-version. `OntologyID`, `KeyFromOntologyID`, the
+ontology `Schema`, and the `ontology.Service` implementation live in the package's
+top-level `ontology.go` and operate on the current type only — there is no concept of
+"the v3 ontology ID of a record", because the live record's ontology ID is whatever the
+current version says it is. Historical versions only need the methods that gorp calls
+during migration (key extraction, write-time validation), which is exactly what the
+`gorp.Entry` interface requires.
+
+`internal/types/decode.go` holds only the dispatch (`Decode`): match a version, then
+walk the per-version `migrate.go` chain up to current — older steps in `vN/migrate.go`,
+the final step (`v(N-1) → current`) in `internal/types/migrate.go`. Because each version
+owns its key extractor and per-record validator, a migration step can read and validate
+without reaching outside its own package (RFC 0033 §3.6).
 
 ### 4.3.2 - Versions and Legacy
 
@@ -425,27 +616,22 @@ Import replaces RFC 0034's decode-to-`map[string]any` with a peek followed by a 
 typed decode:
 
 ```go
-// 1. Peek: cheap, reads only version + type from the raw bytes.
+// In the imex registry: peek reads only version + type, then routes.
 var p struct {
     Version imex.Version `json:"version"`
     Type    string       `json:"type"`
 }
-if err := codec.Decode(raw, &p); err != nil { return err }
-
-// 2. Guard a too-new payload before touching the body (RFC 0034 §4.3.0).
-if p.Version > registry.LatestVersion(p.Type) {
-    return imex.NewErrUnsupportedVersion(p.Type, p.Version, ...)
-}
-
-// 3. Route by type, decode the raw bytes ONCE into the version's frozen struct,
-//    then run the shared migration chain to current.
-importer := registry.Importer(p.Type)
-current, err := importer.Decode(raw, p.Version) // decodes raw → types/vN, migrates → current
+if err := c.Decode(raw, &p); err != nil { return "", err }
+imp, ok := s.importers[p.Type]               // route by the peeked type
+if !ok { return "", errorUnknownType(p.Type) }
+return imp.Import(ctx, tx, c, p.Version, raw) // service-owned decode + persist (§4.4.3)
 ```
 
-The `map[string]any` intermediate and the second parse are gone. The body is parsed
-exactly once, directly into the frozen `types/vN/` struct. This generalizes the
-per-service `legacy.go` peek into the standard import front door.
+The importer decodes the raw bytes exactly once, directly into the frozen
+`internal/types/vN/` struct — no `map[string]any` intermediate, no second parse — and
+the version guard (`v > LatestVersion → ErrUnsupportedVersion`) is the first branch of
+the service's `Decode`, so a too-new payload is rejected before its body is touched.
+This generalizes the per-service `legacy.go` peek into the standard import front door.
 
 ### 4.4.1 - Relationship to Gorp Migration
 
@@ -457,11 +643,144 @@ one payload per request.
 
 ### 4.4.2 - The Envelope
 
-The flat wire shape `{version, type, name, ...fields}` (RFC 0034 §4.1) is retained on the
-wire. What changes is the _decode strategy_: the `Envelope` struct with its
-`Data map[string]any` field is no longer the import-side representation; the importer
-decodes straight into the typed frozen struct. Export is unaffected — it still serializes
-the current stored type to the flat shape (RFC 0034 §3.4).
+The flat wire shape `{version, type, name, ...fields}` (RFC 0034 §4.1) is retained on
+the wire. What changes is the _decode strategy_: the `Envelope` struct with its `Data
+map[string]any` field is no longer the import-side representation; the importer decodes
+straight into the typed frozen struct. Export is unaffected — it still serializes the
+current stored type to the flat shape (RFC 0034 §3.4).
+
+### 4.4.3 - Service Interfaces and Registration
+
+The imex service owns the peek, the registry, and the codec; each service owns a small
+importer/exporter that decodes and persists its own type. The interfaces (in
+`service/imex`):
+
+```go
+// Codec is the portable wire codec, resolved at the HTTP boundary by content
+// negotiation (JSON initially; YAML/TOML accommodated — RFC 0034 §4.6.1).
+type Codec interface {
+    Decode(raw []byte, into any) error
+    Encode(v any) ([]byte, error)
+}
+
+// Importer decodes and persists one resource type's portable payload.
+type Importer interface {
+    // Type is the resource-type string matched against the peeked `type` field.
+    Type() string
+    // Import decodes raw — already known to be version v of Type, in codec c — into the
+    // current typed struct, migrates it forward, assigns a fresh key, and persists it
+    // through the service Writer on tx (the write seam validates). Returns the new key.
+    Import(ctx context.Context, tx gorp.Tx, c Codec, v Version, raw []byte) (key string, err error)
+}
+
+// Exporter serializes one stored resource to the portable shape.
+type Exporter interface {
+    Type() ontology.ResourceType
+    // Export reads key and returns the current value plus the version and name the
+    // registry needs to build the flat envelope.
+    Export(ctx context.Context, key string) (Exported, error)
+}
+
+type Exported struct {
+    Version Version
+    Name    string
+    Value   any // the current typed struct; the registry promotes Version/type/Name and marshals it
+}
+```
+
+A service wires its importer/exporter in one line at startup and delegates decoding to
+its own `internal/types`:
+
+```go
+// service/schematic/schematic.go — public surface
+type Schematic = types.Schematic         // types == schematic/internal/types
+const LatestVersion = types.LatestVersion
+
+// service/schematic/imex.go
+type importer struct{ svc *Service }
+
+func (importer) Type() string { return "schematic" }
+
+func (i importer) Import(
+    ctx context.Context, tx gorp.Tx, c imex.Codec, v imex.Version, raw []byte,
+) (string, error) {
+    s, err := types.Decode(c, v, raw) // decode frozen vN + migrate → current; guards too-new
+    if err != nil {
+        return "", err
+    }
+    s.Key = uuid.New()
+    if err := i.svc.NewWriter(tx).Create(ctx, &s); err != nil { // write seam validates
+        return "", err
+    }
+    return s.Key.String(), nil
+}
+
+type exporter struct{ svc *Service }
+
+func (exporter) Type() ontology.ResourceType { return ResourceType }
+
+func (e exporter) Export(ctx context.Context, key string) (imex.Exported, error) {
+    k, err := uuid.Parse(key)
+    if err != nil {
+        return imex.Exported{}, err
+    }
+    var s Schematic
+    if err := e.svc.NewRetrieve().WhereKeys(k).Entry(&s).Exec(ctx, nil); err != nil {
+        return imex.Exported{}, err
+    }
+    return imex.Exported{Version: LatestVersion, Name: s.Name, Value: s}, nil
+}
+
+// service/schematic/service.go — registration
+cfg.ImEx.Register(importer{svc}, exporter{svc})
+```
+
+And the dispatch the importer delegates to, in `internal/types` — pure decode + migrate,
+no DB and no other services:
+
+```go
+// service/schematic/internal/types/decode.go
+// Schematic is the current type, defined in types.gen.go at this package level.
+// Migrate (in migrate.go at this package level) is the final step v5 → current.
+func Decode(c imex.Codec, v imex.Version, raw []byte) (Schematic, error) {
+    switch {
+    case v > LatestVersion:
+        return Schematic{}, imex.NewErrUnsupportedVersion("schematic", v, LatestVersion)
+    case v == LatestVersion:
+        var s Schematic
+        return s, c.Decode(raw, &s)
+    case v == v5.Version:
+        var s v5.Schematic
+        if err := c.Decode(raw, &s); err != nil {
+            return Schematic{}, err
+        }
+        return Migrate(s) // internal/types/migrate.go: v5 → current
+    case v == v4.Version:
+        var s v4.Schematic
+        if err := c.Decode(raw, &s); err != nil {
+            return Schematic{}, err
+        }
+        s5, err := v5.Migrate(s) // v5/migrate.go: v4 → v5
+        if err != nil {
+            return Schematic{}, err
+        }
+        return Migrate(s5)        // v5 → current
+    // … older versions decode at their vN, then walk the v(N+1).Migrate chain
+    //     up through v5.Migrate, then call internal/types.Migrate for the last step.
+    }
+}
+```
+
+The properties this gives:
+
+- **No dependency cycle.** `imex` imports no service package; services import `imex`.
+  Routing is by string; decoding is owned by the service through its `internal/types`.
+- **One decode, validated once.** The body is parsed exactly once into a frozen struct,
+  and untrusted import data is validated by the same generated `Validate` as every other
+  write, because `Import` persists through the service Writer / gorp write seam (§4.5).
+- **Codec stays at the boundary.** `Decode`/`Export` take/return the typed value; the
+  registry promotes `Version`/type/`Name` into the flat envelope and marshals with the
+  negotiated codec, so no format-specific code lives in a service.
 
 ## 4.5 - Validation at the Write Seam
 
@@ -496,7 +815,7 @@ method covers the gaps from §2.4:
 - **Enum variants**: enum-typed fields call the generated `IsValid()` (SY-4236), so an
   out-of-set variant fails validation rather than only an empty one.
 
-Transient/resolved fields are skipped — they are validated by their owning services.
+Resolved fields are skipped — they are validated by their owning services.
 
 ### 4.5.2 - Relationship to Zyn
 
@@ -519,17 +838,43 @@ instrumentation.
 
 Consolidating the generator work implied above:
 
-### 4.6.0 - `types/vN/` Output
+### 4.6.0 - `internal/types/` Output and the Freeze Operation
 
-The output plugin emits each version into `<service>/types/vN/` (was
-`<service>/migrations/vN/` for snapshots, and the service root for current). The current
-version is the highest `vN`; an alias is emitted in the service package. The
-`migrate.go` dispatch + per-step transforms are emitted in `<service>/types/`.
+The output plugin emits the **current** version directly into
+`<service>/internal/types/` as four files: `types.gen.go` (Resource + gorp.Entry
+methods), `codec.gen.go` (ORC codec), `migrate.go` (step migration from the most-recent
+frozen version), and `decode.go` (the version-dispatch entry point). It emits each
+**historical** version into `<service>/internal/types/vN/` with the same generated trio
+minus `decode.go`: `types.gen.go`, `codec.gen.go`, and (for `N ≥ 1`) `migrate.go`. It
+emits the one-line public re-export into `<service>/<service>.go` (`type T = types.T`).
+Historical `vN/` directories never contain anything but generated files; if Oracle finds
+a hand-written file in a historical directory on regeneration, that is an error.
+
+A version bump is a **freeze** operation that Oracle performs in one pass:
+
+1. **Move current to historical.** The top-level `types.gen.go`, `codec.gen.go`, and
+   `migrate.go` (those described the previous current) are moved into a new
+   `internal/types/v<old-current>/` directory. They become frozen historical files
+   without modification.
+2. **Emit the new current.** Fresh `types.gen.go`, `codec.gen.go`, and `migrate.go` are
+   written at the top level for the new current version. The new `migrate.go` contains
+   `Migrate(v<old-current>.Resource) → Resource`.
+3. **Update the dispatch.** `decode.go` (always at the top level, never frozen) is
+   regenerated to chain the just-frozen version into the migration walk.
+4. **Rewrite `helpers.go` in place.** Field renames declared in the new version's
+   migration map are applied to `helpers.go` as AST rewrites. Anything Oracle cannot
+   rewrite — references to removed fields, signature changes — is left as-is and
+   surfaces as a compile error for the developer to resolve. `helpers.go` never moves;
+   it lives at `internal/types/helpers.go` for the entire lifetime of the resource.
+
+The first version (`v0`) is a special case: there is no previous current to freeze, no
+`migrate.go` at the top level, and no historical directories yet. `helpers.go` may not
+exist on day one; it's created the first time a developer needs method-receiver syntax.
 
 ### 4.6.1 - `resolved` Domain
 
-A new field domain marks a field resolved/transient. Oracle:
-1. excludes it from `EncodeOrc`/`DecodeOrc` (transient storage, 4.2.1);
+A new field domain marks a field as resolved. Oracle:
+1. excludes it from `EncodeOrc`/`DecodeOrc` (storage exclusion, 4.2.1);
 2. keeps it in API/proto serialization;
 3. generates a batched resolver invoked by the service `Retrieve` (4.2.2). The domain
    names the source (`label`, `status`, ontology `parent`).
@@ -567,12 +912,25 @@ Simplicity of the single type and call site outweighs the cost, which is mitigat
 batched resolution. If a future hot path needs to skip resolution, a narrow opt-out can
 be added then (Section 7).
 
-## 5.3 - `types/vN/` for Every Version, Superseding `migrations/vN/`
+## 5.3 - Current at `internal/types/`, Historical at `internal/types/vN/`
 
-Every version including current is a self-contained package; the service package aliases
-the current one. This is a deliberate revision of RFC 0033 §4.3.0 / RFC 0034 §4.4.2,
-chosen for uniformity (no special case for "current") and because it makes each version
-fully self-describing.
+The current version's struct, codec, step migration, dispatch, and hand-written behavior
+all live at the `internal/types/` package level. Historical versions sit in
+`internal/types/vN/` and contain only generated files — `types.gen.go`, `codec.gen.go`,
+and (for `N ≥ 1`) `migrate.go`. `<service>.go` re-exports the current type (`type T =
+types.T`). This is a deliberate revision of RFC 0033 §4.3.0 / RFC 0034 §4.4.2, and a
+refinement of an earlier draft of this RFC that proposed treating every version
+uniformly under `v<N>/`.
+
+The asymmetry is the point. We considered a uniform `v<current>/` layout for symmetry,
+but the only file that ever wants to live next to the current type — the hand-written
+`helpers.go` for methods that need receiver syntax — would then have to move directories
+at every version bump. Lifting current out of the subdirectory gives `helpers.go` a
+stable location forever, makes "historical versions carry no behavior" a structural
+invariant (there is no slot in a frozen `vN/` for a hand-written file), and reduces the
+freeze operation to a mechanical file move owned by Oracle (§4.6.0). Strong
+encapsulation is preserved because the entire tree still sits under `internal/`, so a
+specific version remains unimportable from outside the service.
 
 ## 5.4 - Peek for Import; Gorp Stays Batch
 
@@ -586,7 +944,7 @@ A generated `Validate()` is enforced once, in `gorp.Writer.set`, on every write.
 the single chokepoint; per-type validation logic lives in the generated method, but the
 call site is centralized so it cannot be bypassed or forgotten.
 
-## 5.6 - Resolved/Transient and Extended Validation Are Oracle-Owned
+## 5.6 - Resolved Fields and Extended Validation Are Oracle-Owned
 
 The `resolved` domain, numeric bounds, and enum-variant checks are declared in `.oracle`
 schemas and generated, not hand-written per service — keeping the schema the single
@@ -639,10 +997,10 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 - **Channel metadata write authority.** With the metadata table service-owned and
   replicated, does its Gorp entry stay Aspen-leased to the channel's leaseholder (writes
   route there, preserving today's per-leaseholder serialization) or become an unleased
-  replicated entry (writes from any node)? The latter is simpler but reopens name-conflict
-  races that leaseholder routing currently serializes.
-- **Cross-layer create atomicity.** Channel create now spans layers: distribution creates
-  the Cesium storage, then service writes the metadata record. If the metadata write
-  fails, the Cesium channel is orphaned. Define the ordering and cleanup contract — the
-  storage layer already lacks a transactional guarantee with the KV tx (see
+  replicated entry (writes from any node)? The latter is simpler but reopens
+  name-conflict races that leaseholder routing currently serializes.
+- **Cross-layer create atomicity.** Channel create now spans layers: distribution
+  creates the Cesium storage, then service writes the metadata record. If the metadata
+  write fails, the Cesium channel is orphaned. Define the ordering and cleanup contract
+  — the storage layer already lacks a transactional guarantee with the KV tx (see
   `lease_proxy.go` `deleteGateway`).
