@@ -14,7 +14,6 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
-  axisKeyZ,
   axisZ,
   keyZ,
   legendZ,
@@ -22,6 +21,8 @@ import {
   lineZ,
   ruleZ,
   titleZ,
+  xAxisKeyZ,
+  yAxisKeyZ,
 } from "@/lineplot/types.gen";
 
 /** Rename renames the line plot. */
@@ -48,10 +49,9 @@ export type SetLegendPayload = z.infer<typeof setLegendPayloadZ>;
 /**
  * AddChannel appends the channel to the channels array bound to the y-axis
  * named by axis_key. No-op when the channel is already present.
- * Returns a validation error when axis_key targets an x-axis.
  */
 export const addChannelPayloadZ = z.object({
-  axisKey: axisKeyZ,
+  axisKey: yAxisKeyZ,
   channel: channel.keyZ,
 });
 
@@ -59,11 +59,10 @@ export type AddChannelPayload = z.infer<typeof addChannelPayloadZ>;
 
 /**
  * RemoveChannel removes the channel from the y-axis named by axis_key. No-op
- * when the channel is not present. Returns a validation error
- * when axis_key targets an x-axis.
+ * when the channel is not present.
  */
 export const removeChannelPayloadZ = z.object({
-  axisKey: axisKeyZ,
+  axisKey: yAxisKeyZ,
   channel: channel.keyZ,
 });
 
@@ -71,11 +70,10 @@ export type RemoveChannelPayload = z.infer<typeof removeChannelPayloadZ>;
 
 /**
  * SetXChannel replaces the single channel bound to the x-axis named by
- * axis_key. Returns a validation error when axis_key targets a
- * y-axis.
+ * axis_key.
  */
 export const setXChannelPayloadZ = z.object({
-  axisKey: axisKeyZ,
+  axisKey: xAxisKeyZ,
   channel: channel.keyZ,
 });
 
@@ -84,10 +82,9 @@ export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
 /**
  * AddRange appends the range key to the ranges array bound to the x-axis
  * named by axis_key. No-op when the range is already present.
- * Returns a validation error when axis_key targets a y-axis.
  */
 export const addRangePayloadZ = z.object({
-  axisKey: axisKeyZ,
+  axisKey: xAxisKeyZ,
   range: z.string(),
 });
 
@@ -95,11 +92,10 @@ export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
 
 /**
  * RemoveRange removes the range key from the x-axis named by axis_key. No-op
- * when the range is not present. Returns a validation error when
- * axis_key targets a y-axis.
+ * when the range is not present.
  */
 export const removeRangePayloadZ = z.object({
-  axisKey: axisKeyZ,
+  axisKey: xAxisKeyZ,
   range: z.string(),
 });
 

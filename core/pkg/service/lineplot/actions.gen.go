@@ -47,42 +47,37 @@ type SetLegendPayload struct {
 }
 
 // AddChannelPayload appends the channel to the channels array bound to the y-axis named
-// by axis_key. No-op when the channel is already present. Returns a validation error
-// when axis_key targets an x-axis.
+// by axis_key. No-op when the channel is already present.
 type AddChannelPayload struct {
-	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // RemoveChannelPayload removes the channel from the y-axis named by axis_key. No-op
-// when the channel is not present. Returns a validation error when axis_key targets an
-// x-axis.
+// when the channel is not present.
 type RemoveChannelPayload struct {
-	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // SetXChannelPayload replaces the single channel bound to the x-axis named by axis_key.
-// Returns a validation error when axis_key targets a y-axis.
 type SetXChannelPayload struct {
-	AxisKey AxisKey     `json:"axis_key" msgpack:"axis_key"`
+	AxisKey XAxisKey    `json:"axis_key" msgpack:"axis_key"`
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
 // AddRangePayload appends the range key to the ranges array bound to the x-axis named
-// by axis_key. No-op when the range is already present. Returns a validation error when
-// axis_key targets a y-axis.
+// by axis_key. No-op when the range is already present.
 type AddRangePayload struct {
-	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string  `json:"range" msgpack:"range"`
+	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
+	Range   string   `json:"range" msgpack:"range"`
 }
 
 // RemoveRangePayload removes the range key from the x-axis named by axis_key. No-op
-// when the range is not present. Returns a validation error when axis_key targets a
-// y-axis.
+// when the range is not present.
 type RemoveRangePayload struct {
-	AxisKey AxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string  `json:"range" msgpack:"range"`
+	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
+	Range   string   `json:"range" msgpack:"range"`
 }
 
 // SetAxisPayload replaces the configuration for the axis identified by axis.key.

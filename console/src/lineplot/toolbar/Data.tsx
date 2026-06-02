@@ -71,7 +71,8 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
 
   const handleXChannelSelect = useCallback(
     (key: lineplot.AxisKey, value: channel.Key): void => {
-      dispatch([lineplot.setXChannel({ axisKey: key, channel: value })]);
+      const axis = key as lineplot.XAxisKey;
+      dispatch([lineplot.setXChannel({ axisKey: axis, channel: value })]);
     },
     [dispatch],
   );
