@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestCppTypes(t *testing.T) {
@@ -986,8 +987,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			resp, err := cppPlugin.Generate(&plugin.Request{Resolutions: table})
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(&plugin.Request{Resolutions: table}))
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`AXIS_KEY_X_1 = "x1";`))
 			Expect(content).To(ContainSubstring(`AXIS_KEY_Y_2 = "y2";`))

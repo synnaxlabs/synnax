@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -271,8 +272,7 @@ var _ = Describe("TS Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const AXIS_KEYS = ["x1", "x2", "y1", "y2"] as const`))
 			Expect(content).To(ContainSubstring(`export const axisKeyZ = z.enum(AXIS_KEYS)`))
