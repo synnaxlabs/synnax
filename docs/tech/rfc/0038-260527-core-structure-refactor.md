@@ -464,41 +464,33 @@ core/pkg/<layer>/<resource>/
 │
 │
 └── internal/
-    └── types/                       # CURRENT lives at this package level
-        ├── types.gen.go             # current — Resource definition + gorp.Entry methods
-        │   ├── const Version imex.Version = N
-        │   ├── type Key
-        │   ├── type Resource struct { Key Key; … }
-        │   ├── func (Resource) GorpKey() Key
-        │   ├── func (Resource) SetOptions() []any
-        │   └── func (Resource) Validate() error
-        ├── codec.gen.go             # current ORC codec
-        │   ├── func (Resource) EncodeOrc(*orc.Writer) error
-        │   └── func (*Resource) DecodeOrc(*orc.Reader) error
-        ├── migrate.go               # current's step migration: v(N-1) → current
-        │   └── func Migrate(v(N-1).Resource) (Resource, error)
+    └── types/                       # external surface — re-exports current
+        ├── types.go                 # current selector
+        │   ├── type Key = vN.Key
+        │   ├── type Resource = vN.Resource
+        │   └── const LatestVersion = vN.Version
         ├── decode.go                # version dispatch — the only entry imex calls
-        │   ├── const LatestVersion imex.Version = N
         │   └── func Decode(imex.Codec, imex.Version, []byte) (Resource, error)
-        ├── helpers.go               # hand-written method receivers on current Resource
         │
         ├── legacy/                  # OPTIONAL — pre-versioned blobs that still need to decode
         │   ├── legacy.go
         │   └── vN/                  # if the legacy chain itself had revisions
         │
-        └── vN/                      # HISTORICAL — frozen, pure-generated
-            ├── types.gen.go
+        └── vN/                      # one per version; current additionally hosts helpers.go
+            ├── types.gen.go         # frozen struct + gorp.Entry methods
             │   ├── const Version imex.Version = N
             │   ├── type Key
-            │   ├── type Resource struct { ... }
+            │   ├── type Resource struct { Key Key; … }
             │   ├── func (Resource) GorpKey() Key
             │   ├── func (Resource) SetOptions() []any
             │   └── func (Resource) Validate() error
-            ├── codec.gen.go
+            ├── codec.gen.go         # frozen ORC codec
             │   ├── func (Resource) EncodeOrc(*orc.Writer) error
             │   └── func (*Resource) DecodeOrc(*orc.Reader) error
-            └── migrate.go           # ONLY on non-zero versions
-                └── func Migrate(v(N-1).Resource) (Resource, error)
+            ├── migrate.go           # step migration; omitted on v0
+            │   └── func Migrate(v(N-1).Resource) (Resource, error)
+            └── helpers.go           # CURRENT ONLY — hand-written method receivers on Resource
+                                     # Oracle moves this file forward at each version bump (§4.6.0)
 ```
 
 A few file-level rules fall out of this layout:
@@ -531,29 +523,37 @@ mirror — fetch via `Retrieve`, hand back as `imex.Exported`.
 **`internal/types/decode.go` is the only decoder.** Outside callers cannot reach `vN`
 packages directly (Go `internal/`). The `Decode` switch is the canonical version
 dispatch; the imex peek (§4.4) passes the parsed `imex.Version` straight into it.
-Migrations compose — `v3 → v4 → v5 → current` is a chain of one-step `Migrate` calls
-walked by `Decode`, never a free-floating "any-to-any" function. The current's step
-(`v(N-1) → current`) lives in `internal/types/migrate.go` alongside the type itself;
-each historical step lives in its own `vN/migrate.go`.
+Migrations compose — `v3 → v4 → v5 → v6` is a chain of one-step `Migrate` calls walked
+by `Decode`, never a free-floating "any-to-any" function. Each step's `Migrate` lives
+in the destination version's `vN/migrate.go`, including the step that lands on current.
 
-**Current is asymmetric with historical, and that is intentional.** The current
-version's struct, codec, step migration, and hand-written behavior all live at the
-`internal/types/` package level — not in a `v<current>/` subdirectory. Historical
-versions sit in `vN/` and contain only generated files. This asymmetry pays for itself:
-`helpers.go` (the hand-written method receivers on `Resource`) has a stable location
-across the entire lifetime of the resource, so version bumps never require moving or
-relocating hand-written code. Historical versions can never accumulate behavior because
-they have no `helpers.go` slot at all — pure-generated is a structural invariant Oracle
-enforces (§4.6.0).
+**Method placement has one rule, applied in order.** Behavior on `Resource` and on
+adjacent types follows a three-step decision:
 
-**`helpers.go` is the escape hatch for things Oracle can't express.** Anything you can
-write as a free function at the service-package level (`func channel.Storage(c Channel)
-ts.Channel`) should live there — never moves, never versions. Anything that genuinely
-requires method-receiver syntax — typically `String()` for `fmt`, `UnmarshalJSON` for
-backward-compat wire formats, or methods used through an interface — goes in
-`internal/types/helpers.go`. The presence of a helper is a soft signal that the schema
-could absorb the behavior over time; the file is not forbidden, but it should stay
-small.
+1. **Can it be a free function on the top-level service package?** If the call site
+   reads naturally as `channel.Storage(c)` instead of `c.Storage()`, write it as a
+   free function in `service/channel/` (or wherever the resource lives). Free
+   functions never version, never move, and never require Oracle to touch them.
+   This is the default and absorbs most of the surface area.
+2. **Does it need method-receiver syntax?** Methods that satisfy a Go interface
+   (`fmt.Stringer.String`, `json.Marshaler.MarshalJSON`, `gorp.Entry.Validate`),
+   methods called via interface dispatch elsewhere in the codebase, or methods whose
+   call site reads materially better as `c.Method()` (idiomatic dot-access on a hot
+   path) — these go in `internal/types/v<current>/helpers.go`. They are pinned to
+   that file because Go method receivers must be defined in the package the
+   underlying type lives in, and the current type lives in `v<current>`.
+3. **Is it generatable from schema?** Equals, Storage projections, composite-key
+   construction, predicate methods like `IsCalculated` — these should be declared
+   in the `.oracle` schema and generated into `types.gen.go` so they exist on every
+   frozen version uniformly. `helpers.go` is the escape hatch for things Oracle
+   genuinely cannot express (e.g., `UnmarshalJSON` shims for legacy wire formats);
+   its size is a soft signal that the schema could absorb more.
+
+**Historical `vN/` directories never carry hand-written files.** Once `vN` is no
+longer current, its `helpers.go` has already been moved forward to `v(N+1)/` by
+Oracle's freeze pass (§4.6.0). If Oracle finds a hand-written file in a historical
+`vN/` on regeneration, that is an error. This makes "historical versions carry no
+behavior" a structural invariant: there is no slot for it.
 
 **`legacy/` is a snapshot, not a versioned series.** Resources that accumulated history
 before the numbered scheme (e.g. `schematic`, `ranger`) keep that history frozen as a
@@ -566,48 +566,42 @@ Tests are co-located but unlisted above — `<resource>_test.go`,
 `migration_test.go`. These don't change the structural rule; they sit next to the file
 they test.
 
-A version bump is a freeze operation owned by Oracle (§4.6.0): the top-level
-`types.gen.go`, `codec.gen.go`, and `migrate.go` are moved into a new
-`internal/types/v<old-current>/` directory, fresh versions of those three files are
-emitted at the top level for the new current, `decode.go` is updated to chain through
-the newly-frozen version, and `helpers.go` is left in place (with field-rename rewrites
-applied where the schema's migration map allows). `resource.go` and every external
-caller of `resource.Resource` are unchanged. This supersedes RFC 0033 §4.3.0's rule that
-the current type lives in the service package; per RFC 0033 §3.6, each historical `vN/`
+A version bump is a freeze operation owned by Oracle (§4.6.0): a fresh
+`internal/types/v(N+1)/` directory is generated with `types.gen.go`, `codec.gen.go`,
+and `migrate.go` (`vN → v(N+1)`); the previous current `vN/helpers.go` is moved into
+`v(N+1)/helpers.go` with field-rename rewrites applied from the schema's migration map;
+`internal/types/types.go` is regenerated to re-export `v(N+1)`; and `decode.go` is
+updated to chain through the newly-frozen version. `resource.go` and every external
+caller of `resource.Resource` are unchanged. This supersedes RFC 0033 §4.3.0's rule
+that the current type lives in the service package; per RFC 0033 §3.6, each `vN/`
 still imports nothing from the parent.
 
-### 4.3.1 - Each Historical Version Is Self-Contained
+### 4.3.1 - Each Version Is Self-Contained
 
-Every `internal/types/vN/` (for `N < current`) carries exactly what that version needs
-to stand on its own: the frozen struct and its required `gorp.Entry` methods
+Every `internal/types/vN/` — current included — carries exactly what that version
+needs to stand on its own: the frozen struct and its required `gorp.Entry` methods
 (`types.gen.go`: `GorpKey`, `SetOptions`, `Validate` — see §5.8), the frozen codec
-(`codec.gen.go`), and — for every version after `v0` — the `migrate.go` that lifts the
-previous version to this one (`v(N-1).Resource → vN.Resource`). Nothing else. No
-behavior, no helpers, no hand-written code; if a file shows up in a historical `vN/`
-that Oracle didn't generate, that is a structural violation. This replaces the scattered
-homes those methods have today (`helpers.go`, `ontology.go`, `codec.gen.go` under
-`migrations/`) and the single bottom-of-package migration file.
-
-The current version is different: it lives at the `internal/types/` package level rather
-than in a `v<current>/` subdirectory, and it owns the hand-written `helpers.go` that
-historical versions are forbidden from carrying (§4.3.0). The same generated files exist
-for current and for historical (`types.gen.go`, `codec.gen.go`, and — except for `v0` —
-`migrate.go`), just emitted into different directories. At freeze time, Oracle moves
-them into a new `vN/`.
+(`codec.gen.go`), and — for every version after `v0` — the `migrate.go` that lifts
+the previous version to this one (`v(N-1).Resource → vN.Resource`). The current
+version additionally hosts the hand-written `helpers.go` for method-receiver
+behavior on `Resource` (§4.3.0); historical versions are forbidden from carrying
+one. This replaces the scattered homes those methods have today (`helpers.go`,
+`ontology.go`, `codec.gen.go` under `migrations/`) and the single bottom-of-package
+migration file.
 
 Ontology integration is **not** per-version. `OntologyID`, `KeyFromOntologyID`, the
 ontology `Schema`, and the `ontology.Service` implementation live in the package's
 top-level `ontology.go` and operate on the current type only — there is no concept of
-"the v3 ontology ID of a record", because the live record's ontology ID is whatever the
-current version says it is. Historical versions only need the methods that gorp calls
-during migration (key extraction, write-time validation), which is exactly what the
-`gorp.Entry` interface requires.
+"the v3 ontology ID of a record", because the live record's ontology ID is whatever
+the current version says it is. Historical versions only need the methods that gorp
+calls during migration (key extraction, write-time validation), which is exactly
+what the `gorp.Entry` interface requires.
 
 `internal/types/decode.go` holds only the dispatch (`Decode`): match a version, then
-walk the per-version `migrate.go` chain up to current — older steps in `vN/migrate.go`,
-the final step (`v(N-1) → current`) in `internal/types/migrate.go`. Because each version
-owns its key extractor and per-record validator, a migration step can read and validate
-without reaching outside its own package (RFC 0033 §3.6).
+walk the `vN/migrate.go` chain up to current — every step lives in its destination
+version's directory, including the one that lands on current. Because each version
+owns its key extractor and per-record validator, a migration step can read and
+validate without reaching outside its own package (RFC 0033 §3.6).
 
 ### 4.3.2 - Versions and Legacy
 
@@ -750,33 +744,21 @@ no DB and no other services:
 
 ```go
 // service/schematic/internal/types/decode.go
-// Schematic is the current type, defined in types.gen.go at this package level.
-// Migrate (in migrate.go at this package level) is the final step v5 → current.
+// Schematic = v6.Schematic via internal/types/types.go.
 func Decode(c imex.Codec, v imex.Version, raw []byte) (Schematic, error) {
     switch {
     case v > LatestVersion:
         return Schematic{}, imex.NewErrUnsupportedVersion("schematic", v, LatestVersion)
-    case v == LatestVersion:
-        var s Schematic
+    case v == v6.Version:
+        var s v6.Schematic
         return s, c.Decode(raw, &s)
     case v == v5.Version:
         var s v5.Schematic
         if err := c.Decode(raw, &s); err != nil {
             return Schematic{}, err
         }
-        return Migrate(s) // internal/types/migrate.go: v5 → current
-    case v == v4.Version:
-        var s v4.Schematic
-        if err := c.Decode(raw, &s); err != nil {
-            return Schematic{}, err
-        }
-        s5, err := v5.Migrate(s) // v5/migrate.go: v4 → v5
-        if err != nil {
-            return Schematic{}, err
-        }
-        return Migrate(s5)        // v5 → current
-    // … older versions decode at their vN, then walk the v(N+1).Migrate chain
-    //     up through v5.Migrate, then call internal/types.Migrate for the last step.
+        return v6.Migrate(s) // v6/migrate.go: v5 → v6
+    // … older versions decode at their vN, then walk the v(N+1).Migrate chain to current
     }
 }
 ```
@@ -848,38 +830,44 @@ instrumentation.
 
 Consolidating the generator work implied above:
 
-### 4.6.0 - `internal/types/` Output and the Freeze Operation
+### 4.6.0 - `internal/types/vN/` Output and the Freeze Operation
 
-The output plugin emits the **current** version directly into
-`<service>/internal/types/` as four files: `types.gen.go` (Resource + gorp.Entry
-methods), `codec.gen.go` (ORC codec), `migrate.go` (step migration from the most-recent
-frozen version), and `decode.go` (the version-dispatch entry point). It emits each
-**historical** version into `<service>/internal/types/vN/` with the same generated trio
-minus `decode.go`: `types.gen.go`, `codec.gen.go`, and (for `N ≥ 1`) `migrate.go`. It
-emits the one-line public re-export into `<service>/<service>.go` (`type T = types.T`).
-Historical `vN/` directories never contain anything but generated files; if Oracle finds
-a hand-written file in a historical directory on regeneration, that is an error.
+The output plugin emits each version into `<service>/internal/types/vN/` — one Go
+package per version, current included — with `types.gen.go` (Resource + gorp.Entry
+methods), `codec.gen.go` (ORC codec), and (for `N ≥ 1`) `migrate.go` (the step
+`v(N-1) → vN`). The current version's `vN/` additionally hosts the hand-written
+`helpers.go` for any method-receiver behavior on `Resource` (§4.3.0). At the package
+level, Oracle emits `internal/types/types.go` (current selector: `type Resource =
+vN.Resource`, `const LatestVersion = vN.Version`) and `internal/types/decode.go`
+(version-dispatch entry point). The one-line public re-export goes into
+`<service>/<service>.go` (`type T = types.T`). Historical `vN/` directories contain
+only generated files; if Oracle finds a hand-written file in a historical directory
+on regeneration, that is an error.
 
-A version bump is a **freeze** operation that Oracle performs in one pass:
+A version bump is a **freeze** operation Oracle performs in one pass:
 
-1. **Move current to historical.** The top-level `types.gen.go`, `codec.gen.go`, and
-   `migrate.go` (those described the previous current) are moved into a new
-   `internal/types/v<old-current>/` directory. They become frozen historical files
-   without modification.
-2. **Emit the new current.** Fresh `types.gen.go`, `codec.gen.go`, and `migrate.go` are
-   written at the top level for the new current version. The new `migrate.go` contains
-   `Migrate(v<old-current>.Resource) → Resource`.
-3. **Update the dispatch.** `decode.go` (always at the top level, never frozen) is
-   regenerated to chain the just-frozen version into the migration walk.
-4. **Rewrite `helpers.go` in place.** Field renames declared in the new version's
-   migration map are applied to `helpers.go` as AST rewrites. Anything Oracle cannot
-   rewrite — references to removed fields, signature changes — is left as-is and
-   surfaces as a compile error for the developer to resolve. `helpers.go` never moves;
-   it lives at `internal/types/helpers.go` for the entire lifetime of the resource.
+1. **Emit the new current `v(N+1)/`.** Oracle generates `types.gen.go`,
+   `codec.gen.go`, and `migrate.go` (`vN → v(N+1)`) into a fresh
+   `internal/types/v(N+1)/` directory. The previously-current `vN/` is now historical
+   with its generated files unchanged.
+2. **Move `helpers.go` forward.** Oracle moves `internal/types/vN/helpers.go` to
+   `internal/types/v(N+1)/helpers.go`, applying field-rename rewrites from the
+   migration map at the syntax level. Anything Oracle cannot rewrite — references to
+   removed fields, signature changes — is left as-is and surfaces as a compile error
+   for the developer to resolve. After the move, the historical `vN/` has no
+   `helpers.go` (preserving the "historical = pure-generated" invariant).
+3. **Re-point the selector.** `internal/types/types.go` is regenerated to alias
+   `v(N+1)` (`type Resource = v(N+1).Resource`, `const LatestVersion = v(N+1).Version`).
+4. **Update the dispatch.** `internal/types/decode.go` is regenerated to chain the
+   newly-frozen `vN` into the migration walk.
 
-The first version (`v0`) is a special case: there is no previous current to freeze, no
-`migrate.go` at the top level, and no historical directories yet. `helpers.go` may not
-exist on day one; it's created the first time a developer needs method-receiver syntax.
+`<service>.<service>.go` and every external caller of `<service>.Resource` are
+unchanged.
+
+The first version (`v0`) is a special case: there is no previous current to freeze,
+no `migrate.go` in `v0/`, and no historical directories yet. `v0/helpers.go` may not
+exist on day one; it's created the first time a developer needs method-receiver
+syntax.
 
 ### 4.6.1 - `resolved` Domain
 
@@ -930,25 +918,26 @@ receives back from `Retrieve` — one service-layer type with the resolved field
 as zero values, instead of a duplicate API type that embeds the service type to bolt
 them on (4.2.0).
 
-## 5.3 - Current at `internal/types/`, Historical at `internal/types/vN/`
+## 5.3 - Uniform `internal/types/vN/` for Every Version, with Oracle-Moved `helpers.go`
 
-The current version's struct, codec, step migration, dispatch, and hand-written behavior
-all live at the `internal/types/` package level. Historical versions sit in
-`internal/types/vN/` and contain only generated files — `types.gen.go`, `codec.gen.go`,
-and (for `N ≥ 1`) `migrate.go`. `<service>.go` re-exports the current type (`type T =
-types.T`). This is a deliberate revision of RFC 0033 §4.3.0 / RFC 0034 §4.4.2, and a
-refinement of an earlier draft of this RFC that proposed treating every version
-uniformly under `v<N>/`.
+Every version — current included — is a self-contained package under
+`internal/types/vN/`. `internal/types/types.go` re-exports the current one
+(`type T = vN.T`) and `<service>.<service>.go` re-exports that
+(`type T = types.T`). This is a deliberate revision of RFC 0033 §4.3.0 / RFC 0034
+§4.4.2.
 
-The asymmetry is the point. We considered a uniform `v<current>/` layout for symmetry,
-but the only file that ever wants to live next to the current type — the hand-written
-`helpers.go` for methods that need receiver syntax — would then have to move directories
-at every version bump. Lifting current out of the subdirectory gives `helpers.go` a
-stable location forever, makes "historical versions carry no behavior" a structural
-invariant (there is no slot in a frozen `vN/` for a hand-written file), and reduces the
-freeze operation to a mechanical file move owned by Oracle (§4.6.0). Strong
-encapsulation is preserved because the entire tree still sits under `internal/`, so a
-specific version remains unimportable from outside the service.
+Uniformity beats asymmetry because the rule about where things live becomes one
+sentence — "everything for version N lives in `vN/`" — instead of "current at the top
+of `internal/types/`, historical in `vN/`, helpers only at the top, generated files
+in both places." The cost is that `helpers.go` (the only hand-written file the
+current version carries) has to migrate from `vN/` to `v(N+1)/` at each version bump.
+Oracle automates that move with the same AST-rewrite pass it would have applied to
+keep helpers in sync with field renames anyway (§4.6.0), so the developer cost is
+approximately zero. The structural invariant — "historical versions carry no
+behavior" — is preserved by moving `helpers.go` forward as part of the freeze, so by
+the time `vN` becomes historical it no longer has one. Strong encapsulation is
+preserved by the `internal/` rule: external callers cannot import a specific
+version.
 
 ## 5.4 - Peek for Import; Gorp Stays Batch
 
