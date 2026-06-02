@@ -278,6 +278,25 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
 
+		It("Should accept a diamond where two parents share a common ancestor", func(ctx SpecContext) {
+			source := `
+				Base enum { b = "b" }
+				Left  enum extends Base { l = "l" }
+				Right enum extends Base { r = "r" }
+
+				Diamond enum extends Left, Right {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
+			var names []string
+			for _, v := range form.Values {
+				names = append(names, v.Name)
+			}
+			// Base contributed once through each branch but is de-duplicated.
+			Expect(names).To(Equal([]string{"b", "l", "r"}))
+		})
+
 		It("Should expand a multi-level extends chain", func(ctx SpecContext) {
 			source := `
 				C enum { c = "c" }

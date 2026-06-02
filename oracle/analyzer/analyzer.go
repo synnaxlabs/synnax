@@ -275,7 +275,10 @@ func effectiveEnumValues(
 			addEnumDiag(c, typ, "enum %s extends %s, which is not an enum", typ.QualifiedName, parent.QualifiedName)
 			return nil, false, false
 		}
-		pVals, pInt, ok := effectiveEnumValues(c, parent, visited)
+		// Each branch gets its own copy so visited tracks the ancestor path,
+		// not every node seen. A shared set would falsely flag a diamond
+		// (two parents extending a common ancestor) as a cyclic chain.
+		pVals, pInt, ok := effectiveEnumValues(c, parent, visited.Copy())
 		if !ok {
 			return nil, false, false
 		}
