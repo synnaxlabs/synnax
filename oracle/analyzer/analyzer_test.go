@@ -152,6 +152,191 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Values[2].Domains).To(BeEmpty())
 		})
 
+		It("Should analyze an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			axis := table.MustGet("lineplot.AxisKey")
+			form, ok := axis.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.IsExtension()).To(BeTrue())
+			Expect(form.IsIntEnum).To(BeFalse())
+			Expect(form.Values).To(HaveLen(4))
+			var names []string
+			for _, v := range form.Values {
+				names = append(names, v.Name)
+			}
+			Expect(names).To(Equal([]string{"x1", "x2", "y1", "y2"}))
+			Expect(form.Values[2].StringValue()).To(Equal("y1"))
+		})
+
+		It("Should let an extending enum add its own members", func(ctx SpecContext) {
+			source := `
+				Base enum {
+					a = "a"
+				}
+
+				More enum extends Base {
+					b = "b"
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("x.More").Form.(resolution.EnumForm)
+			Expect(form.Values).To(HaveLen(2))
+			Expect(form.Values[0].Name).To(Equal("a"))
+			Expect(form.Values[1].Name).To(Equal("b"))
+		})
+
+		It("Should inherit the int kind from int parent enums", func(ctx SpecContext) {
+			source := `
+				Low  enum { low  = 0 }
+				High enum { high = 1 }
+
+				Priority enum extends Low, High {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("task.Priority").Form.(resolution.EnumForm)
+			Expect(form.IsIntEnum).To(BeTrue())
+			Expect(form.Values[1].IntValue()).To(Equal(int64(1)))
+		})
+
+		It("Should reject extending a non-enum type", func(ctx SpecContext) {
+			source := `
+				Thing struct { name string }
+
+				Bad enum extends Thing {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("which is not an enum"))
+		})
+
+		It("Should reject extending an unknown enum", func(ctx SpecContext) {
+			source := `
+				Bad enum extends Nonexistent {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends unknown enum"))
+		})
+
+		It("Should reject mixing string and int parent kinds", func(ctx SpecContext) {
+			source := `
+				Strs enum { a = "a" }
+				Ints enum { b = 0 }
+
+				Mixed enum extends Strs, Ints {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("mixed integer and string"))
+		})
+
+		It("Should reject parents that contribute conflicting member values", func(ctx SpecContext) {
+			source := `
+				A enum { shared = "one" }
+				B enum { shared = "two" }
+
+				C enum extends A, B {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("conflicting values"))
+		})
+
+		It("Should reject an enum that extends itself", func(ctx SpecContext) {
+			source := `
+				A enum extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+		})
+
+		It("Should reject a cyclic extends chain", func(ctx SpecContext) {
+			source := `
+				A enum extends B {}
+				B enum extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+		})
+
+		It("Should accept a diamond where two parents share a common ancestor", func(ctx SpecContext) {
+			source := `
+				Base enum { b = "b" }
+				Left  enum extends Base { l = "l" }
+				Right enum extends Base { r = "r" }
+
+				Diamond enum extends Left, Right {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
+			var names []string
+			for _, v := range form.Values {
+				names = append(names, v.Name)
+			}
+			// Base contributed once through each branch but is de-duplicated.
+			Expect(names).To(Equal([]string{"b", "l", "r"}))
+		})
+
+		It("Should expand a multi-level extends chain", func(ctx SpecContext) {
+			source := `
+				C enum { c = "c" }
+				B enum extends C { b = "b" }
+				A enum extends B { a = "a" }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("x.A").Form.(resolution.EnumForm)
+			var names []string
+			for _, v := range form.Values {
+				names = append(names, v.Name)
+			}
+			Expect(names).To(Equal([]string{"c", "b", "a"}))
+		})
+
+		It("Should extend enums imported from another namespace", func(ctx SpecContext) {
+			source := `
+				import "schemas/spatial"
+
+				AxisKey enum extends spatial.XAxisKey, spatial.YAxisKey {}
+			`
+			loader.Add("schemas/spatial", `
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+			`)
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
+			Expect(form.Values).To(HaveLen(4))
+			Expect(form.Values[0].Name).To(Equal("x1"))
+			Expect(form.Values[3].StringValue()).To(Equal("y2"))
+		})
+
 		It("Should collect field domains", func(ctx SpecContext) {
 			source := `
 				User struct {
