@@ -10,6 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -103,7 +104,7 @@ const importComponent = ({
           placeLayout,
           store: fluxStore,
           client,
-          workspaceKey: activeWorkspaceKeyAfter ?? undefined,
+          workspaceKey: activeWorkspaceKeyAfter ?? uuid.ZERO,
         });
       }, `Failed to import ${file.name}`),
     );

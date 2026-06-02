@@ -1,0 +1,57 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`status`"
+description: "Arc standard library reference for the status module"
+prev: "math"
+prevURL: "/reference/control/arc/reference/standard-library/math"
+next: "time"
+nextURL: "/reference/control/arc/reference/standard-library/time"
+---
+
+import { Note, Icon, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+The `status` module publishes status notifications (alarms, warnings, and operational
+states) to the Core.
+
+## `set`
+
+Sets a status notification (an alarm, warning, or operational state) on the Core,
+addressing it by name or by key, and outputs the resolved status key.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter     | Type  | Required | Description                                                                                                                                                                                               |
+| ------------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key_or_name` | `str` | Yes      | An existing status key or name. A match is updated in place; if none matches, a new status is created with this name; if several statuses share the name, the first is updated and a warning is surfaced. |
+| `message`     | `str` | Yes      | The message body shown on the status.                                                                                                                                                                     |
+| `variant`     | `str` | Yes      | One of `success`, `info`, `warning`, `error`, `loading`, or `disabled`.                                                                                                                                   |
+
+**Output** `str`: the resolved status key that was set.
+
+<Note.Note variant="info" className="compact">
+  If a `status.set` fails (for example, an empty `key_or_name` or a database error), it
+  reports a `warning` and the automation keeps running.
+</Note.Note>
+
+</Details>
+
+```arc
+trigger -> status.set{
+    key_or_name = "ox_alarm",
+    variant = "error",
+    message = "Overpressure detected"
+}
+
+func raise_alarm() {
+    alarm_key = status.set(
+      "ox_alarm",
+      "Overpressure detected",
+      "error"
+    )
+}
+```

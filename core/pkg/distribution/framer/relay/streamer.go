@@ -103,11 +103,20 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		// We only set demands when we start the streamer, avoiding unnecessary overhead
 		// when the streamer is not in use. We also need to make sure we send these
 		// demands before we connect to the delta, otherwise, under extreme load we
-		// may cause deadlock.
+		// may cause deadlock. When an open ack is requested, ack lets us block below
+		// until the relay has applied the demand to its taps, so the ack is a true
+		// readiness signal; otherwise there is nothing to gate and we leave it nil.
+		var ack chan struct{}
+		if *s.cfg.SendOpenAck {
+			ack = make(chan struct{})
+		}
 		s.demands.Inlet() <- demand{
-			Variant: change.VariantSet,
-			Key:     s.addr,
-			Value:   Request{Keys: s.cfg.Keys},
+			Change: change.Change[address.Address, Request]{
+				Variant: change.VariantSet,
+				Key:     s.addr,
+				Value:   Request{Keys: s.cfg.Keys},
+			},
+			ack: ack,
 		}
 		// NOTE: BEYOND THIS POINT THERE IS AN INHERENT RISK OF DEADLOCKING THE RELAY.
 		// BE CAREFUL WHEN MAKING CHANGES TO THIS SECTION.
@@ -117,13 +126,27 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// we do this before updating our demands, otherwise we may deadlock.
 			disconnect()
 			// Tell the tapper that we are no longer requesting any channels.
-			s.demands.Inlet() <- demand{Variant: change.VariantDelete, Key: s.addr}
+			s.demands.Inlet() <- demand{Change: change.Change[address.Address, Request]{
+				Variant: change.VariantDelete,
+				Key:     s.addr,
+			}}
 			// If we add this in AttachClosables, it may not be closed at the end of
 			// if the caller does not use the confluence.CloseOutputInletsOnExit option, so
 			// we explicitly close it here.
 			s.demands.Close()
 		}()
 		if *s.cfg.SendOpenAck {
+			// Wait for the relay to confirm our demand has been applied before
+			// signaling readiness. For free/virtual channels this is a true
+			// happens-before barrier: updateTaps installs the keys synchronously, so
+			// a write to a free channel issued after the open ack is guaranteed to be
+			// delivered. Gateway and peer taps receive key updates asynchronously and
+			// are not covered by this barrier.
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ack:
+			}
 			if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{}); err != nil {
 				return err
 			}
@@ -138,7 +161,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				}
 				req.Keys = lo.Uniq(req.Keys)
 				s.cfg.Keys = req.Keys
-				d := demand{Variant: change.VariantSet, Key: s.addr, Value: req}
+				d := demand{Change: change.Change[address.Address, Request]{
+					Variant: change.VariantSet,
+					Key:     s.addr,
+					Value:   req,
+				}}
 				if err := signal.SendUnderContext(ctx, s.demands.Inlet(), d); err != nil {
 					return err
 				}

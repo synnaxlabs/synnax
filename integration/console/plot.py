@@ -16,7 +16,7 @@ import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.page import ConsolePage
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -111,7 +111,7 @@ class Plot(ConsolePage):
             download_button.click()
 
         download = download_info.value
-        save_path = get_results_path(f"{self.page_name}.csv")
+        save_path = resolve_results_path(f"{self.page_name}.csv")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             return f.read()

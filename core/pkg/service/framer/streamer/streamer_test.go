@@ -118,7 +118,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			time.Sleep(5 * time.Millisecond)
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
@@ -471,7 +470,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
-			time.Sleep(50 * time.Millisecond)
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -590,7 +588,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
-			time.Sleep(50 * time.Millisecond)
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))

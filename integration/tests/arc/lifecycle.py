@@ -28,20 +28,14 @@ func check_high_pressure(p f32) u8 {
     return p > PRESS_HIGH_LIMIT
 }
 
-func event_log{msg str} () {
-    lifecycle_log = msg
-}
-
 press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
     true: status.set{
-        status_key="lifecycle_press_alarm",
-        name="Lifecycle Press Alarm",
+        key_or_name="lifecycle_press_alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
     false: status.set{
-        status_key="lifecycle_press_normal",
-        name="Lifecycle Press Normal",
+        key_or_name="lifecycle_press_normal",
         variant="warning",
         message="Pressure below 25 PSI"
     }
@@ -66,7 +60,7 @@ sequence main {
     stage press {
         SOME_CONST_1 => const_output
         1 -> press_vlv_cmd
-        event_log{"pressurizing"}
+        "pressurizing" -> lifecycle_log 
         press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
@@ -78,7 +72,7 @@ sequence main {
     stage vent {
         SOME_CONST_2 * 2 => const_output
         1 -> vent_vlv_cmd
-        event_log{"venting"}
+        "venting" -> lifecycle_log 
         press_pt < PRESS_LOW_LIMIT => complete
     }
 

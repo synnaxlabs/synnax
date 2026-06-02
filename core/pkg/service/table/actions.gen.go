@@ -16,14 +16,15 @@ import (
 )
 
 const (
-	ActionTypeRename    = "rename"
-	ActionTypeAddRow    = "add_row"
-	ActionTypeRemoveRow = "remove_row"
-	ActionTypeAddCol    = "add_col"
-	ActionTypeRemoveCol = "remove_col"
-	ActionTypeResizeRow = "resize_row"
-	ActionTypeResizeCol = "resize_col"
-	ActionTypeSetCell   = "set_cell"
+	ActionTypeRename     = "rename"
+	ActionTypeAddRow     = "add_row"
+	ActionTypeRemoveRow  = "remove_row"
+	ActionTypeAddCol     = "add_col"
+	ActionTypeRemoveCol  = "remove_col"
+	ActionTypeResizeRow  = "resize_row"
+	ActionTypeResizeCol  = "resize_col"
+	ActionTypeSetCell    = "set_cell"
+	ActionTypeEraseCells = "erase_cells"
 )
 
 // RenamePayload renames the table.
@@ -31,14 +32,22 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// AddRowPayload inserts a row at the given index with the provided cell values. cells
-// carries one Cell per column in left-to-right order; each cell is added to the table's
-// cells map and its key is appended to the new row's cells list. Out-of-range indices
-// clamp to the end.
+// AddRowPayload inserts a row at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing column. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
+// replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveRow had stripped the table down to no columns, the explicit cells
+// trigger the same column-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the column index. Out-of-range indices clamp to the end.
 type AddRowPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
-	Cells []Cell  `json:"cells" msgpack:"cells"`
+	Index        uint32  `json:"index" msgpack:"index"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate *Cell   `json:"cell_template,omitempty" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveRowPayload removes the row at the given index. All cells referenced by the
@@ -47,14 +56,24 @@ type RemoveRowPayload struct {
 	Index uint32 `json:"index" msgpack:"index"`
 }
 
-// AddColPayload inserts a column at the given index with the provided cell values.
-// cells carries one Cell per row in top-to-bottom order; each cell is added to the
-// table's cells map and its key is inserted into the corresponding row's cells list at
-// the column index. Out-of-range indices clamp to the end.
+// AddColPayload inserts a column at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing row. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
+// replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveCol had stripped the table down to no rows, the explicit cells
+// trigger the same row-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the row index. Cells whose row index exceeds the row count are added to
+// the cells map but not referenced by any row. Out-of-range indices clamp to the end of
+// every row's cells list.
 type AddColPayload struct {
-	Index uint32  `json:"index" msgpack:"index"`
-	Size  float64 `json:"size" msgpack:"size"`
-	Cells []Cell  `json:"cells" msgpack:"cells"`
+	Index        uint32  `json:"index" msgpack:"index"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate *Cell   `json:"cell_template,omitempty" msgpack:"cell_template,omitempty"`
 }
 
 // RemoveColPayload removes the column at the given index. All cells in that column
@@ -84,18 +103,29 @@ type SetCellPayload struct {
 	Cell Cell `json:"cell" msgpack:"cell"`
 }
 
+// EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
+// is in the selection is removed entirely; same for columns. Cells that survive that
+// row/column removal have their variant and props replaced with the template's, keeping
+// their original keys. Cells in the selection whose keys are not in the table's cells
+// map are silently skipped.
+type EraseCellsPayload struct {
+	Cells    []string     `json:"cells" msgpack:"cells"`
+	Template CellTemplate `json:"template" msgpack:"template"`
+}
+
 // Action is a discriminated union for all Table mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type      string            `json:"type" msgpack:"type"`
-	Rename    *RenamePayload    `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	AddRow    *AddRowPayload    `json:"add_row,omitempty" msgpack:"add_row,omitempty"`
-	RemoveRow *RemoveRowPayload `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
-	AddCol    *AddColPayload    `json:"add_col,omitempty" msgpack:"add_col,omitempty"`
-	RemoveCol *RemoveColPayload `json:"remove_col,omitempty" msgpack:"remove_col,omitempty"`
-	ResizeRow *ResizeRowPayload `json:"resize_row,omitempty" msgpack:"resize_row,omitempty"`
-	ResizeCol *ResizeColPayload `json:"resize_col,omitempty" msgpack:"resize_col,omitempty"`
-	SetCell   *SetCellPayload   `json:"set_cell,omitempty" msgpack:"set_cell,omitempty"`
+	Type       string             `json:"type" msgpack:"type"`
+	Rename     *RenamePayload     `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	AddRow     *AddRowPayload     `json:"add_row,omitempty" msgpack:"add_row,omitempty"`
+	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitempty" msgpack:"remove_row,omitempty"`
+	AddCol     *AddColPayload     `json:"add_col,omitempty" msgpack:"add_col,omitempty"`
+	RemoveCol  *RemoveColPayload  `json:"remove_col,omitempty" msgpack:"remove_col,omitempty"`
+	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitempty" msgpack:"resize_row,omitempty"`
+	ResizeCol  *ResizeColPayload  `json:"resize_col,omitempty" msgpack:"resize_col,omitempty"`
+	SetCell    *SetCellPayload    `json:"set_cell,omitempty" msgpack:"set_cell,omitempty"`
+	EraseCells *EraseCellsPayload `json:"erase_cells,omitempty" msgpack:"erase_cells,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -147,6 +177,11 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetCell.Handle(state)
+		case ActionTypeEraseCells:
+			if a.EraseCells == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.EraseCells.Handle(state)
 		default:
 			continue
 		}
@@ -195,4 +230,9 @@ func NewResizeColAction(p ResizeColPayload) Action {
 // NewSetCellAction wraps a SetCellPayload in an Action envelope.
 func NewSetCellAction(p SetCellPayload) Action {
 	return Action{Type: ActionTypeSetCell, SetCell: &p}
+}
+
+// NewEraseCellsAction wraps a EraseCellsPayload in an Action envelope.
+func NewEraseCellsAction(p EraseCellsPayload) Action {
+	return Action{Type: ActionTypeEraseCells, EraseCells: &p}
 }

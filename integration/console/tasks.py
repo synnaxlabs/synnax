@@ -17,7 +17,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.context_menu import ContextMenu
 from console.layout import LayoutClient
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 
 class TaskClient:
@@ -157,7 +157,7 @@ class TaskClient:
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
         download = download_info.value
-        save_path = get_results_path(f"{name}_export.json")
+        save_path = resolve_results_path(f"{name}_export.json")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)

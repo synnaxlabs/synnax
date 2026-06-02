@@ -254,9 +254,15 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 		Content:  params.TextDocument.Text,
 		metadata: metadata,
 	}
-	doc.debouncer = debounce.New(s.cfg.DebounceDelay, s.cfg.MaxDebounceDelay, func(ctx context.Context) {
-		s.runAnalysis(ctx, doc, uri)
+	deb, err := debounce.New(debounce.Config{
+		Delay:    s.cfg.DebounceDelay,
+		MaxDelay: s.cfg.MaxDebounceDelay,
+		Callback: func(ctx context.Context) { s.runAnalysis(ctx, doc, uri) },
 	})
+	if err != nil {
+		return errors.Wrap(err, "create document debouncer")
+	}
+	doc.debouncer = deb
 	s.mu.Lock()
 	s.documents[uri] = doc
 	s.mu.Unlock()

@@ -276,7 +276,12 @@ const pickWritableDirectoryTauri = async ({
   title,
   subdirectory,
 }: PickWritableDirectoryArgs): Promise<WritableDirectory | null> => {
-  const parent = await open({ title, directory: true, multiple: false });
+  const parent = await open({
+    title,
+    directory: true,
+    multiple: false,
+    recursive: true,
+  });
   if (parent == null || Array.isArray(parent)) return null;
   const dirPath = await join(parent, subdirectory);
   const preExisted = await exists(dirPath);

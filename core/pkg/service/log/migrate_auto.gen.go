@@ -13,6 +13,7 @@ package log
 
 import (
 	"context"
+
 	logv55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
 )
 

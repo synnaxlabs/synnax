@@ -18,5 +18,5 @@ import (
 
 func TestTransport(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport Suite")
+	RunSpecs(t, "LSP Transport Suite")
 }

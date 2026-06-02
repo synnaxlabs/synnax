@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/alamos"
+	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -166,9 +167,10 @@ type Transport struct {
 	AccessAssignRole     freighter.UnaryServer[access.AssignRoleRequest, types.Nil]
 	AccessUnassignRole   freighter.UnaryServer[access.UnassignRoleRequest, types.Nil]
 	// STATUS
-	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
-	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
-	StatusDelete   freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSet            freighter.UnaryServer[status.SetRequest, status.SetResponse]
+	StatusRetrieve       freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
+	StatusDelete         freighter.UnaryServer[status.DeleteRequest, types.Nil]
+	StatusSetByKeyOrName freighter.UnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse]
 	// ARC
 	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
@@ -218,7 +220,8 @@ func (l *Layer) BindTo(t Transport) {
 	var (
 		tk                 = auth.TokenMiddleware(l.config.Service.Token)
 		instrumentation    = lo.Must(alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation}
+		rec                = recovery.Middleware(l.config.Instrumentation)
+		insecureMiddleware = []freighter.Middleware{rec, instrumentation}
 		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
@@ -366,6 +369,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+		t.StatusSetByKeyOrName,
 
 		// VIEW
 		t.ViewCreate,
@@ -517,6 +521,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.StatusSet.BindHandler(l.Status.Set)
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
 	t.StatusDelete.BindHandler(l.Status.Delete)
+	t.StatusSetByKeyOrName.BindHandler(l.Status.SetByKeyOrName)
 
 	// VIEW
 	t.ViewCreate.BindHandler(l.View.Create)

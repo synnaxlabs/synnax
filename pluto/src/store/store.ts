@@ -22,8 +22,9 @@ export const useKeyedListeners = <
 >(): UseKeyedListenersReturn<K> => {
   const listenersRef = useInitializerRef(() => new Map<() => void, K | undefined>());
   const notifyListeners = useCallback((keys: K[]) => {
+    const keySet = new Set(keys);
     listenersRef.current.forEach((key, listener) => {
-      if (key == null || keys.includes(key)) listener();
+      if (key == null || keySet.has(key)) listener();
     });
   }, []);
   const subscribe = useCallback((listener: () => void, key?: K) => {

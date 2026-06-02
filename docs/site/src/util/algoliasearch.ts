@@ -51,7 +51,7 @@ const data = await Promise.all(
     .map(async (filename) => {
       const markdownWithMeta = fs.readFileSync(`./src/pages/${filename}`);
       const { data: frontmatter, content } = matter(markdownWithMeta);
-      let href = `/${filename.replace(".mdx", "").replace("index", "")}`;
+      let href = `/${filename.replace(".mdx", "").replace(/(^|\/)index$/, "$1")}`;
       if (filename.includes("releases") && !filename.includes("index"))
         href = `/releases/#${filename
           .replace(".mdx", "")

@@ -12,42 +12,45 @@ import { z } from "zod/v4";
 
 import * as v0 from "@/arc/types/v0";
 import * as v1 from "@/arc/types/v1";
+import * as v2 from "@/arc/types/v2";
 
-export type NodeProps = v1.NodeProps;
-export type State = v1.State;
-export type SliceState = v1.SliceState;
-export type ToolbarTab = v1.ToolbarTab;
-export type ToolbarState = v1.ToolbarState;
-export type GraphState = v1.GraphState;
-export type CopyBuffer = v1.CopyBuffer;
-export type AnyState = v0.State | v1.State;
-export type AnySliceState = v0.SliceState | v1.SliceState;
-export type Mode = v1.Mode;
+export type NodeProps = v2.NodeProps;
+export type State = v2.State;
+export type SliceState = v2.SliceState;
+export type ToolbarTab = v2.ToolbarTab;
+export type ToolbarState = v2.ToolbarState;
+export type GraphState = v2.GraphState;
+export type CopyBuffer = v2.CopyBuffer;
+export type AnyState = v0.State | v1.State | v2.State;
+export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
+export type Mode = v2.Mode;
 
-export const TYPE = v1.TYPE;
-export const ZERO_STATE = v1.ZERO_STATE;
-export const ZERO_SLICE_STATE = v1.ZERO_SLICE_STATE;
+export const TYPE = v2.TYPE;
+export const ZERO_STATE = v2.ZERO_STATE;
+export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
 
 const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,
+  [v1.VERSION]: v2.stateMigration,
 };
 
 const SLICE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.sliceMigration,
+  [v1.VERSION]: v2.sliceMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
-  name: v1.STATE_MIGRATION_NAME,
+  name: v2.STATE_MIGRATION_NAME,
   migrations: STATE_MIGRATIONS,
   def: ZERO_STATE,
 });
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
-  name: v1.SLICE_MIGRATION_NAME,
+  name: v2.SLICE_MIGRATION_NAME,
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
 
 export const anyStateZ = z
-  .union([v1.stateZ, v0.stateZ])
+  .union([v2.stateZ, v1.stateZ, v0.stateZ])
   .transform((state) => migrateState(state));

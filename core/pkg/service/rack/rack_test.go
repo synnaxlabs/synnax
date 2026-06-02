@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,6 +45,10 @@ var _ = Describe("Rack", Ordered, func() {
 		db     *gorp.DB
 		svc    *rack.Service
 		stat   *status.Service
+		// frozenNow pins the health monitor's clock to a fixed timestamp when
+		// non-zero, letting timing tests stop logical time instead of racing the
+		// wall clock. Zero means use the real clock.
+		frozenNow atomic.Int64
 	)
 
 	BeforeAll(func(ctx SpecContext) {
@@ -77,10 +82,17 @@ var _ = Describe("Rack", Ordered, func() {
 
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
+			Now: func() telem.TimeStamp {
+				if t := frozenNow.Load(); t != 0 {
+					return telem.TimeStamp(t)
+				}
+				return telem.Now()
+			},
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
+		frozenNow.Store(0)
 		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
 	})
@@ -566,26 +578,25 @@ var _ = Describe("Rack", Ordered, func() {
 		})
 
 		It("Should not mark a rack as dead when the status is actively updated", func(ctx SpecContext) {
+			// Freeze logical time so that, from the monitor's perspective, no time
+			// elapses after a rack reports healthy. The health check ticker keeps
+			// firing on the real clock, but now - lastUpdated stays zero, so an
+			// actively-updated rack must never be marked dead.
+			frozenNow.Store(int64(telem.Now()))
+
 			r := rack.Rack{Name: "active test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
-			statusWriter := status.NewWriter[rack.StatusDetails](stat, nil)
+			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.VariantSuccess,
+				Message: "Running",
+				Details: rack.StatusDetails{Rack: r.Key},
+			})).To(Succeed())
 
-			// Wait longer than the health check interval and verify the status
-			// is still what we set (not overwritten with "not running") as long
-			// as we keep actively updating it
 			Consistently(func(g Gomega) {
-				// Actively update the status to simulate a running driver
-				activeStatus := &rack.Status{
-					Key:     rack.OntologyID(r.Key).String(),
-					Name:    r.Name,
-					Time:    telem.Now(),
-					Variant: xstatus.VariantSuccess,
-					Message: "Running",
-					Details: rack.StatusDetails{Rack: r.Key},
-				}
-				g.Expect(statusWriter.Set(ctx, activeStatus)).To(Succeed())
-
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Running"))
 				g.Expect(s.Variant).To(Equal(xstatus.VariantSuccess))

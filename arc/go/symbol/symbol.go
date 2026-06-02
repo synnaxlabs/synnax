@@ -34,13 +34,21 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
+
+// CallHook runs after the generic func-form validation passes.
+type CallHook func(diags *diagnostics.Diagnostics, funcCall parser.IFunctionCallSuffixContext)
+
+// FlowConfigHook runs after the generic flow-form config validation passes.
+type FlowConfigHook func(diags *diagnostics.Diagnostics, config parser.IConfigValuesContext)
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -171,6 +179,10 @@ type Symbol struct {
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
+	// AnalyzeCall runs after generic func-form validation. Optional.
+	AnalyzeCall CallHook
+	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
+	AnalyzeFlowConfig FlowConfigHook
 	// Deprecated points at the canonical replacement Symbol for a deprecated
 	// reference. Nil means not deprecated. When non-nil, analysis helpers
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the

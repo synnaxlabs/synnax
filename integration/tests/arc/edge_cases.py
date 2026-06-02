@@ -122,7 +122,7 @@ start_edge_case_cmd -> test_chan_multi_param{}
 start_edge_case_cmd -> test_chan_fwd_ref{}
 """
 
-# ── Read-only monitor (no write channels, only set_status) ──
+# ── Read-only monitor (no write channels, only status.set) ──
 # Regression test: the C++ driver unconditionally created writer/streamer
 # pipelines even when write_channels was empty, causing the server to reject
 # the empty keys list.
@@ -134,14 +134,12 @@ start_read_only_monitor_cmd => main
 sequence main {
     stage on {
         edge_monitor_input > 30 => status.set{
-            status_key = "press_monitor_status",
-            name = "Press Monitor",
+            key_or_name = "press_monitor_status",
             variant = "warning",
             message = "Pressure high"
         }
         edge_monitor_input < 30 => status.set{
-            status_key = "press_monitor_status",
-            name = "Press Monitor",
+            key_or_name = "press_monitor_status",
             variant = "success",
             message = "Pressure nominal"
         }

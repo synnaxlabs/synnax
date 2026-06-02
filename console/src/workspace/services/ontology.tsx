@@ -112,9 +112,9 @@ const useCreateTable = ({
   const workspaceID = ids[0];
   const { update } = PTable.useCreate({
     afterSuccess: async ({ data }) => {
-      const { workspace, ...t } = data;
-      await maybeChangeWorkspace(workspace);
-      placeLayout(Table.create({ ...Table.fromWire(t), name: t.name }));
+      const { workspace, key, name } = data;
+      if (workspace != null) await maybeChangeWorkspace(workspace);
+      placeLayout(Table.create({ key, name }));
     },
   });
   return useCallback(
@@ -123,7 +123,7 @@ const useCreateTable = ({
         workspace: workspaceID.key,
         name: "New Table",
       }),
-    [workspaceID.key],
+    [workspaceID.key, update],
   );
 };
 

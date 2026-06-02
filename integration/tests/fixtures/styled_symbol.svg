@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <style>.brand { fill: #06ac38; }</style>
+  <defs>
+    <clipPath id="clip"><rect x="0" y="0" width="40" height="40" /></clipPath>
+  </defs>
+  <rect id="body" x="10" y="10" width="50" height="50" style="fill:#5a87c5" />
+  <circle id="badge" class="brand" cx="72" cy="72" r="18" />
+</svg>

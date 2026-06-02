@@ -2,12 +2,11 @@
 layout: "@/layouts/Reference.astro"
 title: "Sequences"
 description:
-  "Arc sequence and stage reference for state machine declarations, transitions, and
-  entry points"
-prev: "Loops"
-prevURL: "/reference/control/arc/reference/loops"
-next: "Built-In Functions"
-nextURL: "/reference/control/arc/reference/built-ins"
+  "Arc sequence reference for state machine declarations, transitions, and entry points"
+prev: "Flow"
+prevURL: "/reference/control/arc/reference/flow"
+next: "Stages"
+nextURL: "/reference/control/arc/reference/stages"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -49,7 +48,7 @@ A sequence item is one of:
 | Item            | Syntax                | Description                                   |
 | --------------- | --------------------- | --------------------------------------------- |
 | Write           | `expr -> chan`        | Write once, advance                           |
-| Wait            | `wait{duration}`      | Pause for the duration, advance               |
+| Wait            | `time.wait{duration}` | Pause for the duration, advance               |
 | Condition gate  | `expr`                | Pause until the expression is truthy, advance |
 | Stage           | `stage name? { ... }` | Enter stage; advance when a transition fires  |
 | Nested sequence | `sequence { ... }`    | Run nested items in order                     |
@@ -58,145 +57,20 @@ A sequence item is one of:
 sequence prime {
     0 -> vent_vlv_cmd              // write
     1 -> press_vlv_cmd             // write
-    wait{5s}                        // wait
+    time.wait{5s}                   // wait
     tank_pressure > 500             // condition gate
     stage hold {                    // stage
-        wait{30s} => next
+        time.wait{30s} => next
         tank_pressure > 700 => abort
     }
     0 -> press_vlv_cmd             // write
 }
 ```
 
-<Divider.Divider x />
-
-## Stage Declaration
-
-```arc
-stage name {
-    flow_statement
-    flow_statement
-    flow_statement
-}
-```
-
-Stage bodies contain flow statements. All flow statements in a stage run concurrently
-while the stage is active.
-
-### Stage Body Syntax
-
-```arc
-stage pressurize {
-    // Continuous flows (run every cycle)
-    1 -> press_vlv_cmd
-    sensor -> controller{}
-    // Conditional transitions (propagate while truthy)
-    pressure > 500 => next
-    abort_btn => abort
-}
-```
-
-<Divider.Divider x />
-
-## Flow Operators in Stages
-
-### Continuous Flow (`->`)
-
-Runs every execution cycle while the stage is active:
-
-```arc
-stage active {
-    1 -> valve_cmd // keeps valve open
-    sensor -> filter{} -> output // processes every sample
-}
-```
-
-### Conditional Flow (`=>`)
-
-Fires while the source expression is truthy:
-
-```arc
-stage wait {
-    pressure > 500 => next
-}
-```
-
-A flow whose target is a stage or sequence name is a **transition** (see
-[Transition Targets](#transition-targets)). Transitioning to an already-active target is
-a no-op.
-
-<Divider.Divider x />
-
-## Transition Targets
-
-| Target          | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `next`          | Advance to the next item in the enclosing sequence      |
-| `stage_name`    | Jump to a named stage in the same sequence              |
-| `sequence_name` | Jump to a different sequence (starts at its first item) |
-
-### Using `next`
-
-```arc
-sequence test {
-    stage step1 {
-        condition => next // goes to step2
-    }
-    stage step2 {
-        condition => next // goes to step3
-    }
-    stage step3 {
-        // terminal stage
-    }
-}
-```
-
-<Note.Note variant="warning">
-  Using `next` when there is no next item in the enclosing sequence is a compile-time
-  error.
+<Note.Note variant="info">
+  A bare sequence can't respond to safety conditions while a condition gate is holding.
+  If you need to watch for abort conditions during a step, put the step inside a stage.
 </Note.Note>
-
-### Named Stage Transitions
-
-```arc
-sequence test {
-    stage idle {
-        start_btn => pressurize
-    }
-    stage pressurize {
-        pressure > 500 => hold
-        abort_btn => idle // can go backwards
-    }
-    stage hold {
-        wait{duration=10s} => complete
-    }
-    stage complete {
-        // terminal
-    }
-}
-```
-
-### Cross-Sequence Transitions
-
-```arc
-sequence main {
-    stage pressurize {
-        emergency => abort // jumps to abort sequence
-    }
-}
-
-sequence abort {
-    stage safed {
-        0 -> all_valves_cmd
-    }
-}
-```
-
-Cross-sequence transitions:
-
-1. Deactivate current item in source sequence
-2. Activate first item of target sequence
-3. No built-in "return" mechanism
 
 <Divider.Divider x />
 
@@ -231,96 +105,30 @@ load:
 sequence {
     0 -> vent_vlv_cmd
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     0 -> press_vlv_cmd
 }
 ```
 
 <Divider.Divider x />
 
-## Inline Stages and Sequences
-
-Stages and sequences can nest inside each other.
+## Inline Stages in a Sequence
 
 An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
-`=> next` advances the enclosing sequence; other targets jump as usual.
+`=> next` advances the enclosing sequence; other
+[transition targets](/reference/control/arc/reference/flow#transition-targets) jump as
+usual.
 
 ```arc
 sequence press {
     1 -> press_vlv_cmd
     stage {
         tank_pressure > 500 => next
-        wait{30s} => abort
+        time.wait{30s} => abort
     }
     0 -> press_vlv_cmd
 }
 ```
-
-An anonymous `sequence { ... }` inside a stage runs its items in order while the stage's
-parallel flows continue. The inline sequence restarts from its first item every time the
-parent stage is entered.
-
-```arc
-stage fire {
-    chamber_temp > 2000 => abort
-    sequence {
-        1 -> igniter_cmd
-        wait{200ms}
-        1 -> ox_main_vlv_cmd
-    }
-}
-```
-
-<Divider.Divider x />
-
-## Stage Entry Semantics
-
-When entering a stage:
-
-1. All stateful variables in stage nodes reset
-2. Continuous flows (`->`) start fresh
-3. Timing nodes (`wait`, `interval`) reset their countdowns
-4. Inline sub-sequences restart from their first item
-5. Channel triggers only react to new writes. Values written before stage activation are
-   ignored
-
-Stages are stateless between entries.
-
-<Divider.Divider x />
-
-## Parallel Monitoring
-
-All flow statements in a stage run concurrently:
-
-```arc
-stage pressurize {
-    // ALL of these run simultaneously
-    sensor -> controller{target=500} // control loop
-    ox_pt_1 > 600 => abort // monitoring
-    fuel_pt_1 > 400 => abort // monitoring
-    abort_btn => abort // listening
-    pressure > 500 => next // success check
-}
-```
-
-### Line Order and Priority
-
-When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
-listed wins:
-
-```arc
-stage pressurize {
-    // Safety conditions first (higher priority)
-    ox_pt_1 > 600 => abort // 1st priority
-    fuel_pt_1 > 400 => abort // 2nd priority
-    abort_btn => abort // 3rd priority
-    // Success condition after safety
-    pressure > 500 => next // only if no abort
-}
-```
-
-For continuous flows (`->`), if multiple flows write to the same channel, last write
-wins based on line order.
 
 <Divider.Divider x />
 
@@ -352,7 +160,7 @@ sequence main {
         ox_pt_1 > 700 => abort
         abort_btn => abort
         1 -> press_vlv_cmd
-        wait{duration=5s} => vent
+        time.wait{duration=5s} => vent
     }
 
     stage vent {
@@ -383,10 +191,8 @@ emergency_stop => abort
 
 ## Restrictions
 
-| Restriction                 | Description                                            |
-| --------------------------- | ------------------------------------------------------ |
-| One active item             | Only one item per sequence is active at a time         |
-| `next` needs a next item    | `next` in the last item of a sequence is an error      |
-| Entry points at top level   | Entry points must be outside sequences                 |
-| Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
-| Stage transitions can cycle | Conditional transitions (`=>`) can form cycles         |
+| Restriction               | Description                                       |
+| ------------------------- | ------------------------------------------------- |
+| One active item           | Only one item per sequence is active at a time    |
+| `next` needs a next item  | `next` in the last item of a sequence is an error |
+| Entry points at top level | Entry points must be outside sequences            |

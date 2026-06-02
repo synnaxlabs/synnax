@@ -14,9 +14,9 @@ import {
   type workspace,
 } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
@@ -49,7 +49,7 @@ const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> 
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
-): Promise<void> => {
+): Promise<ReturnType<typeof render>> => {
   const Bootstrap = (): ReactElement => {
     Schematic.useEnsureRetrieved({ key });
     return <div data-testid="loaded" />;
@@ -64,7 +64,8 @@ const loadSchematic = async (
       </Wrapper>,
     );
   });
-  await utils.findByTestId("loaded");
+  await within(utils.container).findByTestId("loaded");
+  return utils;
 };
 
 describe("schematic queries", () => {
@@ -226,6 +227,78 @@ describe("schematic queries", () => {
       );
       expect(result.current.size).toBe(0);
     });
+
+    it("useSelectNodes keeps its reference when an unrelated node changes", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      expect(initial.map((n) => n.key)).toEqual(["n1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n2", position: { x: 50, y: 50 } }),
+          ],
+        });
+      });
+      expect(result.current.nodes).toBe(initial);
+    });
+
+    it("useSelectNodes returns a new array when a requested node changes", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n1", position: { x: 99, y: 99 } }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.nodes).not.toBe(initial);
+        expect(result.current.nodes[0].position).toEqual({ x: 99, y: 99 });
+      });
+    });
+
+    it("useSelectConfigs keeps its reference when an unrelated change occurs", async () => {
+      const isolated = await createTestSchematic(ws.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          configs: Schematic.useSelectConfigs({
+            key: isolated.key,
+            keys: ["n1", "n2"],
+          }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.configs;
+      expect(initial.size).toBe(2);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } })],
+        });
+      });
+      expect(result.current.configs).toBe(initial);
+    });
   });
 
   describe("useCreate", () => {
@@ -343,6 +416,211 @@ describe("schematic queries", () => {
           y: 200,
         }),
       );
+    });
+  });
+
+  describe("useDispatch — edge segment preprocess", () => {
+    const SEGMENTS: Schematic.Edge.Segmented.Segment[] = [
+      { direction: "x", length: 50 },
+      { direction: "y", length: 30 },
+      { direction: "x", length: 50 },
+    ];
+
+    interface EdgeCfg {
+      variant?: string;
+      color?: string;
+      segments?: Schematic.Edge.Segmented.Segment[];
+    }
+    const asEdgeCfg = (raw: unknown): EdgeCfg | undefined => raw as EdgeCfg | undefined;
+
+    let schem: schematic.Schematic;
+    let getEdgeCfg: () => EdgeCfg | undefined;
+    let getNode: (k: string) => schematic.Node | undefined;
+    let dispatch: (...actions: schematic.Action[]) => Promise<void>;
+    let undo: () => Promise<void>;
+    let cleanup: () => void;
+
+    beforeEach(async () => {
+      schem = await createTestSchematic(ws.key);
+      const loadUtils = await loadSchematic(Wrapper, schem.key);
+
+      const edge = renderHook(
+        () => Schematic.useSelectElementConfig({ key: schem.key, elKey: "e1" }),
+        { wrapper: Wrapper },
+      );
+      const all = renderHook(() => Schematic.useSelectAllNodes({ key: schem.key }), {
+        wrapper: Wrapper,
+      });
+      const disp = renderHook(() => Schematic.useDispatch(), {
+        wrapper: Wrapper,
+      });
+      const und = renderHook(() => Schematic.useUndo({ key: schem.key }), {
+        wrapper: Wrapper,
+      });
+
+      getEdgeCfg = () => asEdgeCfg(edge.result.current);
+      getNode = (k) => all.result.current.find((n) => n.key === k);
+      dispatch = async (...actions) =>
+        await act(async () => {
+          await disp.result.current.dispatchAsync({ key: schem.key, actions });
+        });
+      undo = async () =>
+        await act(async () => {
+          und.result.current.undo();
+        });
+      cleanup = () => {
+        edge.unmount();
+        all.unmount();
+        disp.unmount();
+        und.unmount();
+        loadUtils.unmount();
+      };
+    });
+
+    afterEach(() => cleanup());
+
+    it("adjusts a connected edge's stored segments when its source node moves", async () => {
+      await dispatch(
+        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()?.segments).toEqual([
+          { direction: "x", length: 30 },
+          { direction: "y", length: 30 },
+          { direction: "x", length: 50 },
+        ]),
+      );
+    });
+
+    it("does not synthesize a setConfig when the edge has no stored segments", async () => {
+      expect(getEdgeCfg()).toBeUndefined();
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      await waitFor(() => expect(getNode("n1")?.position).toEqual({ x: 20, y: 0 }));
+      expect(getEdgeCfg()).toBeUndefined();
+    });
+
+    it("leaves edge segments alone when source and target move by equal deltas", async () => {
+      await dispatch(
+        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
+
+      // n1 at (0,0), n2 at (10,10). Shift both by (+20, +5).
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 5 } }),
+        schematic.setNodePosition({ key: "n2", position: { x: 30, y: 15 } }),
+      );
+      await waitFor(() => {
+        expect(getNode("n1")?.position).toEqual({ x: 20, y: 5 });
+        expect(getNode("n2")?.position).toEqual({ x: 30, y: 15 });
+      });
+      expect(getEdgeCfg()?.segments).toEqual(SEGMENTS);
+    });
+
+    it("preserves non-segment edge config fields when a connected node moves", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", color: "#ff00ff", segments: SEGMENTS },
+        }),
+      );
+      await waitFor(() =>
+        expect(getEdgeCfg()).toMatchObject({
+          variant: "pipe",
+          color: "#ff00ff",
+          segments: SEGMENTS,
+        }),
+      );
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      await waitFor(() => {
+        const cfg = getEdgeCfg();
+        expect(cfg?.variant).toBe("pipe");
+        expect(cfg?.color).toBe("#ff00ff");
+        expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
+      });
+    });
+
+    it("propagates dispatched actions to a second Flux store via sy_schematic_set", async () => {
+      const WrapperB = await createAsyncSynnaxWrapper({ client });
+      await loadSchematic(WrapperB, schem.key);
+
+      const { result: nodesB } = renderHook(
+        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        { wrapper: WrapperB },
+      );
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 50, y: 50 } }),
+      );
+
+      await waitFor(() => {
+        expect(getNode("n1")?.position).toEqual({ x: 50, y: 50 });
+        expect(nodesB.current.find((n) => n.key === "n1")?.position).toEqual({
+          x: 50,
+          y: 50,
+        });
+      });
+    });
+
+    it("dedups its own echo so undo fully reverts a dispatched action", async () => {
+      const WrapperB = await createAsyncSynnaxWrapper({ client });
+      await loadSchematic(WrapperB, schem.key);
+
+      const { result: nodesB } = renderHook(
+        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        { wrapper: WrapperB },
+      );
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 50, y: 50 } }),
+      );
+      await waitFor(() =>
+        expect(nodesB.current.find((n) => n.key === "n1")?.position).toEqual({
+          x: 50,
+          y: 50,
+        }),
+      );
+
+      await undo();
+      await waitFor(() => expect(getNode("n1")?.position).toEqual({ x: 0, y: 0 }));
+    });
+
+    it("coalesces successive moves into a single undo step", async () => {
+      const longSegments: Schematic.Edge.Segmented.Segment[] = [
+        { direction: "x", length: 200 },
+        { direction: "y", length: 30 },
+        { direction: "x", length: 50 },
+      ];
+
+      await dispatch(
+        schematic.setConfig({ key: "e1", config: { segments: longSegments } }),
+      );
+      await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(longSegments));
+
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 40, y: 0 } }),
+      );
+
+      await undo();
+
+      await waitFor(() => {
+        expect(getNode("n1")?.position).toEqual({ x: 0, y: 0 });
+        expect(getEdgeCfg()?.segments).toEqual(longSegments);
+      });
     });
   });
 });

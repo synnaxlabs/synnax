@@ -38,7 +38,11 @@ func (g *GRPCBranch) Key() string { return "grpc" }
 
 // Init implements Branch.
 func (g *GRPCBranch) Init(ctx BranchContext) {
-	g.server = grpc.NewServer(g.credentials(ctx))
+	g.server = grpc.NewServer(
+		g.credentials(ctx),
+		grpc.ChainUnaryInterceptor(fgrpc.RecoveryUnaryServerInterceptor(ctx.Instrumentation)),
+		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ctx.Instrumentation)),
+	)
 	for _, t := range g.Transports {
 		t.BindTo(g.server)
 	}

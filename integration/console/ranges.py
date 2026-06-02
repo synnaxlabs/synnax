@@ -14,7 +14,7 @@ from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 from x.color import Color
 
 
@@ -621,7 +621,7 @@ class RangesClient:
             download_button.click()
 
         download = download_info.value
-        save_path = get_results_path(f"{range_name}.csv")
+        save_path = resolve_results_path(f"{range_name}.csv")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             return f.read()

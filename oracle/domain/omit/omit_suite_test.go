@@ -18,5 +18,5 @@ import (
 
 func TestOmit(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Omit Suite")
+	RunSpecs(t, "Domain Omit Suite")
 }

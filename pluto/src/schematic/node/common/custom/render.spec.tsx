@@ -9,9 +9,11 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type location } from "@synnaxlabs/x";
-import { renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 
 const renderAttached = (args: Custom.UseRenderArgs, container: HTMLElement | null) => {
@@ -1086,5 +1088,219 @@ describe("Custom.useRender", () => {
       rerender({ activeState: "inactive" });
       expect(rect.getAttribute("fill")).toBe("#ff0000");
     });
+  });
+
+  // The symbol editor's form mutates its value object in place rather than
+  // producing a new reference on every change, so the same spec object is
+  // passed across rerenders. The diff must detect changes by value, not by
+  // object identity.
+  describe("in-place spec mutation", () => {
+    it("should update dimensions when the internal scale is mutated in place", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const { result, rerender } = renderHook(() =>
+        Custom.useRender({
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        }),
+      );
+      result.current(container);
+
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.getAttribute("width")).toBe("100");
+
+      spec.scale = 2;
+      rerender();
+      expect(svg.getAttribute("width")).toBe("200");
+      expect(svg.getAttribute("height")).toBe("200");
+    });
+
+    it("should apply region color changes when a state is mutated in place", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec();
+      const { result, rerender } = renderHook(() =>
+        Custom.useRender({
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        }),
+      );
+      result.current(container);
+
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(rect.getAttribute("stroke")).toBe("#333");
+
+      spec.states[0].regions[0].strokeColor = "#abc";
+      rerender();
+      expect(rect.getAttribute("stroke")).toBe("#abc");
+    });
+
+    it("should toggle stroke scaling when scaleStroke is mutated in place", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({ scaleStroke: false });
+      const { result, rerender } = renderHook(() =>
+        Custom.useRender({
+          orientation: "top",
+          activeState: "inactive",
+          externalScale: 1,
+          spec,
+        }),
+      );
+      result.current(container);
+
+      const rect = container.querySelector(".main") as SVGRectElement;
+      expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
+
+      spec.scaleStroke = true;
+      rerender();
+      expect(rect.getAttribute("vector-effect")).toBeNull();
+    });
+  });
+
+  // When the SVG markup changes the element is re-parsed from scratch, discarding
+  // every derived attribute. All of them must be re-applied against the new DOM even
+  // when their own inputs (state, scaleStroke) are unchanged.
+  describe("re-application after SVG rebuild", () => {
+    it("should re-apply region colors to a rebuilt SVG with unchanged state", () => {
+      const container = document.createElement("div");
+      const { result, rerender } = renderHook(
+        ({ spec }) =>
+          Custom.useRender({
+            orientation: "top",
+            activeState: "inactive",
+            externalScale: 1,
+            spec,
+          }),
+        { initialProps: { spec: createMockSpec() } },
+      );
+      result.current(container);
+
+      expect(
+        (container.querySelector(".main") as SVGRectElement).getAttribute("stroke"),
+      ).toBe("#333");
+
+      rerender({
+        spec: createMockSpec({
+          svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="purple" fill="orange"/></svg>',
+        }),
+      });
+
+      const rebuilt = container.querySelector(".main") as SVGRectElement;
+      expect(rebuilt.getAttribute("stroke")).toBe("#333");
+      expect(rebuilt.getAttribute("fill")).toBe("#ccc");
+    });
+
+    it("should re-apply stroke scaling to a rebuilt SVG with unchanged scaleStroke", () => {
+      const container = document.createElement("div");
+      const { result, rerender } = renderHook(
+        ({ spec }) =>
+          Custom.useRender({
+            orientation: "top",
+            activeState: "inactive",
+            externalScale: 1,
+            spec,
+          }),
+        { initialProps: { spec: createMockSpec({ scaleStroke: false }) } },
+      );
+      result.current(container);
+      expect(
+        (container.querySelector(".main") as SVGRectElement).getAttribute(
+          "vector-effect",
+        ),
+      ).toBe("non-scaling-stroke");
+
+      rerender({
+        spec: createMockSpec({
+          scaleStroke: false,
+          svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
+        }),
+      });
+
+      expect(
+        (container.querySelector(".main") as SVGRectElement).getAttribute(
+          "vector-effect",
+        ),
+      ).toBe("non-scaling-stroke");
+    });
+  });
+});
+
+interface SymbolValues {
+  data: schematic.symbol.Spec;
+}
+
+const EDITOR_SVG =
+  '<svg viewBox="0 0 100 100"><rect data-region-id="rect-1" width="50" height="50" stroke="black" fill="white"/></svg>';
+
+const editorInitialValues = (): SymbolValues => ({
+  data: {
+    svg: "",
+    states: [{ key: "base", name: "Base", regions: [] }],
+    variant: "static",
+    handles: [],
+    scale: 1,
+    scaleStroke: false,
+    previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+  },
+});
+
+// Mirrors the editor's Preview: reads the live form spec and drives useRender with the
+// currently-selected state key as activeState. The editor's form mutates its value
+// object in place, so this exercises useRender through the real Form rather than a
+// hand-mutated spec.
+const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
+  const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
+  const setContainer = Custom.useRender({
+    orientation: "left",
+    activeState,
+    externalScale: 1,
+    spec,
+  });
+  return <div data-testid="container" ref={setContainer} />;
+};
+
+describe("custom symbol editor preview", () => {
+  it("should recolor a region when its color is edited through the form", () => {
+    let form!: Form.ContextValue<any>;
+    const Harness = (): ReactElement => {
+      form = Form.use<any>({ values: editorInitialValues() });
+      return (
+        <Form.Form {...form}>
+          <PreviewLike activeState="base" />
+        </Form.Form>
+      );
+    };
+
+    const { container } = render(<Harness />);
+
+    // Mimic the import flow: set the SVG first, then assign regions to the state by
+    // key in a separate commit, exactly as Preview.handleContentsChange does.
+    act(() => {
+      form.set("data.svg", EDITOR_SVG);
+    });
+    const region: schematic.symbol.Region = {
+      key: "region-1",
+      name: "Region 1",
+      selectors: ['[data-region-id="rect-1"]'],
+      strokeColor: "#000000",
+      fillColor: "#ffffff",
+    };
+    act(() => {
+      form.set("data.states.base.regions", [region]);
+    });
+
+    const rect = container.querySelector("rect") as SVGRectElement;
+    expect(rect).toBeTruthy();
+    expect(rect.getAttribute("stroke")).toBe("#000000");
+
+    // Editing the color the way RegionList does: set the keyed region path.
+    act(() => {
+      form.set("data.states.base.regions.region-1.strokeColor", "#ff0000");
+    });
+
+    expect(rect.getAttribute("stroke")).toBe("#ff0000");
   });
 });

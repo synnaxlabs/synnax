@@ -32,6 +32,19 @@ type Cell struct {
 	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }
 
+// CellTemplate is a variant + props pair describing what a cell should look like,
+// without identifying which cell. Used by actions that overwrite existing cells in
+// place (EraseCells), where the target cell's key is provided separately.
+type CellTemplate struct {
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
+	// the shape of props and which Pluto cell component renders the cell.
+	Variant string `json:"variant" msgpack:"variant"`
+	// Props is the variant-specific cell configuration. The shape is determined by the
+	// variant; the wire format intentionally stores it as an opaque record so new variants
+	// can be added without a schema migration.
+	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+}
+
 // Row is a single row in a table, with height and ordered cell keys.
 type Row struct {
 	// Size is the height of the row in pixels.

@@ -21,8 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Service struct {
@@ -79,9 +81,9 @@ func (s *Service) Set(
 		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
-		return res, err
+		return SetResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err = s.internal.NewWriter(tx).SetManyWithParent(
 			ctx,
 			&req.Statuses,
@@ -91,7 +93,62 @@ func (s *Service) Set(
 		}
 		res.Statuses = req.Statuses
 		return nil
-	})
+	}); err != nil {
+		return SetResponse{}, err
+	}
+	return res, nil
+}
+
+// SetByKeyOrNameRequest is a request to upsert a status by key or by name.
+type SetByKeyOrNameRequest struct {
+	// KeyOrName is either an existing status key or a status name to match.
+	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
+	// Message is the new status message.
+	Message string `json:"message" msgpack:"message"`
+	// Variant is the new status variant.
+	Variant xstatus.Variant `json:"variant" msgpack:"variant"`
+}
+
+// SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
+type SetByKeyOrNameResponse struct {
+	// Key is the key of the upserted status.
+	Key string `json:"key" msgpack:"key"`
+	// MultipleMatches reports whether multiple statuses matched by name.
+	MultipleMatches bool `json:"multiple_matches" msgpack:"multiple_matches"`
+}
+
+// SetByKeyOrName upserts a status by key or by name.
+func (s *Service) SetByKeyOrName(
+	ctx context.Context,
+	req SetByKeyOrNameRequest,
+) (res SetByKeyOrNameResponse, err error) {
+	// Check before opening a Tx
+	if !req.Variant.IsValid() {
+		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
+	}
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
+		if err != nil {
+			return err
+		}
+		st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
+		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []ontology.ID{status.OntologyID(st.Key)},
+		}); err != nil {
+			return err
+		}
+		if err = s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
+			return err
+		}
+		res.Key = st.Key
+		res.MultipleMatches = len(matches) > 1
+		return nil
+	}); err != nil {
+		return SetByKeyOrNameResponse{}, err
+	}
+	return res, nil
 }
 
 type RetrieveRequest struct {

@@ -3,6 +3,12 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 cc_binary(
     name = "driver",
     srcs = ["main.cpp"],
+    # -rdynamic exports symbols to the dynamic symbol table so the crash handler's
+    # backtrace can resolve function names in non-stripped builds.
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-rdynamic"],
+    }),
     visibility = ["//visibility:public"],
     deps = ["//driver/cmd"],
 )

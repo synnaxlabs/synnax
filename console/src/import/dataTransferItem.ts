@@ -10,6 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 
 import { ingestComponent } from "@/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/import/ingester";
@@ -101,7 +102,7 @@ export const dataTransferItem = async (
       placeLayout,
       store: fluxStore,
       client,
-      workspaceKey: workspaceKey ?? undefined,
+      workspaceKey: workspaceKey ?? uuid.ZERO,
     });
     return;
   }

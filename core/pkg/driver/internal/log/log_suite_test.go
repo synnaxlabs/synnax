@@ -20,5 +20,5 @@ import (
 
 func TestLog(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Internal Log Suite")
+	RunSpecs(t, "Driver Log Suite")
 }

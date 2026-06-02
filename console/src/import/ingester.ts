@@ -23,7 +23,7 @@ export interface FileIngesterContext {
   placeLayout: Layout.Placer;
   store: Pluto.FluxStore;
   client: Synnax | null;
-  workspaceKey?: workspace.Key;
+  workspaceKey: workspace.Key;
 }
 
 export interface FileIngester {

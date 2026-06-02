@@ -13,7 +13,7 @@ import {
   schematic,
   type workspace,
 } from "@synnaxlabs/client";
-import { array, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -167,6 +167,7 @@ export const useSelectConfigs = Flux.createSelector<
     }
     return result;
   },
+  equal: compare.mapsEqual,
 });
 
 export interface SelectNodesArgs {
@@ -186,6 +187,7 @@ export const useSelectNodes = Flux.createSelector<
     const keySet = new Set(keys);
     return s.nodes.filter((n) => keySet.has(n.key));
   },
+  equal: compare.arraysEqual,
 });
 
 export interface SelectFieldArgs {

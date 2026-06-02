@@ -33,7 +33,7 @@ from console.task.analog_write import AnalogWrite
 from console.task.counter_read import CounterRead
 from console.task_page import TaskPage
 from console.tree import Tree
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 __all__ = ["WorkspaceClient", "PageType"]
 
@@ -572,7 +572,7 @@ class WorkspaceClient:
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = get_results_path(f"{name}_export.json")
+        save_path = resolve_results_path(f"{name}_export.json")
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
@@ -665,7 +665,7 @@ class WorkspaceClient:
             )
         files = self._drain_exported_files()
 
-        export_dir = get_results_path(f"{name}_export")
+        export_dir = resolve_results_path(f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)

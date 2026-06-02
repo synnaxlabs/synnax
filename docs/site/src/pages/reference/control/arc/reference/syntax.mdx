@@ -4,8 +4,8 @@ title: "Syntax"
 description:
   "Arc language syntax reference for comments, identifiers, literals, and statement
   structure"
-prev: "Effective Arc"
-prevURL: "/reference/control/arc/effective-arc"
+prev: "Language Reference"
+prevURL: "/reference/control/arc/reference"
 next: "Types"
 nextURL: "/reference/control/arc/reference/types"
 ---
@@ -299,120 +299,11 @@ empty series f64 := []
 
 <Divider.Divider x />
 
-## Variables
-
-### Constants
-
-Top-level declarations are compile-time constants. Use them for configuration values and
-to avoid magic numbers.
-
-```arc
-MAX_PRESSURE := 500.0 // f64 constant
-SAMPLE_COUNT := 100 // i64 constant
-TIMEOUT := 30s // with unit suffix
-SCALE f32 := 2.5 // explicit type
-```
-
-Constants can be used in expressions and function config parameters:
-
-```arc
-pressure > MAX_PRESSURE -> alarm{}
-
-sensor -> scale{gain=SCALE, offset=0.1} -> output
-```
-
-### Local Variables
-
-Local variables are declared with `:=` inside functions and reset each invocation.
-
-```arc
-x := 42 // type inferred as i64
-y f64 := 3.14 // explicit type
-```
-
-### Stateful Variables
-
-Stateful variables are declared with `$=` and persist across invocations.
-
-```arc
-count $= 0 // persists between calls
-total f64 $= 0.0 // explicit type
-```
-
-### Assignment
-
-Assign to existing variables with `=`:
-
-```arc
-x = x + 1
-```
-
-### Compound Assignment
-
-```arc
-count += 1 // count = count + 1
-value -= 10 // value = value - 10
-total *= 2 // total = total * 2
-ratio /= 4 // ratio = ratio / 4
-remainder %= 3 // remainder = remainder % 3
-```
-
-### Variable Scope
-
-Variables are visible from their declaration point to the end of their enclosing block.
-Nested blocks can access variables from enclosing scopes.
-
-```arc
-func example() {
-    x := 10 // visible for rest of function
-    if x > 5 {
-        y := x + 1 // visible only inside if block
-    }
-    // y is not visible here
-}
-```
-
-### No Shadowing
-
-Arc does not allow shadowing. A variable cannot have the same name as one in an
-enclosing scope:
-
-```arc
-func example() {
-    x i32 := 10
-    if x > 0 {
-        x i32 := 20 // Error: conflicts with outer x
-    }
-}
-```
-
-Use a different name or reassign the existing variable:
-
-```arc
-func example() {
-    x i32 := 10
-    if x > 0 {
-        inner_x i32 := 20 // different name
-        x = 20 // reassign existing
-    }
-}
-```
-
-Local variables can shadow built-in functions and constants:
-
-```arc
-func example() {
-    min := 10 // shadows built-in min function
-}
-```
-
-<Divider.Divider x />
-
 ## Imports
 
-Modules must be imported before their qualified members (`time.now`, `authority.set`,
-`status.set`, …) can be used. A single import uses the bare form; multiple imports go in
-an `import ( … )` block.
+Modules must be imported before their qualified members (`time.now`,
+`control.set_authority`, `status.set`, …) can be used. A single import uses the bare
+form; multiple imports go in an `import ( … )` block.
 
 ### Single Module
 
@@ -438,7 +329,7 @@ List several modules in one block, separated by whitespace:
 
 ```arc
 import (
-    authority
+    control
     status
     time as t
 )
@@ -497,132 +388,9 @@ Authority values are `u8` integers in the range 0-255.
 
 <Note.Note variant="info">
   To change authority at runtime, use the
-  [`set_authority`](/reference/control/arc/reference/built-ins#set_authority) built-in
-  function inside stage bodies.
+  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
+  standard library function inside stage bodies.
 </Note.Note>
-
-<Divider.Divider x />
-
-## Statements
-
-### If Statements
-
-```arc
-if condition {
-// body
-}
-
-if condition {
-// body
-} else {
-// alternative
-}
-
-if condition1 {
-// body
-} else if condition2 {
-// alternative
-} else {
-// fallback
-}
-```
-
-Conditions evaluate as `u8`: `0` is false, non-zero is true.
-
-### Return Statements
-
-Functions with return types require explicit `return` statements.
-
-```arc
-func compute(x f64) f64 {
-    if x < 0 {
-        return 0.0 // early return
-    }
-    return x * 2.0 // required
-}
-```
-
-Functions without return types can use `return` for early exit:
-
-```arc
-func process() {
-    if skip {
-        return // early exit
-    }
-    // more work
-}
-```
-
-### For Loops
-
-Arc supports `for` loops for iterating over series, counting through ranges, and
-repeating until a condition is met. See the
-[Loops](/reference/control/arc/reference/loops) reference for full details.
-
-```arc
-for x := data{
-// iterate over a series
-}
-
-for i := range(10) {
-// count from 0 to 9
-}
-
-for condition {
-// repeat while condition is non-zero
-}
-```
-
-<Divider.Divider x />
-
-## Flow Statements
-
-Flow statements connect channels and functions in the reactive scope.
-
-### Continuous Flow (`->`)
-
-Executes every cycle while active:
-
-```arc
-sensor -> filter{} -> output
-```
-
-### Conditional Flow (`=>`)
-
-Fires while the source expression is truthy:
-
-```arc
-pressure > 500 => next
-```
-
-### Routing Tables
-
-Map multiple inputs to function parameters:
-
-```arc
- {
-    sensor1: a,
-    sensor2: b
-} -> averager{}
-```
-
-Route multiple outputs to different targets:
-
-```arc
-sensor -> split{} -> {
-    high: alarm{},
-    low: logger{}
-}
-```
-
-### Expressions in Flows
-
-Inline expressions act as implicit functions:
-
-```arc
-temperature > 100 -> alarm{}
- (sensor1 + sensor2) / 2.0 -> display
-```
 
 <Divider.Divider x />
 
@@ -661,7 +429,7 @@ and nested sequences.
 ```arc
 sequence prime {
     1 -> press_vlv_cmd
-    wait{5s}
+    time.wait{5s}
     tank_pressure > 500
     0 -> press_vlv_cmd
 }

@@ -21,6 +21,8 @@ from playwright.sync_api import (
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.console import Console
+from framework.models import STATUS
+from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
 
@@ -56,6 +58,17 @@ class ConsoleCase(TestCase):
         self.context = self.browser.new_context(
             permissions=["clipboard-read", "clipboard-write"],
         )
+
+        # Tracing is started immediately so that a partial trace is captured even
+        # if setup itself fails. The trace is discarded on pass and persisted to
+        # the results directory on FAILED / TIMEOUT / KILLED outcomes.
+        self.context.tracing.start(
+            name=self.name,
+            screenshots=True,
+            snapshots=True,
+            sources=True,
+        )
+
         self.page = self.context.new_page()
 
         # Set timeouts
@@ -103,6 +116,10 @@ class ConsoleCase(TestCase):
         self._cleanup_pages: list[str] = []
 
     def teardown(self) -> None:
+        # Stop and persist the trace before cleanup; cleanup may mutate page state
+        # in ways that mask the failure we want to capture.
+        self._stop_tracing()
+
         if self._cleanup_pages:
             try:
                 self.console.workspace.delete_pages(self._cleanup_pages)
@@ -111,6 +128,20 @@ class ConsoleCase(TestCase):
         self.context.close()
         self.browser.close()
         self.playwright.stop()
+
+    def _stop_tracing(self) -> None:
+        failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
+        try:
+            if self._status in failed_states:
+                trace_path = resolve_results_path("trace.zip")
+                self.context.tracing.stop(path=trace_path)
+                self.log(f"Trace saved: {trace_path}")
+            else:
+                self.context.tracing.stop()
+        except Exception as e:
+            # Tracing teardown must never break test teardown. The trace is a
+            # debugging aid, not a correctness requirement.
+            self.log(f"Failed to stop trace: {e}")
 
     def determine_browser(self) -> BrowserType:
         """

@@ -24,7 +24,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "TS Types Plugin Suite")
+	RunSpecs(t, "Plugin TS Types Suite")
 }
 
 var _ = Describe("TSFormatter", func() {

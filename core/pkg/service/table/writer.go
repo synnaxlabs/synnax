@@ -57,6 +57,9 @@ func (w Writer) Create(
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return
 	}
+	if ws == uuid.Nil {
+		return nil
+	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),

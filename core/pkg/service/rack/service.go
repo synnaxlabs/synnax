@@ -65,6 +65,10 @@ type ServiceConfig struct {
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
 	HealthCheckInterval telem.TimeSpan
+	// Now returns the current time. It is used by the rack health monitor to decide
+	// whether a rack has gone stale.
+	// [OPTIONAL - defaults to telem.Now]
+	Now func() telem.TimeStamp
 	// Search is the search index for fuzzy searching racks.
 	// [REQUIRED]
 	Search *search.Index
@@ -83,6 +87,7 @@ var (
 	DefaultServiceConfig = ServiceConfig{
 		HealthCheckInterval: 5 * telem.Second,
 		AlertEveryNChecks:   12,
+		Now:                 telem.Now,
 	}
 )
 
@@ -98,6 +103,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.HealthCheckInterval = override.Numeric(c.HealthCheckInterval, other.HealthCheckInterval)
 	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 

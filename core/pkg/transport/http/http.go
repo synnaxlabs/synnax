@@ -188,9 +188,10 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ArcLSP:      http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
 
 		// STATUS
-		StatusSet:      http.NewUnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),
-		StatusRetrieve: http.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](router, "/api/v1/status/retrieve"),
-		StatusDelete:   http.NewUnaryServer[status.DeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+		StatusSet:            http.NewUnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),
+		StatusRetrieve:       http.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](router, "/api/v1/status/retrieve"),
+		StatusDelete:         http.NewUnaryServer[status.DeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+		StatusSetByKeyOrName: http.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](router, "/api/v1/status/set-by-key-or-name"),
 
 		// VIEW
 		ViewCreate:   http.NewUnaryServer[view.CreateRequest, view.CreateResponse](router, "/api/v1/view/create"),

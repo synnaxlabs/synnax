@@ -122,6 +122,7 @@ export const migrateState = (prev: RootState): RootState => {
   const cluster = Cluster.migrateSlice(prev.cluster);
   const arc = Arc.migrateSlice(prev.arc);
   const status = Status.migrateSlice(prev.status);
+  const table = Table.migrateSlice(prev.table);
   console.log("Migrated State");
   console.groupEnd();
   return {
@@ -137,6 +138,7 @@ export const migrateState = (prev: RootState): RootState => {
     cluster,
     arc,
     status,
+    table,
   };
 };
 

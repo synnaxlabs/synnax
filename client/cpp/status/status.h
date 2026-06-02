@@ -38,6 +38,20 @@ using SetClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::status::DeleteRequest, google::protobuf::Empty>;
 
+/// @brief Freighter set-by-key-or-name transport.
+using SetByKeyOrNameClient = freighter::UnaryClient<
+    grpc::status::SetByKeyOrNameRequest,
+    grpc::status::SetByKeyOrNameResponse>;
+
+/// @brief Result of Client::set_by_key_or_name.
+struct SetByKeyOrNameResult {
+    /// @brief The resulting status key.
+    std::string key;
+    /// @brief True when the by-name path matched multiple rows; the first by key
+    /// order was updated.
+    bool multiple_matches = false;
+};
+
 /// @brief StatusClient for creating, retrieving, and deleting statuses in a Synnax
 /// cluster.
 class Client {
@@ -47,11 +61,13 @@ public:
     Client(
         std::shared_ptr<RetrieveClient> retrieve_client,
         std::shared_ptr<SetClient> set_client,
-        std::shared_ptr<DeleteClient> delete_client
+        std::shared_ptr<DeleteClient> delete_client,
+        std::shared_ptr<SetByKeyOrNameClient> set_by_key_or_name_client
     ):
         retrieve_client(std::move(retrieve_client)),
         set_client(std::move(set_client)),
-        delete_client(std::move(delete_client)) {}
+        delete_client(std::move(delete_client)),
+        set_by_key_or_name_client(std::move(set_by_key_or_name_client)) {}
 
     /// @brief Creates or updates the given status in the Synnax cluster.
     /// @tparam Details The type of custom details for the status.
@@ -174,10 +190,39 @@ public:
         return this->delete_client->send("/status/delete", req).second;
     }
 
+    /// @brief Upserts a status by UUID key or by name. On by-name multi-match,
+    /// writes to the first by key order and reports multiple_matches=true so the
+    /// caller can surface the ambiguity.
+    /// @param key_or_name UUID-form key or name.
+    /// @param message Message to set on the status.
+    /// @param variant Variant to set on the status.
+    /// @returns A pair of the result (resolved key and multi-match flag) and an
+    /// error where ok() is false if the status could not be set.
+    [[nodiscard]] std::pair<SetByKeyOrNameResult, x::errors::Error> set_by_key_or_name(
+        const std::string &key_or_name,
+        const std::string &message,
+        const std::string &variant
+    ) const {
+        grpc::status::SetByKeyOrNameRequest req;
+        req.set_key_or_name(key_or_name);
+        req.set_message(message);
+        req.set_variant(variant);
+        auto [res, err] = this->set_by_key_or_name_client->send(
+            "/status/set_by_key_or_name",
+            req
+        );
+        if (err) return {SetByKeyOrNameResult{}, err};
+        return {
+            SetByKeyOrNameResult{res.key(), res.multiple_matches()},
+            x::errors::NIL
+        };
+    }
+
 private:
     std::shared_ptr<RetrieveClient> retrieve_client;
     std::shared_ptr<SetClient> set_client;
     std::shared_ptr<DeleteClient> delete_client;
+    std::shared_ptr<SetByKeyOrNameClient> set_by_key_or_name_client;
 };
 
 }
