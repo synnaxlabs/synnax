@@ -15,7 +15,13 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { type flux } from "@/flux/aether";
 import { type base } from "@/flux/base";
@@ -317,7 +323,7 @@ export const createList =
           },
         }),
       );
-    }, [mountListeners, storeListeners]);
+    }, [mountListeners, storeListeners, client, store]);
 
     const retrieveAsync = useCallback(
       async (
@@ -376,6 +382,20 @@ export const createList =
       },
       [client, name, store, filterRef, syncListeners],
     );
+
+    // When the client and store are swapped, an active hook must re-point itself
+    // at the new store. A non-null query means a list retrieve ran: refetch
+    // (retrieveAsync re-subscribes as it goes). A null query means getItem-only
+    // use, so just re-subscribe. Keyed on client/store, not the churnier callback
+    // identities.
+    const retrieveAsyncRef = useSyncedRef(retrieveAsync);
+    const syncListenersRef = useSyncedRef(syncListeners);
+    useEffect(() => {
+      if (!storeListenersMountedRef.current) return;
+      const query = queryRef.current;
+      if (query == null) syncListenersRef.current();
+      else void retrieveAsyncRef.current(query);
+    }, [client, store]);
 
     const retrieveSingle = useCallback(
       (key: Key, options: base.FetchOptions = {}) => {
