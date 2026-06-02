@@ -29,7 +29,7 @@ if [ ! -f "$JAR_PATH" ]; then
     curl -fsSL -o "$JAR_PATH" "$JAR_URL"
 fi
 
-cat > "${BIN_DIR}/antlr4" <<EOF
+cat > "${BIN_DIR}/antlr4" << EOF
 #!/bin/bash
 exec java -jar "${JAR_PATH}" "\$@"
 EOF

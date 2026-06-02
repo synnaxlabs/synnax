@@ -31,7 +31,7 @@ fi
 # time would slip past the diff check.
 git -C "$git_root" add --intent-to-add "$directory"
 
-"$git_root/scripts/update_copyrights.sh" "$directory" > /dev/null
+"$git_root/scripts/update_copyrights.sh" "$git_root/$directory" > /dev/null
 
 if ! git -C "$git_root" diff --exit-code -- "$directory"; then
     echo "::error::go generate produced changes. Run 'go generate ./...' and './scripts/update_copyrights.sh $directory' locally, then commit the result."
