@@ -15,7 +15,13 @@ import {
   type record,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import { type flux } from "@/flux/aether";
 import { type base } from "@/flux/base";
@@ -317,7 +323,15 @@ export const createList =
           },
         }),
       );
-    }, [mountListeners, storeListeners]);
+    }, [mountListeners, storeListeners, client, store]);
+
+    // The store and client are recreated when the cluster connection changes
+    // (e.g. sign out then sign back in). syncListeners captures both, so when
+    // they change we must re-subscribe the already-mounted listeners onto the
+    // new store; otherwise live updates keep flowing to the dead old store.
+    useEffect(() => {
+      if (storeListenersMountedRef.current) syncListeners();
+    }, [syncListeners]);
 
     const retrieveAsync = useCallback(
       async (

@@ -7,14 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ranger } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  type ranger,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { act } from "react";
+import { act, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
+import { base } from "@/flux/base";
 import { type ranger as aetherRanger } from "@/ranger/aether";
+import { status } from "@/status/aether";
+import { Status } from "@/status/base";
+import { Synnax } from "@/synnax";
+import { synnax } from "@/synnax/aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -1233,6 +1244,79 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.data).toEqual([rng1.key, rng3.key, rng2.key]); // A Range, B Range, C Range
       });
+    });
+  });
+
+  describe("client reconnect", () => {
+    interface Doc extends record.Keyed<string> {
+      key: string;
+      name: string;
+    }
+    interface ReconnectStore extends base.Store {
+      docs: base.UnaryStore<string, Doc>;
+    }
+    const RECONNECT_STORE_CONFIG: base.StoreConfig<ReconnectStore> = {
+      docs: { listeners: [] },
+    };
+    const ReconnectAetherProvider = aetherTest.createProvider({
+      ...synnax.REGISTRY,
+      ...status.REGISTRY,
+      ...flux.createRegistry({ storeConfig: {} }),
+    });
+    const setDoc = (fluxClient: base.Client<ReconnectStore>, doc: Doc): void => {
+      fluxClient.scopedStore<ReconnectStore>("test-writer").docs.set(doc.key, doc);
+    };
+    const newFluxClient = (): base.Client<ReconnectStore> =>
+      new base.Client<ReconnectStore>({
+        client: null,
+        storeConfig: RECONNECT_STORE_CONFIG,
+        handleError: status.createErrorHandler(console.error),
+        handleAsyncError: status.createAsyncErrorHandler(console.error),
+      });
+
+    it("should re-subscribe listeners to the new store after the client changes", async () => {
+      const fluxA = newFluxClient();
+      const fluxB = newFluxClient();
+      // Distinct keys model the sign-out/sign-in client swap that drives the
+      // Flux.Provider to rebuild its base client (and store).
+      let activeFlux = fluxA;
+      let activeSynnax = { key: "a" } as unknown as Client;
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <ReconnectAetherProvider>
+          <Status.Aggregator>
+            <Synnax.TestProvider client={activeSynnax}>
+              <Flux.Provider client={activeFlux}>{children}</Flux.Provider>
+            </Synnax.TestProvider>
+          </Status.Aggregator>
+        </ReconnectAetherProvider>
+      );
+
+      const useList = Flux.createList<{}, string, Doc, ReconnectStore>({
+        name: "Doc",
+        retrieve: async () => [],
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+        mountListeners: ({ store, onChange, onDelete }) => [
+          store.docs.onSet((doc) => onChange(doc.key, doc)),
+          store.docs.onDelete(onDelete),
+        ],
+      });
+
+      const { result, rerender } = renderHook(() => useList(), { wrapper: Wrapper });
+
+      await act(
+        async () =>
+          await result.current.retrieveAsync({}, { signal: controller.signal }),
+      );
+
+      act(() => setDoc(fluxA, { key: "before", name: "Before" }));
+      await waitFor(() => expect(result.current.data).toContain("before"));
+
+      activeFlux = fluxB;
+      activeSynnax = { key: "b" } as unknown as Client;
+      rerender();
+
+      act(() => setDoc(fluxB, { key: "after", name: "After" }));
+      await waitFor(() => expect(result.current.data).toContain("after"));
     });
   });
 });

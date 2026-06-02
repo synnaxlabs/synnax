@@ -32,6 +32,7 @@ import {
   setSelectedCells,
 } from "@/table/slice";
 import { useAutoUpload } from "@/table/useUpload";
+import { Workspace } from "@/workspace";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
@@ -42,6 +43,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = useDispatch();
+  Workspace.useAdoptIntoActiveWorkspace(table.ontologyID(layoutKey));
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
