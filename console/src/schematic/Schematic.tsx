@@ -21,12 +21,14 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
+import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import { selectEditable, useSelect } from "@/schematic/selectors";
+import { selectEditable, useSelect, useSelectOptional } from "@/schematic/selectors";
 import {
+  internalCreate,
   setEditable,
   setFitViewOnResize,
   setLegend,
@@ -177,10 +179,16 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   );
 };
 
+const useEnsureState = createEnsureState({
+  useExists: (key) => useSelectOptional(key) != null,
+  create: (key) => internalCreate({ key }),
+});
+
 export const Schematic: Layout.Renderer = (props) => {
   const { layoutKey } = props;
+  const exists = useEnsureState(layoutKey);
   const uploaded = useAutoUpload(layoutKey);
-  if (!uploaded) return null;
+  if (!exists || !uploaded) return null;
   return <Internal {...props} />;
 };
 Schematic.useName = Layout.createUseFluxName(
