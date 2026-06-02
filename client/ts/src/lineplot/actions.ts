@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { current, type Draft, isDraft } from "immer";
-
+import { actions } from "@/actions";
 import {
   addChannel,
   addRange,
   createReduceAll,
-  type HandlerResult,
   type Handlers,
   removeChannel,
   removeRange,
@@ -27,14 +25,6 @@ import {
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { type AxisKey } from "@/lineplot/types.gen";
-
-const NO_OP: HandlerResult = { inverse: [], targets: [] };
-
-// snapshot pulls a value out of the current immer draft so the result is safe
-// to embed in an inverse action stored on the undo stack. Without it a later
-// action in the same reduceAll batch could mutate state and corrupt the
-// captured "old" value.
-const snapshot = <T>(v: T): T => (isDraft(v) ? current(v as Draft<T>) : v);
 
 type YAxisKey = "y1" | "y2" | "y3" | "y4";
 type XAxisKey = "x1" | "x2";
@@ -62,13 +52,13 @@ const handlers: Handlers = {
   },
 
   setTitle: (state, payload) => {
-    const oldTitle = snapshot(state.title);
+    const oldTitle = actions.snapshotDraft(state.title);
     state.title = payload.title;
     return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
   },
 
   setLegend: (state, payload) => {
-    const oldLegend = snapshot(state.legend);
+    const oldLegend = actions.snapshotDraft(state.legend);
     state.legend = payload.legend;
     return { inverse: [setLegend({ legend: oldLegend })], targets: [state.key] };
   },
@@ -76,7 +66,7 @@ const handlers: Handlers = {
   addChannel: (state, payload) => {
     const axis = requireYAxis(payload.axisKey);
     const slice = state.channels[axis];
-    if (slice.includes(payload.channel)) return NO_OP;
+    if (slice.includes(payload.channel)) return actions.NO_OP_RESULT;
     slice.push(payload.channel);
     return {
       inverse: [removeChannel({ axisKey: axis, channel: payload.channel })],
@@ -88,7 +78,7 @@ const handlers: Handlers = {
     const axis = requireYAxis(payload.axisKey);
     const slice = state.channels[axis];
     const idx = slice.indexOf(payload.channel);
-    if (idx === -1) return NO_OP;
+    if (idx === -1) return actions.NO_OP_RESULT;
     slice.splice(idx, 1);
     return {
       inverse: [addChannel({ axisKey: axis, channel: payload.channel })],
@@ -109,7 +99,7 @@ const handlers: Handlers = {
   addRange: (state, payload) => {
     const axis = requireXAxis(payload.axisKey);
     const slice = state.ranges[axis];
-    if (slice.includes(payload.range)) return NO_OP;
+    if (slice.includes(payload.range)) return actions.NO_OP_RESULT;
     slice.push(payload.range);
     return {
       inverse: [removeRange({ axisKey: axis, range: payload.range })],
@@ -121,7 +111,7 @@ const handlers: Handlers = {
     const axis = requireXAxis(payload.axisKey);
     const slice = state.ranges[axis];
     const idx = slice.indexOf(payload.range);
-    if (idx === -1) return NO_OP;
+    if (idx === -1) return actions.NO_OP_RESULT;
     slice.splice(idx, 1);
     return {
       inverse: [addRange({ axisKey: axis, range: payload.range })],
@@ -130,7 +120,7 @@ const handlers: Handlers = {
   },
 
   setAxis: (state, payload) => {
-    const oldAxis = snapshot(state.axes[payload.axis.key]);
+    const oldAxis = actions.snapshotDraft(state.axes[payload.axis.key]);
     state.axes[payload.axis.key] = payload.axis;
     return { inverse: [setAxis({ axis: oldAxis })], targets: [state.key] };
   },
@@ -146,7 +136,7 @@ const handlers: Handlers = {
       state.lines.push(payload.line);
       return { inverse: [], targets: [state.key] };
     }
-    const oldLine = snapshot(state.lines[idx]);
+    const oldLine = actions.snapshotDraft(state.lines[idx]);
     state.lines[idx] = payload.line;
     return { inverse: [setLine({ line: oldLine })], targets: [state.key] };
   },
@@ -160,15 +150,15 @@ const handlers: Handlers = {
         targets: [state.key],
       };
     }
-    const oldRule = snapshot(state.rules[idx]);
+    const oldRule = actions.snapshotDraft(state.rules[idx]);
     state.rules[idx] = payload.rule;
     return { inverse: [setRule({ rule: oldRule })], targets: [state.key] };
   },
 
   removeRule: (state, payload) => {
     const idx = state.rules.findIndex((r) => r.key === payload.key);
-    if (idx === -1) return NO_OP;
-    const oldRule = snapshot(state.rules[idx]);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    const oldRule = actions.snapshotDraft(state.rules[idx]);
     state.rules.splice(idx, 1);
     return { inverse: [setRule({ rule: oldRule })], targets: [state.key] };
   },
