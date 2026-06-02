@@ -21,10 +21,10 @@ import {
 } from "@synnaxlabs/client";
 import { Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Workspace } from "@/workspace";
 import { useAdoptIntoActiveWorkspace } from "@/workspace/useAdoptIntoActiveWorkspace";
@@ -39,14 +39,21 @@ const rootReducer = combineReducers({
   [Workspace.SLICE_NAME]: Workspace.reducer,
 }) as unknown as Reducer<RootState, UnknownAction>;
 
+type RootStore = ReturnType<typeof configureStore<RootState>>;
+
+interface Harness {
+  wrapper: FC<PropsWithChildren>;
+  store: RootStore;
+}
+
 const stripLayout = (ws: workspace.Workspace): Omit<workspace.Workspace, "layout"> => {
   const { layout: _, ...rest } = ws;
   return rest;
 };
 
-const buildWrapper = async (
+const buildHarness = async (
   activeWorkspace?: workspace.Workspace,
-): Promise<FC<PropsWithChildren>> => {
+): Promise<Harness> => {
   const fluxClient = new Flux.Client({
     client,
     storeConfig: Pluto.FLUX_STORE_CONFIG,
@@ -70,7 +77,7 @@ const buildWrapper = async (
       </Status.Aggregator>
     </Provider>
   );
-  return Wrapper;
+  return { wrapper: Wrapper, store };
 };
 
 const parentKeys = async (tableKey: string): Promise<string[]> =>
@@ -99,47 +106,51 @@ describe("useAdoptIntoActiveWorkspace", () => {
     });
   });
 
-  it("adopts an orphaned resource into the active workspace", async () => {
+  it("adopts an orphaned resource into the workspace active on mount", async () => {
     const tableKey = await createOrphanTable();
     expect(await parentKeys(tableKey)).toHaveLength(0);
-    const wrapper = await buildWrapper(workspaceA);
+    const { wrapper } = await buildHarness(workspaceA);
     renderHook(() => useAdoptIntoActiveWorkspace(table.ontologyID(tableKey)), {
       wrapper,
     });
     await waitFor(async () =>
-      expect(await parentKeys(tableKey)).toContain(workspaceA.key),
+      expect(await parentKeys(tableKey)).toEqual([workspaceA.key]),
     );
   });
 
-  it("does nothing when there is no active workspace", async () => {
+  it("adopts an orphaned resource when a workspace becomes active after mount", async () => {
     const tableKey = await createOrphanTable();
-    const addChildren = vi.spyOn(client.ontology, "addChildren");
-    const wrapper = await buildWrapper();
+    const { wrapper, store } = await buildHarness();
     renderHook(() => useAdoptIntoActiveWorkspace(table.ontologyID(tableKey)), {
       wrapper,
     });
-    // Give the async effect time to flush its task queue and run to completion.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(addChildren).not.toHaveBeenCalled();
-    expect(await parentKeys(tableKey)).toHaveLength(0);
+    act(() => {
+      store.dispatch(Workspace.setActive(stripLayout(workspaceA)));
+    });
+    // The resource ends up parented to exactly the workspace that became active,
+    // which would not hold if the hook had acted while no workspace was active.
+    await waitFor(async () =>
+      expect(await parentKeys(tableKey)).toEqual([workspaceA.key]),
+    );
   });
 
   it("does not transfer a resource that already belongs to another workspace", async () => {
-    const tableKey = uuid.create();
-    await client.tables.create(workspaceA.key, { key: tableKey, name: "in-a" });
-    expect(await parentKeys(tableKey)).toContain(workspaceA.key);
-    const addChildren = vi.spyOn(client.ontology, "addChildren");
-    const retrieveParents = vi.spyOn(client.ontology, "retrieveParents");
-    const wrapper = await buildWrapper(workspaceB);
-    renderHook(() => useAdoptIntoActiveWorkspace(table.ontologyID(tableKey)), {
-      wrapper,
-    });
-    // The store cache is cold, so the hook must confirm the existing parent against
-    // the server before deciding not to adopt.
-    await waitFor(() => expect(retrieveParents).toHaveBeenCalled());
-    expect(addChildren).not.toHaveBeenCalled();
-    const parents = await parentKeys(tableKey);
-    expect(parents).toContain(workspaceA.key);
-    expect(parents).not.toContain(workspaceB.key);
+    const ownedKey = uuid.create();
+    await client.tables.create(workspaceA.key, { key: ownedKey, name: "in-a" });
+    const orphanKey = await createOrphanTable();
+    const { wrapper } = await buildHarness(workspaceB);
+    renderHook(
+      () => {
+        useAdoptIntoActiveWorkspace(table.ontologyID(ownedKey));
+        useAdoptIntoActiveWorkspace(table.ontologyID(orphanKey));
+      },
+      { wrapper },
+    );
+    // Adopting the orphan into B is the barrier: it takes strictly more server round
+    // trips than the owned table's decision, so once it lands both effects have run.
+    await waitFor(async () =>
+      expect(await parentKeys(orphanKey)).toEqual([workspaceB.key]),
+    );
+    expect(await parentKeys(ownedKey)).toEqual([workspaceA.key]);
   });
 });
