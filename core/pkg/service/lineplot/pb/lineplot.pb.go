@@ -188,6 +188,106 @@ func (DownsampleMode) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{2}
 }
 
+// XAxisKey names one of the two x-axes. X-axes carry a single channel each.
+type XAxisKey int32
+
+const (
+	XAxisKey_X_AXIS_KEY_X_1 XAxisKey = 0
+	XAxisKey_X_AXIS_KEY_X_2 XAxisKey = 1
+)
+
+// Enum value maps for XAxisKey.
+var (
+	XAxisKey_name = map[int32]string{
+		0: "X_AXIS_KEY_X_1",
+		1: "X_AXIS_KEY_X_2",
+	}
+	XAxisKey_value = map[string]int32{
+		"X_AXIS_KEY_X_1": 0,
+		"X_AXIS_KEY_X_2": 1,
+	}
+)
+
+func (x XAxisKey) Enum() *XAxisKey {
+	p := new(XAxisKey)
+	*p = x
+	return p
+}
+
+func (x XAxisKey) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (XAxisKey) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[3].Descriptor()
+}
+
+func (XAxisKey) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[3]
+}
+
+func (x XAxisKey) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use XAxisKey.Descriptor instead.
+func (XAxisKey) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{3}
+}
+
+// YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
+type YAxisKey int32
+
+const (
+	YAxisKey_Y_AXIS_KEY_Y_1 YAxisKey = 0
+	YAxisKey_Y_AXIS_KEY_Y_2 YAxisKey = 1
+	YAxisKey_Y_AXIS_KEY_Y_3 YAxisKey = 2
+	YAxisKey_Y_AXIS_KEY_Y_4 YAxisKey = 3
+)
+
+// Enum value maps for YAxisKey.
+var (
+	YAxisKey_name = map[int32]string{
+		0: "Y_AXIS_KEY_Y_1",
+		1: "Y_AXIS_KEY_Y_2",
+		2: "Y_AXIS_KEY_Y_3",
+		3: "Y_AXIS_KEY_Y_4",
+	}
+	YAxisKey_value = map[string]int32{
+		"Y_AXIS_KEY_Y_1": 0,
+		"Y_AXIS_KEY_Y_2": 1,
+		"Y_AXIS_KEY_Y_3": 2,
+		"Y_AXIS_KEY_Y_4": 3,
+	}
+)
+
+func (x YAxisKey) Enum() *YAxisKey {
+	p := new(YAxisKey)
+	*p = x
+	return p
+}
+
+func (x YAxisKey) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (YAxisKey) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[4].Descriptor()
+}
+
+func (YAxisKey) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes[4]
+}
+
+func (x YAxisKey) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use YAxisKey.Descriptor instead.
+func (YAxisKey) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP(), []int{4}
+}
+
 // Title is the plot title configuration.
 type Title struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1122,7 +1222,15 @@ const file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\x0eTICK_TYPE_TIME\x10\x01*K\n" +
 	"\x0eDownsampleMode\x12\x1b\n" +
 	"\x17DOWNSAMPLE_MODE_AVERAGE\x10\x00\x12\x1c\n" +
-	"\x18DOWNSAMPLE_MODE_DECIMATE\x10\x01B\xcc\x01\n" +
+	"\x18DOWNSAMPLE_MODE_DECIMATE\x10\x01*2\n" +
+	"\bXAxisKey\x12\x12\n" +
+	"\x0eX_AXIS_KEY_X_1\x10\x00\x12\x12\n" +
+	"\x0eX_AXIS_KEY_X_2\x10\x01*Z\n" +
+	"\bYAxisKey\x12\x12\n" +
+	"\x0eY_AXIS_KEY_Y_1\x10\x00\x12\x12\n" +
+	"\x0eY_AXIS_KEY_Y_2\x10\x01\x12\x12\n" +
+	"\x0eY_AXIS_KEY_Y_3\x10\x02\x12\x12\n" +
+	"\x0eY_AXIS_KEY_Y_4\x10\x03B\xcc\x01\n" +
 	"\x17com.service.lineplot.pbB\rLineplotProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/lineplot/pb\xa2\x02\x03SLP\xaa\x02\x13Service.Lineplot.Pb\xca\x02\x13Service\\Lineplot\\Pb\xe2\x02\x1fService\\Lineplot\\Pb\\GPBMetadata\xea\x02\x15Service::Lineplot::Pbb\x06proto3"
 
 var (
@@ -1137,54 +1245,56 @@ func file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_lineplot_pb_lineplot_proto_rawDescData
 }
 
-var file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_core_pkg_service_lineplot_pb_lineplot_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
 var file_core_pkg_service_lineplot_pb_lineplot_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_core_pkg_service_lineplot_pb_lineplot_proto_goTypes = []any{
 	(AxisKey)(0),         // 0: service.lineplot.pb.AxisKey
 	(TickType)(0),        // 1: service.lineplot.pb.TickType
 	(DownsampleMode)(0),  // 2: service.lineplot.pb.DownsampleMode
-	(*Title)(nil),        // 3: service.lineplot.pb.Title
-	(*Legend)(nil),       // 4: service.lineplot.pb.Legend
-	(*Channels)(nil),     // 5: service.lineplot.pb.Channels
-	(*Ranges)(nil),       // 6: service.lineplot.pb.Ranges
-	(*AutoBounds)(nil),   // 7: service.lineplot.pb.AutoBounds
-	(*Axis)(nil),         // 8: service.lineplot.pb.Axis
-	(*Axes)(nil),         // 9: service.lineplot.pb.Axes
-	(*Line)(nil),         // 10: service.lineplot.pb.Line
-	(*Rule)(nil),         // 11: service.lineplot.pb.Rule
-	(*LinePlot)(nil),     // 12: service.lineplot.pb.LinePlot
-	(pb.Level)(0),        // 13: x.text.pb.Level
-	(*pb1.StickyXY)(nil), // 14: x.spatial.pb.StickyXY
-	(pb1.Direction)(0),   // 15: x.spatial.pb.Direction
-	(*pb1.Bounds)(nil),   // 16: x.spatial.pb.Bounds
-	(*pb2.Color)(nil),    // 17: x.color.pb.Color
+	(XAxisKey)(0),        // 3: service.lineplot.pb.XAxisKey
+	(YAxisKey)(0),        // 4: service.lineplot.pb.YAxisKey
+	(*Title)(nil),        // 5: service.lineplot.pb.Title
+	(*Legend)(nil),       // 6: service.lineplot.pb.Legend
+	(*Channels)(nil),     // 7: service.lineplot.pb.Channels
+	(*Ranges)(nil),       // 8: service.lineplot.pb.Ranges
+	(*AutoBounds)(nil),   // 9: service.lineplot.pb.AutoBounds
+	(*Axis)(nil),         // 10: service.lineplot.pb.Axis
+	(*Axes)(nil),         // 11: service.lineplot.pb.Axes
+	(*Line)(nil),         // 12: service.lineplot.pb.Line
+	(*Rule)(nil),         // 13: service.lineplot.pb.Rule
+	(*LinePlot)(nil),     // 14: service.lineplot.pb.LinePlot
+	(pb.Level)(0),        // 15: x.text.pb.Level
+	(*pb1.StickyXY)(nil), // 16: x.spatial.pb.StickyXY
+	(pb1.Direction)(0),   // 17: x.spatial.pb.Direction
+	(*pb1.Bounds)(nil),   // 18: x.spatial.pb.Bounds
+	(*pb2.Color)(nil),    // 19: x.color.pb.Color
 }
 var file_core_pkg_service_lineplot_pb_lineplot_proto_depIdxs = []int32{
-	13, // 0: service.lineplot.pb.Title.level:type_name -> x.text.pb.Level
-	14, // 1: service.lineplot.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
+	15, // 0: service.lineplot.pb.Title.level:type_name -> x.text.pb.Level
+	16, // 1: service.lineplot.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
 	0,  // 2: service.lineplot.pb.Axis.key:type_name -> service.lineplot.pb.AxisKey
-	15, // 3: service.lineplot.pb.Axis.label_direction:type_name -> x.spatial.pb.Direction
-	13, // 4: service.lineplot.pb.Axis.label_level:type_name -> x.text.pb.Level
-	16, // 5: service.lineplot.pb.Axis.bounds:type_name -> x.spatial.pb.Bounds
-	7,  // 6: service.lineplot.pb.Axis.auto_bounds:type_name -> service.lineplot.pb.AutoBounds
+	17, // 3: service.lineplot.pb.Axis.label_direction:type_name -> x.spatial.pb.Direction
+	15, // 4: service.lineplot.pb.Axis.label_level:type_name -> x.text.pb.Level
+	18, // 5: service.lineplot.pb.Axis.bounds:type_name -> x.spatial.pb.Bounds
+	9,  // 6: service.lineplot.pb.Axis.auto_bounds:type_name -> service.lineplot.pb.AutoBounds
 	1,  // 7: service.lineplot.pb.Axis.type:type_name -> service.lineplot.pb.TickType
-	8,  // 8: service.lineplot.pb.Axes.x1:type_name -> service.lineplot.pb.Axis
-	8,  // 9: service.lineplot.pb.Axes.x2:type_name -> service.lineplot.pb.Axis
-	8,  // 10: service.lineplot.pb.Axes.y1:type_name -> service.lineplot.pb.Axis
-	8,  // 11: service.lineplot.pb.Axes.y2:type_name -> service.lineplot.pb.Axis
-	8,  // 12: service.lineplot.pb.Axes.y3:type_name -> service.lineplot.pb.Axis
-	8,  // 13: service.lineplot.pb.Axes.y4:type_name -> service.lineplot.pb.Axis
-	17, // 14: service.lineplot.pb.Line.color:type_name -> x.color.pb.Color
+	10, // 8: service.lineplot.pb.Axes.x1:type_name -> service.lineplot.pb.Axis
+	10, // 9: service.lineplot.pb.Axes.x2:type_name -> service.lineplot.pb.Axis
+	10, // 10: service.lineplot.pb.Axes.y1:type_name -> service.lineplot.pb.Axis
+	10, // 11: service.lineplot.pb.Axes.y2:type_name -> service.lineplot.pb.Axis
+	10, // 12: service.lineplot.pb.Axes.y3:type_name -> service.lineplot.pb.Axis
+	10, // 13: service.lineplot.pb.Axes.y4:type_name -> service.lineplot.pb.Axis
+	19, // 14: service.lineplot.pb.Line.color:type_name -> x.color.pb.Color
 	2,  // 15: service.lineplot.pb.Line.downsample_mode:type_name -> service.lineplot.pb.DownsampleMode
-	17, // 16: service.lineplot.pb.Rule.color:type_name -> x.color.pb.Color
+	19, // 16: service.lineplot.pb.Rule.color:type_name -> x.color.pb.Color
 	0,  // 17: service.lineplot.pb.Rule.axis:type_name -> service.lineplot.pb.AxisKey
-	3,  // 18: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
-	4,  // 19: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
-	5,  // 20: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
-	6,  // 21: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
-	9,  // 22: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
-	10, // 23: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
-	11, // 24: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
+	5,  // 18: service.lineplot.pb.LinePlot.title:type_name -> service.lineplot.pb.Title
+	6,  // 19: service.lineplot.pb.LinePlot.legend:type_name -> service.lineplot.pb.Legend
+	7,  // 20: service.lineplot.pb.LinePlot.channels:type_name -> service.lineplot.pb.Channels
+	8,  // 21: service.lineplot.pb.LinePlot.ranges:type_name -> service.lineplot.pb.Ranges
+	11, // 22: service.lineplot.pb.LinePlot.axes:type_name -> service.lineplot.pb.Axes
+	12, // 23: service.lineplot.pb.LinePlot.lines:type_name -> service.lineplot.pb.Line
+	13, // 24: service.lineplot.pb.LinePlot.rules:type_name -> service.lineplot.pb.Rule
 	25, // [25:25] is the sub-list for method output_type
 	25, // [25:25] is the sub-list for method input_type
 	25, // [25:25] is the sub-list for extension type_name
@@ -1205,7 +1315,7 @@ func file_core_pkg_service_lineplot_pb_lineplot_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc), len(file_core_pkg_service_lineplot_pb_lineplot_proto_rawDesc)),
-			NumEnums:      3,
+			NumEnums:      5,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

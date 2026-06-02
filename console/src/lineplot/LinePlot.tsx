@@ -43,13 +43,6 @@ import { useDispatch } from "react-redux";
 import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import {
-  type AxisKey,
-  axisLocation,
-  X_AXIS_KEYS,
-  type XAxisKey,
-  type YAxisKey,
-} from "@/lineplot/axis";
 import { buildLines } from "@/lineplot/buildLines";
 import { Controls } from "@/lineplot/Controls";
 import {
@@ -204,7 +197,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           rule: {
             ...rule,
             color: rule.color != null ? color.construct(rule.color) : undefined,
-            axis: rule.axis != null ? (rule.axis as AxisKey) : undefined,
+            axis: rule.axis != null ? (rule.axis as lineplot.AxisKey) : undefined,
           },
         }),
       );
@@ -217,7 +210,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       syncDispatch(
         setAxis({
           key: layoutKey,
-          axisKey: axis.key as AxisKey,
+          axisKey: axis.key as lineplot.AxisKey,
           axis: axis as AxisState,
           triggerRender: true,
         }),
@@ -228,7 +221,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   useAsyncEffect(async () => {
     const axis = vis.axes.axes.x1;
-    const axisKey = axis.key as XAxisKey;
+    const axisKey = axis.key as lineplot.XAxisKey;
     const key = vis.channels[axisKey];
     const prevKey = prevVis?.channels[axisKey];
     if (client == null || key === prevKey) return;
@@ -254,11 +247,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
 
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Key[]): void => {
-      if (X_AXIS_KEYS.includes(axis as XAxisKey))
+      if (lineplot.X_AXIS_KEYS.includes(axis as lineplot.XAxisKey))
         syncDispatch(
           setXChannel({
             key: layoutKey,
-            axisKey: axis as XAxisKey,
+            axisKey: axis as lineplot.XAxisKey,
             channel: channels[0],
           }),
         );
@@ -266,7 +259,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         syncDispatch(
           setYChannels({
             key: layoutKey,
-            axisKey: axis as YAxisKey,
+            axisKey: axis as lineplot.YAxisKey,
             channels,
             mode: "add",
           }),
@@ -504,13 +497,22 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 };
 
+const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
+  y1: "left",
+  y2: "right",
+  y3: "left",
+  y4: "right",
+  x1: "bottom",
+  x2: "top",
+};
+
 const buildAxes = (vis: State): Channel.AxisProps[] =>
   record
     .entries<AxesState["axes"]>(vis.axes.axes)
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(
       ([key, axis]): Channel.AxisProps => ({
-        location: axisLocation(key),
+        location: AXIS_LOCATIONS[key],
         ...axis,
       }),
     );
