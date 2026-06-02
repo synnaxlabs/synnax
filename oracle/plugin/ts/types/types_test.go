@@ -252,6 +252,32 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
 		})
 
+		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
+			Expect(err).To(BeNil())
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const AXIS_KEYS = ["x1", "x2", "y1", "y2"] as const`))
+			Expect(content).To(ContainSubstring(`export const axisKeyZ = z.enum(AXIS_KEYS)`))
+		})
+
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct Zod schema",
 				func(ctx SpecContext, oracleType, expectedZodType string) {

@@ -272,6 +272,10 @@ func (t *Table) collectDependencies(typ Type) []string {
 		addDep(form.Target)
 	case DistinctForm:
 		addDep(form.Base)
+	case EnumForm:
+		for _, extendsRef := range form.Extends {
+			addDep(extendsRef)
+		}
 	}
 
 	return deps
