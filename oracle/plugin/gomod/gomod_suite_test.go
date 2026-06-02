@@ -18,5 +18,5 @@ import (
 
 func TestGomod(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gomod Suite")
+	RunSpecs(t, "Plugin GoMod Suite")
 }

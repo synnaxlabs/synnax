@@ -18,5 +18,5 @@ import (
 
 func TestGraph(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Graph Suite")
+	RunSpecs(t, "Service Framer Calculation Graph Suite")
 }

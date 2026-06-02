@@ -30,7 +30,7 @@ var (
 
 func TestHTTP(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Transport Suite")
+	RunSpecs(t, "Transport HTTP Suite")
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {

@@ -18,5 +18,5 @@ import (
 
 func TestSeriesState(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Series Suite")
+	RunSpecs(t, "STL Series Suite")
 }

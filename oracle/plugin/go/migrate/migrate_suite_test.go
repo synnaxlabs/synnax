@@ -18,5 +18,5 @@ import (
 
 func TestMigrate(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Migrate Plugin Suite")
+	RunSpecs(t, "Plugin Go Migrate Suite")
 }

@@ -18,5 +18,5 @@ import (
 
 func TestFrame(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Frame Suite")
+	RunSpecs(t, "Distribution Framer Frame Suite")
 }

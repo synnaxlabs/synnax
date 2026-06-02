@@ -18,5 +18,5 @@ import (
 
 func TestFunction(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Function Analyzer Suite")
+	RunSpecs(t, "Analyzer Function Suite")
 }

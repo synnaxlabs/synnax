@@ -18,5 +18,5 @@ import (
 
 func TestFalamos(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Falamos Suite")
+	RunSpecs(t, "Alamos Suite")
 }
