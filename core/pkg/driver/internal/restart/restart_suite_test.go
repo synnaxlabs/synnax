@@ -18,5 +18,5 @@ import (
 
 func TestRestart(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Restart Suite")
+	RunSpecs(t, "Driver Restart Suite")
 }

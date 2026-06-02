@@ -18,5 +18,5 @@ import (
 
 func TestCalculator(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Calculator Suite")
+	RunSpecs(t, "Service Framer Calculation Calculator Suite")
 }
