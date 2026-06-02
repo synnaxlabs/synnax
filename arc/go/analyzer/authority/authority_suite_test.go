@@ -18,5 +18,5 @@ import (
 
 func TestAuthority(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Authority Analyzer Suite")
+	RunSpecs(t, "Analyzer Authority Suite")
 }

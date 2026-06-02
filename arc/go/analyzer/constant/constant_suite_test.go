@@ -18,5 +18,5 @@ import (
 
 func TestConstant(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Constant Analyzer Suite")
+	RunSpecs(t, "Analyzer Constant Suite")
 }

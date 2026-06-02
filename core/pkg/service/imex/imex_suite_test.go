@@ -26,7 +26,7 @@ import (
 
 func TestImEx(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Import/Export Suite")
+	RunSpecs(t, "Service Import/Export Suite")
 }
 
 const (

@@ -21,7 +21,7 @@ import (
 
 func TestGoMarshal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Marshal Plugin Suite")
+	RunSpecs(t, "Plugin Go Marshal Suite")
 }
 
 var _ = Describe("Go Marshal Plugin", func() {
