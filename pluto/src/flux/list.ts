@@ -325,14 +325,6 @@ export const createList =
       );
     }, [mountListeners, storeListeners, client, store]);
 
-    // The store and client are recreated when the cluster connection changes
-    // (e.g. sign out then sign back in). syncListeners captures both, so when
-    // they change we must re-subscribe the already-mounted listeners onto the
-    // new store; otherwise live updates keep flowing to the dead old store.
-    useEffect(() => {
-      if (storeListenersMountedRef.current) syncListeners();
-    }, [syncListeners]);
-
     const retrieveAsync = useCallback(
       async (
         paramsSetter: state.SetArg<Query, Query | {}>,
@@ -390,6 +382,20 @@ export const createList =
       },
       [client, name, store, filterRef, syncListeners],
     );
+
+    // When the client and store are swapped, an active hook must re-point itself
+    // at the new store. A non-null query means a list retrieve ran: refetch
+    // (retrieveAsync re-subscribes as it goes). A null query means getItem-only
+    // use, so just re-subscribe. Keyed on client/store, not the churnier callback
+    // identities.
+    const retrieveAsyncRef = useSyncedRef(retrieveAsync);
+    const syncListenersRef = useSyncedRef(syncListeners);
+    useEffect(() => {
+      if (!storeListenersMountedRef.current) return;
+      const query = queryRef.current;
+      if (query == null) syncListenersRef.current();
+      else void retrieveAsyncRef.current(query);
+    }, [client, store]);
 
     const retrieveSingle = useCallback(
       (key: Key, options: base.FetchOptions = {}) => {

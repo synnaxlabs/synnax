@@ -23,11 +23,18 @@ export const useAdoptIntoActiveWorkspace = (id: ontology.ID): void => {
   const client = Synnax.use();
   const store = Flux.useStore<Pluto.FluxStore>();
   const activeWorkspace = useSelectActiveKey();
-  useAsyncEffect(async () => {
-    if (client == null || activeWorkspace == null) return;
-    // A resource with any parent (a workspace directly, or a group within one) is
-    // already part of a workspace; only true orphans need adopting.
-    if (Ontology.retrieveCachedParentID(store, id) != null) return;
-    await client.ontology.addChildren(workspace.ontologyID(activeWorkspace), id);
-  }, [client, store, activeWorkspace, ontology.idToString(id)]);
+  useAsyncEffect(
+    async (signal) => {
+      if (client == null || activeWorkspace == null) return;
+      // A cached parent is authoritative: the store only holds relationships that
+      // exist on the server. A cache miss is ambiguous, though - a true orphan and a
+      // cold store after reconnect look identical - so confirm against the server
+      // before adopting, otherwise a reconnect could attach a second workspace parent.
+      if (Ontology.retrieveCachedParentID(store, id) != null) return;
+      const parents = await client.ontology.retrieveParents(id);
+      if (signal.aborted || parents.length > 0) return;
+      await client.ontology.addChildren(workspace.ontologyID(activeWorkspace), id);
+    },
+    [client, store, activeWorkspace, ontology.idToString(id)],
+  );
 };

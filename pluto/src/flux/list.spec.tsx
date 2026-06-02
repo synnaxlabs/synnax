@@ -1266,22 +1266,32 @@ describe("list", () => {
     const setDoc = (fluxClient: base.Client<ReconnectStore>, doc: Doc): void => {
       fluxClient.scopedStore<ReconnectStore>("test-writer").docs.set(doc.key, doc);
     };
-    const newFluxClient = (): base.Client<ReconnectStore> =>
+    const newFluxClient = (
+      storeConfig: base.StoreConfig<ReconnectStore> = RECONNECT_STORE_CONFIG,
+    ): base.Client<ReconnectStore> =>
       new base.Client<ReconnectStore>({
         client: null,
-        storeConfig: RECONNECT_STORE_CONFIG,
+        storeConfig,
         handleError: status.createErrorHandler(console.error),
         handleAsyncError: status.createAsyncErrorHandler(console.error),
       });
 
-    it("should re-subscribe listeners to the new store after the client changes", async () => {
-      const fluxA = newFluxClient();
-      const fluxB = newFluxClient();
-      // Distinct keys model the sign-out/sign-in client swap that drives the
-      // Flux.Provider to rebuild its base client (and store).
+    interface ReconnectSetup {
+      fluxA: base.Client<ReconnectStore>;
+      fluxB: base.Client<ReconnectStore>;
+      wrapper: React.FC<PropsWithChildren>;
+      reconnect: () => void;
+    }
+
+    const createReconnectSetup = (
+      storeConfig?: base.StoreConfig<ReconnectStore>,
+    ): ReconnectSetup => {
+      const fluxA = newFluxClient(storeConfig);
+      const fluxB = newFluxClient(storeConfig);
+      // Distinct keys model the client swap.
       let activeFlux = fluxA;
       let activeSynnax = { key: "a" } as unknown as Client;
-      const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <ReconnectAetherProvider>
           <Status.Aggregator>
             <Synnax.TestProvider client={activeSynnax}>
@@ -1290,7 +1300,15 @@ describe("list", () => {
           </Status.Aggregator>
         </ReconnectAetherProvider>
       );
+      const reconnect = (): void => {
+        activeFlux = fluxB;
+        activeSynnax = { key: "b" } as unknown as Client;
+      };
+      return { fluxA, fluxB, wrapper, reconnect };
+    };
 
+    it("should refetch and re-subscribe listeners to the new store after the client changes", async () => {
+      const { fluxA, fluxB, wrapper, reconnect } = createReconnectSetup();
       const useList = Flux.createList<{}, string, Doc, ReconnectStore>({
         name: "Doc",
         retrieve: async () => [],
@@ -1301,7 +1319,7 @@ describe("list", () => {
         ],
       });
 
-      const { result, rerender } = renderHook(() => useList(), { wrapper: Wrapper });
+      const { result, rerender } = renderHook(() => useList(), { wrapper });
 
       await act(
         async () =>
@@ -1311,12 +1329,54 @@ describe("list", () => {
       act(() => setDoc(fluxA, { key: "before", name: "Before" }));
       await waitFor(() => expect(result.current.data).toContain("before"));
 
-      activeFlux = fluxB;
-      activeSynnax = { key: "b" } as unknown as Client;
+      reconnect();
       rerender();
+
+      // Refetch against the new (empty) client replaces the old data.
+      await waitFor(() => expect(result.current.data).not.toContain("before"));
 
       act(() => setDoc(fluxB, { key: "after", name: "After" }));
       await waitFor(() => expect(result.current.data).toContain("after"));
+    });
+
+    it("should re-subscribe item lookups without running a list retrieve when no query was issued", async () => {
+      const { fluxA, fluxB, wrapper, reconnect } = createReconnectSetup();
+      const retrieve = vi.fn(async () => [] as Doc[]);
+      const useList = Flux.createList<{}, string, Doc, ReconnectStore>({
+        name: "Doc",
+        retrieve,
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+        mountListeners: ({ store, onChange, onDelete }) => [
+          store.docs.onSet((doc) => onChange(doc.key, doc)),
+          store.docs.onDelete(onDelete),
+        ],
+      });
+
+      const { result, rerender } = renderHook(
+        () => {
+          const list = useList();
+          const value = Flux.useListItem<string, Doc>({
+            subscribe: list.subscribe,
+            getItem: list.getItem,
+            key: "k",
+          });
+          return { list, value };
+        },
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current.value?.name).toBe("k"));
+      act(() => setDoc(fluxA, { key: "k", name: "A" }));
+      await waitFor(() => expect(result.current.value?.name).toBe("A"));
+
+      reconnect();
+      rerender();
+
+      // getItem-only: re-subscribe onto the new store without a list fetch.
+      act(() => setDoc(fluxB, { key: "k", name: "B" }));
+      await waitFor(() => expect(result.current.value?.name).toBe("B"));
+      expect(result.current.list.data).toEqual([]);
+      expect(retrieve).not.toHaveBeenCalled();
     });
   });
 });
