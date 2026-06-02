@@ -9,22 +9,31 @@
 
 import { DisconnectedError, lineplot } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create } from "@/lineplot/layout";
 import { anyStateZ } from "@/lineplot/slice";
 
-const parseImport = (data: unknown, fallbackName: string | undefined): lineplot.New => {
-  const direct = lineplot.linePlotZ.safeParse(data);
-  if (direct.success) {
-    const { key: _key, ...rest } = direct.data;
-    return { ...rest, name: fallbackName ?? rest.name };
+export const parseImport = (
+  data: unknown,
+  fallbackName: string | undefined,
+): lineplot.New => {
+  // Legacy console-state exports are tried first because their schemas are strict: they
+  // require a version literal plus console-only fields (viewport, selection) and a
+  // wrapped axes object, so a current typed export never matches and falls through to
+  // the direct branch. The typed linePlotZ is the opposite — it strips unknown keys and
+  // defaults lines/rules to empty, so trying it first risks silently accepting a legacy
+  // file and dropping its body.
+  if (typeof data === "object" && data != null) {
+    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
+    if (legacy.success) {
+      if (legacy.data.pendingUpload == null)
+        throw new Error("Imported line plot has no body data");
+      return { ...legacy.data.pendingUpload, name: fallbackName ?? "" };
+    }
   }
-  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
-  if (legacy.pendingUpload == null)
-    throw new Error("Imported line plot has no body data");
-  return { ...legacy.pendingUpload, name: fallbackName ?? "" };
+  const { key: _key, ...rest } = lineplot.linePlotZ.parse(data);
+  return { ...rest, name: fallbackName ?? rest.name };
 };
 
 export const ingest: Import.FileIngester = async (
@@ -35,7 +44,7 @@ export const ingest: Import.FileIngester = async (
     throw new Error("You do not have permission to import line plots");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.lineplots.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const created = await client.lineplots.create(workspaceKey, newPayload);
   store.lineplots.set(created.key, created);
   placeLayout(
     create({ ...layout, key: created.key, name: created.name }, { remote: true }),
