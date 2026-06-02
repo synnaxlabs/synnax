@@ -12,6 +12,7 @@ import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/reference/st
 
 export const REFERENCE_NAV: PageNavNode = {
   key: "reference",
+  href: "/reference/control/arc/reference",
   name: "Language Reference",
   children: [
     {
@@ -25,9 +26,29 @@ export const REFERENCE_NAV: PageNavNode = {
       name: "Types",
     },
     {
+      key: "/reference/control/arc/reference/variables",
+      href: "/reference/control/arc/reference/variables",
+      name: "Variables",
+    },
+    {
       key: "/reference/control/arc/reference/operators",
       href: "/reference/control/arc/reference/operators",
       name: "Operators",
+    },
+    {
+      key: "/reference/control/arc/reference/flow",
+      href: "/reference/control/arc/reference/flow",
+      name: "Flow",
+    },
+    {
+      key: "/reference/control/arc/reference/sequences",
+      href: "/reference/control/arc/reference/sequences",
+      name: "Sequences",
+    },
+    {
+      key: "/reference/control/arc/reference/stages",
+      href: "/reference/control/arc/reference/stages",
+      name: "Stages",
     },
     {
       key: "/reference/control/arc/reference/functions",
@@ -35,14 +56,14 @@ export const REFERENCE_NAV: PageNavNode = {
       name: "Functions",
     },
     {
+      key: "/reference/control/arc/reference/statements",
+      href: "/reference/control/arc/reference/statements",
+      name: "Statements",
+    },
+    {
       key: "/reference/control/arc/reference/loops",
       href: "/reference/control/arc/reference/loops",
       name: "Loops",
-    },
-    {
-      key: "/reference/control/arc/reference/sequences",
-      href: "/reference/control/arc/reference/sequences",
-      name: "Sequences",
     },
     STANDARD_LIBRARY_NAV,
     {

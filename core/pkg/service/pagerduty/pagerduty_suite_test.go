@@ -31,7 +31,7 @@ import (
 
 func TestPagerDuty(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PagerDuty Suite")
+	RunSpecs(t, "Service PagerDuty Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

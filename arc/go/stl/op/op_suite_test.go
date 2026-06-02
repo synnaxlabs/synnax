@@ -18,5 +18,5 @@ import (
 
 func TestOp(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "OP Suite")
+	RunSpecs(t, "STL Op Suite")
 }

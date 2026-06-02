@@ -18,5 +18,5 @@ import (
 
 func TestAlias(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Alias Suite")
+	RunSpecs(t, "Service Ranger Alias Suite")
 }

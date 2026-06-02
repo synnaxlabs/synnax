@@ -35,10 +35,10 @@ export interface MainInvokeRequest {
   args: unknown[];
 }
 
-/** Worker → main: replace the state of the component identified by `key`. */
+/** Worker → main: replace the state of the component at `path`. */
 export interface WorkerUpdateRequest {
   variant: "update";
-  key: string;
+  path: readonly string[];
   state: state.State;
 }
 
