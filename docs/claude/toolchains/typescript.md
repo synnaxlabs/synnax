@@ -294,12 +294,12 @@ Every `.catch()` must do at least one of:
 - **Log** — `console.error(err)` or `console.error("short description", err)`. Add a
   label only when the stack trace V8 prints with the error would not, on its own, name
   the failing operation — e.g. a single function with multiple distinct `.catch()`
-  sites, or a wrapping function where the inner call's identity is the interesting
-  bit. Generic utilities (a hook like `useAsyncEffect`) can use bare
-  `.catch(console.error)`; the stack already names them. When you do label, keep it to
-  the operation that failed (`"failed to write state"`) — do **not** prefix with the
-  package or module name (no `"drift:"`, `"persist:"`, `"useAsyncEffect:"`), since
-  that information is already in the stack frames.
+  sites, or a wrapping function where the inner call's identity is the interesting bit.
+  Generic utilities (a hook like `useAsyncEffect`) can use bare `.catch(console.error)`;
+  the stack already names them. When you do label, keep it to the operation that failed
+  (`"failed to write state"`) — do **not** prefix with the package or module name (no
+  `"drift:"`, `"persist:"`, `"useAsyncEffect:"`), since that information is already in
+  the stack frames.
 - **Document why ignoring is correct** — a one-line comment explaining the invariant
   that makes the failure safe to drop.
 
