@@ -26,8 +26,6 @@ import { Divider } from "@/divider";
 import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-// NOTE: Import Bar directly to avoid circular dependency (Nav.Drawer -> Errors ->
-// Fallback)
 import { Bar } from "@/nav/Bar";
 import { Text } from "@/text";
 
@@ -76,7 +74,7 @@ export const Fallback = ({
         if (!cancelled) setResolved(r);
       })
       .catch((cause: unknown) => {
-        console.warn("Fallback: unexpected source-map resolution failure", cause);
+        console.warn("Unexpected source-map resolution failure", cause);
       });
     return () => {
       cancelled = true;

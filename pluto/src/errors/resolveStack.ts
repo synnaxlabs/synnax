@@ -18,11 +18,11 @@ export interface ResolvedStack {
  * Resolves the source-map-mapped form of an Error's stack and (optionally) its React
  * component stack into clean, human-readable text.
  *
- * Each leg is resolved independently: if stacktrace-js cannot resolve a leg (e.g. source
- * maps unavailable, parser cannot recognize the stack format), that leg degrades to its
- * raw input and a warning is surfaced via console.warn, while the other leg's resolved
- * output is preserved. Silently swallowing would mask real deployment problems (missing
- * maps, broken middleware, etc.), so failures are always logged.
+ * Each leg is resolved independently: if stacktrace-js cannot resolve a leg (e.g.
+ * source maps unavailable, parser cannot recognize the stack format), that leg degrades
+ * to its raw input and a warning is surfaced via console.warn, while the other leg's
+ * resolved output is preserved. Silently swallowing would mask real deployment problems
+ * (missing maps, broken middleware, etc.), so failures are always logged.
  */
 export const resolveStack = async (
   error: Error,
@@ -69,7 +69,7 @@ const formatLocation = (frame: StackTrace.StackFrame): string | null => {
   return `${file}:${frame.lineNumber}:${frame.columnNumber}`;
 };
 
-// Strip leading "../" segments and "webpack:///" / "webpack-internal:///" prefixes
-// that source maps sometimes emit, keeping frames compact.
+// Strip leading "../" segments and "webpack:///" / "webpack-internal:///" prefixes that
+// source maps sometimes emit, keeping frames compact.
 const cleanFileName = (file: string): string =>
   file.replace(/^webpack(?:-internal)?:\/\/\/?/, "").replace(/^(?:\.\.\/)+/, "");
