@@ -68,38 +68,6 @@ func (w Writer) Create(
 	)
 }
 
-// Rename renames the table with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key Key,
-	name string,
-) error {
-	return w.tbl.NewUpdate().
-		Where(gorp.MatchKeys[Key, Table](key)).
-		Change(func(_ gorp.Context, t Table) Table {
-			t.Name = name
-			return t
-		}).
-		Exec(ctx, w.tx)
-}
-
-// SetData replaces the body of the table with the given key with the provided
-// value. Key and Name are preserved from the existing entry; Rows, Columns,
-// and Cells on data overwrite the stored entry verbatim.
-func (w Writer) SetData(
-	ctx context.Context,
-	key Key,
-	data Table,
-) error {
-	return w.tbl.NewUpdate().
-		Where(gorp.MatchKeys[Key, Table](key)).
-		Change(func(_ gorp.Context, t Table) Table {
-			data.Key = t.Key
-			data.Name = t.Name
-			return data
-		}).Exec(ctx, w.tx)
-}
-
 // Dispatch applies a sequence of actions atomically to the table with the
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.

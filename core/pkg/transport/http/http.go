@@ -144,8 +144,6 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		TableCreate:   http.NewUnaryServer[table.CreateRequest, table.CreateResponse](router, "/api/v1/table/create"),
 		TableRetrieve: http.NewUnaryServer[table.RetrieveRequest, table.RetrieveResponse](router, "/api/v1/table/retrieve"),
 		TableDelete:   http.NewUnaryServer[table.DeleteRequest, types.Nil](router, "/api/v1/table/delete"),
-		TableRename:   http.NewUnaryServer[table.RenameRequest, types.Nil](router, "/api/v1/table/rename"),
-		TableSetData:  http.NewUnaryServer[table.SetDataRequest, types.Nil](router, "/api/v1/table/set-data"),
 		TableDispatch: http.NewUnaryServer[table.DispatchRequest, types.Nil](router, "/api/v1/table/dispatch"),
 
 		// LABEL
