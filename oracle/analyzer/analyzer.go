@@ -580,6 +580,11 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		AST:            def,
 	}
 
+	if ev := def.ExpressionValue(); ev != nil {
+		dv := collectValue(ev)
+		field.Default = &dv
+	}
+
 	for _, inl := range def.AllInlineDomain() {
 		de := collectInlineDomain(inl)
 		field.Domains[de.Name] = de

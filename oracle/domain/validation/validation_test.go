@@ -87,18 +87,6 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Max.Int).To(Equal(int64(100)))
 	})
 
-	It("should parse default expression", func() {
-		domain := resolution.Domain{
-			Expressions: []resolution.Expression{{
-				Name:   "default",
-				Values: []resolution.ExpressionValue{{Kind: resolution.ValueKindString, StringValue: "test"}},
-			}},
-		}
-		rules := validation.Parse(domain)
-		Expect(rules.Default).NotTo(BeNil())
-		Expect(rules.Default.StringValue).To(Equal("test"))
-	})
-
 	It("should parse multiple expressions", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{

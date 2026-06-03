@@ -85,13 +85,11 @@ Spec struct {
     handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."
     }
-    scale            float64           {
-        @validate default 1
-        @doc value        "is the symbol scale factor."
+    scale            float64 = 1 {
+        @doc value "is the symbol scale factor."
     }
-    scale_stroke     bool              {
-        @validate default false
-        @doc value        "indicates whether stroke width scales with the symbol size."
+    scale_stroke     bool = false {
+        @doc value "indicates whether stroke width scales with the symbol size."
     }
     preview_viewport spatial.Viewport? {
         @doc value "is an optional viewport configuration for symbol preview rendering."
@@ -108,9 +106,8 @@ Symbol struct {
         @key
         @doc value "is the unique identifier for this symbol."
     }
-    version uint32 {
-        @validate default 1
-        @doc value        "is the symbol schema version for migration support."
+    version uint32 = 1 {
+        @doc value "is the symbol schema version for migration support."
     }
     name    string {
         @validate min_length 1
@@ -135,9 +132,8 @@ New struct {
             automatically assigned.
         """
     }
-    version uint32 {
-        @validate default 1
-        @doc value        "is the symbol schema version."
+    version uint32 = 1 {
+        @doc value "is the symbol schema version."
     }
     name    string {
         @validate min_length 1

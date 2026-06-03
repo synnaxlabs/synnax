@@ -1526,7 +1526,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
@@ -1551,7 +1551,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@pb
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
