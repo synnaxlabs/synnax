@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
+import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
@@ -53,7 +54,7 @@ export const AliasInput = ({
         setLoading(false);
       } catch (e) {
         setLoading(false);
-        throw e;
+        throw errors.fromUnknown(e);
       }
     }, "Failed to set channel alias");
   };
