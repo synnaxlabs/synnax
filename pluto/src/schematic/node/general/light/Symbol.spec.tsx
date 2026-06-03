@@ -12,6 +12,7 @@ import { type ControlPosition, ReactFlowProvider } from "@xyflow/react";
 import { type FC, type ReactElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Aether } from "@/aether";
 import { Haul } from "@/haul";
 import { Symbol as LightSymbol } from "@/schematic/node/general/light/Symbol";
 import { Theming } from "@/theming";
@@ -41,15 +42,13 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   };
 });
 
-// Light's telemetry source is irrelevant to resizing; stub the hook so the Symbol
-// renders without an Aether provider.
-vi.mock("@/vis/light", () => ({ Light: { use: () => ({ enabled: false }) } }));
-
 const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
   <ReactFlowProvider>
     <Theming.Provider>
       <Haul.Provider>
-        <div data-id={NODE_KEY}>{children}</div>
+        <Aether.Provider workerEnabled={false}>
+          <div data-id={NODE_KEY}>{children}</div>
+        </Aether.Provider>
       </Haul.Provider>
     </Theming.Provider>
   </ReactFlowProvider>
