@@ -449,7 +449,7 @@ export abstract class Leaf<
             if (expectsResponse)
               this.sender.send({ variant: "invoke_response", key, result: r });
           })
-          .catch((e) => this.handleInvokeError(params, e));
+          .catch((e: unknown) => this.handleInvokeError(params, e));
     } catch (e) {
       this.handleInvokeError(params, e);
     }

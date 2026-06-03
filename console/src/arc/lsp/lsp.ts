@@ -15,7 +15,7 @@ import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { EOF, type Stream } from "@synnaxlabs/freighter";
-import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
+import { breaker, type destructor, errors, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {
@@ -258,7 +258,7 @@ const createFreighterTransport = ({
   const reader: MessageReader = {
     listen: (callback) => {
       onMessageCallback = callback;
-      receiveLoop().catch((err) => onErrorCallback?.(err));
+      receiveLoop().catch((err: unknown) => onErrorCallback?.(errors.toError(err)));
       return { dispose: () => (onMessageCallback = null) };
     },
     dispose: () => (isClosed = true),

@@ -318,7 +318,8 @@ const pickWritableDirectoryBrowser = async ({
     subHandle = await root.getDirectoryHandle(subdirectory);
     preExisted = true;
   } catch (e) {
-    if (!(e instanceof DOMException) || e.name !== "NotFoundError") throw errors.toError(e);
+    if (!(e instanceof DOMException) || e.name !== "NotFoundError")
+      throw errors.toError(e);
     preExisted = false;
   }
   const ensureSubHandle = async (): Promise<FileSystemDirectoryHandle> =>

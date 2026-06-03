@@ -26,12 +26,7 @@
       "outputs": ["dist/**"]
     },
     "lint": {
-      "inputs": [
-        "src/**",
-        "eslint.config.ts",
-        "tsconfig*.json",
-        "package.json"
-      ]
+      "inputs": ["src/**", "eslint.config.ts", "tsconfig*.json", "package.json"]
     },
     "stylelint": {
       "inputs": ["src/**", "stylelint.config.*", "package.json"]

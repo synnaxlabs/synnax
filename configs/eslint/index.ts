@@ -112,6 +112,7 @@ const config: Linter.Config[] = [
       "@eslint-react/no-context-provider": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@typescript-eslint/no-deprecated": "error",
+      "@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
       "@typescript-eslint/only-throw-error": [
         "error",
         {

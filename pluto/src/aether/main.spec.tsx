@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { errors, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import {
   Component,
@@ -342,8 +342,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.throwError().catch((e: Error) => {
-            captured.error = e;
+          void methods.throwError().catch((e: unknown) => {
+            captured.error = errors.toError(e);
           });
         }
         return null;
@@ -370,8 +370,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.neverResponds().catch((e: Error) => {
-            captured.error = e;
+          void methods.neverResponds().catch((e: unknown) => {
+            captured.error = errors.toError(e);
           });
         }
         return null;
@@ -399,8 +399,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.neverResponds().catch((e: Error) => {
-            captured.error = e;
+          void methods.neverResponds().catch((e: unknown) => {
+            captured.error = errors.toError(e);
           });
         }
         return null;
