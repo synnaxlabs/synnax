@@ -1,4 +1,4 @@
-# 34 - Server-Side Metadata Import/Export
+# 39 - Server-Side Metadata Import/Export
 
 **Feature Name**: Server-Side Metadata Import/Export <br /> **Status**: In Progress
 <br /> **Start Date**: 2026-05-07 <br /> **Authors**: Emiliano Bonilla, Patrick Dotson

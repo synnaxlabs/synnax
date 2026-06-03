@@ -8,14 +8,58 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, workspace } from "@synnaxlabs/client";
-import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { DisconnectedError, type Synnax, workspace } from "@synnaxlabs/client";
+import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { deep, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
 import { Runtime } from "@/runtime";
 import { Workspace } from "@/workspace";
+
+// Rewrites every reference to an imported component's original key with the key of the
+// resource actually created for it. Without it the original-key tabs resolve to nothing
+// and the ingesters' new-key tabs pile up as duplicates.
+const remapLayoutKeys = (
+  slice: Layout.SliceState,
+  remap: Map<string, string>,
+): Layout.SliceState => {
+  if (remap.size === 0) return slice;
+  const next = deep.copy(slice);
+  next.layouts = Object.fromEntries(
+    Object.entries(next.layouts).map(([key, layout]) => {
+      const newKey = remap.get(key) ?? key;
+      return [newKey, { ...layout, key: newKey }];
+    }),
+  );
+  Object.values(next.mosaics).forEach((mosaic) => {
+    Mosaic.forEachNode(mosaic.root, (node) => {
+      node.tabs?.forEach((tab) => {
+        const newKey = remap.get(tab.tabKey);
+        if (newKey != null) tab.tabKey = newKey;
+      });
+      if (node.selected != null)
+        node.selected = remap.get(node.selected) ?? node.selected;
+    });
+    if (mosaic.activeTab != null)
+      mosaic.activeTab = remap.get(mosaic.activeTab) ?? mosaic.activeTab;
+    if (mosaic.focused != null)
+      mosaic.focused = remap.get(mosaic.focused) ?? mosaic.focused;
+  });
+  return next;
+};
+
+// Swaps imported themes for the current defaults before validation. setWorkspace
+// discards imported themes anyway, so a stale theme blob from an older export must not
+// fail anySliceStateZ and block the import.
+const stripThemes = (data: unknown): unknown => {
+  if (typeof data !== "object" || data == null) return data;
+  return {
+    ...data,
+    themes: Layout.ZERO_SLICE_STATE.themes,
+    activeTheme: Layout.ZERO_SLICE_STATE.activeTheme,
+  };
+};
 
 export const ingest: Import.DirectoryIngester = async (
   name,
@@ -26,21 +70,19 @@ export const ingest: Import.DirectoryIngester = async (
     !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
   )
     throw new Error("You do not have permission to import workspaces");
+  if (client == null) throw new DisconnectedError();
   const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
-  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
-  const wsKey = uuid.create();
-  const wsName = name;
-  const ws: workspace.Workspace = { key: wsKey, name: wsName, layout };
-  const createdWs = await client?.workspaces.create(ws);
-  store.dispatch(Workspace.setActive(createdWs ?? ws));
-  store.dispatch(
-    Layout.setWorkspace({
-      slice: (createdWs?.layout as Layout.SliceState) ?? layout,
-      keepNav: false,
-    }),
+  const layout = Layout.migrateSlice(
+    Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
   );
+  const wsKey = uuid.create();
+  const ws: workspace.Workspace = { key: wsKey, name, layout };
+  // Create the workspace first so imported components can be parented to it; its layout
+  // is rewritten and installed below once their real keys are known.
+  await client.workspaces.create(ws);
 
+  const remap = new Map<string, string>();
   for (const [key, childLayout] of Object.entries(layout.layouts)) {
     const ingest = fileIngesters[childLayout.type];
     if (ingest == null) continue;
@@ -54,14 +96,20 @@ export const ingest: Import.DirectoryIngester = async (
             ("name" in file.data && file.data.name === childLayout.name))),
     )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    await ingest(data, {
+    const id = await ingest(data, {
       layout: childLayout,
       placeLayout,
       store: fluxStore,
       client,
       workspaceKey: wsKey,
     });
+    if (id != null && id.key !== key) remap.set(key, id.key);
   }
+
+  const remappedLayout = remapLayoutKeys(layout, remap);
+  store.dispatch(Workspace.setActive(ws));
+  store.dispatch(Layout.setWorkspace({ slice: remappedLayout, keepNav: false }));
+  if (remap.size > 0) await client.workspaces.setLayout(wsKey, remappedLayout);
 };
 
 export interface IngestContext {

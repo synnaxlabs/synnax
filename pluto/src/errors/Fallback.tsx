@@ -11,15 +11,21 @@ import "@/errors/Fallback.css";
 
 import { Logo } from "@synnaxlabs/media";
 import { primitive, type record } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import { Breadcrumb } from "@/breadcrumb";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
+import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-// NOTE: Import Bar directly to avoid circular dependency (Nav.Drawer -> Errors -> Fallback)
 import { Bar } from "@/nav/Bar";
 import { Text } from "@/text";
 
@@ -33,7 +39,8 @@ export interface FallbackProps extends PropsWithChildren {
   resetErrorBoundary: () => void;
   /** Whether to show the Synnax logo above the error details. Defaults to false. */
   showLogo?: boolean;
-  /** Extra information to copying to the clipboard when the user clicks the "Copy" button. */
+  /** Extra information to copying to the clipboard when the user clicks the "Copy"
+   * button. */
   extraInfo?: record.Unknown;
 }
 
@@ -59,16 +66,35 @@ export const Fallback = ({
   children = <DefaultChild resetErrorBoundary={resetErrorBoundary} />,
   extraInfo,
 }: FallbackProps): ReactElement => {
+  const [resolved, setResolved] = useState<ResolvedStack | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    resolveStack(error, componentStack ?? null)
+      .then((r) => {
+        if (!cancelled) setResolved(r);
+      })
+      .catch((cause: unknown) => {
+        console.warn("Unexpected source-map resolution failure", cause);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [error, componentStack]);
+
+  const displayStack = resolved?.stack || error.stack || null;
+  const displayComponentStack = resolved?.componentStack || componentStack || null;
+
   const getCopyText = useCallback(() => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
     sections.push(`Message: ${error.message}`);
-    if (error.stack) sections.push(`\nStack Trace:\n${error.stack}\n`);
-    if (componentStack) sections.push(`\nComponent Stack:\n${componentStack}`);
+    if (displayStack) sections.push(`\nStack Trace:\n${displayStack}\n`);
+    if (displayComponentStack)
+      sections.push(`\nComponent Stack:\n${displayComponentStack}`);
     if (extraInfo && Object.keys(extraInfo).length > 0)
       sections.push(`\nAdditional Info:\n${JSON.stringify(extraInfo, null, 2)}`);
     return sections.join("\n");
-  }, [error, componentStack, extraInfo]);
+  }, [error, displayStack, displayComponentStack, extraInfo]);
 
   return (
     <Flex.Box className={CSS.BE("error-fallback", "container")} y grow center>
@@ -125,13 +151,13 @@ export const Fallback = ({
             background={1}
             bordered
           >
-            {primitive.isNonZero(componentStack || error.stack) && (
+            {primitive.isNonZero(displayComponentStack || displayStack) && (
               <Text.Text
                 className={CSS.BE("error-fallback", "stack")}
                 level="small"
                 color={9}
               >
-                {componentStack || error.stack}
+                {displayComponentStack || displayStack}
               </Text.Text>
             )}
           </Flex.Box>

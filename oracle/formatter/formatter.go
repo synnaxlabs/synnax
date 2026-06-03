@@ -572,11 +572,22 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
 	f.write(typeStr)
 
+	// Inline default value: name type = X
+	hasDefault := ctx.EQUALS() != nil && ctx.ExpressionValue() != nil
+	if hasDefault {
+		f.write(" = ")
+		f.write(f.formatExpressionValueToString(ctx.ExpressionValue()))
+	}
+
 	inlineDomains := ctx.AllInlineDomain()
 	hasDomains := len(inlineDomains) > 0 || ctx.FieldBody() != nil
 
 	if hasDomains {
-		f.writePadding(typeWidth - len(typeStr))
+		// A default (= X) breaks column alignment, so only pad when there isn't
+		// one; the inline-domain and brace formatters supply their own leading space.
+		if !hasDefault {
+			f.writePadding(typeWidth - len(typeStr))
+		}
 
 		// Try inline first
 		inlineStr := f.formatInlineDomainsToString(inlineDomains)
@@ -928,6 +939,16 @@ func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(ctx.IDENT().GetText())
 	f.write(" enum")
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		refs := ctx.TypeRefList().AllTypeRef()
+		for i, ref := range refs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.write(ref.GetText())
+		}
+	}
 
 	body := ctx.EnumBody()
 	values := body.AllEnumValue()

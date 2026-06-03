@@ -26,6 +26,7 @@ import {
   type Key,
   match,
   type MatchOptions,
+  MODIFIER_KEYS,
   MOUSE_KEYS,
   type MouseKey,
   type Trigger,
@@ -155,6 +156,7 @@ export const Provider = ({
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     // We don't want to trigger any events for excluded keys.
     if (EXCLUDE_TRIGGERS.includes(key)) return;
+    const isMetaRelease = "code" in e && e.code.includes("Meta");
     setCurr((prevS) => {
       let next = prevS.next.filter(
         (k) => k !== key && !MOUSE_KEYS.includes(k as MouseKey),
@@ -164,6 +166,11 @@ export const Provider = ({
       // the event.shiftKey flag.
       if (!e.shiftKey && next.includes("Shift"))
         next = next.filter((k) => k !== "Shift");
+      // macOS suppresses key up events for non-modifier keys while the Cmd (Meta) key
+      // is held. When Cmd is released, drop any non-modifier keys left in the state —
+      // their key up events will never arrive, so without this they stay stuck and can
+      // match later shortcuts (e.g. a lone Cmd press matching Cmd+P).
+      if (isMetaRelease) next = next.filter((k) => MODIFIER_KEYS.includes(k));
       const prev = prevS.next;
       const nextS: RefState = { ...prevS, next, prev };
       if (shouldPreventDefault(next, preventDefaultOn, preventDefaultOptions))

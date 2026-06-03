@@ -20,7 +20,7 @@ const MockSender = {
 
 const createLeaf = (key: string, parentCtxValues: aether.ContextMap | null = null) =>
   new ExampleLeaf({
-    key,
+    path: [key],
     type: "leaf",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -32,7 +32,7 @@ const createComposite = (
   parentCtxValues: Map<string, any> | null = null,
 ) =>
   new ExampleComposite({
-    key,
+    path: [key],
     type: "composite",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -44,7 +44,7 @@ const createContextSetter = (
   parentCtxValues: aether.ContextMap | null = null,
 ) =>
   new ContextSetterComposite({
-    key,
+    path: [key],
     type: "context",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -56,7 +56,7 @@ const createSecondaryContextSetter = (
   parentCtxValues: aether.ContextMap | null = null,
 ) =>
   new SecondaryContextSetter({
-    key,
+    path: [key],
     type: "context",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -240,7 +240,7 @@ const createInvokeLeaf = (
   parentCtxValues: aether.ContextMap | null = null,
 ) =>
   new InvokeLeaf({
-    key,
+    path: [key],
     type: "invoke-leaf",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -265,7 +265,7 @@ const createInvokeComposite = (
   parentCtxValues: aether.ContextMap | null = null,
 ) =>
   new InvokeComposite({
-    key,
+    path: [key],
     type: "invoke-composite",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
@@ -356,7 +356,7 @@ describe("Aether Worker", () => {
         expect(MockSender.send).toHaveBeenCalledTimes(1);
         expect(MockSender.send).toHaveBeenCalledWith({
           variant: "update",
-          key: "test",
+          path: ["test"],
           state: { x: 2 },
         });
       });
@@ -842,7 +842,7 @@ describe("message", () => {
       comms.handle(handler);
       const msg: aether.WorkerMessage = {
         variant: "update",
-        key: "k",
+        path: ["k"],
         state: { x: 1 },
       };
       (worker as any).onmessage({ data: msg });
@@ -858,7 +858,7 @@ describe("message", () => {
         const comms = aether.wrapWorkerScope();
         const msg: aether.WorkerMessage = {
           variant: "update",
-          key: "k",
+          path: ["k"],
           state: { x: 1 },
         };
         const transfer: Transferable[] = [];
@@ -910,7 +910,7 @@ describe("message", () => {
       mainSide.handle(mainHandler);
       const msg: aether.WorkerMessage = {
         variant: "update",
-        key: "k",
+        path: ["k"],
         state: { x: 1 },
       };
       workerSide.send(msg);

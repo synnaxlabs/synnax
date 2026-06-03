@@ -849,6 +849,66 @@ describe("Triggers", () => {
       fireEvent.keyUp(target, { code: "MetaRight" });
     });
 
+    it("should clear stuck non-modifier keys when Meta (Cmd) is released", async () => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({
+          callback,
+          triggers: [
+            ["Control", "Shift", "P"],
+            ["Control", "P"],
+          ],
+        });
+        return <div>Hello</div>;
+      };
+      render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+
+      // Cmd + Shift + P fires and opens whatever Control+Shift+P controls.
+      fireEvent.keyDown(document.body, { code: "MetaLeft", metaKey: true });
+      fireEvent.keyDown(document.body, {
+        code: "ShiftLeft",
+        metaKey: true,
+        shiftKey: true,
+      });
+      fireEvent.keyDown(document.body, { code: "KeyP", metaKey: true, shiftKey: true });
+      expect(callback).toHaveBeenCalledWith({
+        target: document.body,
+        triggers: [["Control", "Shift", "P"]],
+        prevTriggers: [["Control", "Shift"]],
+        cursor: { x: 0, y: 0 },
+        stage: "start",
+        stopPropagation: expect.any(Function),
+      });
+
+      // macOS suppresses the key up event for P while Cmd is held — only Shift and Cmd
+      // key up events arrive. Without the fix, "P" stays stuck in the state.
+      fireEvent.keyUp(document.body, {
+        code: "ShiftLeft",
+        metaKey: true,
+        shiftKey: false,
+      });
+      fireEvent.keyUp(document.body, {
+        code: "MetaLeft",
+        metaKey: false,
+        shiftKey: false,
+      });
+
+      const callsAfterRelease = callback.mock.calls.length;
+
+      // Now press Cmd alone. Without the fix, the stuck "P" + new "Control" would match
+      // the Control+P trigger and fire start. With the fix, the state was cleared on
+      // Cmd release, so this should not match.
+      fireEvent.keyDown(document.body, { code: "MetaLeft", metaKey: true });
+      vi.advanceTimersByTime(500);
+      expect(callback.mock.calls.length).toBe(callsAfterRelease);
+
+      fireEvent.keyUp(document.body, { code: "MetaLeft", metaKey: false });
+    });
+
     it("should handle Safari's sticky shift key behavior", async () => {
       const callback = vi.fn();
       const C = () => {

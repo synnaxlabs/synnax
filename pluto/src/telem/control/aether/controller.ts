@@ -24,6 +24,7 @@ import {
   control as xcontrol,
   type CrudeSeries,
   type destructor,
+  errors,
   type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -168,9 +169,9 @@ export class Controller
         autoIndex: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
-    } catch (e) {
+    } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      if (!(e instanceof Error)) throw e;
+      const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
         message: `${this.state.name} failed to acquire control`,
@@ -182,11 +183,10 @@ export class Controller
   private async doRelease(): Promise<void> {
     try {
       await this.writer?.close();
-    } catch (e) {
+    } catch (err) {
+      const e = errors.fromUnknown(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${
-          (e as Error).message
-        }`,
+        message: `${this.state.name} failed to release control: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -203,7 +203,7 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw e;
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
     } finally {
       this.writer = undefined;
     }
@@ -214,7 +214,7 @@ export class Controller
     try {
       await fn();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw e;
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
       await this.closeWriter();
       await this.doAcquire();
       await fn();
@@ -224,20 +224,24 @@ export class Controller
   async set(
     frame: framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void> {
-    await this.withRetry(async () => this.writer?.write(frame));
+    await this.withRetry(async () => await this.writer?.write(frame));
   }
 
   async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
-    await this.withRetry(async () =>
-      this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(channels.map((k) => [k, value])),
+        ),
     );
   }
 
   async releaseAuthority(keys: channel.Key[]): Promise<void> {
-    await this.withRetry(async () =>
-      this.writer?.setAuthority(
-        Object.fromEntries(keys.map((k) => [k, this.state.authority])),
-      ),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+        ),
     );
   }
 

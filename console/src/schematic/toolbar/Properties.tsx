@@ -218,7 +218,7 @@ const MultiConfig = ({
   };
 
   const getLayoutsForAlignment = () => {
-    const zoom = selectViewport(store.getState(), layoutKey)?.zoom ?? 1;
+    const zoom = selectViewport(store.getState(), layoutKey).zoom;
     return selected
       .map((key) => {
         const node = nodesByKey.get(key);
@@ -249,7 +249,7 @@ const MultiConfig = ({
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = selectViewport(store.getState(), layoutKey)?.zoom ?? 1;
+    const zoom = selectViewport(store.getState(), layoutKey).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
       .map((key) => {

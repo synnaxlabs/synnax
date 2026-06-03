@@ -142,6 +142,28 @@ export const isTyped = (error: unknown): error is Typed => {
   return true;
 };
 
+/**
+ * Coerces an arbitrary thrown value into an `Error` so it can be re-thrown without
+ * tripping `@typescript-eslint/only-throw-error` and so callers can rely on a uniform
+ * `Error` shape. The original value is preserved on `Error.cause` for stack-trace
+ * continuity.
+ *
+ * - If `value` is already an `Error`, it is returned unchanged.
+ * - Otherwise the message is derived from `JSON.stringify(value)` when possible (which
+ *   carries more detail for plain objects), falling back to `String(value)` for
+ *   circular structures, BigInts, or anything else that fails to serialize.
+ */
+export const fromUnknown = (value: unknown): Error => {
+  if (value instanceof Error) return value;
+  let message: string;
+  try {
+    message = JSON.stringify(value) ?? String(value);
+  } catch {
+    message = String(value);
+  }
+  return new Error(message, { cause: value });
+};
+
 /** Constant representing an unknown error type */
 export const UNKNOWN = "unknown";
 

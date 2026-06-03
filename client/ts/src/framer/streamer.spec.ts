@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, id, Rate, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  errors,
+  id,
+  Rate,
+  Series,
+  sleep,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -541,7 +550,7 @@ describe("Streamer", () => {
         return { done: false, value: fr };
       } catch (err) {
         if (EOF.matches(err)) return { done: true, value: undefined };
-        throw err;
+        throw errors.fromUnknown(err);
       }
     }
 
