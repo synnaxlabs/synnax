@@ -183,11 +183,10 @@ export class Controller
   private async doRelease(): Promise<void> {
     try {
       await this.writer?.close();
-    } catch (e) {
+    } catch (err) {
+      const e = errors.toError(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${
-          (e as Error).message
-        }`,
+        message: `${this.state.name} failed to release control: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -229,16 +228,20 @@ export class Controller
   }
 
   async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
-    await this.withRetry(async () =>
-      await this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(channels.map((k) => [k, value])),
+        ),
     );
   }
 
   async releaseAuthority(keys: channel.Key[]): Promise<void> {
-    await this.withRetry(async () =>
-      await this.writer?.setAuthority(
-        Object.fromEntries(keys.map((k) => [k, this.state.authority])),
-      ),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+        ),
     );
   }
 
