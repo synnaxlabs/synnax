@@ -474,13 +474,16 @@ core/pkg/service/<resource>/
         │
         ├── legacy/                  # REQUIRED for resources with a versioned data payload
         │   │                        #   (schematic, table, line plot, log) — see §4.3.2.
-        │   │                        #   Holds the pre-integer-versioned chain of the data type
-        │   │                        #   (NOT the whole resource), terminating in a Migrate that
-        │   │                        #   lifts the last legacy data into v0.Data of the resource.
-        │   ├── legacy.go            # version-string dispatch + forward chain
-        │   └── vN/                  # frozen historical data-type shapes (v0..vK)
+        │   │                        #   Occupies the LOW end of the unified integer namespace:
+        │   │                        #   legacy versions are [0, MaxVersion]; modern versions
+        │   │                        #   are [MaxVersion+1, LatestVersion]. No overlap, no gap.
+        │   ├── legacy.go            # const MaxVersion + Decode(c, v, raw) → first-modern Resource
+        │   └── vN/                  # frozen legacy versions (v0..vMaxVersion); same shape as
+        │                            # modern vN/ (types.gen.go, codec.gen.go, migrate.go)
         │
-        └── vN/                      # one per version; current additionally hosts helpers.go
+        └── vN/                      # one per modern version (v(MaxVersion+1)..vLatestVersion for
+            │                        # payload-versioned resources, v0..vLatestVersion otherwise);
+            │                        # current additionally hosts helpers.go.
             ├── types.gen.go         # frozen struct + gorp.Entry methods
             │   ├── const Version imex.Version = N
             │   ├── type Key
@@ -491,8 +494,12 @@ core/pkg/service/<resource>/
             ├── codec.gen.go         # frozen ORC codec
             │   ├── func (Resource) EncodeOrc(*orc.Writer) error
             │   └── func (*Resource) DecodeOrc(*orc.Reader) error
-            ├── migrate.go           # step migration; omitted on v0
-            │   └── func Migrate(v(N-1).Resource) (Resource, error)
+            ├── migrate.go           # step migration; omitted on the first modern version.
+            │   │                    # The first modern version (v(MaxVersion+1)) additionally
+            │   │                    # owns the legacy bridge:
+            │   ├── func Migrate(v(N-1).Resource) (Resource, error)
+            │   └── func MigrateFromLegacy(legacy.vMaxVersion.Resource) (Resource, error)
+            │                        # — FIRST MODERN ONLY; absent on every other vN.
             └── helpers.go           # CURRENT ONLY — hand-written method receivers on Resource
                                      # Oracle moves this file forward at each version bump (§4.6.0)
 ```
@@ -562,17 +569,32 @@ behavior" a structural invariant: there is no slot for it.
 **`legacy/` is required for resources with a versioned data payload.** Some resources
 — `schematic`, `table`, and (soon) `line plot` and `log` — are defined as a stable
 **envelope** (`Key`, `Name`, `WorkspaceKey`, …, plus a `Data` field) wrapped around
-a separately-versioned **data type**. The integer version on the wire and in
-`internal/types/vN/` refers to the *data type*, not the envelope. These resources
-have a pre-integer-versioned history of just the data payload — a chain of
-hand-rolled `Data` shapes (`v0.Data` … `vK.Data`) with their own bespoke codecs and
-a semver-string dispatch — which `internal/types/legacy/` captures verbatim. The
-last legacy data shape feeds the regular `vN` chain via
-`Migrate(legacy.Data) → v0.Data`, and from there the normal integer-versioned chain
-takes over. `legacy/` is therefore not optional for these resources; removing it
-would orphan every record persisted before the integer scheme existed. Resources
-without a separately-versioned data payload (range, channel, device, rack, user,
-workspace, …) never get a `legacy/`; they start at `v0` of the whole resource type.
+a separately-versioned **data type**. Bumps are driven by changes to the data
+shape, not the envelope. These resources accumulated a pre-integer-versioned history
+under bespoke semver dispatch (`"0.0.0".."5.0.0"`); this RFC absorbs that history
+into the **same** integer namespace as the modern versions. The split is by range,
+not by namespace: legacy versions occupy `[0, MaxVersion]` and modern versions
+occupy `[MaxVersion+1, LatestVersion]`, with no overlap and no gap. A wire value
+of `5` unambiguously means legacy v5 when `legacy.MaxVersion = 5`; a wire value of
+`6` unambiguously means modern v6.
+
+Inside the package, `internal/types/legacy/vN/` mirrors the modern `internal/types/vN/`
+layout exactly — same `types.gen.go`, `codec.gen.go`, and per-step `migrate.go`. The
+only structural difference is the **bridge**: the regular per-step `Migrate` only
+exists between adjacent versions of the same kind (legacy → legacy, modern → modern),
+so crossing from `legacy.vMaxVersion` to `v(MaxVersion+1)` is handled by a separately
+named `MigrateFromLegacy` function that lives on the first modern version's
+`migrate.go`. `MigrateFromLegacy` exists on exactly one version per resource;
+`Migrate` does not exist on the first modern version (because there is no modern
+`v(MaxVersion)` for it to step from). Legacy semver strings (`"5.0.0"`) are
+accepted at the import boundary by `imex.Version`'s `UnmarshalJSON`, which parses
+the major into the same integer (`5`) before dispatch; nothing past the boundary
+sees the string. `legacy/` is therefore not optional for these resources; removing
+it would orphan every record persisted under a wire version `≤ MaxVersion`.
+
+Resources without a versioned data payload (range, channel, device, rack, user,
+workspace, …) never get a `legacy/`; they start at `v0` of the whole resource type
+and the namespace begins at `0` with no legacy split.
 
 Tests are co-located but unlisted above — `<resource>_test.go`,
 `<resource>_suite_test.go`, `codec_gen_test.go`, `retrieve_test.go`, `writer_test.go`,
@@ -618,34 +640,48 @@ validate without reaching outside its own package (RFC 0033 §3.6).
 
 ### 4.3.2 - Versions, Data Payloads, and Legacy
 
-Versions are per-type dense integers from `0` (RFC 0034 §4.3.0), unchanged. But what
-"the type" refers to depends on the resource's shape:
+Versions are per-type dense integers from `0` (RFC 0034 §4.3.0), unchanged. Every
+resource gets a single contiguous integer namespace. What changes between resources
+is *where bumps come from* and whether a portion of that namespace is reserved for
+legacy:
 
 - **Whole-resource versioning** (`range`, `channel`, `device`, `rack`, `user`,
-  `workspace`, …). The integer version refers to the full resource struct.
-  `internal/types/vN/types.gen.go` declares the resource at version N in its
-  entirety. There is no separate "data payload"; the resource *is* the payload.
-  These resources start at `v0` of the whole type and have no `legacy/`.
+  `workspace`, …). The integer version refers to the full resource struct. Any
+  change to a stored field bumps it. `internal/types/vN/types.gen.go` declares the
+  resource at version N in its entirety. The namespace begins at `v0` of the whole
+  type; there is no legacy split, so `legacy/` is absent.
 
 - **Payload versioning** (`schematic`, `table`, and — soon — `line plot`, `log`).
   The resource has a stable envelope (`Key`, `Name`, `WorkspaceKey`, snapshot/etc.
   metadata, plus a `Data` field) wrapped around a separately-versioned data type.
-  The integer version on the wire and in `internal/types/vN/` refers to that
-  *data type*, not the envelope. The envelope itself does not version — fields can
-  be added to it through ordinary schema additions, no migration needed —
-  but every change to the data shape (a new node kind in schematic, a new cell
-  type in table) bumps the data version. These resources require a `legacy/` for
-  their pre-integer-versioned data history (§4.3.0 prose).
+  Bumps are driven by changes to the data shape (a new node kind in schematic, a
+  new cell type in table), not by ordinary envelope additions. The integer
+  namespace is **split by range**: `[0, legacy.MaxVersion]` are legacy versions,
+  `[legacy.MaxVersion+1, LatestVersion]` are modern. Both ranges store the same
+  struct shape (a full Resource — envelope + Data); the distinction is structural,
+  not semantic. Legacy versions exist because the pre-integer wire format had a
+  different envelope and storage layout that pre-dates current conventions, and
+  freezing them in a separate `legacy/` directory keeps the modern `vN/`
+  directories free of historical baggage.
 
-Legacy semver (`"5.0.0"`) remains accepted only as an import-boundary input,
-converted to its integer major by the legacy dispatch (RFC 0034 §4.3.1) before
-entering the integer chain. The legacy chain is the historical tail of the data
-type — `v0.Data → v1.Data → … → vK.Data` with a final `Migrate(vK.Data) →
-v0.Data` lifting it into the modern numbered chain — and it stays at
-`internal/types/legacy/` indefinitely for as long as records persisted under the
-old wire format may exist on disk.
+The dispatch rule is `v ≤ legacy.MaxVersion → route to legacy`, otherwise integer
+switch on the modern range. The two ranges chain together at exactly one point:
+`MigrateFromLegacy(legacy.vMaxVersion.Resource) → v(MaxVersion+1).Resource`, the
+**bridge**, which lives on the first modern version's `migrate.go`. Past the bridge,
+the modern chain takes over with the usual per-step `Migrate` calls. The bridge has
+its own name (not `Migrate`) because the first modern version has no modern
+predecessor to step from; `Migrate` is absent on `v(MaxVersion+1)` and
+`MigrateFromLegacy` exists on no other version.
 
-Services with a single integer version simply have `internal/types/v0/`. `view`
+Legacy semver strings (`"5.0.0"`) remain accepted at the import boundary only.
+`imex.Version`'s `UnmarshalJSON` parses both JSON numbers (`5`) and legacy
+semver strings (`"5.0.0"`), normalizing both to the same integer (`5`). Nothing
+past the boundary distinguishes "came in as `5`" from "came in as `"5.0.0"`" —
+they hit the same legacy decoder. `legacy/` stays in the tree indefinitely, for
+as long as records persisted under a wire version `≤ MaxVersion` may exist on
+disk.
+
+Resources with a single modern version simply have `internal/types/v0/`. `view`
 gains a codec (its schema gets `@go marshal`); `workspace`'s duplicate `OntologyID`
 collapses to the generated one.
 
@@ -673,6 +709,12 @@ The importer decodes the raw bytes exactly once, directly into the frozen
 the version guard (`v > LatestVersion → ErrUnsupportedVersion`) is the first branch of
 the service's `Decode`, so a too-new payload is rejected before its body is touched.
 This generalizes the per-service `legacy.go` peek into the standard import front door.
+
+`imex.Version` is a plain integer with a custom `UnmarshalJSON` that accepts both
+JSON numbers (`5`) and the historical semver strings (`"5.0.0"`) and normalizes
+both to the same integer. Every downstream consumer — the registry router, the
+service `Decode`, the legacy `Decode` — sees one integer namespace per resource
+(§4.3.2); semver lives at the wire boundary only.
 
 ### 4.4.1 - Relationship to Gorp Migration
 
@@ -777,27 +819,114 @@ cfg.ImEx.Register(importer{svc}, exporter{svc})
 ```
 
 And the dispatch the importer delegates to, in `internal/types` — pure decode + migrate,
-no DB and no other services:
+no DB and no other services. The example below uses `legacy.MaxVersion = 5` and
+`LatestVersion = 8`, so legacy occupies `[0, 5]` and modern occupies `[6, 8]`:
 
 ```go
 // service/schematic/internal/types/decode.go
-// Schematic = v6.Schematic via internal/types/types.go.
+// Code generated by Oracle. DO NOT EDIT.
+//
+// Schematic = v8.Schematic via internal/types/types.go.
 func Decode(c imex.Codec, v imex.Version, raw []byte) (Schematic, error) {
-    switch {
-    case v > LatestVersion:
+    if v > LatestVersion {
         return Schematic{}, imex.NewErrUnsupportedVersion("schematic", v, LatestVersion)
-    case v == v6.Version:
+    }
+    if v <= legacy.MaxVersion {
+        // legacy.Decode owns the legacy.vV → … → legacy.vMaxVersion chain and the
+        // bridge MigrateFromLegacy → first modern version. Returns v6.Schematic.
+        s6, err := legacy.Decode(c, v, raw)
+        if err != nil {
+            return Schematic{}, errors.Wrap(err, "decode legacy schematic")
+        }
+        return walkFromV6(s6)
+    }
+    switch v {
+    case v8.Version:
+        var s v8.Schematic
+        if err := c.Decode(raw, &s); err != nil {
+            return Schematic{}, errors.Wrap(err, "decode schematic v8")
+        }
+        return s, nil
+    case v7.Version:
+        var s v7.Schematic
+        if err := c.Decode(raw, &s); err != nil {
+            return Schematic{}, errors.Wrap(err, "decode schematic v7")
+        }
+        return walkFromV7(s)
+    case v6.Version:
         var s v6.Schematic
-        return s, c.Decode(raw, &s)
-    case v == v5.Version:
+        if err := c.Decode(raw, &s); err != nil {
+            return Schematic{}, errors.Wrap(err, "decode schematic v6")
+        }
+        return walkFromV6(s)
+    }
+    return Schematic{}, imex.NewErrUnknownVersion("schematic", v)
+}
+
+// walkFromVN composes one Migrate step plus a tail call to walkFromV(N+1),
+// so every case in Decode is uniform: "decode at vN, hand to walkFromVN".
+
+func walkFromV7(s v7.Schematic) (Schematic, error) {
+    return v8.Migrate(s)
+}
+
+func walkFromV6(s v6.Schematic) (Schematic, error) {
+    s7, err := v7.Migrate(s)
+    if err != nil {
+        return Schematic{}, err
+    }
+    return walkFromV7(s7)
+}
+```
+
+The legacy side is symmetric — its own dispatch + chain, terminating in the bridge:
+
+```go
+// service/schematic/internal/types/legacy/legacy.go
+// Code generated by Oracle. DO NOT EDIT.
+
+// MaxVersion is the highest version handled by the legacy chain. The next integer
+// (MaxVersion+1) is the first modern version.
+const MaxVersion imex.Version = 5
+
+// Decode handles versions [0, MaxVersion]. It decodes raw into the appropriate
+// legacy vN, walks the legacy chain to vMaxVersion, then crosses the bridge
+// MigrateFromLegacy to the first modern version (v6 here).
+func Decode(c imex.Codec, v imex.Version, raw []byte) (v6.Schematic, error) {
+    switch v {
+    case v5.Version:
         var s v5.Schematic
         if err := c.Decode(raw, &s); err != nil {
-            return Schematic{}, err
+            return v6.Schematic{}, errors.Wrap(err, "decode legacy schematic v5")
         }
-        return v6.Migrate(s) // v6/migrate.go: v5 → v6
-    // … older versions decode at their vN, then walk the v(N+1).Migrate chain to current
+        return v6.MigrateFromLegacy(s) // the bridge
+    case v4.Version:
+        var s v4.Schematic
+        if err := c.Decode(raw, &s); err != nil {
+            return v6.Schematic{}, errors.Wrap(err, "decode legacy schematic v4")
+        }
+        s5, err := v5.Migrate(s)
+        if err != nil {
+            return v6.Schematic{}, err
+        }
+        return v6.MigrateFromLegacy(s5)
+    // … v3, v2, v1, v0 follow the same pattern
     }
+    return v6.Schematic{}, imex.NewErrUnknownVersion("schematic", v)
 }
+```
+
+And the bridge itself, sole entry of the legacy chain into the modern one:
+
+```go
+// service/schematic/internal/types/v6/migrate.go
+// Code generated by Oracle. DO NOT EDIT.
+
+// MigrateFromLegacy lifts the final legacy schematic into v6, the first modern
+// version. There is no v6.Migrate(v5.Schematic) — v5 is legacy, not modern —
+// so MigrateFromLegacy carries the entire range crossing. Exists on the first
+// modern version only.
+func MigrateFromLegacy(s legacy_v5.Schematic) (Schematic, error) { … }
 ```
 
 The properties this gives:
@@ -882,18 +1011,17 @@ hand-written file in a historical directory on regeneration, that is an error.
 
 A version bump is a **freeze** operation Oracle performs in one pass:
 
-1. **Emit the new current `v(N+1)/`.** Oracle generates `types.gen.go`,
-   `codec.gen.go`, and `migrate.go` (`vN → v(N+1)`) into a fresh
-   `internal/types/v(N+1)/` directory. The previously-current `vN/` is now historical
-   with its generated files unchanged.
+1. **Emit the new current `v(N+1)/`.** Oracle generates `types.gen.go`, `codec.gen.go`,
+   and `migrate.go` (`vN → v(N+1)`) into a fresh `internal/types/v(N+1)/` directory. The
+   previously-current `vN/` is now historical with its generated files unchanged.
 2. **Move `helpers.go` forward.** Oracle moves `internal/types/vN/helpers.go` to
-   `internal/types/v(N+1)/helpers.go`, applying field-rename rewrites from the
-   migration map at the syntax level. Anything Oracle cannot rewrite — references to
-   removed fields, signature changes — is left as-is and surfaces as a compile error
-   for the developer to resolve. After the move, the historical `vN/` has no
-   `helpers.go` (preserving the "historical = pure-generated" invariant).
-3. **Re-point the selector.** `internal/types/types.go` is regenerated to alias
-   `v(N+1)` (`type Resource = v(N+1).Resource`, `const LatestVersion = v(N+1).Version`).
+   `internal/types/v(N+1)/helpers.go`, applying field-rename rewrites from the migration
+   map at the syntax level. Anything Oracle cannot rewrite — references to removed
+   fields, signature changes — is left as-is and surfaces as a compile error for the
+   developer to resolve. After the move, the historical `vN/` has no `helpers.go`
+   (preserving the "historical = pure-generated" invariant).
+3. **Re-point the selector.** `internal/types/types.go` is regenerated to alias `v(N+1)`
+   (`type Resource = v(N+1).Resource`, `const LatestVersion = v(N+1).Version`).
 4. **Update the dispatch.** `internal/types/decode.go` is regenerated to chain the
    newly-frozen `vN` into the migration walk.
 
