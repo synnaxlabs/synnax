@@ -53,10 +53,13 @@ const customReturnZ = z.object({
   details: record.unknownZ().optional(),
 });
 
-const hasToStatusMethod = (exc: Error): exc is Error & { toStatus: () => unknown } =>
-  "toStatus" in exc && typeof (exc as { toStatus: unknown }).toStatus === "function";
+const hasToStatusMethod = (exc: unknown): exc is { toStatus: () => unknown } =>
+  exc != null &&
+  typeof exc === "object" &&
+  "toStatus" in exc &&
+  typeof exc.toStatus === "function";
 
-const safeToStatus = (exc: Error): z.infer<typeof customReturnZ> | undefined => {
+const safeToStatus = (exc: unknown): z.infer<typeof customReturnZ> | undefined => {
   if (!hasToStatusMethod(exc)) return undefined;
   let raw: unknown;
   try {
@@ -79,13 +82,15 @@ export const fromException = (
   exc: unknown,
   message?: string,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
-  if (!(exc instanceof Error)) throw errors.fromUnknown(exc);
+  const err = errors.fromUnknown(exc);
   const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
-    message: message ?? exc.message,
-    description: message != null ? exc.message : undefined,
-    details: { stack: exc.stack ?? "", error: exc },
+    message: message ?? err.message,
+    description: message != null ? err.message : undefined,
+    details: { stack: err.stack ?? "", error: err },
   };
+  // Probe the original (pre-coercion) value so a non-Error throwable with a custom
+  // `toStatus()` method still contributes its status fields.
   const custom = safeToStatus(exc);
   if (custom != null) {
     if (message != null && custom.message != null)

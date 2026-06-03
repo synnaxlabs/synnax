@@ -231,21 +231,14 @@ const createFreighterTransport = ({
         try {
           msg = await stream.receive();
         } catch (err) {
-          if (!EOF.matches(err))
-            onErrorCallback?.(
-              err instanceof Error ? err : new Error(String(err), { cause: err }),
-            );
+          if (!EOF.matches(err)) onErrorCallback?.(errors.fromUnknown(err));
           break;
         }
         try {
           const parsed = JSON.parse(msg.content);
           onMessageCallback?.(parsed);
         } catch (parseError) {
-          onErrorCallback?.(
-            parseError instanceof Error
-              ? parseError
-              : new Error(String(parseError), { cause: parseError }),
-          );
+          onErrorCallback?.(errors.fromUnknown(parseError));
         }
       }
     } finally {

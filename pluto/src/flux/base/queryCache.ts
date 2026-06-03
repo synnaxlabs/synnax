@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, primitive } from "@synnaxlabs/x";
+import { type destructor, errors, primitive } from "@synnaxlabs/x";
 
 import { type Query } from "@/flux/base/types";
 import { errorResult, type Result, successResult } from "@/flux/result";
@@ -66,8 +66,11 @@ export class QueryCache<Q extends Query, D extends state.State> {
       (value) =>
         this.replaceIfStill(hash, result, successResult(`retrieved ${name}`, value)),
       (reason: unknown) => {
-        const err = reason instanceof Error ? reason : new Error(String(reason));
-        this.replaceIfStill(hash, result, errorResult(`retrieve ${name}`, err));
+        this.replaceIfStill(
+          hash,
+          result,
+          errorResult(`retrieve ${name}`, errors.fromUnknown(reason)),
+        );
       },
     );
   }

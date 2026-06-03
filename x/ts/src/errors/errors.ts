@@ -157,7 +157,7 @@ export const fromUnknown = (value: unknown): Error => {
   if (value instanceof Error) return value;
   let message: string;
   try {
-    message = JSON.stringify(value) ?? String(value);
+    message = JSON.stringify(value);
   } catch {
     message = String(value);
   }

@@ -196,10 +196,10 @@ describe("errors", () => {
       expect(result.cause).toBeNull();
     });
 
-    it("should wrap undefined with the String() fallback message", () => {
+    it("should wrap undefined with an empty message (JSON.stringify returns undefined)", () => {
       const result = errors.fromUnknown(undefined);
       expect(result).toBeInstanceOf(Error);
-      expect(result.message).toEqual("undefined");
+      expect(result.message).toEqual("");
       expect(result.cause).toBeUndefined();
     });
   });

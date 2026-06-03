@@ -169,9 +169,9 @@ export class Controller
         autoIndex: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
-    } catch (e) {
+    } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      if (!(e instanceof Error)) throw errors.fromUnknown(e);
+      const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
         message: `${this.state.name} failed to acquire control`,

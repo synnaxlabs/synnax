@@ -412,8 +412,7 @@ export abstract class Leaf<
         error,
       );
 
-    const err =
-      error instanceof Error ? error : new Error(String(error), { cause: error });
+    const err = errors.fromUnknown(error);
     const wrapped = new Error(
       `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
     );
