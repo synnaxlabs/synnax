@@ -42,6 +42,12 @@ export const useSelect = (key: string): State =>
 export const useSelectOptional = (key: string): State | undefined =>
   useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
 
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
+
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
 
@@ -57,25 +63,20 @@ export const selectAuthority = (state: StoreState, key: string): control.Authori
 export const useSelectAuthority = (key: string): control.Authority =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
 
-export const selectActiveToolbarTab = (
-  state: StoreState,
-  key: string,
-): ToolbarTab | undefined => selectToolbar(state, key)?.activeTab;
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  selectToolbar(state, key).activeTab;
 
-export const useSelectActiveToolbarTab = (key: string): ToolbarTab | undefined =>
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
   useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
-export const selectToolbar = (
-  state: StoreState,
-  key: string,
-): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
+export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
+  select(state, key).toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarState | undefined =>
+export const useSelectToolbar = (key: string): ToolbarState =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectToolbar(state, key)?.selectedSymbolGroup ??
-  ZERO_STATE.toolbar.selectedSymbolGroup;
+  selectToolbar(state, key).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
@@ -87,25 +88,25 @@ export const useSelectLegend = (key: string): LegendState =>
   useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
 
 export const selectLegendVisible = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.legend.visible ?? ZERO_STATE.legend.visible;
+  select(state, key).legend.visible;
 
 export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.editable ?? ZERO_STATE.editable;
+  select(state, key).editable;
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.fitViewOnResize ?? ZERO_STATE.fitViewOnResize;
+  select(state, key).fitViewOnResize;
 
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
 export const selectViewport = (state: StoreState, key: string): Viewport =>
-  selectOptional(state, key)?.viewport ?? ZERO_STATE.viewport;
+  select(state, key).viewport;
 
 export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);

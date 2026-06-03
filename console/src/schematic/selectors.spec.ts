@@ -10,53 +10,123 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  select,
   selectActiveToolbarTab,
+  selectAuthority,
+  selectControlStatus,
   selectEditable,
+  selectExists,
   selectFitViewOnResize,
+  selectLegend,
   selectLegendVisible,
+  selectOptional,
+  selectPendingUpload,
+  selectSelected,
   selectSelectedSymbolGroup,
+  selectSliceState,
   selectToolbar,
   selectViewport,
 } from "@/schematic/selectors";
 import {
   SLICE_NAME,
+  type State,
   type StoreState,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/schematic/slice";
 
+const KEY = "schematic-1";
+
+const entry: State = {
+  ...ZERO_STATE,
+  editable: true,
+  fitViewOnResize: true,
+  selected: ["element-1"],
+  controlStatus: "acquired",
+  authority: 5,
+  legend: { ...ZERO_STATE.legend, visible: false },
+  toolbar: { activeTab: "properties", selectedSymbolGroup: "valves" },
+};
+
+const state: StoreState = {
+  [SLICE_NAME]: { ...ZERO_SLICE_STATE, schematics: { [KEY]: entry } },
+};
+
+const empty: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+
 describe("schematic selectors", () => {
-  describe("missing slice entry", () => {
-    const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+  describe("selectSliceState", () => {
+    it("returns the slice state", () => {
+      expect(selectSliceState(state)).toBe(state[SLICE_NAME]);
+    });
+  });
 
-    it("should return undefined from selectToolbar without throwing", () => {
-      expect(selectToolbar(state, "absent")).toBeUndefined();
+  describe("select / selectOptional", () => {
+    it("returns the entry when present", () => {
+      expect(select(state, KEY)).toBe(entry);
+      expect(selectOptional(state, KEY)).toBe(entry);
     });
 
-    it("should return undefined from selectActiveToolbarTab without throwing", () => {
-      expect(selectActiveToolbarTab(state, "absent")).toBeUndefined();
+    it("returns undefined from selectOptional when absent", () => {
+      expect(selectOptional(empty, "absent")).toBeUndefined();
+    });
+  });
+
+  describe("selectExists", () => {
+    it("should report whether the slice entry is present", () => {
+      expect(selectExists(state, KEY)).toBe(true);
+      expect(selectExists(state, "absent")).toBe(false);
+    });
+  });
+
+  describe("present slice entry", () => {
+    it("should read the toolbar from the entry", () => {
+      expect(selectToolbar(state, KEY)).toBe(entry.toolbar);
     });
 
-    it("should default selectEditable to the zero value", () => {
-      expect(selectEditable(state, "absent")).toBe(ZERO_STATE.editable);
+    it("should read the active toolbar tab from the entry", () => {
+      expect(selectActiveToolbarTab(state, KEY)).toBe("properties");
     });
 
-    it("should default selectSelectedSymbolGroup to the zero value", () => {
-      expect(selectSelectedSymbolGroup(state, "absent")).toBe(
-        ZERO_STATE.toolbar.selectedSymbolGroup,
-      );
+    it("should read the selected symbol group from the entry", () => {
+      expect(selectSelectedSymbolGroup(state, KEY)).toBe("valves");
     });
 
-    it("should default selectLegendVisible to the zero value", () => {
-      expect(selectLegendVisible(state, "absent")).toBe(ZERO_STATE.legend.visible);
+    it("should read editable from the entry", () => {
+      expect(selectEditable(state, KEY)).toBe(true);
     });
 
-    it("should default selectFitViewOnResize to the zero value", () => {
-      expect(selectFitViewOnResize(state, "absent")).toBe(ZERO_STATE.fitViewOnResize);
+    it("should read the legend and its visibility from the entry", () => {
+      expect(selectLegend(state, KEY)).toBe(entry.legend);
+      expect(selectLegendVisible(state, KEY)).toBe(false);
     });
 
-    it("should default selectViewport to the zero value", () => {
-      expect(selectViewport(state, "absent")).toBe(ZERO_STATE.viewport);
+    it("should read fit-view-on-resize from the entry", () => {
+      expect(selectFitViewOnResize(state, KEY)).toBe(true);
+    });
+
+    it("should read the viewport from the entry", () => {
+      expect(selectViewport(state, KEY)).toBe(entry.viewport);
+    });
+
+    it("should read selected, control status, and authority from the entry", () => {
+      expect(selectSelected(state, KEY)).toBe(entry.selected);
+      expect(selectControlStatus(state, KEY)).toBe("acquired");
+      expect(selectAuthority(state, KEY)).toBe(5);
+    });
+
+    it("should read the pending upload from the entry", () => {
+      expect(selectPendingUpload(state, KEY)).toBe(entry.pendingUpload);
+    });
+  });
+
+  describe("defensive selectors (absent entry)", () => {
+    it("should fall back to defaults instead of throwing", () => {
+      expect(selectSelected(empty, "absent")).toEqual([]);
+      expect(selectControlStatus(empty, "absent")).toBe("released");
+      expect(selectAuthority(empty, "absent")).toBe(1);
+      expect(selectLegend(empty, "absent")).toBe(ZERO_STATE.legend);
+      expect(selectPendingUpload(empty, "absent")).toBeUndefined();
     });
   });
 });
