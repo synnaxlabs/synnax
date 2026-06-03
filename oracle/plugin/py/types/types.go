@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -437,6 +438,24 @@ func processStruct(
 		}
 
 		if allParentsValid {
+			// A domain removal (-@domain) cannot be expressed through class
+			// inheritance — the base class still carries the domain — so emit a
+			// flattened standalone class. Typeless overrides are already resolved
+			// by the analyzer.
+			if resolver.HasDomainOmissions(form) {
+				sd.HasExtends = false
+				sd.ExtendsNames = nil
+				flat := resolution.UnifiedFields(entry, table)
+				sd.Fields = make([]fieldData, 0, len(flat))
+				for _, field := range flat {
+					sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+					if key.HasKey(field) {
+						sd.KeyField = field.Name
+					}
+				}
+				return sd
+			}
+
 			// Get all parent fields for comparison (first parent wins on conflict)
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])

@@ -128,6 +128,47 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+			gen := func(childBody string) string {
+				source := `
+					@py output "out"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				return string(resp.Files[0].Content)
+			}
+			// A typeless override desugars to the equivalent full restatement, so
+			// the generated model is byte-identical.
+			Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+			Expect(gen("tag?")).To(Equal(gen("tag string?")))
+		})
+
+		It("Should flatten a model that removes an inherited domain", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string @validate { min_length 1 }
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+			resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain(`class Child(BaseModel):`, `name: str`)
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"

@@ -55,9 +55,8 @@ AxisKey enum extends XAxisKey, YAxisKey {
 }
 
 Title struct {
-    level   text.Level {
-        @doc value        "is the typography level of the title text."
-        @validate default text.LevelP
+    level   text.Level = text.LevelP {
+        @doc value "is the typography level of the title text."
     }
     visible bool       {
         @doc value "is whether the title is shown above the plot."
@@ -143,13 +142,11 @@ Axis struct {
     label           string            {
         @doc value "is the human-readable label rendered along the axis."
     }
-    label_direction spatial.Direction {
-        @doc value        "is the orientation in which the label text is laid out."
-        @validate default spatial.DirectionX
+    label_direction spatial.Direction = spatial.DirectionX {
+        @doc value "is the orientation in which the label text is laid out."
     }
-    label_level     text.Level        {
-        @doc value        "is the typography level of the label."
-        @validate default text.LevelSmall
+    label_level     text.Level = text.LevelSmall {
+        @doc value "is the typography level of the label."
     }
     bounds          spatial.Bounds    {
         @doc value """
@@ -308,49 +305,44 @@ LinePlot struct {
 }
 
 New struct extends LinePlot {
-    key      Key?      {
-        @doc value """
-            is an optional key for the line plot. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    title    Title?    {
+    key?
+    title?    {
         @doc value """
             is the plot title configuration. Defaults to the zero-value
             title; the client seeds rendering defaults locally.
         """
     }
-    legend   Legend?   {
+    legend?   {
         @doc value """
             is the plot legend configuration. Defaults to the zero-value
             legend; the client seeds rendering defaults locally.
         """
     }
-    channels Channels? {
+    channels? {
         @doc value """
             binds channel keys to each axis. Defaults to no channels assigned
             on any axis.
         """
     }
-    ranges   Ranges?   {
+    ranges?   {
         @doc value """
             binds range keys to each x-axis. Defaults to no ranges assigned
             on either x-axis.
         """
     }
-    axes     Axes?     {
+    axes?     {
         @doc value """
             bundles per-axis configuration. Defaults to the zero-value axes;
             the client seeds rendering defaults locally.
         """
     }
-    lines    Line[]?   {
+    lines?    {
         @doc value """
             holds per-line styling and downsampling configuration. Defaults
             to an empty list.
         """
     }
-    rules    Rule[]?   {
+    rules?    {
         @doc value """
             holds annotation rules drawn over the plot. Defaults to an empty
             list.

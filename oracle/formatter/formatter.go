@@ -452,7 +452,7 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 	maxNameLen := 0
 	maxTypeLen := 0
 	for _, field := range fields {
-		nameLen := len(field.IDENT().GetText())
+		nameLen := len(fieldNameColumn(field))
 		if nameLen > maxNameLen {
 			maxNameLen = nameLen
 		}
@@ -562,42 +562,47 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth, typeWidth int) {
 	f.writeIndent()
 
-	// Write name with padding
-	name := ctx.IDENT().GetText()
-	f.write(name)
-	f.writePadding(nameWidth - len(name))
-	f.write(" ")
-
-	// Write type with padding (only if there are domains)
+	// The name column carries a standalone optionality marker (key? / key??) when
+	// the field omits its type to inherit it from the parent.
+	nameCol := fieldNameColumn(ctx)
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
-	f.write(typeStr)
+	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
+	inlineDomains := ctx.AllInlineDomain()
+	domainOmits := ctx.AllDomainOmit()
+	hasDomains := len(inlineDomains) > 0 || len(domainOmits) > 0 || ctx.FieldBody() != nil
+
+	f.write(nameCol)
+
+	// Only pad the name column when content follows, so a bare typeless override
+	// (key?) does not trail whitespace.
+	if typeStr != "" || hasDefault || hasDomains {
+		f.writePadding(nameWidth - len(nameCol))
+	}
+	if typeStr != "" {
+		f.write(" ")
+		f.write(typeStr)
+	}
 
 	// Inline default value: name type = X
-	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
 	if hasDefault {
 		f.write(" = ")
 		f.write(f.formatFieldDefaultToString(ctx.FieldDefault()))
 	}
 
-	inlineDomains := ctx.AllInlineDomain()
-	hasDomains := len(inlineDomains) > 0 || ctx.FieldBody() != nil
-
 	if hasDomains {
-		// A default (= X) breaks column alignment, so only pad when there isn't
-		// one; the inline-domain and brace formatters supply their own leading space.
-		if !hasDefault {
+		// A typed field aligns domains in the type column; a default (= X) breaks
+		// that alignment. A typeless override has no type column, so its content
+		// follows the padded name column directly.
+		if !hasDefault && typeStr != "" {
 			f.writePadding(typeWidth - len(typeStr))
 		}
 
-		// Try inline first
-		inlineStr := f.formatInlineDomainsToString(inlineDomains)
-		lineLen := f.currentLineLen() + len(inlineStr)
+		inlineStr := f.formatInlineDomainsToString(inlineDomains) +
+			f.formatDomainOmitsToString(domainOmits)
 
-		if ctx.FieldBody() != nil || lineLen > maxLineLen {
-			// Use brace form
-			f.formatFieldWithBraces(inlineDomains, ctx.FieldBody())
+		if ctx.FieldBody() != nil || f.currentLineLen()+len(inlineStr) > maxLineLen {
+			f.formatFieldWithBraces(inlineDomains, domainOmits, ctx.FieldBody())
 		} else {
-			// Use inline form
 			f.write(inlineStr)
 			f.newline()
 		}
@@ -654,6 +659,30 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 				sb.WriteString("?")
 			}
 		}
+	}
+	return sb.String()
+}
+
+// standaloneFieldModifier returns the optionality marker of a typeless override
+// (key? / key??), or "" when the field declares a type or no marker.
+func standaloneFieldModifier(ctx parser.IFieldDefContext) string {
+	if ctx.TypeRef() != nil || ctx.TypeModifiers() == nil {
+		return ""
+	}
+	return strings.Repeat("?", len(ctx.TypeModifiers().AllQUESTION()))
+}
+
+// fieldNameColumn is the text occupying a field's name column: its name plus any
+// standalone optionality marker, which glues to the name when the type is omitted.
+func fieldNameColumn(ctx parser.IFieldDefContext) string {
+	return ctx.IDENT().GetText() + standaloneFieldModifier(ctx)
+}
+
+func (f *formatter) formatDomainOmitsToString(omits []parser.IDomainOmitContext) string {
+	var sb strings.Builder
+	for _, om := range omits {
+		sb.WriteString(" -@")
+		sb.WriteString(om.IDENT().GetText())
 	}
 	return sb.String()
 }
@@ -748,6 +777,7 @@ func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentConte
 
 func (f *formatter) formatFieldWithBraces(
 	inlineDomains []parser.IInlineDomainContext,
+	domainOmits []parser.IDomainOmitContext,
 	fieldBody parser.IFieldBodyContext,
 ) {
 	f.writeLine(" {")
@@ -803,6 +833,24 @@ func (f *formatter) formatFieldWithBraces(
 			}
 			f.newline()
 			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		}
+	}
+
+	// Domain removals (-@name): field-level markers first, then body markers.
+	for _, om := range domainOmits {
+		f.writeIndent()
+		f.write("-@")
+		f.write(om.IDENT().GetText())
+		f.newline()
+	}
+	if fieldBody != nil {
+		for _, om := range fieldBody.AllDomainOmit() {
+			f.emitCommentsBefore(om.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("-@")
+			f.write(om.IDENT().GetText())
+			f.newline()
+			f.lastTokenIdx = om.GetStop().GetTokenIndex()
 		}
 	}
 

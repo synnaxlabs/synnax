@@ -27,8 +27,6 @@ class Policy(BaseModel):
     """Contains parameters for creating a new policy.
 
     Attributes:
-        key: Is an optional key for the policy. If not provided, one will be
-            automatically assigned.
         name: Is a human-readable name for the policy.
         objects: Is the list of ontology resources this policy applies to.
         actions: Is the list of actions this policy permits.

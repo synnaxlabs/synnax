@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -633,7 +634,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		}
 	}
 
-	if len(form.Extends) > 0 {
+	// A domain removal (-@domain) cannot be expressed through Zod extend/omit
+	// chaining — the parent schema still carries the domain — so flatten via
+	// UnifiedFields. Typeless overrides are already resolved by the analyzer.
+	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) {
 		// Collect all parent schema names for merge chaining
 		var allParentsValid = true
 		for _, extendsRef := range form.Extends {

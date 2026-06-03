@@ -981,6 +981,58 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Age`))
 			})
 
+			It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+				gen := func(childBody string) string {
+					source := `
+					@go output "core/user"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					Expect(diag.Ok()).To(BeTrue())
+					resp, err := goPlugin.Generate(&plugin.Request{Resolutions: table})
+					Expect(err).To(BeNil())
+					return string(resp.Files[0].Content)
+				}
+				// A typeless override desugars to the equivalent full restatement,
+				// so the generated output is byte-identical.
+				Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+				Expect(gen("tag?")).To(Equal(gen("tag string?")))
+			})
+
+			It("Should flatten a struct that removes an inherited domain", func(ctx SpecContext) {
+				source := `
+				@go output "core/user"
+
+				Parent struct {
+					name string @validate required
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp, err := goPlugin.Generate(&plugin.Request{Resolutions: table})
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// A domain removal cannot embed, so Child flattens.
+				Expect(content).To(ContainSubstring(`type Child struct {`))
+				Expect(content).NotTo(ContainSubstring("\tParent\n"))
+				Expect(content).To(ContainSubstring(`Name string`))
+			})
+
 			It("Should generate cross-namespace struct embedding with import", func(ctx SpecContext) {
 				loader.Add("schemas/parent.oracle", `
 				@go output "core/parent"
