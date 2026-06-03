@@ -73,6 +73,8 @@ type ExpressionValue struct {
 	// ObjectFields holds the ordered key/value pairs when Kind is ValueKindStruct (an
 	// object-literal default such as { format "preciseDate", tz "local" }).
 	ObjectFields []ObjectField
+	// Elements holds the ordered element values when Kind is ValueKindArray.
+	Elements []ExpressionValue
 }
 
 // ObjectField is a single key/value pair within a struct-literal expression value.

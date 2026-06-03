@@ -24,6 +24,9 @@ const (
 	// format "preciseDate", tz "local" }). Its fields are held in
 	// ExpressionValue.ObjectFields.
 	ValueKindStruct
+	// ValueKindArray is an array-literal value (a sequence default such as
+	// [1, 2, 3]). Its elements are held in ExpressionValue.Elements.
+	ValueKindArray
 )
 
 // Primitives is the set of built-in primitive type names recognized by Oracle.

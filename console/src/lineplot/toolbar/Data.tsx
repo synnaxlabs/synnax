@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type lineplot } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/pluto";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { type AxisKey, type XAxisKey, type YAxisKey } from "@/lineplot/axis";
 import {
   SelectAxisInputItem,
   SelectMultipleAxesInputItem,
@@ -37,11 +36,11 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const dispatch = useDispatch();
 
   const handleYChannelSelect = useCallback(
-    (key: AxisKey, value: readonly channel.Key[]): void => {
+    (key: lineplot.AxisKey, value: readonly channel.Key[]): void => {
       dispatch(
         setYChannels({
           key: layoutKey,
-          axisKey: key as YAxisKey,
+          axisKey: key as lineplot.YAxisKey,
           channels: value as channel.Key[],
         }),
       );
@@ -50,11 +49,11 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   );
 
   const handleXChannelSelect = useCallback(
-    (key: AxisKey, value: channel.Key): void => {
+    (key: lineplot.AxisKey, value: channel.Key): void => {
       dispatch(
         setXChannel({
           key: layoutKey,
-          axisKey: key as XAxisKey,
+          axisKey: key as lineplot.XAxisKey,
           channel: value,
         }),
       );
@@ -62,7 +61,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
     [dispatch, layoutKey],
   );
 
-  const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
+  const handleRangeSelect = (key: lineplot.XAxisKey, value: string[]): void => {
     dispatch(setRanges({ key: layoutKey, axisKey: key, ranges: value }));
   };
 

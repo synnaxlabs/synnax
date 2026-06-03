@@ -477,15 +477,13 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
 		})
 
-		It("Should default required arrays to [] when @validate default empty is set", func(ctx SpecContext) {
+		It("Should default required arrays to [] when = empty sentinel is set", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Policy struct {
 					key uuid
-					objects uuid[] {
-						@validate default empty
-					}
+					objects uuid[] = empty
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)

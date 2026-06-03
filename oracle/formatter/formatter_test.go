@@ -350,6 +350,16 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("count int32 = 7 {"))
 		})
 
+		It("should format an empty array default", func() {
+			result := format("Item struct {\n  vals float64[] = []\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = []"))
+		})
+
+		It("should format a populated array default", func() {
+			result := format("Item struct {\n  vals float64[] = [1.5, 2.5]\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = [1.5, 2.5]"))
+		})
+
 		It("should format qualified ident expression values", func() {
 			result := format("User struct {\n  role string @relation target access.Role\n}\n")
 			Expect(result).To(ContainSubstring("target access.Role"))

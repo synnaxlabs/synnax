@@ -116,6 +116,18 @@ func (s *BaseOracleParserListener) EnterFieldDef(ctx *FieldDefContext) {}
 // ExitFieldDef is called when production fieldDef is exited.
 func (s *BaseOracleParserListener) ExitFieldDef(ctx *FieldDefContext) {}
 
+// EnterFieldDefault is called when production fieldDefault is entered.
+func (s *BaseOracleParserListener) EnterFieldDefault(ctx *FieldDefaultContext) {}
+
+// ExitFieldDefault is called when production fieldDefault is exited.
+func (s *BaseOracleParserListener) ExitFieldDefault(ctx *FieldDefaultContext) {}
+
+// EnterArrayDefault is called when production arrayDefault is entered.
+func (s *BaseOracleParserListener) EnterArrayDefault(ctx *ArrayDefaultContext) {}
+
+// ExitArrayDefault is called when production arrayDefault is exited.
+func (s *BaseOracleParserListener) ExitArrayDefault(ctx *ArrayDefaultContext) {}
+
 // EnterInlineDomain is called when production inlineDomain is entered.
 func (s *BaseOracleParserListener) EnterInlineDomain(ctx *InlineDomainContext) {}
 

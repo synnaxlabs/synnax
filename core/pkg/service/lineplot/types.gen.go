@@ -13,11 +13,244 @@ package lineplot
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = uuid.UUID
+
+// AxisKey names one of the six fixed plot axes.
+type AxisKey string
+
+const (
+	AxisKeyX1 AxisKey = "x1"
+	AxisKeyX2 AxisKey = "x2"
+	AxisKeyY1 AxisKey = "y1"
+	AxisKeyY2 AxisKey = "y2"
+	AxisKeyY3 AxisKey = "y3"
+	AxisKeyY4 AxisKey = "y4"
+)
+
+// IsValid reports whether a is one of the defined AxisKey values.
+func (a AxisKey) IsValid() bool {
+	switch a {
+	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
+// TickType selects how an axis renders its tick labels.
+type TickType string
+
+const (
+	TickTypeLinear TickType = "linear"
+	TickTypeTime   TickType = "time"
+)
+
+// IsValid reports whether t is one of the defined TickType values.
+func (t TickType) IsValid() bool {
+	switch t {
+	case TickTypeLinear, TickTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// DownsampleMode selects how a line condenses samples that map to the same pixel.
+type DownsampleMode string
+
+const (
+	DownsampleModeAverage  DownsampleMode = "average"
+	DownsampleModeDecimate DownsampleMode = "decimate"
+)
+
+// IsValid reports whether d is one of the defined DownsampleMode values.
+func (d DownsampleMode) IsValid() bool {
+	switch d {
+	case DownsampleModeAverage, DownsampleModeDecimate:
+		return true
+	default:
+		return false
+	}
+}
+
+// XAxisKey names one of the two x-axes. X-axes carry a single channel each.
+type XAxisKey string
+
+const (
+	XAxisKeyX1 XAxisKey = "x1"
+	XAxisKeyX2 XAxisKey = "x2"
+)
+
+// IsValid reports whether x is one of the defined XAxisKey values.
+func (x XAxisKey) IsValid() bool {
+	switch x {
+	case XAxisKeyX1, XAxisKeyX2:
+		return true
+	default:
+		return false
+	}
+}
+
+// YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
+type YAxisKey string
+
+const (
+	YAxisKeyY1 YAxisKey = "y1"
+	YAxisKeyY2 YAxisKey = "y2"
+	YAxisKeyY3 YAxisKey = "y3"
+	YAxisKeyY4 YAxisKey = "y4"
+)
+
+// IsValid reports whether y is one of the defined YAxisKey values.
+func (y YAxisKey) IsValid() bool {
+	switch y {
+	case YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
+// Title is the plot title configuration.
+type Title struct {
+	// Level is the typography level of the title text.
+	Level text.Level `json:"level" msgpack:"level"`
+	// Visible is whether the title is shown above the plot.
+	Visible bool `json:"visible" msgpack:"visible"`
+}
+
+// Legend is the plot legend configuration.
+type Legend struct {
+	// Visible is whether the legend is shown.
+	Visible bool `json:"visible" msgpack:"visible"`
+	// Position is the anchor position of the legend within the plot container.
+	Position spatial.StickyXY `json:"position" msgpack:"position"`
+}
+
+// Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
+// carry zero or more channels each.
+type Channels struct {
+	// X1 is the channel rendered on the x1 axis.
+	X1 channel.Key `json:"x1" msgpack:"x1"`
+	// X2 is the channel rendered on the x2 axis.
+	X2 channel.Key `json:"x2" msgpack:"x2"`
+	// Y1 are the channels rendered on the y1 axis.
+	Y1 []channel.Key `json:"y1" msgpack:"y1"`
+	// Y2 are the channels rendered on the y2 axis.
+	Y2 []channel.Key `json:"y2" msgpack:"y2"`
+	// Y3 are the channels rendered on the y3 axis.
+	Y3 []channel.Key `json:"y3" msgpack:"y3"`
+	// Y4 are the channels rendered on the y4 axis.
+	Y4 []channel.Key `json:"y4" msgpack:"y4"`
+}
+
+// Ranges binds range keys to each x-axis.
+type Ranges struct {
+	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
+	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
+	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
+	// client sends.
+	X1 []string `json:"x1" msgpack:"x1"`
+	// X2 are the range keys plotted against the x2 axis.
+	X2 []string `json:"x2" msgpack:"x2"`
+}
+
+// AutoBounds controls whether an axis derives its bounds from the rendered data window
+// on each side independently. When a bound is auto, the corresponding entry in
+// Axis.bounds is recomputed locally and never broadcast to the server.
+type AutoBounds struct {
+	// Lower is whether the lower bound is computed from data.
+	Lower bool `json:"lower" msgpack:"lower"`
+	// Upper is whether the upper bound is computed from data.
+	Upper bool `json:"upper" msgpack:"upper"`
+}
+
+// Axis is the configuration for a single plot axis.
+type Axis struct {
+	// Key identifies which of the six axes this configuration applies to.
+	Key AxisKey `json:"key" msgpack:"key"`
+	// Label is the human-readable label rendered along the axis.
+	Label string `json:"label" msgpack:"label"`
+	// LabelDirection is the orientation in which the label text is laid out.
+	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
+	// LabelLevel is the typography level of the label.
+	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
+	// Bounds is the value-space window of the axis. When the matching entry in auto_bounds
+	// is true the field is overwritten locally on every render; otherwise it is the
+	// user-set fixed bound.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// AutoBounds controls per-edge automatic bound derivation.
+	AutoBounds AutoBounds `json:"auto_bounds" msgpack:"auto_bounds"`
+	// TickSpacing is the target pixel distance between adjacent tick marks.
+	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
+	// Type selects the tick label style. Null means default (linear). X-axes typically
+	// carry "time" when bound to a timestamp channel.
+	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
+}
+
+// Axes bundles configuration for all six fixed plot axes.
+type Axes struct {
+	// X1 is the x1 axis configuration.
+	X1 Axis `json:"x1" msgpack:"x1"`
+	// X2 is the x2 axis configuration.
+	X2 Axis `json:"x2" msgpack:"x2"`
+	// Y1 is the y1 axis configuration.
+	Y1 Axis `json:"y1" msgpack:"y1"`
+	// Y2 is the y2 axis configuration.
+	Y2 Axis `json:"y2" msgpack:"y2"`
+	// Y3 is the y3 axis configuration.
+	Y3 Axis `json:"y3" msgpack:"y3"`
+	// Y4 is the y4 axis configuration.
+	Y4 Axis `json:"y4" msgpack:"y4"`
+}
+
+// Line is the per-line styling and downsampling configuration.
+type Line struct {
+	// Key is the line identifier derived from its channel and range assignment. Format is
+	// internal to the client and stable across re-renders so styling overrides persist.
+	Key string `json:"key" msgpack:"key"`
+	// Label is the user-specified line label. Null means derive from the channel name at
+	// render time; non-null is an override.
+	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
+	// Color is the line color. When null, the Console assigns one from the visualization
+	// palette at render time.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// StrokeWidth is the line stroke width in pixels.
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
+	// Downsample is the downsample factor applied before rendering. 1 means render every
+	// sample; higher values render every Nth sample.
+	Downsample uint32 `json:"downsample" msgpack:"downsample"`
+	// DownsampleMode selects how the downsample factor is applied.
+	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
+}
+
+// Rule is a horizontal or vertical annotation line drawn over the plot.
+type Rule struct {
+	// Key is the unique rule identifier within the line plot.
+	Key string `json:"key" msgpack:"key"`
+	// Label is the human-readable label rendered alongside the rule.
+	Label string `json:"label" msgpack:"label"`
+	// Color is the display color of the rule. When null, the Console assigns a default at
+	// render time.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Axis is the axis the rule is anchored to.
+	Axis AxisKey `json:"axis" msgpack:"axis"`
+	// LineWidth is the rule line width in pixels.
+	LineWidth float64 `json:"line_width" msgpack:"line_width"`
+	// LineDash is the dash length in pixels; 0 renders a solid line.
+	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
+	// Units is the unit label displayed next to the position value.
+	Units string `json:"units" msgpack:"units"`
+	// Position is the value-space position of the rule along its anchored axis.
+	Position float64 `json:"position" msgpack:"position"`
+}
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
@@ -27,7 +260,19 @@ type LinePlot struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the line plot.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the line plot configuration including channel references, axis settings, and
-	// display options.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
+	// Title is the plot title configuration.
+	Title Title `json:"title" msgpack:"title"`
+	// Legend is the plot legend configuration.
+	Legend Legend `json:"legend" msgpack:"legend"`
+	// Channels binds channel keys to each axis.
+	Channels Channels `json:"channels" msgpack:"channels"`
+	// Ranges binds range keys to each x-axis.
+	Ranges Ranges `json:"ranges" msgpack:"ranges"`
+	// Axes bundles per-axis configuration.
+	Axes Axes `json:"axes" msgpack:"axes"`
+	// Lines holds per-line styling and downsampling configuration. Each entry corresponds
+	// to one channel and range combination produced by the channels and ranges bindings.
+	Lines []Line `json:"lines" msgpack:"lines"`
+	// Rules holds annotation rules drawn over the plot.
+	Rules []Rule `json:"rules" msgpack:"rules"`
 }

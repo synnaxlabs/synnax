@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { type lineplot } from "@synnaxlabs/client";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { type AxisKey } from "@/lineplot/axis";
 import {
   select,
   selectActiveToolbarTab,
@@ -51,7 +51,7 @@ import {
 import { Range } from "@/range";
 
 const KEY = "plot-1";
-const AXIS = Object.keys(ZERO_STATE.axes.axes)[0] as AxisKey;
+const AXIS = Object.keys(ZERO_STATE.axes.axes)[0] as lineplot.AxisKey;
 
 const entry: State = {
   ...ZERO_STATE,

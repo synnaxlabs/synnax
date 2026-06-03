@@ -144,7 +144,18 @@ actionBody
 //       @validate { required, min_length 1 }
 //   }
 fieldDef
-    : IDENT typeRef (EQUALS expressionValue)? inlineDomain* fieldBody?
+    : IDENT typeRef (EQUALS fieldDefault)? inlineDomain* fieldBody?
+    ;
+
+// A field default is either a scalar/ident literal or an array literal.
+// Examples: = 0, = "v", = volts, = [], = [1, 2, 3]
+fieldDefault
+    : expressionValue
+    | arrayDefault
+    ;
+
+arrayDefault
+    : LBRACKET nl* (expressionValue (COMMA nl* expressionValue)* nl*)? RBRACKET
     ;
 
 // Inline domain on a field (after type, on same line)

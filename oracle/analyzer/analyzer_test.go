@@ -1780,5 +1780,21 @@ var _ = Describe("Analyzer", func() {
 			Expect(def.Kind).To(Equal(resolution.ValueKindInt))
 			Expect(def.IntValue).To(Equal(int64(7)))
 		})
+
+		It("Should collect an empty array default", func(ctx SpecContext) {
+			def := defaultOf(ctx, "vals float64[] = []")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindArray))
+			Expect(def.Elements).To(BeEmpty())
+		})
+
+		It("Should collect a populated array default with element values", func(ctx SpecContext) {
+			def := defaultOf(ctx, "vals float64[] = [1.5, 2.5]")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindArray))
+			Expect(def.Elements).To(HaveLen(2))
+			Expect(def.Elements[0]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}))
+			Expect(def.Elements[1]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
+		})
 	})
 })

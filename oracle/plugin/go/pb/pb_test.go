@@ -1557,6 +1557,53 @@ var _ = Describe("Go PB Plugin", func() {
 						"task.TaskID",
 					)
 			})
+
+			It("Should emit lo.Map casts for array of same-namespace distinct primitive", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+					@pb
+
+					Priority uint16
+
+					Task struct {
+						priorities Priority[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Priorities, func(v task.Priority, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Priorities, func(v uint32, _ int) task.Priority { return task.Priority(v) })",
+					)
+			})
+
+			It("Should emit lo.Map casts with package alias for array of cross-namespace distinct primitive", func(ctx SpecContext) {
+				loader.Add("schemas/channel", `
+					@go output "core/channel"
+					@pb
+
+					Key uint32
+				`)
+
+				source := `
+					import "schemas/channel"
+
+					@go output "core/series"
+					@pb
+
+					Series struct {
+						keys channel.Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "series", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Keys, func(v channel.Key, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Keys, func(v uint32, _ int) channel.Key { return channel.Key(v) })",
+					)
+			})
 		})
 
 		Context("fixed-size uint8 array", func() {

@@ -573,10 +573,10 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 	f.write(typeStr)
 
 	// Inline default value: name type = X
-	hasDefault := ctx.EQUALS() != nil && ctx.ExpressionValue() != nil
+	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
 	if hasDefault {
 		f.write(" = ")
-		f.write(f.formatExpressionValueToString(ctx.ExpressionValue()))
+		f.write(f.formatFieldDefaultToString(ctx.FieldDefault()))
 	}
 
 	inlineDomains := ctx.AllInlineDomain()
@@ -699,6 +699,21 @@ func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) stri
 		sb.WriteString(f.formatExpressionValueToString(val))
 	}
 	return sb.String()
+}
+
+func (f *formatter) formatFieldDefaultToString(ctx parser.IFieldDefaultContext) string {
+	if ev := ctx.ExpressionValue(); ev != nil {
+		return f.formatExpressionValueToString(ev)
+	}
+	arr := ctx.ArrayDefault()
+	if arr == nil {
+		return "[]"
+	}
+	parts := make([]string, 0, len(arr.AllExpressionValue()))
+	for _, el := range arr.AllExpressionValue() {
+		parts = append(parts, f.formatExpressionValueToString(el))
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {
