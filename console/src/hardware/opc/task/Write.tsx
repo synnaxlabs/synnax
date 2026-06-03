@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
-import { caseconv, primitive } from "@synnaxlabs/x";
+import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { ContextMenu } from "@/components";
@@ -126,7 +126,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
         await client.channels.retrieve(key);
       } catch (e) {
         if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-        else throw e;
+        else throw errors.toError(e);
       }
     }
     if (commandsToCreate.length > 0) {

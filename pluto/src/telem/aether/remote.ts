@@ -12,6 +12,7 @@ import {
   bounds,
   DataType,
   type destructor,
+  errors,
   MultiSeries,
   primitive,
   type Series,
@@ -288,7 +289,7 @@ export class StreamChannelData
               e.message.includes("cannot read from free channel"))
           )
             console.warn("failed to read calculated channel data", e);
-          else throw e;
+          else throw errors.toError(e);
         }
 
       this.stopStreaming?.();

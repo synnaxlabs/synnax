@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, id, type record } from "@synnaxlabs/x";
+import { type destructor, errors, id, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type base } from "@/flux/base";
@@ -144,7 +144,7 @@ export const createDispatch = <
             await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
             addStatus(errorResult("commit transaction", e).status);
-            throw e;
+            throw errors.toError(e);
           }
         };
         return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);

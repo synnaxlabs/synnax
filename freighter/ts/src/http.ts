@@ -109,8 +109,10 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         try {
           httpRes = await fetch(ctx.target, request);
         } catch (e) {
-          if (!(e instanceof Error)) throw e;
-          throw shouldCastToUnreachable(e) ? new Unreachable({ url, cause: e }) : e;
+          const err = errors.toError(e);
+          throw shouldCastToUnreachable(err)
+            ? new Unreachable({ url, cause: err })
+            : err;
         }
         const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
@@ -125,9 +127,9 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         try {
           decoded = errors.decode(this.encoder.decode(data, errors.payloadZ));
         } catch (e) {
-          if (!(e instanceof Error)) throw e;
+          const err = errors.toError(e);
           throw new Error(
-            `[freighter] - failed to decode error: ${httpRes.statusText}: ${e.message}`,
+            `[freighter] - failed to decode error: ${httpRes.statusText}: ${err.message}`,
             { cause: e },
           );
         }

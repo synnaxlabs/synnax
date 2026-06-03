@@ -50,6 +50,7 @@ const config: Linter.Config[] = [
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
       "use-isnan": ["error", { enforceForIndexOf: true }],
+      "preserve-caught-error": ["error", { requireCatchParameter: true }],
       "valid-typeof": ["error", { requireStringLiterals: true }],
       "arrow-body-style": "error",
       curly: ["error", "multi"],
@@ -111,6 +112,14 @@ const config: Linter.Config[] = [
       "@eslint-react/no-context-provider": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@typescript-eslint/no-deprecated": "error",
+      "@typescript-eslint/only-throw-error": [
+        "error",
+        {
+          allowThrowingAny: false,
+          allowThrowingUnknown: false,
+          allowRethrowing: false,
+        },
+      ],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/require-await": "off",

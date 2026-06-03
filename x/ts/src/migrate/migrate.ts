@@ -10,6 +10,7 @@
 import { z } from "zod";
 
 import { compare } from "@/compare";
+import { errors } from "@/errors";
 import { type optional } from "@/optional";
 
 export const semVerZ = z
@@ -203,7 +204,7 @@ export const createMigration =
     } catch (e) {
       console.log(`${name} failed to migrate from ${input.version}`);
       console.error(e);
-      throw e;
+      throw errors.toError(e);
     }
   };
 

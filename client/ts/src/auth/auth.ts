@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -132,7 +132,7 @@ export class Client {
           return mw(reqCtx, next);
         }
         this.retryCount = 0;
-        throw err;
+        throw errors.toError(err);
       }
     };
     return mw;

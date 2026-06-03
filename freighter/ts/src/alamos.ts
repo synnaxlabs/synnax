@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { errors } from "@synnaxlabs/x";
 
 import { type Context, type Middleware } from "@/middleware";
 
@@ -24,19 +25,16 @@ export const middleware =
             return await next(context);
           } catch (err) {
             if (err instanceof Error) span.recordError(err);
-            throw err;
+            throw errors.toError(err);
           }
         },
       );
       log(context, instrumentation, null);
       return res;
     } catch (err) {
-      log(
-        context,
-        instrumentation,
-        err instanceof Error ? err : new Error(String(err), { cause: err }),
-      );
-      throw err;
+      const e = errors.toError(err);
+      log(context, instrumentation, e);
+      throw e;
     }
   };
 

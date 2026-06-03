@@ -3,6 +3,10 @@
   "globalDependencies": [
     "configs/vite/src/index.ts",
     "configs/ts/*.json",
+    "configs/eslint/*.ts",
+    "configs/eslint/package.json",
+    "configs/stylelint/*.js",
+    "configs/stylelint/package.json",
     "pnpm-workspace.yaml"
   ],
   "globalEnv": [
@@ -21,8 +25,17 @@
       "inputs": ["src/**", "vite.config.ts", "tsconfig*.json", "package.json"],
       "outputs": ["dist/**"]
     },
-    "lint": {},
-    "stylelint": {},
+    "lint": {
+      "inputs": [
+        "src/**",
+        "eslint.config.ts",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "stylelint": {
+      "inputs": ["src/**", "stylelint.config.*", "package.json"]
+    },
     "check-types": { "dependsOn": ["^build"] },
     "dev-vite": { "cache": false },
     "dev": { "cache": false, "dependsOn": ["^build"] },

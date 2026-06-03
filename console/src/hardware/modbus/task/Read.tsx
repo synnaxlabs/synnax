@@ -11,7 +11,7 @@ import "@/hardware/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -187,7 +187,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
       await client.channels.retrieve(dev.properties.read.index);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
+      else throw errors.toError(e);
     }
   else shouldCreateIndex = true;
   let modified = false;
@@ -213,7 +213,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
           await client.channels.retrieve(existing.toString());
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(c);
-          else throw e;
+          else throw errors.toError(e);
         }
     }
     if (toCreate.length > 0) {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker } from "@synnaxlabs/x";
+import { breaker, errors } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -61,9 +61,10 @@ export const unaryWithBreaker = (
         try {
           return await this.wrapped.send(target, req, reqSchema, resSchema);
         } catch (err) {
-          if (!Unreachable.matches(err)) throw err;
-          console.warn(`[freighter] ${brk.retryMessage}`, err);
-          if (!(await brk.wait())) throw err;
+          const e = errors.toError(err);
+          if (!Unreachable.matches(e)) throw e;
+          console.warn(`[freighter] ${brk.retryMessage}`, e);
+          if (!(await brk.wait())) throw e;
         }
       while (true);
     }

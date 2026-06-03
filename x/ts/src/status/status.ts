@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 
+import { errors } from "@/errors";
 import { id } from "@/id";
 import { narrow } from "@/narrow";
 import { type optional } from "@/optional";
@@ -78,7 +79,7 @@ export const fromException = (
   exc: unknown,
   message?: string,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
-  if (!(exc instanceof Error)) throw exc;
+  if (!(exc instanceof Error)) throw errors.toError(exc);
   const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
     message: message ?? exc.message,

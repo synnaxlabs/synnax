@@ -16,7 +16,7 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
+import { array, deep, errors, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -144,7 +144,7 @@ const retrieveSingle = async ({
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
-      if (!(e instanceof NotFoundError)) throw e;
+      if (!(e instanceof NotFoundError)) throw errors.toError(e);
     }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });
