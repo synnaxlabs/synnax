@@ -38,7 +38,7 @@ export type YAxisKey = z.infer<typeof yAxisKeyZ>;
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
   /** level is the typography level of the title text. */
-  level: text.levelZ.default("p"),
+  level: text.levelZ,
   /** visible is whether the title is shown above the plot. */
   visible: z.boolean(),
 });
@@ -163,9 +163,9 @@ export const axisZ = z.object({
   /** label is the human-readable label rendered along the axis. */
   label: z.string(),
   /** labelDirection is the orientation in which the label text is laid out. */
-  labelDirection: spatial.directionZ.default("x"),
+  labelDirection: spatial.directionZ,
   /** labelLevel is the typography level of the label. */
-  labelLevel: text.levelZ.default("small"),
+  labelLevel: text.levelZ,
   /**
    * bounds is the value-space window of the axis. When the matching entry in
    * auto_bounds is true the field is overwritten locally on every
