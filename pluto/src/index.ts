@@ -39,8 +39,6 @@ export { JSON } from "@/json";
 export { Key } from "@/key";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
-export { Measure } from "@/lineplot/measure";
-export { Rule } from "@/lineplot/rule";
 export { List } from "@/list";
 export { Log } from "@/log";
 export * from "@/memo";
