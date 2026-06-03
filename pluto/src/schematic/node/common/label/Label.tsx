@@ -103,7 +103,7 @@ export const labeledConfigZ = z.object({
 export type LabeledConfig = z.infer<typeof labeledConfigZ>;
 
 interface LabeledOverrides<C extends LabeledConfig> {
-  grid?: Partial<Omit<Grid.GridProps, "editable">>;
+  grid?: Pick<Grid.GridProps, "allowRotate" | "keepAspectRatio">;
   onResize?: (dimensions: dimensions.Dimensions) => Partial<C>;
 }
 
@@ -115,9 +115,7 @@ export const createLabeled = <C extends LabeledConfig>(
   // renders it with the shared SVG props; the config's symbol-specific fields reach it
   // at runtime via the rest spread.
   const Sym = BaseSymbol as FC<Primitive.SVGBasedProps>;
-  // Alias to a const so TS narrows it inside the onResize closure below; a
-  // property access wouldn't narrow, forcing a non-null assertion.
-  const resizeToConfig = overrides?.onResize;
+  const { grid, onResize } = overrides ?? {};
   const Inner = ({
     nodeKey,
     onConfigChange,
@@ -125,16 +123,12 @@ export const createLabeled = <C extends LabeledConfig>(
     config: { label, orientation = "left", ...rest },
   }: NodeProps<LabeledConfig>): ReactElement => (
     <Grid.Grid
-      {...overrides?.grid}
+      {...grid}
       editable={selected}
       nodeKey={nodeKey}
       orientation={orientation}
       onRotate={onConfigChange}
-      onResize={
-        resizeToConfig == null
-          ? undefined
-          : (dimensions) => onConfigChange(resizeToConfig(dimensions))
-      }
+      onResize={onResize == null ? undefined : (d) => onConfigChange(onResize(d))}
     >
       <Label config={label} onChange={onConfigChange} />
       <Sym orientation={orientation} {...rest} />
