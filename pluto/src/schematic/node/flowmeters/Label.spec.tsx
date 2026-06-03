@@ -36,10 +36,10 @@ describe("Label", () => {
   });
 
   describe("color", () => {
-    it("should leave fill unset when no color is provided", () => {
+    it("should fall back to the theme's default color when none is provided", () => {
       const { container } = renderInSVG(<Label />);
       const text = queryText(container) as SVGTextElement;
-      expect(text.style.fill).toBe("");
+      expect(text.style.fill).toMatch(/^rgba?\(/);
     });
 
     it("should serialize a hex color into the fill style as rgba", () => {

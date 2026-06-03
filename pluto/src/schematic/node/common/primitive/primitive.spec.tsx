@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -130,13 +131,27 @@ describe("Primitive.SVG", () => {
   });
 
   describe("color handling", () => {
-    it("should leave fill and stroke unset when no color is provided", () => {
+    it("should resolve a missing color to the theme's default symbol color", () => {
       const { container } = render(
         <Primitive.SVG dimensions={{ width: 10, height: 10 }} />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("fill")).toBeNull();
-      expect(svg.getAttribute("stroke")).toBeNull();
+      expect(svg.getAttribute("fill")).toMatch(/^rgba?\(/);
+      expect(svg.getAttribute("stroke")).toMatch(/^rgba?\(/);
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).not.toBe("");
+    });
+
+    it("should resolve the ZERO follow-theme sentinel like a missing color", () => {
+      const zero = render(
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color={color.ZERO} />,
+      ).container.querySelector("svg") as SVGSVGElement;
+      const unset = render(
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} />,
+      ).container.querySelector("svg") as SVGSVGElement;
+      expect(zero.getAttribute("stroke")).toBe(unset.getAttribute("stroke"));
+      expect(zero.style.getPropertyValue("--pluto-symbol-color")).toBe(
+        unset.style.getPropertyValue("--pluto-symbol-color"),
+      );
     });
 
     it("should set fill, stroke, and the symbol-color CSS variables for a color", () => {
