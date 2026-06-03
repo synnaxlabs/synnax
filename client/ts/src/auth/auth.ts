@@ -129,7 +129,7 @@ export class Client {
           this.authState = { authenticated: false };
           this.authenticating = undefined;
           this.retryCount += 1;
-          return mw(reqCtx, next);
+          return await mw(reqCtx, next);
         }
         this.retryCount = 0;
         throw errors.toError(err);

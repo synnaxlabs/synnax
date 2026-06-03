@@ -51,22 +51,25 @@ const useDropOutsideMacOS = ({
   const handleError = Status.useErrorHandler();
   useAsyncEffect(async () => {
     if (Runtime.ENGINE !== "tauri") return;
-    return listen("mouse_up", ({ payload: [x, y] }: { payload: [number, number] }) => {
-      handleError(async () => {
-        if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
-        const state = store.getState();
-        const layout = select(state, dragging.current.items[0].key as string);
-        if (layout?.windowKey == null) return;
-        const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
-        if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
-        const win = await Window.getByLabel(winLabel);
-        if (win == null) return;
-        const cursor = xy.construct(x, y);
-        if (windowsContain(cursor)) return;
-        const dropped = onDrop(dragging.current, cursor);
-        drop({ target, dropped });
-      }, "Failed to drop outside");
-    });
+    return await listen(
+      "mouse_up",
+      ({ payload: [x, y] }: { payload: [number, number] }) => {
+        handleError(async () => {
+          if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
+          const state = store.getState();
+          const layout = select(state, dragging.current.items[0].key as string);
+          if (layout?.windowKey == null) return;
+          const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
+          if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
+          const win = await Window.getByLabel(winLabel);
+          if (win == null) return;
+          const cursor = xy.construct(x, y);
+          if (windowsContain(cursor)) return;
+          const dropped = onDrop(dragging.current, cursor);
+          drop({ target, dropped });
+        }, "Failed to drop outside");
+      },
+    );
   }, [target]);
 };
 

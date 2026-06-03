@@ -225,18 +225,18 @@ export class Controller
   async set(
     frame: framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void> {
-    await this.withRetry(async () => this.writer?.write(frame));
+    await this.withRetry(async () => await this.writer?.write(frame));
   }
 
   async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
     await this.withRetry(async () =>
-      this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
+      await this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
     );
   }
 
   async releaseAuthority(keys: channel.Key[]): Promise<void> {
     await this.withRetry(async () =>
-      this.writer?.setAuthority(
+      await this.writer?.setAuthority(
         Object.fromEntries(keys.map((k) => [k, this.state.authority])),
       ),
     );

@@ -167,7 +167,7 @@ describe("Ontology Queries", () => {
     it("should respect pagination parameters", async () => {
       const groups: group.Group[] = await Promise.all(
         Array.from({ length: 5 }, async (_, i) =>
-          client.groups.create({
+          await client.groups.create({
             parent: ontology.ROOT_ID,
             name: `group${i}`,
           }),
