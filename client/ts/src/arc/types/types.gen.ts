@@ -96,10 +96,6 @@ export const functionPropertiesZ = z.object({
   get outputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
-  /** config contains configuration parameter definitions. */
-  get config(): z.ZodOptional<typeof paramsZ> {
-    return paramsZ.optional();
-  },
 });
 export interface FunctionProperties extends z.infer<typeof functionPropertiesZ> {}
 

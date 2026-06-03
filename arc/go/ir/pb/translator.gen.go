@@ -426,10 +426,6 @@ func FunctionToPB(r ir.Function) (*Function, error) {
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := typespb.ParamsToPB(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	inputsVal, err := typespb.ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
@@ -445,7 +441,6 @@ func FunctionToPB(r ir.Function) (*Function, error) {
 	pb := &Function{
 		Key:      r.Key,
 		Body:     bodyVal,
-		Config:   configVal,
 		Inputs:   inputsVal,
 		Outputs:  outputsVal,
 		Channels: channelsVal,
@@ -461,10 +456,6 @@ func FunctionFromPB(pb *Function) (ir.Function, error) {
 	}
 	var err error
 	r.Body, err = BodyFromPB(pb.Body)
-	if err != nil {
-		return ir.Function{}, err
-	}
-	r.Config, err = typespb.ParamsFromPB(pb.Config)
 	if err != nil {
 		return ir.Function{}, err
 	}
@@ -512,10 +503,6 @@ func FunctionsFromPB(pbs []*Function) ([]ir.Function, error) {
 
 // NodeToPB converts Node to Node.
 func NodeToPB(r ir.Node) (*Node, error) {
-	configVal, err := typespb.ParamsToPB(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	inputsVal, err := typespb.ParamsToPB(r.Inputs)
 	if err != nil {
 		return nil, err
@@ -531,7 +518,6 @@ func NodeToPB(r ir.Node) (*Node, error) {
 	pb := &Node{
 		Key:      r.Key,
 		Type:     r.Type,
-		Config:   configVal,
 		Inputs:   inputsVal,
 		Outputs:  outputsVal,
 		Channels: channelsVal,
@@ -546,10 +532,6 @@ func NodeFromPB(pb *Node) (ir.Node, error) {
 		return r, nil
 	}
 	var err error
-	r.Config, err = typespb.ParamsFromPB(pb.Config)
-	if err != nil {
-		return ir.Node{}, err
-	}
 	r.Inputs, err = typespb.ParamsFromPB(pb.Inputs)
 	if err != nil {
 		return ir.Node{}, err
