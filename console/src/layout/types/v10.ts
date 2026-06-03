@@ -18,18 +18,11 @@ export const VERSION = "10.0.0";
 
 const GET_STARTED_TYPE = "getStarted";
 
-export const panelMetaZ = z.object({
-  key: z.string(),
-  windowKey: z.string(),
-  name: z.string(),
-  pinned: z.boolean(),
-  ephemeral: z.boolean(),
-});
-
-export interface PanelMeta extends z.infer<typeof panelMetaZ> {}
-
+// WindowPanelsState is the per-window session cursor into the project's panels:
+// which panel is active in this window, and which tab within it. The panels
+// themselves (tree, name, membership) are document state owned by the server
+// and read through Flux — they do not live in Redux.
 export const windowPanelsStateZ = z.object({
-  order: z.string().array(),
   active: z.string().nullable(),
   activeTab: z.string().nullable().default(null),
 });
@@ -38,27 +31,15 @@ export interface WindowPanelsState extends z.infer<typeof windowPanelsStateZ> {}
 
 export const sliceStateZ = v9.sliceStateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
-  panels: z.record(z.string(), panelMetaZ),
   windowPanels: z.record(z.string(), windowPanelsStateZ),
 });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
-const DEFAULT_PANEL_NAME = "Default";
-
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   ...v9.ZERO_SLICE_STATE,
   version: VERSION,
-  panels: {
-    main: {
-      key: "main",
-      windowKey: "main",
-      name: DEFAULT_PANEL_NAME,
-      pinned: true,
-      ephemeral: false,
-    },
-  },
-  windowPanels: { main: { order: ["main"], active: "main", activeTab: null } },
+  windowPanels: { main: { active: null, activeTab: null } },
 });
 
 export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
@@ -73,22 +54,9 @@ export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
           return [key, { ...mosaic, root, activeTab }];
         }),
       );
-      const panels: Record<string, PanelMeta> = {};
       const windowPanels: Record<string, WindowPanelsState> = {};
-      for (const windowKey of Object.keys(nextMosaics)) {
-        panels[windowKey] = {
-          key: windowKey,
-          windowKey,
-          name: DEFAULT_PANEL_NAME,
-          pinned: true,
-          ephemeral: false,
-        };
-        windowPanels[windowKey] = {
-          order: [windowKey],
-          active: windowKey,
-          activeTab: null,
-        };
-      }
+      for (const windowKey of Object.keys(nextMosaics))
+        windowPanels[windowKey] = { active: null, activeTab: null };
       return {
         ...rest,
         version: VERSION,
@@ -98,7 +66,6 @@ export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
           ),
         ),
         mosaics: nextMosaics,
-        panels,
         windowPanels,
       };
     },

@@ -27,7 +27,6 @@ export type SliceState = v10.SliceState;
 export type NavDrawerLocation = v0.NavDrawerLocation;
 export type NavDrawerEntryState = v0.NavDrawerEntryState;
 export type WindowProps = v0.WindowProps;
-export type PanelMeta = v10.PanelMeta;
 export type WindowPanelsState = v10.WindowPanelsState;
 export type AnyState<A = unknown> = v0.State<A>;
 export type AnySliceState =

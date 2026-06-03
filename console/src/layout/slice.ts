@@ -29,7 +29,6 @@ export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
 export type WindowProps = latest.WindowProps;
-export type PanelMeta = latest.PanelMeta;
 export type WindowPanelsState = latest.WindowPanelsState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
@@ -161,90 +160,25 @@ export interface SetColorContextPayload {
   state: Color.ContextState;
 }
 
-export interface CreatePanelPayload {
-  windowKey: string;
-  key?: string;
-  name?: string;
-  ephemeral?: boolean;
-  setActive?: boolean;
-}
-
-export interface RemovePanelPayload {
-  windowKey: string;
-  key: string;
-}
-
-export interface RenamePanelPayload {
-  key: string;
-  name: string;
-}
-
 export interface SetActivePanelPayload {
   windowKey: string;
   key: string;
 }
 
-export interface ReorderPanelsPayload {
-  windowKey: string;
-  order: string[];
-}
-
-export interface SetPanelPinnedPayload {
-  key: string;
-  pinned: boolean;
-}
-
-export interface SetPanelEphemeralPayload {
-  key: string;
-  ephemeral: boolean;
-}
-
-/**
- * Returns the active panel key for the given window. Falls back to the window key when
- * no panel record exists yet (e.g., a newly opened window before windowPanels is
- * initialized).
- */
-const activeMosaicKey = (state: SliceState, windowKey: string): string =>
-  state.windowPanels[windowKey]?.active ?? windowKey;
-
-const ensureWindowPanels = (state: SliceState, windowKey: string): string => {
-  let wp = state.windowPanels[windowKey];
-  if (wp != null && wp.active != null) return wp.active;
-  const panelKey = windowKey;
-  state.panels[panelKey] ??= {
-    key: panelKey,
-    windowKey,
-    name: "Default",
-    pinned: true,
-    ephemeral: false,
-  };
-  state.mosaics[panelKey] ??= ZERO_MOSAIC_STATE;
-  if (wp == null) {
-    wp = { order: [panelKey], active: panelKey, activeTab: null };
-    state.windowPanels[windowKey] = wp;
-  } else {
-    if (!wp.order.includes(panelKey)) wp.order.push(panelKey);
-    wp.active = panelKey;
-  }
-  return panelKey;
+// The legacy mosaic (the fallback rendered when no project/panel is active) is keyed
+// per-window. Panel-backed views read their tree from Flux, not from state.mosaics.
+const ensureMosaic = (state: SliceState, windowKey: string): string => {
+  state.mosaics[windowKey] ??= { ...ZERO_MOSAIC_STATE };
+  return windowKey;
 };
 
 const purgeEmptyMosaics = (state: SliceState) => {
-  Object.entries(state.mosaics).forEach(([panelKey, mosaic]) => {
-    const meta = state.panels[panelKey];
-    const windowKey = meta?.windowKey ?? panelKey;
+  Object.entries(state.mosaics).forEach(([windowKey, mosaic]) => {
     if (windowKey === MAIN_WINDOW || !Mosaic.isEmpty(mosaic.root)) return;
-    // Don't purge the active panel — even if empty, it's the user's current view.
-    if (state.windowPanels[windowKey]?.active === panelKey) return;
-    delete state.mosaics[panelKey];
-    delete state.layouts[panelKey];
-    delete state.panels[panelKey];
-    const wp = state.windowPanels[windowKey];
-    if (wp != null) wp.order = wp.order.filter((k) => k !== panelKey);
-    if (wp != null && wp.order.length === 0) {
-      delete state.windowPanels[windowKey];
-      delete state.nav[windowKey];
-    }
+    delete state.mosaics[windowKey];
+    delete state.layouts[windowKey];
+    delete state.windowPanels[windowKey];
+    delete state.nav[windowKey];
   });
 };
 
@@ -303,22 +237,15 @@ export const { actions, reducer } = createSlice({
       let key = layout.key;
 
       const prev = select(state, key);
-      const panelKey = ensureWindowPanels(state, layout.windowKey);
+      const mosaicKeyForWindow = ensureMosaic(state, layout.windowKey);
       if (prev != null) {
         key = prev.key;
         layout.key = prev.key;
       }
 
       if (layout.type === MOSAIC_WINDOW_TYPE) {
-        state.mosaics[key] = ZERO_MOSAIC_STATE;
-        state.panels[key] = {
-          key,
-          windowKey: key,
-          name: "Default",
-          pinned: true,
-          ephemeral: false,
-        };
-        state.windowPanels[key] = { order: [key], active: key, activeTab: null };
+        state.mosaics[key] = { ...ZERO_MOSAIC_STATE };
+        state.windowPanels[key] = { active: null, activeTab: null };
       }
 
       // Clean up the source mosaic when leaving the mosaic location or
@@ -365,7 +292,7 @@ export const { actions, reducer } = createSlice({
       }
 
       state.layouts[key] = layout;
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[mosaicKeyForWindow] = mosaic;
       if (layout.type !== MOSAIC_WINDOW_TYPE) purgeEmptyMosaics(state);
     },
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
@@ -375,14 +302,14 @@ export const { actions, reducer } = createSlice({
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
         if (layout == null || layout.key == MAIN_WINDOW) return;
-        const panelKey = activeMosaicKey(state, layout.windowKey);
-        const mosaic = state.mosaics[panelKey];
+        const mosaicKey = layout.windowKey;
+        const mosaic = state.mosaics[mosaicKey];
         if (layout == null || mosaic == null) return;
         const { location } = layout;
         if (location === "mosaic")
           [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
         delete state.layouts[layout.key];
-        state.mosaics[panelKey] = mosaic;
+        state.mosaics[mosaicKey] = mosaic;
         purgeEmptyMosaics(state);
       });
     },
@@ -395,20 +322,19 @@ export const { actions, reducer } = createSlice({
       const layout = select(state, tabKey);
       if (layout == null) return;
       const prevWindowKey = layout.windowKey;
-      const prevPanelKey = activeMosaicKey(state, prevWindowKey);
       if (windowKey == null || prevWindowKey === windowKey) {
         // This is a redundant operation, so we leave everything as is.
         if (key == null) return;
-        const mosaic = state.mosaics[prevPanelKey];
+        const mosaic = state.mosaics[prevWindowKey];
         [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key, index);
-        state.mosaics[prevPanelKey] = mosaic;
+        state.mosaics[prevWindowKey] = mosaic;
         return;
       }
-      const prevMosaic = state.mosaics[prevPanelKey];
+      const prevMosaic = state.mosaics[prevWindowKey];
       [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
-      state.mosaics[prevPanelKey] = prevMosaic;
-      const panelKey = ensureWindowPanels(state, windowKey);
-      const mosaic = state.mosaics[panelKey];
+      state.mosaics[prevWindowKey] = prevMosaic;
+      ensureMosaic(state, windowKey);
+      const mosaic = state.mosaics[windowKey];
       mosaic.activeTab ??= tabKey;
       state.layouts[layout.key].windowKey = windowKey;
 
@@ -421,7 +347,7 @@ export const { actions, reducer } = createSlice({
       };
 
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[windowKey] = mosaic;
       purgeEmptyMosaics(state);
     },
     setAltKey: (
@@ -437,10 +363,9 @@ export const { actions, reducer } = createSlice({
         payload: { windowKey, direction, tabKey },
       }: PayloadAction<SplitMosaicNodePayload>,
     ) => {
-      const panelKey = activeMosaicKey(state, windowKey);
-      const mosaic = state.mosaics[panelKey];
+      const mosaic = state.mosaics[windowKey];
       mosaic.root = Mosaic.split(mosaic.root, tabKey, direction);
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[windowKey] = mosaic;
     },
     selectMosaicTab: (
       state,
@@ -448,21 +373,20 @@ export const { actions, reducer } = createSlice({
     ) => {
       const layout = select(state, tabKey);
       if (layout == null) return;
-      const panelKey = activeMosaicKey(state, layout.windowKey);
-      const mosaic = state.mosaics[panelKey];
+      const mosaicKey = layout.windowKey;
+      const mosaic = state.mosaics[mosaicKey];
       if (mosaic.activeTab === tabKey) return;
       mosaic.root = Mosaic.selectTab(mosaic.root, layout.key);
       mosaic.activeTab = layout.key;
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[mosaicKey] = mosaic;
     },
     resizeMosaicTab: (
       state,
       { payload: { key, size, windowKey } }: PayloadAction<ResizeMosaicTabPayload>,
     ) => {
-      const panelKey = activeMosaicKey(state, windowKey);
-      const mosaic = state.mosaics[panelKey];
+      const mosaic = state.mosaics[windowKey];
       mosaic.root = Mosaic.resizeNode(mosaic.root, key, size);
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[windowKey] = mosaic;
     },
     rename: (
       state,
@@ -470,11 +394,11 @@ export const { actions, reducer } = createSlice({
     ) => {
       const layout = select(state, tabKey);
       if (layout == null) return;
-      const panelKey = activeMosaicKey(state, layout.windowKey);
-      const mosaic = state.mosaics[panelKey];
+      const mosaicKey = layout.windowKey;
+      const mosaic = state.mosaics[mosaicKey];
       layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
-      state.mosaics[panelKey] = mosaic;
+      state.mosaics[mosaicKey] = mosaic;
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
       if (key != null) state.activeTheme = key;
@@ -643,15 +567,13 @@ export const { actions, reducer } = createSlice({
       { payload: { key, windowKey } }: PayloadAction<SetFocusPayload>,
     ) => {
       if (key == null) {
-        const panelKey = activeMosaicKey(state, windowKey);
-        const mosaic = state.mosaics[panelKey];
+        const mosaic = state.mosaics[windowKey];
         if (mosaic != null) mosaic.focused = null;
         return;
       }
       const layout = select(state, key);
       if (layout == null) return;
-      const panelKey = activeMosaicKey(state, layout.windowKey);
-      const mosaic = state.mosaics[panelKey];
+      const mosaic = state.mosaics[layout.windowKey];
       if (mosaic != null) mosaic.focused = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
@@ -666,8 +588,7 @@ export const { actions, reducer } = createSlice({
       layout.unsavedChanges = payload.unsavedChanges;
 
       if (layout.location === "mosaic") {
-        const panelKey = activeMosaicKey(state, layout.windowKey);
-        const mosaic = state.mosaics[panelKey];
+        const mosaic = state.mosaics[layout.windowKey];
         if (mosaic == null) return;
         mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
           ...tabFromLayout(layout),
@@ -675,82 +596,11 @@ export const { actions, reducer } = createSlice({
         }));
       }
     },
-    createPanel: (state, { payload }: PayloadAction<CreatePanelPayload>) => {
-      const {
-        windowKey,
-        key = id.create(),
-        name = "Untitled",
-        ephemeral = false,
-        setActive = true,
-      } = payload;
-      if (state.panels[key] != null) return;
-      state.panels[key] = {
-        key,
-        windowKey,
-        name,
-        pinned: false,
-        ephemeral,
-      };
-      state.mosaics[key] = { ...ZERO_MOSAIC_STATE };
-      let wp = state.windowPanels[windowKey];
-      if (wp == null) {
-        wp = { order: [], active: null, activeTab: null };
-        state.windowPanels[windowKey] = wp;
-      }
-      if (!wp.order.includes(key)) wp.order.push(key);
-      if (setActive) wp.active = key;
-    },
-    removePanel: (state, { payload }: PayloadAction<RemovePanelPayload>) => {
-      const { windowKey, key } = payload;
-      const panel = state.panels[key];
-      if (panel == null || panel.pinned) return;
-      const wp = state.windowPanels[windowKey];
-      if (wp == null) return;
-      // Remove the layouts owned by this panel's mosaic tabs.
-      const mosaic = state.mosaics[key];
-      if (mosaic != null) {
-        const tabKeys: string[] = [];
-        Mosaic.forEachNode(mosaic.root, (node) => {
-          node.tabs?.forEach((t) => tabKeys.push(t.tabKey));
-        });
-        tabKeys.forEach((tk) => {
-          const layout = state.layouts[tk];
-          if (layout != null && !layout.excludeFromProject) delete state.layouts[tk];
-        });
-      }
-      delete state.panels[key];
-      delete state.mosaics[key];
-      wp.order = wp.order.filter((k) => k !== key);
-      if (wp.active === key) wp.active = wp.order[wp.order.length - 1] ?? null;
-      // Guarantee at least one panel per window.
-      if (wp.order.length === 0) {
-        const defaultKey = id.create();
-        state.panels[defaultKey] = {
-          key: defaultKey,
-          windowKey,
-          name: "Default",
-          pinned: false,
-          ephemeral: false,
-        };
-        state.mosaics[defaultKey] = { ...ZERO_MOSAIC_STATE };
-        wp.order = [defaultKey];
-        wp.active = defaultKey;
-      }
-    },
-    renamePanel: (state, { payload }: PayloadAction<RenamePanelPayload>) => {
-      const panel = state.panels[payload.key];
-      if (panel == null) return;
-      const name = payload.name.trim();
-      if (name.length === 0) return;
-      panel.name = name;
-    },
     setActivePanel: (state, { payload }: PayloadAction<SetActivePanelPayload>) => {
-      state.windowPanels[payload.windowKey] ??= {
-        order: [],
+      const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
-      };
-      const wp = state.windowPanels[payload.windowKey];
+      });
       wp.active = payload.key;
       // Tab focus is scoped to the active panel; reset on switch so the next
       // panel's adapter falls back to its first tab.
@@ -760,32 +610,11 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<{ windowKey: string; key: string | null }>,
     ) => {
-      state.windowPanels[payload.windowKey] ??= {
-        order: [],
+      const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
-      };
-      state.windowPanels[payload.windowKey].activeTab = payload.key;
-    },
-    reorderPanels: (state, { payload }: PayloadAction<ReorderPanelsPayload>) => {
-      const wp = state.windowPanels[payload.windowKey];
-      if (wp == null) return;
-      const valid = payload.order.filter((k) => wp.order.includes(k));
-      if (valid.length !== wp.order.length) return;
-      wp.order = valid;
-    },
-    setPanelPinned: (state, { payload }: PayloadAction<SetPanelPinnedPayload>) => {
-      const panel = state.panels[payload.key];
-      if (panel == null) return;
-      panel.pinned = payload.pinned;
-    },
-    setPanelEphemeral: (
-      state,
-      { payload }: PayloadAction<SetPanelEphemeralPayload>,
-    ) => {
-      const panel = state.panels[payload.key];
-      if (panel == null) return;
-      panel.ephemeral = payload.ephemeral;
+      });
+      wp.activeTab = payload.key;
     },
     hideAllNavDrawers: (state) => {
       Object.values(state.nav).forEach((navState) => {
@@ -822,14 +651,8 @@ export const {
   stopNavHover,
   setUnsavedChanges,
   hideAllNavDrawers,
-  createPanel,
-  removePanel,
-  renamePanel,
   setActivePanel,
   setActiveTab,
-  reorderPanels,
-  setPanelPinned,
-  setPanelEphemeral,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
