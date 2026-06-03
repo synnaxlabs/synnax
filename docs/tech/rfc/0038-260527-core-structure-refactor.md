@@ -27,9 +27,9 @@ the Core has grown:
 
 3. **Uniform versioned type layout.** Metadata services lay out versioned types
    inconsistently (`migrations/legacy/`, `migrations/v55/`, typed `migrations/v0,v1/`,
-   or nothing). This RFC standardizes on `<service>/internal/types/vN/` — one Go package
-   per version, for **every** version including current — holding that version's frozen
-   struct, codec, and `GorpKey`/`OntologyID` methods, with migration functions in
+   or nothing). This RFC standardizes on `<resource>/internal/types/vN/` — one Go
+   package per version, for **every** version including current — holding that version's
+   frozen struct, codec, and `GorpKey`/`OntologyID` methods, with migration functions in
    `types/migrate.go`. This supersedes the `migrations/vN/` layout decided in RFC
    0033/0034.
 
@@ -134,10 +134,10 @@ the persisted-vs-derived split as an unsolved problem.
 ## 2.2 - Inconsistent Versioned Type Layouts
 
 RFC 0033 (Oracle Migration System) and RFC 0034 (Server-Side Metadata Import/Export)
-established `<service>/migrations/vN/` with per-type dense integer versions. But
+established `<resource>/migrations/vN/` with per-type dense integer versions. But
 adoption is partial and the historical reality is messier:
 
-- `schematic`: current type at the service-package root; `migrations/legacy/{v0..v5}`
+- `schematic`: current type at the resource-package root; `migrations/legacy/{v0..v5}`
   holding _opaque JSON blobs_ keyed by semver strings; `migrations/v55` holding an
   Oracle snapshot of the prior shape.
 - `table`: same shape, fewer legacy versions.
@@ -385,7 +385,7 @@ in `imex.go`, the `validate` helper on `Writer`, the change translators in
 of the canonical contract.
 
 ```
-core/pkg/<layer>/<resource>/
+core/pkg/service/<resource>/
 ├── resource.go              # public surface — re-exports the current version
 │   ├── type Key = types.Key
 │   ├── type Resource = types.Resource
@@ -869,17 +869,16 @@ Consolidating the generator work implied above:
 
 ### 4.6.0 - `internal/types/vN/` Output and the Freeze Operation
 
-The output plugin emits each version into `<service>/internal/types/vN/` — one Go
+The output plugin emits each version into `<resource>/internal/types/vN/` — one Go
 package per version, current included — with `types.gen.go` (Resource + gorp.Entry
-methods), `codec.gen.go` (ORC codec), and (for `N ≥ 1`) `migrate.go` (the step
-`v(N-1) → vN`). The current version's `vN/` additionally hosts the hand-written
-`helpers.go` for any method-receiver behavior on `Resource` (§4.3.0). At the package
-level, Oracle emits `internal/types/types.go` (current selector: `type Resource =
-vN.Resource`, `const LatestVersion = vN.Version`) and `internal/types/decode.go`
-(version-dispatch entry point). The one-line public re-export goes into
-`<service>/<service>.go` (`type T = types.T`). Historical `vN/` directories contain
-only generated files; if Oracle finds a hand-written file in a historical directory
-on regeneration, that is an error.
+methods), `codec.gen.go` (ORC codec), and (for `N ≥ 1`) `migrate.go` (the step `v(N-1) →
+vN`). The current version's `vN/` additionally hosts the hand-written `helpers.go` for
+any method-receiver behavior on `Resource` (§4.3.0). At the package level, Oracle emits
+`internal/types/types.go` (current selector: `type Resource = vN.Resource`, `const
+LatestVersion = vN.Version`) and `internal/types/decode.go` (version-dispatch entry
+point). The one-line public re-export goes into `<resource>/<resource>.go` (`type T =
+types.T`). Historical `vN/` directories contain only generated files; if Oracle finds a
+hand-written file in a historical directory on regeneration, that is an error.
 
 A version bump is a **freeze** operation Oracle performs in one pass:
 
@@ -898,7 +897,7 @@ A version bump is a **freeze** operation Oracle performs in one pass:
 4. **Update the dispatch.** `internal/types/decode.go` is regenerated to chain the
    newly-frozen `vN` into the migration walk.
 
-`<service>.<service>.go` and every external caller of `<service>.Resource` are
+`<resource>.<resource>.go` and every external caller of `<resource>.Resource` are
 unchanged.
 
 The first version (`v0`) is a special case: there is no previous current to freeze,
@@ -958,10 +957,9 @@ them on (4.2.0).
 ## 5.3 - Uniform `internal/types/vN/` for Every Version, with Oracle-Moved `helpers.go`
 
 Every version — current included — is a self-contained package under
-`internal/types/vN/`. `internal/types/types.go` re-exports the current one
-(`type T = vN.T`) and `<service>.<service>.go` re-exports that
-(`type T = types.T`). This is a deliberate revision of RFC 0033 §4.3.0 / RFC 0034
-§4.4.2.
+`internal/types/vN/`. `internal/types/types.go` re-exports the current one (`type T =
+vN.T`) and `<resource>.<resource>.go` re-exports that (`type T = types.T`). This is a
+deliberate revision of RFC 0033 §4.3.0 / RFC 0034 §4.4.2.
 
 Uniformity beats asymmetry because the rule about where things live becomes one
 sentence — "everything for version N lives in `vN/`" — instead of "current at the top
