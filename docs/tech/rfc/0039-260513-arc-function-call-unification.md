@@ -23,6 +23,14 @@ function has params. Period. The `ExecBoth` heuristic is replaced by an explicit
 `Trigger` field on `Symbol` that names which param (if any) receives the upstream wire's
 value in flow context.
 
+The same change demotes `Exec` (the `ExecWASM` / `ExecFlow` / `ExecBoth` enum) from a
+structural property to a **superficial gate**. Today `Exec` co-drives composition: it
+selects which parameter array a symbol reads and feeds the trigger heuristic. After this
+RFC a symbol's composition is just its `Inputs` list plus its `Trigger`. `Exec` survives
+only as a thin permission flag describing where a symbol may be called, decoupled from
+how it is built; every symbol is treated as usable in any context by default, and the
+superficial gate is consulted in two places only (Section 4.1).
+
 User-facing Arc syntax does not change. `name(...)`, `name{...}`, and
 `wire -> name{...}` continue to parse, analyze, compile, and run exactly as they do
 today. The change is structural: one parameter list replaces two, one analyzer path
@@ -47,6 +55,13 @@ analyzer guesses whether an upstream wire is a value source or a pure activation
 by inspecting `Exec` and `len(Config)`. The guess happens to be correct for every stdlib
 symbol today because of the mirror trick, but the rule is implicit. Replace it with a
 `Trigger` field on `Symbol` that names the wire-fed param (or declares `TriggerOnly`).
+
+**Demote `Exec` to a superficial gate.** A symbol's composition is its `Inputs` list and
+its `Trigger`. `Exec` no longer selects a parameter array or participates in trigger
+detection; it is reduced to a thin permission flag, consulted only where the analyzer
+and the expression compiler decide whether a symbol may be called in the context it
+appears in (Section 4.1). This RFC strips `Exec` of structural meaning and keeps it only
+as that superficial gate.
 
 **Collapse the two analyzer call-validation paths.** `validateFunctionCall` (parens
 form) and `validateFuncConfig` (brace form) silently agree only because Inputs is
@@ -75,10 +90,13 @@ unified `[]Argument` view.
   `inputList`, the compiler already concatenates the two arrays into an "Inputs"-named
   local, and the slice type is `types.Params`. Renaming the field creates a
   `Params Params` redundancy. `Inputs` stays.
-- **Implementing optional parameter semantics.** The `Optional` field on `Param` exists
-  in the struct but is set to `false` everywhere in this RFC; every param is required.
-  Default substitution at the call site and preserve-on-omit dispatch in host functions
-  remain future work. See [Section 8.1](#81---optional-parameters).
+- **Optional parameter semantics.** Arc already has partial default-value optionality
+  (`name type = literal`; a defaulted param may be omitted, with the "required cannot
+  follow optional" ordering rule). This RFC preserves that behavior unchanged, adds no
+  `Optional` field, and changes nothing about how defaults are substituted or
+  dispatched. Completing optional semantics (an explicit field, reliable call-site
+  default substitution, preserve-on-omit dispatch) is future work that the unification
+  makes easier; see [Section 8.1](#81---optional-parameters).
 
 # 3 - The Problem
 
@@ -108,18 +126,29 @@ Once parity made symbols cross-context, the Config/Inputs split stopped being
 load-bearing. In the pre-parity world it carried real semantic weight: a symbol could
 appear in one context and one only, and the field it landed in named that context. Once
 a symbol could appear in both, the field could no longer name the context, and the
-mirror trick is the proof. If the two fields had still been encoding distinct semantic
-content, copying the same data into both could not possibly have produced correct
-symbols; the mismatch would surface as a real failure. It didn't. The fields had
-collapsed to **declaration site** (which slot a param was placed in: the `{...}` block
-of a user-defined function, or the `Config:` field of a stdlib symbol's Go declaration)
-with no remaining semantic content. What _was_ doing semantic work (wire-feedability) is
-the only piece that needed preservation, and now lives on `Symbol.Trigger`.
+mirror trick is the proof: copying the same data into both fields produces correct
+symbols, which it could not if the two fields still encoded distinct content.
+
+What the split was actually tracking, for the symbols where it still meant anything, is
+**which param the upstream wire feeds**. A mixed-shape flow symbol like `channel.write`
+puts its configured `channel` in one array and its wire-fed `input` in the other, but
+those are not two kinds of param. They are one param list with one entry singled out as
+the wire target. That single fact is the only thing worth preserving, and it now lives
+explicitly on `Symbol.Trigger`. The reframing is the whole RFC in one line: a symbol has
+an `Inputs` list, period, plus a `Trigger` that names which input (if any) a wire sets.
+Everything the Config/Inputs split and the `ExecBoth` mirror were reaching for falls out
+of those two pieces.
 
 This RFC finishes what `ExecBoth` started. The mirror trick was a tactical fix that
 exposed the strategic problem; the strategic fix is to collapse the field whose
 redundancy the workaround already demonstrated, before more symbols accrue the same
 scaffolding.
+
+`Exec` is demoted in the same motion. With composition reduced to `Inputs` plus
+`Trigger`, the `ExecWASM` / `ExecFlow` / `ExecBoth` enum no longer selects a param array
+or feeds the trigger decision. It is kept only as a superficial gate, a thin permission
+flag the analyzer consults to decide where a symbol may be called (Section 4.1); every
+symbol is otherwise treated as usable in any context.
 
 ## 3.1 - The Mirror Trick
 
@@ -181,11 +210,12 @@ must keep its `Inputs`, whereas a stdlib `ExecBoth` symbol (`AST == nil`) drops 
 flow form. But the clause fences off more than user functions — `AST != nil` covers
 **every synthetic or user-authored node that carries a source AST**: user functions,
 inline flow expressions, and format-string (`f"..."`) nodes. Format strings are callable
-in both contexts too, but on a separate path: in flow form, `f"x: {ch}" -> log` registers
-a synthetic `KindFunction` (Exec is the zero value, _not_ `ExecBoth`) whose interpolated
-channel reads happen via host calls and whose activation is stratum membership rather
-than a trigger edge ([arc/go/analyzer/flow/expression.go](../../../arc/go/analyzer/flow/expression.go)).
-So the rule that decides "is this wire a trigger" is now expressed two incompatible ways
+in both contexts too, but on a separate path: in flow form, `f"x: {ch}" -> log`
+registers a synthetic `KindFunction` (Exec is the zero value, _not_ `ExecBoth`) whose
+interpolated channel reads happen via host calls and whose activation is stratum
+membership rather than a trigger edge
+([arc/go/analyzer/flow/expression.go](../../../arc/go/analyzer/flow/expression.go)). So
+the rule that decides "is this wire a trigger" is now expressed two incompatible ways
 across the codebase, and the `AST` half of it is entangled with cross-context mechanisms
 that have nothing to do with `ExecBoth`.
 
@@ -298,27 +328,17 @@ type FunctionProperties struct {
 }
 
 type Param struct {
-    Name     string `json:"name"     msgpack:"name"`
-    Type     Type   `json:"type"     msgpack:"type"`
-    Value    any    `json:"value"    msgpack:"value"`
-    Optional bool   `json:"optional" msgpack:"optional"` // Stub, set all to False (Sec. 8.1)
+    Name  string `json:"name"  msgpack:"name"`
+    Type  Type   `json:"type"  msgpack:"type"`
+    Value any    `json:"value" msgpack:"value"`
 }
 ```
 
 No `BindMode` field, no `Captures()` / `Arguments()` helpers, no per-param tag. Whatever
 "config" vs "input" was trying to encode at the type level is gone. A function has
-params; each param has a name, a type, an optional default, and an optional flag.
-
-**The `Optional` field is a stub in this RFC.** Every stdlib symbol declaration sets
-`Optional: false`; every param is required. This RFC does not implement the semantics
-that would make a `true` value behave any differently: no default-value substitution at
-the call site, no preserve-on-omit handling in host functions. Section 8.1 sketches how
-those land later; the only thing this RFC commits to is leaving the field in place for
-that future work to attach to.
-
-A `Param` gains one internal field (json:`"-"`), `AST antlr.ParserRuleContext`, so the
-symbol-table builder can construct symbols with source-location info without re-walking
-the parse tree. It is not part of the serialized shape.
+params; each param has a name, a type, and an optional default value. This RFC adds no
+new optionality mechanism: the existing default-value optionality is preserved and no
+`Optional` field is introduced (see [Section 2](#2---non-goals)).
 
 Param ordering is preserved as the user declared it. The compiler already produces a
 deterministic order at the WASM ABI layer (`slices.Concat(Config, Inputs)`); the
@@ -331,12 +351,17 @@ byte-for-byte (Section 5).
 
 ```go
 type TriggerBinding struct {
-    // Target names the param that receives the upstream wire's value in flow
-    // context. Empty means the wire is pure activation (no value bound).
+    // Target names the param the upstream wire binds its value to in flow
+    // context. Empty (the zero value, TriggerOnly) means the wire activates the
+    // symbol without binding a value.
     Target string
 }
 
+// TriggerOnly is the zero value: an upstream wire activates the symbol without
+// binding a value to any param.
 var TriggerOnly = TriggerBinding{}
+
+// TriggerInput declares that an upstream wire binds its value to the named param.
 func TriggerInput(name string) TriggerBinding { return TriggerBinding{Target: name} }
 
 type Symbol struct {
@@ -345,33 +370,39 @@ type Symbol struct {
 }
 ```
 
-Every symbol with `Exec` including `ExecFlow` gains an explicit `Trigger:` line. The
-assignment is a mechanical audit driven by today's behavior. Symbols are grouped by
-where they're declared, since the implementer touches each set in a different file
-sweep.
+The two states map directly to today's behavior: a symbol a wire activates without
+feeding a value is `TriggerOnly` (the zero value); a symbol whose wire sets a named
+param is `TriggerInput`. Whether a symbol may appear in flow context at all is the
+superficial gate's concern, not `Trigger`'s (see "Exec as a superficial gate" below).
+`Trigger` describes only what the wire does with its value once the symbol is in flow.
+
+Every symbol whose wire feeds a param gains an explicit `TriggerInput:` line; everything
+else keeps the zero value (`TriggerOnly`). The assignment is a mechanical audit driven
+by today's behavior. Symbols are grouped by where they're declared, since the
+implementer touches each set in a different file sweep.
 
 **Arc stdlib** (`arc/go/stl/`):
 
-| Symbol                                                            | Today (`Exec`, `Config`, `Inputs`)                | Trigger                      |
-| ----------------------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
-| `time.interval`                                                   | `ExecFlow`, `[period]`, none                      | `TriggerOnly`                |
-| `time.wait`                                                       | `ExecFlow`, `[duration]`, none                    | `TriggerOnly`                |
-| `time.now`                                                        | `ExecBoth`, none, none                            | `TriggerOnly`                |
-| `channel.on`                                                      | `ExecFlow`, `[channel]`, none                     | `TriggerOnly`                |
-| `channel.write`                                                   | `ExecFlow`, `[channel]`, `[input]`                | `TriggerInput("input")`      |
-| `constant.constant`                                               | `ExecFlow`, `[value]`, none                       | `TriggerOnly`                |
-| `stable.for`                                                      | `ExecFlow`, `[duration]`, `[input]`               | `TriggerInput("input")`      |
-| `math.avg` / `min` / `max`                                        | `ExecFlow`, `[duration, count]`, `[input, reset]` | `TriggerInput("input")`      |
-| `math.derivative`                                                 | `ExecFlow`, none, `[input]`                       | `TriggerInput("input")`      |
-| `op.{ge,gt,le,lt,eq,ne,and,or}`                                   | `ExecFlow`, none, `[a, b]`                        | `TriggerInput("a")`          |
-| `op.not`                                                          | `ExecFlow`, none, `[input]`                       | `TriggerInput("input")`      |
-| `selector.select`                                                 | `ExecFlow`, none, `[condition]`                   | `TriggerInput("condition")`  |
-| `authority.set`                                                   | `ExecFlow`, `[value, channel]`, `[output]`        | `TriggerInput("output")`     |
-| `math.pow`                                                        | `ExecWASM`, none, varies                          | zero value (never consulted) |
-| `series.len`, `series.{element_*, series_*}` (internal host syms) | `ExecWASM`, none, varies                          | zero value (never consulted) |
-| `string.{from_literal, concat, equal, ...}`                       | `ExecWASM`, none, varies                          | zero value (never consulted) |
-| `state.{load, store, load_series, store_series, ...}`             | `ExecWASM`, none, varies                          | zero value (never consulted) |
-| `error.panic`                                                     | `ExecWASM`, none, `[ptr, len]`                    | zero value (never consulted) |
+| Symbol                                                            | Today (`Exec`, `Config`, `Inputs`)                | Trigger                       |
+| ----------------------------------------------------------------- | ------------------------------------------------- | ----------------------------- |
+| `time.interval`                                                   | `ExecFlow`, `[period]`, none                      | `TriggerOnly`                 |
+| `time.wait`                                                       | `ExecFlow`, `[duration]`, none                    | `TriggerOnly`                 |
+| `time.now`                                                        | `ExecBoth`, none, none                            | `TriggerOnly`                 |
+| `channel.on`                                                      | `ExecFlow`, `[channel]`, none                     | `TriggerOnly`                 |
+| `channel.write`                                                   | `ExecFlow`, `[channel]`, `[input]`                | `TriggerInput("input")`       |
+| `constant.constant`                                               | `ExecFlow`, `[value]`, none                       | `TriggerOnly`                 |
+| `stable.for`                                                      | `ExecFlow`, `[duration]`, `[input]`               | `TriggerInput("input")`       |
+| `math.avg` / `min` / `max`                                        | `ExecFlow`, `[duration, count]`, `[input, reset]` | `TriggerInput("input")`       |
+| `math.derivative`                                                 | `ExecFlow`, none, `[input]`                       | `TriggerInput("input")`       |
+| `op.{ge,gt,le,lt,eq,ne,and,or}`                                   | `ExecFlow`, none, `[a, b]`                        | `TriggerInput("a")`           |
+| `op.not`                                                          | `ExecFlow`, none, `[input]`                       | `TriggerInput("input")`       |
+| `selector.select`                                                 | `ExecFlow`, none, `[output]` (see note)           | `TriggerInput("output")`      |
+| `authority.set`                                                   | `ExecFlow`, `[value, channel]`, `[output]`        | `TriggerInput("output")`      |
+| `math.pow`                                                        | `ExecWASM`, none, varies                          | `TriggerOnly` (not consulted) |
+| `series.len`, `series.{element_*, series_*}` (internal host syms) | `ExecWASM`, none, varies                          | `TriggerOnly` (not consulted) |
+| `string.{from_literal, concat, equal, ...}`                       | `ExecWASM`, none, varies                          | `TriggerOnly` (not consulted) |
+| `state.{load, store, load_series, store_series, ...}`             | `ExecWASM`, none, varies                          | `TriggerOnly` (not consulted) |
+| `error.panic`                                                     | `ExecWASM`, none, `[ptr, len]`                    | `TriggerOnly` (not consulted) |
 
 **Service layer** (`core/pkg/service/arc/`):
 
@@ -387,14 +418,21 @@ block is present, else `TriggerOnly`.
 
 The "mixed-shape" rows (`channel.write`, `stable.for`, `math.*`, `authority.set`) are
 the ones that today have **both** `Config` and `Inputs` populated with **different**
-params. Phase 5 collapses them to a single `Inputs:` list with old `Config` items first
-(matching `slices.Concat(Config, Inputs)` and the codec migration's append order); the
-trigger param is the first old-`Inputs` param. Mirror-trick rows (`status.*`)
-deduplicate; non-mirror rows concat.
+params. The unification collapses them to a single `Inputs:` list with old `Config`
+items first (matching `slices.Concat(Config, Inputs)` and the codec migration's append
+order); the trigger param is the first old-`Inputs` param. Mirror-trick rows
+(`status.*`) deduplicate; non-mirror rows concat.
 
-`ExecWASM`-only symbols leave `Trigger` at the zero value. The runtime never consults
-`Trigger` for symbols that can't appear in flow context, so populating it would be
-noise. The registration invariant accommodates an empty `Target`.
+Pure-computation symbols (`math.pow`, `series.*`, `string.*`, `state.*`, `error.panic`)
+leave `Trigger` at the zero value (`TriggerOnly`); the superficial gate keeps them out
+of flow context, so `Trigger` is never consulted for them and the value is immaterial.
+The registration invariant accommodates an empty `Target`.
+
+**Note on `selector.select`.** Its sole input is named with the `DefaultOutputParam`
+constant (`"output"`) rather than something like `"condition"`, so the `Trigger` target
+must be `TriggerInput("output")` to match the param the code actually declares. Renaming
+the param to `"condition"` is a reasonable cleanup to fold into the stdlib sweep, but it
+is an IR-visible change; absent that rename, the audit uses `"output"`.
 
 A unit test in `stl_test.go` guards the field: `Trigger.Target`, if non-empty, must name
 an existing param on the same symbol. This catches the rename/delete failure mode at
@@ -403,6 +441,25 @@ an existing param on the same symbol. This catches the rename/delete failure mod
 **Why symbol-level, not param-level.** The semantic "which param does the wire feed by
 default" is a function-level decision. It varies per function regardless of which params
 are present. Encoding it on `Symbol` puts it where it logically lives.
+
+**Exec as a superficial gate.** This RFC strips `Exec` of structural meaning. It no
+longer selects a parameter array (there is one `Inputs` list) and no longer feeds the
+trigger decision (that is `Trigger`). What remains is a thin permission flag: a symbol
+is usable in any context by default, and `Exec` is the developer's override naming the
+contexts it is restricted to. The gate is one check,
+`symbol.Exec.Compatible(contextExec)`: an unrestricted symbol passes anywhere, a
+restricted one only where its flag and the calling context agree. It runs in two places:
+
+- [arc/go/analyzer/expression/expression.go](../../../arc/go/analyzer/expression/expression.go):
+  the analyzer-time check.
+- [arc/go/compiler/expression/compiler.go](../../../arc/go/compiler/expression/compiler.go):
+  the same check at compile time.
+
+Both generalize today's one-directional `scope.Exec == symbol.ExecFlow` test to the
+symmetric `Compatible` form: a func-only symbol (`ExecWASM`) is gated out of flow and a
+flow-only symbol out of func by the same rule. LSP completion already uses this filter
+in [arc/go/lsp/completion.go](../../../arc/go/lsp/completion.go) and is unchanged. The
+gate forbids the exceptions the developer declares; it does not define what a symbol is.
 
 ## 4.2 - Unified Call Analyzer
 
@@ -476,14 +533,16 @@ symbol's `Trigger`:
 
 ```go
 target := fn.Trigger.Target
-if target == "" {
-    // wire is pure activation; do not type-check the upstream value
-} else {
+switch {
+case target == "":
+    // TriggerOnly: wire is pure activation; do not type-check the upstream value.
+case suppliedAtCallSite[target]:
+    diag("param '%s' is bound by both call-site args and upstream wire", target)
+default:
+    // TriggerInput: bind the upstream value to the named param.
     targetParam, ok := fn.Type.Inputs.Get(target)
     if !ok {
         diag("symbol '%s' declares Trigger target '%s' but has no such param", name, target)
-    } else if suppliedAtCallSite[target] {
-        diag("param '%s' is bound by both call-site args and upstream wire", target)
     } else {
         atypes.Check(upstreamType, targetParam.Type, ...)
         // emit edge: upstream → targetParam
@@ -491,7 +550,8 @@ if target == "" {
 }
 ```
 
-The `upstreamIsTrigger` heuristic is removed.
+The `upstreamIsTrigger` heuristic is removed. The zero value is `TriggerOnly` (pure
+activation); a flow symbol whose wire feeds a param declares `TriggerInput` explicitly.
 
 # 5 - Codec Migration
 
@@ -499,9 +559,10 @@ The schema change is a wire-format break. Persisted Arc programs (IR JSON, IR ms
 proto) deserialize through a codec migration that translates the pre-refactor shape into
 the unified shape.
 
-**Snapshot.** Copy the pre-refactor `arc/go/types/types.gen.go` and
-`arc/go/ir/types.gen.go` into `arc/go/types/migrations/vN/` and
-`arc/go/ir/migrations/vN/` respectively. Frozen; never regenerates again.
+**Snapshot.** Bumping the codec version makes oracle freeze the pre-refactor
+`arc/go/types/types.gen.go` and `arc/go/ir/types.gen.go` under the respective
+`migrations/vN/` directories. The snapshot is generated
+(`Code generated by oracle. DO NOT EDIT.`), not hand-copied.
 
 **Translation.** `MigrateFunction` and `MigrateNode` walk the vN snapshot:
 
@@ -517,12 +578,15 @@ the migrator and asserts the resulting IR Type-shape matches what a fresh declar
 the new shape produces. Persisted Arc programs from the pre-refactor codec version
 deserialize identically.
 
-**Scope: Go-only deserialization of historical IR.** Persisted Arc programs are
-deserialized exclusively in the Go server (the existing v54 migration test lives only at
-[core/pkg/service/arc/migrations/v54/migrate_test.go](../../../core/pkg/service/arc/migrations/v54/migrate_test.go),
-with no TS or C++ counterpart). The C++ and TypeScript codec bindings regenerated in
-Phase 10 are output consumers only; they receive post-migration data from the Go server
-and never see pre-vN bytes directly. No hand-written C++ or TS migration is required.
+**Scope: Go is assumed to be the deserialization boundary for persisted IR.** The
+existing migrations all live on the Go side
+([core/pkg/service/arc/migrations/v54/migrate_test.go](../../../core/pkg/service/arc/migrations/v54/migrate_test.go),
+with no TS or C++ counterpart), which suggests the Go server deserializes persisted Arc
+programs and hands post-migration data to the C++ and TS bindings. If that holds, those
+bindings never see pre-vN bytes and no hand-written C++ or TS migration is required.
+This assumption should be confirmed with whoever owns the persistence path before
+relying on it; if any non-Go runtime loads pre-vN bytes directly, it needs its own
+migration.
 
 # 6 - Changes by Layer
 
@@ -532,13 +596,12 @@ and never see pre-vN bytes directly. No hand-written C++ or TS migration is requ
 `arc/go/types/migrations/vN/`, `arc/go/ir/types.gen.go`, `arc/go/ir/function.go`,
 `arc/go/ir/node.go`, `arc/go/ir/migrations/vN/`
 
-`types.gen.go` (regenerated): drop `Config` from `FunctionProperties`; add internal
-`AST` field to `Param`. `type.go`: update `Equal` and `paramsEqual` to compare against
-the single Inputs list. `fresh.go`: drop Config freshen. `ir/types.gen.go`
-(regenerated): drop `Config` from `Function` and `Node`. `ir/function.go` and
-`ir/node.go`: drop the Config rendering branch from `Type()` and string output. Both
-`migrations/vN/` directories snapshot the pre-refactor shape; the IR side additionally
-gains a hand-written `migrate.go` (Section 5).
+`types.gen.go` (regenerated): drop `Config` from `FunctionProperties`. `type.go`: update
+`Equal` and `paramsEqual` to compare against the single Inputs list. `fresh.go`: drop
+Config freshen. `ir/types.gen.go` (regenerated): drop `Config` from `Function` and
+`Node`. `ir/function.go` and `ir/node.go`: drop the Config rendering branch from
+`Type()` and string output. Both `migrations/vN/` directories snapshot the pre-refactor
+shape; the IR side additionally gains a hand-written `migrate.go` (Section 5).
 
 ## 6.1 - Symbol Table
 
@@ -685,79 +748,34 @@ consult, the Trigger registration invariant, and the status.set hook collapse (S
 
 # 7 - Implementation Plan
 
-The implementation runs in two halves separated by a **review-and-evaluate gate**.
-Phases 0-8 are all hand-written productive code; Phases 9-13 are mechanical (schema
-sync, full codegen, integration). The gate exists so reviewers can read the hand-written
-diff in isolation, before generated noise enters the picture.
+The change ships as a **stack of PRs, one per logical step**, each branched off the
+previous and reviewed on its own diff. Schema sync and full codegen land **first**, in
+their own PR, so the large generated diff is isolated and every later PR is a pure
+hand-written change against the final generated shape. Bumping the codec version makes
+oracle freeze the pre-refactor snapshot under `migrations/vN/` as part of that codegen;
+there is no separate hand-copied snapshot step, and no generated file is hand-edited.
 
-**Phase 0: Snapshot.** Copy four current generated files into `migrations/vN/`:
-`arc/go/types/{types,codec}.gen.go` and `arc/go/ir/{types,codec}.gen.go`. Pure
-mechanical move, no logic change. Oracle regenerates these in Phase 10; the manual
-snapshot exists so Phase 8 can reference the frozen pre-refactor shape while writing
-hand-written migration logic before the gate.
+Because codegen drops `Config` up front, the tree does not build until the last reader
+of `.Config` is converted near the end of the stack. Intermediate PRs are reviewed on
+their diff, not on a green CI run; the change merges to `rc` only once the full stack is
+green, so `rc` never observes the broken intermediate state. The test sweep is
+consolidated into a single late PR rather than spread inline.
 
-**Phase 1: Minimal type-system seed.** The one unavoidable hand-edit to a `.gen.go`
-file: remove `Config` from `FunctionProperties` and add the internal `AST` field to
-`Param`. Phase 10 codegen overwrites this with identical content.
+A **design-evaluation gate** follows the analyzer collapse (`call.Analyze` plus the flow
+`Trigger` consult), which is the core of the change. The reviewer decides whether the
+unified `Inputs` + `Trigger` shape holds up against the hardest stdlib symbols before
+the mechanical spread into stdlib, C++, tests, and migration. The service-layer shrink
+and the migration round-trip are later confirmations, not prerequisites for that
+decision.
 
-**Phase 2: Symbol, hooks, Trigger.** `TriggerBinding` type and helpers,
-`AnalyzeArguments` hook, registration-time invariant for `Trigger.Target`.
-
-**Phase 3: Analyzer collapse.** The main payoff. New `arc/go/analyzer/call/` package.
-`validateFunctionCall` and `validateFuncConfig` bodies are deleted; their call sites
-delegate to `call.Analyze`. flow.go upstream-handling collapses around `fn.Trigger`
-consult.
-
-**Phase 4: Downstream consumers.** Compiler, graph, text-to-IR, IR rendering, runtime
-edge alignment.
-
-**Phase 5: Stdlib, LSP, service layer.** Every stdlib symbol gains explicit `Trigger:`.
-`Config:` declarations rename to `Inputs:`. Mirror-trick symbols deduplicate.
-`status/status.go` collapses its dual-hook code.
-
-**Phase 6: C++ runtime hand-written sites.** `cfg.node.config` → `cfg.node.inputs`.
-
-**Phase 7: Test fixture updates.** Mechanical: `Config:` declarations across Go, C++,
-and TS test files fold into `Inputs:`.
-
-**Phase 8: Codec migration logic.** Hand-write `arc/go/ir/migrations/vN/migrate.go` with
-`MigrateFunction` and `MigrateNode` overrides that merge the old `Config + Inputs` lists
-into the unified `Inputs` (the auto-generated `migrate_auto.gen.go` produced in Phase 10
-does only 1:1 field mapping and cannot infer the merge). Add round-trip tests in
-`migrate_test.go`. The types-side migration is purely the codec snapshot from Phase 0;
-no hand-written migrate.go is needed there. Both this file and Phase 1's seed reference
-shapes that don't exist until Phase 10 codegen completes, so the branch will not compile
-at the gate.
-
-> ### 🛑 Review-and-Evaluate Gate 🛑
->
-> **Commit, push, request review.** At this point the diff is entirely hand-written
-> productive code. The reviewer can read the design without scrolling past generated
-> noise. The branch does NOT compile: most references to the new shape are dangling
-> until Phase 9 edits the schema and Phase 10 regenerates the generated bindings (and
-> the migration auto-mapper that Phase 8's `migrate.go` wraps). That is intentional.
-> Inspection targets: Phase 3 analyzer collapse, Phase 5 stdlib and service-layer
-> cleanup, Phase 8 migration translation.
-
-**Phase 9: Schema sync.** Edit `schemas/arc/types.oracle` and `schemas/arc/ir.oracle`.
-
-**Phase 10: Full codegen.** Run the project's code generators end-to-end. Verification:
-the Phase 1 hand-edit to `arc/go/types/types.gen.go` should be overwritten with an
-_identical_ result. A non-zero diff is a bug to fix.
-
-**Phase 11: Build, test, lint.** Everything compiles end-to-end for the first time. Go
-build + test, C++ build + test, TS test, `golangci-lint run ./...`, and
-`scripts/check_gofmt.sh`.
-
-**Phase 12: Integration tests.** Full build sequence per
-[docs/claude/testing.md](../../../docs/claude/testing.md), then
-`cd integration && uv run tc arc`.
-
-**Phase 13: Pluto reconciliation.** Grep `pluto/src/arc/` for any site directly
-constructing `ir.Node` or `ir.Function` payloads with a `config:` literal. The surface
-is expected to be narrow: most `config:` references in `pluto/src/arc/` are unrelated
-wrapper objects (e.g. `{ arcKey }`). Update any hits to fold `config: {...}` into
-`inputs: [...]`. Smoke test in console.
+The hand-written codec migration (`arc/go/ir/migrations/vN/migrate.go`) wraps the
+generated `migrate_auto.gen.go`, merging the old `Config + Inputs` lists into the
+unified `Inputs` (old `Config` first, to preserve WASM ABI ordering) and deduplicating
+the mirror-trick symbols; the auto-mapper only does 1:1 field mapping and cannot infer
+the merge. The types-side migration needs no hand-written `migrate.go` (types are
+referenced by IR, not persisted independently). The final PR builds and tests
+end-to-end, runs the integration suite, and reconciles any `pluto/src/arc/` sites that
+construct `ir.Node` / `ir.Function` payloads with a `config:` literal.
 
 # 8 - Future Work
 
@@ -837,12 +855,15 @@ No stance is taken here. The trigger-as-argument RFC will pick one.
 
 ## 8.1 - Optional Parameters
 
-Today every Arc function call must supply every declared param. The `Optional` field on
-`Param` (Section 4.0) gives the type system a place to mark a param as optional, but
-this RFC does not implement the call-site or runtime behavior that flag would control. A
-follow-on RFC will specify the semantics: likely a mix of compile-time default
-substitution (for the `Value` field) and runtime preserve-on-omit dispatch (handle-0
-sentinel for host functions), along the lines RFC 0037 §5.0.0 sketches.
+Arc's default-value optionality today is partial: a param with a `= literal` default may
+be omitted, but the mechanism is incomplete (e.g. `status.set`'s empty-string defaults
+exist only to make the brace/flow form parse, and fail their own validation when relied
+on). A follow-on RFC will complete it. **The following is purely hypothetical**,
+included only to show the unification leaves room for it. That RFC would add an
+`Optional bool` field to `Param` and specify the semantics behind it: likely a mix of
+compile-time default substitution (reading the existing `Value` field) and runtime
+preserve-on-omit dispatch (a handle-Nil sentinel for host functions), along the lines
+RFC 0037 §5.0.0 sketches. None of that field or behavior exists in this RFC.
 
 The unification here makes that follow-on substantially smaller. Under today's split,
 optional-arg handling has to be wired through two analyzer paths (`validateFunctionCall`
@@ -860,34 +881,12 @@ wire-bound args also opens the door to optional args with default values.
 
 # 9 - Change Footprint
 
-Order-of-magnitude estimates per area. Productive code (everything except codec
-migration scaffolding) is net-negative, matching the intuition for a tech-debt-paydown
-refactor. The codec migration scaffolding is one-time boilerplate (snapshot of
-pre-refactor types + a mechanical `Migrate*`) and tips the gross total positive.
-
-| Area                                                                   |     Added |   Removed |      Net |
-| ---------------------------------------------------------------------- | --------: | --------: | -------: |
-| Schema + generated bindings (Go, C++, TS)                              |      ~140 |      ~175 |      -35 |
-| Type-system hand-written (`type.go`, `fresh.go`)                       |       ~15 |       ~20 |       -5 |
-| Symbol & hooks (`symbol.go`, `hooks.go`, `scope.go`)                   |       ~50 |       ~43 |       +7 |
-| **Analyzer core** (`call/`, `expression.go`, `flow.go`, `function.go`) |  **~400** |  **~620** | **-220** |
-| Per-stdlib `Trigger:` assignments (~30 symbols × 1 line)               |       ~30 |         0 |      +30 |
-| Compiler & runtime (`compiler.go`, `state.go`, C++ runtime)            |       ~40 |       ~50 |      -10 |
-| Text → IR (`text/analyze.go`)                                          |       ~25 |       ~60 |      -35 |
-| Graph compilation (`graph/analyze.go`)                                 |       ~20 |       ~50 |      -30 |
-| LSP (`hover.go`, `completion.go`)                                      |       ~15 |       ~25 |      -10 |
-| Stdlib (Go: `time`, `stable`, `channel`, `op`, `math`, etc.)           |      ~120 |      ~140 |      -20 |
-| **Service-layer (`status/status.go`)**                                 |   **~25** |  **~110** |  **-85** |
-| Test fixture updates                                                   |      ~270 |      ~310 |      -40 |
-| Pluto frontend                                                         |       ~15 |       ~15 |        0 |
-| **Subtotal (productive code)**                                         | **~1165** | **~1618** | **-453** |
-| Codec migration vN (one-time scaffolding)                              |      ~550 |         0 |     +550 |
-| **Grand total**                                                        | **~1715** | **~1618** |  **+97** |
-
-Productive code lands at **-453 net lines**. The analyzer alone removes ~220 net lines;
-the service-layer status code shrinks by ~85 net lines; stdlib registrations contract
-because Config-to-Inputs renaming is a wash and the dual-list ExecBoth symbols dedupe.
-The codec migration scaffolding is the only thing keeping the gross total above zero.
+Productive code (everything except codec migration scaffolding) is net-negative,
+matching the intuition for a tech-debt-paydown refactor: the analyzer collapse and the
+service-layer status cleanup dominate the deletions, while Config-to-Inputs renaming is
+a wash and the dual-list `ExecBoth` symbols dedupe. The codec migration scaffolding is
+one-time boilerplate (the oracle-generated pre-refactor snapshot plus a mechanical
+`Migrate*`) and is the only thing that tips the gross total positive.
 
 # 10 - Test Coverage
 
@@ -903,10 +902,10 @@ New tests required by this change:
 
 - **Migration round-trip**: pre-vN IR JSON / msgpack / proto deserialize, migrate, and
   produce IR Type-shape identical to a fresh declaration in the new shape.
-- **`call.Analyze` shared validation**: argument count, type, name resolution, default
-  substitution, unknown-name detection, duplicate-name detection, verified once against
-  both parens and brace surface forms. Today's coverage duplicates each scenario across
-  two test files.
+- **`call.Analyze` shared validation**: argument count, type, name resolution,
+  unknown-name detection, duplicate-name detection, verified once against both parens
+  and brace surface forms. Today's coverage duplicates each scenario across two test
+  files.
 - **Trigger consult**: a flow call to a `TriggerOnly` symbol does not type-check the
   upstream; a flow call to a `TriggerInput("x")` symbol type-checks the upstream against
   the `x` param's type and rejects type mismatches.
@@ -956,15 +955,15 @@ today.
 # 12 - Risks and Open Questions
 
 **Pluto direct IR construction.** Some tile components may construct `ir.Node` with
-`config:` literals at the API layer. Needs grep during Phase 13. The migration is
-mechanical (`config: {...}` folds into `inputs: [...]`), but the sites have to be found
-first.
+`config:` literals at the API layer. Needs a grep during the Pluto reconciliation step.
+The migration is mechanical (`config: {...}` folds into `inputs: [...]`), but the sites
+have to be found first.
 
 **WASM ABI ordering.** WASM offsets in
 [arc/go/stl/wasm/wasm.go](../../../arc/go/stl/wasm/wasm.go) depend on the order the
 compiler concat already produces (Config first, then Inputs). The migration appends in
-that same order, so offsets stay stable. Phase 8's migration tests verify byte-equal IR
-for the same source.
+that same order, so offsets stay stable. The migration round-trip tests verify
+byte-equal IR for the same source.
 
 **Hook ctx type assertion.** Today's hooks switch on the concrete `acontext.Context[T]`
 type. The unified `AnalyzeArguments` could keep `ctx any` and let each hook type-assert
