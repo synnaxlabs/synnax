@@ -32,26 +32,32 @@ export const useSelect = (key: string): State =>
 export const useSelectOptional = (key: string): State | undefined =>
   useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
 
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
+
 export const selectEditable = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.editable ?? false;
+  select(state, key).editable;
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectHideIndicators = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.hideIndicators ?? false;
+  select(state, key).hideIndicators;
 
 export const useSelectHideIndicators = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectHideIndicators(state, key), [key]);
 
 export const selectSelectedCellKeys = (state: StoreState, key: string): string[] =>
-  selectOptional(state, key)?.selectedCells ?? [];
+  select(state, key).selectedCells;
 
 export const useSelectSelectedCellKeys = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelectedCellKeys(state, key), [key]);
 
 export const selectLastSelected = (state: StoreState, key: string): string | null =>
-  selectOptional(state, key)?.lastSelected ?? null;
+  select(state, key).lastSelected;
 
 export const useSelectLastSelected = (key: string): string | null =>
   useMemoSelect((state: StoreState) => selectLastSelected(state, key), [key]);

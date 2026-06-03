@@ -247,6 +247,36 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("extending enum as a struct field", func() {
+			It("Should encode/decode an extending enum field as a plain string enum", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+
+					Plot struct {
+						axis_key AxisKey
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("w.String(string(p.AxisKey))")
+				content.ToContain("p.AxisKey = AxisKey(v)")
+			})
+		})
+
 		Context("non-optional array alias field", func() {
 			It("Should handle a type alias that wraps an array", func() {
 				source := `

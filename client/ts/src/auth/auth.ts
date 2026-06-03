@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -113,7 +113,7 @@ export class Client {
             };
             return null;
           } catch (err) {
-            return err instanceof Error ? err : new Error(String(err));
+            return errors.fromUnknown(err);
           }
         })();
         const err = await this.authenticating;
@@ -129,10 +129,10 @@ export class Client {
           this.authState = { authenticated: false };
           this.authenticating = undefined;
           this.retryCount += 1;
-          return mw(reqCtx, next);
+          return await mw(reqCtx, next);
         }
         this.retryCount = 0;
-        throw err;
+        throw errors.fromUnknown(err);
       }
     };
     return mw;

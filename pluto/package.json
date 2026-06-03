@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.56.1",
+  "version": "0.56.3",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -39,6 +39,7 @@
     "react": "catalog:",
     "react-color": "^2.19.3",
     "react-icons": "catalog:",
+    "stacktrace-js": "^2.0.2",
     "use-sync-external-store": "^1.6.0",
     "zod": "catalog:"
   },

@@ -409,7 +409,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
 			zodType := primitiveToZod(typeOverride, data)
 			if validateDomain, ok := td.Domains["validate"]; ok {
-				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
+				result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
 				zodType = result.ZodType
 			}
 			if toNumber {
@@ -442,7 +442,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Base, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		if toNumber {
@@ -475,7 +475,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Target, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Target, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		return typeDefData{
@@ -1089,8 +1089,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = primitiveToZod(typeOverride, data)
 		fd.TSType = primitiveToTS(typeOverride)
 		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
-		if validateDomain, ok := field.Domains["validate"]; ok {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
+		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
 				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
@@ -1104,17 +1104,17 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
-		if validateDomain, ok := field.Domains["validate"]; ok {
+		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
 			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
 				paramPart := fd.ZodType[:sepIndex]
 				fallbackPart := fd.ZodType[sepIndex+4:]
-				result := p.applyValidation(fallbackPart, validateDomain, field.Type, field.Name, table, data)
+				result := p.applyValidation(fallbackPart, validateDomain, field.Default, field.Type, field.Name, table, data)
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 				}
 			} else {
-				result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
+				result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
@@ -1651,12 +1651,12 @@ type validationResult struct {
 	HasDefault bool
 }
 
-func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
 	rules := validation.Parse(domain)
-	if validation.IsEmpty(rules) {
+	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
-	hasDefault := rules.Default != nil
+	hasDefault := defaultVal != nil
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1698,13 +1698,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			}
 		}
 	}
-	if rules.Default != nil {
-		switch rules.Default.Kind {
+	if defaultVal != nil {
+		switch defaultVal.Kind {
 		case resolution.ValueKindString:
-			zodType = fmt.Sprintf("%s.default(%q)", zodType, rules.Default.StringValue)
+			zodType = fmt.Sprintf("%s.default(%q)", zodType, defaultVal.StringValue)
 		case resolution.ValueKindInt:
 			// Special handling for timestamp/timespan with default of 0
-			if rules.Default.IntValue == 0 {
+			if defaultVal.IntValue == 0 {
 				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
 					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
@@ -1712,29 +1712,29 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
 				} else {
-					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+					zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 				}
 			} else {
-				zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+				zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 			}
 		case resolution.ValueKindFloat:
-			zodType = fmt.Sprintf("%s.default(%f)", zodType, rules.Default.FloatValue)
+			zodType = fmt.Sprintf("%s.default(%f)", zodType, defaultVal.FloatValue)
 		case resolution.ValueKindBool:
-			zodType = fmt.Sprintf("%s.default(%t)", zodType, rules.Default.BoolValue)
+			zodType = fmt.Sprintf("%s.default(%t)", zodType, defaultVal.BoolValue)
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if rules.Default.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
+			if defaultVal.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
 			// Handle "create" for auto-generating string keys
 			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
+			if defaultVal.IdentValue == "create" && (isString || primitive == "string") {
 				addXImport(data, xImport{name: "id", submodule: "id"})
 				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
 			}
-			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
 			}
 		}

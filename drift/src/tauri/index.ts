@@ -144,10 +144,17 @@ export class TauriRuntime<
               },
               undefined,
               "WHITELIST",
-            ).catch(console.error);
+            ).catch((err: unknown) => {
+              console.error(
+                `failed to emit fullscreen change for ${this.win.label}`,
+                err,
+              );
+            });
           }
         })
-        .catch(console.error);
+        .catch((err: unknown) => {
+          console.error(`failed to poll fullscreen state for ${this.win.label}`, err);
+        });
     }, MACOS_FULLSCREEN_POLL_INTERVAL.milliseconds);
   }
 
@@ -157,7 +164,9 @@ export class TauriRuntime<
     if (runtime.getOS() === "macOS") return;
     if (this.monitorChangePoll != null) clearInterval(this.monitorChangePoll);
     this.monitorChangePoll = setInterval(() => {
-      this.repositionIfOffScreen().catch(console.error);
+      this.repositionIfOffScreen().catch((err: unknown) => {
+        console.error(`failed to reposition off-screen window ${this.win.label}`, err);
+      });
     }, MONITOR_CHANGE_POLL_INTERVAL.milliseconds);
   }
 
@@ -213,10 +222,20 @@ export class TauriRuntime<
             .then((action) => {
               if (action != null)
                 this.emit({ action: action as A }, undefined, "WHITELIST").catch(
-                  console.error,
+                  (err: unknown) => {
+                    console.error(
+                      `failed to emit window prop change "${key}" for ${this.win.label}`,
+                      err,
+                    );
+                  },
                 );
             })
-            .catch(console.error);
+            .catch((err: unknown) => {
+              console.error(
+                `failed to handle window prop change "${key}" for ${this.win.label}`,
+                err,
+              );
+            });
         }, debounce),
       );
   }

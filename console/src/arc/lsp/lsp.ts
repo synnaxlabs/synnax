@@ -15,7 +15,7 @@ import * as vscodeExtensionApi from "@codingame/monaco-vscode-extension-api";
 import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import { type arc, type Synnax } from "@synnaxlabs/client";
 import { EOF, type Stream } from "@synnaxlabs/freighter";
-import { breaker, type destructor, TimeSpan } from "@synnaxlabs/x";
+import { breaker, type destructor, errors, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import {
@@ -231,17 +231,14 @@ const createFreighterTransport = ({
         try {
           msg = await stream.receive();
         } catch (err) {
-          if (!EOF.matches(err))
-            onErrorCallback?.(err instanceof Error ? err : new Error(String(err)));
+          if (!EOF.matches(err)) onErrorCallback?.(errors.fromUnknown(err));
           break;
         }
         try {
           const parsed = JSON.parse(msg.content);
           onMessageCallback?.(parsed);
         } catch (parseError) {
-          onErrorCallback?.(
-            parseError instanceof Error ? parseError : new Error(String(parseError)),
-          );
+          onErrorCallback?.(errors.fromUnknown(parseError));
         }
       }
     } finally {
@@ -254,7 +251,7 @@ const createFreighterTransport = ({
   const reader: MessageReader = {
     listen: (callback) => {
       onMessageCallback = callback;
-      receiveLoop().catch((err) => onErrorCallback?.(err));
+      receiveLoop().catch((err: unknown) => onErrorCallback?.(errors.fromUnknown(err)));
       return { dispose: () => (onMessageCallback = null) };
     },
     dispose: () => (isClosed = true),
@@ -461,11 +458,15 @@ export const use = (client: Synnax | null, monaco: unknown): void => {
         }
       }
     };
-    run().catch(console.error);
+    run().catch((err: unknown) => {
+      console.error("connection loop threw", err);
+    });
     return () => {
       abortController.abort();
       if (currentHandle != null)
-        stopLSPClient(currentHandle.client).catch(console.error);
+        stopLSPClient(currentHandle.client).catch((err: unknown) => {
+          console.error("failed to stop LSP client", err);
+        });
       if (currentStream != null) closeLSPStream(currentStream);
     };
   }, [client, monaco]);

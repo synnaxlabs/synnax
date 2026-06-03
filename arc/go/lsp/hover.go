@@ -439,7 +439,7 @@ func resolveDotted(
 	name string,
 ) (*symbol.Symbol, error) {
 	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head)
+	sym, err := scope.Resolve(ctx, head, symbol.WithoutUsageTracking)
 	if err != nil {
 		return nil, err
 	}
