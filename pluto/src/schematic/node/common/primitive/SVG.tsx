@@ -38,7 +38,6 @@ export const SVG = ({
 }: SVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
   let pStyle = {
     ...style,
@@ -59,8 +58,6 @@ export const SVG = ({
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
       className={CSS(CSS.loc(orientation), className)}
-      fill={colorStr}
-      stroke={colorStr}
       {...rest}
       style={pStyle}
     >

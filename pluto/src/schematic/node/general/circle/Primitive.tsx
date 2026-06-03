@@ -62,12 +62,11 @@ export const Circle = ({
           id="4"
         />
       </Handle.Boundary>
-      <Primitive.SVG dimensions={{ width, height }}>
+      <Primitive.SVG dimensions={{ width, height }} color={colorVal}>
         <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={color.cssString(colorVal)}
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />

@@ -45,8 +45,33 @@
         }
     }
 
+    /* Achromatic colors (near black/white/grey) snap to the theme's hard extreme;
+       chromatic colors keep their hue and only clamp lightness into a gentle band.
+       Weight blends the two by chroma so there is no hard edge. */
     & svg {
+        --pluto-symbol-display: oklch(
+            from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
+            calc(
+                clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
+                    (
+                        1 - clamp(
+                                0,
+                                (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                    var(--pluto-symbol-c-thresh, 0.045),
+                                1
+                            )
+                    ) + var(--pluto-symbol-l-extreme, 0) * clamp(
+                            0,
+                            (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                var(--pluto-symbol-c-thresh, 0.045),
+                            1
+                        )
+            )
+            c h
+        );
+
         overflow: visible;
+        stroke: var(--pluto-symbol-display);
     }
 
     &:not(.pluto-symbol--custom) svg {
