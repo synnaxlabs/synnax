@@ -24,10 +24,14 @@ type Key = uuid.UUID
 // resolved at render time from the referenced resource. The same resource may be
 // referenced by multiple tabs in the same or other panels.
 type Tab struct {
-	// Key is the unique identifier of this tab within the panel.
+	// Key is the stable unique identifier of this tab within the panel. It is independent
+	// of the referenced resource, so a tab's resource may be swapped without changing the
+	// tab's identity or position.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Resource is the visualization resource displayed by this tab.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	// Resource is the visualization resource displayed by this tab. It is null until a
+	// resource is chosen; a null-resource tab renders the visualization selector at render
+	// time and is swapped to a real resource via SetTabResource.
+	Resource *ontology.ID `json:"resource,omitempty" msgpack:"resource,omitempty"`
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.

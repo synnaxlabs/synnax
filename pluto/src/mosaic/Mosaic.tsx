@@ -120,8 +120,15 @@ export const Mosaic = memo(
     };
 
     const handleResize = useCallback(
-      ([size]: number[]) => onResize(key, size),
-      [onResize],
+      ([size]: number[]) => {
+        // Only splits have a divider to resize. useMultiple fires onResize on mount
+        // (not just on drags), so without this guard a leaf node — e.g. a freshly
+        // created single-pane root — would emit a resize for a node that can't be
+        // resized, which strict consumers (the panel server reducer) reject.
+        if (first == null || last == null) return;
+        onResize(key, size);
+      },
+      [onResize, key, first, last],
     );
 
     const { props: resizeProps } = Resize.useMultiple({

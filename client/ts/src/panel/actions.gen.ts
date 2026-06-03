@@ -13,6 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { ontology } from "@/ontology";
 import { keyZ, type Panel, tabZ } from "@/panel/types.gen";
 
 /**
@@ -85,6 +86,19 @@ export const resizeSplitPayloadZ = z.object({
 
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 
+/**
+ * SetTabResource sets the visualization resource displayed by the tab with the
+ * given key, swapping it in place without changing the tab's
+ * identity or position. Used to fill a freshly inserted
+ * null-resource tab once the user picks a visualization.
+ */
+export const setTabResourcePayloadZ = z.object({
+  key: z.uuid(),
+  resource: ontology.idZ,
+});
+
+export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
+
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("insert_tab"), insertTab: insertTabPayloadZ }),
@@ -92,6 +106,10 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("move_tab"), moveTab: moveTabPayloadZ }),
   z.object({ type: z.literal("split_leaf"), splitLeaf: splitLeafPayloadZ }),
   z.object({ type: z.literal("resize_split"), resizeSplit: resizeSplitPayloadZ }),
+  z.object({
+    type: z.literal("set_tab_resource"),
+    setTabResource: setTabResourcePayloadZ,
+  }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -126,6 +144,11 @@ export const resizeSplit = (payload: ResizeSplitPayload): Action => ({
   resizeSplit: payload,
 });
 
+export const setTabResource = (payload: SetTabResourcePayload): Action => ({
+  type: "set_tab_resource",
+  setTabResource: payload,
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Panel, Action>;
@@ -137,6 +160,10 @@ export interface Handlers {
   moveTab: (state: Draft<Panel>, payload: MoveTabPayload) => HandlerResult;
   splitLeaf: (state: Draft<Panel>, payload: SplitLeafPayload) => HandlerResult;
   resizeSplit: (state: Draft<Panel>, payload: ResizeSplitPayload) => HandlerResult;
+  setTabResource: (
+    state: Draft<Panel>,
+    payload: SetTabResourcePayload,
+  ) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -154,6 +181,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.splitLeaf(state, action.splitLeaf);
       case "resize_split":
         return handlers.resizeSplit(state, action.resizeSplit);
+      case "set_tab_resource":
+        return handlers.setTabResource(state, action.setTabResource);
     }
   });
 

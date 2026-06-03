@@ -20,13 +20,15 @@ import (
 
 // TabToPB converts Tab to Tab.
 func TabToPB(r panel.Tab) (*Tab, error) {
-	resourceVal, err := ontologypb.IDToPB(r.Resource)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Tab{
-		Key:      r.Key.String(),
-		Resource: resourceVal,
+		Key: r.Key.String(),
+	}
+	if r.Resource != nil {
+		var err error
+		pb.Resource, err = ontologypb.IDToPB(*r.Resource)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -42,9 +44,12 @@ func TabFromPB(pb *Tab) (panel.Tab, error) {
 	if err != nil {
 		return panel.Tab{}, err
 	}
-	r.Resource, err = ontologypb.IDFromPB(pb.Resource)
-	if err != nil {
-		return panel.Tab{}, err
+	if pb.Resource != nil {
+		val, err := ontologypb.IDFromPB(pb.Resource)
+		if err != nil {
+			return panel.Tab{}, err
+		}
+		r.Resource = &val
 	}
 	return r, nil
 }

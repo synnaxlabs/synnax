@@ -9,6 +9,7 @@
 
 import "@/selector/Selector.css";
 
+import { type ontology } from "@synnaxlabs/client";
 import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
@@ -21,6 +22,10 @@ export interface SelectableProps {
   rename: Modals.PromptRename;
   onPlace: Layout.Placer;
   handleError: Status.ErrorHandler;
+  // onResolved, when provided, switches selectables from placing a layout to
+  // creating the resource and handing its ontology.ID back to the caller. The
+  // panel mosaic uses this to swap a null-resource tab's resource in place.
+  onResolved?: (resource: ontology.ID) => void;
 }
 
 export interface Selectable extends FC<SelectableProps> {
@@ -28,15 +33,18 @@ export interface Selectable extends FC<SelectableProps> {
   useVisible?: () => boolean;
 }
 
-export interface SelectorProps extends Layout.RendererProps {
+export interface SelectorProps {
+  layoutKey: string;
   text: string;
   selectables: Selectable[];
+  onResolved?: (resource: ontology.ID) => void;
 }
 
 export const Selector = ({
   layoutKey,
   selectables,
   text,
+  onResolved,
 }: SelectorProps): ReactElement => {
   const place = Layout.usePlacer();
   const rename = Modals.useRename();
@@ -68,6 +76,7 @@ export const Selector = ({
               rename={rename}
               onPlace={place}
               handleError={handleError}
+              onResolved={onResolved}
             />
           ))}
         </Flex.Box>

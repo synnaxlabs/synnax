@@ -39,10 +39,14 @@ const (
 // referenced by multiple tabs in the same or other panels.
 type Tab struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the unique identifier of this tab within the panel.
+	// key is the stable unique identifier of this tab within the panel. It is independent
+	// of the referenced resource, so a tab's resource may be swapped without changing the
+	// tab's identity or position.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// resource is the visualization resource displayed by this tab.
-	Resource      *pb.ID `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
+	// resource is the visualization resource displayed by this tab. It is null until a
+	// resource is chosen; a null-resource tab renders the visualization selector at render
+	// time and is swapped to a real resource via SetTabResource.
+	Resource      *pb.ID `protobuf:"bytes,2,opt,name=resource,proto3,oneof" json:"resource,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -340,10 +344,11 @@ var File_core_pkg_service_panel_pb_panel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"Q\n" +
+	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"c\n" +
 	"\x03Tab\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x128\n" +
-	"\bresource\x18\x02 \x01(\v2\x1c.distribution.ontology.pb.IDR\bresource\"1\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12=\n" +
+	"\bresource\x18\x02 \x01(\v2\x1c.distribution.ontology.pb.IDH\x00R\bresource\x88\x01\x01B\v\n" +
+	"\t_resource\"1\n" +
 	"\x04Leaf\x12)\n" +
 	"\x04tabs\x18\x01 \x03(\v2\x15.service.panel.pb.TabR\x04tabs\"\xc9\x01\n" +
 	"\x05Split\x125\n" +
@@ -408,6 +413,7 @@ func file_core_pkg_service_panel_pb_panel_proto_init() {
 	if File_core_pkg_service_panel_pb_panel_proto != nil {
 		return
 	}
+	file_core_pkg_service_panel_pb_panel_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_panel_pb_panel_proto_msgTypes[2].OneofWrappers = []any{}
 	file_core_pkg_service_panel_pb_panel_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}

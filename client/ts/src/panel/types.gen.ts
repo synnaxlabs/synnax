@@ -21,10 +21,10 @@ import { ontology } from "@/ontology";
  * the same or other panels.
  */
 export const tabZ = z.object({
-  /** key is the unique identifier of this tab within the panel. */
+  /** key is the stable unique identifier of this tab within the panel. It is independent of the referenced resource, so a tab's resource may be swapped without changing the tab's identity or position. */
   key: z.uuid(),
-  /** resource is the visualization resource displayed by this tab. */
-  resource: ontology.idZ,
+  /** resource is the visualization resource displayed by this tab. It is null until a resource is chosen; a null-resource tab renders the visualization selector at render time and is swapped to a real resource via SetTabResource. */
+  resource: ontology.idZ.optional(),
 });
 export interface Tab extends z.infer<typeof tabZ> {}
 

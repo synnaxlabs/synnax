@@ -13,17 +13,19 @@ package panel
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeRename      = "rename"
-	ActionTypeInsertTab   = "insert_tab"
-	ActionTypeRemoveTab   = "remove_tab"
-	ActionTypeMoveTab     = "move_tab"
-	ActionTypeSplitLeaf   = "split_leaf"
-	ActionTypeResizeSplit = "resize_split"
+	ActionTypeRename         = "rename"
+	ActionTypeInsertTab      = "insert_tab"
+	ActionTypeRemoveTab      = "remove_tab"
+	ActionTypeMoveTab        = "move_tab"
+	ActionTypeSplitLeaf      = "split_leaf"
+	ActionTypeResizeSplit    = "resize_split"
+	ActionTypeSetTabResource = "set_tab_resource"
 )
 
 // RenamePayload renames the panel. When the panel is owned by a user (draft), the
@@ -71,16 +73,25 @@ type ResizeSplitPayload struct {
 	Size  float64 `json:"size" msgpack:"size"`
 }
 
+// SetTabResourcePayload sets the visualization resource displayed by the tab with the
+// given key, swapping it in place without changing the tab's identity or position. Used
+// to fill a freshly inserted null-resource tab once the user picks a visualization.
+type SetTabResourcePayload struct {
+	Key      uuid.UUID   `json:"key" msgpack:"key"`
+	Resource ontology.ID `json:"resource" msgpack:"resource"`
+}
+
 // Action is a discriminated union for all Panel mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type        string              `json:"type" msgpack:"type"`
-	Rename      *RenamePayload      `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	InsertTab   *InsertTabPayload   `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
-	RemoveTab   *RemoveTabPayload   `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
-	MoveTab     *MoveTabPayload     `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitLeaf   *SplitLeafPayload   `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
-	ResizeSplit *ResizeSplitPayload `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
+	Type           string                 `json:"type" msgpack:"type"`
+	Rename         *RenamePayload         `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	InsertTab      *InsertTabPayload      `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
+	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
+	MoveTab        *MoveTabPayload        `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
+	SplitLeaf      *SplitLeafPayload      `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
+	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
+	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitempty" msgpack:"set_tab_resource,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -122,6 +133,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
+		case ActionTypeSetTabResource:
+			if a.SetTabResource == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetTabResource.Handle(state)
 		default:
 			continue
 		}
@@ -160,4 +176,9 @@ func NewSplitLeafAction(p SplitLeafPayload) Action {
 // NewResizeSplitAction wraps a ResizeSplitPayload in an Action envelope.
 func NewResizeSplitAction(p ResizeSplitPayload) Action {
 	return Action{Type: ActionTypeResizeSplit, ResizeSplit: &p}
+}
+
+// NewSetTabResourceAction wraps a SetTabResourcePayload in an Action envelope.
+func NewSetTabResourceAction(p SetTabResourcePayload) Action {
+	return Action{Type: ActionTypeSetTabResource, SetTabResource: &p}
 }

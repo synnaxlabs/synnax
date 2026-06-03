@@ -9,16 +9,30 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { create, LAYOUT_TYPE } from "@/lineplot/layout";
+import { internalCreate, ZERO_STATE } from "@/lineplot/slice";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({
+  layoutKey,
+  onPlace,
+  onResolved,
+}) => {
   const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const dispatch = useDispatch();
   const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
+    // In panel mode create the local plot state (so it renders and later syncs to
+    // the server on edit) and hand its ontology.ID back; otherwise open it as a
+    // mosaic tab as before.
+    if (onResolved != null) {
+      dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key: layoutKey }));
+      onResolved(lineplot.ontologyID(layoutKey));
+    } else onPlace(create({ key: layoutKey }));
+  }, [onResolved, onPlace, layoutKey, dispatch]);
 
   if (!hasCreatePermission) return null;
 

@@ -22,7 +22,9 @@ import { type Tabs } from "@/tabs";
 // (console, integration tests, future apps) can plug in their own resolution.
 export interface MosaicTabRenderProps {
   tabKey: string;
-  resource: ontology.ID;
+  // resource is null when the tab has not yet been assigned a visualization. The
+  // consumer renders its selector for a null resource and swaps it via SetTabResource.
+  resource: ontology.ID | null;
   visible: boolean;
 }
 
@@ -64,14 +66,16 @@ export interface MosaicProps extends Pick<
 // resolve a tab's reference without re-traversing the tree.
 interface AdaptResult {
   root: Base.Node;
-  resources: Map<string, ontology.ID>;
+  // Maps every tab key to its resource, or null when the tab has no resource yet.
+  // A key absent from the map is not a tab in this panel.
+  resources: Map<string, ontology.ID | null>;
 }
 
 const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
 ): AdaptResult => {
-  const resources = new Map<string, ontology.ID>();
+  const resources = new Map<string, ontology.ID | null>();
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
     if (node.split != null)
@@ -85,7 +89,7 @@ const adaptToMosaic = (
 
     if (node.leaf == null) return { key, tabs: [] };
     const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => {
-      resources.set(t.key, t.resource);
+      resources.set(t.key, t.resource ?? null);
       return { tabKey: t.key, name: "", closable: true, editable: true };
     });
     const selected =
@@ -135,7 +139,7 @@ export const Mosaic = ({
     (key: number, tabKey: string, _loc: location.Location, index?: number) => {
       dispatch({
         key: panelKey,
-        actions: [panel.moveTab({ key: tabKey, targetLeaf: key, index })],
+        actions: [panel.moveTab({ key: tabKey, targetLeaf: key, index: index ?? 0 })],
       });
     },
     [dispatch, panelKey],
@@ -155,33 +159,40 @@ export const Mosaic = ({
     [dispatch, panelKey],
   );
 
-  // handleCreate covers two edge-drop gestures:
-  //   1. tabKeys is null: the operator hit the "+" affordance — split the
-  //      target leaf and leave the new sibling empty so the consumer can
-  //      decide what to put there (typically via a selector UI handled
-  //      outside this component).
-  //   2. tabKeys is non-null: the operator dragged content (ontology IDs)
-  //      from a sidebar onto the leaf edge — split and insert one tab per
-  //      parseable ID into the new sibling leaf in a single dispatch.
+  // handleCreate maps Base.Mosaic's create gesture onto panel actions. The
+  // location decides the structural shape:
+  //   - "center": add to the existing leaf (no split).
+  //   - an edge (left/right/top/bottom): split the leaf and place the new
+  //     content on that side.
+  // A bare "+" (no dropped content) inserts a single resourceless tab — a real,
+  // stored tab that renders the consumer's selector until SetTabResource fills it.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
-      const actions: panel.Action[] = [panel.splitLeaf({ leaf: key, location: loc })];
-      if (tabKeys != null && tabKeys.length > 0) {
-        // After splitLeaf the original leaf moves to the side opposite the
-        // new sibling. The new sibling's path-derived key is the child slot
-        // that matches the drop location on the new parent split.
-        const newLeafKey = loc === "left" || loc === "top" ? key * 2 : key * 2 + 1;
-        for (const raw of tabKeys) {
-          const parsed = ontology.idZ.safeParse(raw);
-          if (!parsed.success) continue;
+      const dropped = (tabKeys ?? []).flatMap((raw) => {
+        const parsed = ontology.idZ.safeParse(raw);
+        return parsed.success ? [parsed.data] : [];
+      });
+      const actions: panel.Action[] = [];
+      // For an edge split the new sibling lands on the child slot that matches
+      // the drop side: first (2k) for left/top, last (2k+1) otherwise.
+      let targetLeaf = key;
+      if (loc !== "center") {
+        actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
+        targetLeaf = loc === "left" || loc === "top" ? key * 2 : key * 2 + 1;
+      }
+      if (dropped.length === 0)
+        actions.push(
+          panel.insertTab({ tab: { key: uuid.create() }, targetLeaf, index: 0 }),
+        );
+      else
+        for (const resource of dropped)
           actions.push(
             panel.insertTab({
-              tab: { key: uuid.create(), resource: parsed.data },
-              targetLeaf: newLeafKey,
+              tab: { key: uuid.create(), resource },
+              targetLeaf,
+              index: 0,
             }),
           );
-        }
-      }
       dispatch({ key: panelKey, actions });
     },
     [dispatch, panelKey],
@@ -200,8 +211,8 @@ export const Mosaic = ({
     root,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => {
-      const resource = resources.get(tabKey);
-      if (resource == null) return null;
+      if (!resources.has(tabKey)) return null;
+      const resource = resources.get(tabKey) ?? null;
       return children({ tabKey, resource, visible: visible !== false });
     },
   });

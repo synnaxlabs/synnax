@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
@@ -132,11 +132,22 @@ Log.useName = Layout.createUseFluxName(
   useSelectIsRemoteCreated,
 );
 
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({
+  layoutKey,
+  onPlace,
+  onResolved,
+}) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
+  const dispatch = useDispatch();
   const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
+    // In panel mode create the local log state (so it renders and later syncs to
+    // the server on edit) and hand its ontology.ID back; otherwise open it as a
+    // mosaic tab as before.
+    if (onResolved != null) {
+      dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key: layoutKey }));
+      onResolved(log.ontologyID(layoutKey));
+    } else onPlace(create({ key: layoutKey }));
+  }, [onResolved, onPlace, layoutKey, dispatch]);
 
   if (!hasCreatePermission) return null;
 

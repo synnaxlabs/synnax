@@ -80,6 +80,16 @@ const removeTabFromNode = (n: Draft<Node>, key: string): Tab | null => {
   return null;
 };
 
+// findTab walks the tree to return the tab with the given key, or null if absent.
+const findTab = (n: Draft<Node>, key: string): Draft<Tab> | null => {
+  if (n.leaf != null) return n.leaf.tabs.find((t) => t.key === key) ?? null;
+  if (n.split == null) return null;
+  return (
+    (n.split.first != null ? findTab(n.split.first, key) : null) ??
+    (n.split.last != null ? findTab(n.split.last, key) : null)
+  );
+};
+
 // collapseIfEmptySide rewrites n in place: when one side of n's split is an empty
 // leaf, n becomes the surviving sibling subtree.
 const collapseIfEmptySide = (n: Draft<Node>): void => {
@@ -182,6 +192,14 @@ const handlers: Handlers = {
     if (node == null || node.split == null) return NO_OP;
     node.split.size = payload.size;
     return { inverse: [], targets: [String(payload.split)] };
+  },
+
+  setTabResource: (state, payload) => {
+    if (state.root == null) return NO_OP;
+    const tab = findTab(state.root, payload.key);
+    if (tab == null) return NO_OP;
+    tab.resource = payload.resource;
+    return { inverse: [], targets: [payload.key] };
   },
 };
 

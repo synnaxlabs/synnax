@@ -12,6 +12,7 @@
 package panel
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -189,19 +190,33 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 
 func (t Tab) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
-	if err := t.Resource.EncodeOrc(w); err != nil {
-		return err
+	if t.Resource != nil {
+		w.Bool(true)
+		if err := (*t.Resource).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	return nil
 }
 
 func (t *Tab) DecodeOrc(r *orc.Reader) error {
-	var err error
 	if _, err := r.Read(t.Key[:]); err != nil {
 		return err
 	}
-	if err = t.Resource.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv ontology.ID
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			t.Resource = &hv
+		}
 	}
 	return nil
 }

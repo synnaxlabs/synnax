@@ -22,10 +22,14 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/service/panel/pb";
 // resolved at render time from the referenced resource. The same resource may be
 // referenced by multiple tabs in the same or other panels.
 message Tab {
-  // key is the unique identifier of this tab within the panel.
+  // key is the stable unique identifier of this tab within the panel. It is independent
+  // of the referenced resource, so a tab's resource may be swapped without changing the
+  // tab's identity or position.
   string key = 1;
-  // resource is the visualization resource displayed by this tab.
-  .distribution.ontology.pb.ID resource = 2;
+  // resource is the visualization resource displayed by this tab. It is null until a
+  // resource is chosen; a null-resource tab renders the visualization selector at render
+  // time and is swapped to a real resource via SetTabResource.
+  optional .distribution.ontology.pb.ID resource = 2;
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.

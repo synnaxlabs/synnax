@@ -16,6 +16,7 @@ import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { PanelTabs } from "@/layouts/nav/PanelTabs";
+import { Project } from "@/project";
 import { User } from "@/user";
 import { Version } from "@/version";
 
@@ -25,6 +26,7 @@ export const Top = (): ReactElement | null => {
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region gap="large">
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
+        <Project.Selector />
         <PanelTabs />
       </Nav.Bar.Start>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">

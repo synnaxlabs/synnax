@@ -7,166 +7,87 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
-import {
-  Flex,
-  Mosaic as Base,
-  Panel as PlutoPanel,
-  type Tabs,
-  Text,
-} from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
+import { type ontology, panel } from "@synnaxlabs/client";
+import { Flex, Panel as PlutoPanel, Text } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
+import { Selector } from "@/selector";
+import { Vis } from "@/vis";
 
 export interface MosaicProps {
   panelKey: panel.Key;
   windowKey: string;
 }
 
-// adaptToMosaic walks the typed panel tree and emits the pluto Base.Mosaic.Node
-// shape it expects, assigning path-derived keys (root=1, 2k=first, 2k+1=last).
-// Display info for each tab is derived from the referenced ontology resource
-// at render time; for Phase 1 we render the resource key as a placeholder
-// name until the per-viz renderer bridge lands.
-const adaptToMosaic = (
-  root: panel.Node | null | undefined,
-  activeTab: string | null,
-): Base.Node => {
-  const visit = (node: panel.Node | null | undefined, key: number): Base.Node => {
-    if (node == null) return { key };
-    if (node.split != null) {
-      const dir: "x" | "y" = node.split.direction;
-      return {
-        key,
-        direction: dir === "x" ? "x" : "y",
-        size: node.split.size,
-        first: visit(node.split.first, key * 2),
-        last: visit(node.split.last, key * 2 + 1),
-      };
-    }
-    if (node.leaf == null) return { key, tabs: [] };
-    const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => ({
-      tabKey: t.key,
-      name: `${t.resource.type}:${t.resource.key.slice(0, 8)}`,
-      closable: true,
-    }));
-    const selected =
-      activeTab != null && tabs.some((t) => t.tabKey === activeTab)
-        ? activeTab
-        : tabs[0]?.tabKey;
-    return { key, tabs, selected };
-  };
-  return visit(root, 1);
+interface TabContentProps {
+  panelKey: panel.Key;
+  tabKey: string;
+  resource: ontology.ID | null;
+}
+
+// TabContent renders a panel tab. A tab with no resource shows the shared
+// visualization selector; picking a type eagerly creates the resource and swaps it
+// onto this tab via SetTabResource, keeping the tab's identity and position.
+const TabContent = ({ panelKey, tabKey, resource }: TabContentProps): ReactElement => {
+  const { dispatch } = PlutoPanel.useDispatch();
+  // A stable key for the resource the selector will create, so re-renders don't
+  // churn it. onResolved hands back ontologyID(resourceKey).
+  const resourceKey = useMemo(() => uuid.create(), [tabKey]);
+  const handleResolved = useCallback(
+    (resolved: ontology.ID) => {
+      dispatch({
+        key: panelKey,
+        actions: [panel.setTabResource({ key: tabKey, resource: resolved })],
+      });
+    },
+    [dispatch, panelKey, tabKey],
+  );
+  if (resource == null)
+    return (
+      <Selector.Selector
+        layoutKey={resourceKey}
+        text="Select a Visualization Type"
+        selectables={Vis.SELECTABLES}
+        onResolved={handleResolved}
+      />
+    );
+  // TODO(#9): render the actual visualization from its ontology.ID. Until the
+  // resource→viz bridge lands, show what the tab references.
+  return (
+    <Flex.Box grow center>
+      <Text.Text level="p" color={9}>
+        {resource.type}:{resource.key.slice(0, 8)}
+      </Text.Text>
+    </Flex.Box>
+  );
 };
 
-const PlaceholderContent = ({ tabKey }: Tabs.Tab): ReactElement => (
-  <Flex.Box grow center>
-    <Text.Text level="h3" color={9}>
-      Tab {tabKey}
-    </Text.Text>
-    <Text.Text level="small" color={7}>
-      Viz rendering bridge lands in a follow-up.
-    </Text.Text>
-  </Flex.Box>
-);
-
-// Mosaic renders the active panel's typed mosaic tree via pluto's Base.Mosaic.
-// Tab content is currently a placeholder; gestures (drop, resize, split) wire
-// to panel.useDispatch so other consoles see the same mutations through the
-// action channel.
-export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement | null => {
+// Mosaic renders the active panel through pluto's Panel.Mosaic, which owns the tree,
+// gestures, and structural dispatch. The console supplies tab content (the selector
+// for empty tabs, the visualization otherwise) and the per-window active-tab cursor.
+export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
   const activeTab = Layout.useSelectActiveTabKey();
-  const { data: p } = PlutoPanel.useRetrieve({ key: panelKey });
-  const { dispatch: dispatchAction } = PlutoPanel.useDispatch();
-
-  const root = useMemo(() => adaptToMosaic(p?.root, activeTab), [p?.root, activeTab]);
-
   const handleSelect = useCallback(
-    (tabKey: string) => {
-      dispatch(Layout.setActiveTab({ windowKey, key: tabKey }));
-    },
+    (tabKey: string) => dispatch(Layout.setActiveTab({ windowKey, key: tabKey })),
     [dispatch, windowKey],
   );
-
-  const handleDrop = useCallback(
-    (key: number, tabKey: string, _loc: location.Location, index?: number) => {
-      // For Phase 1 same-panel drops translate to MoveTab. Cross-panel drag
-      // arrives via Haul events handled at a higher layer.
-      dispatchAction({
-        key: panelKey,
-        actions: [
-          {
-            type: "move_tab",
-            moveTab: { key: tabKey, targetLeaf: key, index: index ?? 0 },
-          },
-        ],
-      });
-    },
-    [dispatchAction, panelKey],
-  );
-
-  const handleResize = useCallback(
-    (key: number, size: number) => {
-      dispatchAction({
-        key: panelKey,
-        actions: [{ type: "resize_split", resizeSplit: { split: key, size } }],
-      });
-    },
-    [dispatchAction, panelKey],
-  );
-
-  const handleClose = useCallback(
-    (tabKey: string) => {
-      dispatchAction({
-        key: panelKey,
-        actions: [{ type: "remove_tab", removeTab: { key: tabKey } }],
-      });
-    },
-    [dispatchAction, panelKey],
-  );
-
-  const handleCreate = useCallback(
-    (key: number, loc: location.Location, _tabKeys?: string[]) => {
-      // Splits the target leaf into a new empty sibling. Content insertion
-      // comes from a separate gesture (drag from sidebar, palette command).
-      dispatchAction({
-        key: panelKey,
-        actions: [
-          {
-            type: "split_leaf",
-            splitLeaf: {
-              leaf: key,
-              location: loc,
-              size: 0.5,
-            },
-          },
-        ],
-      });
-    },
-    [dispatchAction, panelKey],
-  );
-
-  if (p == null) return null;
-
   return (
-    <Base.Mosaic
+    <PlutoPanel.Mosaic
+      panelKey={panelKey}
+      activeTab={activeTab ?? undefined}
+      onSelect={handleSelect}
       rounded={1}
       bordered
       borderColor={5}
       background={0}
-      root={root}
-      activeTab={activeTab ?? undefined}
-      onSelect={handleSelect}
-      onDrop={handleDrop}
-      onResize={handleResize}
-      onClose={handleClose}
-      onCreate={handleCreate}
     >
-      {(tab) => <PlaceholderContent {...tab} />}
-    </Base.Mosaic>
+      {({ tabKey, resource }) => (
+        <TabContent panelKey={panelKey} tabKey={tabKey} resource={resource} />
+      )}
+    </PlutoPanel.Mosaic>
   );
 };

@@ -41,7 +41,7 @@ var _ = Describe("Codec", func() {
 				Tabs: []panel.Tab{
 					{
 						Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-						Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+						Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 					},
 				},
 			}),
@@ -66,7 +66,7 @@ var _ = Describe("Codec", func() {
 						Tabs: []panel.Tab{
 							{
 								Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-								Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"},
+								Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 							},
 						},
 					}
@@ -133,7 +133,7 @@ var _ = Describe("Codec", func() {
 							Tabs: []panel.Tab{
 								{
 									Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-									Resource: ontology.ID{},
+									Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 								},
 							},
 						}
@@ -190,7 +190,7 @@ var _ = Describe("Codec", func() {
 								Tabs: []panel.Tab{
 									{
 										Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-										Resource: ontology.ID{},
+										Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 									},
 								},
 							}
@@ -227,7 +227,7 @@ var _ = Describe("Codec", func() {
 								Tabs: []panel.Tab{
 									{
 										Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
-										Resource: ontology.ID{},
+										Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 									},
 								},
 							}
@@ -279,12 +279,9 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", panel.Tab{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+				Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 			}),
-			Entry("zero values", panel.Tab{
-				Key:      uuid.Nil,
-				Resource: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			}),
+			Entry("zero values", panel.Tab{Key: uuid.Nil, Resource: nil}),
 		)
 	})
 })
@@ -294,7 +291,7 @@ func BenchmarkEncodeDecodeLeaf(b *testing.B) {
 		Tabs: []panel.Tab{
 			{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+				Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 			},
 		},
 	}
@@ -320,7 +317,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 				Tabs: []panel.Tab{
 					{
 						Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-						Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"},
+						Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 					},
 				},
 			}
@@ -389,7 +386,7 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 					Tabs: []panel.Tab{
 						{
 							Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-							Resource: ontology.ID{},
+							Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 						},
 					},
 				}
@@ -444,7 +441,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 						Tabs: []panel.Tab{
 							{
 								Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-								Resource: ontology.ID{},
+								Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 							},
 						},
 					}
@@ -481,7 +478,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 						Tabs: []panel.Tab{
 							{
 								Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
-								Resource: ontology.ID{},
+								Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 							},
 						},
 					}
@@ -530,7 +527,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 func BenchmarkEncodeDecodeTab(b *testing.B) {
 	t := panel.Tab{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+		Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -553,7 +550,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 			Tabs: []panel.Tab{
 				{
 					Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-					Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+					Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 				},
 			},
 		}
@@ -616,7 +613,7 @@ func FuzzDecodeNode(f *testing.F) {
 					Tabs: []panel.Tab{
 						{
 							Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-							Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"},
+							Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 						},
 					},
 				}
@@ -714,7 +711,7 @@ func FuzzDecodePanel(f *testing.F) {
 						Tabs: []panel.Tab{
 							{
 								Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-								Resource: ontology.ID{},
+								Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 							},
 						},
 					}
@@ -802,7 +799,7 @@ func FuzzDecodeSplit(f *testing.F) {
 							Tabs: []panel.Tab{
 								{
 									Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-									Resource: ontology.ID{},
+									Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 								},
 							},
 						}
@@ -839,7 +836,7 @@ func FuzzDecodeSplit(f *testing.F) {
 							Tabs: []panel.Tab{
 								{
 									Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"),
-									Resource: ontology.ID{},
+									Resource: func() *ontology.ID { v := ontology.ID{}; return &v }(),
 								},
 							},
 						}
@@ -922,7 +919,7 @@ func FuzzDecodeTab(f *testing.F) {
 	{
 		seed := panel.Tab{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"},
+			Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -931,10 +928,7 @@ func FuzzDecodeTab(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := panel.Tab{
-			Key:      uuid.Nil,
-			Resource: ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-		}
+		seed := panel.Tab{Key: uuid.Nil, Resource: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
