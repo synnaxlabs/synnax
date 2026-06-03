@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { LinePlot as PLinePlot, Status } from "@synnaxlabs/pluto";
+import { LinePlot, Status } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -62,8 +62,8 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
-  const derived = PLinePlot.useDerivedLines(key);
-  const ranges = PLinePlot.useSelectRanges({ key });
+  const derived = LinePlot.useDerivedLines(key);
+  const ranges = LinePlot.useSelectRanges({ key });
   const { name } = Layout.useSelectRequired(key);
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Range.useSelectMultiple(rangeKeys);

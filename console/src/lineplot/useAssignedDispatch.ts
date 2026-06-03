@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { LinePlot } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Range } from "@/range";
@@ -29,8 +29,8 @@ const CHANNEL_OR_X_TYPES: ReadonlySet<lineplot.Action["type"]> = new Set([
 // strings (e.g. "recent") rather than UUIDs; the lineplot schema accepts
 // opaque strings so synthetic ranges round-trip cleanly.
 export const useAssignedDispatch = (key: lineplot.Key) => {
-  const { dispatch } = PLinePlot.useDispatch();
-  const ranges = PLinePlot.useSelectRanges({ key });
+  const { dispatch } = LinePlot.useDispatch();
+  const ranges = LinePlot.useSelectRanges({ key });
   const activeRange = Range.useSelectActiveKey() ?? ROLLING_30S_RANGE_KEY;
   return useCallback(
     (actions: lineplot.Action[]): void => {

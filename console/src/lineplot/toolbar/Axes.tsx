@@ -15,7 +15,7 @@ import {
   Flex,
   Icon,
   Input,
-  LinePlot as PLinePlot,
+  LinePlot,
   Select,
   Tabs,
   useMemoCompare,
@@ -34,7 +34,7 @@ const shouldDisplay = (key: lineplot.AxisKey, channels: lineplot.Channels): bool
 };
 
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
-  const channels = PLinePlot.useSelectChannels({ key: layoutKey });
+  const channels = LinePlot.useSelectChannels({ key: layoutKey });
   const shouldShow = lineplot.AXIS_KEYS.filter((k) => shouldDisplay(k, channels));
 
   const tabs = useMemoCompare(
@@ -86,8 +86,8 @@ export const LinePlotAxisControls = ({
   axisKey,
   layoutKey,
 }: LinePlotAxisControlsProps): ReactElement => {
-  const { dispatch } = PLinePlot.useDispatch();
-  const axis = PLinePlot.useSelectAxis({ key: layoutKey, axisKey });
+  const { dispatch } = LinePlot.useDispatch();
+  const axis = LinePlot.useSelectAxis({ key: layoutKey, axisKey });
 
   const update = useCallback(
     (next: lineplot.Axis): void => {

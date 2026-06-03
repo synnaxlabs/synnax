@@ -10,14 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import {
-  Access,
-  Button,
-  Flex,
-  Icon,
-  LinePlot as PLinePlot,
-  Tabs,
-} from "@synnaxlabs/pluto";
+import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -58,11 +51,11 @@ export interface ToolbarProps {
 }
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  // The toolbar reads body fields through PLinePlot selectors that throw
+  // The toolbar reads body fields through LinePlot selectors that throw
   // NotFoundError when the plot is not in the flux cache. Suspend until the
   // canonical record is loaded so the surrounding error boundary doesn't tear
   // the toolbar down on first mount of a freshly placed plot.
-  PLinePlot.useEnsureRetrieved({ key: layoutKey });
+  LinePlot.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);

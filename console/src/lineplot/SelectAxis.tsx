@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type lineplot } from "@synnaxlabs/client";
-import { Channel, Input, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { Channel, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Range } from "@/range";
@@ -38,7 +38,7 @@ export const SelectMultipleAxesInputItem = ({
 }: SelectMultipleAxesInputItemProps): ReactElement => {
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
   return (
-    <Input.Item x label={PLinePlot.axisLabel(axis)} {...rest}>
+    <Input.Item x label={LinePlot.axisLabel(axis)} {...rest}>
       <Channel.SelectMultiple
         value={value}
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
@@ -70,7 +70,7 @@ export const SelectAxisInputItem = ({
 }: SelectAxisInputItemProps): ReactElement => {
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
   return (
-    <Input.Item x label={PLinePlot.axisLabel(axis)} {...rest} grow>
+    <Input.Item x label={LinePlot.axisLabel(axis)} {...rest} grow>
       <Channel.SelectSingle
         onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
         value={value}

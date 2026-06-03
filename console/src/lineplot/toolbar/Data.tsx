@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { Flex, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { Flex, LinePlot } from "@synnaxlabs/pluto";
 import { type CSSProperties, type ReactElement, useCallback } from "react";
 
 import {
@@ -57,8 +57,8 @@ const diffRanges = (
 };
 
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
-  const channels = PLinePlot.useSelectChannels({ key: layoutKey });
-  const ranges = PLinePlot.useSelectRanges({ key: layoutKey });
+  const channels = LinePlot.useSelectChannels({ key: layoutKey });
+  const ranges = LinePlot.useSelectRanges({ key: layoutKey });
   const dispatch = useAssignedDispatch(layoutKey);
 
   const handleYChannelSelect = useCallback(

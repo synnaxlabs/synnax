@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flux, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { type Flux, LinePlot } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -21,9 +21,9 @@ export const useAutoUpload = (key: string): boolean => {
   const name = Layout.useSelectRequiredName(key);
   const workspaceKey = Workspace.useSelectActiveKey();
   const dispatch = useDispatch();
-  const { update: create } = PLinePlot.useCreate({
+  const { update: create } = LinePlot.useCreate({
     afterSuccess: useCallback(
-      ({ data: { key } }: Flux.AfterSuccessParams<PLinePlot.CreateOutput>) => {
+      ({ data: { key } }: Flux.AfterSuccessParams<LinePlot.CreateOutput>) => {
         dispatch(clearPendingUpload({ key }));
       },
       [dispatch],

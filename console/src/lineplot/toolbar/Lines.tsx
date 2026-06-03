@@ -13,7 +13,7 @@ import {
   Color,
   Icon,
   Input,
-  LinePlot as PLinePlot,
+  LinePlot,
   List,
   Select,
   Tabs,
@@ -31,7 +31,7 @@ export interface LinesProps {
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = PLinePlot.useDerivedLineKeys(layoutKey);
+  const lineKeys = LinePlot.useDerivedLineKeys(layoutKey);
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -90,12 +90,12 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
 );
 
 const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
-  const lines = PLinePlot.useSelectLines({ key: layoutKey });
-  const { dispatch } = PLinePlot.useDispatch();
+  const lines = LinePlot.useSelectLines({ key: layoutKey });
+  const { dispatch } = LinePlot.useDispatch();
   const theme = Layout.useSelectTheme();
-  const stored = PLinePlot.lookupDerivedLine(lines, itemKey);
+  const stored = LinePlot.lookupDerivedLine(lines, itemKey);
   const palette = theme?.colors.visualization.palettes.default ?? [];
-  const resolvedColor = PLinePlot.resolveLineColor(stored.color, index, palette);
+  const resolvedColor = LinePlot.resolveLineColor(stored.color, index, palette);
   const line: lineplot.Line = { ...stored, color: resolvedColor };
 
   const update = useCallback(
@@ -122,7 +122,7 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
 
   const {
     channels: { y: yChannel },
-  } = PLinePlot.typedLineKeyFromString(line.key);
+  } = LinePlot.typedLineKeyFromString(line.key);
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">

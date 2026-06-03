@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Flex, Input, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
+import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
@@ -19,12 +19,12 @@ export interface PropertiesProps {
 }
 
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const title = PLinePlot.useSelectTitle({ key: layoutKey });
-  const legend = PLinePlot.useSelectLegend({ key: layoutKey });
+  const title = LinePlot.useSelectTitle({ key: layoutKey });
+  const legend = LinePlot.useSelectLegend({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const reduxDispatch = useDispatch();
-  const { dispatch } = PLinePlot.useDispatch();
-  const { update: renameRemote } = PLinePlot.useRename({});
+  const { dispatch } = LinePlot.useDispatch();
+  const { update: renameRemote } = LinePlot.useRename({});
 
   const handleTitleRename = (value: string): void => {
     reduxDispatch(Layout.rename({ key: layoutKey, name: value }));

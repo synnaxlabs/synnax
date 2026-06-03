@@ -15,7 +15,7 @@ import {
   Flex,
   Icon,
   Input,
-  LinePlot as PLinePlot,
+  LinePlot,
   List as PList,
   Menu,
   Select,
@@ -61,7 +61,7 @@ const ListItem = ({
   ...rest
 }: ListItemProps): ReactElement | null => {
   const { itemKey } = rest;
-  const entry = PLinePlot.useSelectRule({ key: layoutKey, ruleKey: itemKey });
+  const entry = LinePlot.useSelectRule({ key: layoutKey, ruleKey: itemKey });
   if (entry == null) return null;
   const { label } = entry;
   return (
@@ -224,12 +224,12 @@ export interface AnnotationsProps {
 }
 
 export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => {
-  const axes = PLinePlot.useSelectAxes({ key: linePlotKey });
-  const rules = PLinePlot.useSelectRules({ key: linePlotKey });
+  const axes = LinePlot.useSelectAxes({ key: linePlotKey });
+  const rules = LinePlot.useSelectRules({ key: linePlotKey });
   const theme = Layout.useSelectTheme();
   const selectedRuleKeys = useSelectSelectedRules(linePlotKey);
   const reduxDispatch = useDispatch();
-  const { dispatch } = PLinePlot.useDispatch();
+  const { dispatch } = LinePlot.useDispatch();
 
   const setSelectedRuleKeys = useCallback(
     (keys: string[]): void => {
