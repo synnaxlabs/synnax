@@ -10,6 +10,7 @@
 import { type z } from "zod";
 
 import { type Partial } from "@/deep/partial";
+import { errors } from "@/errors";
 import { narrow } from "@/narrow";
 
 /**
@@ -32,7 +33,7 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
       } catch (e) {
         if (e instanceof TypeError)
           throw new TypeError(`.${key}: ${e.message}`, { cause: e });
-        throw e;
+        throw errors.fromUnknown(e);
       }
 
   return override(base, ...overrides);

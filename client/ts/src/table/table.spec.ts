@@ -124,7 +124,7 @@ describe("Table", () => {
   describe("dispatch", () => {
     const seed = async () => {
       const ws = await client.workspaces.create({ name: "Dispatch", layout: {} });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],

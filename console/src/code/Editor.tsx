@@ -232,7 +232,11 @@ const use = ({
     // via the latest-args debounce and run once the service lands.
     let features: ILanguageFeaturesService | null = null;
     const featuresPromise = getService(ILanguageFeaturesService);
-    featuresPromise.then((s) => (features = s)).catch(() => {});
+    featuresPromise
+      .then((s) => (features = s))
+      .catch((err: unknown) => {
+        console.error("failed to resolve language features service", err);
+      });
 
     let renameCheckAbort: AbortController | null = null;
     const runRenameCheck = () => {

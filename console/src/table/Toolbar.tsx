@@ -35,6 +35,7 @@ import { Layout } from "@/layout";
 import { useExport } from "@/table/export";
 import {
   useSelectEditable,
+  useSelectExists,
   useSelectPendingUpload,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
@@ -44,7 +45,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-const Loaded = ({ layoutKey }: ToolbarProps): ReactElement => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   Base.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const editable = useSelectEditable(layoutKey);
@@ -109,9 +110,10 @@ const Loaded = ({ layoutKey }: ToolbarProps): ReactElement => {
 };
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  const exists = useSelectExists(layoutKey);
   const pendingUpload = useSelectPendingUpload(layoutKey);
-  if (pendingUpload != null) return null;
-  return <Loaded layoutKey={layoutKey} />;
+  if (!exists || pendingUpload != null) return null;
+  return <Internal layoutKey={layoutKey} />;
 };
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
