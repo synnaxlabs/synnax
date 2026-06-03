@@ -15,6 +15,7 @@ import {
   type CrudeTimeSpan,
   debounce,
   type destructor,
+  errors,
   MultiSeries,
   Rate,
   type Series,
@@ -159,7 +160,7 @@ export class Streamer {
       await this.streamer.update(arrKeys);
     } catch (e) {
       ins.L.error("failed to update streamer", { error: e });
-      throw e;
+      throw errors.fromUnknown(e);
     }
   }
 
@@ -179,7 +180,7 @@ export class Streamer {
       }
     } catch (e) {
       ins.L.error("streamer run loop failed", { error: e }, true);
-      throw e;
+      throw errors.fromUnknown(e);
     }
   }
 

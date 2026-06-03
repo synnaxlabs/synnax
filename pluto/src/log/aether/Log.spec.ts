@@ -93,7 +93,7 @@ const createLogContext = (
 const createLog = (parentCtx?: Map<string, unknown>) => {
   const ctx = parentCtx ?? new Map<string, unknown>();
   return new Log({
-    key: "test-log",
+    path: ["test-log"],
     type: "log",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,

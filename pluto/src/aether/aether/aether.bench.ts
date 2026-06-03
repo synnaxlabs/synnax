@@ -69,7 +69,7 @@ class BenchL3 extends aether.Leaf<typeof complexSchema, { computedValue: number 
 // Add this function before the benchmark
 function createBenchmarkTree() {
   const root = new BenchRoot({
-    key: "root",
+    path: ["root"],
     type: "bench",
     sender: MockSender,
     instrumentation: alamos.NOOP,
@@ -111,7 +111,7 @@ function createBenchmarkTree() {
       },
       create: (parentCtxValues) =>
         new BenchL1({
-          key: l1Key,
+          path: ["root", l1Key],
           type: "bench",
           sender: MockSender,
           instrumentation: alamos.NOOP,
@@ -136,7 +136,7 @@ function createBenchmarkTree() {
         },
         create: (parentCtxValues) =>
           new BenchL2({
-            key: l2Key,
+            path: ["root", l1Key, l2Key],
             type: "bench",
             sender: MockSender,
             instrumentation: alamos.NOOP,
@@ -161,7 +161,7 @@ function createBenchmarkTree() {
           },
           create: (parentCtxValues) =>
             new BenchL3({
-              key: l3Key,
+              path: ["root", l1Key, l2Key, l3Key],
               type: "bench",
               sender: MockSender,
               instrumentation: alamos.NOOP,

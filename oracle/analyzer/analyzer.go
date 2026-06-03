@@ -186,10 +186,124 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
+	finalizeEnumExtensions(c)
+
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateTypeParams(c, typ)
 	}
+}
+
+// finalizeEnumExtensions expands each extending enum's members to the union of
+// the enums it extends plus its own declared members, reporting unresolved
+// parents, non-enum parents, mismatched value kinds, and conflicting member
+// values. It mutates the table in place so downstream plugins read a fully
+// populated member list just like a plain enum's.
+func finalizeEnumExtensions(c *analysisCtx) {
+	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+		form, ok := typ.Form.(resolution.EnumForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		merged, isInt, ok := effectiveEnumValues(c, typ, set.New[string]())
+		if !ok {
+			continue
+		}
+		form.Values = merged
+		form.IsIntEnum = isInt
+		typ.Form = form
+		for i, t := range c.table.Types {
+			if t.QualifiedName == typ.QualifiedName {
+				c.table.Types[i] = typ
+				break
+			}
+		}
+	}
+}
+
+func addEnumDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
+	d := diagnostics.Errorf(nil, format, args...)
+	d.File = typ.FilePath
+	c.diag.Add(d)
+}
+
+// effectiveEnumValues returns an enum's fully-resolved members: the union of the
+// members of every enum it extends (recursively), followed by its own declared
+// members. visited guards against cycles. The returned bool is the int/string
+// kind; the final bool is false when the enum or a parent is malformed (a
+// diagnostic is added in that case).
+func effectiveEnumValues(
+	c *analysisCtx, typ resolution.Type, visited set.Set[string],
+) ([]resolution.EnumValue, bool, bool) {
+	form, ok := typ.Form.(resolution.EnumForm)
+	if !ok {
+		return nil, false, false
+	}
+	if visited.Contains(typ.QualifiedName) {
+		addEnumDiag(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
+		return nil, false, false
+	}
+	visited.Add(typ.QualifiedName)
+
+	var (
+		merged  []resolution.EnumValue
+		byName  = make(map[string]resolution.EnumValue)
+		isInt   = form.IsIntEnum
+		kindSet bool
+	)
+	add := func(parentName string, v resolution.EnumValue) bool {
+		if existing, dup := byName[v.Name]; dup {
+			if existing.Value != v.Value {
+				addEnumDiag(c, typ, "enum %s inherits member %q with conflicting values from %s",
+					typ.QualifiedName, v.Name, parentName)
+				return false
+			}
+			return true
+		}
+		byName[v.Name] = v
+		merged = append(merged, v)
+		return true
+	}
+
+	for i := range form.Extends {
+		parent, ok := c.table.Get(form.Extends[i].Name)
+		if !ok {
+			addEnumDiag(c, typ, "enum %s extends unknown enum %q", typ.QualifiedName, form.Extends[i].Name)
+			return nil, false, false
+		}
+		if _, ok := parent.Form.(resolution.EnumForm); !ok {
+			addEnumDiag(c, typ, "enum %s extends %s, which is not an enum", typ.QualifiedName, parent.QualifiedName)
+			return nil, false, false
+		}
+		// Each branch gets its own copy so visited tracks the ancestor path,
+		// not every node seen. A shared set would falsely flag a diamond
+		// (two parents extending a common ancestor) as a cyclic chain.
+		pVals, pInt, ok := effectiveEnumValues(c, parent, visited.Copy())
+		if !ok {
+			return nil, false, false
+		}
+		if kindSet && pInt != isInt {
+			addEnumDiag(c, typ, "enum %s extends enums of mixed integer and string kinds", typ.QualifiedName)
+			return nil, false, false
+		}
+		isInt, kindSet = pInt, true
+		for _, v := range pVals {
+			if !add(parent.QualifiedName, v) {
+				return nil, false, false
+			}
+		}
+	}
+	if kindSet && len(form.Values) > 0 && form.IsIntEnum != isInt {
+		addEnumDiag(c, typ, "enum %s adds members of a different kind than the enums it extends",
+			typ.QualifiedName)
+		return nil, false, false
+	}
+	for _, v := range form.Values {
+		if !add(typ.QualifiedName, v) {
+			return nil, false, false
+		}
+	}
+	return merged, isInt, true
 }
 
 func collectStruct(c *analysisCtx, def parser.IStructDefContext) {
@@ -466,6 +580,11 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		AST:            def,
 	}
 
+	if ev := def.ExpressionValue(); ev != nil {
+		dv := collectValue(ev)
+		field.Default = &dv
+	}
+
 	addDomain := func(de resolution.Domain) {
 		if existing, ok := field.Domains[de.Name]; ok {
 			field.Domains[de.Name] = de.Merge(existing)
@@ -605,6 +724,13 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	}
 
 	form := resolution.EnumForm{}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
 	domains := make(map[string]resolution.Domain)
 	for k, v := range c.fileDomains {
 		domains[k] = v
@@ -757,6 +883,13 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 			}
 		}
 		typ.Form = form
+	case resolution.EnumForm:
+		if len(form.Extends) > 0 {
+			for i := range form.Extends {
+				resolveTypeRef(c, typ, &form.Extends[i])
+			}
+			typ.Form = form
+		}
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -250,6 +251,30 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
 		})
 
+		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`AxisKey = Literal["x1", "x2", "y1", "y2"]`))
+		})
+
 		It("Should generate screaming snake case for multi-word enum names", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -427,8 +452,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Config struct {
-					enabled bool @validate default false
-					retries int32 @validate default 3
+					enabled bool = false
+					retries int32 = 3
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -453,7 +478,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Duration int64
 
 				Config struct {
-					timeout Duration @validate default 0
+					timeout Duration = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -475,7 +500,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "client/py/synnax/channel"
 
 				Operation struct {
-					duration telem.TimeSpan @validate default 0
+					duration telem.TimeSpan = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -493,9 +518,7 @@ var _ = Describe("Python Types Plugin", func() {
 				}
 
 				Log struct {
-					timestamp TimestampConfig {
-						@validate default { format "preciseDate", tz "local" }
-					}
+					timestamp TimestampConfig = { format "preciseDate", tz "local" }
 				}
 			`
 			resp := MustGenerate(ctx, source, "log", loader, typesPlugin)
@@ -1308,7 +1331,7 @@ ChannelStatus = status.Status<nil>
 					@py output "out"
 
 					Config struct {
-						mode string @validate default "normal"
+						mode string = "normal"
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1395,7 +1418,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1418,7 +1441,7 @@ ChannelStatus = status.Status<nil>
 					@py output "client/py/synnax/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)

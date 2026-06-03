@@ -1,4 +1,4 @@
-# 34 - Composable Sequential and Parallel Execution in Arc
+# 38 - Composable Sequential and Parallel Execution in Arc
 
 **Feature Name**: Composable Sequential and Parallel Execution <br /> **Status**: Draft
 <br /> **Start Date**: 2026-04-08 <br /> **Authors**: Emiliano Bonilla <br />
