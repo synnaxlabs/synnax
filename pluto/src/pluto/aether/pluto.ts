@@ -15,7 +15,6 @@ import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
 import { ontology } from "@/ontology/aether";
@@ -73,7 +72,6 @@ export const render = (): void => {
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
-    ...tooltip.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,

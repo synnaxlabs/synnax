@@ -235,4 +235,5 @@ export const REGISTRY: aether.ComponentRegistry = {
   [YAxis.TYPE]: YAxis,
   ...measure.REGISTRY,
   ...rule.REGISTRY,
+  ...tooltip.REGISTRY,
 };
