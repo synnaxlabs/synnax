@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { errors, TimeSpan } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import {
   Component,
@@ -342,8 +342,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.throwError().catch((e: Error) => {
-            captured.error = e;
+          void methods.throwError().catch((e: unknown) => {
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;
@@ -370,8 +370,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.neverResponds().catch((e: Error) => {
-            captured.error = e;
+          void methods.neverResponds().catch((e: unknown) => {
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;
@@ -399,8 +399,8 @@ describe("Aether Main", () => {
         const called = useRef(false);
         if (!called.current) {
           called.current = true;
-          void methods.neverResponds().catch((e: Error) => {
-            captured.error = e;
+          void methods.neverResponds().catch((e: unknown) => {
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;
@@ -1612,6 +1612,57 @@ describe("Aether Main", () => {
       expect(leaf.key).toBe("duplicate");
       expect(leaf.state.x).toBe(2);
     });
+    it("should keep leaves that share a key under different parents independent", async () => {
+      // Two plots charting the same channel produce lines with identical keys. Identity
+      // is the full path, not the leaf key, so neither plot evicts the other's line.
+      const [Provider, root] = await newProvider();
+      const Plot = ({ aetherKey, x }: { aetherKey: string; x: number }) => {
+        const [{ path }] = Aether.use({
+          type: ExampleComposite.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          aetherKey,
+        });
+        return (
+          <Aether.Composite path={path}>
+            <Line x={x} />
+          </Aether.Composite>
+        );
+      };
+      const Line = ({ x }: { x: number }) => {
+        Aether.use({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x },
+          aetherKey: "shared-line",
+        });
+        return null;
+      };
+      render(
+        <Provider>
+          <Plot aetherKey="plot-a" x={1} />
+          <Plot aetherKey="plot-b" x={2} />
+        </Provider>,
+      );
+      await expect.poll(() => root.children.length === 2).toBe(true);
+      const byKey = Object.fromEntries(
+        root.children.map((c) => [c.key, c as ExampleComposite]),
+      );
+      const plotA = byKey["plot-a"];
+      const plotB = byKey["plot-b"];
+      await expect.poll(() => plotA.children.length === 1).toBe(true);
+      await expect.poll(() => plotB.children.length === 1).toBe(true);
+      const lineA = plotA.children[0] as ExampleLeaf;
+      const lineB = plotB.children[0] as ExampleLeaf;
+      expect(lineA.key).toBe("shared-line");
+      expect(lineB.key).toBe("shared-line");
+      expect(lineA).not.toBe(lineB);
+      expect(lineA.state.x).toBe(1);
+      expect(lineB.state.x).toBe(2);
+      lineB.setState({ x: 99 });
+      expect(lineA.state.x).toBe(1);
+      expect(lineB.state.x).toBe(99);
+    });
     it("should create a fresh worker component when an aetherKey is reused after unmount", async () => {
       const [Provider, root] = await newProvider();
       const C = () => {
@@ -1704,23 +1755,22 @@ describe("Aether Main", () => {
     it("should return a cached snapshot while a subscriber outlives the entry", () => {
       // Pin: useSyncExternalStore may call getSnapshot for tearing detection after the
       // entry has been unregistered (e.g. StrictMode's pseudo- unmount/remount window).
-      // The store should fall back to the last known snapshot for that key rather than
+      // The store should fall back to the last known snapshot for that path rather than
       // throw.
       const [workerSide, mainSide] = aether.createMockPair();
       aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });
-      const key = "pinned";
-      const snapshot = () => store.getSnapshot<typeof exampleProps>(key);
-      const unsubscribe = store.subscribe(key, () => {});
+      const path = ["root", "pinned"];
+      const snapshot = () => store.getSnapshot<typeof exampleProps>(path);
+      const unsubscribe = store.subscribe(path, () => {});
       store.register({
-        key,
         type: ExampleLeaf.TYPE,
-        path: ["root", key],
+        path,
         schema: exampleProps,
         initialState: { x: 7 },
       });
       expect(snapshot()).toEqual({ x: 7 });
-      store.unregister(key);
+      store.unregister(path);
       // Subscriber still attached: cached snapshot remains readable.
       expect(snapshot()).toEqual({ x: 7 });
       unsubscribe();

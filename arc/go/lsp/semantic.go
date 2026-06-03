@@ -328,11 +328,11 @@ func classifyTokenAt(
 			return nil
 		}
 		scope := findScopeAtInternalPosition(docIR.Symbols, position{Line: line1, Col: col0})
-		mod, err := scope.Resolve(ctx, qualifier)
+		mod, err := scope.Resolve(ctx, qualifier, symbol.WithoutUsageTracking)
 		if err != nil {
 			return nil
 		}
-		member, err := mod.Resolve(ctx, t.GetText())
+		member, err := mod.Resolve(ctx, t.GetText(), symbol.WithoutUsageTracking)
 		if err != nil {
 			return nil
 		}
@@ -354,7 +354,7 @@ func classifyTokenAt(
 
 func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, rootScope *symbol.Symbol) *uint32 {
 	scope := findScopeAtInternalPosition(rootScope, position{Line: line1, Col: col0})
-	sym, err := scope.Resolve(ctx, name)
+	sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking)
 	if err != nil || sym == nil {
 		return nil
 	}

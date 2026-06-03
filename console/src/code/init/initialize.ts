@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, errors } from "@synnaxlabs/x";
 
 const codingameImports = Promise.all([
   import("@codingame/monaco-vscode-theme-defaults-default-extension"),
@@ -58,9 +58,9 @@ let initPromise: Promise<InitializeReturn> | null = null;
 
 export const initializeMonaco = (props: InitializeProps): Promise<InitializeReturn> => {
   if (initPromise != null) return initPromise;
-  initPromise = doInitialize(props).catch((e) => {
+  initPromise = doInitialize(props).catch((e: unknown) => {
     initPromise = null;
-    throw e;
+    throw errors.fromUnknown(e);
   });
   return initPromise;
 };

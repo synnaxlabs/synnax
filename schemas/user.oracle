@@ -32,12 +32,11 @@ User struct {
     last_name  string {
         @doc value "is the user's last name."
     }
-    root_user  bool   {
-        @doc value        """
+    root_user  bool = false {
+        @doc value """
             is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
         """
-        @validate default false
         @filter
     }
 

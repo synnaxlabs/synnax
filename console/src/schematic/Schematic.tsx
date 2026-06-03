@@ -26,7 +26,7 @@ import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import { selectEditable, useSelect, useSelectOptional } from "@/schematic/selectors";
+import { selectEditable, useSelect, useSelectExists } from "@/schematic/selectors";
 import {
   internalCreate,
   setEditable,
@@ -182,7 +182,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
 };
 
 const useEnsureState = createEnsureState({
-  useExists: (key) => useSelectOptional(key) != null,
+  useExists: useSelectExists,
   create: (key) => internalCreate({ key }),
 });
 

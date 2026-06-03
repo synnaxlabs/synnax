@@ -55,11 +55,22 @@ func (f StructForm) IsFieldOmitted(name string) bool {
 }
 
 type EnumForm struct {
-	Values    []EnumValue
+	// Values are the enum's members, fully resolved. For an extending enum the
+	// analyzer expands this to the union of the parents' members plus any
+	// members declared in the enum's own body.
+	Values []EnumValue
+	// IsIntEnum reports whether members carry integer (vs string) values. An
+	// extending enum matches the kind of the enums it extends.
 	IsIntEnum bool
+	// Extends names the enums this enum is the union of. Empty for a plain
+	// (non-extending) enum.
+	Extends []TypeRef
 }
 
 func (EnumForm) typeForm() {}
+
+// IsExtension reports whether the enum extends one or more other enums.
+func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
 
 type DistinctForm struct {
 	Base       TypeRef
@@ -105,10 +116,13 @@ type Action struct {
 }
 
 type Field struct {
-	AST            any
-	Domains        map[string]Domain
-	Name           string
-	Type           TypeRef
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Default is the field's default value, declared inline as `name type = value`.
+	// It is nil when the field has no default.
+	Default        *ExpressionValue
 	IsOptional     bool
 	IsHardOptional bool
 	OmitIfUnset    bool

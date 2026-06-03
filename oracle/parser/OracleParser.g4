@@ -144,7 +144,7 @@ actionBody
 //       @validate { required, min_length 1 }
 //   }
 fieldDef
-    : IDENT typeRef inlineDomain* fieldBody?
+    : IDENT typeRef (EQUALS expressionValue)? inlineDomain* fieldBody?
     ;
 
 // Inline domain on a field (after type, on same line)
@@ -254,8 +254,11 @@ expressionValue
 // Name-first enum definition:
 //   TaskState enum { pending = 0, running = 1 }
 //   DataType enum { float32 = "float32", int32 = "int32" }
+// An enum may extend one or more other enums, taking the union of their
+// members (and optionally adding its own):
+//   AxisKey enum extends XAxisKey, YAxisKey {}
 enumDef
-    : IDENT ENUM nl* LBRACE nl* enumBody RBRACE
+    : IDENT ENUM (EXTENDS typeRefList)? nl* LBRACE nl* enumBody RBRACE
     ;
 
 // Enum body contains values and/or enum-level domains

@@ -779,21 +779,18 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
-	if validateDomain, ok := field.Domains["validate"]; ok {
-		rules := validation.Parse(validateDomain)
-		if rules.Default != nil && rules.Default.Kind == resolution.ValueKindIdent {
-			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, field.Type, data.table); ok {
-				variantName := toPascalCase(ev.Variant.Name)
-				enumName := ev.Type.Name
-				if ev.Type.Namespace != data.rawNs {
-					targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
-					if targetOutputPath != "" {
-						ns := deriveNamespace(targetOutputPath)
-						enumName = fmt.Sprintf("::%s::%s", ns, enumName)
-					}
+	if field.Default != nil && field.Default.Kind == resolution.ValueKindIdent {
+		if ev, ok := validation.ResolveEnumVariant(field.Default.IdentValue, field.Type, data.table); ok {
+			variantName := toPascalCase(ev.Variant.Name)
+			enumName := ev.Type.Name
+			if ev.Type.Namespace != data.rawNs {
+				targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
+				if targetOutputPath != "" {
+					ns := deriveNamespace(targetOutputPath)
+					enumName = fmt.Sprintf("::%s::%s", ns, enumName)
 				}
-				defaultValue = fmt.Sprintf("%s::%s", enumName, variantName)
 			}
+			defaultValue = fmt.Sprintf("%s::%s", enumName, variantName)
 		}
 	}
 

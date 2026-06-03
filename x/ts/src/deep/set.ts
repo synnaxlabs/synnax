@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { defaultGetter, findBestKey, getIndex, SEPARATOR } from "@/deep/path";
+import { errors } from "@/errors";
 import { type record } from "@/record";
 
 export const set = <V>(obj: V, path: string, value: unknown): void => {
@@ -86,6 +87,6 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
     result[lastPart] = value;
   } catch (e) {
     console.error("failed to set value", value, "at path", path, "on object", obj);
-    throw e;
+    throw errors.fromUnknown(e);
   }
 };
