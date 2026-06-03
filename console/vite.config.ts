@@ -38,8 +38,8 @@ export default defineConfig({
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,
-    // Always emit source maps. The Fallback error UI fetches them at runtime to
-    // resolve minified stack traces (see pluto/src/errors/resolveStack.ts).
+    // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
+    // minified stack traces (see pluto/src/errors/resolveStack.ts).
     sourcemap: true,
     // The Console ships two ways: bundled into the Tauri desktop app (loaded from disk)
     // and embedded into the Synnax Core binary (served over HTTP to browsers via
