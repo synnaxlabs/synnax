@@ -18,7 +18,7 @@ import {
   useDebouncedCallback,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type measure } from "@synnaxlabs/pluto/ether";
+import { type lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { box, location, scale, TimeRange, TimeSpan, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -153,7 +153,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [dispatch, layoutKey],
   );
   const handleMeasureModeChange = useCallback(
-    (m: measure.Mode) => dispatch(setMeasureMode({ key: layoutKey, mode: m })),
+    (m: etherLineplot.measure.Mode) =>
+      dispatch(setMeasureMode({ key: layoutKey, mode: m })),
     [dispatch, layoutKey],
   );
   const handleHold = useCallback(

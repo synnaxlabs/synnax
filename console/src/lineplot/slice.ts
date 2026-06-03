@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { type measure } from "@synnaxlabs/pluto/ether";
+import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { array, deep } from "@synnaxlabs/x";
 
 import * as latest from "@/lineplot/types";
@@ -84,7 +84,7 @@ export interface SetRemoteCreatedPayload {
 
 export interface SetMeasureModePayload {
   key: string;
-  mode: measure.Mode;
+  mode: lineplot.measure.Mode;
 }
 
 export interface SetRangeAnnotationsVisiblePayload {

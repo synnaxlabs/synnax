@@ -10,3 +10,5 @@
 export * from "@/lineplot/aether/LinePlot";
 export * from "@/lineplot/aether/XAxis";
 export * from "@/lineplot/aether/YAxis";
+export { measure } from "@/lineplot/measure/aether";
+export { rule } from "@/lineplot/rule/aether";

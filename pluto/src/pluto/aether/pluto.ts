@@ -14,9 +14,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
-import { measure } from "@/lineplot/measure/aether";
 import { range } from "@/lineplot/range/aether";
-import { rule } from "@/lineplot/rule/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
@@ -67,9 +65,7 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
-    ...measure.REGISTRY,
     ...range.REGISTRY,
-    ...rule.REGISTRY,
     ...setpoint.REGISTRY,
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,

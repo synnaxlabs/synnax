@@ -10,8 +10,6 @@
 export { aether } from "@/aether/aether";
 export { flux } from "@/flux/aether";
 export { lineplot } from "@/lineplot/aether";
-export { measure } from "@/lineplot/measure/aether";
-export { rule } from "@/lineplot/rule/aether";
 export { tooltip } from "@/lineplot/tooltip/aether";
 export { pluto } from "@/pluto/aether";
 export { status } from "@/status/aether";
