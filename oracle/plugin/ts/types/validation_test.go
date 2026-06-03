@@ -152,6 +152,32 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(() => id.create())`)
 	})
 
+	It("Should emit an empty array default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				vals float64[] = []
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`.default([])`)
+	})
+
+	It("Should emit a populated array default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				vals float64[] = [1.5, 2.5]
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`.default([1.500000, 2.500000])`)
+	})
+
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {
 		source := `
 			@ts output "out"

@@ -1737,9 +1737,32 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
 			}
+		case resolution.ValueKindArray:
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsArrayLiteral(defaultVal.Elements))
 		}
 	}
 	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+}
+
+// tsArrayLiteral renders an array default's elements as a TypeScript array
+// literal, e.g. [] or [1.000000, 2.000000].
+func tsArrayLiteral(elements []resolution.ExpressionValue) string {
+	parts := make([]string, 0, len(elements))
+	for _, el := range elements {
+		switch el.Kind {
+		case resolution.ValueKindString:
+			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
+		case resolution.ValueKindInt:
+			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
+		case resolution.ValueKindFloat:
+			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
+		case resolution.ValueKindBool:
+			parts = append(parts, fmt.Sprintf("%t", el.BoolValue))
+		case resolution.ValueKindIdent:
+			parts = append(parts, el.IdentValue)
+		}
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {

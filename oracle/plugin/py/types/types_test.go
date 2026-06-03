@@ -471,6 +471,26 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
+		It("Should emit array defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					empty float64[] = []
+					vals  float64[] = [1.5, 2.5]
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+		})
+
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
 			source := `
 				@py output "out"

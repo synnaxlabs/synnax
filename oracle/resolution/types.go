@@ -20,6 +20,7 @@ const (
 	ValueKindFloat
 	ValueKindBool
 	ValueKindIdent
+	ValueKindArray
 )
 
 // Primitives is the set of built-in primitive type names recognized by Oracle.
