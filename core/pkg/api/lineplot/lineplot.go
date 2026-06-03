@@ -90,8 +90,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  lineplot.Key   `json:"key" msgpack:"key"`
+	Data lineplot.LinePlot `json:"data" msgpack:"data"`
+	Key  lineplot.Key      `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {

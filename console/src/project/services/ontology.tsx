@@ -71,7 +71,12 @@ const useCreateLinePlot = ({
     afterSuccess: async ({ data }) => {
       const { project, ...linePlot } = data;
       await maybeChangeProject(projectID.key);
-      placeLayout(LinePlot.create({ ...linePlot.data, ...linePlot }));
+      placeLayout(
+        LinePlot.create({
+          ...LinePlot.fromWire(linePlot),
+          name: linePlot.name,
+        }),
+      );
     },
   });
   return useCallback(
@@ -79,7 +84,7 @@ const useCreateLinePlot = ({
       update({
         project: projectID.key,
         name: "New Line Plot",
-        data: deep.copy(LinePlot.ZERO_SLICE_STATE),
+        ...LinePlot.toWire(LinePlot.ZERO_STATE),
       }),
     [projectID.key],
   );

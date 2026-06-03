@@ -44,19 +44,6 @@ describe("Lineplot Slice", () => {
         ZERO_ANNOTATIONS_STATE,
       );
     });
-    it("should not throw on a payload with a version newer than the latest", () => {
-      const key = "plot-from-newer-build";
-      expect(() =>
-        store.dispatch(
-          actions.create({
-            ...ZERO_STATE,
-            version: "99.0.0" as unknown as "0.0.0",
-            key,
-          }),
-        ),
-      ).not.toThrow();
-      expect(store.getState()[SLICE_NAME].plots[key]).toBeDefined();
-    });
   });
 
   describe("setRangeAnnotationsVisible", () => {

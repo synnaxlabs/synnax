@@ -580,8 +580,8 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		AST:            def,
 	}
 
-	if ev := def.ExpressionValue(); ev != nil {
-		dv := collectValue(ev)
+	if fd := def.FieldDefault(); fd != nil {
+		dv := collectFieldDefault(fd)
 		field.Default = &dv
 	}
 
@@ -647,6 +647,19 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 		}
 		entry.Expressions = append(entry.Expressions, expr)
 	}
+}
+
+func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionValue {
+	if ev := fd.ExpressionValue(); ev != nil {
+		return collectValue(ev)
+	}
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
+	if arr := fd.ArrayDefault(); arr != nil {
+		for _, el := range arr.AllExpressionValue() {
+			out.Elements = append(out.Elements, collectValue(el))
+		}
+	}
+	return out
 }
 
 func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {

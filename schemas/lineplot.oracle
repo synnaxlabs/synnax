@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/channel"
+import "schemas/color"
+import "schemas/spatial"
+import "schemas/text"
+
 @ts output "client/ts/src/lineplot"
 @go output "core/pkg/service/lineplot"
 @pb
@@ -15,26 +20,286 @@ Key = uuid {
     @doc value "is a unique identifier for a line plot, represented as a UUID."
 }
 
+TickType enum {
+    linear = "linear"
+    time   = "time"
+
+    @doc value "selects how an axis renders its tick labels."
+}
+
+DownsampleMode enum {
+    average  = "average"
+    decimate = "decimate"
+
+    @doc value "selects how a line condenses samples that map to the same pixel."
+}
+
+XAxisKey enum {
+    x1 = "x1"
+    x2 = "x2"
+
+    @doc value "names one of the two x-axes. X-axes carry a single channel each."
+}
+
+YAxisKey enum {
+    y1 = "y1"
+    y2 = "y2"
+    y3 = "y3"
+    y4 = "y4"
+
+    @doc value "names one of the four y-axes. Y-axes carry zero or more channels each."
+}
+
+AxisKey enum extends XAxisKey, YAxisKey {
+    @doc value "names one of the six fixed plot axes."
+}
+
+Title struct {
+    level   text.Level {
+        @doc value        "is the typography level of the title text."
+        @validate default text.LevelP
+    }
+    visible bool       {
+        @doc value "is whether the title is shown above the plot."
+    }
+
+    @doc value "is the plot title configuration."
+}
+
+Legend struct {
+    visible  bool             {
+        @doc value "is whether the legend is shown."
+    }
+    position spatial.StickyXY {
+        @doc value "is the anchor position of the legend within the plot container."
+    }
+
+    @doc value "is the plot legend configuration."
+}
+
+Channels struct {
+    x1 channel.Key   {
+        @doc value "is the channel rendered on the x1 axis."
+    }
+    x2 channel.Key   {
+        @doc value "is the channel rendered on the x2 axis."
+    }
+    y1 channel.Key[] {
+        @doc value "are the channels rendered on the y1 axis."
+    }
+    y2 channel.Key[] {
+        @doc value "are the channels rendered on the y2 axis."
+    }
+    y3 channel.Key[] {
+        @doc value "are the channels rendered on the y3 axis."
+    }
+    y4 channel.Key[] {
+        @doc value "are the channels rendered on the y4 axis."
+    }
+
+    @doc value """
+        binds channel keys to each axis. x1 and x2 are single-channel; y1
+        through y4 carry zero or more channels each.
+    """
+}
+
+Ranges struct {
+    x1 string[] {
+        @doc value """
+            are the range keys plotted against the x1 axis. Range keys are
+            opaque strings rather than UUIDs because the console layers
+            synthetic rolling-window ranges (e.g. "recent", "rolling1m")
+            alongside persisted ranges; the server stores whatever the
+            client sends.
+        """
+    }
+    x2 string[] {
+        @doc value "are the range keys plotted against the x2 axis."
+    }
+
+    @doc value "binds range keys to each x-axis."
+}
+
+AutoBounds struct {
+    lower bool {
+        @doc value "is whether the lower bound is computed from data."
+    }
+    upper bool {
+        @doc value "is whether the upper bound is computed from data."
+    }
+
+    @doc value """
+        controls whether an axis derives its bounds from the rendered data
+        window on each side independently. When a bound is auto, the
+        corresponding entry in Axis.bounds is recomputed locally and never
+        broadcast to the server.
+    """
+}
+
+Axis struct {
+    key             AxisKey           {
+        @doc value "identifies which of the six axes this configuration applies to."
+    }
+    label           string            {
+        @doc value "is the human-readable label rendered along the axis."
+    }
+    label_direction spatial.Direction {
+        @doc value        "is the orientation in which the label text is laid out."
+        @validate default spatial.DirectionX
+    }
+    label_level     text.Level        {
+        @doc value        "is the typography level of the label."
+        @validate default text.LevelSmall
+    }
+    bounds          spatial.Bounds    {
+        @doc value """
+            is the value-space window of the axis. When the matching entry in
+            auto_bounds is true the field is overwritten locally on every
+            render; otherwise it is the user-set fixed bound.
+        """
+    }
+    auto_bounds     AutoBounds        {
+        @doc value "controls per-edge automatic bound derivation."
+    }
+    tick_spacing    float64           {
+        @doc value "is the target pixel distance between adjacent tick marks."
+    }
+    type            TickType??        {
+        @doc value """
+            selects the tick label style. Null means default (linear).
+            X-axes typically carry "time" when bound to a timestamp channel.
+        """
+    }
+
+    @doc value "is the configuration for a single plot axis."
+}
+
+Axes struct {
+    x1 Axis {
+        @doc value "is the x1 axis configuration."
+    }
+    x2 Axis {
+        @doc value "is the x2 axis configuration."
+    }
+    y1 Axis {
+        @doc value "is the y1 axis configuration."
+    }
+    y2 Axis {
+        @doc value "is the y2 axis configuration."
+    }
+    y3 Axis {
+        @doc value "is the y3 axis configuration."
+    }
+    y4 Axis {
+        @doc value "is the y4 axis configuration."
+    }
+
+    @doc value "bundles configuration for all six fixed plot axes."
+}
+
+Line struct {
+    key             string         {
+        @doc value """
+            is the line identifier derived from its channel and range
+            assignment. Format is internal to the client and stable across
+            re-renders so styling overrides persist.
+        """
+    }
+    label           string??       {
+        @doc value """
+            is the user-specified line label. Null means derive from the
+            channel name at render time; non-null is an override.
+        """
+    }
+    color           color.Color??  {
+        @doc value """
+            is the line color. When null, the Console assigns one from the
+            visualization palette at render time.
+        """
+    }
+    stroke_width    float64        {
+        @doc value "is the line stroke width in pixels."
+    }
+    downsample      uint32         {
+        @doc value """
+            is the downsample factor applied before rendering. 1 means render
+            every sample; higher values render every Nth sample.
+        """
+    }
+    downsample_mode DownsampleMode {
+        @doc value "selects how the downsample factor is applied."
+    }
+
+    @doc value "is the per-line styling and downsampling configuration."
+}
+
+Rule struct {
+    key        string        {
+        @doc value "is the unique rule identifier within the line plot."
+    }
+    label      string        {
+        @doc value "is the human-readable label rendered alongside the rule."
+    }
+    color      color.Color?? {
+        @doc value "is the display color of the rule. When null, the Console assigns a default at render time."
+    }
+    axis       AxisKey       {
+        @doc value "is the axis the rule is anchored to."
+    }
+    line_width float64       {
+        @doc value "is the rule line width in pixels."
+    }
+    line_dash  float64       {
+        @doc value "is the dash length in pixels; 0 renders a solid line."
+    }
+    units      string        {
+        @doc value "is the unit label displayed next to the position value."
+    }
+    position   float64       {
+        @doc value "is the value-space position of the rule along its anchored axis."
+    }
+
+    @doc value "is a horizontal or vertical annotation line drawn over the plot."
+}
+
 LinePlot struct {
-    key  Key    {
+    key      Key      {
         @doc value "is the unique identifier for this line plot."
         @key
     }
-    name string {
+    name     string   {
         @doc value "is a human-readable name for the line plot."
     }
-    data record {
-        @doc value        """
-            is the line plot configuration including channel references, axis
-            settings, and display options.
+    title    Title    {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend   {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   Ranges   {
+        @doc value "binds range keys to each x-axis."
+    }
+    axes     Axes     {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]   {
+        @doc value """
+            holds per-line styling and downsampling configuration. Each entry
+            corresponds to one channel and range combination produced by the
+            channels and ranges bindings.
         """
-        @ts preserve_case
+    }
+    rules    Rule[]   {
+        @doc value "holds annotation rules drawn over the plot."
     }
 
     @doc value     """
         is a time-series visualization component for plotting telemetry data.
-        Line plots support multiple channels, real-time streaming, and historical
-        data display with zoom and pan capabilities.
+        Line plots support multiple channels, real-time streaming, and
+        historical data display with zoom and pan capabilities.
     """
     @ontology type "lineplot"
     @retrieve
@@ -43,10 +308,52 @@ LinePlot struct {
 }
 
 New struct extends LinePlot {
-    key Key? {
+    key      Key?      {
         @doc value """
             is an optional key for the line plot. If not provided, one will be
             automatically assigned.
+        """
+    }
+    title    Title?    {
+        @doc value """
+            is the plot title configuration. Defaults to the zero-value
+            title; the client seeds rendering defaults locally.
+        """
+    }
+    legend   Legend?   {
+        @doc value """
+            is the plot legend configuration. Defaults to the zero-value
+            legend; the client seeds rendering defaults locally.
+        """
+    }
+    channels Channels? {
+        @doc value """
+            binds channel keys to each axis. Defaults to no channels assigned
+            on any axis.
+        """
+    }
+    ranges   Ranges?   {
+        @doc value """
+            binds range keys to each x-axis. Defaults to no ranges assigned
+            on either x-axis.
+        """
+    }
+    axes     Axes?     {
+        @doc value """
+            bundles per-axis configuration. Defaults to the zero-value axes;
+            the client seeds rendering defaults locally.
+        """
+    }
+    lines    Line[]?   {
+        @doc value """
+            holds per-line styling and downsampling configuration. Defaults
+            to an empty list.
+        """
+    }
+    rules    Rule[]?   {
+        @doc value """
+            holds annotation rules drawn over the plot. Defaults to an empty
+            list.
         """
     }
 
