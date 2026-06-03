@@ -12,12 +12,9 @@ import { type ReactElement } from "react";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/light/config";
-import { Light } from "@/schematic/node/general/light/Primitive";
+import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
-
-// Width the Light primitive renders at scale 1: base 64px x SVG BASE_SCALE (0.8).
-const SCALE_1_WIDTH = 51.2;
 
 export const Symbol = ({
   nodeKey,
@@ -33,7 +30,7 @@ export const Symbol = ({
       editable={selected}
       nodeKey={nodeKey}
       keepAspectRatio
-      onResize={({ width }) => onConfigChange({ scale: width / SCALE_1_WIDTH })}
+      onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Light enabled={enabled} orientation={orientation} {...rest} />
