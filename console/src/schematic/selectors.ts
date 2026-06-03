@@ -57,20 +57,25 @@ export const selectAuthority = (state: StoreState, key: string): control.Authori
 export const useSelectAuthority = (key: string): control.Authority =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
 
-export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
-  selectToolbar(state, key).activeTab;
+export const selectActiveToolbarTab = (
+  state: StoreState,
+  key: string,
+): ToolbarTab | undefined => selectToolbar(state, key)?.activeTab;
 
-export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab | undefined =>
   useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
-export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
-  select(state, key).toolbar;
+export const selectToolbar = (
+  state: StoreState,
+  key: string,
+): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarState =>
+export const useSelectToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectToolbar(state, key)?.selectedSymbolGroup;
+  selectToolbar(state, key)?.selectedSymbolGroup ??
+  ZERO_STATE.toolbar.selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
@@ -88,7 +93,7 @@ export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
-  select(state, key).editable;
+  selectOptional(state, key)?.editable ?? ZERO_STATE.editable;
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
