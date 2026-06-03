@@ -92,7 +92,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				name string @validate { default "untitled" }
+				name string = "untitled"
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -105,7 +105,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				count int32 @validate { default 5 }
+				count int32 = 5
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -118,7 +118,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				ratio float64 @validate { default 1.5 }
+				ratio float64 = 1.5
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -131,7 +131,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				active bool @validate { default true }
+				active bool = true
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -144,7 +144,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				key string @validate { default create }
+				key string = create
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
