@@ -693,15 +693,32 @@ Import replaces RFC 0034's decode-to-`map[string]any` with a peek followed by a 
 typed decode:
 
 ```go
-// In the imex registry: peek reads only version + type, then routes.
-var p struct {
-    Version imex.Version `json:"version"`
-    Type    string       `json:"type"`
+// when encoding / decoding through the freighter codecs, we get this:
+// 1. decoding (from import path):
+imex.Envelope{
+  Version: 3
+  Type: "log"
+  Name: "my-log"
+  codec: json.Coded // whatever codec was used here
+  raw: []byte(`{"version":3,"type":"log","name":"my-log","channels":[...]}`) // whatever the raw bytes are
+  body: map[string]any // this is currently nil
 }
-if err := c.Decode(raw, &p); err != nil { return "", err }
-imp, ok := s.importers[p.Type]               // route by the peeked type
-if !ok { return "", errorUnknownType(p.Type) }
-return imp.Import(ctx, tx, c, p.Version, raw) // service-owned decode + persist (§4.4.3)
+// 2. encoding (to export path):
+imex.Envelope{
+  Version: 3
+  Type: "log"
+  Name: "my-log"
+  codec: // this is nil
+  raw: // this is nil
+  body: map[string]any{"channels": [...]} // this is set by export path and used for encoding.
+}
+```
+
+```go
+// In the imex registry: look to specific type.
+imp, ok := s.importers[env.Type]
+if !ok { return "", errorUnknownType(env.Type) }
+return imp.Import(ctx, tx, env) // service-owned decode + persist (§4.4.3)
 ```
 
 The importer decodes the raw bytes exactly once, directly into the frozen
@@ -710,11 +727,11 @@ the version guard (`v > LatestVersion → ErrUnsupportedVersion`) is the first b
 the service's `Decode`, so a too-new payload is rejected before its body is touched.
 This generalizes the per-service `legacy.go` peek into the standard import front door.
 
-`imex.Version` is a plain integer with a custom `UnmarshalJSON` that accepts both
-JSON numbers (`5`) and the historical semver strings (`"5.0.0"`) and normalizes
-both to the same integer. Every downstream consumer — the registry router, the
-service `Decode`, the legacy `Decode` — sees one integer namespace per resource
-(§4.3.2); semver lives at the wire boundary only.
+`imex.Version` is a plain integer with a custom `UnmarshalJSON` that accepts both JSON
+numbers (`5`) and the historical semver strings (`"5.0.0"`) and normalizes both to the
+same integer. Every downstream consumer — the registry router, the service `Decode`, the
+legacy `Decode` — sees one integer namespace per resource (§4.3.2); semver lives at the
+wire boundary only.
 
 ### 4.4.1 - Relationship to Gorp Migration
 
@@ -726,11 +743,23 @@ one payload per request.
 
 ### 4.4.2 - The Envelope
 
-The flat wire shape `{version, type, name, ...fields}` (RFC 0034 §4.1) is retained on
-the wire. What changes is the _decode strategy_: the `Envelope` struct with its `Data
-map[string]any` field is no longer the import-side representation; the importer decodes
-straight into the typed frozen struct. Export is unaffected — it still serializes the
-current stored type to the flat shape (RFC 0034 §3.4).
+The flat wire shape `{version, type, name, ...fields}` (RFC 0034 §4.1) is retained. What
+changes is the in-memory representation: one `imex.Envelope` type serves both
+directions, with two private body shapes that mirror import and export:
+
+- **Import:** `Envelope.UnmarshalJSON` / `UnmarshalTOML` / `UnmarshalYAML` parse the
+  wire shape, peek the headers (`Version`, `Type`, `Name`), and store the codec and the
+  still-opaque raw bytes on the envelope. The typed body is materialized later, once, by
+  `imex.Decode[T](env)`.
+- **Export:** `imex.Encode(data, version, type)` reduces `data` to a codec-independent
+  `map[string]any`, merges in the headers as flat top-level entries, and returns the
+  envelope. `Envelope.MarshalJSON`/`MarshalYAML`/`MarshalTOML` are then a one-line
+  codec-specific re-encode of that map.
+
+Services never construct, hold, or select a codec — they only see envelopes the registry
+has already bound to one (on import) or that they have produced via `imex.Encode` (on
+export, where the codec is irrelevant until the registry Marshals on the way out). The
+type is defined in §4.4.3.
 
 ### 4.4.3 - Service Interfaces and Registration
 
@@ -739,35 +768,82 @@ importer/exporter that decodes and persists its own type. The interfaces (in
 `service/imex`):
 
 ```go
-// Codec is the portable wire codec, resolved at the HTTP boundary by content
-// negotiation (JSON initially; YAML/TOML accommodated — RFC 0034 §4.6.1).
-type Codec interface {
-    Decode(raw []byte, into any) error
-    Encode(v any) ([]byte, error)
+// Envelope is the single carrier for both import (received from the wire) and
+// export (returned to the wire). Public fields hold the flat wire headers. The
+// body is kept privately in one of two shapes depending on direction:
+//   - raw  []byte         — populated by the UnmarshalX methods on import,
+//                           decoded on demand by imex.Decode[T].
+//   - body map[string]any — populated by imex.Encode on export, marshaled by
+//                           Marshal in the negotiated codec's format.
+// The codec is captured alongside raw on import (via the codec-specific
+// UnmarshalX method) and is unused on export (Marshal takes one explicitly).
+// Services never set or read codec, raw, or body directly.
+type Envelope struct {
+    Version Version
+    Type    ontology.ResourceType
+    Name    string
+
+    codec Codec
+    raw   []byte         // import path
+    body  map[string]any // export path
+}
+
+// UnmarshalJSON parses raw as a JSON wire envelope. Stores raw and a JSON codec
+// on the receiver so subsequent imex.Decode[T] calls decode the body in JSON.
+// UnmarshalYAML and UnmarshalTOML are defined symmetrically. Because each method
+// is tied to a specific codec, no explicit codec parameter is needed —
+// codec.Decode(raw, &env) at the registry boundary dispatches to the right one.
+func (e *Envelope) UnmarshalJSON(raw []byte) error { /* peek headers; set codec=jsonCodec, raw */ }
+
+// Marshal serializes the envelope's body in c's format. The headers are already
+// merged into body by imex.Encode, so this is just a codec-specific re-encode.
+func (e Envelope) MarshalJSON() ([]byte, error) { return json.Marshal(e.body)} // also add version, type, name
+
+// Decode decodes the envelope's body into a value of type T using the envelope's
+// captured codec. Free function rather than a method because Go does not yet
+// support generic methods; when it does, this becomes (e Envelope) Decode[T]()
+// with no other change to call sites. The raw bytes are immutable, so repeated
+// calls are safe — though every case in a service's version switch decodes once.
+func Decode[T any](e Envelope) (T, error) {
+    var t T
+    if err := e.codec.Decode(e.raw, &t); err != nil { return t, err }
+    return t, nil
+}
+
+// Encode produces an Envelope ready for Marshal. data is reduced to a
+// codec-independent map[string]any (via JSON round-trip — the structural
+// canonical form across codecs), then version and type are merged in as flat
+// top-level entries. The resource's own Name field, if present, is preserved as
+// Envelope.Name. Symmetric inverse of Decode; becomes (e *Envelope) Encode[T]
+// when Go supports generic methods.
+func Encode[T any](data T, version Version, typ ontology.ResourceType) (Envelope, error) {
+    b, err := StructToMap(data) //custom function to convert the struct to a map[string]any
+    if err != nil { return Envelope{}, err }
+    b["version"], b["type"] = version, typ
+    name, ok := body["name"].(string)
+    if !ok {
+        return Envelope{}, errors.New("name must be a string")
+    }
+    return Envelope{Version: version, Type: typ, Name: name, body: body}, nil
 }
 
 // Importer decodes and persists one resource type's portable payload.
 type Importer interface {
-    // Type is the resource-type string matched against the peeked `type` field.
-    Type() string
-    // Import decodes raw — already known to be version v of Type, in codec c — into the
-    // current typed struct, migrates it forward, assigns a fresh key, and persists it
-    // through the service Writer on tx (the write seam validates). Returns the new key.
-    Import(ctx context.Context, tx gorp.Tx, c Codec, v Version, raw []byte) (key string, err error)
+    // Type identifies the resource this importer handles; the registry routes
+    // inbound envelopes whose Type field matches.
+    Type() ontology.ResourceType
+    // Import decodes env into the current typed struct, migrates it forward,
+    // assigns a fresh key, and persists it through the service Writer on tx (the
+    // write seam validates). Returns the new key.
+    Import(context.Context, gorp.Tx, Envelope) (string, error)
 }
 
-// Exporter serializes one stored resource to the portable shape.
+// Exporter serializes one stored resource into an Envelope via imex.Encode.
+// The registry then Marshals the returned envelope to wire bytes using the
+// negotiated codec.
 type Exporter interface {
     Type() ontology.ResourceType
-    // Export reads key and returns the current value plus the version and name the
-    // registry needs to build the flat envelope.
-    Export(ctx context.Context, key string) (Exported, error)
-}
-
-type Exported struct {
-    Version Version
-    Name    string
-    Value   any // the current typed struct; the registry promotes Version/type/Name and marshals it
+    Export(context.Context, string) (Envelope, error)
 }
 ```
 
@@ -780,42 +856,42 @@ type Schematic = types.Schematic         // types == schematic/internal/types
 const LatestVersion = types.LatestVersion
 
 // service/schematic/imex.go
-type importer struct{ svc *Service }
+var _ imex.Importer = (*Service)(nil)
 
-func (importer) Type() string { return "schematic" }
+func (*Service) Type() ontology.ResourceType { return ResourceType }
 
-func (i importer) Import(
-    ctx context.Context, tx gorp.Tx, c imex.Codec, v imex.Version, raw []byte,
+func (s Service) Import(
+    ctx context.Context, tx gorp.Tx, env imex.Envelope,
 ) (string, error) {
-    s, err := types.Decode(c, v, raw) // decode frozen vN + migrate → current; guards too-new
+    s, err := types.Decode(env) // decode frozen vN + migrate → current; guards too-new
     if err != nil {
         return "", err
     }
     s.Key = uuid.New()
-    if err := i.svc.NewWriter(tx).Create(ctx, &s); err != nil { // write seam validates
+    if err := s.NewWriter(tx).Create(ctx, &s); err != nil { // write seam validates
         return "", err
     }
     return s.Key.String(), nil
 }
 
-type exporter struct{ svc *Service }
+var _ imex.Exporter = (*Service)(nil)
 
-func (exporter) Type() ontology.ResourceType { return ResourceType }
+func (*Service) Type() ontology.ResourceType { return ResourceType }
 
-func (e exporter) Export(ctx context.Context, key string) (imex.Exported, error) {
+func (s Service) Export(ctx context.Context, key string) (imex.Envelope, error) {
     k, err := uuid.Parse(key)
     if err != nil {
-        return imex.Exported{}, err
+        return imex.Envelope{}, err
     }
     var s Schematic
-    if err := e.svc.NewRetrieve().WhereKeys(k).Entry(&s).Exec(ctx, nil); err != nil {
-        return imex.Exported{}, err
+    if err := s.NewRetrieve().WhereKeys(k).Entry(&s).Exec(ctx, nil); err != nil {
+        return imex.Envelope{}, err
     }
-    return imex.Exported{Version: LatestVersion, Name: s.Name, Value: s}, nil
+    return imex.Encode(s, LatestVersion, ResourceType)
 }
 
 // service/schematic/service.go — registration
-cfg.ImEx.Register(importer{svc}, exporter{svc})
+cfg.ImEx.RegisterImportExporter(s)
 ```
 
 And the dispatch the importer delegates to, in `internal/types` — pure decode + migrate,
@@ -827,14 +903,15 @@ no DB and no other services. The example below uses `legacy.MaxVersion = 5` and
 // Code generated by Oracle. DO NOT EDIT.
 //
 // Schematic = v8.Schematic via internal/types/types.go.
-func Decode(c imex.Codec, v imex.Version, raw []byte) (Schematic, error) {
+func Decode(env imex.Envelope) (Schematic, error) {
+    v := env.Version
     if v > LatestVersion {
         return Schematic{}, imex.NewErrUnsupportedVersion("schematic", v, LatestVersion)
     }
     if v <= legacy.MaxVersion {
         // legacy.Decode owns the legacy.vV → … → legacy.vMaxVersion chain and the
         // bridge MigrateFromLegacy → first modern version. Returns v6.Schematic.
-        s6, err := legacy.Decode(c, v, raw)
+        s6, err := legacy.Decode(env)
         if err != nil {
             return Schematic{}, errors.Wrap(err, "decode legacy schematic")
         }
@@ -842,20 +919,20 @@ func Decode(c imex.Codec, v imex.Version, raw []byte) (Schematic, error) {
     }
     switch v {
     case v8.Version:
-        var s v8.Schematic
-        if err := c.Decode(raw, &s); err != nil {
+        s, err := imex.Decode[v8.Schematic](env)
+        if err != nil {
             return Schematic{}, errors.Wrap(err, "decode schematic v8")
         }
         return s, nil
     case v7.Version:
-        var s v7.Schematic
-        if err := c.Decode(raw, &s); err != nil {
+        s, err := imex.Decode[v7.Schematic](env)
+        if err != nil {
             return Schematic{}, errors.Wrap(err, "decode schematic v7")
         }
         return walkFromV7(s)
     case v6.Version:
-        var s v6.Schematic
-        if err := c.Decode(raw, &s); err != nil {
+        s, err := imex.Decode[v6.Schematic](env)
+        if err != nil {
             return Schematic{}, errors.Wrap(err, "decode schematic v6")
         }
         return walkFromV6(s)
@@ -889,20 +966,20 @@ The legacy side is symmetric — its own dispatch + chain, terminating in the br
 // (MaxVersion+1) is the first modern version.
 const MaxVersion imex.Version = 5
 
-// Decode handles versions [0, MaxVersion]. It decodes raw into the appropriate
-// legacy vN, walks the legacy chain to vMaxVersion, then crosses the bridge
-// MigrateFromLegacy to the first modern version (v6 here).
-func Decode(c imex.Codec, v imex.Version, raw []byte) (v6.Schematic, error) {
-    switch v {
+// Decode handles versions [0, MaxVersion]. It decodes the envelope into the
+// appropriate legacy vN, walks the legacy chain to vMaxVersion, then crosses the
+// bridge MigrateFromLegacy to the first modern version (v6 here).
+func Decode(env imex.Envelope) (v6.Schematic, error) {
+    switch env.Version {
     case v5.Version:
-        var s v5.Schematic
-        if err := c.Decode(raw, &s); err != nil {
+        s, err := imex.Decode[v5.Schematic](env)
+        if err != nil {
             return v6.Schematic{}, errors.Wrap(err, "decode legacy schematic v5")
         }
         return v6.MigrateFromLegacy(s) // the bridge
     case v4.Version:
-        var s v4.Schematic
-        if err := c.Decode(raw, &s); err != nil {
+        s, err := imex.Decode[v4.Schematic](env)
+        if err != nil {
             return v6.Schematic{}, errors.Wrap(err, "decode legacy schematic v4")
         }
         s5, err := v5.Migrate(s)
@@ -912,7 +989,7 @@ func Decode(c imex.Codec, v imex.Version, raw []byte) (v6.Schematic, error) {
         return v6.MigrateFromLegacy(s5)
     // … v3, v2, v1, v0 follow the same pattern
     }
-    return v6.Schematic{}, imex.NewErrUnknownVersion("schematic", v)
+    return v6.Schematic{}, imex.NewErrUnknownVersion("schematic", env.Version)
 }
 ```
 
@@ -932,13 +1009,21 @@ func MigrateFromLegacy(s legacy_v5.Schematic) (Schematic, error) { … }
 The properties this gives:
 
 - **No dependency cycle.** `imex` imports no service package; services import `imex`.
-  Routing is by string; decoding is owned by the service through its `internal/types`.
+  Routing is by `ontology.ResourceType`; decoding is owned by the service through its
+  `internal/types`.
 - **One decode, validated once.** The body is parsed exactly once into a frozen struct,
   and untrusted import data is validated by the same generated `Validate` as every other
   write, because `Import` persists through the service Writer / gorp write seam (§4.5).
-- **Codec stays at the boundary.** `Decode`/`Export` take/return the typed value; the
-  registry promotes `Version`/type/`Name` into the flat envelope and marshals with the
-  negotiated codec, so no format-specific code lives in a service.
+- **One Envelope type, both directions.** Import and export use the same
+  `imex.Envelope`. On import the codec-specific `UnmarshalX` method captures the codec
+  and raw bytes privately so `imex.Decode[T]` can materialize the body later. On export
+  `imex.Encode` reduces the typed value to a `map[string]any` body, and
+  `Envelope.Marshal(codec)` is a one-line codec-specific re-encode. Services never see,
+  set, or pick a codec.
+- **Symmetric Encode / Decode.** `imex.Decode[T](env) → T` and `imex.Encode[T](v,
+  version, type) → Envelope` are inverses across the wire boundary. Both are free
+  functions only because Go does not yet support generic methods; when it does, they
+  become `env.Decode[T]()` and `env.Encode[T](...)` with no other change.
 
 ## 4.5 - Validation at the Write Seam
 
