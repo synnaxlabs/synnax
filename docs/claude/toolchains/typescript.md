@@ -242,9 +242,9 @@ it), keep `throw err` as-is. Wrapping a pass-through only adds noise.
 ```ts
 try {
   return await op();
-} catch (err) {
+} catch (err: unknown) {
   if (EOF.matches(err)) return DONE;
-  throw err; // ✓ pass-through — no new context to add
+  throw errors.fromUnknown(err); // pass-through — no new context to add, make it Error
 }
 ```
 
