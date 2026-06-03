@@ -16,6 +16,7 @@ import {
   type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { errors } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { log } from "@/debug";
