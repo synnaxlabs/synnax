@@ -2328,7 +2328,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -2351,7 +2351,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts output "client/ts/src/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -2369,7 +2369,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 
 					Config struct {
-						level Level @validate default LevelInfo
+						level Level = LevelInfo
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -2392,7 +2392,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts output "client/ts/src/lineplot"
 
 					Title struct {
-						level text.Level @validate default text.LevelP
+						level text.Level = text.LevelP
 					}
 				`
 				resp := MustGenerate(ctx, source, "lineplot", loader, typesPlugin)

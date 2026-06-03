@@ -123,9 +123,8 @@ Dimensions struct {
 }
 
 Viewport struct {
-    zoom     float64 {
-        @validate default 1
-        @doc value        "is the zoom level where 1.0 equals 100%."
+    zoom     float64 = 1 {
+        @doc value "is the zoom level where 1.0 equals 100%."
     }
     position XY      {
         @doc value "is the (x, y) pan offset of the viewport."

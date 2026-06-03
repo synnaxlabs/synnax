@@ -572,11 +572,22 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
 	f.write(typeStr)
 
+	// Inline default value: name type = X
+	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
+	if hasDefault {
+		f.write(" = ")
+		f.write(f.formatFieldDefaultToString(ctx.FieldDefault()))
+	}
+
 	inlineDomains := ctx.AllInlineDomain()
 	hasDomains := len(inlineDomains) > 0 || ctx.FieldBody() != nil
 
 	if hasDomains {
-		f.writePadding(typeWidth - len(typeStr))
+		// A default (= X) breaks column alignment, so only pad when there isn't
+		// one; the inline-domain and brace formatters supply their own leading space.
+		if !hasDefault {
+			f.writePadding(typeWidth - len(typeStr))
+		}
 
 		// Try inline first
 		inlineStr := f.formatInlineDomainsToString(inlineDomains)
@@ -688,6 +699,21 @@ func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) stri
 		sb.WriteString(f.formatExpressionValueToString(val))
 	}
 	return sb.String()
+}
+
+func (f *formatter) formatFieldDefaultToString(ctx parser.IFieldDefaultContext) string {
+	if ev := ctx.ExpressionValue(); ev != nil {
+		return f.formatExpressionValueToString(ev)
+	}
+	arr := ctx.ArrayDefault()
+	if arr == nil {
+		return "[]"
+	}
+	parts := make([]string, 0, len(arr.AllExpressionValue()))
+	for _, el := range arr.AllExpressionValue() {
+		parts = append(parts, f.formatExpressionValueToString(el))
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {

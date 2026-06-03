@@ -323,8 +323,23 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format boolean expression values", func() {
-			result := format("User struct {\n  active bool @validate default true\n}\n")
-			Expect(result).To(ContainSubstring("default true"))
+			result := format("User struct {\n  active bool = true\n}\n")
+			Expect(result).To(ContainSubstring("= true"))
+		})
+
+		It("should format a field default before a brace body", func() {
+			result := format("Item struct {\n  count int32 = 7 {\n    @doc value \"is a counter.\"\n  }\n}\n")
+			Expect(result).To(ContainSubstring("count int32 = 7 {"))
+		})
+
+		It("should format an empty array default", func() {
+			result := format("Item struct {\n  vals float64[] = []\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = []"))
+		})
+
+		It("should format a populated array default", func() {
+			result := format("Item struct {\n  vals float64[] = [1.5, 2.5]\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = [1.5, 2.5]"))
 		})
 
 		It("should format qualified ident expression values", func() {
