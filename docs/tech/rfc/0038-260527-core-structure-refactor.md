@@ -986,26 +986,33 @@ object.
 
 The startup-batch migration (RFC 0033) writes every migrated entry back through
 `Writer.set`, so `Validate` runs on each record as a side effect — stored data is held
-to the current constraints, not just new writes. A record that fails validation (it
-predates a newly added bound, say, or carries a now-invalid enum variant) is dropped
-from the migration rather than aborting it: the entry is skipped and not written back,
-so the table converges to only valid records. Drops are logged through the migration's
-instrumentation. The same drop-and-log treatment applies to a row that fails to
-`DecodeOrc` or whose `Migrate` step returns an error — startup migration runs unattended
-at boot, and aborting on a single bad row would take down the cluster.
+to the current constraints, not just new writes.
 
-ImEx import (§4.4) deliberately does the opposite. A payload that fails `Decode`
-(corrupt bytes, unknown legacy semver), fails a `Migrate` step (incompatible legacy
-shape, bridge mismatch), or fails `Validate` at the write seam returns the error to the
-caller. Import is synchronous and interactive — the request originated outside the
-system, the caller is waiting on the HTTP response, and a silently dropped import would
-manifest as data loss on the next page refresh. The importer's `Import(ctx, tx, c, v,
-raw) (string, error)` (§4.4.3) propagates every error path; the registry surfaces it
-back to the transport layer, which returns it to the client.
+Migration is intolerant of failure. Any record that fails to `DecodeOrc`, returns an
+error from a per-step `Migrate`, or fails `Validate` at the write seam aborts the boot
+sequence. The error names the resource type, the row key, the version being read or
+written, and the underlying cause; the operator sees it in the startup log and the
+cluster does not begin serving traffic. There is no skip flag, no quarantine bucket, and
+no silent drop. Each of the three failure modes implies one of three things: the
+developer's `Migrate` is wrong, the developer added a constraint without accounting for
+stored data, or the on-disk record is corrupt. All three are bugs that should be fixed
+before the cluster is exposed to clients — not papered over by the runtime.
 
-The two runners thus apply the same `Validate` method at the same write seam, but
-respond to failure in opposite directions: startup migration drops because no one is
-listening, import errors because someone is.
+This posture matches §3.5: "a service cannot opt out, and cannot forget." A drop-and-log
+path would be the migration runner opting out at scale — every dropped record is a write
+the chokepoint refused to honor, with the failure hidden in a log line no one reads
+until something else breaks. Synnax is a metadata store for hardware control systems
+where a missing calculated channel, device, or interlock record may have safety
+implications, so the default has to be loud failure that forces human attention. The
+cost asymmetry is the deciding factor: a failed boot is recoverable in minutes (revert
+the schema change, patch the `Migrate`, or restore from a backup); a silently purged
+record may not be recoverable at all.
+
+ImEx import (§4.4) is equally intolerant of failure, just to a different audience. Any
+`Decode`, `Migrate`, or `Validate` error propagates back through `Importer.Import` to
+the registry, the transport, and the HTTP client. The same `Validate` runs at the same
+seam in both runners — they differ only in *who* sees the error, not in *whether* one is
+reported.
 
 ## 4.6 - Oracle Generator Changes
 
@@ -1135,22 +1142,18 @@ The `resolved` domain, numeric bounds, and enum-variant checks are declared in `
 schemas and generated, not hand-written per service — keeping the schema the single
 source of truth (RFC 0027).
 
-## 5.7 - Startup Migration Drops Invalid Records; Import Returns the Error
+## 5.7 - Migration Failures Always Halt
 
-Startup-batch migration re-runs `Validate` on every entry it writes back and drops any
-record that fails, rather than aborting the migration (§4.5.3). A constraint added to a
-schema is thus retroactively enforced against stored data, and records that cannot
-satisfy it are purged. This is deliberately lossy for invalid records; drops are logged.
-**This drop-on-failure behavior applies only to the Gorp startup-batch runner**, which
-runs unattended at boot — aborting on a single bad row would take down the cluster and
-there is no caller to return the error to.
+A startup-batch migration that fails to `DecodeOrc` a row, that returns an error from a
+per-step `Migrate`, or that has the write seam reject the migrated record via
+`Validate`, aborts Core boot with a structured error naming the resource, key, version,
+and cause (§4.5.3). There is no skip flag and no drop-and-log recovery path: each
+failure mode is a programmer bug (a faulty migration, a constraint added without
+considering stored data) or genuine disk corruption, and all three deserve human
+attention before the Core serves traffic. This is the operator-facing analogue of how
+ImEx import (§4.4) propagates the same errors back through the HTTP request — same
+`Validate`, same seam, just different listeners.
 
-ImEx import (§4.4) is interactive and does the opposite: any `Decode`, `Migrate`, or
-`Validate` failure propagates back through `Importer.Import` to the registry, the
-transport, and the HTTP client. Imports are synchronous requests with a waiting caller;
-a silently dropped import would manifest as data loss the next time the user opens the
-workspace. The same `Validate` method runs at the same seam — only the failure response
-differs.
 
 ## 5.8 - `Validate` Is a Required `gorp.Entry` Method
 
