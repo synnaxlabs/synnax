@@ -128,5 +128,5 @@ func (d *Document) resolveSymbolAtPosition(ctx context.Context, pos protocol.Pos
 	if scope == nil {
 		return nil, nil
 	}
-	return scope.Resolve(ctx, word)
+	return scope.Resolve(ctx, word, symbol.WithoutUsageTracking)
 }
