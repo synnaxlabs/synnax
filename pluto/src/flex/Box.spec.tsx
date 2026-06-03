@@ -174,6 +174,38 @@ describe("Box", () => {
     });
   });
 
+  describe("alignSelf", () => {
+    it("should not add a classname by default", () => {
+      const c = render(<Flex.Box>Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).not.toContain("pluto--align-self");
+    });
+
+    it("should set center if the alignSelf is center", () => {
+      const c = render(<Flex.Box alignSelf="center">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--align-self-center");
+    });
+
+    it("should set end if the alignSelf is end", () => {
+      const c = render(<Flex.Box alignSelf="end">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--align-self-end");
+    });
+
+    it("should set start if the alignSelf is start", () => {
+      const c = render(<Flex.Box alignSelf="start">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--align-self-start");
+    });
+
+    it("should set stretch if the alignSelf is stretch", () => {
+      const c = render(<Flex.Box alignSelf="stretch">Hello</Flex.Box>);
+      const el = c.getByText("Hello");
+      expect(el.className).toContain("pluto--align-self-stretch");
+    });
+  });
+
   describe("grow", () => {
     it("should not add a classname by default", () => {
       const c = render(<Flex.Box>Hello</Flex.Box>);
