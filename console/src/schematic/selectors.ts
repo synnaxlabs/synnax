@@ -87,7 +87,7 @@ export const useSelectLegend = (key: string): LegendState =>
   useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
 
 export const selectLegendVisible = (state: StoreState, key: string): boolean =>
-  select(state, key).legend.visible;
+  selectOptional(state, key)?.legend.visible ?? ZERO_STATE.legend.visible;
 
 export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
@@ -99,13 +99,13 @@ export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
-  select(state, key).fitViewOnResize;
+  selectOptional(state, key)?.fitViewOnResize ?? ZERO_STATE.fitViewOnResize;
 
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
 export const selectViewport = (state: StoreState, key: string): Viewport =>
-  select(state, key).viewport;
+  selectOptional(state, key)?.viewport ?? ZERO_STATE.viewport;
 
 export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);

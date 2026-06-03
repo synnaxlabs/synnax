@@ -12,10 +12,18 @@ import { describe, expect, it } from "vitest";
 import {
   selectActiveToolbarTab,
   selectEditable,
+  selectFitViewOnResize,
+  selectLegendVisible,
   selectSelectedSymbolGroup,
   selectToolbar,
+  selectViewport,
 } from "@/schematic/selectors";
-import { SLICE_NAME, type StoreState, ZERO_SLICE_STATE, ZERO_STATE } from "@/schematic/slice";
+import {
+  SLICE_NAME,
+  type StoreState,
+  ZERO_SLICE_STATE,
+  ZERO_STATE,
+} from "@/schematic/slice";
 
 describe("schematic selectors", () => {
   describe("missing slice entry", () => {
@@ -37,6 +45,18 @@ describe("schematic selectors", () => {
       expect(selectSelectedSymbolGroup(state, "absent")).toBe(
         ZERO_STATE.toolbar.selectedSymbolGroup,
       );
+    });
+
+    it("should default selectLegendVisible to the zero value", () => {
+      expect(selectLegendVisible(state, "absent")).toBe(ZERO_STATE.legend.visible);
+    });
+
+    it("should default selectFitViewOnResize to the zero value", () => {
+      expect(selectFitViewOnResize(state, "absent")).toBe(ZERO_STATE.fitViewOnResize);
+    });
+
+    it("should default selectViewport to the zero value", () => {
+      expect(selectViewport(state, "absent")).toBe(ZERO_STATE.viewport);
     });
   });
 });
