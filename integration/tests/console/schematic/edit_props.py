@@ -15,6 +15,20 @@ from console.schematic.schematic import PropertyDict, Schematic
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
 
+# Display names of every schematic edge variant, mirroring the variant selector
+# dropdown (pluto SELECT_DATA in edge/common/segmented/Form.tsx). A name whose key
+# does not resolve in the edge registry crashes the schematic graph view, so this
+# list guards every option the user can pick.
+EDGE_VARIANTS = [
+    "Pipe",
+    "Electric Signal",
+    "Secondary",
+    "Jacketed",
+    "Hydraulic",
+    "Pneumatic",
+    "Data",
+]
+
 
 def assert_properties(
     schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
@@ -64,6 +78,7 @@ class EditProps(ConsoleCase):
         self.test_schematic_props(schematic)
         self.test_value_props(schematic)
         self.test_button_props(schematic)
+        self.test_edge_variants(schematic)
         self.log("Test Complete")
 
     def test_schematic_props(self, schematic: Schematic) -> None:
@@ -223,3 +238,52 @@ class EditProps(ConsoleCase):
         )
         assert_symbol_properties(non_default_button, non_default_props)
         non_default_button.delete()
+
+    def test_edge_variants(self, schematic: Schematic) -> None:
+        self.log("Test 3: Edge Variants")
+        schematic.enable_edit()
+
+        source = schematic.create_symbol(
+            Value(label=f"{CHANNEL_NAME}_edge_a", channel_name=CHANNEL_NAME)
+        )
+        source.move(delta_x=-200, delta_y=0)
+        target = schematic.create_symbol(
+            Value(label=f"{CHANNEL_NAME}_edge_b", channel_name=CHANNEL_NAME)
+        )
+        target.move(delta_x=200, delta_y=0)
+
+        schematic.connect_symbols(source, "right", target, "left")
+        assert schematic.get_edge_count() == 1, (
+            f"Expected one edge after connecting, got {schematic.get_edge_count()}"
+        )
+
+        self.log("3.1 Default")
+        schematic.select_edge(source, "right", target, "left")
+        default_variant = schematic.get_edge_variant()
+        assert default_variant == "Pipe", (
+            f"Default edge variant mismatch! Actual: {default_variant}, Expected: Pipe"
+        )
+
+        for variant in EDGE_VARIANTS:
+            self.log(f"3.2 Switch to {variant}")
+            schematic.select_edge(source, "right", target, "left")
+            schematic.set_edge_variant(variant)
+
+            applied = schematic.get_edge_variant()
+            assert applied == variant, (
+                f"Edge variant did not apply! Actual: {applied}, Expected: {variant}"
+            )
+            # A variant whose key is missing from the registry throws during render
+            # and the error boundary tears down the graph view, dropping the node
+            # and edge elements. Their continued presence proves no crash occurred.
+            assert schematic.get_edge_count() == 1, (
+                f"Schematic crashed after switching edge to {variant}: "
+                "edge no longer rendered"
+            )
+            assert schematic.get_symbol_count() == 2, (
+                f"Schematic crashed after switching edge to {variant}: "
+                "symbols no longer rendered"
+            )
+
+        source.delete()
+        target.delete()
