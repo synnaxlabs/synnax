@@ -1688,7 +1688,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		}
 		if rules.Pattern != nil {
 			if rules.PatternMessage != nil {
-				zodType = fmt.Sprintf("%s.regex(/%s/, %q)", zodType, *rules.Pattern, *rules.PatternMessage)
+				zodType = fmt.Sprintf("%s.regex(/%s/, %s)", zodType, *rules.Pattern, tsStringLiteral(*rules.PatternMessage))
 			} else {
 				zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, *rules.Pattern)
 			}
@@ -1713,7 +1713,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	if defaultVal != nil {
 		switch defaultVal.Kind {
 		case resolution.ValueKindString:
-			zodType = fmt.Sprintf("%s.default(%q)", zodType, defaultVal.StringValue)
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
 			// Special handling for timestamp/timespan with default of 0
 			if defaultVal.IntValue == 0 {
@@ -1756,6 +1756,41 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	return validationResult{ZodType: zodType, HasDefault: hasDefault}
 }
 
+// tsStringLiteral renders a Go string as a double-quoted TypeScript string
+// literal. Unlike Go's %q verb, supplementary-plane code points (> U+FFFF) are
+// emitted as a surrogate pair (\uD8xx\uDCxx) rather than \U0001XXXX, which is
+// not valid JavaScript/TypeScript syntax.
+func tsStringLiteral(s string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			switch {
+			case r < 0x20:
+				fmt.Fprintf(&b, `\u%04X`, r)
+			case r > 0xFFFF:
+				v := r - 0x10000
+				fmt.Fprintf(&b, `\u%04X\u%04X`, 0xD800+(v>>10), 0xDC00+(v&0x3FF))
+			default:
+				b.WriteRune(r)
+			}
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 // tsArrayLiteral renders an array default's elements as a TypeScript array
 // literal, e.g. [] or [1.000000, 2.000000].
 func tsArrayLiteral(elements []resolution.ExpressionValue) string {
@@ -1763,7 +1798,7 @@ func tsArrayLiteral(elements []resolution.ExpressionValue) string {
 	for _, el := range elements {
 		switch el.Kind {
 		case resolution.ValueKindString:
-			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
+			parts = append(parts, tsStringLiteral(el.StringValue))
 		case resolution.ValueKindInt:
 			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
 		case resolution.ValueKindFloat:
@@ -1783,7 +1818,7 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	// only numeric enums get the `Type.variant` form, since those emit as TS
 	// runtime enums.
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		return fmt.Sprintf("%q", ev.Variant.StringValue())
+		return tsStringLiteral(ev.Variant.StringValue())
 	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)

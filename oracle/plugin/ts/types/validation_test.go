@@ -100,6 +100,20 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default("untitled")`)
 	})
 
+	It("Should emit supplementary-plane characters as surrogate pairs, not \\U", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string = "a😀b"
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
+		Expect(content).ToNot(ContainSubstring("\\U"))
+	})
+
 	It("Should emit int default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
