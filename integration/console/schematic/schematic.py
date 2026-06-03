@@ -320,6 +320,47 @@ class Schematic(ConsolePage):
 
         return handle_positions[handle]
 
+    def select_edge(
+        self,
+        source_symbol: Symbol,
+        source_handle: str,
+        target_symbol: Symbol,
+        target_handle: str,
+    ) -> None:
+        """Select the edge between two symbol handles by clicking its midpoint.
+
+        The orthogonal edge routed between two handles passes through the midpoint
+        of their coordinates, and the edge exposes a wide (30px) interaction path,
+        so a click at that midpoint reliably selects it.
+        """
+        source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
+        target_x, target_y = self.find_symbol_handle(target_symbol, target_handle)
+        self.page.mouse.click((source_x + target_x) / 2, (source_y + target_y) / 2)
+
+    def get_edge_variant(self) -> str:
+        """Get the variant of the currently selected edge from the properties panel.
+
+        An edge must be selected first (see select_edge).
+        """
+        return self.layout.get_dropdown_value("Variant")
+
+    def set_edge_variant(self, variant: str) -> None:
+        """Set the variant of the currently selected edge via the properties panel.
+
+        An edge must be selected first (see select_edge).
+
+        Args:
+            variant: The display name of the edge variant (e.g. "Electric Signal").
+        """
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_text("Properties", exact=True).first.click()
+        self.layout.click_btn("Variant")
+        self.layout.select_from_dropdown(variant, exact=True)
+
+    def get_edge_count(self) -> int:
+        """Get the number of edges on the schematic pane."""
+        return self.page.locator(".react-flow__edge").count()
+
     def set_authority(self, authority: int) -> None:
         """Set the control authority for the schematic page."""
         if authority > 255 or authority < 0:
