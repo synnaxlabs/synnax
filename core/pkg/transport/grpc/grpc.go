@@ -103,7 +103,6 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	t.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, types.Nil]{}
 	t.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	t.SchematicSetData = noop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
 	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, types.Nil]{}
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
