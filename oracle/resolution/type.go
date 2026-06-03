@@ -116,10 +116,13 @@ type Action struct {
 }
 
 type Field struct {
-	AST            any
-	Domains        map[string]Domain
-	Name           string
-	Type           TypeRef
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Default is the field's default value, declared inline as `name type = value`.
+	// It is nil when the field has no default.
+	Default        *ExpressionValue
 	IsOptional     bool
 	IsHardOptional bool
 	OmitIfUnset    bool
