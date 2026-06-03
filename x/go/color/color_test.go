@@ -113,6 +113,16 @@ var _ = Describe("Color", func() {
 			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
+		It("Should unmarshal an empty string as the zero color", func() {
+			c := color.Color{R: 1, G: 2, B: 3, A: 0.5}
+			Expect(json.Unmarshal([]byte(`""`), &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
+		})
+		It("Should unmarshal a JSON null as the zero color", func() {
+			c := color.Color{R: 1, G: 2, B: 3, A: 0.5}
+			Expect(json.Unmarshal([]byte(`null`), &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
+		})
 	})
 
 	Describe("Msgpack", func() {

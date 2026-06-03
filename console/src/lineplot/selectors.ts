@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type lineplot } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
 import { type measure } from "@synnaxlabs/pluto/ether";
 import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
-import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";
 import {
   type AxisState,
   type ControlState,
@@ -59,7 +59,7 @@ export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
 export const selectRanges = (
   state: StoreState & Range.StoreState,
   key: string,
-): XAxisRecord<Range.Range[]> => {
+): Record<lineplot.XAxisKey, Range.Range[]> => {
   const ranges = select(state, key).ranges;
   return {
     x1: Range.selectMultiple(state, ranges.x1),
@@ -67,7 +67,9 @@ export const selectRanges = (
   };
 };
 
-export const useSelectRanges = (key: string): XAxisRecord<Range.Range[]> =>
+export const useSelectRanges = (
+  key: string,
+): Record<lineplot.XAxisKey, Range.Range[]> =>
   useMemoSelect(
     (state: StoreState & Range.StoreState) => selectRanges(state, key),
     [key],
@@ -128,22 +130,25 @@ export const useSelectAxes = (key: string) =>
 export const selectAxis = (
   state: StoreState,
   key: string,
-  axisKey: AxisKey,
+  axisKey: lineplot.AxisKey,
 ): AxisState => select(state, key).axes.axes[axisKey];
 
-export const useSelectAxis = (key: string, axisKey: AxisKey): AxisState =>
+export const useSelectAxis = (key: string, axisKey: lineplot.AxisKey): AxisState =>
   useMemoSelect((state: StoreState) => selectAxis(state, key, axisKey), [key, axisKey]);
 
 export const selectAxisBounds = (
   state: StoreState,
   key: string,
-  axisKey: AxisKey,
+  axisKey: lineplot.AxisKey,
 ): bounds.Bounds => {
   const p = select(state, key);
   return p.axes.axes[axisKey].bounds;
 };
 
-export const useSelectAxisBounds = (key: string, axisKey: AxisKey): bounds.Bounds =>
+export const useSelectAxisBounds = (
+  key: string,
+  axisKey: lineplot.AxisKey,
+): bounds.Bounds =>
   useMemoSelect(
     (state: StoreState) => selectAxisBounds(state, key, axisKey),
     [key, axisKey],
@@ -160,6 +165,12 @@ export const selectRules = (state: StoreState, key: string): RuleState[] =>
 
 export const useSelectRules = (key: string): RuleState[] =>
   useMemoSelect((state: StoreState) => selectRules(state, key), [key]);
+
+export const selectSelectedRules = (state: StoreState, key: string): string[] =>
+  select(state, key).selectedRules;
+
+export const useSelectSelectedRules = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectSelectedRules(state, key), [key]);
 
 export const selectRule = (
   state: StoreState,
