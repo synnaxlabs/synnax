@@ -464,6 +464,16 @@ var _ = Describe("Scope", func() {
 				Expect(alias.Used).To(BeTrue())
 			})
 
+			It("Should leave the alias unused when usage tracking is suppressed", func(bCtx SpecContext) {
+				rootScope := buildAmbientRoot(bCtx)
+				timeMod := rootScope.Parent.FindChild("time")
+				alias := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				MustSucceed(rootScope.Resolve(bCtx, "t", symbol.WithoutUsageTracking))
+				Expect(alias.Used).To(BeFalse())
+			})
+
 			It("Should not find members past the module seal", func(bCtx SpecContext) {
 				rootScope := buildAmbientRoot(bCtx)
 				timeMod := rootScope.Parent.FindChild("time")

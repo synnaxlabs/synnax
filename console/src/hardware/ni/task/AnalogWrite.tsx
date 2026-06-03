@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -129,7 +129,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
       await client.channels.retrieve(dev.properties.analogOutput.stateIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
   try {
@@ -156,13 +156,13 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
           await client.channels.retrieve(state);
         } catch (e) {
           if (NotFoundError.matches(e)) statesToCreate.push(channel);
-          else throw e;
+          else throw errors.fromUnknown(e);
         }
         try {
           await client.channels.retrieve(command);
         } catch (e) {
           if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-          else throw e;
+          else throw errors.fromUnknown(e);
         }
       }
     }

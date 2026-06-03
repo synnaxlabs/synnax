@@ -131,6 +131,7 @@ var _ = Describe("MigrateSchematic", func() {
 			Entry("v2 value-only", "v2_value_test.json"),
 			Entry("v4 empty", "v4_empty.json"),
 			Entry("v5 hardware project", "v5_hardware_project.json"),
+			Entry("v5 operator console", "v5_operator.json"),
 		)
 	})
 
@@ -237,6 +238,46 @@ var _ = Describe("MigrateSchematic", func() {
 				HaveKeyWithValue("color", "#0000ff"),
 				HaveKey("segments"),
 			))
+		})
+
+		It("Should strip legacy stumps from a full-path edge", func(ctx SpecContext) {
+			// Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full
+			// path includes both stumps, which would double on render and fold a pigtail.
+			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+				Key: uuid.New(),
+				Data: jsonMap(`{
+					"version": "5.0.0", "nodes": [], "props": {},
+					"edges": [{
+						"key": "e1", "source": "n1", "target": "n2",
+						"sourceHandle": "2", "targetHandle": "2",
+						"data": {"segments": [
+							{"direction": "x", "length": 10},
+							{"direction": "y", "length": -281.7166395035551},
+							{"direction": "x", "length": 140.06190790464655},
+							{"direction": "y", "length": 10}
+						], "variant": "jacketed"}
+					}]
+				}`),
+			}))
+			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{
+				map[string]any{"direction": "y", "length": -281.7166395035551},
+				map[string]any{"direction": "x", "length": 140.06190790464655},
+			}))
+		})
+
+		It("Should clear degenerate short edges so they auto-route", func(ctx SpecContext) {
+			// A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
+			// strippable middle; subtracting a full stump from each end would flip it
+			// into a self-crossing spur, so it is cleared to an empty (auto-routed) edge.
+			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+				Key: uuid.New(),
+				Data: jsonMap(`{
+					"version": "5.0.0", "nodes": [], "props": {},
+					"edges": [{"key": "e1", "source": "n1", "target": "n2",
+						"data": {"segments": [{"direction": "y", "length": 11.88}], "variant": "pipe"}}]
+				}`),
+			}))
+			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
 		})
 
 		It("Should default edge-prop variant to pipe when edge.data is non-null but empty", func(ctx SpecContext) {
@@ -378,6 +419,8 @@ var _ = Describe("legacy.MigrateData", func() {
 				"v4_empty.json", 0, 0, 0),
 			Entry("v5 hardware project (real mode/toolbar/authority)",
 				"v5_hardware_project.json", 2, 0, 0),
+			Entry("v5 operator console (48 nodes, 40 edges, edge.data preserved)",
+				"v5_operator.json", 48, 40, 0),
 		)
 	})
 

@@ -50,4 +50,5 @@ export const ingest: Import.FileIngester = async (
   const { key, name } = created;
   store.schematics.set(key, created);
   placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
+  return schematic.ontologyID(key);
 };

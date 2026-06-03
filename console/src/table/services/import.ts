@@ -52,4 +52,5 @@ export const ingest: Import.FileIngester = async (
   placeLayout(
     create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
   );
+  return table.ontologyID(created.key);
 };

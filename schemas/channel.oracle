@@ -64,16 +64,14 @@ Operation struct {
     type          OperationType  {
         @doc value "is the aggregation operation type: min, max, avg, or none."
     }
-    reset_channel Key            {
-        @doc value        """
+    reset_channel Key = 0 {
+        @doc value """
             is the channel key that triggers reset of the aggregation. If 0,
             duration-based reset is used.
         """
-        @validate default 0
     }
-    duration      telem.TimeSpan {
-        @doc value        "is the time window for aggregation when reset_channel is 0."
-        @validate default 0
+    duration      telem.TimeSpan = 0 {
+        @doc value "is the time window for aggregation when reset_channel is 0."
     }
 
     @doc value """
@@ -205,24 +203,21 @@ APIChannel struct {
     alias       string?              {
         @doc value "is an optional alternate name for the channel within a specific context."
     }
-    virtual     bool                 {
-        @doc value        """
+    virtual     bool = false {
+        @doc value """
             is true if this channel does not store data in the database but can
             still be used for streaming purposes.
         """
-        @validate default false
-        @cpp name         "is_virtual"
+        @cpp name  "is_virtual"
     }
-    internal    bool                 {
-        @doc value        "is true if this is a system channel hidden from normal user queries."
-        @validate default false
+    internal    bool = false {
+        @doc value "is true if this is a system channel hidden from normal user queries."
     }
-    expression  string               {
-        @doc value        """
+    expression  string = "" {
+        @doc value """
             is an Arc expression for calculated channels. If set, the channel
             is automatically configured as virtual.
         """
-        @validate default ""
     }
     operations  Operation[]?         {
         @doc value """
@@ -230,12 +225,11 @@ APIChannel struct {
             channel data over time or triggered by a reset channel.
         """
     }
-    concurrency control.Concurrency? {
-        @doc value        """
+    concurrency control.Concurrency? = control.ConcurrencyExclusive {
+        @doc value """
             sets the policy for concurrent writes to the channel's data. Only
             virtual channels can have a policy of shared concurrency.
         """
-        @validate default control.ConcurrencyExclusive
     }
     status      Status??             {
         @doc value "is the current operational status of the channel."
@@ -292,9 +286,8 @@ NewChannel struct extends APIChannel {
             not persist data.
         """
     }
-    expression  string?              {
-        @doc value        "is an Arc expression for creating a calculated channel."
-        @validate default ""
+    expression  string? = "" {
+        @doc value "is an Arc expression for creating a calculated channel."
     }
     operations  Operation[]?         {
         @doc value "contains aggregation operations to apply to the channel data."

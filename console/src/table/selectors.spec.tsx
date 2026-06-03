@@ -14,9 +14,16 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import {
+  select,
   selectEditable,
+  selectExists,
+  selectHideIndicators,
   selectLastSelected,
+  selectOptional,
+  selectPendingUpload,
   selectSelectedCellKeys,
+  selectSliceState,
+  selectVersion,
   useSelectEditable,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
@@ -54,15 +61,39 @@ const wrapperFor = (state: StoreState) => {
 };
 
 describe("table selectors", () => {
+  describe("selectSliceState", () => {
+    it("returns the slice state", () => {
+      const state = buildState({});
+      expect(selectSliceState(state)).toBe(state[SLICE_NAME]);
+    });
+  });
+
+  describe("select / selectOptional", () => {
+    it("returns the entry when present", () => {
+      const state = buildState({});
+      const entry = state[SLICE_NAME].tables["table-1"];
+      expect(select(state, "table-1")).toBe(entry);
+      expect(selectOptional(state, "table-1")).toBe(entry);
+    });
+
+    it("returns undefined from selectOptional when absent", () => {
+      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+      expect(selectOptional(state, "missing")).toBeUndefined();
+    });
+  });
+
+  describe("selectExists", () => {
+    it("should report whether the slice entry is present", () => {
+      expect(selectExists(buildState({}), "table-1")).toBe(true);
+      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+      expect(selectExists(state, "missing")).toBe(false);
+    });
+  });
+
   describe("selectEditable", () => {
     it("returns the editable flag from the slice", () => {
       expect(selectEditable(buildState({ editable: true }), "table-1")).toBe(true);
       expect(selectEditable(buildState({ editable: false }), "table-1")).toBe(false);
-    });
-
-    it("returns false when the table is not in the slice", () => {
-      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
-      expect(selectEditable(state, "missing")).toBe(false);
     });
   });
 
@@ -70,11 +101,6 @@ describe("table selectors", () => {
     it("returns the selectedCells array", () => {
       const state = buildState({ selectedCells: ["a", "b"] });
       expect(selectSelectedCellKeys(state, "table-1")).toEqual(["a", "b"]);
-    });
-
-    it("returns [] when the table is missing", () => {
-      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
-      expect(selectSelectedCellKeys(state, "missing")).toEqual([]);
     });
   });
 
@@ -87,6 +113,36 @@ describe("table selectors", () => {
 
     it("returns null when none is selected", () => {
       expect(selectLastSelected(buildState({}), "table-1")).toBeNull();
+    });
+  });
+
+  describe("selectHideIndicators", () => {
+    it("returns the hideIndicators flag from the slice", () => {
+      expect(
+        selectHideIndicators(buildState({ hideIndicators: true }), "table-1"),
+      ).toBe(true);
+      expect(
+        selectHideIndicators(buildState({ hideIndicators: false }), "table-1"),
+      ).toBe(false);
+    });
+  });
+
+  describe("selectVersion", () => {
+    it("returns the version, undefined when absent", () => {
+      expect(selectVersion(buildState({}), "table-1")).toBe(ZERO_STATE.version);
+      const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+      expect(selectVersion(state, "missing")).toBeUndefined();
+    });
+  });
+
+  describe("selectPendingUpload", () => {
+    it("returns the pending upload, undefined when absent", () => {
+      const state = buildState({});
+      expect(selectPendingUpload(state, "table-1")).toBe(
+        state[SLICE_NAME].tables["table-1"].pendingUpload,
+      );
+      const emptyState: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+      expect(selectPendingUpload(emptyState, "missing")).toBeUndefined();
     });
   });
 

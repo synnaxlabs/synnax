@@ -13,11 +13,12 @@ import { type CSSProperties, type ReactElement } from "react";
 import { Color } from "@/color";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
+import { type Variant } from "@/schematic/edge/registry";
 import { Select } from "@/select";
 
-const SELECT_DATA: record.KeyedNamed<string>[] = [
+const SELECT_DATA: record.KeyedNamed<Variant>[] = [
   { key: "pipe", name: "Pipe" },
-  { key: "electrical", name: "Electrical" },
+  { key: "electric", name: "Electrical" },
   { key: "secondary", name: "Secondary" },
   { key: "jacketed", name: "Jacketed" },
   { key: "hydraulic", name: "Hydraulic" },
@@ -28,7 +29,7 @@ const SELECT_DATA: record.KeyedNamed<string>[] = [
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
 
 interface SelectVariantProps extends Omit<
-  Select.StaticProps<string>,
+  Select.StaticProps<Variant>,
   "data" | "resourceName"
 > {}
 
@@ -48,7 +49,7 @@ export const Form = (): ReactElement => (
         <Color.Swatch value={value} onChange={onChange} {...rest} />
       )}
     </Base.Field>
-    <Base.Field<string> path="variant" label="Variant" padHelpText={false}>
+    <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
       {({ value, onChange, variant: _, ...rest }) => (
         <SelectVariant value={value} onChange={onChange} {...rest} />
       )}

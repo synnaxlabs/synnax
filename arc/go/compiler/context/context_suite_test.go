@@ -18,5 +18,5 @@ import (
 
 func TestContext(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Context Suite")
+	RunSpecs(t, "Compiler Context Suite")
 }

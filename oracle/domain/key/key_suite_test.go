@@ -18,5 +18,5 @@ import (
 
 func TestKey(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Key Suite")
+	RunSpecs(t, "Domain Key Suite")
 }

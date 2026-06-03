@@ -110,9 +110,24 @@ describe("status", () => {
       expect(s.details.error).toBe(error);
     });
 
-    it("should throw when exception is not an Error instance", () => {
+    it("should coerce a non-Error throwable into an error status via fromUnknown", () => {
       const notAnError = "just a string";
-      expect(() => status.fromException(notAnError)).toThrow("just a string");
+      const s = status.fromException(notAnError);
+      expect(s.variant).toEqual("error");
+      // JSON.stringify of a string quotes it.
+      expect(s.message).toEqual('"just a string"');
+      expect(s.details.error).toBeInstanceOf(Error);
+      expect(s.details.error.cause).toEqual("just a string");
+    });
+
+    it("should pick up custom toStatus contributions from non-Error throwables", () => {
+      const custom = {
+        toStatus: () => ({ message: "custom msg", description: "custom desc" }),
+      };
+      const s = status.fromException(custom);
+      expect(s.variant).toEqual("error");
+      expect(s.message).toEqual("custom msg");
+      expect(s.description).toEqual("custom desc");
     });
 
     it("should include valid key and timestamp", () => {

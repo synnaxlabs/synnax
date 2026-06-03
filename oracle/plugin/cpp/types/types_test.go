@@ -19,11 +19,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestCppTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ Types Plugin Suite")
+	RunSpecs(t, "Plugin Cpp Types Suite")
 }
 
 var _ = Describe("CppFormatter", func() {
@@ -963,6 +964,35 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`Warning = 2,`))
 		})
 
+		It("Should emit an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/lineplot"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+
+				Plot struct {
+					axis_key AxisKey
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp := MustSucceed(cppPlugin.Generate(&plugin.Request{Resolutions: table}))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`AXIS_KEY_X_1 = "x1";`))
+			Expect(content).To(ContainSubstring(`AXIS_KEY_Y_2 = "y2";`))
+		})
+
 		It("Should use indirect for self-referential optional fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
@@ -1496,7 +1526,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
@@ -1521,7 +1551,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@pb
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)

@@ -25,7 +25,7 @@ import (
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Expression Analyzer Suite")
+	RunSpecs(t, "Analyzer Expression Suite")
 }
 
 func buildExpressionRoot(extras []symbol.Symbol) *symbol.Symbol {

@@ -31,8 +31,22 @@ export const selectSelected = (state: StoreState, key: string): string[] =>
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const useSelectOptional = (key: string): State | undefined =>
+  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
+
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
 
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
@@ -62,7 +76,7 @@ export const useSelectToolbar = (key: string): ToolbarState =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectToolbar(state, key)?.selectedSymbolGroup;
+  selectToolbar(state, key).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);

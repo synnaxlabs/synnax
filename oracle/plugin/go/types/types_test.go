@@ -24,7 +24,7 @@ import (
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Types Plugin Suite")
+	RunSpecs(t, "Plugin Go Types Suite")
 }
 
 var _ = Describe("Go Types Plugin", func() {
@@ -552,6 +552,34 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Priority uint8`))
 				Expect(content).NotTo(ContainSubstring(`func (p Priority) IsValid()`))
+			})
+
+			It("Should generate an extending enum as a standalone union of its parents", func(ctx SpecContext) {
+				source := `
+					@go output "core/lineplot"
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(goPlugin.Generate(&plugin.Request{Resolutions: table}))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type AxisKey string`))
+				Expect(content).To(ContainSubstring(`AxisKeyX1 AxisKey = "x1"`))
+				Expect(content).To(ContainSubstring(`AxisKeyY2 AxisKey = "y2"`))
+				Expect(content).To(ContainSubstring(`func (a AxisKey) IsValid() bool {`))
+				Expect(content).To(ContainSubstring(`type YAxisKey string`))
 			})
 
 		})

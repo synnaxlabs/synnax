@@ -583,5 +583,12 @@ var _ = Describe("Parser", func() {
 			Expect(diag).NotTo(BeNil())
 			Expect(diag.Ok()).To(BeFalse())
 		})
+
+		It("Should parse an enum that extends other enums", func() {
+			_, diag := parser.Parse(`
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`)
+			Expect(diag).To(BeNil())
+		})
 	})
 })

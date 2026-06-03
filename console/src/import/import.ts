@@ -10,6 +10,7 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 import { ZodError } from "zod";
@@ -47,7 +48,7 @@ export const ingestComponent = async (
       return;
     } catch (e) {
       if (e instanceof ZodError) continue;
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
   throw new Error(`${fileName} cannot be imported.`);
 };

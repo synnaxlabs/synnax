@@ -18,5 +18,5 @@ import (
 
 func TestSearch(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Search Suite")
+	RunSpecs(t, "Distribution Search Suite")
 }

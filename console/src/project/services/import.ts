@@ -17,6 +17,17 @@ import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Runtime } from "@/runtime";
 
+// Swaps imported themes for the current defaults before validation. A stale theme blob
+// from an older export must not fail anySliceStateZ and block the import.
+const stripThemes = (data: unknown): unknown => {
+  if (typeof data !== "object" || data == null) return data;
+  return {
+    ...data,
+    themes: Layout.ZERO_SLICE_STATE.themes,
+    activeTheme: Layout.ZERO_SLICE_STATE.activeTheme,
+  };
+};
+
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
@@ -30,7 +41,9 @@ export const ingest: Import.DirectoryIngester = async (
   // child layout points at a viz JSON to import). Project itself no longer
   // holds layout; panel-level import will be a separate flow when the panel
   // import format is defined.
-  const layout = Layout.migrateSlice(Layout.anySliceStateZ.parse(layoutData.data));
+  const layout = Layout.migrateSlice(
+    Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
+  );
   const wsKey = uuid.create();
   const wsName = name;
   const p: project.Project = { key: wsKey, name: wsName };

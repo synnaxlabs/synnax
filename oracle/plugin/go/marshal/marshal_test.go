@@ -21,7 +21,7 @@ import (
 
 func TestGoMarshal(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Marshal Plugin Suite")
+	RunSpecs(t, "Plugin Go Marshal Suite")
 }
 
 var _ = Describe("Go Marshal Plugin", func() {
@@ -244,6 +244,36 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToNotContain(
 					"json.Marshal(s.Variant)",
 				)
+			})
+		})
+
+		Context("extending enum as a struct field", func() {
+			It("Should encode/decode an extending enum field as a plain string enum", func() {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+
+					Plot struct {
+						axis_key AxisKey
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				content := ExpectContent(resp, "codec.gen.go")
+				content.ToContain("w.String(string(p.AxisKey))")
+				content.ToContain("p.AxisKey = AxisKey(v)")
 			})
 		})
 
