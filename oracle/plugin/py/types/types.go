@@ -67,6 +67,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     true,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
+		CollectUnions:   true,
 	}
 	return gen.Generate(req)
 }
@@ -75,7 +76,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type pyFileGenerator struct{}
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table)
+	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
 	if err != nil {
 		return "", err
 	}
@@ -88,6 +89,7 @@ func generatePyFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
@@ -151,10 +153,11 @@ func generatePyFile(
 		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
-	// Combine aliases and structs for topological sorting
+	// Combine aliases, structs, and unions for topological sorting
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, aliasTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
+	combinedTypes = append(combinedTypes, unions...)
 
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
@@ -179,6 +182,11 @@ func generatePyFile(
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
 				Struct:   sd,
+			})
+		case resolution.UnionForm:
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsUnion: true,
+				Union:   processUnion(typ, table, data, keyFields),
 			})
 		}
 	}
@@ -1055,6 +1063,17 @@ func typeToPython(
 		}
 		return pyName
 
+	case resolution.UnionForm:
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
+
 	default:
 		data.imports.addTyping("Any")
 		return "Any"
@@ -1269,8 +1288,10 @@ type templateData struct {
 type sortedDeclData struct {
 	TypeDef   typeDefData
 	Struct    structData
+	Union     unionData
 	IsTypeDef bool
 	IsStruct  bool
+	IsUnion   bool
 }
 
 type typeDefData struct {
@@ -1557,8 +1578,36 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+    pass
 {{- end }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- else if .IsUnion }}
+{{- with .Union }}
+{{- $disc := .DiscName }}
+{{- range .Variants }}
+
+
+class {{ .ClassName }}(BaseModel):
+{{- if .Doc }}
+    """{{ .Doc }}"""
+{{- end }}
+{{- if .HasKeywordAlias }}
+    model_config = ConfigDict(populate_by_name=True)
+{{- end }}
+    {{ $disc }}: Literal["{{ .Value }}"]
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- end }}
+
+
+{{ .Name }} = Annotated[
+    Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
+    Field(discriminator="{{ .DiscName }}"),
+]
 {{- end }}
 {{- end }}
 {{- end }}

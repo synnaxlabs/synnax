@@ -1740,4 +1740,415 @@ var _ = Describe("Analyzer", func() {
 			Expect(def.Elements[1]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 		})
 	})
+
+	Describe("Union Definitions", func() {
+		It("Should allow 'on' as a field name since it is not a reserved keyword", func(ctx SpecContext) {
+			source := `
+				Handle struct { node string }
+				Transition struct {
+					on     Handle
+					target string
+				}
+
+				LinearScale struct { slope float64 }
+				NoneScale struct {}
+				Scale union on type {
+					linear LinearScale
+					none   NoneScale
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			tr := table.MustGet("arc.Transition")
+			form := tr.Form.(resolution.StructForm)
+			names := make([]string, len(form.Fields))
+			for i, f := range form.Fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(ContainElement("on"))
+			scale := table.MustGet("arc.Scale")
+			Expect(scale.Form.(resolution.UnionForm).Discriminator).To(Equal("type"))
+		})
+
+		It("Should collect a simple union with primitive-only variants", func(ctx SpecContext) {
+			source := `
+				LinearScale struct {
+					slope float64
+					yIntercept float64
+				}
+				MapScale struct {
+					preScaledMin float64
+					scaledMin float64
+				}
+				NoneScale struct {}
+
+				Scale union on type {
+					linear LinearScale
+					map    MapScale
+					none   NoneScale
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(table.UnionTypes()).To(HaveLen(1))
+
+			scale := table.MustGet("ni.Scale")
+			Expect(scale.Name).To(Equal("Scale"))
+			form := scale.Form.(resolution.UnionForm)
+			Expect(form.Discriminator).To(Equal("type"))
+			Expect(form.Variants).To(HaveLen(3))
+			Expect(form.Extends).To(BeEmpty())
+
+			Expect(form.Variants[0].Name).To(Equal("linear"))
+			Expect(form.Variants[0].Type.Name).To(Equal("ni.LinearScale"))
+			Expect(form.Variants[1].Name).To(Equal("map"))
+			Expect(form.Variants[2].Name).To(Equal("none"))
+		})
+
+		It("Should collect a union with extends (shared base struct)", func(ctx SpecContext) {
+			source := `
+				BaseAIChannel struct {
+					port    int32
+					enabled bool
+					name    string
+				}
+
+				AIVoltageFields struct {
+					terminalConfig string
+					minVal         float64
+					maxVal         float64
+				}
+
+				AIAccelFields struct {
+					sensitivity float64
+				}
+
+				AIChannel union on type extends BaseAIChannel {
+					ai_voltage AIVoltageFields
+					ai_accel   AIAccelFields
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			ch := table.MustGet("ni.AIChannel")
+			form := ch.Form.(resolution.UnionForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("ni.BaseAIChannel"))
+
+			voltageFields := resolution.UnifiedVariantFields(ch, form.Variants[0], table)
+			fieldNames := make([]string, len(voltageFields))
+			for i, f := range voltageFields {
+				fieldNames[i] = f.Name
+			}
+			Expect(fieldNames).To(Equal([]string{
+				"port", "enabled", "name",
+				"terminalConfig", "minVal", "maxVal",
+			}))
+		})
+
+		It("Should collect per-variant domains", func(ctx SpecContext) {
+			source := `
+				LinearScale struct {}
+				MapScale struct {}
+
+				Scale union on type {
+					linear LinearScale {
+						@doc value "linear scaling"
+					}
+					map MapScale {
+						@doc value "piecewise linear map"
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			form := table.MustGet("ni.Scale").Form.(resolution.UnionForm)
+			Expect(form.Variants[0].Domains).To(HaveKey("doc"))
+			Expect(form.Variants[1].Domains).To(HaveKey("doc"))
+
+			linearDoc := form.Variants[0].Domains["doc"]
+			Expect(linearDoc.Expressions).To(HaveLen(1))
+			Expect(linearDoc.Expressions[0].Name).To(Equal("value"))
+			Expect(linearDoc.Expressions[0].Values[0].StringValue).To(Equal("linear scaling"))
+		})
+
+		It("Should collect union-level domains", func(ctx SpecContext) {
+			source := `
+				LinearScale struct {}
+				MapScale struct {}
+
+				Scale union on type {
+					linear LinearScale
+					map MapScale
+					@doc value "controls how raw values are transformed"
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			scale := table.MustGet("ni.Scale")
+			Expect(scale.Domains).To(HaveKey("doc"))
+		})
+
+		It("Should support mixin composition in variant structs", func(ctx SpecContext) {
+			source := `
+				Terminal struct {
+					terminalConfig string
+				}
+				MinMaxVal struct {
+					minVal float64
+					maxVal float64
+				}
+
+				AIVoltageFields struct extends Terminal, MinMaxVal {
+					customScale string
+				}
+
+				Empty struct {}
+
+				AIChannel union on type {
+					ai_voltage AIVoltageFields
+					empty      Empty
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			ch := table.MustGet("ni.AIChannel")
+			form := ch.Form.(resolution.UnionForm)
+			fields := resolution.UnifiedVariantFields(ch, form.Variants[0], table)
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{
+				"terminalConfig", "minVal", "maxVal", "customScale",
+			}))
+		})
+
+		It("Should support nested unions (variant field typed as a union)", func(ctx SpecContext) {
+			source := `
+				LinearScale struct { slope float64 }
+				NoneScale   struct {}
+
+				Scale union on type {
+					linear LinearScale
+					none   NoneScale
+				}
+
+				AIVoltageFields struct {
+					customScale Scale
+				}
+
+				Empty struct {}
+
+				AIChannel union on type {
+					ai_voltage AIVoltageFields
+					empty      Empty
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			voltageFields := resolution.UnifiedVariantFields(
+				table.MustGet("ni.AIChannel"),
+				table.MustGet("ni.AIChannel").Form.(resolution.UnionForm).Variants[0],
+				table,
+			)
+			Expect(voltageFields).To(HaveLen(1))
+			Expect(voltageFields[0].Name).To(Equal("customScale"))
+			Expect(voltageFields[0].Type.Name).To(Equal("ni.Scale"))
+		})
+
+		It("Should error on duplicate variant values", func(ctx SpecContext) {
+			source := `
+				A struct {}
+				B struct {}
+
+				Bad union on type {
+					same A
+					same B
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
+		})
+
+		It("Should error on empty union", func(ctx SpecContext) {
+			source := `
+				Empty union on type {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("union Empty has no variants"))
+		})
+
+		It("Should error when a variant struct declares the discriminator field", func(ctx SpecContext) {
+			source := `
+				BadVariant struct {
+					kind string
+					payload int32
+				}
+				Other struct {}
+
+				Bad union on kind {
+					bad   BadVariant
+					other Other
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`variant "bad" (test.BadVariant) declares the discriminator field "kind"`))
+		})
+
+		It("Should error when a base struct declares the discriminator field", func(ctx SpecContext) {
+			source := `
+				BadBase struct {
+					type string
+					port int32
+				}
+				A struct {}
+				B struct {}
+
+				Bad union on type extends BadBase {
+					a A
+					b B
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`base struct declares the discriminator field "type"`))
+		})
+
+		It("Should error when a variant references a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red   = "red"
+					green = "green"
+				}
+				A struct {}
+
+				Bad union on type {
+					a     A
+					color Color
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`variant "color" must reference a struct type`))
+		})
+
+		It("Should error when extends targets a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red   = "red"
+					green = "green"
+				}
+				A struct {}
+				B struct {}
+
+				Bad union on type extends Color {
+					a A
+					b B
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
+		})
+
+		It("Should error on duplicate type definition for a union name", func(ctx SpecContext) {
+			source := `
+				A struct {}
+				Foo struct {}
+				Foo union on type {
+					a A
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("duplicate type definition"))
+		})
+
+		It("Should sort unions topologically after their variant and base types", func(ctx SpecContext) {
+			source := `
+				BaseAIChannel struct { port int32 }
+				AIVoltageFields struct { minVal float64 }
+				AIAccelFields struct { sensitivity float64 }
+
+				AIChannel union on type extends BaseAIChannel {
+					ai_voltage AIVoltageFields
+					ai_accel   AIAccelFields
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			all := table.TypesInNamespace("ni")
+			sorted := table.TopologicalSort(all)
+			indexOf := func(qname string) int {
+				for i, t := range sorted {
+					if t.QualifiedName == qname {
+						return i
+					}
+				}
+				return -1
+			}
+			Expect(indexOf("ni.BaseAIChannel")).To(BeNumerically("<", indexOf("ni.AIChannel")))
+			Expect(indexOf("ni.AIVoltageFields")).To(BeNumerically("<", indexOf("ni.AIChannel")))
+			Expect(indexOf("ni.AIAccelFields")).To(BeNumerically("<", indexOf("ni.AIChannel")))
+		})
+
+		It("Should support unions extending multiple bases", func(ctx SpecContext) {
+			source := `
+				Ident struct {
+					key string
+				}
+				Audited struct {
+					createdAt int64
+					updatedAt int64
+				}
+
+				A struct {
+					aField string
+				}
+				B struct {
+					bField string
+				}
+
+				Mixed union on type extends Ident, Audited {
+					a A
+					b B
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			mixed := table.MustGet("test.Mixed")
+			form := mixed.Form.(resolution.UnionForm)
+			Expect(form.Extends).To(HaveLen(2))
+
+			aFields := resolution.UnifiedVariantFields(mixed, form.Variants[0], table)
+			names := make([]string, len(aFields))
+			for i, f := range aFields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"key", "createdAt", "updatedAt", "aField"}))
+		})
+
+		It("UnifiedVariantFields should return nil for a non-union type", func(ctx SpecContext) {
+			source := `
+				Foo struct { x int32 }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			foo := table.MustGet("test.Foo")
+			fakeVariant := resolution.UnionVariant{Name: "x", Type: resolution.TypeRef{Name: "test.Foo"}}
+			Expect(resolution.UnifiedVariantFields(foo, fakeVariant, table)).To(BeNil())
+		})
+	})
 })

@@ -2402,3 +2402,253 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 	})
 })
+
+var _ = Describe("TS Union Generation", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a discriminated union with per-variant schemas", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct {
+				slope float64
+				yIntercept float64
+			}
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const scaleLinearZ = z.object({`,
+				`type: z.literal("linear"),`,
+				`slope: z.number(),`,
+				`export const scaleNoneZ = z.object({`,
+				`type: z.literal("none"),`,
+				`export const scaleZ = z.discriminatedUnion("type", [`,
+				`scaleLinearZ,`,
+				`scaleNoneZ,`,
+				`export type Scale = z.infer<typeof scaleZ>;`,
+			)
+	})
+
+	It("Should generate a discriminator enum and per-variant interfaces", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const SCALE_TYPES = ["linear", "none"] as const;`,
+				`export const scaleTypeZ = z.enum(SCALE_TYPES);`,
+				`export type ScaleType = z.infer<typeof scaleTypeZ>;`,
+				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+			)
+	})
+
+	It("Should generate a schema map keyed by discriminator value", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {`,
+				`linear: scaleLinearZ,`,
+				`none: scaleNoneZ,`,
+			)
+	})
+
+	It("Should flatten base fields from extends into every variant", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const aiChannelAiVoltageZ = z.object({`,
+				`type: z.literal("ai_voltage"),`,
+				`port: z.int32(),`,
+				`enabled: z.boolean(),`,
+				`minVal: z.number(),`,
+			)
+	})
+
+	It("Should resolve a union-typed struct field to the union schema", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`customScale: scaleZ,`)
+	})
+
+	It("Should support a variant field that is itself a union", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			VoltageFields struct { customScale Scale }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const aiChannelAiVoltageZ = z.object({`,
+				`customScale: scaleZ,`,
+			)
+	})
+
+	It("Should render the union doc comment", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+
+			Scale union on type {
+				linear LinearScale
+
+				@doc value "determines how raw values are transformed."
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`Scale determines how raw values are transformed.`)
+	})
+})
+
+var _ = Describe("TS Union Field & Variant Coverage", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	scaleSource := func(channelFields string) string {
+		return `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale {
+					@doc value "a linear scale."
+				}
+				none NoneScale
+			}
+
+			Channel struct {
+` + channelFields + `
+			}
+		`
+	}
+
+	It("Should render a per-variant doc comment on the variant interface", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`a linear scale.`,
+				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+			)
+	})
+
+	It("Should resolve an optional union-typed field", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale?"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(`customScale: scaleZ.optional(),`)
+	})
+
+	It("Should resolve an array-of-union field", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tscales Scale[]"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(`scales: array.nullishToEmpty(scaleZ),`)
+	})
+
+	It("Should import and qualify a cross-namespace union reference", func(ctx SpecContext) {
+		loader.Add("schemas/scales", `
+			@ts output "client/ts/src/scales"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scales"
+
+			@ts output "client/ts/src/task"
+
+			Channel struct {
+				customScale scales.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
+	})
+})

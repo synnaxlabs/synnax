@@ -130,6 +130,21 @@ type OracleParserListener interface {
 	// EnterTypeDefBody is called when entering the typeDefBody production.
 	EnterTypeDefBody(c *TypeDefBodyContext)
 
+	// EnterUnionDef is called when entering the unionDef production.
+	EnterUnionDef(c *UnionDefContext)
+
+	// EnterUnionBody is called when entering the unionBody production.
+	EnterUnionBody(c *UnionBodyContext)
+
+	// EnterUnionVariant is called when entering the unionVariant production.
+	EnterUnionVariant(c *UnionVariantContext)
+
+	// EnterVariantName is called when entering the variantName production.
+	EnterVariantName(c *VariantNameContext)
+
+	// EnterUnionVariantBody is called when entering the unionVariantBody production.
+	EnterUnionVariantBody(c *UnionVariantBodyContext)
+
 	// ExitSchema is called when exiting the schema production.
 	ExitSchema(c *SchemaContext)
 
@@ -243,4 +258,19 @@ type OracleParserListener interface {
 
 	// ExitTypeDefBody is called when exiting the typeDefBody production.
 	ExitTypeDefBody(c *TypeDefBodyContext)
+
+	// ExitUnionDef is called when exiting the unionDef production.
+	ExitUnionDef(c *UnionDefContext)
+
+	// ExitUnionBody is called when exiting the unionBody production.
+	ExitUnionBody(c *UnionBodyContext)
+
+	// ExitUnionVariant is called when exiting the unionVariant production.
+	ExitUnionVariant(c *UnionVariantContext)
+
+	// ExitVariantName is called when exiting the variantName production.
+	ExitVariantName(c *VariantNameContext)
+
+	// ExitUnionVariantBody is called when exiting the unionVariantBody production.
+	ExitUnionVariantBody(c *UnionVariantBodyContext)
 }

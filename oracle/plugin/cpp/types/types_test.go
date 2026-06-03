@@ -1576,3 +1576,115 @@ var _ = Describe("C++ Types Plugin", func() {
 		})
 	})
 })
+
+var _ = Describe("C++ Union Generation", func() {
+	var (
+		loader    *MockFileLoader
+		cppPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		cppPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate variant structs and a std::variant alias", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`struct ScaleLinear {`,
+				`std::string type = "linear";`,
+				`double slope = 0;`,
+				`struct ScaleNone {`,
+				`std::string type = "none";`,
+				`using Scale = std::variant<ScaleLinear, ScaleNone>;`,
+				`Scale parse_scale(x::json::Parser parser);`,
+				`[[nodiscard]] x::json::json to_json(const Scale& value);`,
+			)
+	})
+
+	It("Should flatten base fields from extends into every variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`struct AIChannelAiVoltage {`,
+				`std::string type = "ai_voltage";`,
+				`std::int32_t port = 0;`,
+				`double min_val = 0;`,
+				`using AIChannel = std::variant<AIChannelAiVoltage>;`,
+			)
+	})
+
+	It("Should resolve a union-typed field to the variant alias", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`Scale custom_scale;`)
+	})
+})
+
+var _ = Describe("C++ Union Variant Doc Coverage", func() {
+	var (
+		loader    *MockFileLoader
+		cppPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		cppPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale {
+					@doc value "a linear scale."
+				}
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear {")
+	})
+})

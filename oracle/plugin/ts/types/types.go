@@ -76,6 +76,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
+	unionCollector := framework.NewCollector("ts", req)
+	if err := unionCollector.AddAll(req.Resolutions.UnionTypes()); err != nil {
+		return nil, err
+	}
+
 	enumCollector := framework.NewCollector("ts", req).
 		WithPathFunc(func(typ resolution.Type) string { return output.GetPath(typ, "ts") }).
 		WithSkipFunc(nil)
@@ -98,7 +103,36 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if typeDefCollector.Has(outputPath) {
 			typeDefs = typeDefCollector.Remove(outputPath)
 		}
-		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, req)
+		var unions []resolution.Type
+		if unionCollector.Has(outputPath) {
+			unions = unionCollector.Remove(outputPath)
+		}
+		content, err := p.generateFile(structs[0].Namespace, outputPath, structs, enums, typeDefs, unions, req)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate %s", outputPath)
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = unionCollector.ForEach(func(outputPath string, unions []resolution.Type) error {
+		var typeDefs []resolution.Type
+		if typeDefCollector.Has(outputPath) {
+			typeDefs = typeDefCollector.Remove(outputPath)
+		}
+		namespace := unions[0].Namespace
+		enums := enum.CollectReferenced(unions, req.Resolutions)
+		if enumCollector.Has(outputPath) {
+			enums = framework.MergeTypesByName(enums, enumCollector.Remove(outputPath))
+		}
+		enums = framework.MergeTypesByName(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "ts", nil))
+		content, err := p.generateFile(namespace, outputPath, nil, enums, typeDefs, unions, req)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -117,7 +151,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if typeDefCollector.Has(outputPath) {
 			typeDefs = typeDefCollector.Remove(outputPath)
 		}
-		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, typeDefs, req)
+		content, err := p.generateFile(enums[0].Namespace, outputPath, nil, enums, typeDefs, nil, req)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -137,7 +171,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			namespace := typeDefs[0].Namespace
 			enums = enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "ts", nil)
 		}
-		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, enums, typeDefs, req)
+		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, enums, typeDefs, nil, req)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -196,6 +230,7 @@ func (p *Plugin) generateFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
@@ -252,6 +287,7 @@ func (p *Plugin) generateFile(
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, structs...)
 	combinedTypes = append(combinedTypes, dependentTypeDefs...)
+	combinedTypes = append(combinedTypes, unions...)
 
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := req.Resolutions.TopologicalSort(combinedTypes)
@@ -292,6 +328,11 @@ func (p *Plugin) generateFile(
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
 				Struct:   p.processStruct(typ, req.Resolutions, data),
+			})
+		case resolution.UnionForm:
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsUnion: true,
+				Union:   p.processUnion(typ, req.Resolutions, data),
 			})
 		}
 	}
@@ -1359,6 +1400,19 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 		}
 		return p.typeRefToZodInternal(&target, table, data, forStructArg)
 
+	case resolution.UnionForm:
+		schemaName := camelCase(domain.GetName(resolved, "ts")) + "Z"
+		if resolved.Namespace != data.Namespace {
+			ns := resolved.Namespace
+			targetOutputPath := output.GetPath(resolved, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = ns
+			}
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+			return fmt.Sprintf("%s.%s", ns, schemaName)
+		}
+		return schemaName
+
 	default:
 		return "z.unknown()"
 	}
@@ -1457,6 +1511,13 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 			}
 			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
 		}
+		if resolved.Namespace != data.Namespace {
+			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
+		}
+		return typeName
+
+	case resolution.UnionForm:
+		typeName := domain.GetName(resolved, "ts")
 		if resolved.Namespace != data.Namespace {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
 		}
@@ -1626,6 +1687,9 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
 	case resolution.DistinctForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+
+	case resolution.UnionForm:
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 	}
 
@@ -1846,8 +1910,10 @@ type templateData struct {
 type sortedDeclData struct {
 	TypeDef   typeDefData
 	Struct    structData
+	Union     unionData
 	IsTypeDef bool
 	IsStruct  bool
+	IsUnion   bool
 }
 
 type typeDefData struct {
@@ -2331,6 +2397,60 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- end }}
 {{- end }}
 {{- end }}
+{{- end }}
+{{- else if .IsUnion }}
+{{- with .Union }}
+{{- if .Doc }}
+
+{{ formatDoc .TSName .Doc }}
+{{- end }}
+{{- $disc := .Discriminator }}
+{{- range .Variants }}
+{{- if .Doc }}
+
+{{ formatDoc .TypeName .Doc }}
+{{- end }}
+
+export const {{ .SchemaName }} = z.object({
+  {{ $disc }}: z.literal("{{ .Value }}"),
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}(): {{ .ZodSchemaType }} {
+    return {{ .ZodType }};
+  },
+{{- else }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+});
+{{- if $.GenerateTypes }}
+export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}
+{{- end }}
+{{- end }}
+
+export const {{ .TypesConst }} = [{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
+export const {{ .TypeSchemaName }} = z.enum({{ .TypesConst }});
+{{- if $.GenerateTypes }}
+export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
+{{- end }}
+
+export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
+{{- range .Variants }}
+  {{ .SchemaName }},
+{{- end }}
+]);
+{{- if $.GenerateTypes }}
+export type {{ .TSName }} = z.infer<typeof {{ .SchemaName }}>;
+{{- end }}
+
+export const {{ .SchemasConst }}: Record<{{ .TypeName }}, z.ZodType<{{ .TSName }}>> = {
+{{- range .Variants }}
+  {{ .Value }}: {{ .SchemaName }},
+{{- end }}
+};
 {{- end }}
 {{- end }}
 {{- end }}

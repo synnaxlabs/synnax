@@ -136,6 +136,9 @@ func analyze(c *analysisCtx) {
 		if td := def.TypeDefDef(); td != nil {
 			collectTypeDef(c, td)
 		}
+		if u := def.UnionDef(); u != nil {
+			collectUnion(c, u)
+		}
 	}
 
 	for _, imp := range c.ast.AllImportStmt() {
@@ -191,6 +194,7 @@ func analyze(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateTypeParams(c, typ)
+		validateUnion(c, typ)
 	}
 }
 
@@ -713,6 +717,85 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	return resolution.ExpressionValue{Kind: resolution.ValueKindIdent}
 }
 
+func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
+	idents := def.AllIDENT()
+	if len(idents) < 3 {
+		return
+	}
+	name := idents[0].GetText()
+	if idents[1].GetText() != "on" {
+		d := diagnostics.Errorf(def,
+			"union %s: expected 'on' before the discriminator field, got %q",
+			name, idents[1].GetText())
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+	discriminator := idents[2].GetText()
+	qname := c.namespace + "." + name
+	if _, exists := c.table.Get(qname); exists {
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+
+	form := resolution.UnionForm{Discriminator: discriminator}
+
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+
+	domains := make(map[string]resolution.Domain)
+	for k, v := range c.fileDomains {
+		domains[k] = v
+	}
+
+	if body := def.UnionBody(); body != nil {
+		for _, v := range body.AllUnionVariant() {
+			form.Variants = append(form.Variants, collectUnionVariant(v))
+		}
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			if existing, ok := domains[de.Name]; ok {
+				domains[de.Name] = de.Merge(existing)
+			} else {
+				domains[de.Name] = de
+			}
+		}
+	}
+
+	lo.Must0(c.table.Add(resolution.Type{
+		Name:          name,
+		Namespace:     c.namespace,
+		QualifiedName: qname,
+		FilePath:      c.filePath,
+		Form:          form,
+		Domains:       domains,
+		AST:           def,
+	}))
+}
+
+func collectUnionVariant(def parser.IUnionVariantContext) resolution.UnionVariant {
+	variant := resolution.UnionVariant{
+		Name:    def.VariantName().GetText(),
+		Type:    collectTypeRef(def.TypeRef(), nil),
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
+	if body := def.UnionVariantBody(); body != nil {
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			variant.Domains[de.Name] = de
+		}
+	}
+	return variant
+}
+
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
@@ -877,6 +960,14 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 			if form.TypeParams[i].Default != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Default)
 			}
+		}
+		typ.Form = form
+	case resolution.UnionForm:
+		for i := range form.Extends {
+			resolveTypeRef(c, typ, &form.Extends[i])
+		}
+		for i := range form.Variants {
+			resolveTypeRef(c, typ, &form.Variants[i].Type)
 		}
 		typ.Form = form
 	case resolution.EnumForm:
@@ -1110,6 +1201,106 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 				tp.Name, typ.Name, tp.Default.Name)
 			d.File = c.filePath
 			c.diag.Add(d)
+		}
+	}
+}
+
+// validateUnion checks the structural constraints on a discriminated union:
+//
+//   - At least one variant is declared.
+//   - Variant names (the JSON discriminator string values) are unique.
+//   - Each Extends target resolves to a struct type.
+//   - Each variant references a struct type.
+//   - Neither the base structs nor the variant structs redeclare the
+//     discriminator field; the union declaration owns it exclusively.
+//
+// Generic variant/base types are permitted but not yet type-checked: an open
+// question for a follow-up that introduces unions parameterized by a type
+// argument applied to every variant.
+func validateUnion(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return
+	}
+
+	if len(form.Variants) == 0 {
+		d := diagnostics.Errorf(nil, "union %s has no variants", typ.Name)
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+
+	seenValues := set.New[string]()
+	for _, variant := range form.Variants {
+		if seenValues.Contains(variant.Name) {
+			d := diagnostics.Errorf(nil,
+				"union %s declares duplicate variant value %q",
+				typ.Name, variant.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+		seenValues.Add(variant.Name)
+	}
+
+	baseFields := set.New[string]()
+	for i, baseRef := range form.Extends {
+		base, ok := baseRef.Resolve(c.table)
+		if !ok {
+			d := diagnostics.Errorf(nil,
+				"union %s extends unresolved type at position %d: %s",
+				typ.Name, i+1, baseRef.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+			d := diagnostics.Errorf(nil,
+				"union %s extends non-struct type at position %d: %s",
+				typ.Name, i+1, base.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(base, c.table) {
+			baseFields.Add(f.Name)
+		}
+	}
+
+	if baseFields.Contains(form.Discriminator) {
+		d := diagnostics.Errorf(nil,
+			"union %s base struct declares the discriminator field %q, which is owned by the union",
+			typ.Name, form.Discriminator)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+
+	for _, variant := range form.Variants {
+		variantType, ok := variant.Type.Resolve(c.table)
+		if !ok {
+			d := diagnostics.Errorf(nil,
+				"union %s variant %q references unresolved type: %s",
+				typ.Name, variant.Name, variant.Type.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if _, isStruct := variantType.Form.(resolution.StructForm); !isStruct {
+			d := diagnostics.Errorf(nil,
+				"union %s variant %q must reference a struct type, got: %s",
+				typ.Name, variant.Name, variantType.QualifiedName)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(variantType, c.table) {
+			if f.Name == form.Discriminator {
+				d := diagnostics.Errorf(nil,
+					"union %s variant %q (%s) declares the discriminator field %q, which is owned by the union",
+					typ.Name, variant.Name, variantType.QualifiedName, form.Discriminator)
+				d.File = c.filePath
+				c.diag.Add(d)
+				break
+			}
 		}
 	}
 }

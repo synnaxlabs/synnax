@@ -652,3 +652,120 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 	})
 })
+
+var _ = Describe("C++ JSON Union Generation", func() {
+	var (
+		loader     *MockFileLoader
+		jsonPlugin *json.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		jsonPlugin = json.New(json.Options{FileNamePattern: "json.gen.h"})
+	})
+
+	It("Should generate a parse dispatch and to_json overload for the union", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`inline Scale parse_scale(x::json::Parser parser) {`,
+				`const auto discriminator = parser.field<std::string>("type");`,
+				`if (discriminator == "linear") return ScaleLinear::parse(parser);`,
+				`if (discriminator == "none") return ScaleNone::parse(parser);`,
+				`inline x::json::json to_json(const Scale& value) {`,
+				`return std::visit([](const auto& v) { return v.to_json(); }, value);`,
+			)
+	})
+
+	It("Should generate per-variant parse/to_json bodies", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {`,
+				`.type = parser.field<std::string>("type"),`,
+				`.slope = parser.field<double>("slope"),`,
+			)
+	})
+
+	It("Should dispatch a union-typed field through the free functions", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.custom_scale = parse_scale(parser.child("custom_scale")),`,
+				`j["custom_scale"] = to_json(this->custom_scale);`,
+			)
+	})
+})
+
+var _ = Describe("C++ JSON Union Array Fields", func() {
+	var (
+		loader     *MockFileLoader
+		jsonPlugin *json.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		jsonPlugin = json.New(json.Options{FileNamePattern: "json.gen.h"})
+	})
+
+	It("Should dispatch an array of unions element-by-element", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				scales Scale[]
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`parser.iter("scales", [&result](x::json::Parser& p) { result.push_back(parse_scale(p)); });`,
+				`for (const auto& item : this->scales) arr.push_back(to_json(item));`,
+			)
+	})
+})

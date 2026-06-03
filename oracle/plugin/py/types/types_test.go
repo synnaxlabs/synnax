@@ -1453,3 +1453,146 @@ ChannelStatus = status.Status<nil>
 		})
 	})
 })
+
+var _ = Describe("Python Union Generation", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a Pydantic discriminated union", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`from typing import Annotated, Union, Literal`,
+				`from pydantic import BaseModel, Field`,
+				`class ScaleLinear(BaseModel):`,
+				`type: Literal["linear"]`,
+				`slope: float`,
+				`class ScaleNone(BaseModel):`,
+				`type: Literal["none"]`,
+				`Scale = Annotated[`,
+				`Union[ScaleLinear, ScaleNone],`,
+				`Field(discriminator="type"),`,
+			)
+	})
+
+	It("Should flatten base fields from extends into every variant model", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`class AIChannelAiVoltage(BaseModel):`,
+				`type: Literal["ai_voltage"]`,
+				`enabled: bool`,
+				`minVal: float`,
+			)
+	})
+
+	It("Should resolve a union-typed field to the union alias", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(`customScale: Scale`)
+	})
+
+	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			NoneScale struct {}
+			LinearScale struct { slope float64 }
+
+			Scale union on type {
+				none NoneScale
+				linear LinearScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain("class NoneScale(BaseModel):", "    pass")
+	})
+})
+
+var _ = Describe("Python Union Field & Variant Coverage", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	source := `
+		@py output "out"
+
+		LinearScale struct { slope float64 }
+		NoneScale struct {}
+
+		Scale union on type {
+			linear LinearScale {
+				@doc value "a linear scale."
+			}
+			none NoneScale
+		}
+
+		Channel struct {
+			scales Scale[]
+		}
+	`
+
+	It("Should render a per-variant docstring on the variant model", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain("class ScaleLinear(BaseModel):", `"""a linear scale."""`)
+	})
+
+	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale]")
+	})
+})
