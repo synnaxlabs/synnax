@@ -60,7 +60,7 @@ export const initializeMonaco = (props: InitializeProps): Promise<InitializeRetu
   if (initPromise != null) return initPromise;
   initPromise = doInitialize(props).catch((e: unknown) => {
     initPromise = null;
-    throw errors.toError(e);
+    throw errors.fromUnknown(e);
   });
   return initPromise;
 };

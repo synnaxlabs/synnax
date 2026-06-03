@@ -153,7 +153,7 @@ export const isTyped = (error: unknown): error is Typed => {
  *   carries more detail for plain objects), falling back to `String(value)` for
  *   circular structures, BigInts, or anything else that fails to serialize.
  */
-export const toError = (value: unknown): Error => {
+export const fromUnknown = (value: unknown): Error => {
   if (value instanceof Error) return value;
   let message: string;
   try {

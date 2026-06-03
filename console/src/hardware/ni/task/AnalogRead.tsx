@@ -164,7 +164,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
         await client.channels.retrieve(dev.properties.analogInput.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
-        else throw errors.toError(e);
+        else throw errors.fromUnknown(e);
       }
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
     try {
@@ -189,7 +189,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (QueryError.matches(e)) toCreate.push(channel);
-            else throw errors.toError(e);
+            else throw errors.fromUnknown(e);
           }
       }
       if (toCreate.length > 0) {

@@ -169,7 +169,7 @@ const determineIndexChannel = async ({
         device.properties.read.channels[indexChannelInTaskConfig.nodeId] = key;
         return key;
       } catch (e) {
-        if (!NotFoundError.matches(e)) throw errors.toError(e);
+        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
     const { key } = await client.channels.create({
       name: channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
@@ -191,7 +191,7 @@ const determineIndexChannel = async ({
           device.properties.read.indexes.push(index);
         return index;
       } catch (e) {
-        if (!NotFoundError.matches(e)) throw errors.toError(e);
+        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
   }
 
@@ -241,7 +241,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
         );
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   }
   if (toCreate.length > 0) {

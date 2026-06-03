@@ -310,7 +310,7 @@ const pickWritableDirectoryBrowser = async ({
     root = await window.showDirectoryPicker({ mode: "readwrite" });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return null;
-    throw errors.toError(e);
+    throw errors.fromUnknown(e);
   }
   let subHandle: FileSystemDirectoryHandle | null = null;
   let preExisted: boolean;
@@ -319,7 +319,7 @@ const pickWritableDirectoryBrowser = async ({
     preExisted = true;
   } catch (e) {
     if (!(e instanceof DOMException) || e.name !== "NotFoundError")
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     preExisted = false;
   }
   const ensureSubHandle = async (): Promise<FileSystemDirectoryHandle> =>

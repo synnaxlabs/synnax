@@ -210,7 +210,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
         oWs
           .receiveOpenAck()
           .then(() => resolve(oWs))
-          .catch((err: unknown) => reject(errors.toError(err)));
+          .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;

@@ -258,7 +258,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
       await client.channels.retrieve(dev.properties.readIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   else shouldCreateIndex = true;
   let modified = false;
@@ -284,7 +284,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
           await client.channels.retrieve(existing.toString());
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(c);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
     }
     if (toCreate.length > 0) {

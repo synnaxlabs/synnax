@@ -50,7 +50,7 @@ export const ChangeIdentifierMenuItem = ({
         await updateAsync({ key: first.id.key, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
-        throw errors.toError(e);
+        throw errors.fromUnknown(e);
       }
     }, "Failed to change identifier");
   return (

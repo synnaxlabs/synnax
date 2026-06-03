@@ -258,7 +258,7 @@ class IteratorIterator implements AsyncIterator<Frame> {
       return { done: !ok, value: this.iter.value };
     } catch (e) {
       await this.iter.close();
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
   }
 }

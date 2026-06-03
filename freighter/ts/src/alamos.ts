@@ -25,14 +25,14 @@ export const middleware =
             return await next(context);
           } catch (err) {
             if (err instanceof Error) span.recordError(err);
-            throw errors.toError(err);
+            throw errors.fromUnknown(err);
           }
         },
       );
       log(context, instrumentation, null);
       return res;
     } catch (err) {
-      const e = errors.toError(err);
+      const e = errors.fromUnknown(err);
       log(context, instrumentation, e);
       throw e;
     }

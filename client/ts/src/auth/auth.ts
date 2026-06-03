@@ -132,7 +132,7 @@ export class Client {
           return await mw(reqCtx, next);
         }
         this.retryCount = 0;
-        throw errors.toError(err);
+        throw errors.fromUnknown(err);
       }
     };
     return mw;

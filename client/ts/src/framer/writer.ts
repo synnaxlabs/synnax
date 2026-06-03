@@ -270,7 +270,7 @@ export class Writer {
     try {
       this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
     } catch (err) {
-      if (!EOF.matches(err)) throw errors.toError(err);
+      if (!EOF.matches(err)) throw errors.fromUnknown(err);
     }
   }
 
@@ -327,7 +327,7 @@ export class Writer {
         const res = await this.stream.receive();
         this.closeErr = errors.decode(res?.err);
       } catch (err) {
-        const e = errors.toError(err);
+        const e = errors.fromUnknown(err);
         this.closeErr = EOF.matches(e) ? new WriterClosedError() : e;
       }
     }
@@ -340,14 +340,14 @@ export class Writer {
       // A send failure is always EOF or StreamClosed, never WriterClosedError, so
       // closeInternal re-throws here and the receive loop below is reached only when
       // the send succeeds.
-      await this.closeInternal(errors.toError(err));
+      await this.closeInternal(errors.fromUnknown(err));
     }
     while (true) {
       let res: Response;
       try {
         res = await this.stream.receive();
       } catch (err) {
-        await this.closeInternal(errors.toError(err));
+        await this.closeInternal(errors.fromUnknown(err));
         continue;
       }
       const resErr = errors.decode(res?.err);

@@ -110,7 +110,7 @@ export const middleware =
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
-        const e = errors.toError(err);
+        const e = errors.fromUnknown(err);
         log(debug, "[drift] - ERROR", {
           error: e.message,
           action,

@@ -289,7 +289,7 @@ export class StreamChannelData
               e.message.includes("cannot read from free channel"))
           )
             console.warn("failed to read calculated channel data", e);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
 
       this.stopStreaming?.();

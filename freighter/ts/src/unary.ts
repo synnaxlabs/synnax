@@ -61,7 +61,7 @@ export const unaryWithBreaker = (
         try {
           return await this.wrapped.send(target, req, reqSchema, resSchema);
         } catch (err) {
-          const e = errors.toError(err);
+          const e = errors.fromUnknown(err);
           if (!Unreachable.matches(e)) throw e;
           console.warn(`[freighter] ${brk.retryMessage}`, e);
           if (!(await brk.wait())) throw e;

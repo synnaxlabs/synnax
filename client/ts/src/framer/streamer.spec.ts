@@ -561,7 +561,7 @@ describe("Streamer", () => {
         return { done: false, value: fr };
       } catch (err) {
         if (EOF.matches(err)) return { done: true, value: undefined };
-        throw errors.toError(err);
+        throw errors.fromUnknown(err);
       }
     }
 

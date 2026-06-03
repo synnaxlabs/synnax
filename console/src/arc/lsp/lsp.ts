@@ -258,7 +258,7 @@ const createFreighterTransport = ({
   const reader: MessageReader = {
     listen: (callback) => {
       onMessageCallback = callback;
-      receiveLoop().catch((err: unknown) => onErrorCallback?.(errors.toError(err)));
+      receiveLoop().catch((err: unknown) => onErrorCallback?.(errors.fromUnknown(err)));
       return { dispose: () => (onMessageCallback = null) };
     },
     dispose: () => (isClosed = true),

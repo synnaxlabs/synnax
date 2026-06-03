@@ -199,7 +199,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       await client.channels.retrieve(existing);
     } catch (e) {
       if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   }
 

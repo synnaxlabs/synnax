@@ -204,7 +204,7 @@ export const createMigration =
     } catch (e) {
       console.log(`${name} failed to migrate from ${input.version}`);
       console.error(e);
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
   };
 

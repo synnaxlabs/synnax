@@ -129,7 +129,7 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
       await client.channels.retrieve(dev.properties.analogOutput.stateIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
   try {
@@ -156,13 +156,13 @@ const onConfigure: Common.Task.OnConfigure<typeof analogWriteConfigZ> = async (
           await client.channels.retrieve(state);
         } catch (e) {
           if (NotFoundError.matches(e)) statesToCreate.push(channel);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
         try {
           await client.channels.retrieve(command);
         } catch (e) {
           if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
       }
     }

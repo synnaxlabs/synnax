@@ -172,7 +172,7 @@ class BaseStreamer implements Streamer {
       return { done: false, value: frame };
     } catch (err) {
       if (EOF.matches(err)) return { done: true, value: undefined };
-      throw errors.toError(err);
+      throw errors.fromUnknown(err);
     }
   }
 
@@ -251,7 +251,7 @@ export class HardenedStreamer implements Streamer {
         return;
       } catch (e) {
         this.wrapped_ = null;
-        if (!(await this.breaker.wait())) throw errors.toError(e);
+        if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
         continue;
       }
@@ -277,7 +277,7 @@ export class HardenedStreamer implements Streamer {
       return { done: false, value: await this.read() };
     } catch (e) {
       if (EOF.matches(e)) return { done: true, value: undefined };
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
   }
 
@@ -287,7 +287,7 @@ export class HardenedStreamer implements Streamer {
       this.breaker.reset();
       return fr;
     } catch (e) {
-      if (EOF.matches(e)) throw errors.toError(e);
+      if (EOF.matches(e)) throw errors.fromUnknown(e);
       await this.runStreamer();
       return await this.read();
     }

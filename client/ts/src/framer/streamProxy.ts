@@ -38,7 +38,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
         res = await this.stream.receive();
       } catch (err) {
         if (EOF.matches(err)) return;
-        throw errors.toError(err);
+        throw errors.fromUnknown(err);
       }
       throw new UnexpectedError(
         `${this.name} received unexpected response ${JSON.stringify(res)} on closure.`,

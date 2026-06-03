@@ -78,7 +78,7 @@ export const checkOrCreateIndex = async (
       await client.channels.retrieve(currentIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreate = true;
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
 
   if (shouldCreate) {
@@ -113,7 +113,7 @@ export const findChannelsToCreate = async <C extends Channel>(
       await client.channels.retrieve(existing);
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   }
   return toCreate;

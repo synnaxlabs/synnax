@@ -87,6 +87,6 @@ export const set = <V>(obj: V, path: string, value: unknown): void => {
     result[lastPart] = value;
   } catch (e) {
     console.error("failed to set value", value, "at path", path, "on object", obj);
-    throw errors.toError(e);
+    throw errors.fromUnknown(e);
   }
 };

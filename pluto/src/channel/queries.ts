@@ -144,7 +144,7 @@ const retrieveSingle = async ({
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
-      if (!(e instanceof NotFoundError)) throw errors.toError(e);
+      if (!(e instanceof NotFoundError)) throw errors.fromUnknown(e);
     }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });

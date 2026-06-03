@@ -33,7 +33,7 @@ export const override = <T>(base: T, ...overrides: Array<Partial<T>>): T => {
       } catch (e) {
         if (e instanceof TypeError)
           throw new TypeError(`.${key}: ${e.message}`, { cause: e });
-        throw errors.toError(e);
+        throw errors.fromUnknown(e);
       }
 
   return override(base, ...overrides);

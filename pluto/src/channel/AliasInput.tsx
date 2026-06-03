@@ -54,7 +54,7 @@ export const AliasInput = ({
         setLoading(false);
       } catch (e) {
         setLoading(false);
-        throw errors.toError(e);
+        throw errors.fromUnknown(e);
       }
     }, "Failed to set channel alias");
   };

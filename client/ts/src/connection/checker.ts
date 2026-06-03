@@ -172,7 +172,7 @@ export class Checker {
       this._state.clientVersion = this.clientVersion;
     } catch (err) {
       this._state.status = "failed";
-      this._state.error = errors.toError(err);
+      this._state.error = errors.fromUnknown(err);
       this._state.message = this.state.error?.message;
     } finally {
       this.checking = false;

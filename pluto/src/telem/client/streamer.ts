@@ -160,7 +160,7 @@ export class Streamer {
       await this.streamer.update(arrKeys);
     } catch (e) {
       ins.L.error("failed to update streamer", { error: e });
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
   }
 
@@ -180,7 +180,7 @@ export class Streamer {
       }
     } catch (e) {
       ins.L.error("streamer run loop failed", { error: e }, true);
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
   }
 

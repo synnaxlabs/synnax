@@ -79,7 +79,7 @@ export const fromException = (
   exc: unknown,
   message?: string,
 ): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
-  if (!(exc instanceof Error)) throw errors.toError(exc);
+  if (!(exc instanceof Error)) throw errors.fromUnknown(exc);
   const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
     message: message ?? exc.message,

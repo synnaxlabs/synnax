@@ -306,7 +306,7 @@ export const retrieveTask = async ({
     } catch (e) {
       // if the arc doesn't exist then it can't have a task.
       if (NotFoundError.matches(e)) return undefined;
-      throw errors.toError(e);
+      throw errors.fromUnknown(e);
     }
     children.forEach((c) => {
       const rel: ontology.Relationship = {

@@ -343,7 +343,7 @@ describe("Aether Main", () => {
         if (!called.current) {
           called.current = true;
           void methods.throwError().catch((e: unknown) => {
-            captured.error = errors.toError(e);
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;
@@ -371,7 +371,7 @@ describe("Aether Main", () => {
         if (!called.current) {
           called.current = true;
           void methods.neverResponds().catch((e: unknown) => {
-            captured.error = errors.toError(e);
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;
@@ -400,7 +400,7 @@ describe("Aether Main", () => {
         if (!called.current) {
           called.current = true;
           void methods.neverResponds().catch((e: unknown) => {
-            captured.error = errors.toError(e);
+            captured.error = errors.fromUnknown(e);
           });
         }
         return null;

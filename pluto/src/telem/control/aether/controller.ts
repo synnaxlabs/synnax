@@ -171,7 +171,7 @@ export class Controller
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (e) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      if (!(e instanceof Error)) throw errors.toError(e);
+      if (!(e instanceof Error)) throw errors.fromUnknown(e);
       addStatus({
         variant: "error",
         message: `${this.state.name} failed to acquire control`,
@@ -184,7 +184,7 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (err) {
-      const e = errors.toError(err);
+      const e = errors.fromUnknown(err);
       this.internal.addStatus({
         message: `${this.state.name} failed to release control: ${e.message}`,
         variant: "error",
@@ -203,7 +203,7 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw errors.toError(e);
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
     } finally {
       this.writer = undefined;
     }
@@ -214,7 +214,7 @@ export class Controller
     try {
       await fn();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw errors.toError(e);
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
       await this.closeWriter();
       await this.doAcquire();
       await fn();

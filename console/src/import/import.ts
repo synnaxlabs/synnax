@@ -48,7 +48,7 @@ export const ingestComponent = async (
       return;
     } catch (e) {
       if (e instanceof ZodError) continue;
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   throw new Error(`${fileName} cannot be imported.`);
 };

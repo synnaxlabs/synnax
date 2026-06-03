@@ -606,7 +606,7 @@ const retrieveChannel = async (
     return await client.channels.retrieve(key);
   } catch (e) {
     if (NotFoundError.matches(e)) return null;
-    throw errors.toError(e);
+    throw errors.fromUnknown(e);
   }
 };
 

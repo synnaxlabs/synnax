@@ -144,7 +144,7 @@ export const createDispatch = <
             await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
             addStatus(errorResult("commit transaction", e).status);
-            throw errors.toError(e);
+            throw errors.fromUnknown(e);
           }
         };
         return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);

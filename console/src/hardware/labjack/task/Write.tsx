@@ -217,7 +217,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       await client.channels.retrieve(dev.properties.writeStateIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
-      else throw errors.toError(e);
+      else throw errors.fromUnknown(e);
     }
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
   try {
@@ -246,13 +246,13 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
           await client.channels.retrieve(state);
         } catch (e) {
           if (NotFoundError.matches(e)) stateChannelsToCreate.push(channel);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
         try {
           await client.channels.retrieve(command);
         } catch (e) {
           if (NotFoundError.matches(e)) commandChannelsToCreate.push(channel);
-          else throw errors.toError(e);
+          else throw errors.fromUnknown(e);
         }
       }
     }

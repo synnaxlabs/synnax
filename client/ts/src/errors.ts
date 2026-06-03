@@ -166,6 +166,6 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
         url: err.url,
         cause: err.cause ?? err,
       });
-    throw errors.toError(err);
+    throw errors.fromUnknown(err);
   }
 };

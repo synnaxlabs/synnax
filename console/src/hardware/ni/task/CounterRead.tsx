@@ -163,7 +163,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         await client.channels.retrieve(dev.properties.counterInput.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
-        else throw errors.toError(e);
+        else throw errors.fromUnknown(e);
       }
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
     try {
@@ -189,7 +189,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (QueryError.matches(e)) toCreate.push(channel);
-            else throw errors.toError(e);
+            else throw errors.fromUnknown(e);
           }
       }
 
