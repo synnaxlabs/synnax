@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction, location, text } from "@synnaxlabs/x";
+import { type dimensions, direction, location, text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -102,18 +102,22 @@ export const labeledConfigZ = z.object({
 });
 export type LabeledConfig = z.infer<typeof labeledConfigZ>;
 
-interface LabeledOverrides {
-  grid: Partial<Omit<Grid.GridProps, "editable">>;
+interface LabeledOverrides<C extends LabeledConfig> {
+  grid?: Partial<Omit<Grid.GridProps, "editable">>;
+  onResize?: (dimensions: dimensions.Dimensions) => Partial<C>;
 }
 
 export const createLabeled = <C extends LabeledConfig>(
   BaseSymbol: FC<Omit<C, "label"> & Primitive.SVGBasedProps>,
-  overrides?: LabeledOverrides,
+  overrides?: LabeledOverrides<C>,
 ): FC<NodeProps<C>> => {
   // BaseSymbol's prop type is derived from C so callers are checked, but the node only
   // renders it with the shared SVG props; the config's symbol-specific fields reach it
   // at runtime via the rest spread.
   const Sym = BaseSymbol as FC<Primitive.SVGBasedProps>;
+  // Alias to a const so TS narrows it inside the onResize closure below; a
+  // property access wouldn't narrow, forcing a non-null assertion.
+  const resizeToConfig = overrides?.onResize;
   const Inner = ({
     nodeKey,
     onConfigChange,
@@ -126,6 +130,11 @@ export const createLabeled = <C extends LabeledConfig>(
       nodeKey={nodeKey}
       orientation={orientation}
       onRotate={onConfigChange}
+      onResize={
+        resizeToConfig == null
+          ? undefined
+          : (dimensions) => onConfigChange(resizeToConfig(dimensions))
+      }
     >
       <Label config={label} onChange={onConfigChange} />
       <Sym orientation={orientation} {...rest} />

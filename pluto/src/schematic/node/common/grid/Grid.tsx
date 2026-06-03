@@ -9,7 +9,13 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
-import { location } from "@synnaxlabs/x";
+import { type dimensions, location } from "@synnaxlabs/x";
+import {
+  type ControlLinePosition,
+  type ControlPosition,
+  NodeResizeControl,
+  ResizeControlVariant,
+} from "@xyflow/react";
 import {
   Children,
   cloneElement,
@@ -91,10 +97,34 @@ export interface GridProps extends PropsWithChildren<{}> {
   onRotate?: (params: { orientation: location.Outer }) => void;
   allowCenter?: boolean;
   allowRotate?: boolean;
+  onResize?: (dimensions: dimensions.Dimensions) => void;
+  // Locks every resize handle (edges included) to aspect ratio, so vertical
+  // edges also drive width. Use for single-dimension symbols (circle, polygon).
+  keepAspectRatio?: boolean;
 }
 
 const HAUL_TYPE = "schematic_grid";
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
+
+const roundDimensions = (width: number, height: number): dimensions.Dimensions => ({
+  width: Math.round(width),
+  height: Math.round(height),
+});
+
+const RESIZE_CONTROLS: {
+  position: ControlLinePosition | ControlPosition;
+  variant?: ResizeControlVariant;
+  keepAspectRatio?: boolean;
+}[] = [
+  { position: "top", variant: ResizeControlVariant.Line },
+  { position: "right", variant: ResizeControlVariant.Line },
+  { position: "bottom", variant: ResizeControlVariant.Line },
+  { position: "left", variant: ResizeControlVariant.Line },
+  { position: "top-left", keepAspectRatio: true },
+  { position: "top-right", keepAspectRatio: true },
+  { position: "bottom-left", keepAspectRatio: true },
+  { position: "bottom-right", keepAspectRatio: true },
+];
 
 const reflowPane = (nodeKey: string) => {
   const node = selectNode(nodeKey);
@@ -196,6 +226,8 @@ export const Grid: FC<GridProps> = ({
   children,
   allowCenter = false,
   onRotate,
+  onResize,
+  keepAspectRatio = false,
   nodeKey,
   orientation = "left",
 }) => {
@@ -238,6 +270,19 @@ export const Grid: FC<GridProps> = ({
           <Icon.Rotate />
         </Button.Button>
       )}
+      {editable &&
+        onResize != null &&
+        RESIZE_CONTROLS.map(({ position, variant, keepAspectRatio: corner }) => (
+          <NodeResizeControl
+            key={position}
+            position={position}
+            variant={variant}
+            keepAspectRatio={keepAspectRatio || corner}
+            onResize={(_, { width, height }) =>
+              onResize(roundDimensions(width, height))
+            }
+          />
+        ))}
       <div className={DRAG_HANDLE_CLASS}>{body}</div>
     </>
   );
