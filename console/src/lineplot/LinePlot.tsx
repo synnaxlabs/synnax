@@ -24,22 +24,26 @@ import { type ReactElement, useCallback, useMemo, useRef, useState } from "react
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu } from "@/components";
+import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { Controls } from "@/lineplot/Controls";
 import {
   useSelect,
   useSelectControlState,
+  useSelectExists,
   useSelectPendingUpload,
   useSelectSelection,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  internalCreate,
   setActiveToolbarTab,
   setControlState,
   setMeasureMode,
   setSelectedRule,
   setSelection,
   storeViewport,
+  ZERO_STATE,
 } from "@/lineplot/slice";
 import { type DownloadLine, useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { useAutoUpload } from "@/lineplot/useUpload";
@@ -291,15 +295,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 };
 
+const useEnsureState = createEnsureState({
+  useExists: useSelectExists,
+  create: (key) => internalCreate({ ...ZERO_STATE, key }),
+});
+
 export const LinePlot: Layout.Renderer = (props) => {
-  // Fire the upload effect unconditionally so a freshly placed plot still gets
-  // pushed to the server. The pendingUpload flag is the synchronous gate: while
-  // it is non-null the record may not yet be in Pluto's flux cache, so mounting
-  // the connected component (which suspends on useEnsureRetrieved) would tear
-  // the layout down through the surrounding error boundary.
+  const exists = useEnsureState(props.layoutKey);
   useAutoUpload(props.layoutKey);
   const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  if (pendingUpload != null) return null;
+  if (!exists || pendingUpload != null) return null;
   return <Loaded {...props} />;
 };
 
