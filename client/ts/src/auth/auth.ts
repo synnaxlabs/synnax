@@ -113,7 +113,7 @@ export class Client {
             };
             return null;
           } catch (err) {
-            return err instanceof Error ? err : new Error(String(err));
+            return err instanceof Error ? err : new Error(String(err), { cause: err });
           }
         })();
         const err = await this.authenticating;

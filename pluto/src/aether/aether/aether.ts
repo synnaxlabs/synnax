@@ -37,7 +37,9 @@ const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
     e.message = `[${pathOrMessage}] - ${e.message}`;
     return e;
   }
-  return new Error(pathOrMessage ?? "unknown error", { cause: e });
+  return new Error(`[${pathOrMessage ?? "unknown error"}] - ${String(e)}`, {
+    cause: e,
+  });
 };
 
 /** Read-only view over context values, exposed to {@link Component.afterUpdate}
@@ -410,10 +412,14 @@ export abstract class Leaf<
         error,
       );
 
-    const err = error instanceof Error ? error : new Error(String(error));
+    const err =
+      error instanceof Error ? error : new Error(String(error), { cause: error });
     const wrapped = new Error(
       `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
+      { cause: err },
     );
+    // Preserve the original error's name and stack across the worker boundary so the
+    // main-thread receiver sees the inner type and frames rather than the wrapper's.
     wrapped.name = err.name;
     wrapped.stack = err.stack;
     this.sender.send({

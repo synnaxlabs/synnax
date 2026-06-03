@@ -37,7 +37,9 @@ export const Provider = ({ children, initServices: services }: ProviderProps) =>
         destructorRef.current = ret.destructor;
         setMonaco(ret.monaco);
       })
-      .catch(console.error);
+      .catch((err: unknown) => {
+        console.error("failed to initialize monaco", err);
+      });
   }, []);
 
   return <Context value={monaco}>{children}</Context>;

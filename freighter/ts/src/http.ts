@@ -110,7 +110,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           httpRes = await fetch(ctx.target, request);
         } catch (e) {
           if (!(e instanceof Error)) throw e;
-          throw shouldCastToUnreachable(e) ? new Unreachable({ url }) : e;
+          throw shouldCastToUnreachable(e) ? new Unreachable({ url, cause: e }) : e;
         }
         const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
@@ -118,7 +118,9 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
           return outCtx;
         }
         if (httpRes.status !== HTTP_STATUS_BAD_REQUEST)
-          throw new Error(httpRes.statusText);
+          throw new Error(
+            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
+          );
         let decoded: Error | null;
         try {
           decoded = errors.decode(this.encoder.decode(data, errors.payloadZ));
@@ -129,7 +131,12 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
             { cause: e },
           );
         }
-        throw decoded ?? new Error(httpRes.statusText);
+        throw (
+          decoded ??
+          new Error(
+            `[freighter] HTTP ${httpRes.status} from ${ctx.target}: ${httpRes.statusText}`,
+          )
+        );
       },
     );
 

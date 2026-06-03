@@ -34,7 +34,7 @@ export const middleware =
       log(
         context,
         instrumentation,
-        err instanceof Error ? err : new Error(String(err)),
+        err instanceof Error ? err : new Error(String(err), { cause: err }),
       );
       throw err;
     }

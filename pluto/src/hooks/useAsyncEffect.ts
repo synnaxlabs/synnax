@@ -68,10 +68,16 @@ export const useAsyncEffect = (
       const maybeCleanup = await effect(signal);
       return maybeCleanup;
     };
-    const cleanupPromise = effectFn().catch(console.error);
+    const cleanupPromise = effectFn().catch((err: unknown) => {
+      console.error("effect threw", err);
+    });
     return () => {
       controller.abort();
-      cleanupPromise.then((cleanupFn) => cleanupFn?.()).catch(console.error);
+      cleanupPromise
+        .then((cleanupFn) => cleanupFn?.())
+        .catch((err: unknown) => {
+          console.error("cleanup threw", err);
+        });
     };
   }, deps);
 };

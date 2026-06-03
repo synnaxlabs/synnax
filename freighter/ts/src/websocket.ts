@@ -214,7 +214,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;
-        reject(new Error(ev_.message));
+        reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
   }

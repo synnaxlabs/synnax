@@ -155,6 +155,6 @@ describe("useAsyncEffect", () => {
     });
     renderHook(() => useAsyncEffect(effect, undefined));
     await scheduler.flushTaskQueue();
-    expect(consoleSpy).toHaveBeenCalledWith(new Error("test"));
+    expect(consoleSpy).toHaveBeenCalledWith("effect threw", new Error("test"));
   });
 });

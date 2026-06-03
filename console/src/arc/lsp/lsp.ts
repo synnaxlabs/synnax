@@ -232,7 +232,9 @@ const createFreighterTransport = ({
           msg = await stream.receive();
         } catch (err) {
           if (!EOF.matches(err))
-            onErrorCallback?.(err instanceof Error ? err : new Error(String(err)));
+            onErrorCallback?.(
+              err instanceof Error ? err : new Error(String(err), { cause: err }),
+            );
           break;
         }
         try {
@@ -240,7 +242,9 @@ const createFreighterTransport = ({
           onMessageCallback?.(parsed);
         } catch (parseError) {
           onErrorCallback?.(
-            parseError instanceof Error ? parseError : new Error(String(parseError)),
+            parseError instanceof Error
+              ? parseError
+              : new Error(String(parseError), { cause: parseError }),
           );
         }
       }
@@ -461,11 +465,15 @@ export const use = (client: Synnax | null, monaco: unknown): void => {
         }
       }
     };
-    run().catch(console.error);
+    run().catch((err: unknown) => {
+      console.error("connection loop threw", err);
+    });
     return () => {
       abortController.abort();
       if (currentHandle != null)
-        stopLSPClient(currentHandle.client).catch(console.error);
+        stopLSPClient(currentHandle.client).catch((err: unknown) => {
+          console.error("failed to stop LSP client", err);
+        });
       if (currentStream != null) closeLSPStream(currentStream);
     };
   }, [client, monaco]);

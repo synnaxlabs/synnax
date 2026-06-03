@@ -164,6 +164,7 @@ export const errorsMiddleware: Middleware = async (ctx, next) => {
       throw new Unreachable({
         message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
         url: err.url,
+        cause: err.cause ?? err,
       });
     throw err;
   }
