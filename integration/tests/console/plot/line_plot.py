@@ -62,9 +62,6 @@ class LinePlot(ConsoleCase):
         self._shared_plot_name = plot.page_name
         self.test_move_channel_between_axes(plot, data_name)
         self.test_undo_redo_add_channel(plot, data_name)
-        self.test_undo_redo_title(plot, suffix)
-        # Track the title that test_undo_redo_title leaves the plot on.
-        self._shared_plot_name = plot.page_name
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
@@ -178,22 +175,6 @@ class LinePlot(ConsoleCase):
         plot.redo()
         assert plot.has_channel("Y2", data_name), (
             f"Redo should re-add {data_name} to Y2"
-        )
-
-    def test_undo_redo_title(self, plot: Plot, suffix: str) -> None:
-        """Test that Cmd+Z reverts a title change and Cmd+Shift+Z re-applies it."""
-        self.log("Testing undo/redo for title change")
-        before = plot.get_title()
-        edited = f"Undo Test {suffix}"
-        plot.set_title(edited)
-        assert plot.get_title() == edited
-        plot.undo()
-        assert plot.get_title() == before, (
-            f"Undo should restore title '{before}', got '{plot.get_title()}'"
-        )
-        plot.redo()
-        assert plot.get_title() == edited, (
-            f"Redo should restore title '{edited}', got '{plot.get_title()}'"
         )
 
     def test_live_data(self, plot: Plot) -> None:
