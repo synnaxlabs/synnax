@@ -142,7 +142,6 @@ export const useClipboard = ({
         if (cfg != null)
           actions.push(schematic.setConfig({ key: newKey, config: cfg }));
       }
-      if (actions.length === 0) return;
       dispatch({ key, actions });
       onPaste?.(Object.values(remap));
     },
