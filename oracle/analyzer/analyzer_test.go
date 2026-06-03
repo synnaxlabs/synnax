@@ -1671,4 +1671,57 @@ var _ = Describe("Analyzer", func() {
 			Expect(bForm.IsRecursive).To(BeTrue())
 		})
 	})
+
+	Describe("Field Defaults", func() {
+		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
+			source := "Item struct {\n\t" + fieldDecl + "\n}\n"
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("test.Item").Form.(resolution.StructForm)
+			Expect(form.Fields).To(HaveLen(1))
+			return form.Fields[0].Default
+		}
+
+		DescribeTable("Should populate Field.Default from an inline = value",
+			func(ctx SpecContext, fieldDecl string, expected resolution.ExpressionValue) {
+				def := defaultOf(ctx, fieldDecl)
+				Expect(def).NotTo(BeNil())
+				Expect(*def).To(Equal(expected))
+			},
+			Entry("int", "count int32 = 5",
+				resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 5}),
+			Entry("float", "ratio float64 = 1.5",
+				resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}),
+			Entry("string", "name string = \"untitled\"",
+				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: "untitled"}),
+			Entry("bool", "active bool = true",
+				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: true}),
+			Entry("ident", "key string = create",
+				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "create"}),
+			Entry("qualified ident", "mode string = control.Exclusive",
+				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "control.Exclusive"}),
+			Entry("optional type", "name string? = \"\"",
+				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: ""}),
+		)
+
+		It("Should mark a defaulted optional field as optional", func(ctx SpecContext) {
+			source := "Item struct {\n\tname string? = \"\"\n}\n"
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("test.Item").Form.(resolution.StructForm)
+			Expect(form.Fields[0].IsOptional).To(BeTrue())
+			Expect(form.Fields[0].Default).NotTo(BeNil())
+		})
+
+		It("Should leave Default nil when no default is declared", func(ctx SpecContext) {
+			Expect(defaultOf(ctx, "count int32")).To(BeNil())
+		})
+
+		It("Should accept a default alongside a field body", func(ctx SpecContext) {
+			def := defaultOf(ctx, "count int32 = 7 {\n\t\t@doc value \"is a counter.\"\n\t}")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindInt))
+			Expect(def.IntValue).To(Equal(int64(7)))
+		})
+	})
 })

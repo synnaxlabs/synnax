@@ -128,6 +128,98 @@ describe("errors", () => {
     });
   });
 
+  describe("fromUnknown", () => {
+    it("should return the same Error instance when given an Error", () => {
+      const original = new Error("already an error");
+      const result = errors.fromUnknown(original);
+      expect(result).toBe(original);
+    });
+
+    it("should preserve typed-error subclasses when given one", () => {
+      const original = new ErrorOne("typed");
+      const result = errors.fromUnknown(original);
+      expect(result).toBe(original);
+      expect(ErrorOne.matches(result)).toBe(true);
+    });
+
+    it("should preserve other Error subclasses like TypeError", () => {
+      const original = new TypeError("bad type");
+      const result = errors.fromUnknown(original);
+      expect(result).toBe(original);
+      expect(result).toBeInstanceOf(TypeError);
+    });
+
+    it("should wrap a string with the string as the message", () => {
+      const result = errors.fromUnknown("plain string");
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual('"plain string"');
+      expect(result.cause).toEqual("plain string");
+    });
+
+    it("should wrap a number using JSON.stringify for the message", () => {
+      const result = errors.fromUnknown(42);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual("42");
+      expect(result.cause).toEqual(42);
+    });
+
+    it("should wrap an object using JSON.stringify for the message", () => {
+      const value = { foo: "bar", n: 1 };
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual('{"foo":"bar","n":1}');
+      expect(result.cause).toBe(value);
+    });
+
+    it("should fall back to String() when JSON.stringify throws on a circular ref", () => {
+      const value: Record<string, unknown> = { name: "loop" };
+      value.self = value;
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      // Plain objects without a custom toString fall through to "[object Object]".
+      expect(result.message).toEqual("[object Object]");
+      expect(result.cause).toBe(value);
+    });
+
+    it("should fall back to String() for a BigInt", () => {
+      const value = 9007199254740993n;
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual(String(value));
+      expect(result.cause).toBe(value);
+    });
+
+    it("should wrap null with a stringified message", () => {
+      const result = errors.fromUnknown(null);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual("null");
+      expect(result.cause).toBeNull();
+    });
+
+    it("should fall back to String() for undefined (JSON.stringify returns undefined)", () => {
+      const result = errors.fromUnknown(undefined);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual("undefined");
+      expect(result.cause).toBeUndefined();
+    });
+
+    it("should fall back to String() for a function (JSON.stringify returns undefined)", () => {
+      const value = function named() {};
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual(String(value));
+      expect(result.cause).toBe(value);
+    });
+
+    it("should fall back to String() for a symbol (JSON.stringify returns undefined)", () => {
+      const value = Symbol("sym");
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual("Symbol(sym)");
+      expect(result.cause).toBe(value);
+    });
+  });
+
   describe("matches", () => {
     it("should return true if the errors are exactly the same", () => {
       const v = new ErrorOne("test");

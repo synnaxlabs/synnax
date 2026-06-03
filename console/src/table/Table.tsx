@@ -21,8 +21,8 @@ import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import {
   useSelectEditable,
+  useSelectExists,
   useSelectHideIndicators,
-  useSelectOptional,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
 import {
@@ -143,7 +143,7 @@ const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null =>
 };
 
 const useEnsureState = createEnsureState({
-  useExists: (key) => useSelectOptional(key) != null,
+  useExists: useSelectExists,
   create: (key) => internalCreate({ key }),
 });
 

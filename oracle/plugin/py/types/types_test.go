@@ -452,8 +452,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Config struct {
-					enabled bool @validate default false
-					retries int32 @validate default 3
+					enabled bool = false
+					retries int32 = 3
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -478,7 +478,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Duration int64
 
 				Config struct {
-					timeout Duration @validate default 0
+					timeout Duration = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -500,7 +500,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "client/py/synnax/channel"
 
 				Operation struct {
-					duration telem.TimeSpan @validate default 0
+					duration telem.TimeSpan = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -1313,7 +1313,7 @@ ChannelStatus = status.Status<nil>
 					@py output "out"
 
 					Config struct {
-						mode string @validate default "normal"
+						mode string = "normal"
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1400,7 +1400,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1423,7 +1423,7 @@ ChannelStatus = status.Status<nil>
 					@py output "client/py/synnax/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)

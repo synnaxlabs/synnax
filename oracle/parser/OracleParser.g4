@@ -144,7 +144,7 @@ actionBody
 //       @validate { required, min_length 1 }
 //   }
 fieldDef
-    : IDENT typeRef inlineDomain* fieldBody?
+    : IDENT typeRef (EQUALS expressionValue)? inlineDomain* fieldBody?
     ;
 
 // Inline domain on a field (after type, on same line)

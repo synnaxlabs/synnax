@@ -14,6 +14,7 @@ import { type bounds } from "@synnaxlabs/x";
 import { useMemoSelect } from "@/hooks";
 import { type AxisKey, type XAxisRecord } from "@/lineplot/axis";
 import {
+  type AxisState,
   type ControlState,
   type LineState,
   type RuleState,
@@ -23,6 +24,7 @@ import {
   type State,
   type StoreState,
   type ToolbarState,
+  type ToolbarTab,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 
@@ -39,6 +41,12 @@ export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
 
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
 
 export const selectIsRemoteCreated = (
   state: StoreState,
@@ -72,6 +80,12 @@ export const selectToolbar = (
 
 export const useSelectToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
+
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  select(state, key).toolbar.activeTab;
+
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
+  useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
 export const selectControlState = (state: StoreState, key: string): ControlState =>
   select(state, key).control;
@@ -110,6 +124,15 @@ export const selectAxes = (state: StoreState, key: string) =>
 
 export const useSelectAxes = (key: string) =>
   useMemoSelect((state: StoreState) => selectAxes(state, key), [key]);
+
+export const selectAxis = (
+  state: StoreState,
+  key: string,
+  axisKey: AxisKey,
+): AxisState => select(state, key).axes.axes[axisKey];
+
+export const useSelectAxis = (key: string, axisKey: AxisKey): AxisState =>
+  useMemoSelect((state: StoreState) => selectAxis(state, key, axisKey), [key, axisKey]);
 
 export const selectAxisBounds = (
   state: StoreState,

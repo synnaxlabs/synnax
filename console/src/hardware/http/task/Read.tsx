@@ -25,7 +25,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { DataType, id, primitive } from "@synnaxlabs/x";
+import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback, useState } from "react";
 
 import { EmptyAction } from "@/components";
@@ -606,7 +606,7 @@ const retrieveChannel = async (
     return await client.channels.retrieve(key);
   } catch (e) {
     if (NotFoundError.matches(e)) return null;
-    throw e;
+    throw errors.fromUnknown(e);
   }
 };
 
