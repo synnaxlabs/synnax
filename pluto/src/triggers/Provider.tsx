@@ -59,8 +59,8 @@ const ZERO_REF_STATE: RefState = {
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
 
-// "Meta" is intentionally excluded — keyboardKey() maps any Meta (Cmd/Win) event
-// to "Control", so the Meta key is already represented as "Control" in tracked state.
+// "Meta" is intentionally excluded — keyboardKey() maps any Meta (Cmd/Win) event to
+// "Control", so the Meta key is already represented as "Control" in tracked state.
 const MODIFIER_KEYS: Key[] = ["Control", "Shift", "Alt"];
 
 export interface ProviderProps extends PropsWithChildren {
