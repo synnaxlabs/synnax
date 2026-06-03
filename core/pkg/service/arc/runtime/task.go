@@ -227,10 +227,9 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	pipeline := plumber.New()
 
 	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
-	// would otherwise not fire them until the first input is recieved.
+	// would otherwise not fire them until the first input is received.
 	ticker := &tickerRuntime{dataRuntime: drt}
-	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = ticker
-	plumber.SetSegment(pipeline, runtimeAddr, runtime)
+	plumber.SetSegment(pipeline, runtimeAddr, ticker)
 
 	var (
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
@@ -252,7 +251,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	} else {
 		streamerResponses := confluence.NewStream[framer.StreamerResponse]()
-		runtime.InFrom(streamerResponses)
+		ticker.InFrom(streamerResponses)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	}
 
