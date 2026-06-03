@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { configureStore } from "@reduxjs/toolkit";
+import { renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
+import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { type AxisKey } from "@/lineplot/axis";
@@ -34,8 +38,10 @@ import {
   selectToolbar,
   selectVersion,
   selectViewportMode,
+  useSelectActiveToolbarTab,
 } from "@/lineplot/selectors";
 import {
+  reducer,
   SLICE_NAME,
   type State,
   type StoreState,
@@ -59,6 +65,17 @@ const state: StoreState = {
 };
 
 const empty: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
+
+const wrapperFor = (s: StoreState) => {
+  const store = configureStore({
+    reducer: { [SLICE_NAME]: reducer },
+    preloadedState: s,
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
+  return Wrapper;
+};
 
 describe("lineplot selectors", () => {
   describe("selectSliceState", () => {
@@ -176,6 +193,15 @@ describe("lineplot selectors", () => {
         [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
       } as StoreState & Range.StoreState;
       expect(selectRanges(combined, KEY)).toEqual({ x1: [], x2: [] });
+    });
+  });
+
+  describe("hooks", () => {
+    it("useSelectActiveToolbarTab reads through the Redux provider", () => {
+      const { result } = renderHook(() => useSelectActiveToolbarTab(KEY), {
+        wrapper: wrapperFor(state),
+      });
+      expect(result.current).toBe("annotations");
     });
   });
 });
