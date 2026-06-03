@@ -20,7 +20,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelectToolbar } from "@/lineplot/selectors";
+import { useSelectActiveToolbarTab, useSelectExists } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -46,10 +46,10 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const state = useSelectToolbar(layoutKey);
+  const activeTab = useSelectActiveToolbarTab(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
   const handleExport = useExport();
   const content = useCallback(
@@ -79,13 +79,12 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const value = useMemo(
     () => ({
       tabs: TABS,
-      selected: state?.activeTab,
+      selected: activeTab,
       content,
       onSelect: handleTabSelect,
     }),
-    [state?.activeTab, content, handleTabSelect],
+    [activeTab, content, handleTabSelect],
   );
-  if (state == null) return null;
   return (
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider value={value}>
@@ -115,4 +114,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       </Tabs.Provider>
     </Base.Content>
   );
+};
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  const exists = useSelectExists(layoutKey);
+  if (!exists) return null;
+  return <Internal layoutKey={layoutKey} />;
 };
