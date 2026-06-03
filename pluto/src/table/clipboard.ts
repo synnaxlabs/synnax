@@ -207,7 +207,7 @@ export const useClipboard = ({
         overwritten.push(k);
       }
       dispatch({ key, actions });
-      onPaste?.(overwritten);
+      if (actions.length > 0) onPaste?.(overwritten);
     },
     [key, store, theme, dispatch, onPaste],
   );
