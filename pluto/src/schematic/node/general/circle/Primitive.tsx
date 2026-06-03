@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/circle/config";
@@ -26,6 +27,7 @@ export const Circle = ({
   className,
   strokeWidth,
 }: RenderProps): ReactElement => {
+  const stroke = useColor(colorVal);
   const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
@@ -67,7 +69,7 @@ export const Circle = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={color.cssString(colorVal)}
+          stroke={color.cssString(stroke)}
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />

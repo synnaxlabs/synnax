@@ -14,6 +14,7 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
@@ -45,6 +46,7 @@ export const Select = ({
     [options],
   );
   const matched = options.find((o) => o.key === value);
+  const resolved = useColor(color);
   return (
     <Primitive.Div
       orientation={orientation}
@@ -88,7 +90,7 @@ export const Select = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ color, size }}
+          triggerProps={{ color: resolved, size }}
           style={{ minWidth: inlineSize }}
         />
         {onSend != null && (
@@ -98,7 +100,7 @@ export const Select = ({
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
-            color={color}
+            color={resolved}
             disabled={disabled}
           >
             Send

@@ -13,6 +13,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { resolveColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
@@ -34,9 +35,9 @@ export const StateIndicator = ({
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
-  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
-  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
+  const borderColor = color.cssString(resolveColor(colorVal, theme));
+  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const textColor =
     stateColor != null
       ? color.cssString(

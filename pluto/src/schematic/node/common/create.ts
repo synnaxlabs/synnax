@@ -48,9 +48,9 @@ export const createStatic = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (t: Theming.Theme): Config => ({
+  const defaultConfig = (_t: Theming.Theme): Config => ({
     variant,
-    color: t.colors.gray.l11,
+    color: color.ZERO,
     label: Label.defaultConfig(label),
     ...BasePrimitive.ZERO_PROPS,
   });
@@ -90,9 +90,9 @@ export const createToggle = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (t: Theming.Theme): Config => ({
+  const defaultConfig = (_t: Theming.Theme): Config => ({
     variant,
-    color: t.colors.gray.l11,
+    color: color.ZERO,
     label: Label.defaultConfig(label),
     ...BasePrimitive.ZERO_PROPS,
     ...Toggle.ZERO_TOGGLE_DEFAULTS,
@@ -128,9 +128,9 @@ export const createDummyToggle = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (t: Theming.Theme): Config => ({
+  const defaultConfig = (_t: Theming.Theme): Config => ({
     variant,
-    color: t.colors.gray.l11,
+    color: color.ZERO,
     label: Label.defaultConfig(label),
     ...BasePrimitive.ZERO_PROPS,
     ...Toggle.ZERO_DUMMY_TOGGLE_DEFAULTS,

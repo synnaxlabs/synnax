@@ -10,6 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { useColor } from "@/schematic/node/common/color";
 import { type Config } from "@/schematic/node/general/gauge/config";
 import { Text } from "@/text";
 
@@ -34,6 +35,7 @@ const METRICS_STYLE: CSSProperties = {
 };
 
 export const Gauge = ({ color: c }: RenderProps): ReactElement => {
+  const valueColor = useColor(c);
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -67,7 +69,7 @@ export const Gauge = ({ color: c }: RenderProps): ReactElement => {
         <path
           d={valuePath}
           fill="none"
-          stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
+          stroke={color.cssString(valueColor)}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />

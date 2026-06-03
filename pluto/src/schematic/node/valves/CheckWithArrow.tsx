@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
@@ -24,7 +25,8 @@ export const CheckWithArrow = ({
   scale,
   ...rest
 }: Props): ReactElement => {
-  const colorStr = color.cssString(colorVal);
+  const resolved = useColor(colorVal);
+  const colorStr = color.cssString(resolved);
   return (
     <Primitive.Div
       orientation={orientation}
@@ -39,7 +41,7 @@ export const CheckWithArrow = ({
       />
       <Primitive.SVG
         dimensions={DIMENSIONS}
-        color={colorVal}
+        color={resolved}
         orientation={orientation}
         scale={scale}
       >

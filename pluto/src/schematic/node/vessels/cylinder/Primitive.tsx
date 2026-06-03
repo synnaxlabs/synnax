@@ -12,6 +12,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
+import { resolveColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
@@ -46,7 +47,7 @@ export const Cylinder = ({
       orientation,
     ],
   );
-  const boardColor = color.cssString(colorVal ?? t.colors.gray.l11);
+  const boardColor = color.cssString(resolveColor(colorVal, t));
   const bgColor =
     backgroundColor == null ? undefined : color.cssString(backgroundColor);
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;

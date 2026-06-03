@@ -10,13 +10,15 @@
 import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
+import { useColor } from "@/schematic/node/common/color";
+
 export interface LabelProps {
   position?: xy.XY;
   color?: color.Crude;
 }
 
 export const Label = ({ position, color: colorVal }: LabelProps): ReactElement => {
-  const colorStr = color.cssString(colorVal);
+  const colorStr = color.cssString(useColor(colorVal));
   const style = useMemo(() => ({ fill: colorStr }), [colorStr]);
   return (
     <text x={position?.x ?? 57} y={position?.y ?? 27} style={style} stroke="none">

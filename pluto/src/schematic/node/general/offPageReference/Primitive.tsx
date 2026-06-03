@@ -13,6 +13,7 @@ import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { resolveColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
@@ -53,7 +54,7 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const theme = Theming.use();
-  const resolvedColor = colorVal ?? theme.colors.gray.l11;
+  const resolvedColor = resolveColor(colorVal, theme);
   const textColor = color.pickByContrast(
     resolvedColor,
     theme.colors.text,

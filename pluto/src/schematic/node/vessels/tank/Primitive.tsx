@@ -14,6 +14,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
+import { resolveColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
@@ -60,7 +61,7 @@ export const Tank = ({
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
-        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
+        borderColor: color.cssString(resolveColor(colorVal, t)),
         backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}

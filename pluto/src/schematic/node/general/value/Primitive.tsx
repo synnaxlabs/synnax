@@ -13,6 +13,7 @@ import { color, type dimensions, type text } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { resolveColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
@@ -35,14 +36,12 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const borderColor = color.cssString(colorVal);
   const theme = Theming.use();
-  const textColor: string | undefined =
-    colorVal == null
-      ? "var(--pluto-gray-l0)"
-      : color.cssString(
-          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-        );
+  const resolved = resolveColor(colorVal, theme);
+  const borderColor = color.cssString(resolved);
+  const textColor = color.cssString(
+    color.pickByContrast(resolved, theme.colors.gray.l0, theme.colors.gray.l11),
+  );
   return (
     <Primitive.Div
       className={CSS(CSS.B("value"), className)}

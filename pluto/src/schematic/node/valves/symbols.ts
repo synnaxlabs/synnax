@@ -176,9 +176,9 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<SolenoidConfig>(Solenoid),
   Preview: Solenoid,
-  defaultConfig: (t: Theming.Theme): SolenoidConfig => ({
+  defaultConfig: (_t: Theming.Theme): SolenoidConfig => ({
     variant: "solenoidValve",
-    color: t.colors.gray.l11,
+    color: color.ZERO,
     label: Label.defaultConfig("Solenoid Valve"),
     normallyOpen: false,
     ...Primitive.ZERO_PROPS,

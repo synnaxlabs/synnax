@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -25,23 +26,26 @@ export const ButterflyOne = ({
   scale,
   enabled = false,
   ...rest
-}: Props): ReactElement => (
-  <Toggle.Button
-    {...rest}
-    orientation={orientation}
-    className={CSS(CSS.B("butterfly-valve-one"), className)}
-    enabled={enabled}
-  >
-    <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      color={colorVal}
+}: Props): ReactElement => {
+  const resolved = useColor(colorVal);
+  return (
+    <Toggle.Button
+      {...rest}
       orientation={orientation}
-      scale={scale}
+      className={CSS(CSS.B("butterfly-valve-one"), className)}
+      enabled={enabled}
     >
-      <Primitive.Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
-      <Primitive.Path d="M43.5 2V40" />
-      <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-    </Primitive.SVG>
-  </Toggle.Button>
-);
+      <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
+      <Primitive.SVG
+        dimensions={DIMENSIONS}
+        color={resolved}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Primitive.Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
+        <Primitive.Path d="M43.5 2V40" />
+        <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(resolved)} />
+      </Primitive.SVG>
+    </Toggle.Button>
+  );
+};

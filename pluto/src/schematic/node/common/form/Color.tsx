@@ -12,11 +12,21 @@ import { type ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Form } from "@/form";
+import { resolveColor } from "@/schematic/node/common/color";
+import { Theming } from "@/theming";
 
-export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => (
-  <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
-    {({ value, onChange, variant: _, ...rest }) => (
-      <Color.Swatch value={value} onChange={onChange} {...rest} bordered />
-    )}
-  </Form.Field>
-);
+export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
+  const theme = Theming.use();
+  return (
+    <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
+      {({ value, onChange, variant: _, ...rest }) => (
+        <Color.Swatch
+          value={resolveColor(value, theme)}
+          onChange={onChange}
+          {...rest}
+          bordered
+        />
+      )}
+    </Form.Field>
+  );
+};

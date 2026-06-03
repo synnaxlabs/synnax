@@ -14,6 +14,7 @@ import { type CSSProperties, type ReactElement, useState } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
@@ -37,6 +38,7 @@ export const Setpoint = ({
   disabled,
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
+  const resolved = useColor(color);
   return (
     <Primitive.Div
       className={CSS(CSS.B("setpoint"), className)}
@@ -81,7 +83,7 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        color={color}
+        color={resolved}
         borderWidth={1}
         disabled={disabled}
       >
@@ -89,7 +91,7 @@ export const Setpoint = ({
           size={size}
           variant="filled"
           onClick={() => onChange(currValue)}
-          color={color}
+          color={resolved}
         >
           Set
         </BaseButton.Button>

@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -25,7 +26,8 @@ export const FourWay = ({
   color: colorVal,
   ...rest
 }: Props): ReactElement => {
-  const colorStr = color.cssString(colorVal);
+  const resolved = useColor(colorVal);
+  const colorStr = color.cssString(resolved);
   return (
     <Toggle.Button
       {...rest}
@@ -41,7 +43,7 @@ export const FourWay = ({
       />
       <Primitive.SVG
         dimensions={DIMENSIONS}
-        color={colorVal}
+        color={resolved}
         scale={scale}
         orientation={orientation}
       >

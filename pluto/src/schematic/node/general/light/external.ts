@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
+
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/light/config";
 import { LightForm } from "@/schematic/node/general/light/Form";
@@ -18,11 +20,11 @@ import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/light/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (_t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
   scale: 1,
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   label: Label.defaultConfig("Light"),
   source: telem.sourcePipeline("boolean", {
     connections: [{ from: "valueStream", to: "threshold" }],

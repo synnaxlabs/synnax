@@ -13,6 +13,7 @@ import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
@@ -34,6 +35,7 @@ export const TextBox = ({
   value,
   onChange,
 }: RenderProps): ReactElement => {
+  const resolved = useColor(colorVal);
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
   };
@@ -56,7 +58,7 @@ export const TextBox = ({
       />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
-        color={color.cssString(colorVal)}
+        color={color.cssString(resolved)}
         level={level}
         value={value ?? ""}
         onChange={onChange}

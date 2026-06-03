@@ -14,6 +14,7 @@ import { type ReactElement, useState } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
@@ -34,6 +35,7 @@ export const Input = ({
   disabled,
 }: PrimitiveProps): ReactElement => {
   const [value, setValue] = useState(initialValue);
+  const resolved = useColor(color);
   return (
     <Primitive.Div
       orientation={orientation}
@@ -52,13 +54,13 @@ export const Input = ({
         size={size}
         borderWidth={1}
         disabled={disabled}
-        color={color}
+        color={resolved}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onSend?.(value)}
-          color={color}
+          color={resolved}
         >
           Send
         </BaseButton.Button>

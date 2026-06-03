@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -25,7 +26,8 @@ export const BurstDisc = ({
   scale,
   ...rest
 }: Props): ReactElement => {
-  const colorStr = color.cssString(colorVal);
+  const resolved = useColor(colorVal);
+  const colorStr = color.cssString(resolved);
   return (
     <Primitive.Div {...rest} className={CSS(CSS.B("symbol"), className)}>
       <Handle.Boundary orientation={orientation}>
@@ -39,7 +41,7 @@ export const BurstDisc = ({
       </Handle.Boundary>
       <Primitive.SVG
         dimensions={DIMENSIONS}
-        color={colorVal}
+        color={resolved}
         orientation={orientation}
         scale={scale}
       >

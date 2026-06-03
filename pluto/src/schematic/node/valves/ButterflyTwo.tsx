@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { useColor } from "@/schematic/node/common/color";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
@@ -25,23 +26,26 @@ export const ButterflyTwo = ({
   scale,
   enabled = false,
   ...rest
-}: Props): ReactElement => (
-  <Toggle.Button
-    {...rest}
-    orientation={orientation}
-    className={CSS(CSS.B("butterfly-valve-two"), className)}
-    enabled={enabled}
-  >
-    <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
-    <Primitive.SVG
-      dimensions={DIMENSIONS}
-      color={colorVal}
+}: Props): ReactElement => {
+  const resolved = useColor(colorVal);
+  return (
+    <Toggle.Button
+      {...rest}
       orientation={orientation}
-      scale={scale}
+      className={CSS(CSS.B("butterfly-valve-two"), className)}
+      enabled={enabled}
     >
-      <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-      <Primitive.Rect x="2" y="2" width="83" height="38" rx="1" />
-      <Primitive.Path d="M2.29001 2.29004L84.7069 39.676" />
-    </Primitive.SVG>
-  </Toggle.Button>
-);
+      <Handle.Linear orientation={orientation} left={2.2989} right={97.7011} />
+      <Primitive.SVG
+        dimensions={DIMENSIONS}
+        color={resolved}
+        orientation={orientation}
+        scale={scale}
+      >
+        <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(resolved)} />
+        <Primitive.Rect x="2" y="2" width="83" height="38" rx="1" />
+        <Primitive.Path d="M2.29001 2.29004L84.7069 39.676" />
+      </Primitive.SVG>
+    </Toggle.Button>
+  );
+};

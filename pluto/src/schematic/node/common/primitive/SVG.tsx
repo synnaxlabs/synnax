@@ -11,6 +11,7 @@ import { color, dimensions, direction } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { resolveColor } from "@/schematic/node/common/color";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 import { Theming } from "@/theming";
 
@@ -38,21 +39,18 @@ export const SVG = ({
 }: SVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const colorStr = color.cssString(colorVal);
   const theme = Theming.use();
-  let pStyle = {
+  const resolved = resolveColor(colorVal, theme);
+  const colorStr = color.cssString(resolved);
+  const pStyle = {
     ...style,
     aspectRatio: `${dims.width} / ${dims.height}`,
     width: dimensions.scale(dims, scale * BASE_SCALE).width,
+    [CSS.var("symbol-color")]: color.rgbString(resolved),
+    [CSS.var("symbol-color-contrast")]: color.rgbString(
+      color.pickByContrast(resolved, theme.colors.gray.l0, theme.colors.gray.l11),
+    ),
   };
-  if (colorVal != null)
-    pStyle = {
-      ...pStyle,
-      [CSS.var("symbol-color")]: color.rgbString(colorVal),
-      [CSS.var("symbol-color-contrast")]: color.rgbString(
-        color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-      ),
-    };
 
   return (
     <svg
