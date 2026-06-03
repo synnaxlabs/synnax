@@ -17,11 +17,12 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
   let keyToFetch = key;
   try {
     BigInt(key);
-  } catch {
+  } catch (cause) {
     const layoutState = Layout.select(store.getState(), key);
     if (layoutState == null)
       throw new Error(
         `Cannot export task with key ${key}. This is neither the key of a task nor the key of a task layout.`,
+        { cause },
       );
     const args = layoutState.args;
     if (
@@ -32,6 +33,7 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
     )
       throw new Error(
         `Cannot export task with key ${key}. You should configure the task before exporting it.`,
+        { cause },
       );
     keyToFetch = args.taskKey;
   }

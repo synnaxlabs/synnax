@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type workspace } from "@synnaxlabs/client";
+import { type ontology, type Synnax, type workspace } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
@@ -27,7 +27,10 @@ export interface FileIngesterContext {
 }
 
 export interface FileIngester {
-  (data: unknown, ctx: FileIngesterContext): void | Promise<void>;
+  (
+    data: unknown,
+    ctx: FileIngesterContext,
+  ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
 export interface FileIngesters extends Record<string, FileIngester> {}

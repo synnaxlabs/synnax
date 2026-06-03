@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
-import { id, primitive, unique } from "@synnaxlabs/x";
+import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
@@ -163,7 +163,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
         await client.channels.retrieve(dev.properties.counterInput.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
-        else throw e;
+        else throw errors.fromUnknown(e);
       }
     const identifier = channel.escapeInvalidName(dev.properties.identifier);
     try {
@@ -189,7 +189,7 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
             await client.channels.retrieve(exKey.toString());
           } catch (e) {
             if (QueryError.matches(e)) toCreate.push(channel);
-            else throw e;
+            else throw errors.fromUnknown(e);
           }
       }
 

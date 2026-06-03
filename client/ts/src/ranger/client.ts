@@ -128,7 +128,7 @@ export class Range {
   }
 
   async retrieveParent(): Promise<Range | null> {
-    return this.rangeClient.retrieveParent(this.key);
+    return await this.rangeClient.retrieveParent(this.key);
   }
 
   async retrieveChildren(): Promise<Range[]> {

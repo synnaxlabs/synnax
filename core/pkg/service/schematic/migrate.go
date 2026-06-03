@@ -12,6 +12,7 @@ package schematic
 import (
 	"context"
 	"encoding/json"
+	"math"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
@@ -116,7 +117,112 @@ func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 			lifted[key] = v
 		}
 	}
+	if raw, ok := lifted["segments"].([]any); ok {
+		lifted["segments"] = stripLegacyStumps(raw)
+	}
 	return out, lifted, nil
+}
+
+// stumpLength mirrors STUMP_LENGTH in the pluto segmented connector: the fixed
+// length of the auto-generated stub that leaves each handle.
+const stumpLength = 10.0
+
+// segment is the decoded form of one entry in an edge's segments list.
+type segment struct {
+	direction string
+	length    float64
+}
+
+// stripLegacyStumps converts a pre-0.56 full edge path into the middle-only form
+// the current renderer expects. Pre-0.56 edges stored the complete path including
+// both stumps; the current model stores only the middle and re-derives the stumps
+// on render, so leaving them in doubles the stumps and folds a pigtail over the
+// target. The stumps are the first and last segments. Mirrors stripLegacyStumps in
+// the console v6 migration. The input is returned unchanged if it does not parse as
+// a segment list.
+func stripLegacyStumps(raw []any) []any {
+	segs, ok := parseSegments(raw)
+	if !ok || len(segs) == 0 {
+		return raw
+	}
+	if hasNoStrippableMiddle(segs) {
+		return []any{}
+	}
+	return segmentsToRaw(extractMiddle(segs))
+}
+
+// hasNoStrippableMiddle reports whether an edge's stumps overlap, leaving no middle
+// to preserve: a single segment shorter than two stumps, or a first/last segment
+// shorter than one stump. Subtracting a full stump from those would flip the segment
+// and fold a spur, so such edges are cleared to auto-route instead.
+func hasNoStrippableMiddle(segs []segment) bool {
+	if len(segs) == 1 {
+		return math.Abs(segs[0].length) <= 2*stumpLength-0.5
+	}
+	return math.Abs(segs[0].length) <= stumpLength-0.5 ||
+		math.Abs(segs[len(segs)-1].length) <= stumpLength-0.5
+}
+
+// extractMiddle removes the source and target stumps from a full path, leaving the
+// middle segments. The stumps share the direction and sign of the first and last
+// segments, so a same-signed stump length is subtracted from each end; a resulting
+// near-zero segment is dropped entirely.
+func extractMiddle(segs []segment) []segment {
+	result := append([]segment(nil), segs...)
+	srcStump := sign(result[0].length) * stumpLength
+	if rem := result[0].length - srcStump; math.Abs(rem) < 0.5 {
+		result = result[1:]
+	} else {
+		result[0].length = rem
+	}
+	if len(result) == 0 {
+		return result
+	}
+	tgtStump := sign(segs[len(segs)-1].length) * stumpLength
+	last := len(result) - 1
+	if rem := result[last].length - tgtStump; math.Abs(rem) < 0.5 {
+		result = result[:last]
+	} else {
+		result[last].length = rem
+	}
+	return result
+}
+
+func sign(v float64) float64 {
+	if v < 0 {
+		return -1
+	}
+	return 1
+}
+
+// parseSegments decodes the opaque segments list into typed segments, returning
+// false if any entry is not a well-formed {direction, length} object.
+func parseSegments(raw []any) ([]segment, bool) {
+	out := make([]segment, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		direction, ok := m["direction"].(string)
+		if !ok {
+			return nil, false
+		}
+		length, ok := m["length"].(float64)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, segment{direction: direction, length: length})
+	}
+	return out, true
+}
+
+func segmentsToRaw(segs []segment) []any {
+	out := make([]any, len(segs))
+	for i, s := range segs {
+		out[i] = map[string]any{"direction": s.direction, "length": s.length}
+	}
+	return out
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the

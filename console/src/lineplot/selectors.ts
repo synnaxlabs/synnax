@@ -20,6 +20,7 @@ import {
   type State,
   type StoreState,
   type ToolbarState,
+  type ToolbarTab,
 } from "@/lineplot/slice";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
@@ -35,6 +36,12 @@ export const useSelect = (key: string): State =>
 
 export const useSelectOptional = (key: string): State | undefined =>
   useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
+
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
 
 export const selectIsRemoteCreated = (
   state: StoreState,
@@ -59,6 +66,12 @@ export const selectToolbar = (
 
 export const useSelectToolbar = (key: string): ToolbarState | undefined =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
+
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  select(state, key).toolbar.activeTab;
+
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
+  useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
 export const selectControlState = (state: StoreState, key: string): ControlState =>
   select(state, key).control;

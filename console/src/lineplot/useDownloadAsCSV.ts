@@ -49,7 +49,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
       const timeRange = TimeRange.merge(...timeRanges);
       handleError(
         async () =>
-          openDownloadCSVModal(
+          await openDownloadCSVModal(
             { timeRange: timeRange.numeric, name, channels, channelNames },
             { icon: "LinePlot" },
           ),

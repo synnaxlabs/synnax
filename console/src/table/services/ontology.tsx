@@ -105,7 +105,7 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  loadTable(client, selection[0].id, placeLayout).catch((e) => {
+  loadTable(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "table",

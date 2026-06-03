@@ -38,6 +38,9 @@ export class StreamClosed extends FreighterError.sub("stream_closed") {
 export interface UnreachableArgs {
   message?: string;
   url?: URL;
+  /** Underlying error that caused the target to be unreachable (e.g. the original fetch
+   * failure). Preserved on Error.cause for stack-trace continuity. */
+  cause?: unknown;
 }
 
 /** Thrown when a network target is unreachable. */
@@ -45,8 +48,8 @@ export class Unreachable extends FreighterError.sub("unreachable") {
   url: URL;
 
   constructor(args: UnreachableArgs = {}) {
-    const { message = "Unreachable", url = URL.UNKNOWN } = args;
-    super(message);
+    const { message = "Unreachable", url = URL.UNKNOWN, cause } = args;
+    super(message, cause !== undefined ? { cause } : undefined);
     this.url = url;
   }
 }
