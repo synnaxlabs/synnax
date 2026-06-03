@@ -115,16 +115,16 @@ const handlers: Handlers = {
     };
   },
 
-  // setLine has upsert semantics. When the line is new there is no
-  // removeLine action to revert with, so the inverse is empty and undo of
-  // setLine on a fresh line is a no-op. Lines are derived from channel and
-  // range bindings so they are typically created and removed by the channel
-  // and range actions rather than directly.
+  // setLine upserts: edits to an existing line are undoable, fresh inserts
+  // are not (there is no removeLine inverse to record). Empty targets keep
+  // create out of the undo stack so Cmd+Z never silently no-ops past it.
+  // Lines are typically derived from addChannel/addRange, so direct creation
+  // is the unusual path.
   setLine: (state, payload) => {
     const idx = state.lines.findIndex((l) => l.key === payload.line.key);
     if (idx === -1) {
       state.lines.push(payload.line);
-      return { inverse: [], targets: [`line:${payload.line.key}`] };
+      return { inverse: [], targets: [] };
     }
     const oldLine = actions.snapshotDraft(state.lines[idx]);
     state.lines[idx] = payload.line;

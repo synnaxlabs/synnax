@@ -290,10 +290,15 @@ describe("lineplot reducer", () => {
         state.lines,
       );
     });
-    it("should target the line so distinct lines are independent", () => {
+    it("should report no target for a fresh line insert so it is not recorded as undoable", () => {
       const { targets } = reduceAll(empty(), [
         setLine({ line: line("l1", "#ff0000") }),
       ]);
+      expect(targets).toEqual([]);
+    });
+    it("should target the line on update so distinct lines are independent", () => {
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      const { targets } = reduceAll(state, [setLine({ line: line("l1", "#0000ff") })]);
       expect(targets).toEqual(["line:l1"]);
     });
   });
