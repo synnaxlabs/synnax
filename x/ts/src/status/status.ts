@@ -53,14 +53,14 @@ const customReturnZ = z.object({
   details: record.unknownZ().optional(),
 });
 
-const hasToStatusMethod = (exc: unknown): exc is { toStatus: () => unknown } =>
-  exc != null &&
-  typeof exc === "object" &&
-  "toStatus" in exc &&
-  typeof exc.toStatus === "function";
-
 const safeToStatus = (exc: unknown): z.infer<typeof customReturnZ> | undefined => {
-  if (!hasToStatusMethod(exc)) return undefined;
+  if (
+    exc == null ||
+    typeof exc !== "object" ||
+    !("toStatus" in exc) ||
+    typeof exc.toStatus !== "function"
+  )
+    return undefined;
   let raw: unknown;
   try {
     raw = exc.toStatus();
