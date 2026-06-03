@@ -17,6 +17,7 @@
 set -euo pipefail
 
 VERSION="4.13.2"
+EXPECTED_SHA256="eae2dfa119a64327444672aff63e9ec35a20180dc5b8090b7a6ab85125df4d76"
 INSTALL_DIR="${HOME}/.local/share/antlr4"
 BIN_DIR="${HOME}/.local/bin"
 JAR_PATH="${INSTALL_DIR}/antlr-${VERSION}-complete.jar"
@@ -27,6 +28,20 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 if [ ! -f "$JAR_PATH" ]; then
     echo "Downloading antlr-${VERSION}-complete.jar"
     curl -fsSL -o "$JAR_PATH" "$JAR_URL"
+fi
+
+# sha256sum on Linux, shasum on macOS.
+if command -v sha256sum > /dev/null 2>&1; then
+    ACTUAL_SHA256=$(sha256sum "$JAR_PATH" | awk '{print $1}')
+else
+    ACTUAL_SHA256=$(shasum -a 256 "$JAR_PATH" | awk '{print $1}')
+fi
+if [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+    echo "Error: SHA-256 mismatch for $JAR_PATH" >&2
+    echo "  expected: $EXPECTED_SHA256" >&2
+    echo "  actual:   $ACTUAL_SHA256" >&2
+    rm -f "$JAR_PATH"
+    exit 1
 fi
 
 cat > "${BIN_DIR}/antlr4" << EOF
