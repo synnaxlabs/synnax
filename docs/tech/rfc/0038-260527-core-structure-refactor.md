@@ -1196,18 +1196,17 @@ Every version — current included — is a self-contained package under
 vN.T`) and `<resource>.<resource>.go` re-exports that (`type T = types.T`). This is a
 deliberate revision of RFC 0033 §4.3.0 / RFC 0034 §4.4.2.
 
-Uniformity beats asymmetry because the rule about where things live becomes one
-sentence — "everything for version N lives in `vN/`" — instead of "current at the top
-of `internal/types/`, historical in `vN/`, helpers only at the top, generated files
-in both places." The cost is that `helpers.go` (the only hand-written file the
-current version carries) has to migrate from `vN/` to `v(N+1)/` at each version bump.
-Oracle automates that move with the same AST-rewrite pass it would have applied to
-keep helpers in sync with field renames anyway (§4.6.0), so the developer cost is
-approximately zero. The structural invariant — "historical versions carry no
-behavior" — is preserved by moving `helpers.go` forward as part of the freeze, so by
-the time `vN` becomes historical it no longer has one. Strong encapsulation is
-preserved by the `internal/` rule: external callers cannot import a specific
-version.
+Uniformity beats asymmetry because the rule about where things live becomes one sentence
+— "everything for version N lives in `vN/`" — instead of "current at the top of
+`internal/types/`, historical in `vN/`, helpers only at the top, generated files in both
+places." The cost is that `helpers.go` (the only hand-written file the current version
+carries) has to migrate from `vN/` to `v(N+1)/` at each version bump. Oracle automates
+that move with the same AST-rewrite pass it would have applied to keep helpers in sync
+with field renames anyway (§4.6.0), so the developer cost is approximately zero. The
+structural invariant — "historical versions carry no behavior" — is preserved by moving
+`helpers.go` forward as part of the freeze, so by the time `vN` becomes historical it no
+longer has one. Strong encapsulation is preserved by the `internal/` rule: external
+callers cannot import a specific version.
 
 ## 5.4 - Peek for Import; Gorp Stays Batch
 
