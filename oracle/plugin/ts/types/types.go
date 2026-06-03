@@ -1104,17 +1104,23 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
-		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
+		// An array field's default applies to the wrapped array (see the isArray
+		// block below), not to the element schema processed here.
+		elemDefault := field.Default
+		if isArray {
+			elemDefault = nil
+		}
+		if validateDomain, ok := field.Domains["validate"]; ok || elemDefault != nil {
 			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
 				paramPart := fd.ZodType[:sepIndex]
 				fallbackPart := fd.ZodType[sepIndex+4:]
-				result := p.applyValidation(fallbackPart, validateDomain, field.Default, field.Type, field.Name, table, data)
+				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 				}
 			} else {
-				result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
+				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
@@ -1148,6 +1154,12 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+			// nullishToEmpty already defaults a missing array to []; only a
+			// non-empty declared default needs an explicit .default().
+			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
+				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, tsArrayLiteral(field.Default.Elements))
+				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			}
 		}
 	} else if isMap {
 		keyZ := p.typeRefToZod(&field.Type.TypeArgs[0], table, data)

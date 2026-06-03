@@ -152,7 +152,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(() => id.create())`)
 	})
 
-	It("Should emit an empty array default", func(ctx SpecContext) {
+	It("Should rely on nullishToEmpty for an empty array default, not a misplaced element default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -161,11 +161,12 @@ var _ = Describe("Validation Rules", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default([])`)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()),`))
+		Expect(content).ToNot(ContainSubstring(`z.number().default`))
 	})
 
-	It("Should emit a populated array default", func(ctx SpecContext) {
+	It("Should apply a populated array default to the wrapped array, not the element", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -174,8 +175,9 @@ var _ = Describe("Validation Rules", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default([1.500000, 2.500000])`)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()).default([1.500000, 2.500000]),`))
+		Expect(content).ToNot(ContainSubstring(`z.number().default`))
 	})
 
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {
