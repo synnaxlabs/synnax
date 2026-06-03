@@ -196,11 +196,27 @@ describe("errors", () => {
       expect(result.cause).toBeNull();
     });
 
-    it("should wrap undefined with an empty message (JSON.stringify returns undefined)", () => {
+    it("should fall back to String() for undefined (JSON.stringify returns undefined)", () => {
       const result = errors.fromUnknown(undefined);
       expect(result).toBeInstanceOf(Error);
-      expect(result.message).toEqual("");
+      expect(result.message).toEqual("undefined");
       expect(result.cause).toBeUndefined();
+    });
+
+    it("should fall back to String() for a function (JSON.stringify returns undefined)", () => {
+      const value = function named() {};
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual(String(value));
+      expect(result.cause).toBe(value);
+    });
+
+    it("should fall back to String() for a symbol (JSON.stringify returns undefined)", () => {
+      const value = Symbol("sym");
+      const result = errors.fromUnknown(value);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toEqual("Symbol(sym)");
+      expect(result.cause).toBe(value);
     });
   });
 
