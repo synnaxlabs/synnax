@@ -42,7 +42,7 @@ export class Client {
   }
 
   async list(): Promise<Record<string, string>> {
-    return this.get([]);
+    return await this.get([]);
   }
 
   async set(key: string, value: string): Promise<void>;

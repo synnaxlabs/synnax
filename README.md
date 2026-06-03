@@ -26,7 +26,7 @@ Releases follow [semantic versioning](https://semver.org/). Versions with the sa
 version number (e.g. 0.40.1 and 0.40.2) are guaranteed to maintain the same API, while
 releases with different minor version numbers (e.g. 0.40.0 and 0.41.0) may change APIs.
 
-Our team is targeting a v1 release before the end of 2025, at which point all APIs will
+Our team is targeting a v1 release before the end of 2026, at which point all APIs will
 be considered stable and will not change until a v2 release.
 
 ## Repository Organization
@@ -36,6 +36,9 @@ monorepo. The following is a summary of each:
 
 - [Alamos](alamos) - Dependency-injected code instrumentation that provides
   observability into the Synnax platform.
+- [Arc](arc) - A domain-specific language and compiler for hardware automation and
+  control sequences, with a reactive execution model and a WebAssembly compilation
+  target.
 - [Aspen](aspen) - A gossip-based distributed key-value store used for propagating and
   persisting metadata between nodes, such as cluster topology, state, and configuration.
 - [Cesium](cesium) - An embedded time series database engine optimized for
@@ -47,15 +50,21 @@ monorepo. The following is a summary of each:
 - [Documentation Site](docs/site) - The code for the Synnax documentation website.
 - [Technical Documentation](docs/tech) - Technical documentation such as RFCs and
   contribution guides.
+- [Drift](drift) - Redux state synchronization and declarative window management for
+  building multi-window Tauri applications.
 - [Driver](driver) - An application that can connect to LabJack or National Instruments
   hardware or OPC UA servers and run control sequences on real-time operating systems.
 - [Freighter](freighter) - A protocol-agnostic network transport for cross-language
   unary and streaming communication with implementations in several languages (C++, Go,
   Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).
+- [Integration](integration) - A Python-based test conductor framework for end-to-end
+  integration and stress testing across the Synnax server and its clients.
+- [Oracle](oracle) - A schema definition language, code generator, and migration CLI
+  used to keep Synnax's data models consistent across Go, TypeScript, Python, and C++.
 - [Pluto](pluto) - A React component library for building modular user interfaces on top
   of the Synnax telemetry engine.
-- [Synnax](synnax) - The core Synnax server, which integrates Aspen and Cesium to
-  provide a unified telemetry system.
+- [Core](core) - The core Synnax server, which integrates Aspen and Cesium to provide a
+  unified telemetry system.
 - [X](x) - Common utilities used by other projects.
 
 # Attributions

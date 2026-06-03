@@ -114,6 +114,10 @@ export interface BoxExtensionProps {
   /** Cross-axis alignment of children. See {@link Alignment} for options: 'start',
    * 'center', 'end', 'stretch' */
   align?: Alignment;
+  /** Cross-axis alignment of this box within its own parent flex container,
+   * overriding the parent's align. See {@link Alignment} for options: 'start',
+   * 'center', 'end', 'stretch' */
+  alignSelf?: Alignment;
 
   /** Flex grow behavior. true sets flex-grow: 1, false leaves unset, number sets
    * specific flex-grow value */
@@ -183,6 +187,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   gap,
   color,
   justify,
+  alignSelf,
   reverse,
   empty,
   pack,
@@ -212,6 +217,7 @@ export const Box = <E extends Generic.ElementType = "div">({
     pack && CSS.M("pack"),
     justify != null && CSS.M("justify", justify),
     align != null && CSS.M("align", align),
+    alignSelf != null && CSS.M("align-self", alignSelf),
     wrap === true && CSS.M("wrap"),
     empty === true && CSS.M("empty"),
     center === true && CSS.M("center"),

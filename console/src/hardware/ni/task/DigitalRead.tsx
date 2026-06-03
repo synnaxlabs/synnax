@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -108,7 +108,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
       await client.channels.retrieve(dev.properties.digitalInput.index);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateIndex = true;
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
   const identifier = channel.escapeInvalidName(dev.properties.identifier);
   try {
@@ -133,7 +133,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
           await client.channels.retrieve(exKey.toString());
         } catch (e) {
           if (NotFoundError.matches(e)) toCreate.push(channel);
-          else throw e;
+          else throw errors.fromUnknown(e);
         }
     }
     if (toCreate.length > 0) {

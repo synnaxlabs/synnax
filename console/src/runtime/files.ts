@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { errors } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
@@ -309,7 +310,7 @@ const pickWritableDirectoryBrowser = async ({
     root = await window.showDirectoryPicker({ mode: "readwrite" });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return null;
-    throw e;
+    throw errors.fromUnknown(e);
   }
   let subHandle: FileSystemDirectoryHandle | null = null;
   let preExisted: boolean;
@@ -317,7 +318,8 @@ const pickWritableDirectoryBrowser = async ({
     subHandle = await root.getDirectoryHandle(subdirectory);
     preExisted = true;
   } catch (e) {
-    if (!(e instanceof DOMException) || e.name !== "NotFoundError") throw e;
+    if (!(e instanceof DOMException) || e.name !== "NotFoundError")
+      throw errors.fromUnknown(e);
     preExisted = false;
   }
   const ensureSubHandle = async (): Promise<FileSystemDirectoryHandle> =>

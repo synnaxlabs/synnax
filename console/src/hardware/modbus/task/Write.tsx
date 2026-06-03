@@ -20,7 +20,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, id, primitive } from "@synnaxlabs/x";
+import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { ContextMenu } from "@/components";
@@ -199,7 +199,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
       await client.channels.retrieve(existing);
     } catch (e) {
       if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
   }
 

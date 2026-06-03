@@ -152,7 +152,7 @@ export class Client {
     tr: CrudeTimeRange | ReadRequest,
     channels?: channel.Params,
   ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
-    if (!("start" in tr)) return this.reader.read(tr);
+    if (!("start" in tr)) return await this.reader.read(tr);
     const { single } = channel.analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
     if (single) return fr.get(channels as channel.Key | channel.Name);
