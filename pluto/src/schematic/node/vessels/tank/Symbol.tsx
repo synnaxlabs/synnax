@@ -28,10 +28,15 @@ export const Symbol = ({
     borderRadius,
   },
 }: NodeProps<Config>): ReactElement => (
-  <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
+  <Grid.Grid
+    allowCenter
+    allowRotate={false}
+    editable={selected}
+    nodeKey={nodeKey}
+    onResize={(dimensions) => onConfigChange({ dimensions })}
+  >
     <Label.Label config={label} onChange={onConfigChange} />
     <Tank
-      onResize={(dimensions) => onConfigChange({ dimensions })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}

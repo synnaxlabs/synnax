@@ -16,6 +16,9 @@ import { Light } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
+// Width the Light primitive renders at scale 1: base 64px x SVG BASE_SCALE (0.8).
+const SCALE_1_WIDTH = 51.2;
+
 export const Symbol = ({
   nodeKey,
   onConfigChange,
@@ -29,6 +32,8 @@ export const Symbol = ({
       onRotate={onConfigChange}
       editable={selected}
       nodeKey={nodeKey}
+      keepAspectRatio
+      onResize={({ width }) => onConfigChange({ scale: width / SCALE_1_WIDTH })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Light enabled={enabled} orientation={orientation} {...rest} />

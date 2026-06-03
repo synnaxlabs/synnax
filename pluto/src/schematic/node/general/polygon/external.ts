@@ -38,7 +38,10 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Polygon",
   Form: CommonPolygonForm,
-  Node: Label.createLabeled<Config>(Polygon),
+  Node: Label.createLabeled<Config>(Polygon, {
+    grid: { keepAspectRatio: true },
+    onResize: ({ width }) => ({ sideLength: width / 2 }),
+  }),
   Preview: removeProps(Polygon, ["clickable"]),
   defaultConfig,
   zIndex: 2,

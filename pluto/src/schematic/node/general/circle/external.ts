@@ -34,7 +34,10 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: NAME,
   Form: CircleForm,
-  Node: Label.createLabeled<Config>(Circle, { grid: { allowRotate: false } }),
+  Node: Label.createLabeled<Config>(Circle, {
+    grid: { allowRotate: false, keepAspectRatio: true },
+    onResize: ({ width }) => ({ radius: width / 2 }),
+  }),
   Preview: removeProps(Circle, ["clickable"]),
   defaultConfig,
   zIndex: 2,

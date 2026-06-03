@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type dimensions } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -20,7 +20,6 @@ import { Theming } from "@/theming";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   scale?: number;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
 }
 
 export const Cylinder = ({

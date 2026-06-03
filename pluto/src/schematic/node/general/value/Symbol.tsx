@@ -81,7 +81,12 @@ export const Symbol = ({
   });
 
   return (
-    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+    <Grid.Grid
+      editable={selected}
+      nodeKey={nodeKey}
+      allowRotate={false}
+      onResize={({ width }) => onConfigChange({ inlineSize: width })}
+    >
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
