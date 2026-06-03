@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_BACKWARD_JUMP_SOURCE = """
 authority 200
@@ -29,7 +29,7 @@ bj_start_cmd => main
 """
 
 
-class BackwardJump(ArcConsoleCase):
+class BackwardJump(ArcCase):
     """A sequence transitions forward to a named stage, jumps backward, and
     ignores stale start signals while already active.
 

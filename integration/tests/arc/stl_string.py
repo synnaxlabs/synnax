@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STL_STRING_SOURCE = """
 // ──────────────────────────── string.len ─────────────────────────────
@@ -238,7 +238,7 @@ ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS] + [
 ]
 
 
-class StlString(ArcConsoleCase):
+class StlString(ArcCase):
     """Test string operations: len(), + concat, == equal.
 
     Primary axis: function (len, concat, equal).

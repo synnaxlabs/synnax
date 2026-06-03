@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STL_MATH_SOURCE = """
 import math
@@ -227,7 +227,7 @@ STAT_INDEXED_OUTPUTS = [
 ]
 
 
-class StlMath(ArcConsoleCase):
+class StlMath(ArcCase):
     """Test math module: pow, avg, min, max, derivative.
 
     pow — parameterized across input types and data types.

@@ -7,10 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
-from tests.arc.arc_case import ArcConsoleCase
+from examples.simulators import PressSimDAQ
+from tests.arc.arc import ArcCase
 
 ARC_CONTINUOUS_PRESS_SOURCE = """
 authority 200
@@ -26,7 +25,7 @@ sequence main {
 """
 
 
-class AuthorityPythonOverride(ArcConsoleCase):
+class AuthorityPythonOverride(ArcCase):
     """Test that an external Python writer at higher authority overrides Arc,
     and Arc automatically resumes when the Python writer is closed."""
 

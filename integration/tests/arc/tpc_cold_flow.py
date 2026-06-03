@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import TPCSimDAQ
-
 import synnax as sy
+from examples.simulators import TPCSimDAQ
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_SEQUENCE_SOURCE = """
 // Multi-output function that classifies pressure into three categories
@@ -173,7 +172,7 @@ PHASE_NAMES = {
 }
 
 
-class TPCColdFlow(ArcConsoleCase):
+class TPCColdFlow(ArcCase):
     """Test Arc TPC cold flow sequence with dataflow-based valve control.
 
     This test simulates a multi-phase rocket engine cold flow test using

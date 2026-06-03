@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STAGE_ROUTING = """
 
@@ -79,7 +79,7 @@ sequence main {
 """
 
 
-class StageRouting(ArcConsoleCase):
+class StageRouting(ArcCase):
     """Test routing table with stage targets (SY-4045).
 
     Exercises both select{} and a custom multi-output function routing tables

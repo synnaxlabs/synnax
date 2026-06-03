@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 # trigger_1 (fired by the harness) drives the module-scope bodies and the named
 # sibling sequence. trigger_2 activates the select sibling chain. trigger_3 and
@@ -422,7 +422,7 @@ FLOAT_INPUTS = ["race_cond", "reentry_cond"]
 CREATE_CHANNELS = OUTPUTS + INPUTS
 
 
-class InlineBodies(ArcConsoleCase):
+class InlineBodies(ArcCase):
     """Anonymous inline ``stage``/``sequence`` bodies used as routing targets,
     exercised across module scope, nested bodies, sequence-scope sibling
     transitions, and ``select`` routing-table branches.

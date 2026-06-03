@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 # Identity casts (e.g., i32→i32) emit as no-ops in cast.go and are omitted. Among
 # integer sources, i32 / u32 cover the signed-int and unsigned-int extend / convert
@@ -221,7 +221,7 @@ ALL_CHANNELS = [name for name, _ in INPUT_CHANNELS] + [
 ]
 
 
-class Conversion(ArcConsoleCase):
+class Conversion(ArcCase):
     """End-to-end coverage of numeric typecasts plus numeric→str.
 
     Two compilation paths are covered.

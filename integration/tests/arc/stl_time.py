@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STL_TIME_SOURCE = """
 import time
@@ -77,7 +77,7 @@ MIN_WAIT_DURATION = 2.5
 JAN_2020_NANOS = 1577836800000000000
 
 
-class StlTime(ArcConsoleCase):
+class StlTime(ArcCase):
     """Test time module with qualified syntax: time.now(), time.interval{},
     time.wait{}.
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_FOR_LOOP_SOURCE = """
 func sum_i32(n i32) i32 {
@@ -406,7 +406,7 @@ for c in CASES:
     ALL_CHANNELS.extend([c.in_ch, c.out_ch])
 
 
-class ForLoops(ArcConsoleCase):
+class ForLoops(ArcCase):
     """Test for-loop range() with type inference, break, continue, and
     negative ranges. Each case writes to an input channel, the Arc function
     computes a result using a for loop, and the test checks the output."""

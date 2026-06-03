@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from examples.simulators import PressSimDAQ
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_BANG_BANG_SOURCE = """
 import control
@@ -94,7 +93,7 @@ bb_start_cmd => bang_bang_controller
 """
 
 
-class BangBangAuthority(ArcConsoleCase):
+class BangBangAuthority(ArcCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
 

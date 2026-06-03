@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-
 import synnax as sy
+from examples.simulators import PressSimDAQ
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_LOW_PRIORITY_SOURCE = """
 authority 100
@@ -47,7 +46,7 @@ sequence main {
 """
 
 
-class AuthorityArcVsArc(ArcConsoleCase):
+class AuthorityArcVsArc(ArcCase):
     """Test that a higher-authority Arc program wins over a lower one,
     and the lower program resumes when the higher one stops writing."""
 

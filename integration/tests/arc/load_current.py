@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import LoadCurrentSimDAQ
-
 import synnax as sy
+from examples.simulators import LoadCurrentSimDAQ
 from framework.utils import create_indexed_pair
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_LOAD_CURRENT_SOURCE = """
 func count{c_chan chan u8} () {
@@ -38,7 +37,7 @@ WAIT_DURATION = 2.0
 TIMING_TOLERANCE = 1.5
 
 
-class LoadCurrent(ArcConsoleCase):
+class LoadCurrent(ArcCase):
     """Test condition-gated wait timer with stage transition.
 
     Verifies:

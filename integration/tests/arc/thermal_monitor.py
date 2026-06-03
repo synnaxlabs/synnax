@@ -19,11 +19,10 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-from examples.simulators import ThermalSimDAQ
-
 import synnax as sy
+from examples.simulators import ThermalSimDAQ
 from framework.utils import create_indexed_pair, create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {
@@ -77,7 +76,7 @@ sequence abort {
 """
 
 
-class ThermalMonitor(ArcConsoleCase):
+class ThermalMonitor(ArcCase):
     """Test Arc thermal monitor with stateful variables and looping sequence."""
 
     arc_source = ARC_SOURCE
