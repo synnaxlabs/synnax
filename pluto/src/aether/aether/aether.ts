@@ -417,8 +417,8 @@ export abstract class Leaf<
       `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
     );
     // Preserve the original error's name and stack across the worker boundary so the
-    // main-thread receiver sees the inner type and frames rather than the wrapper's.
-    // We do not also attach `err` as `cause` — the stack override already carries the
+    // main-thread receiver sees the inner type and frames rather than the wrapper's. We
+    // do not also attach `err` as `cause` — the stack override already carries the
     // inner frames, so adding `cause` would just double-print them under V8.
     wrapped.name = err.name;
     wrapped.stack = err.stack;

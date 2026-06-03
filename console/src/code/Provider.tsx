@@ -38,7 +38,7 @@ export const Provider = ({ children, initServices: services }: ProviderProps) =>
         setMonaco(ret.monaco);
       })
       .catch((err: unknown) => {
-        console.error("failed to initialize monaco", err);
+        console.error("failed to initialize Monaco", err);
       });
   }, []);
 

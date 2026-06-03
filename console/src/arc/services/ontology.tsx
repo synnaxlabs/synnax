@@ -25,9 +25,9 @@ const handleSelect: Ontology.HandleSelect = ({
   load(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
-      "arc",
+      "Arc",
     );
-    handleError(e, `Failed to load arc ${names}`);
+    handleError(e, `Failed to load ${names}`);
   });
 };
 

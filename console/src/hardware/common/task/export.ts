@@ -31,12 +31,9 @@ export const extract: Export.Extractor = async (key, { client, store }) => {
       !("taskKey" in args) ||
       typeof args.taskKey !== "string"
     )
-      // We deliberately do not attach the BigInt failure as `cause` here — the layout
-      // exists; the user just hasn't configured it. The BigInt error is only evidence
-      // that the key is a layout key, not the source of the misconfiguration.
-      // eslint-disable-next-line preserve-caught-error
       throw new Error(
         `Cannot export task with key ${key}. You should configure the task before exporting it.`,
+        { cause },
       );
     keyToFetch = args.taskKey;
   }

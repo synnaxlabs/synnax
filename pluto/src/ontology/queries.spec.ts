@@ -169,10 +169,7 @@ describe("Ontology Queries", () => {
         Array.from(
           { length: 5 },
           async (_, i) =>
-            await client.groups.create({
-              parent: ontology.ROOT_ID,
-              name: `group${i}`,
-            }),
+            await client.groups.create({ parent: ontology.ROOT_ID, name: `group${i}` }),
         ),
       );
 
