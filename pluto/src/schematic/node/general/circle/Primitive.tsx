@@ -27,7 +27,6 @@ export const Circle = ({
   className,
   strokeWidth,
 }: RenderProps): ReactElement => {
-  const stroke = useColor(colorVal);
   const padding = (strokeWidth ?? 2) + 1;
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
@@ -69,7 +68,7 @@ export const Circle = ({
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={color.cssString(stroke)}
+          stroke={color.cssString(useColor(colorVal))}
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />

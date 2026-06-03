@@ -35,7 +35,6 @@ const METRICS_STYLE: CSSProperties = {
 };
 
 export const Gauge = ({ color: c }: RenderProps): ReactElement => {
-  const valueColor = useColor(c);
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -69,7 +68,7 @@ export const Gauge = ({ color: c }: RenderProps): ReactElement => {
         <path
           d={valuePath}
           fill="none"
-          stroke={color.cssString(valueColor)}
+          stroke={color.cssString(useColor(c))}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />

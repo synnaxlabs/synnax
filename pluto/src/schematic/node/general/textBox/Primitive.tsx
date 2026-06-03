@@ -35,7 +35,6 @@ export const TextBox = ({
   value,
   onChange,
 }: RenderProps): ReactElement => {
-  const resolved = useColor(colorVal);
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
   };
@@ -58,7 +57,7 @@ export const TextBox = ({
       />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
-        color={color.cssString(resolved)}
+        color={color.cssString(useColor(colorVal))}
         level={level}
         value={value ?? ""}
         onChange={onChange}
