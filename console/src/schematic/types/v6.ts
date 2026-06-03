@@ -9,7 +9,15 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
-import { color, control as xcontrol, migrate, record, sticky, xy } from "@synnaxlabs/x";
+import {
+  color,
+  control as xcontrol,
+  location,
+  migrate,
+  record,
+  sticky,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -97,6 +105,46 @@ const migrateNode = (node: v0.Node): Node => {
   return next;
 };
 
+type Segment = Schematic.Edge.Segmented.Segment;
+
+const segmentOrientation = (seg: Segment): location.Outer =>
+  seg.direction === "x"
+    ? seg.length > 0
+      ? "right"
+      : "left"
+    : seg.length > 0
+      ? "bottom"
+      : "top";
+
+const STUMP_LENGTH = Schematic.Edge.Segmented.STUMP_LENGTH;
+
+// An edge whose stumps overlap has no middle to preserve: a single segment shorter than
+// two stumps, or a first/last segment shorter than one stump. Subtracting a full stump
+// from those would flip the segment and fold a spur, so they are cleared to auto-route
+// instead (which handles short, facing handles cleanly).
+const hasNoStrippableMiddle = (segments: Segment[]): boolean =>
+  segments.length === 1
+    ? Math.abs(segments[0].length) <= 2 * STUMP_LENGTH - 0.5
+    : Math.abs(segments[0].length) <= STUMP_LENGTH - 0.5 ||
+      Math.abs(segments[segments.length - 1].length) <= STUMP_LENGTH - 0.5;
+
+// Pre-0.56 edges stored the full path including both stumps; the current model stores
+// only the middle and re-derives stumps on render, so leaving them doubles the stumps
+// and folds a pigtail over the target. The stumps are the first and last segments.
+const stripLegacyStumps = (segments: Segment[]): Segment[] => {
+  if (segments.length === 0) return segments;
+  if (hasNoStrippableMiddle(segments)) return [];
+  const sourceOrientation = segmentOrientation(segments[0]);
+  const targetOrientation = location.swap(
+    segmentOrientation(segments[segments.length - 1]),
+  ) as location.Outer;
+  return Schematic.Edge.Segmented.extractMiddle(
+    segments,
+    sourceOrientation,
+    targetOrientation,
+  );
+};
+
 const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
   const next: Edge = {
     key: edge.key,
@@ -112,7 +160,7 @@ const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
   if (!parseDataResult.success) return [next, edgeConfig];
   const data = parseDataResult.data;
   const segments = z.array(Schematic.Edge.Segmented.segmentZ).safeParse(data.segments);
-  if (segments.success) edgeConfig.segments = segments.data;
+  if (segments.success) edgeConfig.segments = stripLegacyStumps(segments.data);
   const parsedColor = color.colorZ.safeParse(data.color);
   if (parsedColor.success) edgeConfig.color = parsedColor.data;
   const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);

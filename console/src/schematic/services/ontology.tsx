@@ -190,7 +190,7 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  loadSchematic(client, selection[0].id, placeLayout).catch((e) => {
+  loadSchematic(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "schematic",

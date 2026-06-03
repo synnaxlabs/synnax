@@ -61,6 +61,18 @@
     &.pluto--align-stretch {
         align-items: stretch;
     }
+    &.pluto--align-self-start {
+        align-self: flex-start;
+    }
+    &.pluto--align-self-center {
+        align-self: center;
+    }
+    &.pluto--align-self-end {
+        align-self: flex-end;
+    }
+    &.pluto--align-self-stretch {
+        align-self: stretch;
+    }
     &.pluto--direction-x {
         flex-direction: row;
         &.pluto--reverse {

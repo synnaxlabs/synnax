@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
-import { primitive, status } from "@synnaxlabs/x";
+import { errors, primitive, status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -306,7 +306,7 @@ export const retrieveTask = async ({
     } catch (e) {
       // if the arc doesn't exist then it can't have a task.
       if (NotFoundError.matches(e)) return undefined;
-      throw e;
+      throw errors.fromUnknown(e);
     }
     children.forEach((c) => {
       const rel: ontology.Relationship = {

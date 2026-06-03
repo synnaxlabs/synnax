@@ -241,7 +241,8 @@ const findWorkspaceAncestor = async (
   const parents = await client.ontology.retrieveParents(resourceID);
   for (const parent of parents) {
     if (parent.id.type === "workspace") return parent.id;
-    if (parent.id.type === "group") return findWorkspaceAncestor(client, parent.id);
+    if (parent.id.type === "group")
+      return await findWorkspaceAncestor(client, parent.id);
   }
   return null;
 };

@@ -333,7 +333,7 @@ func findDeprecatedBareRef(
 		if scope == nil {
 			continue
 		}
-		sym, err := scope.Resolve(ctx, t.GetText())
+		sym, err := scope.Resolve(ctx, t.GetText(), symbol.WithoutUsageTracking)
 		if err != nil || sym == nil || sym.Deprecated == nil {
 			continue
 		}
@@ -457,7 +457,7 @@ func missingImportQuickFix(
 	if scope == nil {
 		return nil
 	}
-	if sym, err := scope.Resolve(ctx, name); err == nil && sym != nil {
+	if sym, err := scope.Resolve(ctx, name, symbol.WithoutUsageTracking); err == nil && sym != nil {
 		return nil
 	}
 	if !scope.IsAmbientModule(name) {

@@ -61,7 +61,7 @@ describe("table clipboard", () => {
       name: `clipboard_ws_${uuid.create()}`,
       layout: {},
     });
-    return client.tables.create(ws.key, {
+    return await client.tables.create(ws.key, {
       name: "clipboard_test",
       rows: [
         { size: 30, cells: ["a", "b", "c"] },
