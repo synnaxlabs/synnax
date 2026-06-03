@@ -556,7 +556,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-//go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate stringer -type={{$enum.Name}}
 
 const (
 {{- range $i, $v := $enum.Values}}
